@@ -38,28 +38,34 @@ description: |
 
 authored_by: maintainer@efterlev.com
 authored_at: 2026-05-09
-revision: 3
+revision: 4
 frmr_version: 0.9.43-beta
 
-# 2026-05-09 rev 3 (this rev): adding aws_security_group +
-# aws_network_acl + aws_backup_plan/_vault/_selection drops the ELI
-# alternation on KSI-CNA-MAT (now has SG/NACL evidence in addition
-# to the existing S3 PAB), adds KSI-CNA-RNT (gets the new SG/NACL
-# evidence), and adds KSI-RPL-ARP (gets the backup orchestration
-# evidence). KSI-SVC-VRI and KSI-SVC-PRR keep the ELI alternation:
-# their detector mappings target TLS surfaces (SVC-VRI: tls_on_lb_
-# listeners) and pure-procedural controls (SVC-PRR: CA/CM-class)
-# that this fixture intentionally doesn't exercise — adding TLS
-# resources here would dilute the encryption-mixed identity.
+# 2026-05-09 rev 3: adding aws_security_group + aws_network_acl +
+# aws_backup_plan/_vault/_selection drops the ELI alternation on
+# KSI-CNA-MAT (now has SG/NACL evidence in addition to the existing S3
+# PAB), adds KSI-CNA-RNT (gets the new SG/NACL evidence), and adds
+# KSI-RPL-ARP (gets the backup orchestration evidence).
+#
+# 2026-06-08 rev 4: corrected KSI-SVC-VRI + KSI-SVC-PRR from
+# `partial|evidence_layer_inapplicable` to `not_implemented`. Both KSIs
+# ARE detector-covered (SVC-VRI → aws.fips_ssl_policies_on_lb_listeners;
+# SVC-PRR → aws.svc_at_rest_encryption_coverage) and produce ZERO evidence
+# on this fixture (it intentionally has no TLS-listener / at-rest-coverage
+# resources for them). `partial` was never reachable — it requires a cited
+# evidence_id (structural invariant). Per DECISIONS 2026-06-08, a
+# detector-covered KSI with zero evidence is `not_implemented` (the scanner
+# had a path and the control is absent), NOT inapplicable. The rev-3 label
+# was imprecise; this is a second-pass-review correction (cf. v0.1.67 /
+# v0.1.81), surfaced by the new detector-coverage signal.
 expected_classifications:
   # CNA: rev 3 lifts CNA-MAT off the ELI alternation; CNA-RNT is new.
   KSI-CNA-MAT: partial|not_implemented   # mixed: SG/NACL gap + PAB gap
   KSI-CNA-RNT: partial|not_implemented   # mixed: SG/NACL restrictive vs open
 
-  # SVC: rev 3 keeps the ELI alternation. SVC-VRI's mapping targets
-  # TLS resources (none here); SVC-PRR is procedural.
-  KSI-SVC-VRI: partial|evidence_layer_inapplicable
-  KSI-SVC-PRR: partial|evidence_layer_inapplicable
+  # SVC: rev 4 — detector-covered + zero evidence here → not_implemented.
+  KSI-SVC-VRI: not_implemented           # tls_on_lb_listeners detector, no TLS resources
+  KSI-SVC-PRR: not_implemented           # at_rest_encryption_coverage detector, no matching resources
 
   # AFR-UCM (added v0.1.42): KMS CMK + at-rest encryption use.
   # This is where S3 evidence actually attaches on this fixture.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-alloydb-connector
-Version: 1.13.0
+Version: 1.13.1
 Summary: A Python client library for connecting securely to your Google Cloud AlloyDB instances.
 Author-email: Google LLC <googleapis-packages@google.com>
 License-Expression: Apache-2.0

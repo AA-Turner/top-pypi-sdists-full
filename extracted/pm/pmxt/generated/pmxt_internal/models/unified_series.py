@@ -31,11 +31,11 @@ class UnifiedSeries(BaseModel):
     ticker: Optional[StrictStr] = Field(default=None, description="Venue-native ticker, when distinct from `id`.")
     slug: Optional[StrictStr] = Field(default=None, description="Venue-native slug.")
     title: StrictStr = Field(description="Human-readable series title (e.g. \"ATP Match Winner\", \"WTA\").")
-    description: Optional[StrictStr] = None
-    recurrence: Optional[StrictStr] = None
+    description: Optional[StrictStr] = Field(default=None, description="Long-form series description.")
+    recurrence: Optional[StrictStr] = Field(default=None, description="Recurrence cadence the venue reports ('daily', 'weekly', 'annual', ...).")
     events: Optional[List[UnifiedEvent]] = Field(default=None, description="Child events. Populated when fetched by id; the list form usually omits this to keep payloads small.")
-    url: Optional[StrictStr] = None
-    image: Optional[StrictStr] = None
+    url: Optional[StrictStr] = Field(default=None, description="Canonical venue URL for the series.")
+    image: Optional[StrictStr] = Field(default=None, description="Venue-hosted image.")
     source_exchange: Optional[StrictStr] = Field(default=None, description="The exchange this series originates from. Populated by the Router.", alias="sourceExchange")
     source_metadata: Optional[Dict[str, Any]] = Field(default=None, description="Raw venue-specific fields not promoted to first-class columns.", alias="sourceMetadata")
     __properties: ClassVar[List[str]] = ["id", "ticker", "slug", "title", "description", "recurrence", "events", "url", "image", "sourceExchange", "sourceMetadata"]

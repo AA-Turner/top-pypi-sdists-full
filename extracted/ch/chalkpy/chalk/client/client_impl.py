@@ -59,6 +59,7 @@ from chalk._reporting.models import BatchReport, BatchReportResponse
 from chalk._reporting.progress import ProgressService
 from chalk._upload_features.utils import to_multi_upload_inputs
 from chalk._version import __version__ as chalkpy_version
+from chalk.client._chalkdf_import import is_chalkdf_dataframe
 from chalk.client._internal_models.models import INDEX_COL_NAME, TS_COL_NAME, OfflineQueryGivensVersion
 from chalk.client.client import ChalkClient
 from chalk.client.client_headers import (
@@ -125,6 +126,7 @@ from chalk.client.models import (
     OfflineQueryDeadlineOptions,
     OfflineQueryInfo,
     OfflineQueryInput,
+    OfflineQueryInputDataFramePlan,
     OfflineQueryInputSql,
     OfflineQueryInputUri,
     OfflineQueryParquetUploadURLResponse,
@@ -164,6 +166,7 @@ from chalk.client.models import (
     UploadFeaturesResponse,
     WhoAmIResponse,
     WorkflowExecutionInfo,
+    resolve_multi_query_query_name,
 )
 from chalk.client.response import Dataset, FeatureReference, OnlineQueryResult
 from chalk.client.serialization.query_serialization import MULTI_QUERY_MAGIC_STR, write_query_to_buffer
@@ -222,6 +225,7 @@ if TYPE_CHECKING:
     from pydantic import BaseModel, ValidationError
     from rich.table import Table
 
+    from chalk.client._chalkdf_import import ChalkDfDataFrame
     from chalk.client._internal_models.check import Result
     from chalk.client.client_grpc import ChalkGRPCClient
     from chalk.testing import FeatureAssertion, StreamMessage, UploadFeatures
@@ -2321,6 +2325,9 @@ https://docs.chalk.ai/cli/apply
             encoded_inputs = {str(k): v for k, v in query.input.items()}
             outputs = encode_outputs(query.output).string_outputs
             encoded_value_metrics_tag_by_features = encode_outputs(query.value_metrics_tag_by_features).string_outputs
+            resolved_query_name, resolved_query_name_version = resolve_multi_query_query_name(
+                query, query_name, query_name_version
+            )
             request = OnlineQueryManyRequest(
                 inputs=cast(Mapping[str, List[Any]], encoded_inputs),
                 outputs=outputs,
@@ -2336,8 +2343,8 @@ https://docs.chalk.ai/cli/apply
                 deployment_id=preview_deployment_id,
                 branch_id=branch,
                 correlation_id=correlation_id,
-                query_name=query_name,
-                query_name_version=query_name_version,
+                query_name=resolved_query_name,
+                query_name_version=resolved_query_name_version,
                 meta=meta,
                 query_context=_validate_context_dict(query_context),
                 value_metrics_tag_by_features=tuple(encoded_value_metrics_tag_by_features),
@@ -2574,6 +2581,7 @@ https://docs.chalk.ai/cli/apply
             OfflineQueryInputUri,
             Tuple[QueryInput, ...],
             List[QueryInput],
+            ChalkDfDataFrame,
             str,
             None,
         ] = None,
@@ -2687,9 +2695,9 @@ https://docs.chalk.ai/cli/apply
                     f"Cannot specify `input_sql` and `input_times` together. Instead, the ChalkSQL query may output a `{TS_COL_NAME}` column"
                 )
             if num_shards is not None and not use_metaplanner:
-                raise ValueError("Cannot specify `input_sql` and `num_shards` together.")
+                raise ValueError("Cannot specify `input_sql` and `num_shards` together unless using the metaplanner")
             if num_workers is not None and not use_metaplanner:
-                raise ValueError("Cannot specify `input_sql` and `num_workers` together.")
+                raise ValueError("Cannot specify `input_sql` and `num_workers` together unless using the metaplanner")
 
         # Set query_input
         if input is not None:
@@ -2701,6 +2709,35 @@ https://docs.chalk.ai/cli/apply
                     parquet_uri=input,
                     start_row=None,
                     end_row=None,
+                )
+            elif is_chalkdf_dataframe(input):
+                if input_times is not None:
+                    raise ValueError(
+                        f"Cannot specify chalkdf as input and `input_times` together. Instead, the chalkdf run may output a `{TS_COL_NAME}` column"
+                    )
+                if num_shards is not None and not use_metaplanner:
+                    raise ValueError(
+                        "Cannot specify chalkdf as input and `num_shards` together unless using the metaplanner"
+                    )
+                if num_workers is not None and not use_metaplanner:
+                    raise ValueError(
+                        "Cannot specify chalkdf as input and `num_workers` together unless using the metaplanner"
+                    )
+
+                try:
+                    proto = input._to_proto()  # pyright: ignore[reportPrivateUsage]
+                except TypeError as e:
+                    raise ValueError(
+                        (
+                            "The provided chalkdf DataFrame cannot be serialized as a plan. "
+                            "Use the chalkdf API to construct it, or materialize it first "
+                            "and pass `df.to_arrow()` as input instead."
+                        )
+                    ) from e
+                plan_bytes = proto.SerializeToString(deterministic=True)
+
+                query_input = OfflineQueryInputDataFramePlan(
+                    plan_proto_bytes=base64.b64encode(plan_bytes).decode("ascii")
                 )
             else:
                 # by this point, should be
@@ -4199,6 +4236,7 @@ https://docs.chalk.ai/cli/apply
             UploadedParquetShardedOfflineQueryInput,
             OfflineQueryInputUri,
             OfflineQueryInputSql,
+            OfflineQueryInputDataFramePlan,
         ],
         max_samples: Optional[int],
         dataset_name: Optional[str],

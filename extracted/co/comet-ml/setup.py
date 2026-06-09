@@ -31,7 +31,11 @@ setuptools.setup(
     long_description=open("README.rst", encoding="utf-8").read(),
     long_description_content_type="text/x-rst",
     install_requires=[
-        "dulwich>=0.20.6, !=0.20.33, <1.0.0",  # 1.0.0 introduced breaking changes
+        # No upper bound: comet_ml.git_logging is compatible with both the
+        # 0.x and 1.x APIs. The previous "<1.0.0" cap blocked the security
+        # fixes released in dulwich 1.2.5 (GHSA-897w-fcg9-f6xj,
+        # GHSA-9277-mp7x-85jf), so fresh installs now pick up a patched 1.x.
+        "dulwich>=0.20.6, !=0.20.33",
         "everett[ini]>=1.0.1,<3.2.0",
         "importlib-metadata; python_version < '3.8'",
         "jsonschema>=2.6.0,!=3.1.0",
@@ -69,5 +73,5 @@ setuptools.setup(
         "Programming Language :: Python :: 3.12",
     ],
     license="MIT",
-    version="3.58.0",
+    version="3.58.1",
 )

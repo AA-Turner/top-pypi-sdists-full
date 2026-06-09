@@ -6,3 +6,5 @@ from slixmpp.plugins.base import register_plugin
 from slixmpp.plugins.xep_0444.reactions import XEP_0444
 
 register_plugin(XEP_0444)
+
+__all__ = ['XEP_0444']

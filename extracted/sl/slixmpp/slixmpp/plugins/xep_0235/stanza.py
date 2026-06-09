@@ -8,7 +8,7 @@ import hashlib
 import urllib
 import base64
 
-from slixmpp.xmlstream import ET, ElementBase, JID
+from slixmpp.xmlstream import ElementBase
 
 
 class OAuth(ElementBase):

@@ -1,8 +1,8 @@
 """Ensure that document models used in API do not change fields."""
 
-import pytest
 from importlib import import_module
 
+import pytest
 
 ref_model_fields = {
     "emmet.core._general_store.GeneralStoreDoc": [
@@ -41,7 +41,6 @@ ref_model_fields = {
         "warnings",
         "structure",
         "property_name",
-        "task_id",
         "energies",
         "energy_max",
         "absorption_coefficient",
@@ -114,7 +113,7 @@ ref_model_fields = {
         "mol_from_site_environments",
         "wyckoff_positions",
     ],
-    "emmet.core.dois.DOIDoc": ["doi", "bibtex", "material_id"],
+    "emmet.core.dois.DOIDoc": ["doi", "material_id"],
     "emmet.core.elasticity.ElasticityDoc": [
         "builder_meta",
         "nsites",
@@ -155,7 +154,6 @@ ref_model_fields = {
     "emmet.core.electrode.InsertionElectrodeDoc": [
         "builder_meta",
         "battery_type",
-        "battery_id",
         "thermo_type",
         "battery_formula",
         "working_ion",
@@ -190,7 +188,6 @@ ref_model_fields = {
         "electrode_object",
     ],
     "emmet.core.electronic_structure.ElectronicStructureDoc": [
-        "task_id",
         "band_gap",
         "cbm",
         "vbm",
@@ -223,29 +220,10 @@ ref_model_fields = {
         "dos",
     ],
     "emmet.core.eos.EOSDoc": [
-        "builder_meta",
-        "chemsys",
-        "composition",
-        "composition_reduced",
-        "density",
-        "density_atomic",
-        "deprecated",
-        "deprecation_reasons",
-        "elements",
+        "task_id",
         "energies",
         "eos",
-        "formula_anonymous",
-        "formula_pretty",
-        "last_updated",
-        "material_id",
-        "nelements",
-        "nsites",
-        "origins",
-        "structure",
-        "symmetry",
-        "volume",
         "volumes",
-        "warnings",
     ],
     "emmet.core.grain_boundary.GrainBoundaryDoc": [
         "material_id",
@@ -685,8 +663,6 @@ ref_model_fields = {
         "post_process_settings",
         "thermal_displacement_data",
         "calc_meta",
-        "material_id",
-        "task_ids",
     ],
     "emmet.core.polar.DielectricDoc": [
         "builder_meta",
@@ -927,6 +903,7 @@ ref_model_fields = {
         "orient",
     ],
     "emmet.core.summary.SummaryDoc": [
+        "prop_origins",  # exclude=True and SkipJsonSchema in model
         "builder_meta",
         "nsites",
         "elements",
@@ -945,6 +922,7 @@ ref_model_fields = {
         "deprecation_reasons",
         "last_updated",
         "origins",
+        "phonon_IDs",
         "warnings",
         "structure",
         "property_name",
@@ -964,7 +942,6 @@ ref_model_fields = {
         "efermi",
         "is_gap_direct",
         "is_metal",
-        "es_source_calc_id",
         "bandstructure",
         "dos",
         "dos_energy_up",
@@ -1089,7 +1066,6 @@ ref_model_fields = {
         "structure",
         "property_name",
         "thermo_type",
-        "thermo_id",
         "uncorrected_energy_per_atom",
         "energy_per_atom",
         "energy_uncertainy_per_atom",
@@ -1149,12 +1125,10 @@ ref_model_fields = {
         "density_atomic",
         "symmetry",
         "spectrum_name",
-        "material_id",
-        "spectrum_id",
+        "task_id",
         "last_updated",
         "warnings",
         "spectrum",
-        "task_ids",
         "absorbing_element",
         "spectrum_type",
         "edge",

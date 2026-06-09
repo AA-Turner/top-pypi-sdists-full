@@ -29,6 +29,11 @@ from plato._generated.models import (
     SetDateRequest,
     SetDateResult,
 )
+from plato.utils.subprocess import (
+    register_ssh_user,
+    ssh_user_for_provider,
+    unregister_ssh_user,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -222,6 +227,44 @@ class Environment:
         self.mesh_ip = mesh_ip
         self.is_desktop = is_desktop
         self.provider = provider
+        self._register_ssh_user()
+
+    def _ssh_host_forms(self) -> list[str]:
+        """Host strings this VM is reachable at, for (un)registering its SSH user.
+
+        Derived forms are only included when their base value is set — otherwise
+        an empty ``job_id`` (e.g. before the VM is ready) would register junk like
+        ``".plato"`` into the global registry.
+        """
+        hosts: list[str] = []
+        if self.mesh_ip:
+            hosts.append(self.mesh_ip)
+        if self.alias:
+            hosts.append(self.internal_hostname)
+        if self.job_id:
+            hosts.append(self.job_id)
+            hosts.append(f"{self.job_id}.plato")
+        return hosts
+
+    def _register_ssh_user(self) -> None:
+        """Tell the SSH helpers which login user this VM expects.
+
+        Derives the user from ``provider`` (``plato`` for Windows/QEMU, ``root``
+        otherwise) and registers it for every host form this VM is reached at, so
+        a bare ``run_ssh(key, host, cmd)`` picks the right user with no argument.
+        """
+        ssh_user = ssh_user_for_provider(self.provider)
+        for host in self._ssh_host_forms():
+            register_ssh_user(host, ssh_user)
+
+    def _unregister_ssh_user(self) -> None:
+        """Drop this VM's host→user entries when it's torn down.
+
+        Keeps the registry from leaking entries and stops a later VM that reuses
+        the same mesh IP / host string from inheriting this VM's login user.
+        """
+        for host in self._ssh_host_forms():
+            unregister_ssh_user(host)
 
     @property
     def _http(self):
@@ -271,15 +314,21 @@ class Environment:
         )
         if result and result.mesh_ip:
             self.mesh_ip = result.mesh_ip
+            self._register_ssh_user()  # mesh_ip resolved late — register it now
         return self.mesh_ip
 
-    async def add_ssh_key(self, public_key: str, username: str = "root") -> None:
+    async def add_ssh_key(self, public_key: str, username: str | None = None) -> None:
         """Add an SSH public key to this specific VM.
 
         Args:
             public_key: SSH public key string.
-            username: User to add the key for (default: root).
+            username: User to install the key for. Defaults to the login user
+                this VM's provider expects (``plato`` for Windows/QEMU, ``root``
+                otherwise) — the same user ``run_ssh`` connects as — so the key
+                lands in the right ``authorized_keys`` without the caller knowing.
         """
+        if username is None:
+            username = ssh_user_for_provider(self.provider)
         await jobs.add_ssh_key.asyncio(
             client=self._http,
             job_id=self.job_id,

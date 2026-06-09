@@ -1,9 +1,31 @@
+import re
+
 import lamindb as ln
 import pandas as pd
 from lamindb.examples.fixtures.sheets import (
     populate_nextflow_sheet_with_samples,  # noqa: F401
     populate_sheets_compound_treatment,  # noqa: F401
 )
+
+
+def _assert_describe_feature_columns(
+    describe_str: str,
+    n_columns: int,
+    rows: list[tuple[str, str, str | None]],
+) -> None:
+    """Assert feature columns section; ignore Rich table padding differences."""
+    assert "└── Dataset features" in describe_str
+    assert f"└── columns ({n_columns})" in describe_str
+    for name, dtype, values in rows:
+        if values is None:
+            pattern = rf"^\s*{re.escape(name)}\s+{re.escape(dtype)}\s*$"
+        else:
+            pattern = (
+                rf"^\s*{re.escape(name)}\s+{re.escape(dtype)}\s+{re.escape(values)}\s*$"
+            )
+        assert re.search(pattern, describe_str, re.MULTILINE), (
+            f"Missing describe row for {name!r} ({dtype=!r}, {values=!r})"
+        )
 
 
 def test_float_int_casting():
@@ -77,47 +99,40 @@ def test_record_example_compound_treatment(
         ],
     }
 
-    dictionary = (
-        ln.Record.filter(type=sample_sheet1)
-        .to_dataframe(features=["cell_line", "treatment"])[
-            ["cell_line", "__lamindb_record_name__", "treatment"]
-        ]
-        .to_dict(orient="list")
-    )
+    partial_df = sample_sheet1.to_dataframe(features=["cell_line", "treatment"])
+    assert partial_df.index.name == "name"
+    assert partial_df.index.tolist() == ["Sample 1", "Sample 2"]
+    dictionary = partial_df[["cell_line", "treatment"]].to_dict(orient="list")
     assert dictionary == {
         "cell_line": [
             "HEK293T",
             "HEK293T",
         ],
-        "__lamindb_record_name__": [
-            "sample2",
-            "sample1",
-        ],
         "treatment": [
-            "treatment2",
             "treatment1",
+            "treatment2",
         ],
     }
 
-    assert sample_sheet1.input_of_runs.count() == 0
-    df = sample_sheet1.to_dataframe()
     assert sample_sheet1.input_of_runs.count() == 1
-    assert df.index.name == "__lamindb_record_id__"
+    df = sample_sheet1.to_dataframe()
+    assert sample_sheet1.input_of_runs.count() == 2
+    assert df.index.name == "name"
+    assert df.index.tolist() == ["Sample 1", "Sample 2"]
+    assert "name" not in df.columns
+    assert not any(col.startswith("__lamindb_record_") for col in df.columns)
     dictionary = df[
         [
             "id",  # a feature
             "uid",  # a feature
-            "name",  # a feature
             "cell_line",
             "treatment",
             "preparation_date",
-            "__lamindb_record_name__",
         ]
     ].to_dict(orient="list")
     assert dictionary == {
         "id": [1, 2],
         "uid": ["S1", "S2"],
-        "name": ["Sample 1", "Sample 2"],
         "cell_line": [
             "HEK293T",
             "HEK293T",
@@ -130,49 +145,50 @@ def test_record_example_compound_treatment(
             "treatment1",
             "treatment2",
         ],
-        "__lamindb_record_name__": [
-            "sample1",
-            "sample2",
-        ],
     }
 
     artifact = sample_sheet1.to_artifact()
     assert sample_sheet1.schema.members.to_list("name") == [
+        "name",
         "id",
         "uid",
-        "name",
         "treatment",
         "cell_line",
         "preparation_date",
         "project",
     ]
-    assert artifact.run.input_records.count() == 1
+    assert artifact.run.input_records.count() == 3
     assert artifact.transform.kind == "function"
     assert artifact.transform.key == "__lamindb_record_export__"
+    assert artifact.run.status == "completed"
+    assert artifact.run.started_at is not None
+    assert artifact.run.finished_at is not None
     # looks something like this:
-    # id,uid,name,treatment,cell_line,preparation_date,__lamindb_record_uid__,__lamindb_record_name__
-    # 1,S1,Sample 1,treatment1,HEK293T,2025-06-01 05:00:00,iCwgKgZELoLtIoGy,sample1
-    # 2,S2,Sample 2,treatment2,HEK293T,2025-06-01 06:00:00,qvU9m7VF6fSdsqJs,sample2
+    # name,id,uid,treatment,cell_line,preparation_date,project,__lamindb_record_uid__
+    # Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1,iCwgKgZELoLtIoGy
     assert len(artifact.load()) == 2  # two rows in the dataframe
     assert artifact.path.read_text().startswith("""\
-id,uid,name,treatment,cell_line,preparation_date,project,__lamindb_record_uid__,__lamindb_record_name__
-1,S1,Sample 1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1""")
+name,id,uid,treatment,cell_line,preparation_date,project
+Sample 1,1,S1,treatment1,HEK293T,2025-06-01 05:00:00,Project 1""")
     assert artifact.key == f"sheet_exports/{sample_sheet1.name}.csv"
     assert artifact.description.startswith(f"Export of sheet {sample_sheet1.uid}")
     assert artifact._state.adding is False
     assert ln.models.ArtifactRecord.filter(artifact=artifact).count() == 2
-    assert artifact.features.describe(return_str=True).endswith("""\
-└── Dataset features
-    └── columns (7)
-        cell_line           bionty.CellLine          HEK293T
-        id                  int
-        name                str
-        preparation_date    datetime
-        project             Project                  Project 1
-        treatment           Record[Treatment]        treatment1, treatment2
-        uid                 str""")
+    _assert_describe_feature_columns(
+        artifact.features.describe(return_str=True),
+        7,
+        [
+            ("cell_line", "bionty.CellLine", "HEK293T"),
+            ("id", "int", None),
+            ("name", "str", None),
+            ("preparation_date", "datetime", None),
+            ("project", "Project", "Project 1"),
+            ("treatment", "Record[Treatment]", "treatment1, treatment2"),
+            ("uid", "str", None),
+        ],
+    )
     # re-run the export which triggers hash lookup
-    sample_sheet1.to_artifact()
+    artifact2 = sample_sheet1.to_artifact()
     # soft-delete a record in the sheet
     sample_sheet1.records.first().delete()
     assert ln.Record.filter(type=sample_sheet1).count() == 1
@@ -181,6 +197,8 @@ id,uid,name,treatment,cell_line,preparation_date,project,__lamindb_record_uid__,
     assert len(df) == 1  # one row in the dataframe
 
     artifact.delete(permanent=True)
+    if artifact2.id != artifact.id:
+        artifact2.delete(permanent=True)
 
 
 def test_nextflow_sheet_with_samples(
@@ -244,14 +262,17 @@ def test_nextflow_sheet_with_samples(
     assert artifact.path.read_text().startswith("""\
 sample,fastq_1,fastq_2,expected_cells,seq_center,__lamindb_record_uid__,__lamindb_record_name__
 Sample_X,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R1_001.fastq.gz,https://raw.githubusercontent.com/nf-core/test-datasets/scrnaseq/testdata/cellranger/Sample_X_S1_L001_R2_001.fastq.gz,5000,,""")
-    assert artifact.features.describe(return_str=True).endswith("""\
-└── Dataset features
-    └── columns (5)
-        expected_cells      int
-        fastq_1             str
-        fastq_2             str
-        sample              Record[BioSample]        Sample_X, Sample_Y
-        seq_center          str""")
+    _assert_describe_feature_columns(
+        artifact.features.describe(return_str=True),
+        5,
+        [
+            ("expected_cells", "int", None),
+            ("fastq_1", "str", None),
+            ("fastq_2", "str", None),
+            ("sample", "Record[BioSample]", "Sample_X, Sample_Y"),
+            ("seq_center", "str", None),
+        ],
+    )
 
     related_schemas = list(artifact.schemas.all())
     artifact.schemas.clear()
@@ -349,6 +370,132 @@ def test_to_artifact_with_required_non_nullable_data_id_maximal_set_true():
     feature_data_id.delete(permanent=True)
 
 
+def test_record_export_links_all_upstream_records():
+    sheet = ln.Record(name="Run-linked sheet", is_type=True).save()
+    record_a = ln.Record(name="record_a", type=sheet).save()
+    record_b = ln.Record(name="record_b", type=sheet).save()
+    record_c = ln.Record(name="record_c", type=sheet).save()
+
+    transform_a = ln.Transform(key="record_export_upstream_a", kind="function").save()
+    transform_b = ln.Transform(key="record_export_upstream_b", kind="function").save()
+    run_a = ln.Run(transform=transform_a, status="started").save()
+    run_b = ln.Run(transform=transform_b, status="started").save()
+
+    record_a.run = run_a
+    record_a.save()
+    record_b.run = run_a
+    record_b.save()
+    record_c.run = run_b
+    record_c.save()
+
+    artifact = sheet.to_artifact()
+    try:
+        linked_record_ids = set(artifact.run.input_records.to_list("id"))
+        assert linked_record_ids == {sheet.id, record_a.id, record_b.id, record_c.id}
+        linked_run_ids = {
+            record.run_id
+            for record in artifact.run.input_records.all()
+            if record.run_id is not None
+        }
+        assert linked_run_ids == {run_a.id, run_b.id}
+    finally:
+        artifact.delete(permanent=True)
+        record_a.delete(permanent=True)
+        record_b.delete(permanent=True)
+        record_c.delete(permanent=True)
+        sheet.delete(permanent=True)
+        transform_a.delete(permanent=True)
+        transform_b.delete(permanent=True)
+
+
+def test_record_export_links_record_type_when_link_records_false(
+    populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
+):
+    _, sample_sheet = populate_sheets_compound_treatment
+
+    sample_sheet.to_dataframe(link_individual_inputs=False)
+    dataframe_export_run = sample_sheet.input_of_runs.order_by("-created_at").first()
+    assert dataframe_export_run.input_records.count() == 1
+    assert dataframe_export_run.input_records.get().id == sample_sheet.id
+
+    artifact = sample_sheet.to_artifact(link_individual_inputs=False)
+    try:
+        assert artifact.run.input_records.count() == 1
+        assert artifact.run.input_records.get().id == sample_sheet.id
+    finally:
+        artifact.delete(permanent=True)
+
+
+def test_record_export_applies_filters():
+    sample_sheet = ln.Record(name="FilterSheet", is_type=True).save()
+    sample1 = ln.Record(name="sample1", type=sample_sheet).save()
+    sample2 = ln.Record(name="sample2", type=sample_sheet).save()
+
+    filtered_df = sample_sheet.to_dataframe(filters={"name": "sample1"})
+    assert len(filtered_df) == 1
+    assert filtered_df["__lamindb_record_name__"].to_list() == ["sample1"]
+
+    dataframe_export_run = sample_sheet._export_run
+    assert dataframe_export_run is not None
+    assert dataframe_export_run.input_records.count() == 2
+    assert set(dataframe_export_run.input_records.to_list("name")) == {
+        "sample1",
+        "FilterSheet",
+    }
+
+    artifact = sample_sheet.to_artifact(filters={"name": "sample1"})
+    try:
+        assert len(artifact.load()) == 1
+        assert artifact.run is not None
+        assert artifact.run.input_records.count() == 2
+        assert set(artifact.run.input_records.to_list("name")) == {
+            "sample1",
+            "FilterSheet",
+        }
+    finally:
+        artifact.delete(permanent=True)
+        sample1.delete(permanent=True)
+        sample2.delete(permanent=True)
+        sample_sheet.delete(permanent=True)
+
+
+def test_record_export_applies_feature_predicate_filters():
+    sample_sheet = ln.Record(name="PredicateFilterSheet", is_type=True).save()
+    sample1 = ln.Record(name="sample1", type=sample_sheet).save()
+    sample2 = ln.Record(name="sample2", type=sample_sheet).save()
+    export_filter_score = ln.Feature(name="export_filter_score", dtype=int).save()
+    sample1.features.add_values({"export_filter_score": 10})
+    sample2.features.add_values({"export_filter_score": 20})
+
+    filtered_df = sample_sheet.to_dataframe(filters=export_filter_score > 15)
+    assert len(filtered_df) == 1
+    assert filtered_df["__lamindb_record_name__"].to_list() == ["sample2"]
+
+    dataframe_export_run = sample_sheet._export_run
+    assert dataframe_export_run is not None
+    assert dataframe_export_run.input_records.count() == 2
+    assert set(dataframe_export_run.input_records.to_list("name")) == {
+        "sample2",
+        "PredicateFilterSheet",
+    }
+
+    artifact = sample_sheet.to_artifact(filters=export_filter_score > 15)
+    try:
+        assert len(artifact.load()) == 1
+        assert artifact.run is not None
+        assert artifact.run.input_records.count() == 2
+        assert set(artifact.run.input_records.to_list("name")) == {
+            "sample2",
+            "PredicateFilterSheet",
+        }
+    finally:
+        artifact.delete(permanent=True)
+        sample1.delete(permanent=True)
+        sample2.delete(permanent=True)
+        sample_sheet.delete(permanent=True)
+        export_filter_score.delete(permanent=True)
+
+
 def test_record_export_reuses_legacy_transform_uid(
     populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
 ):
@@ -367,6 +514,8 @@ def test_record_export_reuses_legacy_transform_uid(
         assert artifact.transform.id == legacy_transform.id
         assert artifact.run is not None
         assert artifact.run.finished_at is not None
+        assert artifact.run.status == "completed"
+        assert artifact.run.started_at is not None
         assert legacy_transform_reloaded.uid == "v6KpQx9mRt2B0000"
         assert (
             ln.Transform.filter(
@@ -375,4 +524,23 @@ def test_record_export_reuses_legacy_transform_uid(
             == 1
         )
     finally:
+        artifact.delete(permanent=True)
+
+
+def test_record_export_populates_initiated_by_run(
+    populate_sheets_compound_treatment: tuple[ln.Record, ln.Record],  # noqa: F811
+):
+    _, sample_sheet = populate_sheets_compound_treatment
+    transform = ln.Transform(key="test_record_export_initiator", kind="function").save()
+    ln.track(transform=transform)
+    initiating_run = ln.context.run
+
+    artifact = sample_sheet.to_artifact()
+    try:
+        assert artifact.transform.key == "__lamindb_record_export__"
+        assert artifact.run is not None
+        assert artifact.run.initiated_by_run is not None
+        assert artifact.run.initiated_by_run.id == initiating_run.id
+    finally:
+        ln.context._run = None
         artifact.delete(permanent=True)

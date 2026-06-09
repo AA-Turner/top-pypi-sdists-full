@@ -3,8 +3,8 @@
 # Copyright (C) 2011  Nathanael C. Fritz
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-from slixmpp import Iq, Message
-from slixmpp.xmlstream import register_stanza_plugin, ElementBase, ET, JID
+from slixmpp import Iq
+from slixmpp.xmlstream import register_stanza_plugin, ElementBase, JID
 from slixmpp.plugins import xep_0004
 from slixmpp.plugins.xep_0060.stanza.base import OptionalSetting
 
@@ -67,6 +67,7 @@ class Item(ElementBase):
     namespace = 'http://jabber.org/protocol/pubsub'
     name = 'item'
     plugin_attrib = name
+    plugin_multi_attrib = "items"
     interfaces = {'id', 'payload'}
 
     def set_payload(self, value):

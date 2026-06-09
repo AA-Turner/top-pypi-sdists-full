@@ -30,7 +30,7 @@ except ImportError:
 # CuPy Kernels definition for fusion of operations (Zero-Allocation)
 # =====================================================================
 if CUPY_AVAILABLE:
-    # Poisson Proximal Operator
+    # Kernel for the Poisson update of q in SPDHG
     pdhg_poisson_kernel = cp.ElementwiseKernel(
         'float32 q_in, float32 Ax_bar, float32 y, float32 sigma, bool mask',
         'float32 q_out',
@@ -46,8 +46,7 @@ if CUPY_AVAILABLE:
         ''',
         'pdhg_poisson_kernel'
     )
-
-    # Gaussian Proximal Operator
+    # Kernel for the Gaussian update of q in SPDHG
     pdhg_gaussian_kernel = cp.ElementwiseKernel(
         'float32 q_in, float32 Ax_bar, float32 y, float32 sigma, bool mask',
         'float32 q_out',
@@ -61,26 +60,28 @@ if CUPY_AVAILABLE:
         'pdhg_gaussian_kernel'
     )
 
-    # Primal Update & Extrapolation Kernel
+    # Kernel for the primal update + extrapolation
     pdhg_primal_kernel = cp.ElementwiseKernel(
         'float32 lam_in, float32 backproj, float32 div, float32 tau, float32 theta',
         'float32 lam_out, float32 x_bar_out',
         '''
         float lam_new = lam_in - tau * backproj - tau * div;
-        lam_new = lam_new > 0.0f ? lam_new : 0.0f; // Clamp positive
-        
+        lam_new = lam_new > 0.0f ? lam_new : 0.0f; // Projection sur R+
+
         lam_out = lam_new;
         x_bar_out = lam_new + theta * (lam_new - lam_in); // Extrapolation
         ''',
         'pdhg_primal_kernel'
     )
 
+
 def PDHG(
     SMatrix: Union['SMatrix_DENSE', 'SMatrix_CSR', 'SMatrix_SELL'],
     y: Union[np.ndarray, 'cp.ndarray'],
     numIterations: int = 100,
     beta: float = 1.0,         
-    gamma: float = 1.0,        
+    gamma: float = 1.0,     
+    eta = 0.9,   
     theta: float = 1.0,        
     tau: Union[float, str] = "auto",
     sigma: Union[float, str] = "auto",
@@ -89,6 +90,7 @@ def PDHG(
     reshuffle_period: int = 10,
     noise_type: NoiseType = NoiseType.GAUSSIAN,
     preconditioner_type: PreconditionerType = PreconditionerType.NONE,
+    use_adaptive_steps: bool = False,
     stop_criterion: StopCriterionType = StopCriterionType.MAX_ITERATIONS,
     stop_threshold: float = 100.0,
     stop_window_size: int = 5,
@@ -128,6 +130,7 @@ def PDHG(
         beta: TV regularization weight parameter (lambda)
         delta: Kept for backward compatibility with main call signatures
         gamma: Balancing step-size parameter (scales tau down and sigma up)
+        eta : Step size adaptation factor (used if use_adaptive_steps is True)
         theta: Extrapolation parameter for primal variable (relaxation step)
         tau: Step size parameter for primal update ('auto' for operator norm adaptation)
         sigma: Step size parameter for dual update ('auto' for operator norm adaptation)
@@ -136,6 +139,7 @@ def PDHG(
         noise_type: Type of noise (POISSON or GAUSSIAN)
         potential_type: Kept for signature compatibility, operates strictly as TOTAL_VARIATION
         preconditioner_type: Type of preconditioner to use (default: NONE)
+        use_adaptive_steps: If True, adaptively adjusts step sizes based on gradient norms
         stop_criterion: Criterion for stopping the iterations (StopCriterionType enum)
         stop_threshold: Threshold value for the stopping criterion (for MAX_iterations, this is ignored)
         stop_window_size: Window size (used to avoid early stop due to oscillations)
@@ -160,62 +164,72 @@ def PDHG(
     NT = SMatrix.N * SMatrix.T
 
     if SMatrix.T != y.shape[0] or SMatrix.N != y.shape[1]:
-        raise ValueError(f"Shape of y {y.shape} does not match SMatrix dimensions.")
+        raise ValueError(f"Shape mismatch: y {y.shape} vs SMatrix (T={SMatrix.T}, N={SMatrix.N})")
 
     y_flat = xp.asarray(y.T.flatten().astype(xp.float32))
+    if noise_type == NoiseType.POISSON:
+        y_flat = xp.maximum(y_flat, 0.0)
+
     q = xp.zeros(NT, dtype=xp.float32)
     p_x = xp.zeros(ZX, dtype=xp.float32)
     p_z = xp.zeros(ZX, dtype=xp.float32)
-
-    if noise_type == NoiseType.POISSON:
-        y_flat = xp.maximum(y_flat, 0.0)  
-    
-    y_data = y_flat.copy()
     lambda_flat = xp.zeros(ZX, dtype=xp.float32)
     x_bar = xp.zeros(ZX, dtype=xp.float32)
+    y_data = y_flat.copy()
     subset_mask = xp.ones(NT, dtype=xp.bool_)
 
-    emission_indices = np.random.permutation(NT)
+    emission_indices = np.random.permutation(SMatrix.N)
     subset_slices = np.array_split(emission_indices, num_subsets)
-    p_i = 1.0 / num_subsets 
+    p_i = 1.0 / num_subsets
 
     if tau == "auto" or sigma == "auto":
-        # --- TRUE DIAGONAL PRECONDITIONING (Independent of Beta) ---
         if preconditioner_type != PreconditionerType.NONE:
             sens_fwd = forward_projection(SMatrix, xp.ones(ZX, dtype=xp.float32))
             xp.maximum(sens_fwd, 1e-10, out=sens_fwd)
             sigma_q = gamma * 0.99 / sens_fwd
-            sigma_p = gamma * 0.99 / 2.0  
+            sigma_p = gamma * 0.99 / 2.0
+
             sens_bwd = backward_projection(SMatrix, xp.ones(NT, dtype=xp.float32))
             xp.maximum(sens_bwd, 1e-10, out=sens_bwd)
-            tau_vec = (0.99 * p_i / gamma) / (sens_bwd + 4.0) 
+            tau_vec = (0.99 * p_i / gamma) / (sens_bwd + 4.0)
         else:
-            tau_val, sig_q_val, sig_p_val = calculate_step_size_reg(SMatrix, gamma, num_subsets, numIterations_stepCalculation, show_logs)
-            sigma_q = xp.full(NT, sig_q_val, dtype=xp.float32)
-            sigma_p = sig_p_val
-            tau_vec = xp.full(ZX, tau_val, dtype=xp.float32)
+            tau, sigma_q, sigma_p = calculate_step_size_reg(SMatrix, gamma, num_subsets, numIterations_stepCalculation, show_logs)
+            sigma_q = xp.full(NT, sigma_q)
+            sigma_p = sigma_p
+            tau_vec = xp.full(ZX, tau)
+    else:
+        sigma_q = xp.full(NT, sigma, dtype=xp.float32)
+        sigma_p = sigma
+        tau_vec = xp.full(ZX, tau, dtype=xp.float32)
 
-    save_indices = np.unique(np.append(np.arange(0, numIterations, max(1, numIterations // max_saves)), numIterations - 1)).tolist()
+    if use_adaptive_steps:
+        grad_norm_history = []
+        max_grad_norm = 1.0
 
+    # Préparation des sauvegardes
+    save_indices = np.unique(
+        np.append(np.arange(0, numIterations, max(1, numIterations // max_saves)), numIterations - 1)
+    ).tolist()
     saved_lambda = []
     saved_indices_list = []
     cost_history = [] if isCostFunction else None
     window_history = []
 
+    # Configuration de la barre de progression
     algo_name = f"SPDHG (Chambolle-Pock) ({num_subsets} subsets)" if num_subsets > 1 else "PDHG (Chambolle-Pock)"
-    description = f"AOT-BioMaps --- {algo_name} ({SMatrix.matrix_type.name}) --- Diagonal preconditioning : {'YES' if preconditioner_type != PreconditionerType.NONE else 'NO'} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- {SMatrix.device.upper()}"
+    prec_str = "Diagonal Preconditioner" if preconditioner_type != PreconditionerType.NONE else "No Preconditioner"
+    description = f"AOT-BioMaps --- {algo_name} --- {prec_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- {SMatrix.device.upper()}"
     iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
 
     for it in iterator:
         prev_lambda = lambda_flat.copy()
 
         Ax_bar = xp.maximum(forward_projection(SMatrix, x_bar), 1e-8) if noise_type == NoiseType.POISSON else forward_projection(SMatrix, x_bar)
-            
-        # --- DUAL UPDATE 1: Data Fidelity Proximal Resolution --- For Poisson noise: q = (q + sigma * A * x_bar - sqrt((1 - (q + sigma * A * x_bar))^2 + 4 * sigma * y)) / 2  --- For Gaussian noise: q = (q + sigma * (A * x_bar - y)) / (1 + sigma)
+
         if num_subsets > 1:
             if it % reshuffle_period == 0:
                 subset_slices = np.array_split(np.random.permutation(SMatrix.N), num_subsets)
-            
+
             subset_mask.fill(False)
             for emis in subset_slices[it % num_subsets]:
                 subset_mask[emis * SMatrix.T : (emis + 1) * SMatrix.T] = True
@@ -226,7 +240,6 @@ def PDHG(
             else:
                 pdhg_gaussian_kernel(q, Ax_bar, y_data, sigma_q, subset_mask, q)
         else:
-            # Fallback CPU
             if noise_type == NoiseType.POISSON:
                 q_hat = q[subset_mask] + sigma_q[subset_mask] * Ax_bar[subset_mask]
                 disc = np.maximum((1.0 - q_hat)**2 + 4.0 * sigma_q[subset_mask] * y_data[subset_mask], 0.0)
@@ -234,25 +247,47 @@ def PDHG(
             else:
                 q[subset_mask] = (q[subset_mask] + sigma_q[subset_mask] * (Ax_bar[subset_mask] - y_data[subset_mask])) / (1.0 + sigma_q[subset_mask])
 
-        # --- DUAL UPDATE 2: Total Variation Regularization ---
         grad_x, grad_z = gradient_2d(SMatrix, x_bar)
         p_x += sigma_p * grad_x
         p_z += sigma_p * grad_z
 
         p_projected = proj_tv(SMatrix, xp.concatenate([p_x, p_z]), radius=beta)
         p_x, p_z = p_projected[:ZX], p_projected[ZX:]
-        
-        # --- PRIMAL UPDATE & EXTRAPOLATION ---
+
         backproj_q = backward_projection(SMatrix, q)
         div_p = divergence_2d(SMatrix, p_x, p_z)
+
         if is_gpu:
-            pdhg_primal_kernel(lambda_flat.astype(xp.float32, copy=False), backproj_q.astype(xp.float32, copy=False), div_p.astype(xp.float32, copy=False), tau_vec.astype(xp.float32, copy=False), float(theta), lambda_flat, x_bar)
+            pdhg_primal_kernel(
+                lambda_flat.astype(xp.float32, copy=False),
+                backproj_q.astype(xp.float32, copy=False),
+                div_p.astype(xp.float32, copy=False),
+                tau_vec.astype(xp.float32, copy=False),
+                float(theta),
+                lambda_flat,
+                x_bar
+            )
         else:
             lambda_flat = lambda_flat - tau_vec * backproj_q - tau_vec * div_p
-            np.maximum(lambda_flat, 0.0, out=lambda_flat)
-            x_bar = lambda_flat + theta * (lambda_flat - prev_lambda)
+            np.maximum(lambda_flat, 0.0, out=lambda_flat)  # Projection sur R+
+            x_bar = lambda_flat + theta * (lambda_flat - prev_lambda)  # Extrapolation
 
-        # Compute cost function metrics if requested
+        # dynamic step size adaptation based on gradient norm (every 5 iterations)
+        if use_adaptive_steps and  it % 5 == 0:
+            grad_norm = float(xp.linalg.norm(backproj_q + div_p))
+            grad_norm_history.append(grad_norm)
+            if len(grad_norm_history) > 5:
+                max_grad_norm = max(grad_norm_history[-5:])
+                # step size adaptation rules (simple heuristic)
+                if max_grad_norm > 1e2:
+                    tau_vec *= eta
+                    sigma_q /= eta
+                    sigma_p /= eta
+                elif max_grad_norm < 1e-2:
+                    tau_vec *= eta
+                    sigma_q /= eta
+                    sigma_p /= eta
+
         if isCostFunction:
             Ax = forward_projection(SMatrix, lambda_flat)
             gx_eval, gz_eval = gradient_2d(SMatrix, lambda_flat)
@@ -265,7 +300,6 @@ def PDHG(
                 fidelity = 0.5 * float(xp.vdot(Ax - y_data, Ax - y_data))
             cost_history.append(fidelity + tv_penalty)
 
-        # Stopping Criterion
         if stop_criterion != StopCriterionType.MAX_ITERATIONS:
             ground_truth = SMatrix.experiment.OpticImage.phantom if withTumor else SMatrix.experiment.OpticImage.laser.intensity
             gradient = backward_projection(SMatrix, q) + divergence_2d(SMatrix, p_x, p_z) if stop_criterion == StopCriterionType.GRADIENT_NORM else None
@@ -274,11 +308,13 @@ def PDHG(
                 iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
             if isStop:
                 if show_logs: print(f"\n[Stopping] Criterion {stop_criterion.name} reached at iteration {it}.")
+                cost_history.pop() if isCostFunction else None
                 break
 
         if isSavingEachIteration and it in save_indices:
-            saved_lambda.append(lambda_flat.reshape(Z, X).get() if hasattr(lambda_flat, 'get') else lambda_flat.reshape(Z, X).copy())
+            saved_lambda.append(lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X).copy()
+            )
             saved_indices_list.append(it)
 
-    final_result = lambda_flat.reshape(Z, X).get() if hasattr(lambda_flat, 'get') else lambda_flat.reshape(Z, X)
+    final_result = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X)
     return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else (final_result, None, cost_history)

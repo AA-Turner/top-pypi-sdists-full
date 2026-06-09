@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: FastWARC
-Version: 1.0.3
-Summary: A high-performance WARC parsing library written in Rust with bindings for Python.
+Version: 1.0.4
+Summary: The world's fastest WARC parsing library written in Rust with bindings for Python.
 Author: Janek Bevendorff
 License-Expression: Apache-2.0
 Project-URL: repository, https://github.com/chatnoir-eu/chatnoir-resiliparse
@@ -12,6 +12,7 @@ Description-Content-Type: text/markdown
 Requires-Dist: brotli
 Requires-Dist: click
 Requires-Dist: tqdm
+Requires-Dist: typing_extensions>=4.5; python_version < "3.13"
 Provides-Extra: all
 Requires-Dist: fastwarc[fsspec]; extra == "all"
 Provides-Extra: fsspec

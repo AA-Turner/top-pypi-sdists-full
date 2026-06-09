@@ -1,4 +1,4 @@
-import { r as reactExports, j as jsxRuntimeExports, H as HiMiniShieldCheck, a as HiMiniInformationCircle, b as HiMiniExclamationTriangle, S as SectionLabel, A as ActionButton, c as HiMiniArrowRight, T as Tag, f as formatRelativeTime, d as HiMiniChevronUp, e as HiMiniChevronDown, g as HiMiniCheckCircle, h as HiMiniXCircle, E as EvidenceInsightsHeadlineBento, i as fetchReceiptAnalytics, k as harnessDisplayName, l as isDisplayableHarness, m as EmptyState, n as EvidenceInsightsShareModal, G as GuardHero, o as formatNumber, p as HiMiniSparkles, q as HiMiniXMark, s as HiMiniCloud, t as HiMiniQuestionMarkCircle, u as useFocusTrap, v as HiMiniBolt, B as Badge, w as HiMiniChevronRight, x as HiMiniMinusCircle } from "../guard-dashboard.js";
+import { r as reactExports, j as jsxRuntimeExports, H as HiMiniShieldCheck, a as HiMiniInformationCircle, b as HiMiniExclamationTriangle, S as SectionLabel, A as ActionButton, c as HiMiniArrowRight, T as Tag, f as formatRelativeTime, d as HiMiniChevronUp, e as HiMiniChevronDown, g as HiMiniCheckCircle, h as HiMiniXCircle, E as EvidenceInsightsShareButton, G as GuardStatMetric, i as HomeInsightsMetrics, k as EvidenceActivityHeatmapMini, l as fetchReceiptAnalytics, m as harnessDisplayName, n as isDisplayableHarness, o as EmptyState, p as EvidenceInsightsShareModal, q as GuardHero, s as formatNumber, t as HiMiniSparkles, u as HiMiniXMark, v as HiMiniCloud, w as HiMiniQuestionMarkCircle, x as useFocusTrap, y as HiMiniBolt, B as Badge, z as HiMiniChevronRight, C as HiMiniMinusCircle } from "../guard-dashboard.js";
 import { D as DeviceProofCard, r as resolveCloudIntelCopy } from "./runtime-overview.js";
 function resolveHomeProtectionStatus(snapshot) {
   const protection = snapshot.supply_chain?.package_manager_protection;
@@ -207,31 +207,20 @@ function HomeProtectionModule({
     }
   );
 }
-function overviewValueClass(tone) {
-  switch (tone) {
-    case "blue":
-      return "text-brand-blue";
-    case "green":
-      return "text-emerald-600";
-    case "purple":
-      return "text-brand-purple";
-    default:
-      return "text-brand-dark";
-  }
-}
-function HomeOverviewStatsRow({ items }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-3 gap-px bg-slate-100", children: items.map((item, index) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-    "div",
-    {
-      className: "bg-white px-4 py-3.5 sm:py-4 evidence-metric-enter",
-      style: { animationDelay: `${index * 40}ms` },
-      children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500", children: item.label }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: `mt-1 text-lg font-semibold tabular-nums tracking-tight ${overviewValueClass(item.tone)}`, children: item.value })
-      ]
-    },
-    item.label
-  )) });
+function HomeInsightsSkeleton() {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-2 gap-px border-t border-slate-100 bg-slate-100 sm:grid-cols-4", children: Array.from({ length: 4 }, (_, index) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2 bg-white px-4 py-3.5 sm:py-4", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "guard-skeleton h-3 w-16 rounded" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "guard-skeleton h-6 w-20 rounded" })
+    ] }, index)) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "border-t border-slate-100 px-5 py-4", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "guard-skeleton mb-3 h-3 w-28 rounded" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-5 gap-2", children: Array.from({ length: 5 }, (_, index) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center gap-1.5", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "guard-skeleton h-5 w-full max-w-5 rounded-[3px]" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "guard-skeleton h-2.5 w-7 rounded" })
+      ] }, index)) })
+    ] })
+  ] });
 }
 function EvidenceInsightsHomePreview({
   overviewStats,
@@ -249,15 +238,28 @@ function EvidenceInsightsHomePreview({
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-w-0 flex-1", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(SectionLabel, { children: "Your Guard stats" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-sm text-slate-500", children: "Queue, apps, and insights from this machine." })
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 text-sm text-slate-500", children: "What needs you now, plus patterns from recorded actions on this machine." })
       ] }),
-      cloudConnected && onShare && insightsAvailable ? /* @__PURE__ */ jsxRuntimeExports.jsx(ActionButton, { variant: "outline", onClick: onShare, className: "shrink-0", children: "Share stats" }) : null
+      cloudConnected && onShare && insightsAvailable ? /* @__PURE__ */ jsxRuntimeExports.jsx(EvidenceInsightsShareButton, { onClick: onShare, className: "shrink-0" }) : null
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(HomeOverviewStatsRow, { items: overviewStats }),
-    showInsightsSection ? analyticsLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-t border-slate-100 px-5 py-5", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-2 gap-3 sm:grid-cols-4", children: Array.from({ length: 4 }, (_, index) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "guard-skeleton h-3 w-16 rounded" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "guard-skeleton h-6 w-20 rounded" })
-    ] }, index)) }) }) : insightsAvailable ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-t border-slate-100", children: /* @__PURE__ */ jsxRuntimeExports.jsx(EvidenceInsightsHeadlineBento, { analytics, variant: "compact" }) }) : null : null,
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-3 gap-px bg-slate-100", children: overviewStats.map((item, index) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+      GuardStatMetric,
+      {
+        label: item.label,
+        value: item.value,
+        tone: item.tone,
+        compact: true,
+        animationDelayMs: index * 40
+      },
+      item.label
+    )) }),
+    showInsightsSection ? analyticsLoading ? /* @__PURE__ */ jsxRuntimeExports.jsx(HomeInsightsSkeleton, {}) : analytics !== null && analytics.total > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(HomeInsightsMetrics, { analytics }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "border-t border-slate-100 px-5 py-4", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(SectionLabel, { children: "Recent Activity" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-3", children: /* @__PURE__ */ jsxRuntimeExports.jsx(EvidenceActivityHeatmapMini, { days: analytics.daily_activity, dayCount: 5 }) })
+      ] })
+    ] }) : null : null,
     showInsightsFooter ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "border-t border-slate-100 px-5 py-4", children: insightsAvailable && onOpenInsights ? /* @__PURE__ */ jsxRuntimeExports.jsx(
       "button",
       {
@@ -513,7 +515,7 @@ function HomeWorkspace(props) {
         overviewStats: [
           { label: "Pending", value: formatNumber(queuedCount), tone: queuedCount > 0 ? "blue" : "slate" },
           { label: "Apps", value: formatNumber(watchedAppsCount), tone: watchedAppsCount > 0 ? "green" : "slate" },
-          { label: "History", value: formatNumber(snapshot.receipt_count ?? 0), tone: "purple" }
+          { label: "Recorded", value: formatNumber(snapshot.receipt_count ?? 0), tone: "slate" }
         ],
         analytics: analyticsState.kind === "ready" ? analyticsState.data : null,
         analyticsLoading: analyticsState.kind === "loading" && analyticsEnabled,

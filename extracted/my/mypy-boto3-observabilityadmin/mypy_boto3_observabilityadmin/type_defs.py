@@ -84,6 +84,7 @@ __all__ = (
     "DeleteTelemetryRuleForOrganizationInputTypeDef",
     "DeleteTelemetryRuleInputTypeDef",
     "DestinationLogsConfigurationTypeDef",
+    "DestinationMetricsConfigurationTypeDef",
     "ELBLoadBalancerLoggingParametersTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EncryptionTypeDef",
@@ -135,6 +136,7 @@ __all__ = (
     "LoggingFilterTypeDef",
     "LogsBackupConfigurationTypeDef",
     "LogsEncryptionConfigurationTypeDef",
+    "MetricsBackupConfigurationTypeDef",
     "MskMonitoringParametersTypeDef",
     "PaginatorConfigTypeDef",
     "PipelineOutputErrorTypeDef",
@@ -144,6 +146,7 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "SingleHeaderTypeDef",
     "SourceLogsConfigurationTypeDef",
+    "SourceMetricsConfigurationTypeDef",
     "SourceTypeDef",
     "StartTelemetryEnrichmentOutputTypeDef",
     "StartTelemetryEvaluationForOrganizationInputTypeDef",
@@ -208,6 +211,10 @@ class SourceLogsConfigurationTypeDef(TypedDict):
     EncryptedLogGroupStrategy: EncryptedLogGroupStrategyType
     LogGroupSelectionCriteria: NotRequired[str]
     DataSourceSelectionCriteria: NotRequired[str]
+
+
+class SourceMetricsConfigurationTypeDef(TypedDict):
+    MetricsSelectionCriteria: NotRequired[str]
 
 
 class CentralizationRuleSummaryTypeDef(TypedDict):
@@ -292,6 +299,10 @@ class LogsEncryptionConfigurationTypeDef(TypedDict):
     EncryptionStrategy: EncryptionStrategyType
     KmsKeyArn: NotRequired[str]
     EncryptionConflictResolutionStrategy: NotRequired[EncryptionConflictResolutionStrategyType]
+
+
+class MetricsBackupConfigurationTypeDef(TypedDict):
+    Region: str
 
 
 class ELBLoadBalancerLoggingParametersTypeDef(TypedDict):
@@ -490,12 +501,14 @@ class CentralizationRuleSourceOutputTypeDef(TypedDict):
     Regions: list[str]
     Scope: NotRequired[str]
     SourceLogsConfiguration: NotRequired[SourceLogsConfigurationTypeDef]
+    SourceMetricsConfiguration: NotRequired[SourceMetricsConfigurationTypeDef]
 
 
 class CentralizationRuleSourceTypeDef(TypedDict):
     Regions: Sequence[str]
     Scope: NotRequired[str]
     SourceLogsConfiguration: NotRequired[SourceLogsConfigurationTypeDef]
+    SourceMetricsConfiguration: NotRequired[SourceMetricsConfigurationTypeDef]
 
 
 class ConditionTypeDef(TypedDict):
@@ -618,6 +631,10 @@ class DestinationLogsConfigurationTypeDef(TypedDict):
     LogsEncryptionConfiguration: NotRequired[LogsEncryptionConfigurationTypeDef]
     BackupConfiguration: NotRequired[LogsBackupConfigurationTypeDef]
     LogGroupNameConfiguration: NotRequired[LogGroupNameConfigurationTypeDef]
+
+
+class DestinationMetricsConfigurationTypeDef(TypedDict):
+    BackupConfiguration: NotRequired[MetricsBackupConfigurationTypeDef]
 
 
 class FieldToMatchTypeDef(TypedDict):
@@ -776,6 +793,7 @@ class CentralizationRuleDestinationTypeDef(TypedDict):
     Region: str
     Account: NotRequired[str]
     DestinationLogsConfiguration: NotRequired[DestinationLogsConfigurationTypeDef]
+    DestinationMetricsConfiguration: NotRequired[DestinationMetricsConfigurationTypeDef]
 
 
 class TestTelemetryPipelineOutputTypeDef(TypedDict):

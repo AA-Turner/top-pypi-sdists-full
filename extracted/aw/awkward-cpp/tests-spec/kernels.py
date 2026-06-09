@@ -1158,11 +1158,11 @@ def awkward_ListOffsetArray_local_preparenext_64(tocarry, fromindex, length):
 awkward_ListOffsetArray_local_preparenext_64 = awkward_ListOffsetArray_local_preparenext_64
 
 
-def awkward_ListOffsetArray_reduce_local_nextparents_64(nextparents, offsets, length):
+def awkward_ListOffsetArray_reduce_local_nextparents_64(nextparents, offsets, length, nextparents_length):
     initialoffset = offsets[0]
     for i in range(length):
         j = offsets[i] - initialoffset
-        while j < (offsets[i + 1] - initialoffset):
+        while j < (offsets[i + 1] - initialoffset) and j < nextparents_length:
             nextparents[j] = i
             j = j + 1
 
@@ -1979,7 +1979,7 @@ def awkward_missing_repeat(outindex, index, indexlength, repetitions, regularsiz
 awkward_missing_repeat_64 = awkward_missing_repeat
 
 
-def awkward_reduce_argmax(toptr, fromptr, parents, lenparents, outlength):
+def awkward_reduce_argmax(toptr, fromptr, parents, offsets, lenparents, starts, outlength):
     for k in range(outlength):
         toptr[k] = -1
     for i in range(lenparents):
@@ -1999,7 +1999,7 @@ awkward_reduce_argmax_float32_64 = awkward_reduce_argmax
 awkward_reduce_argmax_float64_64 = awkward_reduce_argmax
 
 
-def awkward_reduce_argmax_complex(toptr, fromptr, parents, lenparents, outlength):
+def awkward_reduce_argmax_complex(toptr, fromptr, parents, offsets, lenparents, outlength):
     for k in range(outlength):
         toptr[k] = -1
     for i in range(lenparents):
@@ -2013,7 +2013,7 @@ awkward_reduce_argmax_complex64_64 = awkward_reduce_argmax_complex
 awkward_reduce_argmax_complex128_64 = awkward_reduce_argmax_complex
 
 
-def awkward_reduce_argmin(toptr, fromptr, parents, lenparents, outlength):
+def awkward_reduce_argmin(toptr, fromptr, parents, offsets, lenparents, starts, outlength):
     for k in range(outlength):
         toptr[k] = -1
     for i in range(lenparents):
@@ -2033,7 +2033,7 @@ awkward_reduce_argmin_float32_64 = awkward_reduce_argmin
 awkward_reduce_argmin_float64_64 = awkward_reduce_argmin
 
 
-def awkward_reduce_argmin_complex(toptr, fromptr, parents, lenparents, outlength):
+def awkward_reduce_argmin_complex(toptr, fromptr, parents, offsets, lenparents, outlength):
     for k in range(outlength):
         toptr[k] = -1
     for i in range(lenparents):
@@ -2085,7 +2085,7 @@ awkward_reduce_countnonzero_complex64_64 = awkward_reduce_countnonzero_complex
 awkward_reduce_countnonzero_complex128_64 = awkward_reduce_countnonzero_complex
 
 
-def awkward_reduce_max(toptr, fromptr, parents, lenparents, outlength, identity):
+def awkward_reduce_max(toptr, fromptr, parents, offsets, lenparents, outlength, identity):
     for i in range(outlength):
         toptr[i] = identity
     for i in range(lenparents):
@@ -2104,7 +2104,7 @@ awkward_reduce_max_float32_float32_64 = awkward_reduce_max
 awkward_reduce_max_float64_float64_64 = awkward_reduce_max
 
 
-def awkward_reduce_max_complex(toptr, fromptr, parents, lenparents, outlength, identity):
+def awkward_reduce_max_complex(toptr, fromptr, parents, offsets, lenparents, outlength, identity):
     for i in range(outlength):
         toptr[i * 2] = identity
         toptr[i * 2 + 1] = 0
@@ -2120,7 +2120,7 @@ awkward_reduce_max_complex64_complex64_64 = awkward_reduce_max_complex
 awkward_reduce_max_complex128_complex128_64 = awkward_reduce_max_complex
 
 
-def awkward_reduce_min(toptr, fromptr, parents, lenparents, outlength, identity):
+def awkward_reduce_min(toptr, fromptr, parents, offsets, lenparents, outlength, identity):
     for i in range(outlength):
         toptr[i] = identity
     for i in range(lenparents):
@@ -2139,7 +2139,7 @@ awkward_reduce_min_float32_float32_64 = awkward_reduce_min
 awkward_reduce_min_float64_float64_64 = awkward_reduce_min
 
 
-def awkward_reduce_min_complex(toptr, fromptr, parents, lenparents, outlength, identity):
+def awkward_reduce_min_complex(toptr, fromptr, parents, offsets, lenparents, outlength, identity):
     for i in range(outlength):
         toptr[i * 2] = identity
         toptr[i * 2 + 1] = 0
@@ -2155,7 +2155,7 @@ awkward_reduce_min_complex64_complex64_64 = awkward_reduce_min_complex
 awkward_reduce_min_complex128_complex128_64 = awkward_reduce_min_complex
 
 
-def awkward_reduce_prod(toptr, fromptr, parents, lenparents, outlength):
+def awkward_reduce_prod(toptr, fromptr, parents, offsets, lenparents, outlength):
     for i in range(outlength):
         toptr[i] = 1
     for i in range(lenparents):
@@ -2179,7 +2179,7 @@ awkward_reduce_prod_float32_float32_64 = awkward_reduce_prod
 awkward_reduce_prod_float64_float64_64 = awkward_reduce_prod
 
 
-def awkward_reduce_prod_complex(toptr, fromptr, parents, lenparents, outlength):
+def awkward_reduce_prod_complex(toptr, fromptr, parents, offsets, lenparents, outlength):
     for i in range(outlength):
         toptr[i * 2] = 1
         toptr[i * 2 + 1] = 0
@@ -2194,7 +2194,7 @@ awkward_reduce_prod_complex64_complex64_64 = awkward_reduce_prod_complex
 awkward_reduce_prod_complex128_complex128_64 = awkward_reduce_prod_complex
 
 
-def awkward_reduce_prod_bool(toptr, fromptr, parents, lenparents, outlength):
+def awkward_reduce_prod_bool(toptr, fromptr, parents, offsets, lenparents, outlength):
     for i in range(outlength):
         toptr[i] = True
     for i in range(lenparents):
@@ -2213,7 +2213,7 @@ awkward_reduce_prod_bool_float32_64 = awkward_reduce_prod_bool
 awkward_reduce_prod_bool_float64_64 = awkward_reduce_prod_bool
 
 
-def awkward_reduce_prod_bool_complex(toptr, fromptr, parents, lenparents, outlength):
+def awkward_reduce_prod_bool_complex(toptr, fromptr, parents, offsets, lenparents, outlength):
     for i in range(outlength):
         toptr[i] = 1
     for i in range(lenparents):
@@ -2223,7 +2223,7 @@ awkward_reduce_prod_bool_complex64_64 = awkward_reduce_prod_bool_complex
 awkward_reduce_prod_bool_complex128_64 = awkward_reduce_prod_bool_complex
 
 
-def awkward_reduce_sum(toptr, fromptr, parents, lenparents, outlength):
+def awkward_reduce_sum(toptr, fromptr, parents, offsets, lenparents, outlength):
     for i in range(outlength):
         toptr[i] = 0
     for i in range(lenparents):
@@ -2247,7 +2247,7 @@ awkward_reduce_sum_float32_float32_64 = awkward_reduce_sum
 awkward_reduce_sum_float64_float64_64 = awkward_reduce_sum
 
 
-def awkward_reduce_sum_complex(toptr, fromptr, parents, lenparents, outlength):
+def awkward_reduce_sum_complex(toptr, fromptr, parents, offsets, lenparents, outlength):
     for i in range(outlength):
         toptr[i * 2] = 0
         toptr[i * 2 + 1] = 0
@@ -2259,7 +2259,7 @@ awkward_reduce_sum_complex64_complex64_64 = awkward_reduce_sum_complex
 awkward_reduce_sum_complex128_complex128_64 = awkward_reduce_sum_complex
 
 
-def awkward_reduce_sum_bool(toptr, fromptr, parents, lenparents, outlength):
+def awkward_reduce_sum_bool(toptr, fromptr, parents, offsets, lenparents, outlength):
     for i in range(outlength):
         toptr[i] = False
     for i in range(lenparents):
@@ -2278,7 +2278,7 @@ awkward_reduce_sum_bool_float32_64 = awkward_reduce_sum_bool
 awkward_reduce_sum_bool_float64_64 = awkward_reduce_sum_bool
 
 
-def awkward_reduce_sum_bool_complex(toptr, fromptr, parents, lenparents, outlength):
+def awkward_reduce_sum_bool_complex(toptr, fromptr, parents, offsets, lenparents, outlength):
     for i in range(outlength):
         toptr[i] = 0
     for i in range(lenparents):
@@ -2288,7 +2288,7 @@ awkward_reduce_sum_bool_complex64_64 = awkward_reduce_sum_bool_complex
 awkward_reduce_sum_bool_complex128_64 = awkward_reduce_sum_bool_complex
 
 
-def awkward_reduce_sum_int32_bool_64(toptr, fromptr, parents, lenparents, outlength):
+def awkward_reduce_sum_int32_bool_64(toptr, fromptr, parents, offsets, lenparents, outlength):
     for i in range(outlength):
         toptr[i] = 0
     for i in range(lenparents):
@@ -2297,7 +2297,7 @@ def awkward_reduce_sum_int32_bool_64(toptr, fromptr, parents, lenparents, outlen
 awkward_reduce_sum_int32_bool_64 = awkward_reduce_sum_int32_bool_64
 
 
-def awkward_reduce_sum_int64_bool_64(toptr, fromptr, parents, lenparents, outlength):
+def awkward_reduce_sum_int64_bool_64(toptr, fromptr, parents, offsets, lenparents, outlength):
     for i in range(outlength):
         toptr[i] = 0
     for i in range(lenparents):

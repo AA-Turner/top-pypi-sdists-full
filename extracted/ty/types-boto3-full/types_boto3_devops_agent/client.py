@@ -28,6 +28,10 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     ListAgentSpacesPaginator,
+    ListAssetFilesPaginator,
+    ListAssetsPaginator,
+    ListAssetTypesPaginator,
+    ListAssetVersionsPaginator,
     ListAssociationsPaginator,
     ListBacklogTasksPaginator,
     ListExecutionsPaginator,
@@ -40,6 +44,10 @@ from .type_defs import (
     AssociateServiceOutputTypeDef,
     CreateAgentSpaceInputTypeDef,
     CreateAgentSpaceOutputTypeDef,
+    CreateAssetFileRequestTypeDef,
+    CreateAssetFileResponseTypeDef,
+    CreateAssetRequestTypeDef,
+    CreateAssetResponseTypeDef,
     CreateBacklogTaskRequestTypeDef,
     CreateBacklogTaskResponseTypeDef,
     CreateChatRequestTypeDef,
@@ -47,6 +55,8 @@ from .type_defs import (
     CreatePrivateConnectionInputTypeDef,
     CreatePrivateConnectionOutputTypeDef,
     DeleteAgentSpaceInputTypeDef,
+    DeleteAssetFileRequestTypeDef,
+    DeleteAssetRequestTypeDef,
     DeletePrivateConnectionInputTypeDef,
     DeletePrivateConnectionOutputTypeDef,
     DeregisterServiceInputTypeDef,
@@ -60,6 +70,12 @@ from .type_defs import (
     GetAccountUsageOutputTypeDef,
     GetAgentSpaceInputTypeDef,
     GetAgentSpaceOutputTypeDef,
+    GetAssetContentRequestTypeDef,
+    GetAssetContentResponseTypeDef,
+    GetAssetFileRequestTypeDef,
+    GetAssetFileResponseTypeDef,
+    GetAssetRequestTypeDef,
+    GetAssetResponseTypeDef,
     GetAssociationInputTypeDef,
     GetAssociationOutputTypeDef,
     GetBacklogTaskRequestTypeDef,
@@ -72,6 +88,14 @@ from .type_defs import (
     GetServiceOutputTypeDef,
     ListAgentSpacesInputTypeDef,
     ListAgentSpacesOutputTypeDef,
+    ListAssetFilesRequestTypeDef,
+    ListAssetFilesResponseTypeDef,
+    ListAssetsRequestTypeDef,
+    ListAssetsResponseTypeDef,
+    ListAssetTypesRequestTypeDef,
+    ListAssetTypesResponseTypeDef,
+    ListAssetVersionsRequestTypeDef,
+    ListAssetVersionsResponseTypeDef,
     ListAssociationsInputTypeDef,
     ListAssociationsOutputTypeDef,
     ListBacklogTasksRequestTypeDef,
@@ -103,6 +127,10 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateAgentSpaceInputTypeDef,
     UpdateAgentSpaceOutputTypeDef,
+    UpdateAssetFileRequestTypeDef,
+    UpdateAssetFileResponseTypeDef,
+    UpdateAssetRequestTypeDef,
+    UpdateAssetResponseTypeDef,
     UpdateAssociationInputTypeDef,
     UpdateAssociationOutputTypeDef,
     UpdateBacklogTaskRequestTypeDef,
@@ -196,6 +224,26 @@ class DevOpsAgentServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#create_agent_space)
         """
 
+    def create_asset(
+        self, **kwargs: Unpack[CreateAssetRequestTypeDef]
+    ) -> CreateAssetResponseTypeDef:
+        """
+        Creates a new asset in the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/create_asset.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#create_asset)
+        """
+
+    def create_asset_file(
+        self, **kwargs: Unpack[CreateAssetFileRequestTypeDef]
+    ) -> CreateAssetFileResponseTypeDef:
+        """
+        Creates a file in an asset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/create_asset_file.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#create_asset_file)
+        """
+
     def create_backlog_task(
         self, **kwargs: Unpack[CreateBacklogTaskRequestTypeDef]
     ) -> CreateBacklogTaskResponseTypeDef:
@@ -230,6 +278,22 @@ class DevOpsAgentServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/delete_agent_space.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#delete_agent_space)
+        """
+
+    def delete_asset(self, **kwargs: Unpack[DeleteAssetRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes an asset and all its files from the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/delete_asset.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#delete_asset)
+        """
+
+    def delete_asset_file(self, **kwargs: Unpack[DeleteAssetFileRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a file from an asset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/delete_asset_file.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#delete_asset_file)
         """
 
     def delete_private_connection(
@@ -308,6 +372,34 @@ class DevOpsAgentServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#get_agent_space)
         """
 
+    def get_asset(self, **kwargs: Unpack[GetAssetRequestTypeDef]) -> GetAssetResponseTypeDef:
+        """
+        Gets an asset from the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_asset.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#get_asset)
+        """
+
+    def get_asset_content(
+        self, **kwargs: Unpack[GetAssetContentRequestTypeDef]
+    ) -> GetAssetContentResponseTypeDef:
+        """
+        Gets an asset's content as a zip bundle.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_asset_content.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#get_asset_content)
+        """
+
+    def get_asset_file(
+        self, **kwargs: Unpack[GetAssetFileRequestTypeDef]
+    ) -> GetAssetFileResponseTypeDef:
+        """
+        Gets a file from an asset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_asset_file.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#get_asset_file)
+        """
+
     def get_association(
         self, **kwargs: Unpack[GetAssociationInputTypeDef]
     ) -> GetAssociationOutputTypeDef:
@@ -364,6 +456,44 @@ class DevOpsAgentServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/list_agent_spaces.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#list_agent_spaces)
+        """
+
+    def list_asset_files(
+        self, **kwargs: Unpack[ListAssetFilesRequestTypeDef]
+    ) -> ListAssetFilesResponseTypeDef:
+        """
+        Lists files in an asset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/list_asset_files.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#list_asset_files)
+        """
+
+    def list_asset_types(
+        self, **kwargs: Unpack[ListAssetTypesRequestTypeDef]
+    ) -> ListAssetTypesResponseTypeDef:
+        """
+        Lists the supported asset types.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/list_asset_types.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#list_asset_types)
+        """
+
+    def list_asset_versions(
+        self, **kwargs: Unpack[ListAssetVersionsRequestTypeDef]
+    ) -> ListAssetVersionsResponseTypeDef:
+        """
+        Lists versions of an asset in the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/list_asset_versions.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#list_asset_versions)
+        """
+
+    def list_assets(self, **kwargs: Unpack[ListAssetsRequestTypeDef]) -> ListAssetsResponseTypeDef:
+        """
+        Lists assets in the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/list_assets.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#list_assets)
         """
 
     def list_associations(
@@ -528,6 +658,26 @@ class DevOpsAgentServiceClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#update_agent_space)
         """
 
+    def update_asset(
+        self, **kwargs: Unpack[UpdateAssetRequestTypeDef]
+    ) -> UpdateAssetResponseTypeDef:
+        """
+        Updates an asset in the specified agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/update_asset.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#update_asset)
+        """
+
+    def update_asset_file(
+        self, **kwargs: Unpack[UpdateAssetFileRequestTypeDef]
+    ) -> UpdateAssetFileResponseTypeDef:
+        """
+        Updates a file in an asset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/update_asset_file.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#update_asset_file)
+        """
+
     def update_association(
         self, **kwargs: Unpack[UpdateAssociationInputTypeDef]
     ) -> UpdateAssociationOutputTypeDef:
@@ -602,6 +752,50 @@ class DevOpsAgentServiceClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_agent_spaces"]
     ) -> ListAgentSpacesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_asset_files"]
+    ) -> ListAssetFilesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_asset_types"]
+    ) -> ListAssetTypesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_asset_versions"]
+    ) -> ListAssetVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_devops_agent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_assets"]
+    ) -> ListAssetsPaginator:
         """
         Create a paginator for an operation.
 

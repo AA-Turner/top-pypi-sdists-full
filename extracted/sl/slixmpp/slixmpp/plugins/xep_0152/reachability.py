@@ -7,11 +7,8 @@ import logging
 
 from asyncio import Future
 
-from slixmpp import JID
-from typing import Callable
 from slixmpp.plugins.base import BasePlugin
 from slixmpp.plugins.xep_0152 import stanza, Reachability
-from slixmpp.plugins.xep_0004 import Form
 
 
 log = logging.getLogger(__name__)

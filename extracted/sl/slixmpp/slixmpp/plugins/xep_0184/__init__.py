@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2012 Erik Reuterborg Larsson, Nathanael C. Fritz
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.plugins.xep_0184.receipt import XEP_0184
 
 
 register_plugin(XEP_0184)
+
+__all__ = ['Request', 'Received', 'XEP_0184']

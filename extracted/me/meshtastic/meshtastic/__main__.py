@@ -86,12 +86,17 @@ def onReceive(packet, interface) -> None:
         if d is not None and args and args.reply:
             msg = d.get("text")
             if msg:
-                rxSnr = packet["rxSnr"]
-                hopLimit = packet["hopLimit"]
-                print(f"message: {msg}")
-                reply = f"got msg '{msg}' with rxSnr: {rxSnr} and hopLimit: {hopLimit}"
-                print("Sending reply: ", reply)
-                interface.sendText(reply)
+                rxChannel = packet.get("channel", 0)
+                targetChannel = int(args.ch_index or 0)
+                if rxChannel == targetChannel:
+                    rxSnr = packet["rxSnr"]
+                    hopLimit = packet["hopLimit"]
+                    print(f"message: {msg}")
+                    reply = f"got msg '{msg}' with rxSnr: {rxSnr} and hopLimit: {hopLimit}"
+                    print(f"Received channel {rxChannel}. Sending reply: {reply}")
+                    interface.sendText(reply,channelIndex=rxChannel)
+                else:
+                    print(f"Ignored message on channel {rxChannel} (waiting for channel {targetChannel})")
 
     except Exception as ex:
         print(f"Warning: Error processing received packet: {ex}.")
@@ -1409,13 +1414,59 @@ def common():
                     print(f"Found: name='{x.name}' address='{x.address}'")
                 meshtastic.util.our_exit("BLE scan finished", 0)
             elif args.ble:
-                client = BLEInterface(
-                    args.ble if args.ble != "any" else None,
-                    debugOut=logfile,
-                    noProto=args.noproto,
-                    noNodes=args.no_nodes,
-                    timeout=args.timeout,
-                )
+                try:
+                    client = BLEInterface(
+                        args.ble if args.ble != "any" else None,
+                        debugOut=logfile,
+                        noProto=args.noproto,
+                        noNodes=args.no_nodes,
+                        timeout=args.timeout,
+                    )
+                except BLEInterface.BLEError as e:
+                    if e.kind == BLEInterface.BLEError.DEVICE_NOT_FOUND:
+                        meshtastic.util.our_exit(
+                            "BLE device not found.\n\n"
+                            "Possible causes:\n"
+                            "  - Bluetooth is disabled on the Meshtastic device\n"
+                            "  - Device is in deep sleep mode\n"
+                            "  - Device is out of range\n\n"
+                            "Try:\n"
+                            "  - Press the reset button on your device\n"
+                            "  - Run 'meshtastic --ble-scan' to see available devices",
+                            1,
+                        )
+                    elif e.kind == BLEInterface.BLEError.MULTIPLE_DEVICES:
+                        meshtastic.util.our_exit(
+                            "Multiple Meshtastic BLE devices found.\n\n"
+                            "Please specify which device to connect to:\n"
+                            "  - Run 'meshtastic --ble-scan' to list devices\n"
+                            "  - Use 'meshtastic --ble <name_or_address>' to connect",
+                            1,
+                        )
+                    elif e.kind == BLEInterface.BLEError.WRITE_ERROR:
+                        meshtastic.util.our_exit(
+                            "Failed to write to BLE device.\n\n"
+                            "Possible causes:\n"
+                            "  - Device requires pairing PIN (check device screen)\n"
+                            "  - On Linux: user not in 'bluetooth' group\n"
+                            "  - Connection was interrupted\n\n"
+                            "Try:\n"
+                            "  - Restart Bluetooth on your computer\n"
+                            "  - Reset the Meshtastic device",
+                            1,
+                        )
+                    elif e.kind == BLEInterface.BLEError.READ_ERROR:
+                        meshtastic.util.our_exit(
+                            "Failed to read from BLE device.\n\n"
+                            "The device may have disconnected unexpectedly.\n\n"
+                            "Try:\n"
+                            "  - Move closer to the device\n"
+                            "  - Reset the Meshtastic device\n"
+                            "  - Restart Bluetooth on your computer",
+                            1,
+                        )
+                    else:
+                        meshtastic.util.our_exit(f"BLE error: {e}", 1)
             elif args.host:
                 try:
                     if ":" in args.host:
@@ -1471,6 +1522,23 @@ def common():
                     message += "  Please close any applications or webpages that may be using the device and try again.\n"
                     message += f"\nOriginal error: {ex}"
                     meshtastic.util.our_exit(message)
+                except MeshInterface.MeshInterfaceError as ex:
+                    msg = str(ex)
+                    if "Timed out" in msg:
+                        meshtastic.util.our_exit(
+                            "Connection timed out.\n\n"
+                            "Possible causes:\n"
+                            "  - Device is rebooting\n"
+                            "  - Device firmware is updating\n"
+                            "  - Serial connection was interrupted\n\n"
+                            "Try:\n"
+                            "  - Wait a few seconds and try again\n"
+                            "  - Check if device is fully booted (LED patterns)\n"
+                            "  - Reconnect the USB cable",
+                            1,
+                        )
+                    else:
+                        meshtastic.util.our_exit(f"Connection error: {ex}", 1)
                 if client.devPath is None:
                     try:
                         client = meshtastic.tcp_interface.TCPInterface(
@@ -1927,7 +1995,10 @@ def addRemoteActionArgs(parser: argparse.ArgumentParser) -> argparse.ArgumentPar
     )
 
     group.add_argument(
-        "--reply", help="Reply to received messages", action="store_true"
+        "--reply",
+        help="Reply to received messages on the channel they were received. "
+        "If '--ch-index' is set, only messages on that channel are replied to.",
+        action="store_true",
     )
 
     return parser

@@ -1,22 +1,22 @@
 [build-system]
 build-backend = "flit_core.buildapi"
-requires = ["flit_core >=3.4,<4"]
+requires = ["flit_core>=3.12.0,<4"]
 
 [dependency-groups]
 dev = [
-  "tox-uv>=1.22.1"
+  "tox-uv>=1.35.2"
 ]
 lint = [
   "pre-commit",
   "ruff>=0.9.5"
 ]
 test = [
-  "coverage>=7.6.10",
+  "coverage>=7.14.1",
   "pytest>=9.0.3",
   "vcrpy>=7.0.0"
 ]
 type = [
-  "pyright>=1.1.393",
+  "pyright>=1.1.410",
   "pytest>=9.0.3"
 ]
 
@@ -34,10 +34,11 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.14"
+  "Programming Language :: Python :: 3.14",
+  "Typing :: Typed"
 ]
 dependencies = [
-  "requests>=2.33.0,<3.0"
+  "requests>=2.34.2,<3.0"
 ]
 dynamic = ["version", "description"]
 keywords = ["praw", "reddit", "api"]
@@ -52,6 +53,11 @@ requires-python = ">=3.10"
 [project.urls]
 "Issue Tracker" = "https://github.com/praw-dev/prawcore/issues"
 "Source Code" = "https://github.com/praw-dev/prawcore"
+
+[tool.pyright]
+include = ["prawcore"]
+pythonVersion = "3.10"
+typeCheckingMode = "strict"
 
 [tool.ruff]
 include = [
@@ -152,7 +158,7 @@ dependency_groups = ["lint"]
 runner = "uv-venv-lock-runner"
 
 [tool.tox.env.type]
-commands = [["pyright", "prawcore"]]
+commands = [["pyright"]]
 dependency_groups = ["type"]
 description = "run type check on code base"
 runner = "uv-venv-lock-runner"

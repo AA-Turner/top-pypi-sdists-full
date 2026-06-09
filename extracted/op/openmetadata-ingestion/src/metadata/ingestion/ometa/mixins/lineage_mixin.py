@@ -13,7 +13,6 @@ Mixin class containing Lineage specific methods
 
 To be used by OpenMetadata class
 """
-
 import functools
 import json
 import traceback
@@ -204,7 +203,8 @@ class OMetaLineageMixin(Generic[T]):
             if (from_id, to_id) in search_cache:
                 return search_cache.get((from_id, to_id))
             res = self.client.get(
-                f"{self.get_suffix(AddLineageRequest)}/getLineageEdge/{from_id}/{to_id}"
+                f"{self.get_suffix(AddLineageRequest)}/getLineageEdge/"
+                f"{from_id}/{to_id}"
             )
             search_cache.put((from_id, to_id), res)
             return res

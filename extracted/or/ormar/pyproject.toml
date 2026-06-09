@@ -3,7 +3,7 @@ name = "ormar"
 
 [tool.poetry]
 name = "ormar"
-version = "0.25.0"
+version = "0.26.0"
 description = "An async ORM with fastapi in mind and pydantic validation."
 authors = ["Radosław Drążkiewicz <collerek@gmail.com>"]
 license = "MIT"
@@ -13,6 +13,9 @@ repository = "https://github.com/ormar-orm/ormar"
 documentation = "https://ormar-orm.github.io/ormar/"
 packages = [
     { include="ormar" }
+]
+include = [
+    { path = "tests/**/*.py", format = "sdist" },
 ]
 keywords = [
     "orm",
@@ -43,7 +46,9 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = "^3.10.0"
-pydantic = "^2.11.9"
+# Pinned below 2.14 because ormar relies on pydantic internals; bump the
+# upper bound manually after verifying compatibility with each new release.
+pydantic = ">=2.11.9,<2.14"
 SQLAlchemy = {version = "^2.0.40", extras = ["asyncio"]}
 cryptography = { version = ">=44.0.1,<49.0.0", optional = true }
 # Async database drivers
@@ -55,12 +60,8 @@ asyncpg = { version = ">=0.28,<0.32", optional = true }
 psycopg2-binary = { version = "^2.9.1", optional = true }
 mysqlclient = { version = "^2.1.0", optional = true }
 PyMySQL = { version = "^1.1.0", optional = true }
-ormar-utils = ">=0.1.1"
-
-
-[tool.poetry.dependencies.orjson]
-version = ">=3.6.4"
-optional = true
+ormar-utils = ">=0.2.0"
+orjson = ">=3.6.4"
 
 
 [tool.poetry.extras]
@@ -69,7 +70,6 @@ postgres = ["asyncpg", "psycopg2-binary"]
 aiopg = ["aiopg", "psycopg2-binary"]
 mysql = ["aiomysql", "PyMySQL"]
 sqlite = ["aiosqlite"]
-orjson = ["orjson"]
 crypto = ["cryptography"]
 all = [
     "aiosqlite",
@@ -79,7 +79,6 @@ all = [
     "aiomysql",
     "mysqlclient",
     "PyMySQL",
-    "orjson",
     "cryptography",
 ]
 
@@ -91,7 +90,7 @@ codecov = "^2.1.13"
 pytest-asyncio = ">=1.1.0,<2.0"
 fastapi = ">=0.125.0"
 
-ruff = ">=0.5.1,<0.15.13"
+ruff = ">=0.5.1,<0.15.17"
 
 setuptools = ">=78.1.1,<83.0.0"
 
@@ -127,7 +126,7 @@ httpx = ">=0.28.0"
 asgi-lifespan = "^2.1.0"
 pydantic-extra-types = "^2.5.0"
 watchdog = "<7.0.0"
-pytest-codspeed = "^4.2.0"
+pytest-codspeed = ">=4.2,<6.0"
 mike = "^2.0.0"
 faker = ">=24.3,<41.0"
 email-validator = "^2.1.1"

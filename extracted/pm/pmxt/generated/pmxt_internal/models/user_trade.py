@@ -33,7 +33,10 @@ class UserTrade(BaseModel):
     side: StrictStr = Field(description="Trade side from the taker's perspective.")
     outcome_id: Optional[StrictStr] = Field(default=None, description="The outcome this trade is for (if known).", alias="outcomeId")
     order_id: Optional[StrictStr] = Field(default=None, description="The order that produced this trade, if known.", alias="orderId")
-    __properties: ClassVar[List[str]] = ["id", "timestamp", "price", "amount", "side", "outcomeId", "orderId"]
+    tx_hash: Optional[StrictStr] = Field(default=None, description="Populated in hosted mode after on-chain settlement; null for local-mode and for non-on-chain venues.", alias="txHash")
+    chain: Optional[StrictStr] = Field(default=None, description="Populated in hosted mode after on-chain settlement; null for local-mode and for non-on-chain venues.")
+    block_number: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Populated in hosted mode after on-chain settlement; null for local-mode and for non-on-chain venues.", alias="blockNumber")
+    __properties: ClassVar[List[str]] = ["id", "timestamp", "price", "amount", "side", "outcomeId", "orderId", "txHash", "chain", "blockNumber"]
 
     @field_validator('side')
     def side_validate_enum(cls, value):
@@ -81,6 +84,21 @@ class UserTrade(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if tx_hash (nullable) is None
+        # and model_fields_set contains the field
+        if self.tx_hash is None and "tx_hash" in self.model_fields_set:
+            _dict['txHash'] = None
+
+        # set to None if chain (nullable) is None
+        # and model_fields_set contains the field
+        if self.chain is None and "chain" in self.model_fields_set:
+            _dict['chain'] = None
+
+        # set to None if block_number (nullable) is None
+        # and model_fields_set contains the field
+        if self.block_number is None and "block_number" in self.model_fields_set:
+            _dict['blockNumber'] = None
+
         return _dict
 
     @classmethod
@@ -99,7 +117,10 @@ class UserTrade(BaseModel):
             "amount": obj.get("amount"),
             "side": obj.get("side"),
             "outcomeId": obj.get("outcomeId"),
-            "orderId": obj.get("orderId")
+            "orderId": obj.get("orderId"),
+            "txHash": obj.get("txHash"),
+            "chain": obj.get("chain"),
+            "blockNumber": obj.get("blockNumber")
         })
         return _obj
 

@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.manager_pb2 import (
     GetClusterEnvironmentsRequest,
     GetClusterEnvironmentsResponse,
+    ListTelemetryTimescaleKubeSecretRefsRequest,
+    ListTelemetryTimescaleKubeSecretRefsResponse,
 )
 from grpc import (
     Channel,
@@ -25,6 +27,10 @@ class ManagerServiceStub:
         GetClusterEnvironmentsResponse,
     ]
     """If any checks fail, this request fails."""
+    ListTelemetryTimescaleKubeSecretRefs: UnaryUnaryMultiCallable[
+        ListTelemetryTimescaleKubeSecretRefsRequest,
+        ListTelemetryTimescaleKubeSecretRefsResponse,
+    ]
 
 class ManagerServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -34,5 +40,11 @@ class ManagerServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetClusterEnvironmentsResponse:
         """If any checks fail, this request fails."""
+    @abstractmethod
+    def ListTelemetryTimescaleKubeSecretRefs(
+        self,
+        request: ListTelemetryTimescaleKubeSecretRefsRequest,
+        context: ServicerContext,
+    ) -> ListTelemetryTimescaleKubeSecretRefsResponse: ...
 
 def add_ManagerServiceServicer_to_server(servicer: ManagerServiceServicer, server: Server) -> None: ...

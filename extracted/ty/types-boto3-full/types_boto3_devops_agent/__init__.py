@@ -13,6 +13,10 @@ Usage::
         Client,
         DevOpsAgentServiceClient,
         ListAgentSpacesPaginator,
+        ListAssetFilesPaginator,
+        ListAssetTypesPaginator,
+        ListAssetVersionsPaginator,
+        ListAssetsPaginator,
         ListAssociationsPaginator,
         ListBacklogTasksPaginator,
         ListExecutionsPaginator,
@@ -25,6 +29,10 @@ Usage::
     client: DevOpsAgentServiceClient = session.client("devops-agent")
 
     list_agent_spaces_paginator: ListAgentSpacesPaginator = client.get_paginator("list_agent_spaces")
+    list_asset_files_paginator: ListAssetFilesPaginator = client.get_paginator("list_asset_files")
+    list_asset_types_paginator: ListAssetTypesPaginator = client.get_paginator("list_asset_types")
+    list_asset_versions_paginator: ListAssetVersionsPaginator = client.get_paginator("list_asset_versions")
+    list_assets_paginator: ListAssetsPaginator = client.get_paginator("list_assets")
     list_associations_paginator: ListAssociationsPaginator = client.get_paginator("list_associations")
     list_backlog_tasks_paginator: ListBacklogTasksPaginator = client.get_paginator("list_backlog_tasks")
     list_executions_paginator: ListExecutionsPaginator = client.get_paginator("list_executions")
@@ -37,6 +45,10 @@ Usage::
 from .client import DevOpsAgentServiceClient
 from .paginator import (
     ListAgentSpacesPaginator,
+    ListAssetFilesPaginator,
+    ListAssetsPaginator,
+    ListAssetTypesPaginator,
+    ListAssetVersionsPaginator,
     ListAssociationsPaginator,
     ListBacklogTasksPaginator,
     ListExecutionsPaginator,
@@ -52,6 +64,10 @@ __all__ = (
     "Client",
     "DevOpsAgentServiceClient",
     "ListAgentSpacesPaginator",
+    "ListAssetFilesPaginator",
+    "ListAssetTypesPaginator",
+    "ListAssetVersionsPaginator",
+    "ListAssetsPaginator",
     "ListAssociationsPaginator",
     "ListBacklogTasksPaginator",
     "ListExecutionsPaginator",

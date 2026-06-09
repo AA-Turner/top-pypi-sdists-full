@@ -15,6 +15,7 @@ from chalk.features.dataframe import DataFrame
 from chalk.features.feature_field import CacheStrategy, Feature, FeatureNotFoundException, feature, has_many, has_one
 from chalk.features.feature_set import Features, FeatureSetBase, is_features_cls
 from chalk.features.feature_set_decorator import add_features, features
+from chalk.features.feature_tag_override import is_feature_tag_override_active, override_feature_tags
 from chalk.features.feature_time import FeatureTime, feature_time, is_feature_time
 from chalk.features.feature_wrapper import FeatureWrapper, ensure_feature, unwrap_feature
 from chalk.features.filter import Filter, TimeDelta, after, before
@@ -241,6 +242,7 @@ __all__ = (
     "features",
     "has_many",
     "has_one",
+    "is_feature_tag_override_active",
     "is_feature_time",
     "is_features_cls",
     "is_primary",
@@ -248,6 +250,7 @@ __all__ = (
     "offline",
     "online",
     "op",
+    "override_feature_tags",
     "owner",
     "serialize_dtype",
     "select",

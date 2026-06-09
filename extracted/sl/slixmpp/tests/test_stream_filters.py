@@ -1,4 +1,3 @@
-import time
 
 from slixmpp import Message
 import unittest

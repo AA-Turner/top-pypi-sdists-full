@@ -11,7 +11,10 @@
 """
 Airflow source to extract metadata from OM UI
 """
+
+import json  # noqa: I001
 import traceback
+import zlib
 from collections import Counter, defaultdict
 from datetime import datetime
 from enum import Enum
@@ -21,9 +24,9 @@ from urllib.parse import quote
 from airflow.models import BaseOperator, DagRun, DagTag, TaskInstance
 from airflow.models.dag import DagModel
 from airflow.models.serialized_dag import SerializedDagModel
-from airflow.serialization.serialized_objects import SerializedDAG
+from airflow.serialization.definitions.dag import SerializedDAG
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import and_, column, func, inspect, join
+from sqlalchemy import SQLColumnExpression, and_, column, func, inspect, join, literal
 from sqlalchemy.orm import Session
 
 from metadata.generated.schema.api.data.createPipeline import CreatePipelineRequest
@@ -144,7 +147,7 @@ class AirflowSource(PipelineServiceSource):
             return self._is_remote_airflow_3
 
         try:
-            inspector = inspect(self.session.bind)
+            inspector = inspect(self.session.get_bind())
             tables = inspector.get_table_names()
 
             # Airflow 3.x removed the 'task_instance' primary key column 'map_index'
@@ -182,7 +185,7 @@ class AirflowSource(PipelineServiceSource):
             return self._execution_date_column
 
         try:
-            inspector = inspect(self.session.bind)
+            inspector = inspect(self.session.get_bind())
             columns = [col["name"] for col in inspector.get_columns("dag_run")]
             if "logical_date" in columns:
                 self._execution_date_column = "logical_date"
@@ -285,11 +288,11 @@ class AirflowSource(PipelineServiceSource):
                 )
                 .filter(DagRun.dag_id == dag_id)
                 .order_by(db_date_column.desc())
-                .limit(self.config.serviceConnection.root.config.numberOfStatus)
+                .limit(self.config.serviceConnection.root.config.numberOfStatus)  # pyright: ignore[reportAttributeAccessIssue]
                 .all()
             )
 
-            dag_run_dict = [dict(elem) for elem in dag_run_list]
+            dag_run_dict = [elem._asdict() for elem in dag_run_list]
 
             # Build DagRun manually to not fall into new/old columns from
             # different Airflow versions
@@ -356,7 +359,9 @@ class AirflowSource(PipelineServiceSource):
             )
 
         task_instance_dict = (
-            [dict(elem) for elem in task_instance_list] if task_instance_list else []
+            [elem._asdict() for elem in task_instance_list]
+            if task_instance_list
+            else []
         )
 
         return [
@@ -389,9 +394,7 @@ class AirflowSource(PipelineServiceSource):
                     task_statuses = [
                         TaskStatus(
                             name=task.task_id,
-                            executionStatus=STATUS_MAP.get(
-                                task.state, StatusType.Pending.value
-                            ),
+                            executionStatus=STATUS_MAP.get(task.state or "", StatusType.Pending.value),
                             startTime=datetime_to_ts(task.start_date),
                             endTime=datetime_to_ts(
                                 task.end_date
@@ -440,6 +443,25 @@ class AirflowSource(PipelineServiceSource):
                 )
             )
 
+    def _resolve_dag_data(
+        self,
+        raw_data: Optional[Any],  # noqa: UP045
+        dag_id: str,
+        compressed_data: Optional[bytes],  # noqa: UP045
+    ) -> Optional[Any]:  # noqa: UP045
+        if raw_data is not None:
+            return raw_data
+        if compressed_data is None:
+            return None
+        try:
+            return json.loads(zlib.decompress(compressed_data))
+        except zlib.error as exc:
+            logger.warning(
+                f"Failed to decompress serialized DAG data for '{dag_id}'. "
+                f"Ensure COMPRESS_SERIALIZED_DAGS uses zlib compression (the Airflow default): {exc}"
+            )
+            return None
+
     def get_pipelines_list(self) -> Iterable[AirflowDagDetails]:
         """
         List all DAGs from the metadata db.
@@ -472,15 +494,22 @@ class AirflowSource(PipelineServiceSource):
             .subquery()
         )
 
+        compressed_col: SQLColumnExpression = (  # pyright: ignore[reportAssignmentType]
+            SerializedDagModel._data_compressed  # pylint: disable=protected-access
+            if hasattr(SerializedDagModel, "_data_compressed")
+            else literal(None)
+        )
+
         # In Airflow 3.x, fileloc is not available on SerializedDagModel
         # We need to get it from DagModel instead
         if hasattr(SerializedDagModel, "fileloc"):
             # Airflow 2.x: fileloc is on SerializedDagModel
             # Use tuple IN clause to get only the latest version of each DAG
-            session_query = self.session.query(
+            session_query = self.session.query(  # pyright: ignore[reportCallIssue]
                 SerializedDagModel.dag_id,
                 json_data_column,
                 SerializedDagModel.fileloc,
+                compressed_col,
             ).join(
                 latest_dag_subquery,
                 and_(
@@ -491,10 +520,11 @@ class AirflowSource(PipelineServiceSource):
         else:
             # Airflow 3.x: fileloc is only on DagModel, we need to join
             session_query = (
-                self.session.query(
+                self.session.query(  # pyright: ignore[reportCallIssue]
                     SerializedDagModel.dag_id,
                     json_data_column,
                     DagModel.fileloc,
+                    compressed_col,
                 )
                 .join(
                     latest_dag_subquery,
@@ -558,11 +588,18 @@ class AirflowSource(PipelineServiceSource):
                         # If we can't query is_paused, assume the pipeline is active
                         pipeline_state = PipelineState.Active.value
 
-                    data = serialized_dag[1]["dag"]
+                    raw_data = self._resolve_dag_data(serialized_dag[1], serialized_dag[0], serialized_dag[3])
+                    if raw_data is None:
+                        logger.warning("No serialized data available for dag %s, skipping", serialized_dag[0])
+                        continue
+                    data = raw_data.get("dag")
+                    if data is None:
+                        logger.warning("Missing 'dag' key in serialized data for dag %s, skipping", serialized_dag[0])
+                        continue
                     dag = AirflowDagDetails(
                         dag_id=serialized_dag[0],
                         fileloc=serialized_dag[2],
-                        data=AirflowDag.model_validate(serialized_dag[1]),
+                        data=AirflowDag.model_validate(raw_data),
                         max_active_runs=data.get("max_active_runs", None),
                         description=data.get("_description", None),
                         start_date=data.get("start_date", None),
@@ -667,9 +704,9 @@ class AirflowSource(PipelineServiceSource):
                         f"?_flt_3_dag_id={quote(dag.dag_id)}&_flt_3_task_id={quote(task.task_id)}"
                     )
                 ),
-                downstreamTasks=list(task.downstream_task_ids)
-                if task.downstream_task_ids
-                else [],
+                downstreamTasks=(
+                    list(task.downstream_task_ids) if task.downstream_task_ids else []
+                ),
                 startDate=task.start_date.isoformat() if task.start_date else None,
                 endDate=task.end_date.isoformat() if task.end_date else None,
                 taskType=task.task_type,
@@ -714,16 +751,20 @@ class AirflowSource(PipelineServiceSource):
 
             pipeline_request = CreatePipelineRequest(
                 name=EntityName(pipeline_details.dag_id),
-                description=Markdown(pipeline_details.description)
-                if pipeline_details.description
-                else None,
+                description=(
+                    Markdown(pipeline_details.description)
+                    if pipeline_details.description
+                    else None
+                ),
                 sourceUrl=SourceUrl(source_url),
                 state=pipeline_state,
                 concurrency=pipeline_details.max_active_runs,
                 pipelineLocation=pipeline_details.fileloc,
-                startDate=pipeline_details.start_date.isoformat()
-                if pipeline_details.start_date
-                else None,
+                startDate=(
+                    pipeline_details.start_date.isoformat()
+                    if pipeline_details.start_date
+                    else None
+                ),
                 tasks=self.get_tasks_from_dag(
                     pipeline_details, self.service_connection.hostPort
                 ),
@@ -902,24 +943,30 @@ class AirflowSource(PipelineServiceSource):
 
         return PipelineObservability(
             pipeline=EntityReference(
-                id=pipeline_entity.id.root
-                if hasattr(pipeline_entity.id, "root")
-                else pipeline_entity.id,
+                id=(
+                    pipeline_entity.id.root
+                    if hasattr(pipeline_entity.id, "root")
+                    else pipeline_entity.id
+                ),
                 type="pipeline",
-                fullyQualifiedName=pipeline_entity.fullyQualifiedName.root
-                if hasattr(pipeline_entity.fullyQualifiedName, "root")
-                else str(pipeline_entity.fullyQualifiedName),
+                fullyQualifiedName=(
+                    pipeline_entity.fullyQualifiedName.root
+                    if hasattr(pipeline_entity.fullyQualifiedName, "root")
+                    else str(pipeline_entity.fullyQualifiedName)
+                ),
             ),
             scheduleInterval=schedule_interval,
-            startTime=Timestamp(datetime_to_ts(dag_run.start_date))
-            if dag_run.start_date
-            else None,
-            endTime=Timestamp(datetime_to_ts(execution_date))
-            if execution_date
-            else None,
-            lastRunTime=Timestamp(datetime_to_ts(execution_date))
-            if execution_date
-            else None,
+            startTime=(
+                Timestamp(datetime_to_ts(dag_run.start_date))
+                if dag_run.start_date
+                else None
+            ),
+            endTime=(
+                Timestamp(datetime_to_ts(execution_date)) if execution_date else None
+            ),
+            lastRunTime=(
+                Timestamp(datetime_to_ts(execution_date)) if execution_date else None
+            ),
             lastRunStatus=STATUS_MAP.get(dag_run.state, StatusType.Pending.value),
         )
 

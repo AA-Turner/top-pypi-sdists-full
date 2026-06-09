@@ -190,6 +190,140 @@ def check_and_resolve_trusted_folder() -> None:
         trusted_folders_manager.add_untrusted(cwd)
 
 
+def _warn_on_path_shadow() -> None:
+    """If a different drydock install — either on PATH or in a
+    well-known install dir — is newer than the one we're running,
+    print a one-line warning.
+
+    Operator observed 2026-06-08: ~/.local/bin/drydock was 2.9.46
+    (months old) while the auto-released install in
+    ~/miniforge3/envs/drydock/bin was 2.10.4. The fresh install
+    wasn't even on PATH (the conda env wasn't activated), so a
+    strict $PATH walk wouldn't catch this. We also scan a few
+    conventional install locations.
+
+    Opt-out: DRYDOCK_NO_SHADOW_WARN=1.
+    """
+    if os.environ.get("DRYDOCK_NO_SHADOW_WARN", "").strip().lower() in (
+        "1", "true", "yes",
+    ):
+        return
+    if __version__ == "dev":
+        # Running from source — every install would be "newer" by version
+        # number but the dev tree IS what's intended. Skip.
+        return
+    try:
+        import glob
+        import shutil
+        from packaging.version import Version
+        running_bin = shutil.which("drydock")
+        if not running_bin:
+            return
+        running_real = os.path.realpath(running_bin)
+
+        # 1) Anything on $PATH named drydock.
+        candidates: list[str] = []
+        for path_dir in os.environ.get("PATH", "").split(os.pathsep):
+            if path_dir and os.path.isdir(path_dir):
+                p = os.path.join(path_dir, "drydock")
+                if os.path.isfile(p) and os.access(p, os.X_OK):
+                    candidates.append(p)
+        # 2) Conventional install dirs (uv tool, conda envs) — these
+        # often contain drydock but aren't on PATH unless activated.
+        home = os.path.expanduser("~")
+        for pattern in (
+            os.path.join(home, ".local", "bin", "drydock"),
+            os.path.join(home, "miniforge3", "envs", "*", "bin", "drydock"),
+            os.path.join(home, "miniconda3", "envs", "*", "bin", "drydock"),
+            os.path.join(home, "anaconda3", "envs", "*", "bin", "drydock"),
+            os.path.join(home, ".local", "share", "uv", "tools",
+                         "drydock-cli", "bin", "drydock"),
+            "/usr/local/bin/drydock",
+        ):
+            for p in glob.glob(pattern):
+                if os.path.isfile(p) and os.access(p, os.X_OK):
+                    candidates.append(p)
+
+        seen: set[str] = {running_real}
+        for cand in candidates:
+            cand_real = os.path.realpath(cand)
+            if cand_real in seen:
+                continue
+            seen.add(cand_real)
+            try:
+                other_ver = _read_drydock_version_for(cand_real)
+            except Exception:
+                continue
+            if not other_ver:
+                continue
+            if Version(other_ver) > Version(__version__):
+                rprint(
+                    f"[yellow]Note: drydock {other_ver} is installed at "
+                    f"{cand}, but this session is running {__version__} "
+                    f"from {running_real}. To use the newer one, run "
+                    f"{cand} directly or put its bin dir first on PATH. "
+                    f"Silence: DRYDOCK_NO_SHADOW_WARN=1.[/]"
+                )
+                return  # one warning is enough
+    except Exception:
+        # Never block startup on a diagnostic.
+        return
+
+
+def _read_drydock_version_for(executable_path: str) -> str | None:
+    """Given a drydock executable path, return the installed version
+    by reading dist-info metadata. Tries two env layouts: the binary's
+    sibling (env/bin/drydock + env/lib/.../site-packages — conda/venv
+    style) and the binary's shebang-pointed python (uv tool installs
+    that put the script in ~/.local/bin but the env at
+    ~/.local/share/uv/tools/...). No subprocess fork."""
+    candidate_envs: list[str] = []
+    # Layout A: <env>/bin/drydock — env root is one level up.
+    bin_dir = os.path.dirname(executable_path)
+    candidate_envs.append(os.path.dirname(bin_dir))
+    # Layout B: read the shebang from the executable and resolve the
+    # python interpreter path to its env root.
+    try:
+        with open(executable_path, "rb") as f:
+            first = f.readline()
+        if first.startswith(b"#!"):
+            shebang = first[2:].strip().decode("utf-8", errors="replace")
+            # shebang format is usually "/path/to/env/bin/python" possibly
+            # followed by args; take the executable token.
+            py = shebang.split()[0] if shebang.split() else ""
+            if py:
+                # Use the literal shebang path, NOT realpath — many tool
+                # installers (uv) ship a venv where bin/python is a
+                # symlink to system python. realpath would jump us out
+                # of the venv to /usr, losing the dist-info location.
+                py_bin_dir = os.path.dirname(py)
+                candidate_envs.append(os.path.dirname(py_bin_dir))
+    except OSError:
+        pass
+
+    for env_root in candidate_envs:
+        lib_dir = os.path.join(env_root, "lib")
+        if not os.path.isdir(lib_dir):
+            continue
+        for py_dir in sorted(os.listdir(lib_dir), reverse=True):
+            candidate_sp = os.path.join(lib_dir, py_dir, "site-packages")
+            if not os.path.isdir(candidate_sp):
+                continue
+            try:
+                for entry in os.listdir(candidate_sp):
+                    if entry.startswith("drydock_cli-") and entry.endswith(".dist-info"):
+                        meta = os.path.join(candidate_sp, entry, "METADATA")
+                        if not os.path.isfile(meta):
+                            continue
+                        with open(meta, encoding="utf-8") as f:
+                            for line in f:
+                                if line.startswith("Version:"):
+                                    return line.split(":", 1)[1].strip()
+            except OSError:
+                continue
+    return None
+
+
 def main() -> None:
     args = parse_arguments()
 
@@ -201,6 +335,9 @@ def main() -> None:
         from drydock.core.config.doctor import run_doctor
         init_harness_files_manager("user", "project")
         sys.exit(run_doctor(apply=bool(getattr(args, "fix", False))))
+
+    # PATH-shadow check (after early-exit args, before interactive setup).
+    _warn_on_path_shadow()
 
     if args.workdir:
         workdir = args.workdir.expanduser().resolve()
@@ -230,19 +367,50 @@ def main() -> None:
     # --local → set up local LLM provider without editing config
     if getattr(args, "local", None):
         os.environ["DRYDOCK_LOCAL_URL"] = args.local
-        # Detect model name from the server
-        try:
-            import httpx
-            resp = httpx.get(f"{args.local}/models", timeout=5)
-            if resp.status_code == 200:
-                models = resp.json().get("data", [])
-                if models:
-                    model_name = models[0]["id"]
-                    os.environ["DRYDOCK_LOCAL_MODEL"] = model_name
-                    rprint(f"[green]Using local model: {model_name} at {args.local}[/]")
-        except Exception:
-            os.environ["DRYDOCK_LOCAL_MODEL"] = "local"
-            rprint(f"[yellow]Using local server at {args.local} (couldn't detect model name)[/]")
+        # Respect an explicit env-var override (used by harness/CI).
+        # Otherwise probe /v1/models — retry once with a longer timeout
+        # because containerized tbench trials saw the 5s window expire on
+        # cold-start, falling back to model="local" which loses ALL
+        # Gemma 4 optimizations (slim prompt, tool disables, non-streaming).
+        if os.environ.get("DRYDOCK_LOCAL_MODEL", "").strip():
+            rprint(
+                f"[green]Using local model: "
+                f"{os.environ['DRYDOCK_LOCAL_MODEL']} at {args.local} "
+                f"(via DRYDOCK_LOCAL_MODEL env)[/]"
+            )
+        else:
+            model_name = None
+            try:
+                import httpx
+                for attempt in (1, 2):
+                    try:
+                        resp = httpx.get(f"{args.local}/models", timeout=15)
+                        if resp.status_code == 200:
+                            models = resp.json().get("data", [])
+                            if models and models[0].get("id"):
+                                model_name = models[0]["id"]
+                                break
+                    except Exception:
+                        if attempt == 2:
+                            raise
+            except Exception:
+                pass
+            if model_name:
+                os.environ["DRYDOCK_LOCAL_MODEL"] = model_name
+                rprint(f"[green]Using local model: {model_name} at {args.local}[/]")
+            else:
+                # Detection failed. Default to "gemma4" — drydock is
+                # optimized for Gemma 4 + llama.cpp per README, so this
+                # is the right fallback in the overwhelming common case.
+                # Loud warning lets the user override if they're running
+                # something else.
+                os.environ["DRYDOCK_LOCAL_MODEL"] = "gemma4"
+                rprint(
+                    f"[yellow]Couldn't detect model name at {args.local}; "
+                    f"defaulting to model=gemma4. Override with "
+                    f"DRYDOCK_LOCAL_MODEL=<name> if the server runs a "
+                    f"different model.[/]"
+                )
 
     is_interactive = args.prompt is None
     if is_interactive:

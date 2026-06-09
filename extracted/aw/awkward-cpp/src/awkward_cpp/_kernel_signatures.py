@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2026-02-08 AT 18:23:02
+# AUTO GENERATED ON 2026-06-08 AT 11:28:09
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -895,21 +895,21 @@ def by_signature(lib):
     out['awkward_ListOffsetArray_local_preparenext_64', int64, int64] = f
 
     f = lib.awkward_ListOffsetArray32_reduce_local_nextparents_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int32), c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int32), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in']
+    f.dir = ['out', 'in', 'in', 'in']
     out['awkward_ListOffsetArray_reduce_local_nextparents_64', int64, int32] = f
 
     f = lib.awkward_ListOffsetArray64_reduce_local_nextparents_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int64), c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in']
+    f.dir = ['out', 'in', 'in', 'in']
     out['awkward_ListOffsetArray_reduce_local_nextparents_64', int64, int64] = f
 
     f = lib.awkward_ListOffsetArrayU32_reduce_local_nextparents_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_uint32), c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_uint32), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in']
+    f.dir = ['out', 'in', 'in', 'in']
     out['awkward_ListOffsetArray_reduce_local_nextparents_64', int64, uint32] = f
 
     f = lib.awkward_ListOffsetArray_reduce_local_outoffsets_64
@@ -1663,148 +1663,148 @@ def by_signature(lib):
     out['awkward_missing_repeat', int64, int64] = f
 
     f = lib.awkward_reduce_argmax_int8_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int8), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int8), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmax', int64, int8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmax', int64, int8, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmax_int16_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int16), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int16), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmax', int64, int16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmax', int64, int16, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmax_int32_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int32), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int32), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmax', int64, int32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmax', int64, int32, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmax_int64_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmax', int64, int64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmax', int64, int64, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmax_uint8_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_uint8), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_uint8), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmax', int64, uint8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmax', int64, uint8, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmax_uint16_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_uint16), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_uint16), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmax', int64, uint16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmax', int64, uint16, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmax_uint32_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_uint32), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_uint32), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmax', int64, uint32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmax', int64, uint32, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmax_uint64_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_uint64), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_uint64), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmax', int64, uint64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmax', int64, uint64, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmax_float32_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_float), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_float), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmax', int64, float32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmax', int64, float32, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmax_float64_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_double), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmax', int64, float64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmax', int64, float64, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmax_complex64_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_float), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_float), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmax_complex', int64, float32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmax_complex', int64, float32, int64, int64] = f
 
     f = lib.awkward_reduce_argmax_complex128_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_double), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmax_complex', int64, float64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmax_complex', int64, float64, int64, int64] = f
 
     f = lib.awkward_reduce_argmin_int8_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int8), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int8), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmin', int64, int8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmin', int64, int8, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmin_int16_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int16), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int16), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmin', int64, int16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmin', int64, int16, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmin_int32_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int32), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int32), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmin', int64, int32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmin', int64, int32, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmin_int64_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmin', int64, int64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmin', int64, int64, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmin_uint8_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_uint8), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_uint8), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmin', int64, uint8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmin', int64, uint8, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmin_uint16_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_uint16), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_uint16), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmin', int64, uint16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmin', int64, uint16, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmin_uint32_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_uint32), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_uint32), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmin', int64, uint32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmin', int64, uint32, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmin_uint64_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_uint64), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_uint64), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmin', int64, uint64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmin', int64, uint64, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmin_float32_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_float), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_float), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmin', int64, float32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmin', int64, float32, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmin_float64_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_double), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, POINTER(c_int64), c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmin', int64, float64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmin', int64, float64, int64, int64, int64] = f
 
     f = lib.awkward_reduce_argmin_complex64_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_float), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_float), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmin_complex', int64, float32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmin_complex', int64, float32, int64, int64] = f
 
     f = lib.awkward_reduce_argmin_complex128_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_double), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_argmin_complex', int64, float64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_argmin_complex', int64, float64, int64, int64] = f
 
     f = lib.awkward_reduce_count_64
     f.argtypes = [POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
@@ -1891,532 +1891,532 @@ def by_signature(lib):
     out['awkward_reduce_countnonzero_complex', int64, float64, int64] = f
 
     f = lib.awkward_reduce_max_int8_int8_64
-    f.argtypes = [POINTER(c_int8), POINTER(c_int8), POINTER(c_int64), c_int64, c_int64, c_int8]
+    f.argtypes = [POINTER(c_int8), POINTER(c_int8), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_int8]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_max', int8, int8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_max', int8, int8, int64, int64] = f
 
     f = lib.awkward_reduce_max_int16_int16_64
-    f.argtypes = [POINTER(c_int16), POINTER(c_int16), POINTER(c_int64), c_int64, c_int64, c_int16]
+    f.argtypes = [POINTER(c_int16), POINTER(c_int16), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_int16]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_max', int16, int16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_max', int16, int16, int64, int64] = f
 
     f = lib.awkward_reduce_max_int32_int32_64
-    f.argtypes = [POINTER(c_int32), POINTER(c_int32), POINTER(c_int64), c_int64, c_int64, c_int32]
+    f.argtypes = [POINTER(c_int32), POINTER(c_int32), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_int32]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_max', int32, int32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_max', int32, int32, int64, int64] = f
 
     f = lib.awkward_reduce_max_int64_int64_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_max', int64, int64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_max', int64, int64, int64, int64] = f
 
     f = lib.awkward_reduce_max_uint8_uint8_64
-    f.argtypes = [POINTER(c_uint8), POINTER(c_uint8), POINTER(c_int64), c_int64, c_int64, c_uint8]
+    f.argtypes = [POINTER(c_uint8), POINTER(c_uint8), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_uint8]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_max', uint8, uint8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_max', uint8, uint8, int64, int64] = f
 
     f = lib.awkward_reduce_max_uint16_uint16_64
-    f.argtypes = [POINTER(c_uint16), POINTER(c_uint16), POINTER(c_int64), c_int64, c_int64, c_uint16]
+    f.argtypes = [POINTER(c_uint16), POINTER(c_uint16), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_uint16]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_max', uint16, uint16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_max', uint16, uint16, int64, int64] = f
 
     f = lib.awkward_reduce_max_uint32_uint32_64
-    f.argtypes = [POINTER(c_uint32), POINTER(c_uint32), POINTER(c_int64), c_int64, c_int64, c_uint32]
+    f.argtypes = [POINTER(c_uint32), POINTER(c_uint32), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_uint32]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_max', uint32, uint32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_max', uint32, uint32, int64, int64] = f
 
     f = lib.awkward_reduce_max_uint64_uint64_64
-    f.argtypes = [POINTER(c_uint64), POINTER(c_uint64), POINTER(c_int64), c_int64, c_int64, c_uint64]
+    f.argtypes = [POINTER(c_uint64), POINTER(c_uint64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_uint64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_max', uint64, uint64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_max', uint64, uint64, int64, int64] = f
 
     f = lib.awkward_reduce_max_float32_float32_64
-    f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), c_int64, c_int64, c_float]
+    f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_float]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_max', float32, float32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_max', float32, float32, int64, int64] = f
 
     f = lib.awkward_reduce_max_float64_float64_64
-    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), c_int64, c_int64, c_double]
+    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_double]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_max', float64, float64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_max', float64, float64, int64, int64] = f
 
     f = lib.awkward_reduce_max_complex64_complex64_64
-    f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), c_int64, c_int64, c_float]
+    f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_float]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_max_complex', float32, float32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_max_complex', float32, float32, int64, int64] = f
 
     f = lib.awkward_reduce_max_complex128_complex128_64
-    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), c_int64, c_int64, c_double]
+    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_double]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_max_complex', float64, float64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_max_complex', float64, float64, int64, int64] = f
 
     f = lib.awkward_reduce_min_int8_int8_64
-    f.argtypes = [POINTER(c_int8), POINTER(c_int8), POINTER(c_int64), c_int64, c_int64, c_int8]
+    f.argtypes = [POINTER(c_int8), POINTER(c_int8), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_int8]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_min', int8, int8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_min', int8, int8, int64, int64] = f
 
     f = lib.awkward_reduce_min_int16_int16_64
-    f.argtypes = [POINTER(c_int16), POINTER(c_int16), POINTER(c_int64), c_int64, c_int64, c_int16]
+    f.argtypes = [POINTER(c_int16), POINTER(c_int16), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_int16]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_min', int16, int16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_min', int16, int16, int64, int64] = f
 
     f = lib.awkward_reduce_min_int32_int32_64
-    f.argtypes = [POINTER(c_int32), POINTER(c_int32), POINTER(c_int64), c_int64, c_int64, c_int32]
+    f.argtypes = [POINTER(c_int32), POINTER(c_int32), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_int32]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_min', int32, int32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_min', int32, int32, int64, int64] = f
 
     f = lib.awkward_reduce_min_int64_int64_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_min', int64, int64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_min', int64, int64, int64, int64] = f
 
     f = lib.awkward_reduce_min_uint8_uint8_64
-    f.argtypes = [POINTER(c_uint8), POINTER(c_uint8), POINTER(c_int64), c_int64, c_int64, c_uint8]
+    f.argtypes = [POINTER(c_uint8), POINTER(c_uint8), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_uint8]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_min', uint8, uint8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_min', uint8, uint8, int64, int64] = f
 
     f = lib.awkward_reduce_min_uint16_uint16_64
-    f.argtypes = [POINTER(c_uint16), POINTER(c_uint16), POINTER(c_int64), c_int64, c_int64, c_uint16]
+    f.argtypes = [POINTER(c_uint16), POINTER(c_uint16), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_uint16]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_min', uint16, uint16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_min', uint16, uint16, int64, int64] = f
 
     f = lib.awkward_reduce_min_uint32_uint32_64
-    f.argtypes = [POINTER(c_uint32), POINTER(c_uint32), POINTER(c_int64), c_int64, c_int64, c_uint32]
+    f.argtypes = [POINTER(c_uint32), POINTER(c_uint32), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_uint32]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_min', uint32, uint32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_min', uint32, uint32, int64, int64] = f
 
     f = lib.awkward_reduce_min_uint64_uint64_64
-    f.argtypes = [POINTER(c_uint64), POINTER(c_uint64), POINTER(c_int64), c_int64, c_int64, c_uint64]
+    f.argtypes = [POINTER(c_uint64), POINTER(c_uint64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_uint64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_min', uint64, uint64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_min', uint64, uint64, int64, int64] = f
 
     f = lib.awkward_reduce_min_float32_float32_64
-    f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), c_int64, c_int64, c_float]
+    f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_float]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_min', float32, float32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_min', float32, float32, int64, int64] = f
 
     f = lib.awkward_reduce_min_float64_float64_64
-    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), c_int64, c_int64, c_double]
+    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_double]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_min', float64, float64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_min', float64, float64, int64, int64] = f
 
     f = lib.awkward_reduce_min_complex64_complex64_64
-    f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), c_int64, c_int64, c_float]
+    f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_float]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_min_complex', float32, float32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_min_complex', float32, float32, int64, int64] = f
 
     f = lib.awkward_reduce_min_complex128_complex128_64
-    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), c_int64, c_int64, c_double]
+    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64, c_double]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_min_complex', float64, float64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_min_complex', float64, float64, int64, int64] = f
 
     f = lib.awkward_reduce_prod_int32_int8_64
-    f.argtypes = [POINTER(c_int32), POINTER(c_int8), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int32), POINTER(c_int8), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod', int32, int8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod', int32, int8, int64, int64] = f
 
     f = lib.awkward_reduce_prod_int32_int16_64
-    f.argtypes = [POINTER(c_int32), POINTER(c_int16), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int32), POINTER(c_int16), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod', int32, int16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod', int32, int16, int64, int64] = f
 
     f = lib.awkward_reduce_prod_int32_int32_64
-    f.argtypes = [POINTER(c_int32), POINTER(c_int32), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int32), POINTER(c_int32), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod', int32, int32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod', int32, int32, int64, int64] = f
 
     f = lib.awkward_reduce_prod_int64_int8_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int8), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int8), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod', int64, int8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod', int64, int8, int64, int64] = f
 
     f = lib.awkward_reduce_prod_int64_int16_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int16), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int16), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod', int64, int16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod', int64, int16, int64, int64] = f
 
     f = lib.awkward_reduce_prod_int64_int32_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int32), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int32), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod', int64, int32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod', int64, int32, int64, int64] = f
 
     f = lib.awkward_reduce_prod_int64_int64_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod', int64, int64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod', int64, int64, int64, int64] = f
 
     f = lib.awkward_reduce_prod_uint32_uint8_64
-    f.argtypes = [POINTER(c_uint32), POINTER(c_uint8), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_uint32), POINTER(c_uint8), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod', uint32, uint8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod', uint32, uint8, int64, int64] = f
 
     f = lib.awkward_reduce_prod_uint32_uint16_64
-    f.argtypes = [POINTER(c_uint32), POINTER(c_uint16), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_uint32), POINTER(c_uint16), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod', uint32, uint16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod', uint32, uint16, int64, int64] = f
 
     f = lib.awkward_reduce_prod_uint32_uint32_64
-    f.argtypes = [POINTER(c_uint32), POINTER(c_uint32), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_uint32), POINTER(c_uint32), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod', uint32, uint32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod', uint32, uint32, int64, int64] = f
 
     f = lib.awkward_reduce_prod_uint64_uint8_64
-    f.argtypes = [POINTER(c_uint64), POINTER(c_uint8), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_uint64), POINTER(c_uint8), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod', uint64, uint8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod', uint64, uint8, int64, int64] = f
 
     f = lib.awkward_reduce_prod_uint64_uint16_64
-    f.argtypes = [POINTER(c_uint64), POINTER(c_uint16), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_uint64), POINTER(c_uint16), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod', uint64, uint16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod', uint64, uint16, int64, int64] = f
 
     f = lib.awkward_reduce_prod_uint64_uint32_64
-    f.argtypes = [POINTER(c_uint64), POINTER(c_uint32), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_uint64), POINTER(c_uint32), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod', uint64, uint32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod', uint64, uint32, int64, int64] = f
 
     f = lib.awkward_reduce_prod_uint64_uint64_64
-    f.argtypes = [POINTER(c_uint64), POINTER(c_uint64), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_uint64), POINTER(c_uint64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod', uint64, uint64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod', uint64, uint64, int64, int64] = f
 
     f = lib.awkward_reduce_prod_float32_float32_64
-    f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod', float32, float32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod', float32, float32, int64, int64] = f
 
     f = lib.awkward_reduce_prod_float64_float64_64
-    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod', float64, float64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod', float64, float64, int64, int64] = f
 
     f = lib.awkward_reduce_prod_complex64_complex64_64
-    f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod_complex', float32, float32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod_complex', float32, float32, int64, int64] = f
 
     f = lib.awkward_reduce_prod_complex128_complex128_64
-    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod_complex', float64, float64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod_complex', float64, float64, int64, int64] = f
 
     f = lib.awkward_reduce_prod_bool_bool_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_bool), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_bool), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod_bool', bool_, bool_, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod_bool', bool_, bool_, int64, int64] = f
 
     f = lib.awkward_reduce_prod_bool_int8_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_int8), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_int8), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod_bool', bool_, int8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod_bool', bool_, int8, int64, int64] = f
 
     f = lib.awkward_reduce_prod_bool_int16_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_int16), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_int16), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod_bool', bool_, int16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod_bool', bool_, int16, int64, int64] = f
 
     f = lib.awkward_reduce_prod_bool_int32_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_int32), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_int32), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod_bool', bool_, int32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod_bool', bool_, int32, int64, int64] = f
 
     f = lib.awkward_reduce_prod_bool_int64_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod_bool', bool_, int64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod_bool', bool_, int64, int64, int64] = f
 
     f = lib.awkward_reduce_prod_bool_uint8_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_uint8), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_uint8), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod_bool', bool_, uint8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod_bool', bool_, uint8, int64, int64] = f
 
     f = lib.awkward_reduce_prod_bool_uint16_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_uint16), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_uint16), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod_bool', bool_, uint16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod_bool', bool_, uint16, int64, int64] = f
 
     f = lib.awkward_reduce_prod_bool_uint32_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_uint32), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_uint32), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod_bool', bool_, uint32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod_bool', bool_, uint32, int64, int64] = f
 
     f = lib.awkward_reduce_prod_bool_uint64_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_uint64), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_uint64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod_bool', bool_, uint64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod_bool', bool_, uint64, int64, int64] = f
 
     f = lib.awkward_reduce_prod_bool_float32_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_float), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_float), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod_bool', bool_, float32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod_bool', bool_, float32, int64, int64] = f
 
     f = lib.awkward_reduce_prod_bool_float64_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_double), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod_bool', bool_, float64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod_bool', bool_, float64, int64, int64] = f
 
     f = lib.awkward_reduce_prod_bool_complex64_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_float), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_float), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod_bool_complex', bool_, float32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod_bool_complex', bool_, float32, int64, int64] = f
 
     f = lib.awkward_reduce_prod_bool_complex128_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_double), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_prod_bool_complex', bool_, float64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_prod_bool_complex', bool_, float64, int64, int64] = f
 
     f = lib.awkward_reduce_sum_int32_int8_64
-    f.argtypes = [POINTER(c_int32), POINTER(c_int8), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int32), POINTER(c_int8), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum', int32, int8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum', int32, int8, int64, int64] = f
 
     f = lib.awkward_reduce_sum_int32_int16_64
-    f.argtypes = [POINTER(c_int32), POINTER(c_int16), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int32), POINTER(c_int16), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum', int32, int16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum', int32, int16, int64, int64] = f
 
     f = lib.awkward_reduce_sum_int32_int32_64
-    f.argtypes = [POINTER(c_int32), POINTER(c_int32), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int32), POINTER(c_int32), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum', int32, int32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum', int32, int32, int64, int64] = f
 
     f = lib.awkward_reduce_sum_int64_int8_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int8), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int8), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum', int64, int8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum', int64, int8, int64, int64] = f
 
     f = lib.awkward_reduce_sum_int64_int16_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int16), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int16), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum', int64, int16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum', int64, int16, int64, int64] = f
 
     f = lib.awkward_reduce_sum_int64_int32_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int32), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int32), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum', int64, int32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum', int64, int32, int64, int64] = f
 
     f = lib.awkward_reduce_sum_int64_int64_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum', int64, int64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum', int64, int64, int64, int64] = f
 
     f = lib.awkward_reduce_sum_uint32_uint8_64
-    f.argtypes = [POINTER(c_uint32), POINTER(c_uint8), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_uint32), POINTER(c_uint8), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum', uint32, uint8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum', uint32, uint8, int64, int64] = f
 
     f = lib.awkward_reduce_sum_uint32_uint16_64
-    f.argtypes = [POINTER(c_uint32), POINTER(c_uint16), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_uint32), POINTER(c_uint16), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum', uint32, uint16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum', uint32, uint16, int64, int64] = f
 
     f = lib.awkward_reduce_sum_uint32_uint32_64
-    f.argtypes = [POINTER(c_uint32), POINTER(c_uint32), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_uint32), POINTER(c_uint32), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum', uint32, uint32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum', uint32, uint32, int64, int64] = f
 
     f = lib.awkward_reduce_sum_uint64_uint8_64
-    f.argtypes = [POINTER(c_uint64), POINTER(c_uint8), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_uint64), POINTER(c_uint8), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum', uint64, uint8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum', uint64, uint8, int64, int64] = f
 
     f = lib.awkward_reduce_sum_uint64_uint16_64
-    f.argtypes = [POINTER(c_uint64), POINTER(c_uint16), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_uint64), POINTER(c_uint16), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum', uint64, uint16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum', uint64, uint16, int64, int64] = f
 
     f = lib.awkward_reduce_sum_uint64_uint32_64
-    f.argtypes = [POINTER(c_uint64), POINTER(c_uint32), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_uint64), POINTER(c_uint32), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum', uint64, uint32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum', uint64, uint32, int64, int64] = f
 
     f = lib.awkward_reduce_sum_uint64_uint64_64
-    f.argtypes = [POINTER(c_uint64), POINTER(c_uint64), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_uint64), POINTER(c_uint64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum', uint64, uint64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum', uint64, uint64, int64, int64] = f
 
     f = lib.awkward_reduce_sum_float32_float32_64
-    f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum', float32, float32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum', float32, float32, int64, int64] = f
 
     f = lib.awkward_reduce_sum_float64_float64_64
-    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum', float64, float64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum', float64, float64, int64, int64] = f
 
     f = lib.awkward_reduce_sum_complex64_complex64_64
-    f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_float), POINTER(c_float), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_complex', float32, float32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_complex', float32, float32, int64, int64] = f
 
     f = lib.awkward_reduce_sum_complex128_complex128_64
-    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_double), POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_complex', float64, float64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_complex', float64, float64, int64, int64] = f
 
     f = lib.awkward_reduce_sum_bool_bool_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_bool), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_bool), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_bool', bool_, bool_, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_bool', bool_, bool_, int64, int64] = f
 
     f = lib.awkward_reduce_sum_bool_int8_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_int8), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_int8), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_bool', bool_, int8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_bool', bool_, int8, int64, int64] = f
 
     f = lib.awkward_reduce_sum_bool_int16_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_int16), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_int16), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_bool', bool_, int16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_bool', bool_, int16, int64, int64] = f
 
     f = lib.awkward_reduce_sum_bool_int32_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_int32), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_int32), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_bool', bool_, int32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_bool', bool_, int32, int64, int64] = f
 
     f = lib.awkward_reduce_sum_bool_int64_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_int64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_bool', bool_, int64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_bool', bool_, int64, int64, int64] = f
 
     f = lib.awkward_reduce_sum_bool_uint8_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_uint8), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_uint8), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_bool', bool_, uint8, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_bool', bool_, uint8, int64, int64] = f
 
     f = lib.awkward_reduce_sum_bool_uint16_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_uint16), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_uint16), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_bool', bool_, uint16, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_bool', bool_, uint16, int64, int64] = f
 
     f = lib.awkward_reduce_sum_bool_uint32_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_uint32), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_uint32), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_bool', bool_, uint32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_bool', bool_, uint32, int64, int64] = f
 
     f = lib.awkward_reduce_sum_bool_uint64_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_uint64), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_uint64), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_bool', bool_, uint64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_bool', bool_, uint64, int64, int64] = f
 
     f = lib.awkward_reduce_sum_bool_float32_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_float), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_float), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_bool', bool_, float32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_bool', bool_, float32, int64, int64] = f
 
     f = lib.awkward_reduce_sum_bool_float64_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_double), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_bool', bool_, float64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_bool', bool_, float64, int64, int64] = f
 
     f = lib.awkward_reduce_sum_bool_complex64_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_float), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_float), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_bool_complex', bool_, float32, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_bool_complex', bool_, float32, int64, int64] = f
 
     f = lib.awkward_reduce_sum_bool_complex128_64
-    f.argtypes = [POINTER(c_bool), POINTER(c_double), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_bool), POINTER(c_double), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_bool_complex', bool_, float64, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_bool_complex', bool_, float64, int64, int64] = f
 
     f = lib.awkward_reduce_sum_int32_bool_64
-    f.argtypes = [POINTER(c_int32), POINTER(c_bool), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int32), POINTER(c_bool), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_int32_bool_64', int32, bool_, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_int32_bool_64', int32, bool_, int64, int64] = f
 
     f = lib.awkward_reduce_sum_int64_bool_64
-    f.argtypes = [POINTER(c_int64), POINTER(c_bool), POINTER(c_int64), c_int64, c_int64]
+    f.argtypes = [POINTER(c_int64), POINTER(c_bool), POINTER(c_int64), POINTER(c_int64), c_int64, c_int64]
     f.restype = ERROR
-    f.dir = ['out', 'in', 'in', 'in', 'in']
-    out['awkward_reduce_sum_int64_bool_64', int64, bool_, int64] = f
+    f.dir = ['out', 'in', 'in', 'in', 'in', 'in']
+    out['awkward_reduce_sum_int64_bool_64', int64, bool_, int64, int64] = f
 
     f = lib.awkward_sort_bool
     f.argtypes = [POINTER(c_bool), POINTER(c_bool), c_int64, POINTER(c_int64), c_int64, c_int64, c_bool, c_bool]

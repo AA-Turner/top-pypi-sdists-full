@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2010 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -13,3 +12,7 @@ from slixmpp.plugins.xep_0258.security_labels import XEP_0258
 
 
 register_plugin(XEP_0258)
+
+__all__ = ['stanza', 'SecurityLabel', 'Label', 'DisplayMarking',
+           'EquivalentLabel', 'ESSLabel', 'Catalog', 'CatalogItem',
+           'XEP_0258']

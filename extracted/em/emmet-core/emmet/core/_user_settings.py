@@ -12,6 +12,8 @@ class UserSettings(BaseModel):
     is_email_subscribed: bool = False
     message_last_read: DateTimeType
     agreed_terms: bool = False
+    render_legacy_id: bool = True
+    is_dev_env: bool = False
 
 
 class UserSettingsDoc(BaseModel):

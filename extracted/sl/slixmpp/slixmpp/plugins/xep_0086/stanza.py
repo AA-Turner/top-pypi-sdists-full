@@ -4,7 +4,7 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 from slixmpp.stanza import Error
-from slixmpp.xmlstream import ElementBase, ET, register_stanza_plugin
+from slixmpp.xmlstream import ElementBase, ET
 
 
 class LegacyError(ElementBase):

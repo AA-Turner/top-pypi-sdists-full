@@ -61,6 +61,8 @@ optional = true
 [dependency-groups]
 lint = [
     "mypy>=1.14.1",
+    "prek>=0.3.13",
+    "ruff>=0.15.12",
     "typos>=1.39.2",
 ]
 
@@ -69,3 +71,6 @@ docs = [
     "sphinx-autodoc-typehints",
     "furo"
 ]
+
+[tool.ruff.lint]
+extend-select = ["I", "UP", "ANN", "RUF", "SIM"]

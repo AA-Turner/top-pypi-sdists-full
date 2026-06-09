@@ -1,19 +1,17 @@
 import os
 
-from pymatgen.core.structure import Structure
 import pytest
+from emmet.core.io.pymatgen import Structure
 
 from emmet.api.core.settings import MAPISettings
-from emmet.api.query_operator import MultiTaskIDQuery
+from emmet.api.query_operator import DeprecationQuery, MultiMaterialIDQuery
 from emmet.api.routes.materials.materials.query_operators import (
     BlessedCalcsQuery,
     ChemsysQuery,
-    DeprecationQuery,
     ElementsQuery,
     FindStructureQuery,
     FormulaAutoCompleteQuery,
     FormulaQuery,
-    MultiMaterialIDQuery,
     SymmetryQuery,
 )
 from emmet.core.symmetry import CrystalSystem, _get_space_group_symbol_to_number_mapping
@@ -182,20 +180,15 @@ def test_symmetry_query():
         )
 
 
-def test_multi_task_id_query():
-    op = MultiTaskIDQuery()
-    assert op.query(task_ids="mp-149, mp-13") == {
-        "criteria": {"task_ids": {"$in": ["mp-149", "mp-13"]}}
-    }
-
-
 def test_multi_material_id_query():
     op = MultiMaterialIDQuery()
     assert op.query(material_ids="mp-149, mp-13") == {
-        "criteria": {"material_id": {"$in": ["mp-149", "mp-13"]}}
+        "criteria": {"material_id": {"$in": ["mp-aaaaaaft", "mp-aaaaaaan"]}}
     }
 
-    assert op.query(material_ids="mp-149") == {"criteria": {"material_id": "mp-149"}}
+    assert op.query(material_ids="mp-149") == {
+        "criteria": {"material_id": {"$in": ["mp-aaaaaaft"]}}
+    }
 
 
 def test_find_structure_query():

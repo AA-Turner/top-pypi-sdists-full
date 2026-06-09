@@ -40,6 +40,8 @@ class ListMeetingsRequestTypedDict(TypedDict):
     r"""Include the action items for each meeting."""
     include_crm_matches: NotRequired[bool]
     r"""Include CRM matches for each meeting. Only returns data from your or your team's linked CRM."""
+    include_highlights: NotRequired[bool]
+    r"""Include the highlights for each meeting."""
     include_summary: NotRequired[bool]
     r"""Include the summary for each meeting. Unavailable for OAuth connected apps (use /recordings instead)."""
     include_transcript: NotRequired[bool]
@@ -120,6 +122,12 @@ class ListMeetingsRequest(BaseModel):
         FieldMetadata(query=QueryParamMetadata(style="form", explode=True)),
     ] = False
     r"""Include CRM matches for each meeting. Only returns data from your or your team's linked CRM."""
+
+    include_highlights: Annotated[
+        Optional[bool],
+        FieldMetadata(query=QueryParamMetadata(style="form", explode=True)),
+    ] = False
+    r"""Include the highlights for each meeting."""
 
     include_summary: Annotated[
         Optional[bool],

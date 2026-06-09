@@ -313,8 +313,8 @@ def validate_version_and_progressive_rollout_configuration(
     """Validate version vs progressive rollout configuration.
 
     RC versions (`-rc.N`) require `enableProgressiveRollout` to be set.
-    GA versions with `enableProgressiveRollout` are gated behind the
-    `ALLOW_GA_PROGRESSIVE_ROLLOUT` flag (default `False`).
+    GA versions with `enableProgressiveRollout` are allowed once the
+    `ALLOW_GA_PROGRESSIVE_ROLLOUT` flag is enabled.
     """
     # Bypass validation for pre-releases
     if _validator_opts and _validator_opts.prerelease_tag:
@@ -348,11 +348,6 @@ def validate_version_and_progressive_rollout_configuration(
                 "The dockerImageTag field has an -rc.<RC #> suffix but the connector is not set to use progressive rollout (releases.rolloutConfiguration.enableProgressiveRollout).",
             )
 
-        # GA versions with enableProgressiveRollout=true are gated behind
-        # the ALLOW_GA_PROGRESSIVE_ROLLOUT flag.  When the flag is False
-        # (the default), the pre-#623 behaviour is preserved: only RC
-        # versions may set this field.
-        # Tracking issue: https://github.com/airbytehq/airbyte-ops-mcp/issues/646
         if (
             not ALLOW_GA_PROGRESSIVE_ROLLOUT
             and enabled_progressive_rollout is True

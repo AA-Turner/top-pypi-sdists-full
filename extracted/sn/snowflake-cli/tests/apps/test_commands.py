@@ -30,6 +30,7 @@ from snowflake.cli._plugins.apps.manager import (
     _object_exists,
     _poll_until,
     _resolve_entity_id,
+    _ts,
     app_fqn,
     perform_bundle,
 )
@@ -51,6 +52,14 @@ FETCH_SNOW_APPS_PARAMS = (
     "snowflake.cli._plugins.apps.manager.SnowflakeAppManager"
     ".fetch_snow_apps_parameters"
 )
+CURRENT_ROLE = "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.current_role"
+GET_MISSING_PRIVILEGES = (
+    "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.get_missing_privileges"
+)
+GET_PERSONAL_DATABASE = (
+    "snowflake.cli._plugins.apps.manager.SnowflakeAppManager.get_personal_database"
+)
+MANAGER_CLI_CONSOLE = "snowflake.cli._plugins.apps.manager.cli_console"
 
 
 _SNOWFLAKE_APP_YML = """definition_version: '2'
@@ -193,6 +202,22 @@ class TestGetEntity:
     def test_raises_when_not_found(self, _):
         with pytest.raises(CliError, match="Entity 'my_app' not found"):
             _get_entity("my_app")
+
+
+# ── _ts tests ─────────────────────────────────────────────────────────
+
+
+class TestTs:
+    """Tests for the _ts() timestamp helper used in polling messages."""
+
+    @patch("snowflake.cli._plugins.apps.manager.time.strftime", return_value="12:34:56")
+    def test_returns_formatted_time(self, mock_strftime):
+        assert _ts() == "12:34:56"
+        mock_strftime.assert_called_once_with("%H:%M:%S")
+
+    @patch("snowflake.cli._plugins.apps.manager.time.strftime", return_value="00:00:00")
+    def test_midnight_format(self, mock_strftime):
+        assert _ts() == "00:00:00"
 
 
 # ── _poll_until tests ─────────────────────────────────────────────────
@@ -392,6 +417,38 @@ class TestPollUntilOnPoll:
         )
         assert mock_sleep.call_count == 2
         mock_sleep.assert_called_with(3)
+
+
+class TestPollUntilStatusMessage:
+    """Verify the per-iteration status step includes a ``[HH:MM:SS]`` prefix."""
+
+    @patch("snowflake.cli._plugins.apps.manager.cli_console")
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    @patch("snowflake.cli._plugins.apps.manager.time.strftime", return_value="10:00:00")
+    def test_status_step_includes_timestamp(self, _mock_strftime, _mock_sleep, mock_cc):
+        _poll_until(
+            poll_fn=lambda: "DONE",
+            done_states={"DONE"},
+            error_states={"FAILED"},
+            known_pending_states={"PENDING"},
+            timeout_message="timed out",
+        )
+        mock_cc.step.assert_called_once_with("[10:00:00] Status: DONE")
+
+    @patch("snowflake.cli._plugins.apps.manager.cli_console")
+    @patch("snowflake.cli._plugins.apps.manager.time.sleep")
+    @patch("snowflake.cli._plugins.apps.manager.time.strftime", return_value="23:59:59")
+    def test_status_step_timestamp_format(self, _mock_strftime, _mock_sleep, mock_cc):
+        """Status line uses [HH:MM:SS] bracket format."""
+        _poll_until(
+            poll_fn=lambda: "DONE",
+            done_states={"DONE"},
+            error_states={"FAILED"},
+            known_pending_states={"PENDING"},
+            timeout_message="timed out",
+        )
+        step_arg = mock_cc.step.call_args[0][0]
+        assert step_arg.startswith("[23:59:59] Status: ")
 
 
 # ── Build log streamer tests ──────────────────────────────────────────
@@ -709,8 +766,8 @@ class TestGenerateSnowflakeYml:
 
 
 class TestSnowflakeAppManagerQuerySpinner:
-    def test_execute_query_wraps_query_with_spinner(self):
-        manager = SnowflakeAppManager()
+    def test_execute_query_wraps_query_with_spinner_when_interactive(self):
+        manager = SnowflakeAppManager(interactive=True)
         with patch(
             "snowflake.cli._plugins.apps.manager.cli_console.spinner"
         ) as mock_spinner, patch(
@@ -729,6 +786,45 @@ class TestSnowflakeAppManagerQuerySpinner:
                 description="",
                 total=None,
             )
+            mock_super_execute.assert_called_once_with(
+                "SELECT 1", cursor_class=DictCursor
+            )
+
+    def test_execute_query_skips_spinner_when_non_interactive(self):
+        manager = SnowflakeAppManager(interactive=False)
+        with patch(
+            "snowflake.cli._plugins.apps.manager.cli_console.spinner"
+        ) as mock_spinner, patch(
+            "snowflake.cli.api.sql_execution.BaseSqlExecutor.execute_query"
+        ) as mock_super_execute:
+            cursor = Mock()
+            mock_super_execute.return_value = cursor
+
+            result = manager.execute_query("SELECT 1", cursor_class=DictCursor)
+
+            assert result is cursor
+            mock_spinner.assert_not_called()
+            mock_super_execute.assert_called_once_with(
+                "SELECT 1", cursor_class=DictCursor
+            )
+
+    def test_execute_query_falls_back_to_tty_detection_when_unset(self):
+        manager = SnowflakeAppManager()
+        with patch(
+            "snowflake.cli._plugins.apps.manager.is_tty_interactive",
+            return_value=False,
+        ), patch(
+            "snowflake.cli._plugins.apps.manager.cli_console.spinner"
+        ) as mock_spinner, patch(
+            "snowflake.cli.api.sql_execution.BaseSqlExecutor.execute_query"
+        ) as mock_super_execute:
+            cursor = Mock()
+            mock_super_execute.return_value = cursor
+
+            result = manager.execute_query("SELECT 1", cursor_class=DictCursor)
+
+            assert result is cursor
+            mock_spinner.assert_not_called()
             mock_super_execute.assert_called_once_with(
                 "SELECT 1", cursor_class=DictCursor
             )
@@ -787,6 +883,97 @@ class TestSchemaExists:
         mock_execute.return_value = cursor
 
         assert SnowflakeAppManager().schema_exists("MY_DB", "NO_SUCH") is False
+
+
+class TestCurrentRole:
+    @patch(EXECUTE_QUERY)
+    def test_returns_role(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ("ENGINEER",)
+        mock_execute.return_value = cursor
+
+        assert SnowflakeAppManager().current_role() == "ENGINEER"
+        assert mock_execute.call_args[0][0] == "SELECT CURRENT_ROLE()"
+
+    @patch(EXECUTE_QUERY)
+    def test_returns_none_when_unset(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = (None,)
+        mock_execute.return_value = cursor
+
+        assert SnowflakeAppManager().current_role() is None
+
+    @patch(EXECUTE_QUERY, side_effect=ProgrammingError("boom"))
+    def test_returns_none_on_error(self, mock_execute):
+        assert SnowflakeAppManager().current_role() is None
+
+
+class TestGetMissingPrivileges:
+    @patch(EXECUTE_QUERY)
+    def test_authorized_returns_empty(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ('{"authorized": true}',)
+        mock_execute.return_value = cursor
+
+        result = SnowflakeAppManager().get_missing_privileges(
+            "CREATE STAGE APPS.PUBLIC.x", "ENGINEER"
+        )
+        assert result == []
+        query = mock_execute.call_args[0][0]
+        assert "CALL EXPLAIN_PRIVILEGES(" in query
+        assert "statement => 'CREATE STAGE APPS.PUBLIC.x'" in query
+        assert "missing_only => true" in query
+        assert "for_role => 'ENGINEER'" in query
+
+    @patch(EXECUTE_QUERY)
+    def test_returns_flattened_missing_nodes(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = (
+            '{"allOf": [{"privilege": "USAGE", "objectType": "DATABASE", '
+            '"objectName": "APPS"}]}',
+        )
+        mock_execute.return_value = cursor
+
+        result = SnowflakeAppManager().get_missing_privileges(
+            "CREATE STAGE APPS.PUBLIC.x", "ENGINEER"
+        )
+        assert result == [
+            {"privilege": "USAGE", "objectType": "DATABASE", "objectName": "APPS"}
+        ]
+
+    @patch(EXECUTE_QUERY)
+    def test_omits_for_role_when_role_is_none(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ('{"authorized": true}',)
+        mock_execute.return_value = cursor
+
+        SnowflakeAppManager().get_missing_privileges("CREATE STAGE APPS.PUBLIC.x")
+        query = mock_execute.call_args[0][0]
+        assert "for_role" not in query
+
+    @patch(EXECUTE_QUERY)
+    def test_escapes_statement(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = ('{"authorized": true}',)
+        mock_execute.return_value = cursor
+
+        SnowflakeAppManager().get_missing_privileges(
+            'CREATE STAGE "USER$x".PUBLIC.y', "ENGINEER"
+        )
+        query = mock_execute.call_args[0][0]
+        # Quoted personal-database identifiers survive inside the SQL literal.
+        assert '"USER$x".PUBLIC.y' in query
+
+    @patch(EXECUTE_QUERY)
+    def test_empty_response_returns_empty(self, mock_execute):
+        cursor = Mock()
+        cursor.fetchone.return_value = None
+        mock_execute.return_value = cursor
+
+        assert (
+            SnowflakeAppManager().get_missing_privileges("CREATE STAGE A.B.C", "R")
+            == []
+        )
 
 
 class TestAppFqn:
@@ -1337,18 +1524,6 @@ class TestSnowflakeAppManager:
         assert "TO VERSION LATEST" in upgrade_query
 
     @patch(EXECUTE_QUERY)
-    def test_get_app_service_logs(self, mock_execute):
-        cursor = Mock()
-        cursor.fetchone.return_value = ("log output here",)
-        mock_execute.return_value = cursor
-
-        result = SnowflakeAppManager().get_app_service_logs("my_app")
-        assert result == "log output here"
-        mock_execute.assert_called_once_with(
-            "CALL SYSTEM$GET_APPLICATION_SERVICE_LOGS('my_app')"
-        )
-
-    @patch(EXECUTE_QUERY)
     def test_describe_app_service_normalises_keys(self, mock_execute):
         cursor = Mock()
         cursor.fetchone.return_value = {
@@ -1605,6 +1780,195 @@ class TestSnowflakeAppManager:
         fqn = FQN(database="DB", schema="SCHEMA", name="MY_APP")
         logs = SnowflakeAppManager().get_service_logs(fqn)
         assert logs == ""
+
+    @staticmethod
+    def _build_show_containers_cursor(rows):
+        cursor = Mock()
+        cursor.__iter__ = Mock(return_value=iter(rows))
+        return cursor
+
+    @staticmethod
+    def _build_logs_cursor(value):
+        cursor = Mock()
+        cursor.fetchone.return_value = value
+        return cursor
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs(self, mock_execute):
+        show_cursor = self._build_show_containers_cursor(
+            [{"instance_id": 0, "container_name": "builder"}]
+        )
+        logs_cursor = self._build_logs_cursor(("step 1\nstep 2\nstep 3",))
+        mock_execute.side_effect = [show_cursor, logs_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == ["step 1", "step 2", "step 3"]
+
+        assert mock_execute.call_count == 2
+        show_call = mock_execute.call_args_list[0]
+        assert (
+            show_call.args[0]
+            == "SHOW SERVICE CONTAINERS IN SERVICE DB.SCHEMA.BUILD_JOB"
+        )
+        assert show_call.kwargs["cursor_class"] is DictCursor
+        assert mock_execute.call_args_list[1].args[0] == (
+            "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.BUILD_JOB', '0', 'builder', 500)"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_custom_last(self, mock_execute):
+        show_cursor = self._build_show_containers_cursor(
+            [{"instance_id": 0, "container_name": "builder"}]
+        )
+        logs_cursor = self._build_logs_cursor(("step 1",))
+        mock_execute.side_effect = [show_cursor, logs_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn, last=100)
+        assert logs == ["step 1"]
+        assert mock_execute.call_args_list[1].args[0] == (
+            "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.BUILD_JOB', '0', 'builder', 100)"
+        )
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_empty_result(self, mock_execute):
+        show_cursor = self._build_show_containers_cursor(
+            [{"instance_id": 0, "container_name": "builder"}]
+        )
+        logs_cursor = self._build_logs_cursor(None)
+        mock_execute.side_effect = [show_cursor, logs_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == []
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_blank_lines_skipped(self, mock_execute):
+        show_cursor = self._build_show_containers_cursor(
+            [{"instance_id": 0, "container_name": "builder"}]
+        )
+        logs_cursor = self._build_logs_cursor(("step 1\n\nstep 2\n",))
+        mock_execute.side_effect = [show_cursor, logs_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == ["step 1", "step 2"]
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_no_running_containers(self, mock_execute):
+        # SUSPENDED/PENDING service reports no usable containers.
+        show_cursor = self._build_show_containers_cursor([])
+        mock_execute.side_effect = [show_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == []
+        # No SYSTEM$GET_SERVICE_LOGS call when there is no container.
+        mock_execute.assert_called_once()
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_skips_null_container_rows(self, mock_execute):
+        show_cursor = self._build_show_containers_cursor(
+            [{"instance_id": None, "container_name": None}]
+        )
+        mock_execute.side_effect = [show_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == []
+        mock_execute.assert_called_once()
+
+    @patch("snowflake.cli._plugins.apps.manager.cli_console")
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_multiple_containers_prefers_builder(
+        self, mock_execute, mock_console
+    ):
+        show_cursor = self._build_show_containers_cursor(
+            [
+                {"instance_id": 0, "container_name": "sidecar"},
+                {"instance_id": 0, "container_name": "builder"},
+            ]
+        )
+        logs_cursor = self._build_logs_cursor(("ok",))
+        mock_execute.side_effect = [show_cursor, logs_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == ["ok"]
+        mock_console.warning.assert_called_once()
+        assert mock_execute.call_args_list[1].args[0] == (
+            "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.BUILD_JOB', '0', 'builder', 500)"
+        )
+
+    @patch("snowflake.cli._plugins.apps.manager.cli_console")
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_multiple_containers_falls_back_to_first(
+        self, mock_execute, mock_console
+    ):
+        show_cursor = self._build_show_containers_cursor(
+            [
+                {"instance_id": 0, "container_name": "foo"},
+                {"instance_id": 1, "container_name": "bar"},
+            ]
+        )
+        logs_cursor = self._build_logs_cursor(("ok",))
+        mock_execute.side_effect = [show_cursor, logs_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        logs = SnowflakeAppManager().get_build_job_logs(fqn)
+        assert logs == ["ok"]
+        mock_console.warning.assert_called_once()
+        assert mock_execute.call_args_list[1].args[0] == (
+            "CALL SYSTEM$GET_SERVICE_LOGS('DB.SCHEMA.BUILD_JOB', '0', 'foo', 500)"
+        )
+
+    @patch("snowflake.cli._plugins.apps.manager.log")
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_logs_show_result(self, mock_execute, mock_log):
+        show_cursor = self._build_show_containers_cursor(
+            [{"instance_id": 0, "container_name": "builder", "status": "READY"}]
+        )
+        logs_cursor = self._build_logs_cursor(("ok",))
+        mock_execute.side_effect = [show_cursor, logs_cursor]
+
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        SnowflakeAppManager().get_build_job_logs(fqn)
+
+        info_messages = [call.args[0] for call in mock_log.info.call_args_list]
+        assert any(
+            "SHOW SERVICE CONTAINERS IN SERVICE" in message for message in info_messages
+        )
+        # The container row itself is emitted at INFO for verbose visibility.
+        logged = " ".join(
+            str(arg) for call in mock_log.info.call_args_list for arg in call.args
+        )
+        assert "builder" in logged
+
+    @patch(EXECUTE_QUERY)
+    def test_get_build_job_logs_caches_container_resolution(self, mock_execute):
+        show_cursor = self._build_show_containers_cursor(
+            [{"instance_id": 0, "container_name": "builder"}]
+        )
+        mock_execute.side_effect = [
+            show_cursor,
+            self._build_logs_cursor(("a",)),
+            self._build_logs_cursor(("a\nb",)),
+        ]
+
+        manager = SnowflakeAppManager()
+        fqn = FQN(database="DB", schema="SCHEMA", name="BUILD_JOB")
+        assert manager.get_build_job_logs(fqn) == ["a"]
+        assert manager.get_build_job_logs(fqn) == ["a", "b"]
+
+        # SHOW SERVICE CONTAINERS runs once; only the log fetch repeats.
+        show_calls = [
+            call
+            for call in mock_execute.call_args_list
+            if call.args[0].startswith("SHOW SERVICE CONTAINERS")
+        ]
+        assert len(show_calls) == 1
+        assert mock_execute.call_count == 3
 
     @patch(EXECUTE_QUERY)
     def test_get_service_endpoint_url(self, mock_execute):
@@ -1986,7 +2350,9 @@ class TestResolveDeployDefaults:
         },
     )
     @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
-    def test_parameters_fill_gaps(self, mock_ctx, mock_params):
+    @patch(GET_MISSING_PRIVILEGES, return_value=[])
+    @patch(CURRENT_ROLE, return_value="ENGINEER")
+    def test_parameters_fill_gaps(self, mock_role, mock_missing, mock_ctx, mock_params):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(database=None, schema=None)
@@ -2047,7 +2413,9 @@ class TestResolveDeployDefaults:
         GET_CLI_CONTEXT,
         return_value=_mock_connection_context(warehouse="CONN_WH"),
     )
-    def test_params_beat_session(self, mock_ctx, mock_params):
+    @patch(GET_MISSING_PRIVILEGES, return_value=[])
+    @patch(CURRENT_ROLE, return_value="ENGINEER")
+    def test_params_beat_session(self, mock_role, mock_missing, mock_ctx, mock_params):
         from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
 
         entity = self._make_entity(database=None, schema=None)
@@ -2097,11 +2465,324 @@ class TestResolveDeployDefaults:
         )
         assert result["artifact_repository"] == "OVERRIDE_NAME_REPO"
 
+    @patch(MANAGER_CLI_CONSOLE)
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value={"database": "PARAM_DB", "schema": "PARAM_SCHEMA"},
+    )
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
+    @patch(GET_PERSONAL_DATABASE, return_value="USER$MYUSER")
+    @patch(
+        GET_MISSING_PRIVILEGES,
+        return_value=[
+            {
+                "privilege": "CREATE STAGE",
+                "objectType": "SCHEMA",
+                "objectName": "PARAM_DB.PARAM_SCHEMA",
+            }
+        ],
+    )
+    @patch(CURRENT_ROLE, return_value="ENGINEER")
+    def test_missing_privileges_fall_back_to_personal_db(
+        self,
+        mock_role,
+        mock_missing,
+        mock_personal,
+        mock_ctx,
+        mock_params,
+        mock_console,
+    ):
+        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
+
+        entity = self._make_entity(database=None, schema=None)
+        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
+        assert result["database"] == "USER$MYUSER"
+        assert result["schema"] == "PUBLIC"
+        mock_console.warning.assert_called_once()
+        warning = mock_console.warning.call_args[0][0]
+        assert "ENGINEER" in warning
+        assert "Snowflake App Runtime" in warning
+        assert "PARAM_DB.PARAM_SCHEMA" in warning
+        assert "account-admin-setup" in warning
+
+    @patch(MANAGER_CLI_CONSOLE)
+    @patch(
+        FETCH_SNOW_APPS_PARAMS,
+        return_value={"database": "PARAM_DB", "schema": "PARAM_SCHEMA"},
+    )
+    @patch(GET_CLI_CONTEXT, return_value=_mock_connection_context())
+    @patch(GET_PERSONAL_DATABASE, return_value="USER$MYUSER")
+    @patch(GET_MISSING_PRIVILEGES, side_effect=ProgrammingError("cannot resolve"))
+    @patch(CURRENT_ROLE, return_value="ENGINEER")
+    def test_unresolvable_destination_falls_back_to_personal_db(
+        self,
+        mock_role,
+        mock_missing,
+        mock_personal,
+        mock_ctx,
+        mock_params,
+        mock_console,
+    ):
+        from snowflake.cli._plugins.apps.manager import _resolve_deploy_defaults
+
+        entity = self._make_entity(database=None, schema=None)
+        result = _resolve_deploy_defaults(entity, SnowflakeAppManager())
+        # Every probe statement errored, so the destination cannot be resolved
+        # by the current role and we fall back to the personal database.
+        assert result["database"] == "USER$MYUSER"
+        assert result["schema"] == "PUBLIC"
+        mock_console.warning.assert_called_once()
+        assert "PARAM_DB" in mock_console.warning.call_args[0][0]
+
+
+class TestFlattenMissingPrivileges:
+    def test_authorized_returns_empty(self):
+        from snowflake.cli._plugins.apps.manager import _flatten_missing_privileges
+
+        assert _flatten_missing_privileges({"authorized": True}) == []
+
+    def test_single_permission_node(self):
+        from snowflake.cli._plugins.apps.manager import _flatten_missing_privileges
+
+        node = {"privilege": "USAGE", "objectType": "DATABASE", "objectName": "DB"}
+        assert _flatten_missing_privileges(node) == [node]
+
+    def test_nested_all_of_and_one_of(self):
+        from snowflake.cli._plugins.apps.manager import _flatten_missing_privileges
+
+        tree = {
+            "allOf": [
+                {"privilege": "USAGE", "objectType": "DATABASE", "objectName": "DB"},
+                {
+                    "oneOf": [
+                        {
+                            "privilege": "CREATE STAGE",
+                            "objectType": "SCHEMA",
+                            "objectName": "DB.SCH",
+                        }
+                    ]
+                },
+            ]
+        }
+        result = _flatten_missing_privileges(tree)
+        assert {n["privilege"] for n in result} == {"USAGE", "CREATE STAGE"}
+
+    def test_non_dict_returns_empty(self):
+        from snowflake.cli._plugins.apps.manager import _flatten_missing_privileges
+
+        assert _flatten_missing_privileges(None) == []
+        assert _flatten_missing_privileges("nope") == []
+
+
+class TestDeployPrivilegeCheckStatements:
+    def test_statements_reference_destination(self):
+        from snowflake.cli._plugins.apps.manager import (
+            PRIVILEGE_CHECK_OBJECT_NAME,
+            _deploy_privilege_check_statements,
+        )
+
+        statements = _deploy_privilege_check_statements("APPS", "PUBLIC")
+        # Exactly two statements are probed: CREATE STAGE and CREATE ARTIFACT
+        # REPOSITORY, both referencing only the destination database/schema.
+        assert len(statements) == 2
+        assert any(s.startswith("CREATE STAGE APPS.PUBLIC.") for s in statements)
+        assert any("CREATE ARTIFACT REPOSITORY APPS.PUBLIC." in s for s in statements)
+        assert all(PRIVILEGE_CHECK_OBJECT_NAME in s for s in statements)
+        # Statements that reference not-yet-existing objects, only need USAGE, or
+        # belong to the workspace flow are intentionally excluded.
+        joined = " ".join(statements)
+        assert "CREATE APPLICATION SERVICE" not in joined
+        assert "CREATE WORKSPACE" not in joined
+        assert "SHOW" not in joined
+
+    def test_personal_database_is_quoted(self):
+        from snowflake.cli._plugins.apps.manager import (
+            _deploy_privilege_check_statements,
+        )
+
+        statements = _deploy_privilege_check_statements(
+            "USER$first.last@snowflake.com", "PUBLIC"
+        )
+        # Personal database names contain characters illegal in unquoted
+        # identifiers and must be quoted so EXPLAIN_PRIVILEGES can parse them.
+        assert all('"USER$first.last@snowflake.com".PUBLIC.' in s for s in statements)
+
+
+class TestFilterAccessibleRemoteDefaults:
+    """Direct tests for the account-default privilege check that protects deploy
+    and setup from targeting a destination the current role cannot use."""
+
+    def _manager(self, *, role="ENGINEER", missing=None, side_effect=None):
+        manager = Mock()
+        manager.current_role.return_value = role
+        if side_effect is not None:
+            manager.get_missing_privileges.side_effect = side_effect
+        else:
+            manager.get_missing_privileges.return_value = missing or []
+        return manager
+
+    def test_no_database_returns_params_unchanged(self):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        params = {"query_warehouse": "WH"}
+        manager = self._manager()
+        assert _filter_accessible_remote_defaults(manager, params) == params
+        manager.get_missing_privileges.assert_not_called()
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_no_missing_privileges_returns_params_unchanged(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        params = {"database": "DB", "schema": "SCH", "query_warehouse": "WH"}
+        manager = self._manager(missing=[])
+        result = _filter_accessible_remote_defaults(manager, params)
+        assert result == params
+        mock_console.warning.assert_not_called()
+        # A step message announces the privilege-check phase to the user.
+        mock_console.step.assert_called_once()
+        assert "Checking deploy privileges" in mock_console.step.call_args[0][0]
+        assert "DB.SCH" in mock_console.step.call_args[0][0]
+        # Every representative deploy statement is probed for the active role.
+        assert manager.get_missing_privileges.call_count == 2
+        for call in manager.get_missing_privileges.call_args_list:
+            assert call.args[1] == "ENGINEER"
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_verbose_logs_per_statement_and_summary(self, mock_console, caplog):
+        import logging
+
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        manager = self._manager(
+            missing=[
+                {
+                    "privilege": "CREATE STAGE",
+                    "objectType": "SCHEMA",
+                    "objectName": "DB.SCH",
+                }
+            ]
+        )
+        params = {"database": "DB", "schema": "SCH"}
+        with caplog.at_level(
+            logging.INFO, logger="snowflake.cli._plugins.apps.manager"
+        ):
+            _filter_accessible_remote_defaults(manager, params)
+        messages = "\n".join(r.getMessage() for r in caplog.records)
+        # Per-statement results and a final summary are emitted at INFO so they
+        # surface under --verbose.
+        assert "Privilege check: missing" in messages
+        assert "Privilege check failed" in messages
+        assert "CREATE STAGE on SCHEMA DB.SCH" in messages
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_missing_privileges_drops_destination(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        manager = self._manager(
+            missing=[
+                {
+                    "privilege": "CREATE ARTIFACT REPOSITORY",
+                    "objectType": "SCHEMA",
+                    "objectName": "DB.SCH",
+                }
+            ]
+        )
+        params = {"database": "DB", "schema": "SCH", "query_warehouse": "WH"}
+        result = _filter_accessible_remote_defaults(manager, params)
+        assert result == {"query_warehouse": "WH"}
+        mock_console.warning.assert_called_once()
+        warning = mock_console.warning.call_args[0][0]
+        # The warning names the destination and feature, not the specific grants
+        # (those are only in the verbose INFO logs).
+        assert "Snowflake App Runtime" in warning
+        assert "'DB.SCH'" in warning
+        assert "CREATE ARTIFACT REPOSITORY" not in warning
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_all_probes_error_drops_destination(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        manager = self._manager(side_effect=ProgrammingError("cannot resolve"))
+        params = {"database": "DB", "schema": "SCH"}
+        result = _filter_accessible_remote_defaults(manager, params)
+        assert result == {}
+        mock_console.warning.assert_called_once()
+        assert "'DB.SCH'" in mock_console.warning.call_args[0][0]
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_any_probe_error_drops_destination(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        # A probe error means the role cannot analyze/resolve the destination,
+        # so the check fails even if another statement reports no missing grants.
+        manager = Mock()
+        manager.current_role.return_value = "ENGINEER"
+        manager.get_missing_privileges.side_effect = [
+            ProgrammingError("requires access on all objects"),
+            [],
+        ]
+        params = {"database": "DB", "schema": "SCH"}
+        result = _filter_accessible_remote_defaults(manager, params)
+        assert result == {}
+        mock_console.warning.assert_called_once()
+        assert "'DB.SCH'" in mock_console.warning.call_args[0][0]
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_missing_schema_defaults_to_public(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _deploy_privilege_check_statements,
+            _filter_accessible_remote_defaults,
+        )
+
+        manager = self._manager(missing=[])
+        params = {"database": "DB"}
+        _filter_accessible_remote_defaults(manager, params)
+        probed = manager.get_missing_privileges.call_args_list[0].args[0]
+        assert "DB.PUBLIC." in probed
+        # Sanity check the statement set is the deploy set.
+        assert probed in _deploy_privilege_check_statements("DB", "PUBLIC")
+
+    @patch(MANAGER_CLI_CONSOLE)
+    def test_does_not_mutate_input_params(self, mock_console):
+        from snowflake.cli._plugins.apps.manager import (
+            _filter_accessible_remote_defaults,
+        )
+
+        params = {"database": "DB", "schema": "SCH"}
+        manager = self._manager(side_effect=ProgrammingError("cannot resolve"))
+        _filter_accessible_remote_defaults(manager, params)
+        assert params == {"database": "DB", "schema": "SCH"}
+
 
 # ── CLI command tests ─────────────────────────────────────────────────
 
 
 class TestSetupCommand:
+    @pytest.fixture(autouse=True)
+    def _assume_destination_accessible(self):
+        """Resolution/precedence tests assume the active role can access the
+        account-configured destination. The privilege probe itself is covered by
+        ``TestFilterAccessibleRemoteDefaults`` and ``TestSetupPrivilegeFallback``,
+        so patch it to a pass-through here to keep these tests focused.
+        """
+        with patch(
+            "snowflake.cli._plugins.apps.commands._filter_accessible_remote_defaults",
+            side_effect=lambda manager, params: params,
+        ):
+            yield
+
     @patch(
         "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
         return_value="definition_version: '2'\n",
@@ -2391,7 +3072,7 @@ class TestSetupCommand:
     )
     @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
     def test_flags_beat_parameters(self, mock_mgr_cls, mock_gen, runner, tmp_path):
-        """CLI flags should override SnowApps parameters."""
+        """CLI flags should override Snowflake App Runtime parameters."""
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
@@ -2436,7 +3117,7 @@ class TestSetupCommand:
     def test_setup_shows_parameter_provenance(
         self, mock_mgr_cls, mock_gen, runner, tmp_path
     ):
-        """Resolved values from SnowApps parameters should show 'account parameter' provenance."""
+        """Resolved values from Snowflake App Runtime parameters should show 'account parameter' provenance."""
         mock_mgr = mock_mgr_cls.return_value
         mock_mgr.is_managed_compute_pool_enabled.return_value = False
         mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
@@ -2606,6 +3287,78 @@ class TestSetupCommand:
 # ── perform_bundle tests ──────────────────────────────────────────────
 
 
+class TestSetupPrivilegeFallback:
+    """End-to-end ``snow app setup`` coverage that exercises the real privilege
+    probe (no pass-through patch) and asserts the personal-database fallback."""
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_missing_privileges_fall_back_to_personal_db(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """When the current role is missing privileges on the account-configured
+        destination, setup falls back to the personal database (as if no account
+        default were set) and warns the user."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+        mock_mgr.current_role.return_value = "ENGINEER"
+        mock_mgr.get_missing_privileges.return_value = [
+            {
+                "privilege": "CREATE STAGE",
+                "objectType": "SCHEMA",
+                "objectName": "PARAM_DB.PARAM_SCHEMA",
+            }
+        ]
+        mock_mgr.get_personal_database.return_value = "USER$MYUSER"
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+
+        resolved = mock_gen.call_args[0][1]
+        assert resolved["database"] == "USER$MYUSER"
+        assert resolved["schema"] == "PUBLIC"
+        assert mock_gen.call_args.kwargs["use_workspace"] is True
+
+    @patch(
+        "snowflake.cli._plugins.apps.commands._generate_snowflake_yml",
+        return_value="definition_version: '2'\n",
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_accessible_destination_is_used(
+        self, mock_mgr_cls, mock_gen, runner, tmp_path
+    ):
+        """When the role has the privileges (no missing), the account-configured
+        destination is used as-is."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.is_managed_compute_pool_enabled.return_value = False
+        mock_mgr.is_managed_compute_pool_fallback_enabled.return_value = False
+        mock_mgr.fetch_snow_apps_parameters.return_value = {
+            "database": "PARAM_DB",
+            "schema": "PARAM_SCHEMA",
+            "query_warehouse": "PARAM_WH",
+        }
+        mock_mgr.current_role.return_value = "ENGINEER"
+        mock_mgr.get_missing_privileges.return_value = []
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--app-name", "my_app"])
+            assert result.exit_code == 0, result.output
+
+        resolved = mock_gen.call_args[0][1]
+        assert resolved["database"] == "PARAM_DB"
+        assert resolved["schema"] == "PARAM_SCHEMA"
+
+
 class TestPerformBundle:
     @patch("snowflake.cli._plugins.apps.manager.get_cli_context")
     @patch("snowflake.cli._plugins.apps.manager._bundle_app_artifacts")
@@ -2732,72 +3485,6 @@ class TestBundleCommand:
             result = runner.invoke(["app", "bundle", "--entity-id", "custom_app"])
             assert result.exit_code == 0, result.output
             mock_resolve.assert_called_once_with("custom_app")
-
-
-# ── _find_dockerfile_expose_port tests ─────────────────────────────────
-
-
-class TestFindDockerfileExposePort:
-    def test_returns_port_from_expose(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import _find_dockerfile_expose_port
-
-        (tmp_path / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 3000\n")
-        assert _find_dockerfile_expose_port(tmp_path) == 3000
-
-    def test_returns_port_with_tcp_suffix(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import _find_dockerfile_expose_port
-
-        (tmp_path / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 8080/tcp\n")
-        assert _find_dockerfile_expose_port(tmp_path) == 8080
-
-    def test_returns_port_with_udp_suffix(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import _find_dockerfile_expose_port
-
-        (tmp_path / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 5000/udp\n")
-        assert _find_dockerfile_expose_port(tmp_path) == 5000
-
-    def test_returns_first_port_when_multiple(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import _find_dockerfile_expose_port
-
-        (tmp_path / "Dockerfile").write_text(
-            "FROM python:3.11\nEXPOSE 3000\nEXPOSE 8080\n"
-        )
-        assert _find_dockerfile_expose_port(tmp_path) == 3000
-
-    def test_returns_none_when_no_dockerfile(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import _find_dockerfile_expose_port
-
-        assert _find_dockerfile_expose_port(tmp_path) is None
-
-    def test_returns_none_when_no_expose(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import _find_dockerfile_expose_port
-
-        (tmp_path / "Dockerfile").write_text("FROM python:3.11\nCMD ['python']\n")
-        assert _find_dockerfile_expose_port(tmp_path) is None
-
-    def test_case_insensitive(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import _find_dockerfile_expose_port
-
-        (tmp_path / "Dockerfile").write_text("FROM python:3.11\nexpose 9090\n")
-        assert _find_dockerfile_expose_port(tmp_path) == 9090
-
-    def test_returns_unsupported_for_multi_port(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import (
-            EXPOSE_UNSUPPORTED_SYNTAX,
-            _find_dockerfile_expose_port,
-        )
-
-        (tmp_path / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 3000 8080\n")
-        assert _find_dockerfile_expose_port(tmp_path) == EXPOSE_UNSUPPORTED_SYNTAX
-
-    def test_returns_unsupported_for_port_range(self, tmp_path):
-        from snowflake.cli._plugins.apps.manager import (
-            EXPOSE_UNSUPPORTED_SYNTAX,
-            _find_dockerfile_expose_port,
-        )
-
-        (tmp_path / "Dockerfile").write_text("FROM python:3.11\nEXPOSE 3000-3005\n")
-        assert _find_dockerfile_expose_port(tmp_path) == EXPOSE_UNSUPPORTED_SYNTAX
 
 
 # ── Validate CLI command tests ────────────────────────────────────────
@@ -2991,61 +3678,6 @@ class TestValidateCommand:
             result = runner.invoke(["app", "validate"])
             assert result.exit_code == 1
             assert "bundle failed" in result.output
-
-
-# ── role_has_bind_service_endpoint tests ──────────────────────────────
-
-
-class TestRoleHasBindServiceEndpoint:
-    @patch(EXECUTE_QUERY)
-    def test_returns_true_when_privilege_granted(self, mock_execute):
-        cursor = Mock()
-        cursor.__iter__ = Mock(
-            return_value=iter(
-                [
-                    {
-                        "privilege": "BIND SERVICE ENDPOINT",
-                        "granted_on": "ACCOUNT",
-                    }
-                ]
-            )
-        )
-        mock_execute.return_value = cursor
-        assert SnowflakeAppManager().role_has_bind_service_endpoint("DEV_ROLE") is True
-
-    @patch(EXECUTE_QUERY)
-    def test_returns_false_when_no_matching_privilege(self, mock_execute):
-        cursor = Mock()
-        cursor.__iter__ = Mock(
-            return_value=iter(
-                [
-                    {
-                        "privilege": "CREATE DATABASE",
-                        "granted_on": "ACCOUNT",
-                    }
-                ]
-            )
-        )
-        mock_execute.return_value = cursor
-        assert SnowflakeAppManager().role_has_bind_service_endpoint("DEV_ROLE") is False
-
-    @patch(EXECUTE_QUERY)
-    def test_returns_false_when_no_grants(self, mock_execute):
-        cursor = Mock()
-        cursor.__iter__ = Mock(return_value=iter([]))
-        mock_execute.return_value = cursor
-        assert SnowflakeAppManager().role_has_bind_service_endpoint("DEV_ROLE") is False
-
-    @patch(EXECUTE_QUERY)
-    def test_escapes_role_with_single_quote(self, mock_execute):
-        cursor = Mock()
-        cursor.__iter__ = Mock(return_value=iter([]))
-        mock_execute.return_value = cursor
-        SnowflakeAppManager().role_has_bind_service_endpoint("BAD'ROLE")
-        query = mock_execute.call_args[0][0]
-        # Single quotes are escaped by doubling them (''), not by backslash prefix.
-        assert "'BAD''ROLE'" in query
-        assert "BAD\\'ROLE" not in query
 
 
 # ── Open CLI command tests ────────────────────────────────────────────

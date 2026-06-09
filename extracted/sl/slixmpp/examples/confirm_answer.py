@@ -11,7 +11,6 @@ from argparse import ArgumentParser
 
 import asyncio
 import slixmpp
-from slixmpp.exceptions import XMPPError
 
 log = logging.getLogger(__name__)
 

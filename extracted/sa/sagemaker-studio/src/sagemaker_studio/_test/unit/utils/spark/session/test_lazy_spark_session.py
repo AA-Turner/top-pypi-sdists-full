@@ -670,6 +670,43 @@ class TestLazySparkSession:
 
         assert result is mock_spark
 
+    @patch(
+        "sagemaker_studio.utils.spark.session.lazy_spark_session.SparkConnectGrpcException",
+        MockSparkConnectGrpcException,
+    )
+    @pytest.mark.parametrize(
+        "error_code", ["EntityNotFoundException", "IllegalSessionStateException"]
+    )
+    def test_getattr_client_error_glue_session_recovery(self, error_code):
+        """Test __getattr__ handles Glue ClientErrors by stopping and recreating the session."""
+        from botocore.exceptions import ClientError
+
+        mock_manager = Mock(spec=SparkSessionManager)
+        mock_project = Mock()
+        mock_manager.project = mock_project
+        mock_connection = Mock()
+        mock_project.connection.return_value = mock_connection
+        mock_connection.catalogs = []
+
+        bad_session = Mock()
+        error_response = {"Error": {"Code": error_code, "Message": f"Glue error: {error_code}"}}
+        type(bad_session).version = PropertyMock(
+            side_effect=ClientError(error_response, "GetSessionEndpoint")
+        )
+
+        good_session = Mock()
+        good_session.version = "3.0.0"
+        good_session.sql = Mock(return_value="result")
+
+        mock_manager.create.side_effect = [bad_session, good_session]
+
+        lazy_session = LazySparkSession(mock_manager)
+
+        result = lazy_session.sql
+        assert result is good_session.sql
+        assert mock_manager.create.call_count == 2
+        mock_manager.stop.assert_called_once()
+
     def test_init_stores_spark_conf(self):
         """Test LazySparkSession stores spark_conf when provided."""
         conf = {"spark.executor.memory": "4g"}

@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2017 Emmanuel Gil Peyrot <linkmauve@linkmauve.fr>
 # This file is part of Slixmpp.
@@ -10,3 +9,6 @@ from slixmpp.plugins.xep_0394.markup import XEP_0394
 
 
 register_plugin(XEP_0394)
+
+__all__ = ['Markup', 'Span', 'BlockCode', 'BlockQuote', 'List', 'Li',
+           'XEP_0394']

@@ -202,7 +202,7 @@ class ChalkTrace(_message.Message):
     ) -> None: ...
 
 class ChalkTraceSummaryRootSpan(_message.Message):
-    __slots__ = ("span_id", "attributes", "resource_attributes")
+    __slots__ = ("span_id", "attributes", "resource_attributes", "span_name")
     class AttributesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -222,28 +222,35 @@ class ChalkTraceSummaryRootSpan(_message.Message):
     SPAN_ID_FIELD_NUMBER: _ClassVar[int]
     ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
+    SPAN_NAME_FIELD_NUMBER: _ClassVar[int]
     span_id: str
     attributes: _containers.ScalarMap[str, str]
     resource_attributes: _containers.ScalarMap[str, str]
+    span_name: str
     def __init__(
         self,
         span_id: _Optional[str] = ...,
         attributes: _Optional[_Mapping[str, str]] = ...,
         resource_attributes: _Optional[_Mapping[str, str]] = ...,
+        span_name: _Optional[str] = ...,
     ) -> None: ...
 
 class ChalkTraceSummary(_message.Message):
-    __slots__ = ("trace_id", "start_time", "end_time", "duration", "root_spans")
+    __slots__ = ("trace_id", "start_time", "end_time", "duration", "root_spans", "span_count", "root_span_names")
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     DURATION_FIELD_NUMBER: _ClassVar[int]
     ROOT_SPANS_FIELD_NUMBER: _ClassVar[int]
+    SPAN_COUNT_FIELD_NUMBER: _ClassVar[int]
+    ROOT_SPAN_NAMES_FIELD_NUMBER: _ClassVar[int]
     trace_id: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     duration: _duration_pb2.Duration
     root_spans: _containers.RepeatedCompositeFieldContainer[ChalkTraceSummaryRootSpan]
+    span_count: int
+    root_span_names: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         trace_id: _Optional[str] = ...,
@@ -251,6 +258,8 @@ class ChalkTraceSummary(_message.Message):
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         root_spans: _Optional[_Iterable[_Union[ChalkTraceSummaryRootSpan, _Mapping]]] = ...,
+        span_count: _Optional[int] = ...,
+        root_span_names: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class TraceCallGraphAiInfo(_message.Message):
@@ -465,6 +474,9 @@ class SearchTraceSummariesRequest(_message.Message):
         "root_span_resource_attribute_filters",
         "root_span_attribute_values",
         "root_span_resource_attribute_values",
+        "min_span_count",
+        "max_span_count",
+        "root_span_names",
     )
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -478,6 +490,9 @@ class SearchTraceSummariesRequest(_message.Message):
     ROOT_SPAN_RESOURCE_ATTRIBUTE_FILTERS_FIELD_NUMBER: _ClassVar[int]
     ROOT_SPAN_ATTRIBUTE_VALUES_FIELD_NUMBER: _ClassVar[int]
     ROOT_SPAN_RESOURCE_ATTRIBUTE_VALUES_FIELD_NUMBER: _ClassVar[int]
+    MIN_SPAN_COUNT_FIELD_NUMBER: _ClassVar[int]
+    MAX_SPAN_COUNT_FIELD_NUMBER: _ClassVar[int]
+    ROOT_SPAN_NAMES_FIELD_NUMBER: _ClassVar[int]
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     limit: int
@@ -490,6 +505,9 @@ class SearchTraceSummariesRequest(_message.Message):
     root_span_resource_attribute_filters: _containers.RepeatedCompositeFieldContainer[AttributeFilter]
     root_span_attribute_values: _containers.RepeatedScalarFieldContainer[str]
     root_span_resource_attribute_values: _containers.RepeatedScalarFieldContainer[str]
+    min_span_count: int
+    max_span_count: int
+    root_span_names: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -504,6 +522,9 @@ class SearchTraceSummariesRequest(_message.Message):
         root_span_resource_attribute_filters: _Optional[_Iterable[_Union[AttributeFilter, _Mapping]]] = ...,
         root_span_attribute_values: _Optional[_Iterable[str]] = ...,
         root_span_resource_attribute_values: _Optional[_Iterable[str]] = ...,
+        min_span_count: _Optional[int] = ...,
+        max_span_count: _Optional[int] = ...,
+        root_span_names: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class SearchTraceSummariesResponse(_message.Message):

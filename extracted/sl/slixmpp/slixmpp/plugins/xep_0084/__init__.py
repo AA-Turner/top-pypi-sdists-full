@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2012 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -11,3 +10,5 @@ from slixmpp.plugins.xep_0084.avatar import XEP_0084
 
 
 register_plugin(XEP_0084)
+
+__all__ = ['stanza', 'Data', 'MetaData', 'XEP_0084']

@@ -11,3 +11,5 @@ from slixmpp.plugins.xep_0033.addresses import XEP_0033
 
 
 register_plugin(XEP_0033)
+
+__all__ = ['Addresses', 'Address', 'XEP_0033', 'stanza']

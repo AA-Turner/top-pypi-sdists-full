@@ -299,6 +299,13 @@ class Guard:
             r = self._checks.check_external_tool(task, tool_cfg)
             if r:
                 results.append(r)
+        # guard_prompt: simple prompt-based verification (no CLI config needed)
+        guard_prompt = guard_cfg.get("guard_prompt", "")
+        if guard_prompt:
+            results.append(CheckResult(
+                passed=True,
+                warnings=[f"Please verify before marking complete: {guard_prompt}"],
+            ))
         combined = CheckResult.combine(results)
 
         if phase_str == "execute" and task.worktree_path is None:
@@ -358,6 +365,13 @@ class Guard:
             r = self._checks.check_external_tool(task, tool_cfg)
             if r:
                 results.append(r)
+        # guard_prompt: simple prompt-based verification (no CLI config)
+        guard_prompt = guard_cfg.get("guard_prompt", "")
+        if guard_prompt:
+            results.append(CheckResult(
+                passed=True,
+                warnings=[f"guard_prompt: {guard_prompt}"],
+            ))
         return CheckResult.combine(results)
 
     def check_evaluation(self, task: Task, iteration: int) -> CheckResult:

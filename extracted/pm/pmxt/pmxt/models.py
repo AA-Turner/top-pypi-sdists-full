@@ -134,7 +134,7 @@ class UnifiedMarket:
         return self.title
 
 
-class MarketList(list):
+class MarketList(List[UnifiedMarket]):
     """A list of UnifiedMarket objects with a convenience match() method."""
 
     def match(
@@ -388,6 +388,24 @@ class UserTrade(Trade):
     market_id: Optional[str] = None
     """The market this trade belongs to"""
 
+    fee: Optional[float] = None
+    """Trading fee, when available."""
+
+    tx_hash: str | None = None
+    """On-chain transaction hash (hosted mode only; None in venue-direct mode)."""
+
+    chain: str | None = None
+    """Chain identifier where the trade settled (hosted mode only; None in venue-direct mode)."""
+
+    block_number: int | None = None
+    """Block number of the settling transaction (hosted mode only; None in venue-direct mode)."""
+
+    venue: Optional[str] = None
+    """Venue that produced this trade, when available."""
+
+    raw: Optional[Any] = None
+    """Raw venue-specific payload, when available."""
+
 
 @dataclass
 class PaginatedMarketsResult:
@@ -444,18 +462,36 @@ class Order:
     
     filled: float
     """Amount filled"""
-    
+
     remaining: float
     """Amount remaining"""
-    
+
     timestamp: int
     """Unix timestamp (milliseconds)"""
-    
+
+    filled_shares: Optional[float] = None
+    """Amount filled in shares/contracts (if different from USDC-denominated `filled`)."""
+
     price: Optional[float] = None
     """Limit price (for limit orders)"""
-    
+
     fee: Optional[float] = None
     """Trading fee"""
+
+    fee_rate_bps: Optional[float] = None
+    """Fee rate in basis points applied to this order (e.g. 100 = 1%)."""
+
+    tx_hash: str | None = None
+    """On-chain transaction hash (hosted mode only; None in venue-direct mode)."""
+
+    chain: str | None = None
+    """Chain identifier where the order settled (hosted mode only; None in venue-direct mode)."""
+
+    block_number: int | None = None
+    """Block number of the settling transaction (hosted mode only; None in venue-direct mode)."""
+
+    raw: Optional[Any] = None
+    """Raw venue-specific payload, when available."""
 
 
 @dataclass
@@ -480,48 +516,84 @@ class BuiltOrder:
 
 @dataclass
 class Position:
-    """A current position in a market."""
-    
+    """A current position in a market.
+
+    In hosted mode, ``outcome_label``, ``entry_price``, ``current_price`` and
+    ``unrealized_pnl`` may be ``None`` when the server cannot derive them
+    (e.g. ``with_mtm=false`` or no fill history). Venue-direct callers
+    continue to populate every field.
+    """
+
     market_id: str
     """Market ID"""
-    
+
     outcome_id: str
     """Outcome ID"""
-    
-    outcome_label: str
-    """Outcome label"""
-    
+
     size: float
     """Position size (positive for long, negative for short)"""
-    
-    entry_price: float
-    """Average entry price"""
-    
-    current_price: float
-    """Current market price"""
-    
-    unrealized_pnl: float
-    """Unrealized profit/loss"""
-    
+
+    outcome_label: str | None = None
+    """Outcome label (None in hosted mode when the server cannot enrich)."""
+
+    entry_price: float | None = None
+    """Average entry price (None in hosted mode when no fill history is available)."""
+
+    current_price: float | None = None
+    """Current market price (None in hosted mode when ``with_mtm=false``)."""
+
+    unrealized_pnl: float | None = None
+    """Unrealized profit/loss (None when entry_price or current_price is None)."""
+
     realized_pnl: Optional[float] = None
     """Realized profit/loss"""
+
+    tx_hash: str | None = None
+    """On-chain transaction hash of the position-creating event (hosted mode only)."""
+
+    chain: str | None = None
+    """Chain identifier (hosted mode only; None in venue-direct mode)."""
+
+    block_number: int | None = None
+    """Block number of the position-creating transaction (hosted mode only)."""
+
+    venue: Optional[str] = None
+    """Venue that produced this position, when available."""
+
+    current_value: Optional[float] = None
+    """Current mark-to-market value, when available."""
+
+    raw: Optional[Any] = None
+    """Raw venue-specific payload, when available."""
 
 
 @dataclass
 class Balance:
     """Account balance."""
-    
+
     currency: str
     """Currency (e.g., "USDC")"""
-    
+
     total: float
     """Total balance"""
-    
+
     available: float
     """Available for trading"""
-    
+
     locked: float
     """Locked in open orders"""
+
+    tx_hash: str | None = None
+    """On-chain transaction hash of the latest balance-affecting event (hosted mode only)."""
+
+    chain: str | None = None
+    """Chain identifier (hosted mode only; None in venue-direct mode)."""
+
+    block_number: int | None = None
+    """Block number of the latest balance-affecting transaction (hosted mode only)."""
+
+    venue: Optional[str] = None
+    """Venue or hosted account source, when available."""
 
 
 @dataclass
@@ -543,9 +615,42 @@ class SubscribedAddressSnapshot:
     """Balances of this address"""
     balances: Optional[List[Balance]] = None
 
-# ----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Public SDK option types
+# -----------------------------------------------------------------------------
+
+class ExchangeOptions(TypedDict, total=False):
+    """Constructor options shared by the exchange clients."""
+    pmxt_api_key: str
+    base_url: str
+    auto_start_server: bool
+    api_key: str
+    private_key: str
+    api_token: str
+    proxy_address: str
+    signature_type: Union[str, int]
+
+
+class PolymarketOptions(ExchangeOptions, total=False):
+    """Constructor options for Polymarket clients."""
+    signature_type: Union[Literal["eoa", "poly-proxy", "gnosis-safe"], int]
+
+
+class RouterOptions(TypedDict, total=False):
+    """Constructor options for Router clients."""
+    pmxt_api_key: str
+    base_url: str
+    auto_start_server: bool
+
+
+class FeedClientOptions(TypedDict, total=False):
+    """Constructor options for FeedClient."""
+    pmxt_api_key: str
+    base_url: str
+
+# -----------------------------------------------------------------------------
 # Filtering Types
-# ----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 from typing import TypedDict, Callable
 
@@ -634,19 +739,47 @@ class EventFetchParams(TypedDict, total=False):
     query: str
     limit: int
     offset: int
+    cursor: str
     sort: Literal["volume", "liquidity", "newest"]
     status: Literal["active", "inactive", "closed", "all"]
     search_in: Literal["title", "description", "both"]
     event_id: str
     slug: str
+    series: str
     category: str
     tags: List[str]
     filter: EventFilterCriteria
 
 
-# ----------------------------------------------------------------------------
+class SeriesFetchParams(TypedDict, total=False):
+    """Parameters for fetching recurring venue series."""
+    id: str
+    slug: str
+    query: str
+    recurrence: str
+    limit: int
+    offset: int
+
+
+class TradesParams(TypedDict, total=False):
+    """Parameters for fetching public trade history."""
+    since: int
+    until: int
+    limit: int
+    cursor: str
+
+
+class FetchOrderBookParams(TypedDict, total=False):
+    """Parameters for historical order book queries."""
+    side: Literal["yes", "no"]
+    outcome: str
+    since: int
+    until: int
+
+
+# -----------------------------------------------------------------------------
 # Router Types
-# ----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 MatchRelation = Literal["identity", "complement", "subset", "superset", "overlap", "disjoint"]
 ClusterSortOption = Literal["volume", "confidence"]
@@ -655,6 +788,7 @@ VenueFilter = Union[str, List[str]]
 
 class MatchedMarketClusterParams(TypedDict, total=False):
     """Parameters for fetching matched market clusters."""
+    market: UnifiedMarket
     market_id: str
     slug: str
     url: str
@@ -677,6 +811,7 @@ class MatchedMarketClusterParams(TypedDict, total=False):
 
 class MatchedEventClusterParams(TypedDict, total=False):
     """Parameters for fetching matched event clusters."""
+    event: UnifiedEvent
     event_id: str
     slug: str
     url: str
@@ -738,6 +873,11 @@ class EventMatchResult:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.event, name)
+
+
+MatchedClusterSort = ClusterSortOption
+FetchMatchedMarketClustersParams = MatchedMarketClusterParams
+FetchMatchedEventClustersParams = MatchedEventClusterParams
 
 
 @dataclass

@@ -12,6 +12,7 @@ class BenchmarkCase:
     requirement: str
     acceptance: list[str]
     mode: str | None = None
+    expected_knowledge: list[str] | None = None  # KB entry IDs expected in search
 
 
 @dataclass
@@ -56,6 +57,7 @@ def parse_suite(suite_path: Path) -> BenchmarkSuite:
             requirement=c["requirement"].strip(),
             acceptance=c["acceptance"] if isinstance(c["acceptance"], list) else [c["acceptance"]],
             mode=c.get("mode"),
+            expected_knowledge=c.get("expected_knowledge"),
         ))
 
     return BenchmarkSuite(path=suite_path, mode=mode, cases=cases)
@@ -157,8 +159,41 @@ class BenchmarkRunner:
 
         verdict = judge_case(case.id, case.acceptance, report_dir)
 
+        # Normalize raw sub-agent scores to standard 5 dimensions + kb_usage
+        matched_ratio = (sum(1 for a in verdict.acceptance_results if a["matched"])
+                         / len(verdict.acceptance_results)
+                         if verdict.acceptance_results else 0)
+        # If case was generated from a KB entry (verify_K001 → K001), get usage data
+        kb_entry_id = None
+        if verdict.case_id.startswith("verify_"):
+            kb_entry_id = verdict.case_id.replace("verify_", "")
+        kb_usage = self._score_kb_usage(kb_entry_id) if kb_entry_id else None
+        # Search quality: compare KB search results vs expected knowledge
+        search_quality = None
+        if case.expected_knowledge:
+            from kanban_framework.domain.benchmark_judge import score_search_quality
+            search_quality = score_search_quality(
+                case.requirement, case.expected_knowledge,
+            )
+        verdict.dimensions = self._normalize_dimensions(verdict.dimensions, matched_ratio, kb_usage)
+        if search_quality:
+            verdict.dimensions["search_quality"] = search_quality["f1"] * 10.0
+            verdict.evidence += (
+                f" | Search: precision={search_quality['precision']} "
+                f"recall={search_quality['recall']} f1={search_quality['f1']}"
+            )
+
+        # Recompute score using dimension weights
+        if verdict.dimensions:
+            weighted_sum = 0.0
+            total_weight = 0.0
+            for dim_name, score in verdict.dimensions.items():
+                weight = self._DIMENSION_WEIGHTS.get(dim_name, 0.05)
+                weighted_sum += score * weight
+                total_weight += weight
+            verdict.score = round(weighted_sum / total_weight, 1) if total_weight > 0 else 0.0
+
         # If no evaluation happened yet, report as pending instead of fail
-        if not verdict.dimensions and verdict.score == 0.0:
             verdict.verdict = "pending"
             verdict.evidence = (
                 f"Task {task_id} created. Run `kanban run {task_id}` to execute, "
@@ -166,6 +201,85 @@ class BenchmarkRunner:
             )
 
         return verdict
+
+    # Standard 5-dimension scoring with default weights
+    _DIMENSION_WEIGHTS = {
+        "code_correctness": 0.30,
+        "test_coverage": 0.20,
+        "kb_utilization": 0.20,
+        "solution_quality": 0.15,
+        "acceptance_match": 0.15,
+    }
+
+    # Map sub-agent report roles to standard dimensions
+    _ROLE_TO_DIMENSION = {
+        "code_reviewer": "code_correctness",
+        "qa": "test_coverage",
+        "knowledge_manager": "kb_utilization",
+        "product_reviewer": "solution_quality",
+        "designer": "solution_quality",
+    }
+
+    # KB usage dimension: maps entry effectiveness to a 0-10 score
+    # ref_count=0 → 0, ref_count>=5 → 8, ref_count>=10 → 10
+    def _score_kb_usage(self, entry_id: str) -> float | None:
+        """Score knowledge entry usage/reference frequency as a 0-10 dimension."""
+        try:
+            from kanban_framework.infra.filesystem import Filesystem as FS
+            from kanban_framework.domain.knowledge import KnowledgeManager
+            root = FS.find_project_root()
+            fs = FS(root=root)
+            km = KnowledgeManager(fs, read_only=True)
+            entry = km.get_entry(entry_id)
+            if not entry:
+                return None
+            ref_count = entry.get("referenced_count") or 0
+            eff = entry.get("effectiveness")
+            if isinstance(eff, str):
+                import json as _json
+                try:
+                    eff = _json.loads(eff)
+                except Exception:
+                    eff = None
+            eff_score = eff.get("score") if isinstance(eff, dict) else None
+            # Usage score: 40% ref count + 60% effectiveness
+            ref_score = min(10.0, ref_count * 2.0)
+            eff_component = (eff_score or 0.5) * 10.0
+            return round(0.4 * ref_score + 0.6 * eff_component, 1)
+        except Exception:
+            return None
+
+    def _normalize_dimensions(self, raw_dimensions: dict, acceptance_match: float,
+                               kb_usage: float | None = None) -> dict:
+        """Map raw sub-agent scores to standard 5 dimensions + kb_usage."""
+        dims = {}
+        for role, score in raw_dimensions.items():
+            dim_name = self._ROLE_TO_DIMENSION.get(role)
+            if dim_name:
+                dims[dim_name] = max(dims.get(dim_name, 0), score)
+        dims["acceptance_match"] = round(acceptance_match * 10, 1)
+        if kb_usage is not None:
+            dims["kb_usage"] = kb_usage
+        return dims
+
+    def _report_dimension_summary(self, case_results: list) -> dict:
+        """Compute per-dimension averages across all cases."""
+        dim_totals: dict[str, float] = {}
+        dim_counts: dict[str, int] = {}
+        for c in case_results:
+            for dim_name in self._DIMENSION_WEIGHTS:
+                val = c.dimensions.get(dim_name)
+                if val is not None:
+                    dim_totals[dim_name] = dim_totals.get(dim_name, 0) + val
+                    dim_counts[dim_name] = dim_counts.get(dim_name, 0) + 1
+        return {
+            dim_name: {
+                "avg": round(dim_totals[dim_name] / dim_counts[dim_name], 1),
+                "weight": weight,
+            }
+            for dim_name, weight in self._DIMENSION_WEIGHTS.items()
+            if dim_name in dim_totals and dim_counts[dim_name] > 0
+        }
 
     def _build_report(self, suite: BenchmarkSuite, case_results: list, start_time: float) -> dict:
         """Build aggregate report from all case results."""
@@ -185,6 +299,8 @@ class BenchmarkRunner:
                 "failed": failed,
                 "avg_score": round(sum(scores) / len(scores), 1) if scores else 0,
             },
+            "dimensions": self._report_dimension_summary(case_results),
+            "weights": self._DIMENSION_WEIGHTS,
             "cases": [
                 {
                     "id": c.case_id,

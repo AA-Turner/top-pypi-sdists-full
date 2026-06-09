@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neuro-san
-Version: 0.6.58
+Version: 0.6.59
 Summary: NeuroAI data-driven System for multi-Agent Networks - client, library and server
 Author-email: Dan Fink <Daniel.Fink@cognizant.com>
 License-Expression: Apache-2.0
@@ -15,7 +15,7 @@ Classifier: Intended Audience :: Developers
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: leaf-common>=1.2.40
+Requires-Dist: leaf-common>=1.2.41
 Requires-Dist: leaf-server-common>=0.1.24
 Requires-Dist: grpcio>=1.62.0
 Requires-Dist: grpcio-tools>=1.62.0
@@ -46,7 +46,8 @@ Requires-Dist: validators>=0.22.0
 Requires-Dist: timedinput>=0.1.1
 Requires-Dist: json-repair<1.0,>=0.47.3
 Requires-Dist: croniter>=6.2.2
-Requires-Dist: langchain-mcp-adapters<1.0,>=0.1.7
+Requires-Dist: langchain-mcp-adapters<0.2.0,>=0.1.7
+Requires-Dist: mcp<2.0,>=1.23.0
 Dynamic: license-file
 
 # Neuro SAN Data-Driven Agents

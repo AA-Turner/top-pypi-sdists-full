@@ -2,7 +2,7 @@
 
 Subcommands:
 
-    ingest <path>            Walk the path, index .py + .md/.txt into the DB.
+    ingest <path>            Walk the path, index .py + .md/.rst/.txt + .pdf into the DB.
     query <text>             Run a retrieval and print symbol+text hits.
     symbol <name>            Look up a class/function by name or qualname.
     chain <qualname>         Walk the inheritance chain for a class.

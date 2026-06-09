@@ -97,6 +97,8 @@ from metadata.ingestion.source.database.dbt.dbt_utils import (
     get_dbt_compiled_query,
     get_dbt_model_name,
     get_dbt_raw_query,
+    get_manifest_column_name,
+    get_snapshot_effective_schema_and_database,
     validate_custom_property_value,
 )
 from metadata.ingestion.source.database.dbt.models import DbtMeta
@@ -614,8 +616,8 @@ class DbtSource(DbtServiceSource):
                     if model_tags:
                         dbt_tags_list.extend(self.filter_tags(model_tags))
 
-                    # Add the tags from the columns
-                    for _, column in manifest_node.columns.items():
+                    # snapshot nodes may have columns=None (columns are inferred at runtime)
+                    for _, column in (manifest_node.columns or {}).items():
                         column_tags = column.tags
                         if column_tags:
                             dbt_tags_list.extend(self.filter_tags(column_tags))
@@ -902,10 +904,21 @@ class DbtSource(DbtServiceSource):
 
                     model_name = get_dbt_model_name(manifest_node)
 
-                    # Filter the dbt models based on filter patterns
+                    # snapshots can redirect output to a different schema/database via config.target_schema/target_database
+                    if resource_type == "snapshot":
+                        location = get_snapshot_effective_schema_and_database(
+                            manifest_node
+                        )
+                        node_schema = location.schema_
+                        node_database = location.database
+                    else:
+                        node_schema = manifest_node.schema_
+                        node_database = manifest_node.database
+
+                    # Filter the dbt models based on filter patterns using effective schema/database
                     filter_model = self.is_filtered(
-                        database_name=get_corrected_name(manifest_node.database),
-                        schema_name=get_corrected_name(manifest_node.schema_),
+                        database_name=get_corrected_name(node_database),
+                        schema_name=get_corrected_name(node_schema),
                         table_name=model_name,
                     )
                     if filter_model.is_filtered:
@@ -930,13 +943,12 @@ class DbtSource(DbtServiceSource):
                             )
                             or []
                         )
-
                     table_fqn = fqn.build(
                         self.metadata,
                         entity_type=Table,
                         service_name=self.config.serviceName,
-                        database_name=get_corrected_name(manifest_node.database),
-                        schema_name=get_corrected_name(manifest_node.schema_),
+                        database_name=get_corrected_name(node_database),
+                        schema_name=get_corrected_name(node_schema),
                         table_name=model_name,
                     )
 
@@ -1016,9 +1028,24 @@ class DbtSource(DbtServiceSource):
                     parent_node = manifest_entities[node]
                     table_name = get_dbt_model_name(parent_node)
 
+                    parent_resource_type = getattr(
+                        parent_node.resource_type,
+                        "value",
+                        parent_node.resource_type,
+                    )
+                    if parent_resource_type == "snapshot":
+                        parent_location = get_snapshot_effective_schema_and_database(
+                            parent_node
+                        )
+                        parent_database = parent_location.database
+                        parent_schema = parent_location.schema_
+                    else:
+                        parent_database = parent_node.database
+                        parent_schema = parent_node.schema_
+
                     filter_model = self.is_filtered(
-                        database_name=get_corrected_name(parent_node.database),
-                        schema_name=get_corrected_name(parent_node.schema_),
+                        database_name=get_corrected_name(parent_database),
+                        schema_name=get_corrected_name(parent_schema),
                         table_name=table_name,
                     )
                     if filter_model.is_filtered:
@@ -1035,8 +1062,8 @@ class DbtSource(DbtServiceSource):
                             self.metadata,
                             entity_type=Table,
                             service_name=self.config.serviceName,
-                            database_name=get_corrected_name(parent_node.database),
-                            schema_name=get_corrected_name(parent_node.schema_),
+                            database_name=get_corrected_name(parent_database),
+                            schema_name=get_corrected_name(parent_schema),
                             table_name=table_name,
                         )
 
@@ -1059,7 +1086,8 @@ class DbtSource(DbtServiceSource):
         Method to parse the DBT columns
         """
         columns = []
-        manifest_columns = manifest_node.columns
+        # snapshot nodes default columns to None; treat as empty to avoid AttributeError
+        manifest_columns = manifest_node.columns or {}
         for key, manifest_column in manifest_columns.items():
             try:
                 logger.debug(f"Processing DBT column: {key}")
@@ -1588,10 +1616,7 @@ class DbtSource(DbtServiceSource):
                 )
                 if not check_test_definition_exists:
                     entity_type = EntityType.TABLE
-                    if (
-                        hasattr(manifest_node, "column_name")
-                        and manifest_node.column_name
-                    ):
+                    if get_manifest_column_name(manifest_node):
                         entity_type = EntityType.COLUMN
                     yield Either(
                         right=CreateTestDefinitionRequest(
@@ -1629,7 +1654,7 @@ class DbtSource(DbtServiceSource):
                 for entity_link_str in entity_link_list:
                     table_fqn = get_table_fqn(entity_link_str)
                     logger.debug(f"Table fqn found: {table_fqn}")
-                    source_elements = table_fqn.split(fqn.FQN_SEPARATOR)
+                    source_elements = fqn.split(table_fqn)
                     test_case_fqn = fqn.build(
                         self.metadata,
                         entity_type=TestCase,
@@ -1637,9 +1662,7 @@ class DbtSource(DbtServiceSource):
                         database_name=source_elements[1],
                         schema_name=source_elements[2],
                         table_name=source_elements[3],
-                        column_name=manifest_node.column_name
-                        if hasattr(manifest_node, "column_name")
-                        else None,
+                        column_name=get_manifest_column_name(manifest_node),
                         test_case_name=manifest_node.name,
                     )
 
@@ -1688,6 +1711,16 @@ class DbtSource(DbtServiceSource):
                 if not dbt_test_result:
                     logger.warning(
                         f"DBT Test Case Results not found for node: {manifest_node.name}"
+                    )
+                    return
+
+                # Skip compiled-only entries: `dbt run` includes test nodes in
+                # run_results.json with status="success" but message=null since
+                # no test SQL was executed. Real results always have a message.
+                if not dbt_test_result.message:
+                    logger.debug(
+                        "Skipping compiled-only test result for '%s' (message is null).",
+                        manifest_node.name,
                     )
                     return
 
@@ -1740,7 +1773,7 @@ class DbtSource(DbtServiceSource):
 
                 # Create the test case fqns and add the results
                 for table_fqn in dbt_test.get(DbtCommonEnum.UPSTREAM.value):
-                    source_elements = table_fqn.split(fqn.FQN_SEPARATOR)
+                    source_elements = fqn.split(table_fqn)
                     test_case_fqn = fqn.build(
                         self.metadata,
                         entity_type=TestCase,
@@ -1748,9 +1781,7 @@ class DbtSource(DbtServiceSource):
                         database_name=source_elements[1],
                         schema_name=source_elements[2],
                         table_name=source_elements[3],
-                        column_name=manifest_node.column_name
-                        if hasattr(manifest_node, "column_name")
-                        else None,
+                        column_name=get_manifest_column_name(manifest_node),
                         test_case_name=manifest_node.name,
                     )
 

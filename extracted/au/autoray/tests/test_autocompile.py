@@ -3,11 +3,10 @@ from numpy.testing import assert_allclose
 
 from autoray import autojit, do, infer_backend, shape, to_numpy
 
-from .test_autoray import BACKENDS, gen_rand
+from .conftest import gen_params, gen_rand
 
-BACKENDS = [
-    p for p in BACKENDS if p.values[0] in ("jax", "torch", "tensorflow")
-]
+_COMPILE_BACKENDS = ["jax", "torch", "tensorflow"]
+BACKENDS = gen_params(backends=_COMPILE_BACKENDS)
 
 
 def modified_gram_schmidt(X):
@@ -71,6 +70,18 @@ def test_complicated_signature():
     x = do("random.uniform", size=(5, 7), like="numpy")
     y = foo((x[0, :], x[1, :]), {"1": x[2, :]}, c={"sub": (x[3, :], x[4, :])})
     assert_allclose(y, x.sum(0))
+
+
+def test_astype_lazy_dtype():
+    @autojit
+    def foo(x, y):
+        return do("astype", x, y.dtype) + y
+
+    x = gen_rand((3, 4), "numpy", dtype="float32")
+    y = gen_rand((3, 4), "numpy", dtype="float64")
+    z = foo(x, y)
+    assert z.dtype.name == "float64"
+    assert_allclose(z, x.astype("float64") + y)
 
 
 def test_multi_output():

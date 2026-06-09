@@ -46,11 +46,7 @@ SONAR_PROD_BUCKET_NAME = "airbyte-connector-registry"
 SONAR_DEV_BUCKET_NAME = "airbyte-connector-registry-dev"
 
 # Feature flag: allow GA versions to enable progressive rollout.
-# When False, the validators reject `enableProgressiveRollout: true` on
-# non-prerelease versions (the pre-#623 behaviour).  Flip to True once
-# GA progressive rollout is ready to ship.
-# Tracking issue: https://github.com/airbytehq/airbyte-ops-mcp/issues/646
-ALLOW_GA_PROGRESSIVE_ROLLOUT = False
+ALLOW_GA_PROGRESSIVE_ROLLOUT = True
 
 # Registry channels supported by the Coral connector registry.
 VALID_REGISTRIES = ("cloud", "oss")

@@ -151,6 +151,7 @@ class FeaturesImpl(metaclass=FeaturesMeta):
     __chalk_namespace__: ClassVar[str]
     __chalk_primary__: ClassVar[Feature | None] = None  # The primary key feature
     __chalk_owner__: ClassVar[Optional[str]]
+    __chalk_description__: ClassVar[Optional[str]]
     __chalk_tags__: ClassVar[List[str]]
     __chalk_ts__: ClassVar[Optional[Feature]]  # The timestamp feature
     features: ClassVar[List[Feature]]

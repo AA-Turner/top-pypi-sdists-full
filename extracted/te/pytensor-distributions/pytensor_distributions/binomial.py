@@ -1,7 +1,8 @@
 import pytensor.tensor as pt
-from pytensor.tensor.xlogx import xlogy0
+from pytensor.tensor.special import xlogy
 
 from pytensor_distributions.helper import cdf_bounds, discrete_entropy
+from pytensor_distributions.lmoments import _lmoments
 from pytensor_distributions.optimization import find_ppf_discrete
 
 
@@ -34,6 +35,22 @@ def kurtosis(n, p):
     return (1 - 6 * p * (1 - p)) / (n * p * (1 - p))
 
 
+def lmoment1(n, p):
+    return mean(n, p)
+
+
+def lmoment2(n, p):
+    return _lmoments(ppf, n, p, r=2)
+
+
+def lmoment3(n, p):
+    return _lmoments(ppf, n, p, r=3)
+
+
+def lmoment4(n, p):
+    return _lmoments(ppf, n, p, r=4)
+
+
 def entropy(n, p):
     return discrete_entropy(0, n + 1, logpdf, n, p)
 
@@ -60,7 +77,7 @@ def isf(q, n, p):
 
 
 def rvs(n, p, size=None, random_state=None):
-    return pt.random.binomial(n, p, size=size, rng=random_state)
+    return pt.random.binomial(n, p, size=size, rng=random_state, return_next_rng=True)[1]
 
 
 def logpdf(x, n, p):
@@ -70,7 +87,7 @@ def logpdf(x, n, p):
         pt.gammaln(n + 1)
         - pt.gammaln(x + 1)
         - pt.gammaln(n - x + 1)
-        + xlogy0(x, p)
+        + xlogy(x, p)
         + (n - x) * pt.log1p(-p),
     )
 

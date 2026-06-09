@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2011 Nathanael C. Fritz, Dalek
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.plugins.xep_0249.invite import XEP_0249
 
 
 register_plugin(XEP_0249)
+
+__all__ = ['Invite', 'XEP_0249']

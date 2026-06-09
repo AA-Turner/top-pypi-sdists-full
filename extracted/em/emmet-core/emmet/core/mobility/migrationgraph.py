@@ -8,22 +8,24 @@ from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 from pydantic import BaseModel, Field
-from pymatgen.analysis.structure_matcher import StructureMatcher
-from pymatgen.core import Element, Structure
-from pymatgen.entries.computed_entries import ComputedEntry, ComputedStructureEntry
+from emmet.core.io.pymatgen import (
+    StructureMatcher,
+    Element,
+    Structure,
+    ComputedEntry,
+    ComputedStructureEntry,
+)
 
 from emmet.core.base import EmmetBaseModel
 from emmet.core.neb import NebPathwayResult
 from emmet.core.types.enums import ValueEnum
-from emmet.core.utils import arrow_incompatible
 from emmet.core.types.typing import DateTimeType
+from emmet.core.utils import arrow_incompatible
 
 try:
-    from pymatgen.analysis.diffusion.neb.full_path_mapper import MigrationGraph
-    from pymatgen.analysis.diffusion.utils.edge_data_from_sc import (
+    from emmet.core.io.pymatgen import (
+        MigrationGraph,
         add_edge_data_from_sc,
-    )
-    from pymatgen.analysis.diffusion.utils.supercells import (
         get_sc_fromstruct,
         get_start_end_structures,
     )
@@ -257,10 +259,10 @@ class MigrationGraphDoc(EmmetBaseModel):
     @classmethod
     def augment_from_mgd_and_npr(
         cls,
-        mgd: "MigrationGraphDoc",
+        mgd: MigrationGraphDoc,
         npr: NebPathwayResult,
         barrier_type: Literal["max_barrier", "energy_range"],
-    ) -> Self:
+    ) -> MigrationGraphDoc:
         """
         Takes an existing MigrationGraphDoc and augment it.
 
@@ -690,12 +692,18 @@ class MigrationGraphDoc(EmmetBaseModel):
         for hop_key, data in npr.hops.items():
             energy_struct_info[hop_key] = {
                 "hop_key": hop_key,
-                "max_barrier": npr.max_barriers.get(hop_key),
+                "max_barrier": (
+                    npr.max_barriers.get(hop_key) if npr.max_barriers else None
+                ),
                 "energy_range": data.barrier_energy_range,
                 "energies": data.energies,
                 "state": data.state,
                 "calc_fail_info": data.failure_reasons,
-                "input_endpoints": [data.initial_images[0], data.initial_images[-1]],
+                "input_endpoints": (
+                    [data.initial_images[0], data.initial_images[-1]]
+                    if data.initial_images
+                    else []
+                ),
                 "output_structs": data.images,
             }
         return energy_struct_info

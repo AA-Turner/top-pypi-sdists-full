@@ -10,3 +10,5 @@ from slixmpp.plugins.xep_0027.gpg import XEP_0027
 
 
 register_plugin(XEP_0027)
+
+__all__ = ['Signed', 'Encrypted', 'XEP_0027']

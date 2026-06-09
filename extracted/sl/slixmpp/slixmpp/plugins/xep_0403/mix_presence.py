@@ -3,8 +3,6 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 
-from slixmpp import JID, Iq
-from slixmpp.exceptions import IqError, IqTimeout
 from slixmpp.plugins import BasePlugin
 from slixmpp.plugins.xep_0403 import stanza
 from slixmpp.xmlstream.matcher import MatchXPath

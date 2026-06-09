@@ -251,8 +251,8 @@ class Weather:
         "ST": "dwlh",  # Sachsen-Anhalt
         "TH": "dwli",  # Thueringen
         "BY": "dwmg",  # Bayern
-        "BYN": "dwmo", # Nordbayern
-        "BYS": "dwmp", # Südbayern
+        "BYN": "dwmo",  # Nordbayern
+        "BYS": "dwmp",  # Südbayern
         "BW": "dwsg",  # Baden-Württemberg
         "HE": "dweg",  # Hessen
         "RP": "dwei",  # Rheinland-Pfalz
@@ -1302,7 +1302,7 @@ class Weather:
             if request.status_code == 304:
                 return
             self.etags[url] = request.headers["ETag"]  # type: ignore
-            weather_report = request.text
+            weather_report = request.content.decode("utf-8", errors="replace")
             a = weather_report.find(">")
             if a != -1:
                 weather_report = weather_report[a + 1 :]

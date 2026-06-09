@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyinstaller-hooks-contrib
-Version: 2026.5
+Version: 2026.6
 Summary: Community maintained hooks for PyInstaller
 Home-page: https://github.com/pyinstaller/pyinstaller-hooks-contrib
 Download-URL: https://pypi.org/project/pyinstaller-hooks-contrib
@@ -18,7 +18,6 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: setuptools>=42.0.0
 Requires-Dist: importlib_metadata>=4.6; python_version < "3.10"
 Requires-Dist: packaging>=22.0
 Dynamic: description-content-type

@@ -15,8 +15,10 @@ Source connection handler
 from copy import deepcopy
 from functools import partial
 from typing import Optional
+from urllib.parse import quote_plus
 
 from databricks.sdk import WorkspaceClient
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DatabaseError
 
@@ -46,6 +48,9 @@ from metadata.ingestion.connections.builders import (
 from metadata.ingestion.connections.test_connections import test_connection_steps
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
 from metadata.ingestion.source.database.databricks.auth import get_auth_config
+from metadata.ingestion.source.database.databricks.log_filters import (
+    suppress_user_agent_entry_deprecation_log,
+)
 from metadata.ingestion.source.database.unitycatalog.models import DatabricksTable
 from metadata.ingestion.source.database.unitycatalog.queries import (
     UNITY_CATALOG_GET_ALL_SCHEMA_TAGS,
@@ -61,9 +66,13 @@ from metadata.utils.logger import ingestion_logger
 
 logger = ingestion_logger()
 
+suppress_user_agent_entry_deprecation_log()
+
 
 def get_connection_url(connection: UnityCatalogConnection) -> str:
     url = f"{connection.scheme.value}://{connection.hostPort}"
+    if connection.catalog:
+        url = f"{url}?catalog={quote_plus(connection.catalog)}"
     return url
 
 
@@ -138,8 +147,8 @@ def test_connection(
         in the sql statement
         """
         try:
-            connection = engine.connect()
-            connection.execute(statement).fetchone()
+            with engine.connect() as connection:
+                connection.execute(text(statement)).fetchone()
         except DatabaseError as soe:
             logger.debug(f"Failed to fetch catalogs due to: {soe}")
 
@@ -169,30 +178,38 @@ def test_connection(
         engine = get_sqlalchemy_connection(service_connection)
         with engine.connect() as connection:
             connection.execute(
-                UNITY_CATALOG_GET_CATALOGS_TAGS.format(
-                    database=table_obj.catalog_name
-                ).replace(";", " limit 1;")
+                text(
+                    UNITY_CATALOG_GET_CATALOGS_TAGS.format(
+                        database=table_obj.catalog_name
+                    ).replace(";", " limit 1;")
+                )
             )
             connection.execute(
-                UNITY_CATALOG_GET_ALL_SCHEMA_TAGS.format(
-                    database=table_obj.catalog_name
-                ).replace(";", " limit 1;")
+                text(
+                    UNITY_CATALOG_GET_ALL_SCHEMA_TAGS.format(
+                        database=table_obj.catalog_name
+                    ).replace(";", " limit 1;")
+                )
             )
             connection.execute(
-                UNITY_CATALOG_GET_ALL_TABLE_TAGS.format(
-                    database=table_obj.catalog_name, schema=table_obj.schema_name
-                ).replace(";", " limit 1;")
+                text(
+                    UNITY_CATALOG_GET_ALL_TABLE_TAGS.format(
+                        database=table_obj.catalog_name, schema=table_obj.schema_name
+                    ).replace(";", " limit 1;")
+                )
             )
             connection.execute(
-                UNITY_CATALOG_GET_ALL_TABLE_COLUMNS_TAGS.format(
-                    database=table_obj.catalog_name, schema=table_obj.schema_name
-                ).replace(";", " limit 1;")
+                text(
+                    UNITY_CATALOG_GET_ALL_TABLE_COLUMNS_TAGS.format(
+                        database=table_obj.catalog_name, schema=table_obj.schema_name
+                    ).replace(";", " limit 1;")
+                )
             )
 
     def test_lineage_tables(engine: Engine):
         with engine.connect() as conn:
-            conn.execute(UNITY_CATALOG_TEST_TABLE_LINEAGE).fetchone()
-            conn.execute(UNITY_CATALOG_TEST_COLUMN_LINEAGE).fetchone()
+            conn.execute(text(UNITY_CATALOG_TEST_TABLE_LINEAGE)).fetchone()
+            conn.execute(text(UNITY_CATALOG_TEST_COLUMN_LINEAGE)).fetchone()
 
     test_fn = {
         "CheckAccess": connection.catalogs.list,

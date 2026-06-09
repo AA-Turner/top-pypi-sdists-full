@@ -7,7 +7,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "awkward_cpp"
-version = "52"
+version = "53"
 dependencies = [
     "numpy>=1.21.3"
 ]
@@ -92,10 +92,9 @@ pytest -p no:cacheprovider \
        {package}/tests-spec-explicit
 """]
 skip = [
-    "pp*win*",
+    "cp310-win_arm64",  # No numpy wheels
 ]
 test-skip = [
-    "pp*",
     "*musllinux*",
 ]
 build-verbosity = 1

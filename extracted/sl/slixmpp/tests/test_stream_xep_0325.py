@@ -9,13 +9,10 @@
     See the file LICENSE for copying permission.
 """
 
-import sys
 import datetime
 import time
-import threading
 
 from slixmpp.test import *
-from slixmpp.xmlstream import ElementBase
 from slixmpp.plugins.xep_0325.device import Device
 
 
@@ -210,8 +207,8 @@ class TestStreamControl(SlixTest):
             </message>
         """)
 
-        self.assertEqual(myDevice._get_field_value("Temperature"), "15");
-        self.assertFalse(myDevice.has_control_field("Voltage", "int"));
+        self.assertEqual(myDevice._get_field_value("Temperature"), "15")
+        self.assertFalse(myDevice.has_control_field("Voltage", "int"))
 
 
     def testRequestSetOkAPI(self):
@@ -254,7 +251,7 @@ class TestStreamControl(SlixTest):
             </iq>
             """)
 
-        self.assertEqual(results, ["OK"]);
+        self.assertEqual(results, ["OK"])
 
     def testRequestSetErrorAPI(self):
 
@@ -353,4 +350,3 @@ class TestStreamControl(SlixTest):
 
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestStreamControl)
-

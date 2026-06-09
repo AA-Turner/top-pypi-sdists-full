@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2013 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -11,3 +10,5 @@ from slixmpp.plugins.xep_0020.feature_negotiation import XEP_0020
 
 
 register_plugin(XEP_0020)
+
+__all__ = ['FeatureNegotiation', 'XEP_0020', 'stanza']

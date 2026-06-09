@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hegel-core
-Version: 0.9.1
+Version: 0.10.0
 Summary: Universal property-based testing protocol, built on Hypothesis
 Author-email: "David R. MacIver" <david@drmaciver.com>, Liam DeVoe <orionldevoe@gmail.com>
 License-Expression: MIT

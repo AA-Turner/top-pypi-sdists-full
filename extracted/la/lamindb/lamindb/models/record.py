@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, overload
 
@@ -32,7 +33,14 @@ from .query_set import (
     reorder_subset_columns_in_df,
 )
 from .run import Run, TracksRun, TracksUpdates, User, current_run, current_user_id
-from .sqlrecord import BaseSQLRecord, HasType, IsLink, SQLRecord, _get_record_kwargs
+from .sqlrecord import (
+    BaseSQLRecord,
+    HasType,
+    IsLink,
+    SQLRecord,
+    _get_record_kwargs,
+    pop_space_branch_kwargs,
+)
 from .transform import Transform
 from .ulabel import ULabel
 
@@ -50,6 +58,211 @@ if TYPE_CHECKING:
 # keep docstring in sync with test_record_docstring_examples in test_record_basics.py
 IMPORTS_UID = "W3WdiFRZTvTJajNp"
 SCHEMA_IMPORTS_UID = "DGZkj4yhGWMJE5fu"
+
+
+def get_type_schema_index(record_type: Record | None) -> Feature | None:
+    """Return the index feature for a record type sheet, if configured."""
+    if record_type is None or not record_type.is_type:
+        return None
+    schema = record_type.schema
+    if schema is None:
+        return None
+    return schema.index
+
+
+def is_schema_index_feature(schema: Schema | None, feature: Feature) -> bool:
+    if schema is None:
+        return False
+    index_feature = schema.index
+    return index_feature is not None and feature.uid == index_feature.uid
+
+
+def validate_record_sheet_index_feature(index_feature: Feature) -> None:
+    """Ensure a record-sheet index feature can be stored on `Record.name`."""
+    if index_feature.dtype_as_str != "str":
+        raise ValueError(
+            f"schema index feature '{index_feature.name}' must have dtype str "
+            f"because it is stored on Record.name, not {index_feature.dtype_as_str!r}"
+        )
+
+
+def validate_record_type_schema_index(schema: Schema | None) -> None:
+    if schema is None:
+        return
+    index_feature = schema.index
+    if index_feature is not None:
+        validate_record_sheet_index_feature(index_feature)
+
+
+def coerce_index_value_to_record_name(value: Any, feature: Feature) -> str | None:
+    """Convert an index feature value to a `Record.name` string."""
+    import pandas as pd
+
+    if value is None or (pd.api.types.is_scalar(value) and pd.isna(value)):
+        return None
+    if isinstance(value, str):
+        return value
+    raise TypeError(
+        f"index feature '{feature.name}' value must be a string, not {type(value).__name__}"
+    )
+
+
+def index_value_from_record_name(name: str | None, feature: Feature) -> str | None:
+    """Convert `Record.name` back to the index feature value."""
+    return name
+
+
+def apply_index_feature_to_record(
+    record: Record,
+    feature: Feature,
+    value: Any,
+    *,
+    persist: bool = True,
+) -> None:
+    """Set `record.name` from an index feature value."""
+    record.name = coerce_index_value_to_record_name(value, feature)
+    if persist and record.pk is not None:
+        persist_record_name(record)
+
+
+def persist_record_name(record: Record) -> None:
+    """Persist `Record.name` without re-entering lazy `features` saving."""
+    SQLRecord.save(record, update_fields=["name"])
+
+
+def inject_index_into_feature_dict(record: Record, dictionary: dict[str, Any]) -> None:
+    """Expose the index feature in `get_values` / feature dicts from `record.name`."""
+    index_feature = get_type_schema_index(record.type)
+    if index_feature is None or record.name is None:
+        return
+    dictionary[index_feature.name] = index_value_from_record_name(
+        record.name, index_feature
+    )
+
+
+def pop_index_from_feature_dictionary(
+    dictionary: dict[str, Any], schema: Schema
+) -> tuple[str | None, dict[str, Any]]:
+    """Extract index value for `record.name` and remove it from feature payload."""
+    index_feature = schema.index
+    if index_feature is None:
+        return None, dictionary
+    index_name = index_feature.name
+    if index_name not in dictionary:
+        return None, dictionary
+    value = dictionary.pop(index_name)
+    return coerce_index_value_to_record_name(value, index_feature), dictionary
+
+
+def export_includes_record_metadata(schema: Schema | None) -> bool:
+    """Whether sheet export includes encoded ``__lamindb_record_*`` columns."""
+    return schema is None or schema.index is None
+
+
+def drop_record_metadata_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop encoded Record metadata columns from an export dataframe."""
+    metadata_cols = [
+        col
+        for col in df.columns
+        if col.startswith("__lamindb_record_") and col.endswith("__")
+    ]
+    if metadata_cols:
+        df = df.drop(columns=metadata_cols)
+    encoded_id = encode_lamindb_fields_as_columns(Record, "id")
+    if isinstance(encoded_id, str) and df.index.name == encoded_id:
+        df = df.reset_index(drop=True)
+    return df
+
+
+def apply_schema_index_to_export_dataframe(
+    df: pd.DataFrame,
+    index_feature: Feature,
+    *,
+    encoded_id: str,
+    encoded_name: str,
+    include_record_metadata: bool = True,
+) -> pd.DataFrame:
+    """Move the schema index feature from columns to `DataFrame.index`."""
+    index_col = index_feature.name
+    lamin_record_ids = df.index.to_series()
+    if index_col in df.columns:
+        index_values = df[index_col]
+        df = df.drop(columns=[index_col])
+    elif "name" in df.columns:
+        index_values = df["name"]
+        df = df.drop(columns=["name"])
+    elif encoded_name in df.columns:
+        index_values = df[encoded_name]
+        df = df.drop(columns=[encoded_name])
+    else:
+        raise ValueError(
+            f"could not find values for schema index feature '{index_col}' in export dataframe"
+        )
+
+    df = df.copy()
+    if include_record_metadata:
+        df[encoded_id] = lamin_record_ids.values
+    df = df.set_index(index_values)
+    df.index.name = index_col
+    if not include_record_metadata:
+        df = drop_record_metadata_columns(df)
+    return df
+
+
+def dataframe_for_record_batch(
+    df: pd.DataFrame, index_feature: Feature | None
+) -> pd.DataFrame:
+    """Normalize a batch dataframe so the schema index is a column for row iteration."""
+    import pandas as pd
+
+    if index_feature is None:
+        return df
+    if df.index.name == index_feature.name and not isinstance(df.index, pd.RangeIndex):
+        return df.reset_index()
+    return df
+
+
+def move_schema_index_column_to_dataframe_index(
+    df: pd.DataFrame, schema: Schema
+) -> pd.DataFrame:
+    """Align a validation dataframe with `Schema.index` (index on `df.index`)."""
+    index_feature = schema.index
+    if index_feature is None or index_feature.name not in df.columns:
+        return df
+    df = df.copy()
+    df = df.set_index(index_feature.name)
+    df.index.name = index_feature.name
+    return df
+
+
+def strip_index_for_record_persistence(
+    record: Record,
+    schema: Schema,
+    dictionary: dict[str, Any],
+    feature_objects: list[Feature],
+    *,
+    values_by_feature_uid: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], list[Feature]]:
+    """Move schema index values to `record.name` and drop them from link-table writes."""
+    index_feature = schema.index
+    if index_feature is None:
+        return dictionary, feature_objects
+
+    index_value = None
+    if values_by_feature_uid is not None and index_feature.uid in values_by_feature_uid:
+        index_value = values_by_feature_uid[index_feature.uid]
+    elif index_feature.name in dictionary:
+        index_value = dictionary[index_feature.name]
+
+    if index_value is not None:
+        apply_index_feature_to_record(record, index_feature, index_value, persist=False)
+
+    dictionary = dict(dictionary)
+    dictionary.pop(index_feature.name, None)
+    feature_objects = [
+        feature for feature in feature_objects if feature.uid != index_feature.uid
+    ]
+    return dictionary, feature_objects
 
 
 class RecordBatch:
@@ -79,23 +292,39 @@ class RecordBatch:
     def _build_records(self) -> list[Record]:
         import pandas as pd
 
+        index_feature = get_type_schema_index(self._resolved_type)
         records: list[Record] = []
-        row_dicts = self._df.to_dict(orient="records")
+        work_df = dataframe_for_record_batch(self._df, index_feature)
+        row_dicts = work_df.to_dict(orient="records")
         for row in row_dicts:
-            if self._name_field in row:
-                name = row.pop(self._name_field)
-            elif "name" in row:
-                name = row.pop("name")
-            else:
-                name = None
-            if pd.api.types.is_scalar(name) and pd.isna(name):
-                name = None
+            row = dict(row)
+            name = None
+            if index_feature is not None and index_feature.name in row:
+                value = row.pop(index_feature.name)
+                if not (pd.api.types.is_scalar(value) and pd.isna(value)):
+                    name = coerce_index_value_to_record_name(value, index_feature)
+            if name is None:
+                if self._name_field in row:
+                    name = row.pop(self._name_field)
+                elif "name" in row:
+                    name = row.pop("name")
+                else:
+                    name = None
+                if pd.api.types.is_scalar(name) and pd.isna(name):
+                    name = None
 
             features: dict[str, Any] = {}
             for key, value in row.items():
                 if pd.api.types.is_scalar(value) and pd.isna(value):
                     continue
                 features[key] = value
+
+            if index_feature is not None and self._resolved_type.schema is not None:
+                name_from_features, features = pop_index_from_feature_dictionary(
+                    features, self._resolved_type.schema
+                )
+                if name is None:
+                    name = name_from_features
 
             record_kwargs: dict[str, Any] = {"type": self._resolved_type}
             if features:
@@ -115,11 +344,10 @@ class RecordBatch:
 
 
 class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates):
-    """Flexible records with sheets & markdown pages.
+    """Flexible records with markdown notes, dynamic registries, and sheets.
 
-    Useful for managing samples, donors, cells, compounds, sequences, and other custom entities with their features.
-
-    If you just want a simple label, use :class:`~lamindb.ULabel`.
+    Useful for managing notes, experiments, samples, donors, cells, compounds, sequences,
+    and other custom entities with their features.
 
     Args:
         name: `str | None = None` A name.
@@ -136,6 +364,8 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     See Also:
         :class:`~lamindb.Feature`
             Measurable properties such as columns of a sheet.
+        :class:`~lamindb.Schema`
+            Constrain sheet columns; :attr:`~lamindb.Schema.index` defines row keys.
         :class:`~lamindb.ULabel`
             Simple universal labels.
 
@@ -153,35 +383,49 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         # describe the record
         sample1.describe()
 
-    Group several records under a **record type**, optionally constrained with a :class:`~lamindb.Schema`::
+    Group several records in a registry by creating a record type, optionally constrained with a :class:`~lamindb.Schema`::
 
-        # create a flexible record type to track experiments
-        experiment_type = ln.Record(name="Experiment", is_type=True).save()
-        experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
+        # create an experiments registry
+        experiments_registry = ln.Record(name="Experiments", is_type=True).save()
+        experiment1 = ln.Record(name="Experiment 1", type=experiments_registry).save()
 
         # create a feature to link experiments
-        experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
+        experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()
 
-        # create a record type to track samples -- constrain it with a schema
+        # constrain a samples registry with a schema, turning it into a sheet
         schema = ln.Schema([experiment, gc_content.with_config(optional=True)], name="sample_schema").save()
         sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
 
-        # group the sample1 record under the sample sheet
+        # move the sample1 record into the sample sheet
         sample1.type = sample_sheet
         sample1.save()
 
         # reset the feature values for the record including the experiment
         sample1.features.set_values({
-            "gc_content": 0.5,
-            "experiment": "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
+            gc_content: 0.5,
+            experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         })
 
     Export all records under a type to a dataframe::
 
-        experiment_type.to_dataframe()
+        experiments_registry.to_dataframe()
         #> __lamindb_record_name__   ...
         #>            Experiment 1   ...
         #>            Experiment 2   ...
+
+    Use :attr:`~lamindb.Schema.index` on a sheet schema to define row keys::
+
+        sample_id = ln.Feature(name="sample_id", dtype=str).save()
+        score = ln.Feature(name="score", dtype=float).save()
+        schema = ln.Schema(features=[score], index=sample_id).save()
+        sheet = ln.Record(name="Samples", is_type=True, schema=schema).save()
+
+        record = ln.Record(type=sheet, features={"sample_id": "S-001", "score": 1.5}).save()
+        assert record.name == "S-001"
+
+        df = sheet.to_dataframe()
+        assert df.index.name == "sample_id"
+        assert "sample_id" not in df.columns
 
     Import records from a dataframe :meth:`~lamindb.Record.from_dataframe`::
 
@@ -190,24 +434,50 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     If you try to set incomplete features in a record in a sheet, you'll get a validation error::
 
         sample2 = ln.Record(name="Sample 2", type=sample_sheet).save()
-        sample2.features.set_values({"gc_content": 0.6})  # raises ValidationError because experiment is missing
+        sample2.features.set_values({gc_content: 0.6})  # raises ValidationError because experiment is missing
 
-    Query records by features::
+    Query records by features:
 
-        ln.Record.filter(gc_content=0.55)     # exact match
-        ln.Record.filter(gc_content__gt=0.5)  # greater than
+    .. tab-set::
+
+        .. tab-item:: Via objects
+
+            .. code-block:: python
+
+                ln.Record.filter(gc_content == 0.55)  # exact match
+                ln.Record.filter(gc_content > 0.5)    # greater than
+
+        .. tab-item:: Via strings
+
+            .. code-block:: python
+
+                ln.Record.filter(gc_content=0.55)  # exact match
+                ln.Record.filter(gc_content__gt=0.5)    # greater than
+
+    Query records by field::
+
         ln.Record.filter(type=sample_sheet)   # just the record on the sheet
-
-    If your feature names are ambiguous, you can use a `Feature` object to disambiguate::
-
-        # to set feature values
-        sample1.features.set_values({gc_content: 0.5})  # gc_content is the feature object
-
-        # to query by feature values
-        ln.Record.filter(gc_content == 0.5)  # instead of gc_content=0.5
 
     Notes
     -----
+
+    **Schema index.** When a sheet schema defines :attr:`~lamindb.Schema.index`, the
+    index feature acts as the row key — analogous to `df.index` for tabular data.
+    The index feature must have `dtype=str` because values are stored on
+    :attr:`~lamindb.Record.name`:
+
+    - **Write**: `Record(features=...)`, `features.add_values()`, and
+      :meth:`~lamindb.Record.from_dataframe` route the index feature to
+      :attr:`~lamindb.Record.name` and do not write it to link tables.
+    - **Read**: `features.get_values()` injects the index from `Record.name`.
+    - **Export**: :meth:`~lamindb.Record.to_dataframe` puts the index on `df.index`
+      (named after the index feature) and omits encoded metadata columns
+      (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`, etc.).
+      Sheets without `index` keep the previous export behavior.
+    - **Import**: :meth:`~lamindb.Record.from_dataframe` accepts a dataframe whose index
+      matches the schema index feature (or the index feature as a column).
+    - **CSV**: :meth:`~lamindb.Record.to_artifact` writes with `index=True` when an index
+      is configured.
 
     You can edit records like spreadsheets on the hub:
 
@@ -239,6 +509,17 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                     when=pgtrigger.Before,
                     condition=pgtrigger.Condition("NEW.type_id IS NOT NULL"),
                     func="""
+                        -- Enforce that records typed by a single-space type stay in the same space
+                        IF EXISTS (
+                            SELECT 1
+                            FROM lamindb_record r
+                            WHERE r.id = NEW.type_id
+                              AND r._aux->>'ss' = '1'
+                              AND r.space_id IS DISTINCT FROM NEW.space_id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: record space must match locked type space';
+                        END IF;
+
                         -- Check for direct self-reference
                         IF NEW.type_id = NEW.id THEN
                             RAISE EXCEPTION 'Cannot set type: record cannot be its own type';
@@ -293,7 +574,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     reference_type: str | None = CharField(max_length=25, db_index=True, null=True)
     """Type of simple reference."""
     extra_data: dict | None = models.JSONField(null=True)
-    """Additional data in JSON format, not validated as features."""
+    """Extra data in JSON format, not validated as features."""
     schema: Schema | None = ForeignKey(
         "Schema", CASCADE, null=True, related_name="records"
     )
@@ -431,10 +712,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         schema: Schema | None = kwargs.pop("schema", None)
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
-        branch = kwargs.pop("branch", None)
-        branch_id = kwargs.pop("branch_id", 1)
-        space = kwargs.pop("space", None)
-        space_id = kwargs.pop("space_id", 1)
+        space_branch_kwargs = pop_space_branch_kwargs(kwargs)
         _skip_validation = kwargs.pop("_skip_validation", False)
         _aux = kwargs.pop("_aux", None)
         if len(kwargs) > 0:
@@ -455,15 +733,14 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             reference=reference,
             reference_type=reference_type,
             schema=schema,
-            branch=branch,
-            branch_id=branch_id,
-            space=space,
-            space_id=space_id,
             _skip_validation=_skip_validation,
             _aux=_aux,
+            **space_branch_kwargs,
         )
 
     def save(self, *args, **kwargs) -> Record:
+        if self.is_type:
+            validate_record_type_schema_index(self.schema)
         super().save(*args, **kwargs)
         if hasattr(self, "_features"):
             pending_features = self._features
@@ -483,6 +760,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         Returns a :class:`RecordBatch`. Follow with `records.save()`.
 
+        When the target sheet schema defines :attr:`~lamindb.Schema.index`, the index
+        feature may be passed on `df.index` (named after the feature) or as a column.
+
         Args:
             df: A dataframe where rows represent records.
             type: Record type for all rows as either a `Record` object or a
@@ -492,8 +772,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
                 existing `Record` object for reuse.
                 If the resolved type is a sheet (`type.schema is not None`), feature
                 values are validated against that schema at save time.
-            name_field: Column used for record names. Falls back to `name` if
-                absent. If neither exists, records are created without names.
+            name_field: Column used for record names when no schema index is configured.
+                Falls back to `name` if absent. If neither exists, records are created
+                without names.
 
         Examples:
 
@@ -563,7 +844,7 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     def features(self) -> FeatureManager:
         """Manage the linked feature values.
 
-        For examples, see :class:`~lamindb.Record` or :class:`~lamindb.models.FeatureManager`.
+        For examples, see :class:`~lamindb.Record`.
         """
         from ._feature_manager import FeatureManager
 
@@ -605,40 +886,47 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         if isinstance(is_run_input, Run):
             run = is_run_input
         elif is_run_input in {True, None}:
-            if context.run is None:
-                # Compatibility path for older instances:
-                # historically, "__lamindb_record_export__" transforms could have
-                # arbitrary UIDs. We now standardize on a fixed UID to make creation
-                # idempotent under concurrency and to avoid duplicate internal
-                # transforms. This follows the fixed-UID pattern already used by
-                # "save_vitessce_config" (integrations/_vitessce.py) and
-                # "__lamindb_transfer__/{instance_uid}" (models/sqlrecord.py).
-                # After a few lamindb release cycles (once legacy UIDs are no
-                # longer expected), this normalization branch can be removed.
-                export_transform_uid = "v6KpQx9mRt2B0000"
-                transform = Transform.objects.filter(uid=export_transform_uid).first()
-                if transform is None:
-                    transform = (
-                        Transform.objects.filter(
-                            key="__lamindb_record_export__", kind="function"
-                        )
-                        .order_by("created_at")
-                        .first()
+            # If there is an active run context, link it as initiator of the
+            # internal record export run.
+            initiated_by_run = context.run
+            # Compatibility path for older instances:
+            # historically, "__lamindb_record_export__" transforms could have
+            # arbitrary UIDs. We now standardize on a fixed UID to make creation
+            # idempotent under concurrency and to avoid duplicate internal
+            # transforms. This follows the fixed-UID pattern already used by
+            # "save_vitessce_config" (integrations/_vitessce.py) and
+            # "__lamindb_transfer__/{instance_uid}" (models/sqlrecord.py).
+            # After a few lamindb release cycles (once legacy UIDs are no
+            # longer expected), this normalization branch can be removed.
+            export_transform_uid = "v6KpQx9mRt2B0000"
+            transform = Transform.objects.filter(uid=export_transform_uid).first()
+            if transform is None:
+                transform = (
+                    Transform.objects.filter(
+                        key="__lamindb_record_export__", kind="function"
                     )
-                if transform is None:
-                    transform, _ = Transform.objects.get_or_create(
-                        uid=export_transform_uid,
-                        defaults={
-                            "key": "__lamindb_record_export__",
-                            "kind": "function",
-                        },
-                    )
-                elif transform.uid != export_transform_uid:
-                    transform.uid = export_transform_uid
-                    transform.save()
-                run = Run(transform).save()
-            else:
-                run = context.run
+                    .order_by("created_at")
+                    .first()
+                )
+            if transform is None:
+                transform, _ = Transform.objects.get_or_create(
+                    uid=export_transform_uid,
+                    defaults={
+                        "key": "__lamindb_record_export__",
+                        "kind": "function",
+                    },
+                )
+            elif transform.uid != export_transform_uid:
+                transform.uid = export_transform_uid
+                transform.save()
+            # Export is treated as a discrete user action, so always create a new
+            # run. Transfer reuses runs to avoid repeated sync bookkeeping runs.
+            run = Run(
+                transform=transform,
+                initiated_by_run=initiated_by_run,
+                status="started",
+            ).save()  # type: ignore
+            run.initiated_by_run = initiated_by_run  # available in memory
         else:
             run = None
         self._export_run = run
@@ -647,7 +935,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
     def to_dataframe(
         cls_or_self,
         recurse: bool = False,
+        filters: Any | None = None,
         is_run_input: bool | Run | None = None,
+        link_individual_inputs: bool = True,
         **kwargs,
     ) -> pd.DataFrame:
         """Export to a pandas DataFrame.
@@ -658,11 +948,31 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         `to_dataframe()` ensures that the columns are ordered according to the schema of the type and encodes fields like `uid` and `name`.
 
+        When the sheet schema defines :attr:`~lamindb.Schema.index`, the index feature is
+        placed on `df.index` (named after the feature) and encoded metadata columns
+        (`__lamindb_record_id__`, `__lamindb_record_uid__`, `__lamindb_record_name__`, etc.)
+        are omitted. Sheets without `index` keep the previous export behavior.
+
         It will also track the record as an input to the current run.
+
+        Example:
+
+            Export all records on a sheet::
+
+                sample_sheet.to_dataframe()
+
+            Export only records with high GC content::
+
+                sample_sheet.to_dataframe(filters=gc_content > 0.55)
 
         Args:
             recurse: Whether to include records of sub-types recursively.
+            filters: Filters applied before export. Supports filter kwargs via
+                a `dict`, Django `Q` expressions, and feature predicates
+                (e.g. `my_feature > 5`), including iterables of expressions.
             is_run_input: Whether to track the record as a run input.
+            link_individual_inputs: Whether to link all exported records as
+                inputs of the export run. If `False`, only links the record type.
             **kwargs: Keyword arguments passed to :meth:`~lamindb.models.QuerySet.to_dataframe`.
         """
         import pandas as pd
@@ -682,24 +992,82 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             if recurse
             else self.records.filter(branch_id__in=branch_ids)
         )
+        if isinstance(filters, dict):
+            # Keep kwargs behavior aligned with the historic `self.records.filter(...)`
+            # semantics where fields like `name` target record fields.
+            qs = qs.filter(**filters)
+        elif filters is not None:
+            # Feature predicates are only supported through Record.filter(...).
+            qs = (
+                self.query_records()
+                if recurse
+                else self.__class__.filter(type=self, branch_id__in=branch_ids)
+            )
+            if isinstance(filters, Iterable) and not isinstance(filters, (str, bytes)):
+                qs = qs.filter(*filters)
+            else:
+                qs = qs.filter(filters)
         logger.important(f"exporting {qs.count()} records of '{self.name}'")
         if "order_by" not in kwargs:
             kwargs["order_by"] = "id"
-        df = qs.to_dataframe(features="queryset", limit=None, **kwargs)
+        features_arg = kwargs.pop("features", "queryset")
+        index_feature = self.schema.index if self.schema is not None else None
+        include_record_metadata = export_includes_record_metadata(self.schema)
+        df = qs.to_dataframe(
+            features=features_arg,
+            limit=None,
+            record_metadata=include_record_metadata,
+            **kwargs,
+        )
+        if not include_record_metadata and self.schema is not None:
+            schema_feature_names = set(
+                self.schema.members.values_list("name", flat=True)
+            )
+            pk_name = self._meta.pk.name
+            if pk_name in df.columns and pk_name not in schema_feature_names:
+                df = df.drop(columns=[pk_name])
         encoded_id = encode_lamindb_fields_as_columns(self.__class__, "id")
+        assert isinstance(encoded_id, str)  # noqa: S101
         encoded_uid = encode_lamindb_fields_as_columns(self.__class__, "uid")
         encoded_name = encode_lamindb_fields_as_columns(self.__class__, "name")
+        assert isinstance(encoded_name, str)  # noqa: S101
         # encode the django id, uid and name fields
-        if df.index.name == "id":
+        if include_record_metadata and df.index.name == "id":
             df.index.name = encoded_id
-        if "uid" in df.columns and encoded_uid not in df.columns:
+        if (
+            include_record_metadata
+            and "uid" in df.columns
+            and encoded_uid not in df.columns
+        ):
             df = df.rename(columns={"uid": encoded_uid})
-        if "name" in df.columns and encoded_name not in df.columns:
+        if index_feature is not None:
+            if "name" in df.columns and index_feature.name != "name":
+                df[index_feature.name] = df["name"]
+                df = df.drop(columns=["name"])
+            if encoded_name in df.columns:
+                df = df.drop(columns=[encoded_name])
+            df = apply_schema_index_to_export_dataframe(
+                df,
+                index_feature,
+                encoded_id=encoded_id,
+                encoded_name=encoded_name,
+                include_record_metadata=include_record_metadata,
+            )
+        elif "name" in df.columns and encoded_name not in df.columns:
             df = df.rename(columns={"name": encoded_name})
+        if not include_record_metadata:
+            df = drop_record_metadata_columns(df)
         if self.schema is not None:
             all_features = self.schema.members.all()
-            desired_order = all_features.to_list("name")  # only members is ordered!
+            index_feature_uid = None if index_feature is None else index_feature.uid
+            desired_order = [
+                feature.name
+                for feature in all_features
+                if index_feature_uid is None or feature.uid != index_feature_uid
+            ]
             for feature in all_features:
+                if index_feature_uid is not None and feature.uid == index_feature_uid:
+                    continue
                 if feature.name not in df.columns:
                     df[feature.name] = pd.Series(
                         dtype=convert_to_pandas_dtype(feature._dtype_str)
@@ -710,8 +1078,13 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             desired_order.sort()
         df = reorder_subset_columns_in_df(df, desired_order, position=0)  # type: ignore
         self._set_export_run(is_run_input=is_run_input)
+        # always link the type record
         self._export_run.input_records.add(self)
+        if link_individual_inputs:
+            input_record_ids = qs.values_list("id", flat=True)
+            self._export_run.input_records.add(*input_record_ids)
         self._export_run.finished_at = datetime.now(timezone.utc)
+        self._export_run._status_code = 0  # completed
         self._export_run.save()
         return df.sort_index()  # order by id
 
@@ -719,7 +1092,9 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
         self,
         key: str | None = None,
         suffix: str | None = None,
+        filters: Any | None = None,
         is_run_input: bool | Run | None = None,
+        link_individual_inputs: bool = True,
         **kwargs,
     ) -> Artifact:
         """Calls `to_dataframe()` to create an artifact.
@@ -728,10 +1103,26 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
 
         The `key` defaults to `sheet_exports/{self.name}{suffix}` unless a `key` is passed.
 
+        When the sheet schema defines :attr:`~lamindb.Schema.index`, the CSV is written
+        with `index=True` so the index feature is preserved on export.
+
+        Example:
+
+            Export all records on a sheet to an artifact::
+
+                sample_sheet.to_artifact()
+
+            Export only records with high GC content::
+
+                sample_sheet.to_artifact(filters=gc_content > 0.55)
+
         Args:
             key: `str | None = None` The artifact key.
             suffix: `str | None = None` The suffix to append to the default key if no key is passed.
+            filters: Filters applied before export.
             is_run_input: Whether to track the record as a run input.
+            link_individual_inputs: Whether to link all exported records as
+                inputs of the export run. If `False`, only links the record type.
             **kwargs: Keyword arguments passed to :meth:`~lamindb.models.Record.to_dataframe`.
         """
         assert self.is_type, "Only types can be exported as artifacts."
@@ -741,11 +1132,18 @@ class Record(SQLRecord, HasType, HasParents, CanCurate, TracksRun, TracksUpdates
             key = f"sheet_exports/{self.name}{suffix}"
         description = f": {self.description}" if self.description is not None else ""
         return Artifact.from_dataframe(
-            self.to_dataframe(is_run_input=is_run_input, **kwargs),
+            self.to_dataframe(
+                filters=filters,
+                is_run_input=is_run_input,
+                link_individual_inputs=link_individual_inputs,
+                **kwargs,
+            ),
             key=key,
             description=f"Export of sheet {self.uid}{description}",
             schema=self.schema,
-            csv_kwargs={"index": False},
+            csv_kwargs={
+                "index": self.schema is not None and self.schema.index is not None
+            },
             run=self._export_run,
         ).save()
 

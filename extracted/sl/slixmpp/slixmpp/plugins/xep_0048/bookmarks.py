@@ -5,13 +5,10 @@
 # See the file LICENSE for copying permission.
 import logging
 
-from slixmpp import Iq
 from slixmpp.plugins import BasePlugin
 from slixmpp.exceptions import XMPPError
-from slixmpp.xmlstream.handler import Callback
-from slixmpp.xmlstream.matcher import StanzaPath
 from slixmpp.xmlstream import register_stanza_plugin
-from slixmpp.plugins.xep_0048 import stanza, Bookmarks, Conference, URL
+from slixmpp.plugins.xep_0048 import stanza, Bookmarks
 
 
 log = logging.getLogger(__name__)

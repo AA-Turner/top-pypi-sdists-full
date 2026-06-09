@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "2.48.6"
+__version__ = "2.49.1"
 
 # Define package exports
 __all__ = [
@@ -52,6 +52,7 @@ __all__ = [
     "EventMatchResult",
     "ExchangeCredentials",
     "ExchangeCredentialsSignatureType",
+    "ExchangeOptions",
     "ExecutionPriceResult",
     "FeedFetchHistoricalPrices200Response",
     "FeedFetchOHLCV200Response",
@@ -174,6 +175,7 @@ from pmxt_internal.models.event_filter_criteria_total_volume import EventFilterC
 from pmxt_internal.models.event_match_result import EventMatchResult as EventMatchResult
 from pmxt_internal.models.exchange_credentials import ExchangeCredentials as ExchangeCredentials
 from pmxt_internal.models.exchange_credentials_signature_type import ExchangeCredentialsSignatureType as ExchangeCredentialsSignatureType
+from pmxt_internal.models.exchange_options import ExchangeOptions as ExchangeOptions
 from pmxt_internal.models.execution_price_result import ExecutionPriceResult as ExecutionPriceResult
 from pmxt_internal.models.feed_fetch_historical_prices200_response import FeedFetchHistoricalPrices200Response as FeedFetchHistoricalPrices200Response
 from pmxt_internal.models.feed_fetch_ohlcv200_response import FeedFetchOHLCV200Response as FeedFetchOHLCV200Response

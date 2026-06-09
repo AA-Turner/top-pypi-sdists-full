@@ -29,7 +29,7 @@ from collections import OrderedDict, defaultdict
 from inspect import signature
 
 
-def do(fn, *args, like=None, **kwargs):
+def do(fn: str, *args, like=None, **kwargs):
     """Do function named ``fn`` on ``(*args, **kwargs)``, peforming single
     dispatch to retrieve ``fn`` based on whichever library defines the class of
     the ``args[0]``, or the ``like`` keyword argument if specified.
@@ -91,9 +91,70 @@ def do(fn, *args, like=None, **kwargs):
         >>> do('eye', 3, like=x_tf)
         <tf.Tensor: id=91, shape=(3, 3), dtype=float32>
     """
+    # dispatch (& possibly inject device/dtype into kwargs)
     backend = _choose_backend(fn, args, kwargs, like=like)
-    func = get_lib_fn(backend, fn)
+
+    # get the function! (inline get_lib_fn for speed)
+    try:
+        func = _FUNCS[backend, fn]
+    except KeyError:
+        func = import_lib_fn(backend, fn)
+
+    # call the function!
     return func(*args, **kwargs)
+
+
+class DoFunc:
+    """Get an automatic dispatch (i.e. backend selection deferred to call time)
+    callable for function named ``fn``.
+
+    Slightly faster equivalent to ``functools.partial(do, fn)``.
+
+    Examples
+    --------
+
+    `DoFunc` objects have a fixed operation but can still be called on any type
+    of array:
+
+        >>> sqrt = DoFunc('sqrt')
+        >>> sqrt
+        <DoFunc sqrt>
+
+        >>> import numpy as np
+        >>> sqrt(np.random.uniform(size=[5]))
+        array([0.32464973, 0.90379787, 0.85037325, 0.88729814, 0.46768083])
+
+        >>> import cupy as cp
+        >>> sqrt(cp.random.uniform(size=[5]))
+        array([0.44541656, 0.88713113, 0.92626237, 0.64080557, 0.69620767])
+
+        >>> import tensorflow as tf
+        >>> sqrt(tf.random.uniform(shape=[5]))
+        <tf.Tensor: shape=(5,), dtype=float32, numpy=
+        array([0.3206495 , 0.8056399 , 0.5973012 , 0.13028008, 0.9820518 ],
+            dtype=float32)>
+    """
+
+    __slots__ = ("fn",)
+
+    def __init__(self, fn: str):
+        self.fn = fn
+
+    def __call__(self, *args, like=None, **kwargs):
+        # dispatch (& possibly inject device/dtype into kwargs)
+        backend = _choose_backend(self.fn, args, kwargs, like=like)
+
+        # get the function! (inline get_lib_fn for speed)
+        try:
+            func = _FUNCS[backend, self.fn]
+        except KeyError:
+            func = import_lib_fn(backend, self.fn)
+
+        # call the function!
+        return func(*args, **kwargs)
+
+    def __repr__(self):
+        return f"<DoFunc {self.fn}>"
 
 
 # ------------------------- efficiently dispatching ------------------------- #
@@ -133,8 +194,18 @@ def _default_infer_from_sig_threadaware(fn, args, kwargs):
     )
 
 
-def _always_the_same(fn, args, kwargs, backend):
-    return backend
+class ConstantInferrer:
+    """A simple dispatch inferrer that always returns the same backend. Used
+    with `set_backend` to set a uniform constant backend for all calls.
+    """
+
+    __slots__ = ("backend",)
+
+    def __init__(self, backend):
+        self.backend = backend
+
+    def __call__(self, fn, args, kwargs):
+        return self.backend
 
 
 def get_backend(get_globally="auto"):
@@ -197,10 +268,10 @@ def set_backend(like, set_globally="auto"):
         inferrer = _default_infer_from_sig
     elif isinstance(like, str):
         backend = like
-        inferrer = functools.partial(_always_the_same, backend=backend)
+        inferrer = ConstantInferrer(backend)
     else:
         backend = _infer_class_backend_cached(like.__class__)
-        inferrer = functools.partial(_always_the_same, backend=backend)
+        inferrer = ConstantInferrer(backend)
 
     if set_globally == "auto":
         set_globally = threading.get_ident() == _importing_thrid
@@ -350,6 +421,110 @@ def infer_backend_multi(*arrays):
     )
 
 
+_backend_device_dtype_dispatchers = {}
+
+
+def _make_device_dtype_dispatch(like):
+    """Make a dispatcher function that possibly looks up default device and
+    dtype if those are not given. Whether the dispatcher should look up those
+    attributes is cached on `like.__class__`.
+    """
+    if like is None or isinstance(like, str):
+        # not an array -> just pass args through
+
+        def _dispatcher(like, device, dtype):
+            return like, device, dtype
+
+        return _dispatcher
+
+    # else is array:
+    # A) pre-calc backend
+    backend = _infer_class_backend_cached(like.__class__)
+    # B) cache whether we should check dtype/device since relying on try/except
+    # can be unexpectedly slow (https://github.com/jcmgray/autoray/pull/30)
+    try:
+        like.device
+        has_device = True
+    except AttributeError:
+        has_device = False
+    try:
+        like.dtype
+        has_dtype = True
+    except AttributeError:
+        has_dtype = False
+
+    if not has_device and not has_dtype:
+        # check for builtin scalars, whose dtype is just their type
+        if isinstance(like, (int, float, complex)):
+            scalar_dtype = like.__class__
+        else:
+            scalar_dtype = None
+
+        def _dispatcher(like, device, dtype):
+            if dtype is None:
+                dtype = scalar_dtype
+            return backend, device, dtype
+
+    elif not has_device and has_dtype:
+
+        def _dispatcher(like, device, dtype):
+            if dtype is None:
+                dtype = like.dtype
+            return backend, device, dtype
+
+    elif has_device and not has_dtype:
+
+        def _dispatcher(like, device, dtype):
+            if device is None:
+                device = like.device
+            return backend, device, dtype
+
+    elif has_device and has_dtype:
+
+        def _dispatcher(like, device, dtype):
+            if device is None:
+                device = like.device
+            if dtype is None:
+                dtype = like.dtype
+            return backend, device, dtype
+
+    return _dispatcher
+
+
+def infer_backend_device_dtype(like, device=None, dtype=None):
+    """Infer the backend, device and dtype from `like`, with optional overrides
+    for device and dtype. The dispatcher is cached on `like.__class__` to avoid
+    repeated lookups of the same attributes for the same type of array.
+
+    Parameters
+    ----------
+    like : array-like or str or None
+        The array to infer the backend, device and dtype from. If str, an
+        explicit backend name. If None, the backend None is simply returned.
+    device : str or device_like, optional
+        If given, an explicit device to use. If None, and `like` is an array
+        with a device attribute, that is used.
+    dtype : str or dtype_like, optional
+        If given, an explicit dtype to use. If None, and `like` is an array
+        with a dtype attribute, that is used.
+
+    Returns
+    -------
+    backend : str or None
+        The inferred backend name, or None if `like` is None.
+    device : str or device_like or None
+        The inferred device, or None if not given and not found on `like`.
+    dtype : str or dtype_like or None
+        The inferred dtype, or None if not given and not found on `like`.
+    """
+    try:
+        f = _backend_device_dtype_dispatchers[like.__class__]
+    except KeyError:
+        f = _make_device_dtype_dispatch(like)
+        _backend_device_dtype_dispatchers[like.__class__] = f
+    return f(like, device=device, dtype=dtype)
+
+
 # the set of functions that create new arrays, with `dtype` and possibly
 # `device` kwargs, that should be inferred from the like argument
 _CREATION_ROUTINES = {
@@ -418,10 +593,11 @@ def _choose_backend(fn, args, kwargs, like=None):
         return like
     else:
         # explicit example array
-        backend = _infer_class_backend_cached(like.__class__)
 
-        # check if we should set some extra defaults based on the example array
         if fn in _CREATION_ROUTINES:
+            # possibly inject device and dtype from like into fn kwargs
+            backend, device, dtype = infer_backend_device_dtype(like)
+
             try:
                 # check for backend specific defaults
                 inject_dtype, inject_device = _CREATION_INJECT[backend, fn]
@@ -430,10 +606,12 @@ def _choose_backend(fn, args, kwargs, like=None):
                 inject_dtype, inject_device = _CREATION_ROUTINES[fn]
                 _CREATION_INJECT[backend, fn] = (inject_dtype, inject_device)
 
-            if inject_dtype:
-                kwargs.setdefault("dtype", getattr(like, "dtype", type(like)))
-            if inject_device:
-                kwargs.setdefault("device", like.device)
+            if inject_dtype and dtype is not None and "dtype" not in kwargs:
+                kwargs["dtype"] = dtype
+            if inject_device and device is not None and "device" not in kwargs:
+                kwargs["device"] = device
+        else:
+            backend = _infer_class_backend_cached(like.__class__)
 
         return backend
 
@@ -1266,25 +1444,34 @@ def reshape(x, shape):
         return do("reshape", x, shape)
 
 
+@functools.cache
+def _to_backend_dtype_from_str_cached(dtype_name, like):
+    try:
+        return get_lib_fn(like, dtype_name)
+    except ImportError:
+        # fallback to just trying with plain str
+        return dtype_name
+
+
 def to_backend_dtype(dtype_name, like):
     """Turn string specifier ``dtype_name`` into dtype of backend ``like``."""
     if not isinstance(like, str):
         like = _infer_class_backend_cached(like.__class__)
+    return _to_backend_dtype_from_str_cached(dtype_name, like)
 
+
+@functools.cache
+def _dtype_to_name_cached(dtype):
     try:
-        return get_lib_fn(like, dtype_name)
-    except ImportError:
-        return dtype_name
+        return dtype.name
+    except AttributeError:
+        return str(dtype).split(".")[-1].lower()
 
 
 @compose
 def get_dtype_name(x):
     """Find string specifier ``dtype_name`` of array ``x``."""
-    dtype = x.dtype
-    try:
-        return dtype.name
-    except AttributeError:
-        return str(dtype)
+    return _dtype_to_name_cached(x.dtype)
 
 
 _COMPLEX_DTYPES = {"complex64", "complex128"}
@@ -1305,13 +1492,11 @@ def get_common_dtype(*arrays):
     return _DTYPE_MAP[has_complex, has_double]
 
 
+@compose
 def astype(x, dtype_name, **kwargs):
     """Cast array as type ``dtype_name`` - tries ``x.astype`` first."""
     dtype = to_backend_dtype(dtype_name, like=x)
-    try:
-        return x.astype(dtype, **kwargs)
-    except AttributeError:
-        return do("astype", x, dtype, **kwargs)
+    return x.astype(dtype, **kwargs)
 
 
 def to_numpy(x):
@@ -1357,7 +1542,8 @@ def svd_manual_full_matrices_kwarg(fn):
         U, s, VH = fn(*args, **kwargs)
 
         if not full_matrices:
-            U, VH = U[:, : s.size], VH[: s.size, :]
+            k = s.shape[-1]
+            U, VH = U[..., :, :k], VH[..., :k, :]
 
         return U, s, VH
 
@@ -1414,9 +1600,11 @@ def triu_to_band_part(fn):
 
 
 def cholesky_lower(fn):
+    """Make a cholesky wrapper that translates `upper` to `lower` bool."""
+
     @functools.wraps(fn)
-    def cholesky_numpy_like(a):
-        return fn(a, lower=True)
+    def cholesky_numpy_like(a, upper=False):
+        return fn(a, lower=not upper)
 
     return cholesky_numpy_like
 
@@ -1655,7 +1843,9 @@ register_dispatch("subtract", binary_dispatcher, raw_signature=False)
 
 
 class InjectDtypeDevice:
-    """Wrapper that injects defaultdtype and device arguments into a function"""
+    """Wrapper that possibly injects default dtype and device arguments, if not
+    None, into the kwargs of function `fn`.
+    """
 
     __slots__ = ("_fn", "_device", "_dtype")
 
@@ -1718,27 +1908,9 @@ class AutoNamespace:
         dtype=None,
         submodule=None,
     ):
-        if like is None:
-            # use autoray.do and auto dispatch
-            self._backend = None
-        elif isinstance(like, str):
-            # commit to a specific given backend
-            self._backend = like
-        else:
-            # commit to a specific backend inferred from array-like
-            self._backend = _infer_class_backend_cached(like.__class__)
-
-        if device is None:
-            if like is not None:
-                if hasattr(like, "device"):
-                    device = like.device
-        self._device = device
-
-        if dtype is None:
-            if like is not None:
-                if hasattr(like, "dtype"):
-                    dtype = like.dtype
-        self._dtype = dtype
+        self._backend, self._device, self._dtype = infer_backend_device_dtype(
+            like, device, dtype
+        )
         self._submodule = submodule
 
     def _get_submodule(self, name):
@@ -1767,8 +1939,8 @@ class AutoNamespace:
             return self._get_submodule(name)
 
         if self._backend is None:
-            # use autoray.do and auto dispatch
-            return functools.partial(do, name)
+            # use auto dispatch
+            return DoFunc(name)
 
         fn = get_lib_fn(self._backend, name)
 
@@ -1846,29 +2018,8 @@ def get_namespace(like=None, device=None, dtype=None, submodule=None):
     AutoNamespace
         An automatic namespace object.
     """
-    if like is not None:
-        if not isinstance(like, str):
-            # array
-            cls = like.__class__
-            if device is None:
-                try:
-                    device = like.device
-                except AttributeError:
-                    device = None
-            if dtype is None:
-                try:
-                    dtype = like.dtype
-                except AttributeError:
-                    dtype = None
-        else:
-            # manually specified backend string
-            cls = like
-    else:
-        # namespace functions will dispatch at call time
-        cls = None
-
-    key = (cls, device, dtype, submodule)
-
+    backend, device, dtype = infer_backend_device_dtype(like, device, dtype)
+    key = (backend, device, dtype, submodule)
     try:
         xp = _NAMESPACE_CACHE[key]
     except KeyError:
@@ -1878,7 +2029,6 @@ def get_namespace(like=None, device=None, dtype=None, submodule=None):
             dtype=dtype,
             submodule=submodule,
         )
-
     return xp
 
 
@@ -1953,13 +2103,20 @@ def jax_to_numpy(x):
     return do("asarray", x, like="numpy")
 
 
+@functools.cache
+def get_jax():
+    import jax  # type: ignore
+
+    return jax
+
+
 class JaxDefaultRNG:
     """Stateful but deterministic random number generator for JAX following
     numpy's Generator API, compatible with `jax.jit`.
     """
 
     def __init__(self, seed, **kwargs):
-        import jax
+        jax = get_jax()
 
         self.jax = jax
         self.key = jax.random.key(seed, **kwargs)
@@ -2054,54 +2211,38 @@ def jax_default_rng(seed, **kwargs):
     return JaxDefaultRNG(seed, **kwargs)
 
 
-_JAX_RANDOM_KEY = None
+_JAX_DEFAULT_RNG = None
 
 
 @register_function("jax", "random.seed")
 def jax_random_seed(seed=None):
-    from jax.random import PRNGKey
-
-    global _JAX_RANDOM_KEY
+    global _JAX_DEFAULT_RNG
     if seed is None:
         from random import SystemRandom
 
         seed = SystemRandom().randint(-(2**63), 2**63 - 1)  # inclusive high
-    _JAX_RANDOM_KEY = PRNGKey(seed)
+    _JAX_DEFAULT_RNG = JaxDefaultRNG(seed)
 
 
-def jax_random_get_key():
-    from jax.random import split
-
-    global _JAX_RANDOM_KEY
-    if _JAX_RANDOM_KEY is None:
+def _get_jax_default_rng():
+    global _JAX_DEFAULT_RNG
+    if _JAX_DEFAULT_RNG is None:
         jax_random_seed()
-    _JAX_RANDOM_KEY, subkey = split(_JAX_RANDOM_KEY)
-    return subkey
+    return _JAX_DEFAULT_RNG
 
 
 @register_function("jax", "random.uniform")
 def jax_random_uniform(low=0.0, high=1.0, size=None, **kwargs):
-    from jax.random import uniform
-
-    if size is None:
-        size = ()
-    return uniform(
-        jax_random_get_key(), shape=size, minval=low, maxval=high, **kwargs
+    return _get_jax_default_rng().uniform(
+        low=low, high=high, size=size, **kwargs
     )
 
 
 @register_function("jax", "random.normal")
 def jax_random_normal(loc=0.0, scale=1.0, size=None, **kwargs):
-    from jax.random import normal
-
-    if size is None:
-        size = ()
-    x = normal(jax_random_get_key(), shape=size, **kwargs)
-    if scale != 1.0:
-        x *= scale
-    if loc != 0.0:
-        x += loc
-    return x
+    return _get_jax_default_rng().normal(
+        loc=loc, scale=scale, size=size, **kwargs
+    )
 
 
 register_backend_alias("jaxlib", "jax")
@@ -2185,20 +2326,6 @@ register_custom_wrapper("dask", "random.uniform", with_dtype_wrapper)
 
 register_function("dask", "complex", complex_add_re_im)
 register_function("dask", "to_numpy", dask_to_numpy)
-
-# ---------------------------------- mars ----------------------------------- #
-
-
-def mars_to_numpy(x):
-    return x.to_numpy()
-
-
-register_module_alias("mars", "mars.tensor")
-
-register_custom_wrapper("mars", "linalg.cholesky", cholesky_lower)
-
-register_function("mars", "complex", complex_add_re_im)
-register_function("mars", "to_numpy", mars_to_numpy)
 
 
 # ----------------------------------- ctf ----------------------------------- #
@@ -2353,7 +2480,7 @@ def sparse_random_normal(loc=0.0, scale=1.0, size=None, dtype=None, **kwargs):
 
 @functools.cache
 def get_tensorflow():
-    import tensorflow as tf
+    import tensorflow as tf  # type: ignore
 
     return tf
 
@@ -2393,7 +2520,7 @@ class TensorflowDefaultRNG:
     """
 
     def __init__(self, seed=None, **kwargs):
-        import tensorflow as tf  # type: ignore
+        tf = get_tensorflow()
 
         self.tf = tf
 
@@ -2527,12 +2654,19 @@ def tensorflow_solve_triangular(a, b, lower=False, **kwargs):
     return left
 
 
+@astype.register("tensorflow")
+def tensorflow_astype(x, dtype):
+    tf = get_tensorflow()
+    dtype = to_backend_dtype(dtype, like="tensorflow")
+    return tf.cast(x, dtype)
+
+
 # ---------------------------------- torch ---------------------------------- #
 
 
 @functools.cache
 def get_torch():
-    import torch
+    import torch  # type: ignore
 
     return torch
 
@@ -2546,16 +2680,6 @@ def torch_shape(x):
 @size.register("torch")
 def torch_size(x):
     return x.numel()
-
-
-@functools.lru_cache(None)
-def _torch_get_dtype_name(dtype):
-    return str(dtype).split(".")[-1]
-
-
-@get_dtype_name.register("torch")
-def torch_get_dtype_name(x):
-    return _torch_get_dtype_name(x.dtype)
 
 
 @register_custom_wrapper("torch[alt]", "linalg.solve")
@@ -2649,6 +2773,15 @@ def torch_flip_wrap(torch_flip):
             # already tuple/list
             dims = axis
         return torch_flip(x, dims)
+
+    return numpy_like
+
+
+@register_custom_wrapper("torch", "nonzero")
+def torch_nonzero_wrap(torch_nonzero):
+    def numpy_like(x, **kwargs):
+        kwargs.setdefault("as_tuple", True)
+        return torch_nonzero(x, **kwargs)
 
     return numpy_like
 
@@ -2920,7 +3053,7 @@ def torch_transpose(x, axes=None):
     return x.permute(*axes)
 
 
-@register_function("torch", "astype")
+@astype.register("torch")
 def torch_astype(x, dtype):
     return x.to(dtype=to_backend_dtype(dtype, like=x))
 
@@ -3232,7 +3365,7 @@ def pytensor_shape(x):
 
 
 def pytensor_wrap_qr_with_shapes(fn):
-    import pytensor.tensor as pt
+    import pytensor.tensor as pt  # type: ignore
 
     @functools.wraps(fn)
     def qr_shaped(x, **kwargs):
@@ -3247,7 +3380,7 @@ def pytensor_wrap_qr_with_shapes(fn):
 
 
 def pytensor_wrap_svd_with_shapes(fn):
-    import pytensor.tensor as pt
+    import pytensor.tensor as pt  # type: ignore
 
     @functools.wraps(fn)
     def svd_shaped(x, full_matrices=False, **kwargs):
@@ -3276,3 +3409,184 @@ register_custom_wrapper("pytensor", "linalg.qr", pytensor_wrap_qr_with_shapes)
 register_custom_wrapper(
     "pytensor", "linalg.svd", pytensor_wrap_svd_with_shapes
 )
+
+
+# ----------------------------------- mlx ----------------------------------- #
+
+register_module_alias("mlx", "mlx.core")
+
+
+@register_function("mlx", "to_numpy")
+def mlx_to_numpy(x):
+    return do("asarray", x, like="numpy")
+
+
+@functools.cache
+def get_mlx():
+    import mlx.core as mx
+
+    return mx
+
+
+class MlxDefaultRNG:
+    """Stateful but deterministic random number generator for MLX following
+    numpy's Generator API.
+    """
+
+    def __init__(self, seed, **kwargs):
+        mx = get_mlx()
+        self.mx = mx
+        self.key = mx.random.key(seed, **kwargs)
+
+    # TODO: implement binomial, choice, exponential, poisson when mlx adds them
+
+    def _split_key(self):
+        keys = self.mx.random.split(self.key)
+        self.key = keys[0]
+        return keys[1]
+
+    def _resolve_dtype(self, dtype):
+        if isinstance(dtype, str):
+            return getattr(self.mx, dtype)
+        return dtype
+
+    def gumbel(self, loc=0.0, scale=1.0, size=None, dtype=None, **kwargs):
+        shape = _handle_size_to_shape(size)
+        if dtype is not None:
+            kwargs["dtype"] = self._resolve_dtype(dtype)
+        x = self.mx.random.gumbel(shape=shape, key=self._split_key(), **kwargs)
+        if scale != 1.0:
+            x *= scale
+        if loc != 0.0:
+            x += loc
+        return x
+
+    def integers(self, low, high=None, size=None, dtype=None, **kwargs):
+        shape = _handle_size_to_shape(size)
+        if high is None:
+            high = low
+            low = 0
+        if dtype is not None:
+            kwargs["dtype"] = self._resolve_dtype(dtype)
+        return self.mx.random.randint(
+            low=low,
+            high=high,
+            shape=shape,
+            key=self._split_key(),
+            **kwargs,
+        )
+
+    def normal(self, loc=0.0, scale=1.0, size=None, dtype=None, **kwargs):
+        shape = _handle_size_to_shape(size)
+        if dtype is not None:
+            kwargs["dtype"] = self._resolve_dtype(dtype)
+        x = self.mx.random.normal(shape=shape, key=self._split_key(), **kwargs)
+        if scale != 1.0:
+            x *= scale
+        if loc != 0.0:
+            x += loc
+        return x
+
+    def permutation(self, x, **kwargs):
+        return self.mx.random.permutation(x, key=self._split_key(), **kwargs)
+
+    def random(self, size=None, **kwargs):
+        return self.uniform(size=size, **kwargs)
+
+    def uniform(self, low=0.0, high=1.0, size=None, dtype=None, **kwargs):
+        shape = _handle_size_to_shape(size)
+        if dtype is not None:
+            kwargs["dtype"] = self._resolve_dtype(dtype)
+        return self.mx.random.uniform(
+            low=low,
+            high=high,
+            shape=shape,
+            key=self._split_key(),
+            **kwargs,
+        )
+
+
+@register_function("mlx", "random.default_rng")
+def mlx_default_rng(seed, **kwargs):
+    if isinstance(seed, MlxDefaultRNG):
+        return seed
+    return MlxDefaultRNG(seed, **kwargs)
+
+
+register_backend(MlxDefaultRNG, "mlx")
+
+
+_MLX_DEFAULT_RNG = None
+
+
+@register_function("mlx", "random.seed")
+def mlx_random_seed(seed=None):
+    global _MLX_DEFAULT_RNG
+    if seed is None:
+        from random import SystemRandom
+
+        seed = SystemRandom().randint(0, 2**31 - 1)
+    _MLX_DEFAULT_RNG = MlxDefaultRNG(seed)
+
+
+def _get_mlx_default_rng():
+    global _MLX_DEFAULT_RNG
+    if _MLX_DEFAULT_RNG is None:
+        mlx_random_seed()
+    return _MLX_DEFAULT_RNG
+
+
+@register_function("mlx", "random.uniform")
+def mlx_random_uniform(low=0.0, high=1.0, size=None, **kwargs):
+    return _get_mlx_default_rng().uniform(
+        low=low, high=high, size=size, **kwargs
+    )
+
+
+@register_function("mlx", "random.normal")
+def mlx_random_normal(loc=0.0, scale=1.0, size=None, **kwargs):
+    return _get_mlx_default_rng().normal(
+        loc=loc, scale=scale, size=size, **kwargs
+    )
+
+
+register_function("mlx", "complex", complex_add_re_im)
+
+
+@register_function("mlx", "count_nonzero")
+def mlx_count_nonzero(x):
+    return (x != 0).sum()
+
+
+@register_function("mlx", "ravel")
+def mlx_ravel(x, *args, **kwargs):
+    return x.reshape(-1, *args, **kwargs)
+
+
+@register_custom_wrapper("mlx", "ones")
+@register_custom_wrapper("mlx", "zeros")
+def mlx_zeros_ones_wrap(fn):
+    @functools.wraps(fn)
+    def numpy_like(shape, dtype=None, **kwargs):
+        if dtype is not None:
+            dtype = to_backend_dtype(dtype, like="mlx")
+        return fn(shape, dtype=dtype, **kwargs)
+
+    return numpy_like
+
+
+@register_custom_wrapper("mlx", "eye")
+def mlx_eye_wrap(fn):
+    @functools.wraps(fn)
+    def numpy_like(N, M=None, dtype=None, **kwargs):
+        if dtype is not None:
+            dtype = to_backend_dtype(dtype, like="mlx")
+        if M is not None:
+            return fn(N, m=M, dtype=dtype, **kwargs)
+        else:
+            return fn(N, dtype=dtype, **kwargs)
+
+    return numpy_like
+
+
+register_custom_wrapper("mlx", "linalg.svd", svd_manual_full_matrices_kwarg)

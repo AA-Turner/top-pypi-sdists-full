@@ -3,7 +3,8 @@
 Model: trl-internal-testing/tiny-CohereForCausalLM
   - 2 layers, ~8M params, CPU-safe, no gating required
   - tie_word_embeddings=True by default
-  - logit_scale=0.0625 (1/16)
+  - logit_scale=0.125 (canonical Command-R is 0.0625; tiny diverges so
+    regression tests catch silent-fallback bugs in the passthrough)
 
 NOTE: The tiny model has use_qk_norm=False, so QK-norm is not exercised here.
 Cohere's QK-norm is a per-head LayerNorm inside CohereAttention.forward; it is
@@ -96,8 +97,20 @@ class TestCohereBridgeCreation:
     def test_cfg_logit_scale_is_float(self, cohere_bridge: TransformerBridge) -> None:
         assert isinstance(getattr(cohere_bridge.cfg, "logit_scale"), float)
 
-    def test_cfg_logit_scale_value(self, cohere_bridge: TransformerBridge) -> None:
-        assert getattr(cohere_bridge.cfg, "logit_scale") == pytest.approx(0.0625)
+    def test_cfg_logit_scale_matches_hf(
+        self, cohere_bridge: TransformerBridge, cohere_hf: Any
+    ) -> None:
+        """Regression: logit_scale must propagate from HF (not silently fall back to 0.0625)."""
+        bridge_scale = getattr(cohere_bridge.cfg, "logit_scale")
+        assert bridge_scale == cohere_hf.config.logit_scale
+        # Anchor 0.125 so a passthrough regression that defaults to 0.0625 also trips here.
+        assert bridge_scale == pytest.approx(0.125)
+
+    def test_cfg_rope_parameters_matches_hf(
+        self, cohere_bridge: TransformerBridge, cohere_hf: Any
+    ) -> None:
+        """Regression: rope_parameters must propagate from HF (same passthrough trap as logit_scale)."""
+        assert getattr(cohere_bridge.cfg, "rope_parameters") == cohere_hf.config.rope_parameters
 
 
 # ---------------------------------------------------------------------------
@@ -207,20 +220,36 @@ class TestCohereTiedEmbedding:
             max_diff < 1e-6
         ), f"embed.W_E was corrupted (possibly by logit_scale fold): max_diff={max_diff:.6f}"
 
-    def test_embed_and_unembed_weights_differ(
-        self, cohere_bridge_processed: TransformerBridge
-    ) -> None:
-        # After the logit_scale fold, embed.W_E and unembed.weight must NOT be identical.
-        # If they are, the untie or fold did not take effect.
-        logit_scale = getattr(cohere_bridge_processed.cfg, "logit_scale")
-        if logit_scale == 1.0:
-            pytest.skip("logit_scale=1.0 — fold is a no-op, skip this check")
-        tl_embed = cohere_bridge_processed.embed.W_E
-        tl_unembed = cohere_bridge_processed.unembed.original_component.weight
-        assert not torch.allclose(tl_embed, tl_unembed), (
-            "embed.W_E and unembed.weight are identical — "
-            "logit_scale fold may not have been applied or untied correctly"
+    @pytest.mark.parametrize("logit_scale", [0.0625, 1.0])
+    def test_embed_and_unembed_weights_differ(self, logit_scale: float) -> None:
+        # After the logit_scale fold, embed.W_E and unembed.weight must NOT be
+        # identical for a non-trivial scale. logit_scale=1.0 is kept as a regression
+        # guard for the no-op case, where the two weights stay tied.
+        #
+        # cfg.logit_scale is set before process_weights so the fold (which reads it
+        # inside preprocess_weights) runs with the parametrized value.
+        bridge = TransformerBridge.boot_transformers(MODEL, device="cpu")
+        bridge.cfg.logit_scale = logit_scale  # type: ignore[attr-defined]
+        bridge.process_weights(
+            fold_ln=False,
+            center_writing_weights=False,
+            center_unembed=False,
+            fold_value_biases=False,
+            refactor_factored_attn_matrices=False,
         )
+        tl_embed = bridge.embed.W_E
+        tl_unembed = bridge.unembed.original_component.weight
+        weights_identical = torch.allclose(tl_embed, tl_unembed)
+        if logit_scale == 1.0:
+            assert weights_identical, (
+                "embed.W_E and unembed.weight should remain tied when logit_scale=1.0 "
+                "(the fold is a no-op)"
+            )
+        else:
+            assert not weights_identical, (
+                "embed.W_E and unembed.weight are identical — "
+                "logit_scale fold may not have been applied or untied correctly"
+            )
 
 
 # ---------------------------------------------------------------------------

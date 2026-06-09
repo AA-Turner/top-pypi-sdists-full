@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalkpy
-Version: 2.131.3
+Version: 2.132.1
 Summary: Python SDK for Chalk
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -36,7 +36,7 @@ Requires-Dist: pyopenssl>=23.2.0
 Requires-Dist: pyyaml<7,>=6.0
 Requires-Dist: requests<2.33.0,>=2.31
 Requires-Dist: rich>=13.3.5
-Requires-Dist: typing_extensions>=4.0.0
+Requires-Dist: typing_extensions>=4.10.0
 Provides-Extra: base
 Provides-Extra: dev
 Requires-Dist: boto3-stubs[s3]; extra == "dev"

@@ -658,7 +658,11 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
     # If chat.db is unreadable, we cannot VERIFY delivery, but the osascript
     # above just returned "ok". We must trust the status and warn the user.
     if baseline == -1:
-        logger.warning("Full Disk Access missing: SAGE cannot verify iMessage delivery via chat.db. Trusting osascript return status.")
+        logger.warning(
+            "Full Disk Access missing: SAGE cannot verify iMessage delivery via chat.db. "
+            "iMessage will likely fail unless you grant Sage 'Full Disk Access' in "
+            "System Settings → Privacy & Security."
+        )
         return True
 
     for i in range(20):  # 20 × 0.25s = 5s
@@ -669,9 +673,13 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
             
     logger.warning(
         "iMessage to %s: osascript returned 'ok' but no row appeared in chat.db after 5s. "
-        "Likely causes: recipient handle is invalid for iMessage, Messages.app is not signed in, "
-        "or Full Disk Access is missing/revoked.",
-        recipient
+        "This is a silent failure in macOS. Please check:\n"
+        "  1. Is Messages.app signed into iCloud on this Mac?\n"
+        "  2. Does the recipient (%s) have iMessage enabled?\n"
+        "  3. Try: 'sage sms test-imessage %s' to debug manually.\n"
+        "  4. Ensure Sage has 'Full Disk Access' in System Settings.\n"
+        "  5. If stuck, restart Messages.app or your Mac.",
+        recipient, recipient, recipient
     )
     return False
 
@@ -1675,6 +1683,21 @@ class SAGEMessageBridge:
             logger.debug("Failed to initialize iMessage rowid: %s", exc)
             return -1
 
+    def _extract_attributed_body(self, blob: bytes) -> str:
+        if not blob: return ""
+        try:
+            idx = blob.find(b"NSString")
+            if idx == -1: return ""
+            s_bytes = blob[idx+8:]
+            s = "".join([chr(b) for b in s_bytes if 32 <= b <= 126 or b in (10, 13)])
+            import re
+            match = re.search(r'^[^a-zA-Z0-9@/]*(.*?)(?:iI|i_|NSDictionary)', s)
+            if match:
+                return match.group(1).strip()
+            return s.strip()
+        except Exception:
+            return ""
+
     def _fetch_new_imessages(self) -> list[dict]:
         """Return new INBOUND iMessage/SMS records since `_last_msg_rowid`.
 
@@ -1698,17 +1721,22 @@ class SAGEMessageBridge:
             db = sqlite3.connect(str(self._CHAT_DB), timeout=2)
             try:
                 cur = db.execute("""
-                    SELECT m.ROWID, h.id, m.text, m.service, m.date
+                    SELECT m.ROWID, h.id, m.text, m.attributedBody, m.service, m.date
                       FROM message m
                       LEFT JOIN handle h ON m.handle_id = h.ROWID
                      WHERE m.ROWID > ?
                        AND m.is_from_me = 0
-                       AND m.text IS NOT NULL
-                       AND m.text != ''
+                       AND (m.text IS NOT NULL OR m.attributedBody IS NOT NULL)
                   ORDER BY m.ROWID ASC
                 """, (self._last_msg_rowid,))
-                for rowid, sender, text, service, date in cur.fetchall():
+                for rowid, sender, text, attr_body, service, date in cur.fetchall():
+                    if not text and attr_body:
+                        text = self._extract_attributed_body(attr_body)
                     text = (text or "").strip()
+                    if not text:
+                        if rowid > self._last_msg_rowid:
+                            self._last_msg_rowid = rowid
+                        continue
                     # Skip our own outbound messages echoed back via iCloud sync.
                     # Every reply we send starts with "[SAGE — <computer> ]"; if
                     # we see one in the inbound stream, it's a sync echo, not a
@@ -2866,6 +2894,11 @@ class SAGEMessageBridge:
              phone-gateway iMessage/KDE-Connect.
           2. Direct iMessage from this Mac — handled in backend now.
         """
+        import os
+        if os.environ.get("SAGE_DISABLE_ANNOUNCE") == "1":
+            self._log("Announcements disabled via SAGE_DISABLE_ANNOUNCE")
+            return
+            
         be = SAGEBackend(self._token, self._api_base)
 
         # Reclaim identities to ensure routing is correct for this UID (Privacy protection)

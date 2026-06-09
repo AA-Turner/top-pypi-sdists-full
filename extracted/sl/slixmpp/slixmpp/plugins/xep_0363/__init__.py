@@ -14,3 +14,7 @@ from slixmpp.plugins.xep_0363.http_upload import (
 )
 
 register_plugin(XEP_0363)
+
+__all__ = ['Request', 'Slot', 'Put', 'Get', 'Header', 'XEP_0363',
+           'UploadServiceNotFound', 'FileTooBig', 'HTTPError',
+           'FileUploadError']

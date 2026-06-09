@@ -13,17 +13,20 @@ from .extraction_strategy import ExtractionStrategy, ROLE_PLAY_TOKENS
 
 
 def _is_qwen_tokenizer(tokenizer) -> bool:
-    return "qwen" in str(getattr(tokenizer, "name_or_path", "")).lower()
+    name = str(getattr(tokenizer, "name_or_path", "")).lower()
+    cls = type(tokenizer).__name__.lower()
+    return "qwen" in name or "qwen" in cls
 
 
 def _qwen_chat_text(messages, add_generation_prompt: bool = False) -> str:
-    text = "".join(
-        f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n"
-        for m in messages
-    )
+    lines = []
+    for msg in messages:
+        role = str(msg.get("role", "")).strip().capitalize() or "User"
+        content = str(msg.get("content", ""))
+        lines.append(f"{role}: {content}")
     if add_generation_prompt:
-        text += "<|im_start|>assistant\n"
-    return text
+        lines.append("Assistant:")
+    return "\n".join(lines)
 
 
 def build_extraction_texts(

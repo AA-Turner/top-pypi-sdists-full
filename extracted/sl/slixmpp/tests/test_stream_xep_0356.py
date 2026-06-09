@@ -20,7 +20,7 @@ class TestPermissions(SlixTest):
         exc = False
         try:
             self.xmpp.plugin.disable("xep_0356")
-        except Exception as e:
+        except Exception:
             exc = True
         self.assertFalse(exc)
 

@@ -10,6 +10,9 @@ from skylos.analysis.control_flow import (
     extract_constant_string,
 )
 from skylos.analysis.implicit_refs import pattern_tracker
+from skylos.visitors.registration_decorators import (
+    collect_local_registration_decorators,
+)
 from typing import Any, Optional, Union
 
 PYTHON_BUILTINS = {
@@ -391,6 +394,7 @@ class Visitor(ast.NodeVisitor):
         self._used_attr_names = set()
         self._used_attr_names_with_context = set()
         self._conditional_import_targets = set()
+        self.local_registration_decorators = set()
 
     def add_def(
         self, name: str, t: str, line: int, node: Optional[ast.AST] = None, **extra: Any
@@ -427,6 +431,13 @@ class Visitor(ast.NodeVisitor):
         if self._current_function_qname:
             self.call_graph[self._current_function_qname].add(name)
             self.reverse_call_graph[name].add(self._current_function_qname)
+
+    def visit_Module(self, node: ast.Module) -> None:
+        self.local_registration_decorators.update(
+            collect_local_registration_decorators(node)
+        )
+        for stmt in node.body:
+            self.visit(stmt)
 
     def qual(self, name: str) -> str:
         if name in self.alias:
@@ -485,7 +496,12 @@ class Visitor(ast.NodeVisitor):
                 target = head
 
             self.alias[alias_name] = target
-            self.add_def(target, "import", node.lineno)
+            self.add_def(
+                target,
+                "import",
+                node.lineno,
+                is_exported=a.asname == a.name if a.asname else False,
+            )
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         module = node.module
@@ -534,7 +550,12 @@ class Visitor(ast.NodeVisitor):
                 full = a.name
 
             self.alias[alias_name] = full
-            self.add_def(full, "import", node.lineno)
+            self.add_def(
+                full,
+                "import",
+                node.lineno,
+                is_exported=a.asname == a.name if a.asname else False,
+            )
 
     def visit_If(self, node: ast.If) -> None:
         from skylos.analysis.control_flow import (
@@ -771,6 +792,9 @@ class Visitor(ast.NodeVisitor):
             "endpoint",
             "hook",
             "signal",
+            "tool",
+            "resource",
+            "prompt",
             "event",
             "job",
             "worker",
@@ -838,6 +862,8 @@ class Visitor(ast.NodeVisitor):
                 elif any(
                     keyword in deco_name.lower() for keyword in FRAMEWORK_DECORATORS
                 ):
+                    self.add_ref(qualified_name)
+                elif deco_name in self.local_registration_decorators:
                     self.add_ref(qualified_name)
 
         if self.current_function_scope and self.local_var_maps:
@@ -962,7 +988,6 @@ class Visitor(ast.NodeVisitor):
     def _visit_comprehension_scope(
         self,
         node: Union[ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp],
-        comp_type: str,
     ) -> None:
         self._comprehension_scope_stack.append({})
 
@@ -991,16 +1016,16 @@ class Visitor(ast.NodeVisitor):
                 self._bind_comprehension_target(elt, lineno)
 
     def visit_ListComp(self, node: ast.ListComp) -> None:
-        self._visit_comprehension_scope(node, "listcomp")
+        self._visit_comprehension_scope(node)
 
     def visit_SetComp(self, node: ast.SetComp) -> None:
-        self._visit_comprehension_scope(node, "setcomp")
+        self._visit_comprehension_scope(node)
 
     def visit_DictComp(self, node: ast.DictComp) -> None:
-        self._visit_comprehension_scope(node, "dictcomp")
+        self._visit_comprehension_scope(node)
 
     def visit_GeneratorExp(self, node: ast.GeneratorExp) -> None:
-        self._visit_comprehension_scope(node, "genexp")
+        self._visit_comprehension_scope(node)
 
     def visit_Match(self, node: ast.Match) -> None:
         self.visit(node.subject)
@@ -1576,6 +1601,12 @@ class Visitor(ast.NodeVisitor):
             ):
                 self.type_alias_names.add(node.args[0].value)
 
+        if callee in {"typing.cast", "typing_extensions.cast"} and node.args:
+            first_arg = node.args[0]
+            annotation_str = self._annotation_string_value(first_arg)
+            if annotation_str is not None:
+                self.visit_string_annotation(annotation_str)
+
         if (
             isinstance(node.func, ast.Name)
             and node.func.id in ("getattr", "hasattr", "setattr", "delattr")
@@ -2149,21 +2180,26 @@ class Visitor(ast.NodeVisitor):
                 self.add_ref(self.qual(tok))
 
     def visit_arguments(self, args: ast.arguments) -> None:
-        for arg in args.args:
-            self.visit_annotation(arg.annotation)
-        for arg in args.posonlyargs:
-            self.visit_annotation(arg.annotation)
-        for arg in args.kwonlyargs:
-            self.visit_annotation(arg.annotation)
-        if args.vararg:
-            self.visit_annotation(args.vararg.annotation)
-        if args.kwarg:
-            self.visit_annotation(args.kwarg.annotation)
-        for default in args.defaults:
-            self.visit(default)
-        for default in args.kw_defaults:
-            if default:
+        current_params = self.current_function_params
+        self.current_function_params = []
+        try:
+            for arg in args.args:
+                self.visit_annotation(arg.annotation)
+            for arg in args.posonlyargs:
+                self.visit_annotation(arg.annotation)
+            for arg in args.kwonlyargs:
+                self.visit_annotation(arg.annotation)
+            if args.vararg:
+                self.visit_annotation(args.vararg.annotation)
+            if args.kwarg:
+                self.visit_annotation(args.kwarg.annotation)
+            for default in args.defaults:
                 self.visit(default)
+            for default in args.kw_defaults:
+                if default:
+                    self.visit(default)
+        finally:
+            self.current_function_params = current_params
 
     def _annotation_to_string(self, node: ast.expr) -> Optional[str]:
         if isinstance(node, ast.Name):

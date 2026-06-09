@@ -121,6 +121,8 @@ class LightEffect(DataClassORJSONMixin):
     config_entries: list[ConfigEntry] = field(default_factory=list)
     applies_to: list[str] = field(default_factory=list)
     value_type: str | None = None
+    # ``templatable`` scalar value accepts a lambda; renderer offers the toggle.
+    templatable: bool = False
 
 
 @dataclass
@@ -133,7 +135,8 @@ class Filter(DataClassORJSONMixin):
     the REGISTRY_LIST renderer uses it to scope the per-row picker.
     ``value_type`` flags scalar-valued entries (``throttle``,
     ``delayed_on``) so the renderer mounts an inline scalar input
-    instead of an empty sub-form.
+    instead of an empty sub-form; ``templatable`` adds a lambda toggle
+    on that scalar (``multiply: !lambda``).
     """
 
     id: str
@@ -141,6 +144,7 @@ class Filter(DataClassORJSONMixin):
     config_entries: list[ConfigEntry] = field(default_factory=list)
     applies_to: list[str] = field(default_factory=list)
     value_type: str | None = None
+    templatable: bool = False
 
 
 @dataclass
@@ -212,6 +216,7 @@ class LightEffectIndex(DataClassORJSONMixin):
     name: str
     applies_to: list[str] = field(default_factory=list)
     value_type: str | None = None
+    templatable: bool = False
 
 
 @dataclass
@@ -222,6 +227,7 @@ class FilterIndex(DataClassORJSONMixin):
     name: str
     applies_to: list[str] = field(default_factory=list)
     value_type: str | None = None
+    templatable: bool = False
 
 
 @dataclass
@@ -408,6 +414,9 @@ class ParsedAutomation(DataClassORJSONMixin):
     ``error`` is set when this one automation failed to decompose
     (unknown action/condition id); siblings still parse, and the
     frontend renders it read-only rather than editing an empty tree.
+    ``unsupported`` narrows that: the failure was a *known* action with
+    no structured form (an oversized LVGL ``*.update``), so the frontend
+    shows the neutral "edit in YAML" hint rather than an error alert.
     """
 
     location: AutomationLocation
@@ -417,6 +426,7 @@ class ParsedAutomation(DataClassORJSONMixin):
     to_line: int
     raw_yaml: str
     error: str | None = None
+    unsupported: bool = False
 
 
 # ---------------------------------------------------------------------------

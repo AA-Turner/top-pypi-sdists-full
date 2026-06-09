@@ -1,4 +1,4 @@
-from slixmpp.xmlstream import ET, ElementBase, register_stanza_plugin
+from slixmpp.xmlstream import ElementBase, register_stanza_plugin
 
 
 class Privacy(ElementBase):

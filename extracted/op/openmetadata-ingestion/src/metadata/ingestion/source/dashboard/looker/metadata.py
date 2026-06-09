@@ -149,7 +149,6 @@ GET_DASHBOARD_FIELDS = [
     "title",
     "dashboard_elements",
     "dashboard_filters",
-    "view_count",
     "description",
     "folder",
     "user_id",  # Use as owner
@@ -322,7 +321,7 @@ class LookerSource(DashboardServiceSource):
                     # For remote repositories, clone the dependency as before
                     url_parsed = giturlparse.parse(remote_git_url)
                     _clone_repo(
-                        f"{url_parsed.owner}/{url_parsed.repo}",  # pylint: disable=E1101
+                        f"{url_parsed.owner}/{url_parsed.repo}",  # type: ignore
                         f"{repo.path}/{IMPORTED_PROJECTS_DIR}/{remote_name}",
                         credentials,
                     )
@@ -567,6 +566,11 @@ class LookerSource(DashboardServiceSource):
                     columns=get_columns_from_model(view),
                     sql=project_parser.parsed_files.get(Includes(view.source_file)),
                     project=first_project,
+                    sourceUrl=SourceUrl(
+                        f"{clean_uri(self.service_connection.hostPort)}/projects/{first_project}/files/{view.source_file}"
+                    )
+                    if view.source_file and first_project
+                    else None,
                 )
 
                 yield Either(right=data_model_request)
@@ -670,6 +674,9 @@ class LookerSource(DashboardServiceSource):
                     sql=self._get_explore_sql(model),
                     # In Looker, you need to create Explores and Views within a Project
                     project=model.project_name,
+                    sourceUrl=SourceUrl(
+                        f"{clean_uri(self.service_connection.hostPort)}/explore/{model.model_name}/{model.name}"
+                    ),
                 )
                 yield Either(right=explore_datamodel)
                 self.register_record_datamodel(datamodel_request=explore_datamodel)
@@ -819,6 +826,11 @@ class LookerSource(DashboardServiceSource):
                     sql=project_parser.parsed_files.get(Includes(view.source_file)),
                     # In Looker, you need to create Explores and Views within a Project
                     project=explore.project_name,
+                    sourceUrl=SourceUrl(
+                        f"{clean_uri(self.service_connection.hostPort)}/projects/{explore.project_name}/files/{view.source_file}"
+                    )
+                    if view.source_file and explore.project_name
+                    else None,
                 )
                 yield Either(right=data_model_request)
                 self._view_data_model = self._build_data_model(datamodel_view_name)
@@ -1305,9 +1317,10 @@ class LookerSource(DashboardServiceSource):
         """
         Get Dashboard Details
         """
-        return self.client.dashboard(
-            dashboard_id=dashboard.id, fields=",".join(GET_DASHBOARD_FIELDS)
-        )
+        fields = GET_DASHBOARD_FIELDS.copy()
+        if self.source_config.includeUsage:
+            fields.append("view_count")
+        return self.client.dashboard(dashboard_id=dashboard.id, fields=",".join(fields))
 
     def get_owner_ref(
         self, dashboard_details: LookerDashboard
@@ -1400,6 +1413,8 @@ class LookerSource(DashboardServiceSource):
         clean_table_name = table_name.lower().split(" as ")[0].strip()
         if dialect == Dialect.BIGQUERY:
             clean_table_name = clean_table_name.strip("`")
+        elif dialect == Dialect.DATABRICKS:
+            clean_table_name = clean_table_name.replace("`", "").strip()
         return clean_table_name
 
     def _resolve_lookml_constants(
@@ -1762,16 +1777,16 @@ class LookerSource(DashboardServiceSource):
                     source_url = chart.result_maker.query.share_url
                 else:
                     source_url = f"{clean_uri(self.service_connection.hostPort)}/merge?mid={chart.merge_result_id}"
-                yield Either(
-                    right=CreateChartRequest(
-                        name=EntityName(chart.id),
-                        displayName=chart.title or chart.id,
-                        description=Markdown(description) if description else None,
-                        chartType=get_standard_chart_type(chart.type).value,
-                        sourceUrl=SourceUrl(source_url),
-                        service=self.context.get().dashboard_service,
-                    )
+                chart_request = CreateChartRequest(
+                    name=EntityName(chart.id),
+                    displayName=chart.title or chart.id,
+                    description=Markdown(description) if description else None,
+                    chartType=get_standard_chart_type(chart.type).value,
+                    sourceUrl=SourceUrl(source_url),
+                    service=self.context.get().dashboard_service,
                 )
+                yield Either(right=chart_request)
+                self.register_record_chart(chart_request=chart_request)
 
             except Exception as exc:
                 yield Either(
@@ -1837,6 +1852,8 @@ class LookerSource(DashboardServiceSource):
         :param dashboard_details: Looker Dashboard
         :return: UsageRequest, if not computed
         """
+        if not self.source_config.includeUsage:
+            return
 
         dashboard_name = self.context.get().dashboard
 

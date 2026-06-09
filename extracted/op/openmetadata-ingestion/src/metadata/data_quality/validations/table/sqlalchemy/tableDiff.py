@@ -24,7 +24,7 @@ import sqlalchemy.types
 from data_diff.diff_tables import DiffResultWrapper
 from data_diff.errors import DataDiffMismatchingKeyTypesError
 from data_diff.utils import ArithAlphanumeric, CaseInsensitiveDict
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import Column as SAColumn
 from sqlalchemy import literal, select
 from sqlalchemy.engine import make_url
@@ -38,7 +38,7 @@ from metadata.data_quality.validations.models import (
     TableDiffRuntimeParameters,
     TableParameter,
 )
-from metadata.generated.schema.entity.data.table import Column, ProfileSampleType
+from metadata.generated.schema.entity.data.table import Column
 from metadata.generated.schema.entity.services.connections.database.sapHanaConnection import (
     SapHanaScheme,
 )
@@ -50,11 +50,13 @@ from metadata.generated.schema.tests.basic import (
     TestCaseStatus,
     TestResultValue,
 )
+from metadata.generated.schema.type.basic import ProfileSampleType
 from metadata.profiler.metrics.registry import Metrics
 from metadata.profiler.orm.converter.base import build_orm_col
 from metadata.profiler.orm.functions.md5 import MD5
 from metadata.profiler.orm.functions.substr import Substr
 from metadata.profiler.orm.registry import Dialects, PythonDialects
+from metadata.sampler.config import resolve_static_sampling_config
 from metadata.utils.collections import CaseInsensitiveList
 from metadata.utils.credentials import normalize_pem_string
 from metadata.utils.logger import test_suite_logger
@@ -80,10 +82,14 @@ SUPPORTED_DIALECTS = [
 class SchemaDiffResult(BaseModel):
     class Config:
         arbitrary_types_allowed = True
+        populate_by_name = True
 
     serviceType: str
     fullyQualifiedTableName: str
-    schema: Dict[str, Dict[str, str]]
+    schema_: Dict[str, Dict[str, str]] = Field(alias="schema")
+
+    def __str__(self):
+        return " ".join(f"{k}={v!r}" for k, v in self.model_dump(by_alias=True).items())
 
 
 class ColumnDiffResult(BaseModel):
@@ -217,7 +223,7 @@ class TableDiffValidator(BaseTestValidator, SQAValidatorMixin):
             )
             return result
         except UnsupportedDialectError as e:
-            logger.warning(f"[Data Diff]: Unsupported dialect: {e}")
+            logger.error(f"[Data Diff]: Unsupported dialect: {e}")
             result = TestCaseResult(
                 timestamp=self.execution_date,  # type: ignore
                 testCaseStatus=TestCaseStatus.Aborted,
@@ -260,8 +266,8 @@ class TableDiffValidator(BaseTestValidator, SQAValidatorMixin):
             # Also exclude key columns since they are handled separately and should not be in extra_columns
             common_columns = list(
                 (
-                    set(column_diff.schemaTable1.schema.keys())
-                    & set(column_diff.schemaTable2.schema.keys())
+                    set(column_diff.schemaTable1.schema_.keys())
+                    & set(column_diff.schemaTable2.schema_.keys())
                 )
                 - set(column_diff.changed)
                 - set(self.runtime_params.table1.key_columns or [])
@@ -461,17 +467,18 @@ class TableDiffValidator(BaseTestValidator, SQAValidatorMixin):
         on Table 1 and the hash will ensure that the same row is selected on Table 2. We want to avoid selecting rows
         with different ids because the comparison will not be sensible.
         """
-        if (
-            # no sample configuration
-            self.runtime_params.table_profile_config is None
-            or self.runtime_params.table_profile_config.profileSample is None
-            # sample is 100% or in other words no sample is required
-            or (
-                self.runtime_params.table_profile_config.profileSampleType
-                == ProfileSampleType.PERCENTAGE
-                and self.runtime_params.table_profile_config.profileSample == 100
-            )
-        ):
+        config = self.runtime_params.table_profile_config
+        if config is None:
+            return None, None
+        profile_sample_config = config.profileSampleConfig if config else None
+        sample_config = profile_sample_config.root if profile_sample_config else None
+        static = resolve_static_sampling_config(
+            sample_config=sample_config,
+            row_count=self.get_total_row_count(),
+        )
+        profile_sample = static.profileSample if static else None
+        profile_sample_type = static.profileSampleType if static else None
+        if profile_sample is None or (profile_sample_type == ProfileSampleType.PERCENTAGE and profile_sample == 100):
             return None, None
         if DatabaseServiceType.Mssql in [
             self.runtime_params.table1.database_service_type,
@@ -516,26 +523,22 @@ class TableDiffValidator(BaseTestValidator, SQAValidatorMixin):
     def calculate_nounce(self, max_nounce=2**32 - 1) -> int:
         """Calculate the nounce based on the profile sample configuration. The nounce is
         the sample fraction projected to a number on a scale of 0 to max_nounce"""
-        if (
-            self.runtime_params.table_profile_config.profileSampleType
-            == ProfileSampleType.PERCENTAGE
-        ):
-            return int(
-                max_nounce
-                * self.runtime_params.table_profile_config.profileSample
-                / 100
-            )
-        if (
-            self.runtime_params.table_profile_config.profileSampleType
-            == ProfileSampleType.ROWS
-        ):
-            row_count = self.get_total_row_count()
+        config = self.runtime_params.table_profile_config
+        profile_sample_config = config.profileSampleConfig if config else None
+        sample_config = profile_sample_config.root if profile_sample_config else None
+        row_count = self.get_total_row_count()
+        static = resolve_static_sampling_config(
+            sample_config=sample_config,
+            row_count=row_count,
+        )
+        profile_sample = static.profileSample if static else None
+        profile_sample_type = static.profileSampleType if static else None
+        if profile_sample_type == ProfileSampleType.PERCENTAGE:
+            return int(max_nounce * ((profile_sample or 100) / 100))
+        if profile_sample_type == ProfileSampleType.ROWS:
             if row_count is None:
                 raise ValueError("Row count is required for ROWS profile sample type")
-            return int(
-                max_nounce
-                * (self.runtime_params.table_profile_config.profileSample / row_count)
-            )
+            return int(max_nounce * ((profile_sample or row_count) / row_count))
         raise ValueError("Invalid profile sample type")
 
     def get_row_diff_test_case_result(
@@ -811,10 +814,10 @@ class TableDiffValidator(BaseTestValidator, SQAValidatorMixin):
         return self._compute_row_count(self.runner, None)
 
     def get_total_row_count(self) -> Optional[int]:
-        row_count = Metrics.ROW_COUNT()
+        row_count = Metrics.rowCount()
         try:
             row = self.runner.select_first_from_table(row_count.fn())
-            return dict(row).get(Metrics.ROW_COUNT.name)
+            return row._asdict().get(Metrics.rowCount.name)
         except Exception as e:
             logger.error(f"Error getting row count: {e}")
             return None

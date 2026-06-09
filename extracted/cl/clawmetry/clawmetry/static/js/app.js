@@ -8493,43 +8493,75 @@ async function _invFetchData() {
   }
 }
 
+// An agent is "active/recent" (shown by default) when it's running, did work in
+// the last 24h (cost or tokens), or is the currently-selected runtime. Everything
+// else folds under a "Show N inactive" expander so the roster reads like the
+// device's calm view instead of every runtime ever used here (#web-accuracy).
+function _invIsRecentlyActive(a, rtFilter) {
+  return !!(a.running
+    || (Number(a.cost24hUsd || 0) > 0)
+    || (Number(a.tokens24h || 0) > 0)
+    || (rtFilter !== 'all' && a.agentKey === rtFilter));
+}
+
+function _invRosterRow(a, rtFilter) {
+  var rt = a.agentKey;
+  var label = a.displayName || rt;
+  var doing = _invDoingNow(a);
+  var dot = _invAliveDot(a);
+  var owner = _invOwnerLabel(a);
+  var hasCost = _invHasCost(rt);
+  // LAST 24h (rolling, event-windowed) vs LIFETIME (all the runtime's sessions).
+  // The column used to be labeled "Cost today" but rendered the lifetime total.
+  var naTip = '<span class="inv-na" data-i18n-title="inventory.cost_na_tip" title="This runtime does not report cost yet.">--</span>';
+  var dayCell = hasCost ? _invFmtUsd(a.cost24hUsd) : naTip;
+  var lifeCell = hasCost ? _invFmtUsd(a.costUsd) : naTip;
+  var work = (a.sessions || 0) + ((a.sessions === 1) ? ' conversation' : ' conversations');
+  var model = a.primaryModel || '--';
+  var highlight = (rtFilter !== 'all' && rt === rtFilter) ? ' inv-row-active' : '';
+  var pencil = window.CLOUD_MODE
+    ? ''
+    : '<span class="inv-owner-pencil" title="Rename owner" onclick="event.stopPropagation();_invStartOwnerEdit(this,\'' + escHtml(rt) + '\')">&#9998;</span>';
+  return ''
+    + '<tr class="inv-row' + highlight + '" data-rt="' + escHtml(rt) + '" onclick="_invToggleRow(this,\'' + escHtml(rt) + '\')">'
+    +   '<td class="inv-c-agent"><span class="inv-dot" style="background:' + dot.color + '"></span>' + escHtml(label) + '</td>'
+    +   '<td class="inv-c-owner"><span class="inv-owner-chip" data-rt="' + escHtml(rt) + '"><span class="inv-owner-name">' + escHtml(owner) + '</span>' + pencil + '</span></td>'
+    +   '<td class="inv-c-doing"><span class="inv-doing ' + doing.cls + '">' + doing.txt + '</span></td>'
+    +   '<td class="inv-c-alive"><span class="inv-dot" style="background:' + dot.color + '"></span>'
+    +     '<span class="inv-alive-lbl" title="For OpenClaw and NemoClaw this is a real heartbeat; for other runtimes it means a process is running.">' + dot.label + '</span></td>'
+    +   '<td class="inv-c-cost" title="Cost from the last 24 hours of activity (API-equivalent)">' + dayCell + '</td>'
+    +   '<td class="inv-c-cost inv-c-cost-life" title="All-time cost across this agent\'s tracked sessions (API-equivalent)">' + lifeCell + '</td>'
+    +   '<td class="inv-c-work">' + escHtml(work) + '</td>'
+    +   '<td class="inv-c-model">' + escHtml(model) + '</td>'
+    + '</tr>'
+    + '<tr class="inv-expand-row" id="inv-exp-' + escHtml(rt) + '" style="display:none;"><td colspan="8">'
+    +   _invExpandHtml(a)
+    + '</td></tr>';
+}
+
 function _invRenderRoster(inv) {
   var agents = (inv && inv.agents) || [];
   var rtFilter = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
-  var rows = agents.map(function (a) {
-    var rt = a.agentKey;
-    var label = a.displayName || rt;
-    var doing = _invDoingNow(a);
-    var dot = _invAliveDot(a);
-    var owner = _invOwnerLabel(a);
-    var costCell;
-    if (_invHasCost(rt)) {
-      costCell = _invFmtUsd(a.costUsd);
-    } else {
-      costCell = '<span class="inv-na" data-i18n-title="inventory.cost_na_tip" title="This runtime does not report cost yet.">--</span>';
-    }
-    var work = (a.sessions || 0) + ((a.sessions === 1) ? ' conversation' : ' conversations');
-    var model = a.primaryModel || '--';
-    var highlight = (rtFilter !== 'all' && rt === rtFilter) ? ' inv-row-active' : '';
-    var pencil = window.CLOUD_MODE
-      ? ''
-      : '<span class="inv-owner-pencil" title="Rename owner" onclick="event.stopPropagation();_invStartOwnerEdit(this,\'' + escHtml(rt) + '\')">&#9998;</span>';
-    var aliveAgo = a.ownerUpdatedAt ? '' : '';
-    return ''
-      + '<tr class="inv-row' + highlight + '" data-rt="' + escHtml(rt) + '" onclick="_invToggleRow(this,\'' + escHtml(rt) + '\')">'
-      +   '<td class="inv-c-agent"><span class="inv-dot" style="background:' + dot.color + '"></span>' + escHtml(label) + '</td>'
-      +   '<td class="inv-c-owner"><span class="inv-owner-chip" data-rt="' + escHtml(rt) + '"><span class="inv-owner-name">' + escHtml(owner) + '</span>' + pencil + '</span></td>'
-      +   '<td class="inv-c-doing"><span class="inv-doing ' + doing.cls + '">' + doing.txt + '</span></td>'
-      +   '<td class="inv-c-alive"><span class="inv-dot" style="background:' + dot.color + '"></span>'
-      +     '<span class="inv-alive-lbl" title="For OpenClaw and NemoClaw this is a real heartbeat; for other runtimes it means a process is running.">' + dot.label + '</span></td>'
-      +   '<td class="inv-c-cost">' + costCell + '</td>'
-      +   '<td class="inv-c-work">' + escHtml(work) + '</td>'
-      +   '<td class="inv-c-model">' + escHtml(model) + '</td>'
+  var active = [], inactive = [];
+  agents.forEach(function (a) {
+    (_invIsRecentlyActive(a, rtFilter) ? active : inactive).push(a);
+  });
+  // Never end up with an empty roster: if nothing is "active" right now, show
+  // everything rather than an empty table.
+  if (!active.length && inactive.length) { active = inactive; inactive = []; }
+  var rows = active.map(function (a) { return _invRosterRow(a, rtFilter); }).join('');
+  var foldRows = '';
+  if (inactive.length) {
+    foldRows = ''
+      + '<tr class="inv-fold-toggle" onclick="_invToggleInactive(this)">'
+      +   '<td colspan="8"><span class="inv-fold-caret">&#9656;</span> '
+      +     'Show ' + inactive.length + ' inactive agent' + (inactive.length === 1 ? '' : 's')
+      +     ' <span class="inv-fold-hint">(no activity in 24h)</span></td>'
       + '</tr>'
-      + '<tr class="inv-expand-row" id="inv-exp-' + escHtml(rt) + '" style="display:none;"><td colspan="7">'
-      +   _invExpandHtml(a)
-      + '</td></tr>';
-  }).join('');
+      + '<tbody class="inv-fold-body" style="display:none;">'
+      +   inactive.map(function (a) { return _invRosterRow(a, rtFilter); }).join('')
+      + '</tbody>';
+  }
 
   return ''
     + '<table class="inv-table">'
@@ -8538,12 +8570,26 @@ function _invRenderRoster(inv) {
     +     '<th data-i18n="inventory.col_owner">Owner</th>'
     +     '<th data-i18n="inventory.col_doing">Doing now</th>'
     +     '<th data-i18n="inventory.col_alive">Alive</th>'
-    +     '<th data-i18n="inventory.col_cost">Cost today</th>'
+    +     '<th data-i18n="inventory.col_cost_24h">Cost (24h)</th>'
+    +     '<th data-i18n="inventory.col_cost_life">Cost (lifetime)</th>'
     +     '<th data-i18n="inventory.col_work">Work done</th>'
     +     '<th data-i18n="inventory.col_model">Main model</th>'
     +   '</tr></thead>'
     +   '<tbody>' + rows + '</tbody>'
+    +   foldRows
     + '</table>';
+}
+
+function _invToggleInactive(el) {
+  try {
+    var body = el.parentNode.querySelector('.inv-fold-body')
+      || (el.nextElementSibling && el.nextElementSibling.classList.contains('inv-fold-body') ? el.nextElementSibling : null);
+    if (!body) return;
+    var open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : '';
+    var caret = el.querySelector('.inv-fold-caret');
+    if (caret) caret.innerHTML = open ? '&#9656;' : '&#9662;';
+  } catch (e) {}
 }
 
 function _invExpandHtml(a) {
@@ -10687,6 +10733,9 @@ var _TA_KIND_ICONS = {
 };
 function _taColor(kind) { return _TA_KIND_COLORS[kind] || '#94a3b8'; }
 function _taIcon(kind) { return _TA_KIND_ICONS[kind] || '•'; }
+// Top-level cost formatter for the turn-anatomy waterfall (the page-scoped
+// fmtCost helpers live inside other functions and aren't in scope here).
+function _taFmtCost(c) { c = Number(c) || 0; return c >= 0.01 ? '$' + c.toFixed(2) : c > 0 ? '<$0.01' : '$0.00'; }
 
 window._taSession = null;
 
@@ -10823,7 +10872,8 @@ function _taRenderTurn(t) {
   var head = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
     + '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">Turn ' + t.turn + '</span>'
     + (isErr ? '<span style="background:rgba(239,68,68,0.15);color:#f87171;border-radius:6px;padding:1px 7px;font-size:10px;font-weight:600;">error</span>' : '')
-    + '<span style="font-size:11px;color:var(--text-muted);">' + _traceFmtDur(t.duration_ms) + ' &middot; ' + (t.tool_count || 0) + ' tool' + (t.tool_count === 1 ? '' : 's') + ' &middot; ' + ((t.total_tokens || 0) / 1000).toFixed(1) + 'K tok</span>'
+    + '<span style="font-size:11px;color:var(--text-muted);">' + _traceFmtDur(t.duration_ms) + ' &middot; ' + (t.tool_count || 0) + ' tool' + (t.tool_count === 1 ? '' : 's') + ' &middot; ' + ((t.total_tokens || 0) / 1000).toFixed(1) + 'K tok'
+       + ((t.total_cost || 0) > 0 ? ' &middot; ' + _taFmtCost(t.total_cost) : '') + '</span>'
     + '</div>';
   var prompt = t.prompt ? '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="' + escHtml(t.prompt) + '">&#128172; ' + escHtml(t.prompt) + '</div>' : '';
   var bars = '<div style="min-width:560px;">';
@@ -10837,7 +10887,8 @@ function _taRenderTurn(t) {
     var color = _taColor(s.kind);
     var spanErr = s.status === 'error';
     var label = (s.label || s.kind || '');
-    bars += '<div style="display:flex;align-items:center;gap:8px;padding:2px 0;" title="' + escHtml(label) + ' · ' + _traceFmtDur(s.duration_ms) + (spanErr ? ' · error' : '') + '">'
+    var spanCostTip = ((s.cost || 0) > 0 ? ' · ' + _taFmtCost(s.cost) : '') + ((s.tokens || 0) > 0 ? ' · ' + (s.tokens >= 1000 ? (s.tokens / 1000).toFixed(1) + 'K' : s.tokens) + ' tok' : '');
+    bars += '<div style="display:flex;align-items:center;gap:8px;padding:2px 0;" title="' + escHtml(label) + ' · ' + _traceFmtDur(s.duration_ms) + spanCostTip + (spanErr ? ' · error' : '') + '">'
       + '<span style="width:18px;flex-shrink:0;text-align:center;font-size:11px;">' + _taIcon(s.kind) + '</span>'
       + '<span style="width:170px;flex-shrink:0;font-size:11px;color:' + (spanErr ? '#f87171' : 'var(--text-secondary)') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(label) + (spanErr ? ' &#9888;' : '') + '</span>'
       + '<span style="flex:1;position:relative;height:14px;background:var(--bg-primary);border-radius:3px;">'
@@ -12479,9 +12530,21 @@ async function loadUsage() {
     // Cost table
     var usageInfoIcon = document.getElementById('usage-cost-info-icon');
     if (usageInfoIcon) {
-      if (data.billingSummary === 'likely_oauth_or_included' || data.billingSummary === 'mixed') {
+      // Cost shown is API-EQUIVALENT (tokens x API rates, same method as
+      // ccusage). It's only an actual cash charge when the account bills
+      // per-token (an API key). For OAuth/subscription plans (e.g. Claude Max
+      // via the Claude CLI) the incremental cost is $0 — the plan covers it.
+      // Surface the caveat for EVERY mode except confidently-metered
+      // ('likely_api_key'), so an "unknown / billing unconfirmed" account no
+      // longer reads as if it owes the displayed dollars (#web-accuracy).
+      var bs = data.billingSummary;
+      if (bs && bs !== 'likely_api_key') {
         usageInfoIcon.style.display = '';
-        usageInfoIcon.title = 'Equivalent if billed from token usage. OAuth/included models may be billed $0 at provider level.';
+        if (bs === 'likely_oauth_or_included' || bs === 'mixed') {
+          usageInfoIcon.title = 'API-equivalent (tokens × API rates). OAuth/included models are typically billed $0 at the provider — your subscription covers them.';
+        } else {
+          usageInfoIcon.title = 'API-equivalent (tokens × API rates). Billing basis unconfirmed — if your account is on a subscription plan (e.g. Claude Max via the Claude CLI), the actual incremental cost is $0.';
+        }
       } else {
         usageInfoIcon.style.display = 'none';
         usageInfoIcon.title = '';

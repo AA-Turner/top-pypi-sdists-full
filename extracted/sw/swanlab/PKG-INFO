@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: swanlab
-Version: 0.8.0
+Version: 0.8.1
 Summary: Python library for streamlined tracking and management of AI training processes.
 Project-URL: Homepage, https://swanlab.cn
 Project-URL: Source, https://github.com/SwanHubX/SwanLab
@@ -480,8 +480,7 @@ SwanLab会对AI训练过程中所使用的**硬件信息**和**资源使用情�
 | 海光DCU | ✅ | ✅ | [hygon.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/accelerator/hygon.py) |
 | CPU | ✅ | ✅ | [cpu.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/cpu.py) |
 | 内存 | ✅ | ✅ | [memory.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/hardware_vendor/memory.py) |
-| 硬盘 | ✅ | ✅ | [builder.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/monitor/builder.py) |
-| 网络 | ✅ | ✅ | [builder.py](https://github.com/SwanHubX/SwanLab/blob/main/swanlab/sdk/internal/probe_python/monitor/builder.py) |
+
 
 如果你希望记录其他硬件，欢迎提交Issue与PR！
 

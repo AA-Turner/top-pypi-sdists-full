@@ -20,6 +20,11 @@ class ManagerServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_manager__pb2.GetClusterEnvironmentsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_manager__pb2.GetClusterEnvironmentsResponse.FromString,
         )
+        self.ListTelemetryTimescaleKubeSecretRefs = channel.unary_unary(
+            "/chalk.server.v1.ManagerService/ListTelemetryTimescaleKubeSecretRefs",
+            request_serializer=chalk_dot_server_dot_v1_dot_manager__pb2.ListTelemetryTimescaleKubeSecretRefsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_manager__pb2.ListTelemetryTimescaleKubeSecretRefsResponse.FromString,
+        )
 
 
 class ManagerServiceServicer(object):
@@ -31,6 +36,12 @@ class ManagerServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListTelemetryTimescaleKubeSecretRefs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_ManagerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -38,6 +49,11 @@ def add_ManagerServiceServicer_to_server(servicer, server):
             servicer.GetClusterEnvironments,
             request_deserializer=chalk_dot_server_dot_v1_dot_manager__pb2.GetClusterEnvironmentsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_manager__pb2.GetClusterEnvironmentsResponse.SerializeToString,
+        ),
+        "ListTelemetryTimescaleKubeSecretRefs": grpc.unary_unary_rpc_method_handler(
+            servicer.ListTelemetryTimescaleKubeSecretRefs,
+            request_deserializer=chalk_dot_server_dot_v1_dot_manager__pb2.ListTelemetryTimescaleKubeSecretRefsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_manager__pb2.ListTelemetryTimescaleKubeSecretRefsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.ManagerService", rpc_method_handlers)
@@ -67,6 +83,35 @@ class ManagerService(object):
             "/chalk.server.v1.ManagerService/GetClusterEnvironments",
             chalk_dot_server_dot_v1_dot_manager__pb2.GetClusterEnvironmentsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_manager__pb2.GetClusterEnvironmentsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListTelemetryTimescaleKubeSecretRefs(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ManagerService/ListTelemetryTimescaleKubeSecretRefs",
+            chalk_dot_server_dot_v1_dot_manager__pb2.ListTelemetryTimescaleKubeSecretRefsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_manager__pb2.ListTelemetryTimescaleKubeSecretRefsResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -5,8 +5,53 @@ import uuid
 import httpx
 import tempfile
 import json
+import sqlite3
+import sys
 from pathlib import Path
 from . import TestResult
+from sage.core.sms_bridge import SMS_PID_FILE
+
+def get_latest_imessage(computer_name: str) -> str:
+    """Poll chat.db for the latest OUTBOUND message containing our computer name."""
+    db_path = os.path.expanduser("~/Library/Messages/chat.db")
+    if not os.path.exists(db_path):
+        return ""
+        
+    try:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        cursor = conn.cursor()
+        
+        # Look for messages containing our specific test bot name
+        # Outbound messages from the Mac will be is_from_me = 1
+        query = """
+            SELECT text, attributedBody
+            FROM message
+            WHERE is_from_me = 1
+            ORDER BY date DESC
+            LIMIT 10
+        """
+        cursor.execute(query)
+        for row in cursor.fetchall():
+            text, attr_body = row[0], row[1]
+            if not text and attr_body:
+                # Basic extraction for tests
+                try:
+                    s = "".join([chr(b) for b in attr_body if 32 <= b <= 126 or b in (10, 13)])
+                    import re
+                    match = re.search(r'^[^a-zA-Z0-9@/]*(.*?)(?:iI|i_|NSDictionary)', s)
+                    if match:
+                        text = match.group(1).strip()
+                    else:
+                        text = s.strip()
+                except Exception:
+                    continue
+            
+            if text and computer_name in text:
+                return text
+    except Exception:
+        pass
+        
+    return ""
 
 def execute(request: dict, model: str) -> TestResult:
     prompt = request.get("sms_request", request.get("description", "Perform task"))
@@ -28,36 +73,49 @@ def execute(request: dict, model: str) -> TestResult:
     }
     (sage_dir / "sms_config.json").write_text(json.dumps(sms_config, indent=2))
     
-    # We assume the local backend is running on 8091 for tests
+    # We must copy the REAL auth token to the test home so the bridge is fully authenticated
+    real_home_sage = Path(os.path.expanduser("~/.sage/auth.json"))
+    if real_home_sage.exists():
+        (sage_dir / "auth.json").write_text(real_home_sage.read_text())
+    
     backend_url = os.environ.get("SAGE_API_BASE", "http://127.0.0.1:8091")
     
     env = os.environ.copy()
-    env["SAGE_TESTING"] = "1"
     env["HOME"] = str(test_home)
     env["SAGE_API_BASE"] = backend_url
     env["SAGE_DISABLE_RAG"] = "1"
     
+    # Ensure subprocess can import the 'sage' package
+    repo_root = Path(__file__).resolve().parent.parent.parent.parent.parent
+    env["PYTHONPATH"] = str(repo_root / "ai-platform")
+    
     bridge_proc = subprocess.Popen(
-        ["sage", "sms", "start", "--name", computer_name, "--foreground"],
+        [sys.executable, "-m", "sage", "sms", "start", "--name", computer_name, "--foreground", "--no-announce"],
         cwd=workspace, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
     )
     
+    test_email = "laynefaler@gmail.com"
+    
     try:
-        time.sleep(15) # Wait for bridge WebSocket to connect
+        # Wait for bridge to fully connect and start polling
+        time.sleep(15) 
         
+        # Trigger the task via the webhook to simulate an inbound message from laynefaler@gmail.com
         headers = {"Authorization": "Bearer test-token"}
         payload = {
             "text": f"@{computer_name}: {prompt}",
-            "from": "tester@example.com",
+            "from": test_email,
             "device_type": "apple"
         }
         
+        # The webhook should dispatch it to the CLI.
         response = httpx.post(f"{backend_url}/sms/webhook", json=payload, headers=headers, timeout=600)
         
         if response.status_code != 200:
             return TestResult(request=request, raw_response=response.text, artifact_path=workspace, logs=f"Webhook failed: {response.status_code}", exit_code=1)
             
-        webhook_data = response.json()
+        data = response.json()
+        output = data.get("output", "")
         
         target_ext = request.get("success_criteria", {}).get("extension", "")
         primary_artifact = None
@@ -85,11 +143,13 @@ def execute(request: dict, model: str) -> TestResult:
             
         if not primary_artifact:
             primary_artifact = workspace / "sms_output.txt"
-            primary_artifact.write_text(webhook_data.get("output", ""))
+            primary_artifact.write_text(str(output))
+
+        exit_code = 1 if "failed" in str(output).lower() or "error" in str(output).lower() else 0
 
         return TestResult(
-            request=request, raw_response=webhook_data.get("output", ""),
-            artifact_path=primary_artifact, logs="SMS task completed", exit_code=0
+            request=request, raw_response=str(output),
+            artifact_path=primary_artifact, logs="SMS task completed", exit_code=exit_code
         )
     except Exception as exc:
         return TestResult(request=request, raw_response="", artifact_path=workspace, logs=str(exc), exit_code=1)

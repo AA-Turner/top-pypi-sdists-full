@@ -39,7 +39,6 @@ class HivePostgresMetaStoreDialect(HiveMetaStoreDialectMixin, PGDialect_psycopg2
 
     def get_schema_names(self, connection, **kw):
         # Equivalent to SHOW DATABASES
-
         schema_names = [
             row[0] for row in connection.execute(text('select "NAME" from "DBS";'))
         ]
@@ -52,7 +51,6 @@ class HivePostgresMetaStoreDialect(HiveMetaStoreDialectMixin, PGDialect_psycopg2
         # This allows reflection to not crash at the cost of being inaccurate
         query = self._get_table_names_base_query(schema=schema)
         query += """ WHERE "TBL_TYPE" = 'VIRTUAL_VIEW'"""
-
         view_names = [row[0] for row in connection.execute(text(query))]
         logger.debug(f"Fetched view names for schema '{schema}': {view_names}")
         return view_names
@@ -98,7 +96,7 @@ class HivePostgresMetaStoreDialect(HiveMetaStoreDialectMixin, PGDialect_psycopg2
             UNION ALL
             SELECT * FROM partition_columns
         """
-        return connection.execute(query).fetchall()
+        return connection.execute(text(query)).fetchall()
 
     def _get_table_names_base_query(self, schema=None):
         query = 'SELECT "TBL_NAME" from "TBLS" tbl'

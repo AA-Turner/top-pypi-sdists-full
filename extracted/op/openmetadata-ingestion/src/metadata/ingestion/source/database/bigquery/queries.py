@@ -195,8 +195,9 @@ AND (
     (protoPayload.methodName = "google.cloud.bigquery.v2.JobService.InsertJob" AND (protoPayload.metadata.tableCreation:* OR protoPayload.metadata.tableChange:* OR protoPayload.metadata.tableDeletion:*))
 )
 AND resource.labels.project_id = "{project}"
-AND resource.labels.dataset_id = "{dataset}"
 AND timestamp >= "{start_date}"
+AND timestamp < "{end_date}"
+{dataset_filter}
 """
 
 BIGQUERY_GET_SCHEMA_NAMES = """
@@ -268,7 +269,9 @@ class BigQueryQueryResult(BaseModel):
             )
         )
 
-        return TypeAdapter(List[BigQueryQueryResult]).validate_python(map(dict, rows))
+        return TypeAdapter(List[BigQueryQueryResult]).validate_python(
+            [r._asdict() for r in rows]
+        )
 
 
 JOBS = """

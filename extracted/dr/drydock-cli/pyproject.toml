@@ -1,7 +1,7 @@
 [project]
 name = "drydock-cli"
-version = "2.10.3"
-description = "Local-first CLI coding agent — tested with Gemma 4 26B via llama.cpp"
+version = "2.10.9"
+description = "Local-first TUI coding agent for Gemma 4 + llama.cpp, with GraphRAG retrieval and a curated cookbook of domain recipes."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }

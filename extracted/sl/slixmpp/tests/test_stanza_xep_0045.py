@@ -16,7 +16,7 @@ from slixmpp.plugins.xep_0045.stanza import (
     MUCUserItem,
     MUCActor,
 )
-from slixmpp.xmlstream import register_stanza_plugin, ET
+from slixmpp.xmlstream import register_stanza_plugin
 
 
 class TestMUC(SlixTest):

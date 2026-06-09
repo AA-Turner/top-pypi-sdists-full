@@ -1,13 +1,13 @@
 [build-system]
-requires = ["setuptools<83"]
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pulp-cli"
-version = "0.39.3"
+version = "0.40.1"
 description = "Command line interface to talk to pulpcore's REST API."
 readme = "README.md"
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.10,<3.16"
 license = "GPL-2.0-or-later"
 authors = [
   {name = "Pulp Team", email = "pulp-list@redhat.com"},
@@ -22,8 +22,8 @@ classifiers=[
   "Typing :: Typed",
 ]
 dependencies = [
-  "pulp-glue==0.39.3",
-  "click>=8.0.0,<8.4",  # Proven to not do semver.
+  "pulp-glue==0.40.1",
+  "click>=8.0.0,<8.5",  # Proven to not do semver.
   "PyYAML>=5.3,<6.1",
   "schema>=0.7.5,<0.8",
   "tomli>=2.0.0,<2.1;python_version<'3.11'",
@@ -52,6 +52,48 @@ file = "pulpcore.cli.file"
 python = "pulpcore.cli.python"
 rpm = "pulpcore.cli.rpm"
 
+[dependency-groups]
+dev = [
+  {include-group = "lint"},
+  "pylsp-mypy>=0.7.0",
+  "pylsp-rope>=0.1.17,<0.1.18",
+]
+lint = [
+  {include-group = "test"},
+  "mypy~=1.20.0",
+  "ruff~=0.15.1",
+  "shellcheck-py~=0.11.0.1",
+  "types-pygments",
+  "types-pyyaml",
+  "types-requests",
+  "types-setuptools",
+  "types-toml",
+]
+test = [
+  "jinja2>=3.1.4,<3.2",
+  "pygments>=2.19.2",
+  "pytest>=7.0.0,<9.1",
+  "pytest-xdist>=3.8.0,<3.9",
+  "python-gnupg>=0.5.0,<0.6",
+  "secretstorage>=3.5.0",
+  "trustme>=1.1.0,<1.3",
+]
+
+[tool.uv.sources]
+# This section is managed by the cookiecutter templates.
+pulp-glue = { workspace = true }
+
+[tool.uv.workspace]
+# This section is managed by the cookiecutter templates.
+members = ["pulp-glue"]
+
+[tool.uv.build-backend]
+# This section is managed by the cookiecutter templates.
+module-name = ["pulpcore.cli", "pulp_cli", "pytest_pulp_cli"]
+namespace = true
+source-exclude = ["*.pot", "*.po", "**/*\\~"]
+
+
 [tool.setuptools.packages.find]
 # This section is managed by the cookiecutter templates.
 where = ["src"]
@@ -79,8 +121,9 @@ paralleltests = true
 
 [tool.bumpversion]
 # This section is managed by the cookiecutter templates.
-current_version = "0.39.3"
+current_version = "0.40.1"
 commit = false
+pre_commit_hooks = ["uv lock", "git add uv.lock"]
 tag = false
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.(?P<release>[a-z]+))?"
 serialize = [
@@ -199,11 +242,11 @@ showcontent = true
 [tool.ruff]
 # This section is managed by the cookiecutter templates.
 line-length = 100
-extend-exclude = ["cookiecutter"]
+extend-exclude = ["cookiecutter/bootstrap", "cookiecutter/ci", "cookiecutter/docs"]
 
 [tool.ruff.lint]
 # This section is managed by the cookiecutter templates.
-extend-select = ["I"]
+extend-select = ["I", "INT"]
 
 [tool.ruff.lint.isort]
 # This section is managed by the cookiecutter templates.
@@ -212,7 +255,7 @@ section-order = ["future", "standard-library", "third-party", "second-party", "f
 
 
 [tool.pytest]
-testpaths = ["tests", "pulp_glue/tests"]
+testpaths = ["tests", "pulp-glue/tests"]
 markers = [
   "live: integration tests that run against a live server",
   "glue: tests for pulp-glue in isolation",
@@ -231,7 +274,7 @@ markers = [
 strict = true
 warn_unused_ignores = false
 show_error_codes = true
-files = "src/**/*.py, tests/*.py"
+files = "src/**/*.py, tests/**/*.py"
 mypy_path = ["src", "pulp-glue/src"]
 namespace_packages = true
 explicit_package_bases = true

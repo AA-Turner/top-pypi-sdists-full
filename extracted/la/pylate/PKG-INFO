@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylate
-Version: 1.5.0
+Version: 1.5.1
 Summary: A library for training and retrieval with ColBERT.
 Author: LightOn
 License-Expression: MIT
@@ -16,10 +16,10 @@ Requires-Dist: datasets>=2.20.0
 Requires-Dist: accelerate>=0.31.0
 Requires-Dist: pandas>=2.2.1
 Requires-Dist: transformers<=5.3.0,>=4.41.0
-Requires-Dist: ujson==5.10.0
+Requires-Dist: ujson==5.12.0
 Requires-Dist: ninja==1.11.1.4
 Requires-Dist: fastkmeans==0.5.0
-Requires-Dist: fast-plaid<=1.3.0.290,>=1.2.4.260
+Requires-Dist: fast-plaid<=1.4.6.2110,>=1.4.6.270
 Provides-Extra: dev
 Requires-Dist: ruff>=0.4.9; extra == "dev"
 Requires-Dist: pytest-cov>=5.0.0; extra == "dev"
@@ -34,7 +34,7 @@ Requires-Dist: beir>=2.0.0; extra == "dev"
 Requires-Dist: fastapi>=0.114.1; extra == "dev"
 Requires-Dist: uvicorn>=0.30.6; extra == "dev"
 Requires-Dist: batched>=0.1.2; extra == "dev"
-Requires-Dist: voyager>=2.0.9; extra == "dev"
+Requires-Dist: voyager>=2.0.9; python_version < "3.14" and extra == "dev"
 Requires-Dist: typos>=0.11.0; extra == "dev"
 Provides-Extra: eval
 Requires-Dist: ranx>=0.3.16; extra == "eval"
@@ -44,11 +44,15 @@ Requires-Dist: fastapi>=0.114.1; extra == "api"
 Requires-Dist: uvicorn>=0.30.6; extra == "api"
 Requires-Dist: batched>=0.1.2; extra == "api"
 Provides-Extra: voyager
-Requires-Dist: voyager>=2.0.9; extra == "voyager"
+Requires-Dist: voyager>=2.0.9; python_version < "3.14" and extra == "voyager"
 Provides-Extra: scann
-Requires-Dist: scann>=1.4.2; extra == "scann"
+Requires-Dist: scann>=1.4.2; python_version < "3.14" and extra == "scann"
 Provides-Extra: warp
-Requires-Dist: xtr-warp-rs==2.0.2.*; extra == "warp"
+Requires-Dist: xtr-warp-rs==2.0.3.*; extra == "warp"
+Provides-Extra: flash-maxsim
+Requires-Dist: flash-maxsim>=0.2.1; extra == "flash-maxsim"
+Provides-Extra: lik
+Requires-Dist: late-interaction-kernels<0.5.0,>=0.4.0; extra == "lik"
 Dynamic: license-file
 
 <div align="center">

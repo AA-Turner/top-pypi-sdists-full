@@ -9,7 +9,7 @@ from slixmpp import ClientXMPP
 from slixmpp.stanza import StreamFeatures
 from slixmpp.xmlstream import register_stanza_plugin
 from slixmpp.plugins.base import BasePlugin
-from slixmpp.plugins.xep_0352 import stanza, Active, Inactive, ClientStateIndication
+from slixmpp.plugins.xep_0352 import stanza, ClientStateIndication
 
 
 log = logging.getLogger(__name__)

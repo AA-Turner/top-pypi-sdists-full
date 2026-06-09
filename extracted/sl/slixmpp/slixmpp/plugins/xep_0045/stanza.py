@@ -8,7 +8,7 @@ from typing import (
     Iterable,
 )
 import logging
-from slixmpp.xmlstream import ElementBase, ET, JID
+from slixmpp.xmlstream import ElementBase, JID
 
 
 log = logging.getLogger(__name__)
@@ -276,6 +276,7 @@ class MUCUserItem(ElementBase):
     namespace = NS_USER
     name = 'item'
     plugin_attrib = 'item'
+    plugin_multi_attrib = 'items'
     interfaces = {'role', 'affiliation', 'jid', 'reason', 'nick'}
     sub_interfaces = {'reason'}
 

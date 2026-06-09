@@ -1,6 +1,7 @@
 import pytensor.tensor as pt
 
 from pytensor_distributions.helper import von_mises_cdf
+from pytensor_distributions.lmoments import _lmoments
 from pytensor_distributions.optimization import find_ppf
 
 
@@ -37,6 +38,23 @@ def kurtosis(mu, kappa):
     return pt.full_like(shape, 0.0)
 
 
+def lmoment1(mu, kappa):
+    return mean(mu, kappa)
+
+
+def lmoment2(mu, kappa):
+    return _lmoments(ppf, mu, kappa, r=2)
+
+
+def lmoment3(mu, kappa):
+    shape = pt.broadcast_arrays(mu, kappa)[0]
+    return pt.full_like(shape, 0.0)
+
+
+def lmoment4(mu, kappa):
+    return _lmoments(ppf, mu, kappa, r=4)
+
+
 def entropy(mu, kappa):
     return pt.log(2 * pt.pi * pt.ive(0, kappa)) + kappa * var(mu, kappa)
 
@@ -50,7 +68,7 @@ def logpdf(x, mu, kappa):
 
 
 def rvs(mu, kappa, size=None, random_state=None):
-    return pt.random.vonmises(mu, kappa, rng=random_state, size=size)
+    return pt.random.vonmises(mu, kappa, rng=random_state, size=size, return_next_rng=True)[1]
 
 
 def cdf(x, mu, kappa):

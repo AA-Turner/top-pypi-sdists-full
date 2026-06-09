@@ -17,7 +17,7 @@ from kanban_framework.domain.knowledge_share_backend import ShareBackend  # noqa
 class KnowledgeBackend(Protocol):
     """Protocol that all knowledge backend adapters must implement."""
 
-    def search(self, keyword: str, limit: int = 20, *, biz_context: str | None = None) -> list[dict]:
+    def search(self, keyword: str, limit: int = 20, *, biz_context: str | None = None, status: str = "active") -> list[dict]:
         """Full-text keyword search.
 
         Returns list of dicts, each containing at minimum:
@@ -62,8 +62,8 @@ class BuiltinBackend:
     def __init__(self, knowledge_manager):
         self._km = knowledge_manager
 
-    def search(self, keyword: str, limit: int = 20, *, biz_context: str | None = None) -> list[dict]:
-        return self._km._search_fts(keyword, limit=limit, biz_context=biz_context)
+    def search(self, keyword: str, limit: int = 20, *, biz_context: str | None = None, status: str = "active") -> list[dict]:
+        return self._km._search_fts(keyword, limit=limit, biz_context=biz_context, status=status)
 
     def search_semantic(self, query: str, limit: int = 20, *, biz_context: str | None = None) -> list[dict]:
         return self._km._search_semantic(query, limit=limit, biz_context=biz_context)
@@ -139,8 +139,8 @@ class ChromaDBBackend:
     def __init__(self, knowledge_manager):
         self._km = knowledge_manager
 
-    def search(self, keyword: str, limit: int = 20, *, biz_context: str | None = None) -> list[dict]:
-        return self._km._search_fts(keyword, limit=limit, biz_context=biz_context)
+    def search(self, keyword: str, limit: int = 20, *, biz_context: str | None = None, status: str = "active") -> list[dict]:
+        return self._km._search_fts(keyword, limit=limit, biz_context=biz_context, status=status)
 
     def search_semantic(self, query: str, limit: int = 20, *, biz_context: str | None = None) -> list[dict]:
         return self._km._search_semantic(query, limit=limit, biz_context=biz_context)

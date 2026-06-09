@@ -13,7 +13,10 @@ from typing import List, Optional, Tuple, Any
 import anyio
 from mysql.connector import connect, Error
 from mcp.server import Server
-from mcp.types import Resource, Tool, TextContent, ToolAnnotations, ResourceTemplate
+from mcp.types import (
+    Resource, Tool, TextContent, ToolAnnotations, ResourceTemplate,
+    Prompt, PromptArgument, PromptMessage, GetPromptResult,
+)
 from pydantic import AnyUrl
 from dotenv import load_dotenv
 
@@ -39,6 +42,13 @@ def validate_identifier(name: str) -> str:
     if not re.match(r'^[a-zA-Z0-9_$]+$', name):
         raise ValueError(f"Invalid identifier '{name}': only alphanumeric, underscore, and $ are allowed")
     return name
+
+def parse_table_arg(name: str) -> Tuple[Optional[str], str]:
+    """Split an optional 'database.table' argument into (db, table) parts, validating each."""
+    if "." in name:
+        db, tbl = name.split(".", 1)
+        return validate_identifier(db), validate_identifier(tbl)
+    return None, validate_identifier(name)
 
 @contextmanager
 def maybe_ssh_tunnel():
@@ -280,47 +290,78 @@ async def list_tools() -> list[Tool]:
     return [
         Tool(
             name="execute_sql",
-            description="Execute an SQL query on the MySQL server",
+            description=(
+                "Execute a SQL statement against the MySQL server. "
+                "Use for SELECT, DML (INSERT/UPDATE/DELETE), SHOW, DESCRIBE, and ad-hoc queries. "
+                "Supports cross-database queries using database.table notation. "
+                "Single statements only — use fully qualified names instead of USE statements."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "The SQL query to execute"
+                        "description": "The SQL statement to execute. Single statements only."
                     }
                 },
                 "required": ["query"]
             },
             annotations=ToolAnnotations(
                 title="Execute SQL",
-                readOnlyHint=False, # This tool can perform write operations.
-                destructiveHint=True # Warn agents that this can be dangerous.
+                readOnlyHint=False,
+                destructiveHint=True
             )
         ),
         Tool(
             name="get_schema_info",
-            description="Get comprehensive schema information (Contributed by GeorgeLeex)",
+            description=(
+                "Get column metadata for a table or all tables in the configured database: "
+                "column names, data types, nullability, default values, and comments. "
+                "Call this before querying an unfamiliar table. "
+                "Omit table_name to see all tables at once. "
+                "Accepts bare table names (uses MYSQL_DATABASE) or database.table for cross-database lookups."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "table_name": {
                         "type": "string",
-                        "description": "Optional: Specific table name."
+                        "description": "Optional: bare table name, or database.table for a cross-database lookup."
                     }
                 }
-            }
+            },
+            annotations=ToolAnnotations(
+                title="Get Schema Info",
+                readOnlyHint=True,
+                destructiveHint=False
+            )
         ),
         Tool(
             name="get_table_sample",
-            description="Get a sample of data from a table (Contributed by GeorgeLeex)",
+            description=(
+                "Fetch a small sample of rows from a table to understand its data format and content. "
+                "Use alongside get_schema_info before writing complex queries. "
+                "Accepts bare table names (uses MYSQL_DATABASE) or database.table for cross-database lookups."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "table_name": {"type": "string", "description": "Table to sample"},
-                    "limit": {"type": "integer", "description": "Rows to return (max 20)"}
+                    "table_name": {
+                        "type": "string",
+                        "description": "Table to sample. Use database.table notation for cross-database queries."
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Number of rows to return (default 5, max 20)."
+                    }
                 },
                 "required": ["table_name"]
-            }
+            },
+            annotations=ToolAnnotations(
+                title="Get Table Sample",
+                readOnlyHint=True,
+                destructiveHint=False
+            )
         )
     ]
 
@@ -336,22 +377,28 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             query = arguments.get("query")
             if not query:
                 raise ValueError("Query is required")
+            if ";" in query.strip().rstrip(";"):
+                return [TextContent(type="text", text=(
+                    "Only single statements are supported. "
+                    "Instead of USE statements, use fully qualified names: database.table"
+                ))]
             return await run_query(query)
-        
+
         elif name == "get_schema_info":
             table_name = arguments.get("table_name")
             if table_name:
-                # Fetch detailed column metadata for a single table.
-                query = f"SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_COMMENT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{validate_identifier(table_name)}' ORDER BY ORDINAL_POSITION"
+                db, tbl = parse_table_arg(table_name)
+                schema_filter = f"TABLE_SCHEMA = '{db}'" if db else "TABLE_SCHEMA = DATABASE()"
+                query = f"SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_COMMENT FROM information_schema.COLUMNS WHERE {schema_filter} AND TABLE_NAME = '{tbl}' ORDER BY ORDINAL_POSITION"
             else:
-                # Fetch summary information for all tables.
                 query = "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME, ORDINAL_POSITION"
             return await run_query(query)
 
         elif name == "get_table_sample":
-            table_name = validate_identifier(arguments.get("table_name"))
+            db, tbl = parse_table_arg(arguments.get("table_name"))
             limit = min(arguments.get("limit", 5), 20)
-            query = f"SELECT * FROM `{table_name}` LIMIT {limit}"
+            table_ref = f"`{db}`.`{tbl}`" if db else f"`{tbl}`"
+            query = f"SELECT * FROM {table_ref} LIMIT {limit}"
             return await run_query(query)
 
         else:
@@ -362,6 +409,81 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         # Return the error as a TextContent so the client can display it.
         # This addresses Issue #50 where errors were not being reported clearly.
         return [TextContent(type="text", text=f"Error calling tool {name}: {str(e)}")]
+
+@app.list_prompts()
+async def list_prompts() -> list[Prompt]:
+    return [
+        Prompt(
+            name="explore_database",
+            description=(
+                "Systematically explore the database: discover available tables, "
+                "inspect their schemas, sample the data, and summarize what's there."
+            ),
+            arguments=[]
+        ),
+        Prompt(
+            name="analyze_table",
+            description=(
+                "Deep-dive into a specific table: retrieve its schema, sample its data, "
+                "and suggest useful queries."
+            ),
+            arguments=[
+                PromptArgument(
+                    name="table_name",
+                    description="Table to analyze. Use database.table notation for cross-database queries.",
+                    required=True
+                )
+            ]
+        ),
+    ]
+
+@app.get_prompt()
+async def get_prompt(name: str, arguments: dict | None) -> GetPromptResult:
+    if name == "explore_database":
+        return GetPromptResult(
+            description="Systematic database exploration workflow",
+            messages=[
+                PromptMessage(
+                    role="user",
+                    content=TextContent(type="text", text=(
+                        "Explore this MySQL database systematically:\n\n"
+                        "1. Call list_resources to discover available tables "
+                        "(or databases when MYSQL_DATABASE is not set).\n"
+                        "2. Call get_schema_info with no table_name to see all table structures at once, "
+                        "or for each table of interest individually.\n"
+                        "3. Call get_table_sample on 2–3 representative tables to understand "
+                        "data format and content.\n"
+                        "4. Summarize: describe what each table stores, note relationships "
+                        "(foreign keys, shared ID columns), and suggest 3–5 queries "
+                        "an analyst would find useful."
+                    ))
+                )
+            ]
+        )
+    elif name == "analyze_table":
+        table_name = (arguments or {}).get("table_name", "")
+        return GetPromptResult(
+            description=f"Analysis workflow for: {table_name}",
+            messages=[
+                PromptMessage(
+                    role="user",
+                    content=TextContent(type="text", text=(
+                        f"Analyze the table `{table_name}`:\n\n"
+                        f"1. Call get_schema_info with table_name=\"{table_name}\" "
+                        "to retrieve column names, types, nullability, and comments.\n"
+                        f"2. Call get_table_sample with table_name=\"{table_name}\" "
+                        "to see representative rows.\n"
+                        "3. Based on the schema and sample, provide:\n"
+                        "   - A plain-English description of what this table stores\n"
+                        "   - Notable columns (primary keys, foreign keys, important fields)\n"
+                        "   - Data quality observations (NULLs, patterns, value ranges)\n"
+                        "   - 3–5 example SQL queries useful for analysis"
+                    ))
+                )
+            ]
+        )
+    else:
+        raise ValueError(f"Unknown prompt: {name}")
 
 async def run_query(query: str) -> list[TextContent]:
     """
@@ -469,16 +591,23 @@ async def _run_sse_server():
             await app.run(streams[0], streams[1], app.create_initialization_options())
         return Response()
 
-    # Define the Starlette application with SSE routes.
+    async def health_check(request):
+        """Simple health check endpoint."""
+        return Response("MySQL MCP Server is running", media_type="text/plain")
+
+    # Define the Starlette application with SSE routes and a health check.
     starlette_app = Starlette(
         routes=[
+            Route("/", endpoint=health_check),
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),
         ]
     )
 
-    host = os.getenv("MCP_SSE_HOST", "127.0.0.1")
-    port = int(os.getenv("MCP_SSE_PORT", "8000"))
+    host = os.getenv("MCP_SSE_HOST", "0.0.0.0")
+    # Support both MCP_SSE_PORT and standard PORT environment variables.
+    port_str = os.getenv("MCP_SSE_PORT") or os.getenv("PORT") or "8000"
+    port = int(port_str)
     
     # Configure and start the Uvicorn server.
     server_config = uvicorn.Config(starlette_app, host=host, port=port, log_level="info")

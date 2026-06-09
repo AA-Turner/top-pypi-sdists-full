@@ -147,9 +147,8 @@ class OnboardingController:
                     f"{label} can't contain control characters.",
                 )
 
-        loop = asyncio.get_running_loop()
         config_dir = self._db.settings.config_dir
-        await loop.run_in_executor(None, write_wifi_secrets, config_dir, ssid, password)
+        await self._db.write_secrets_locked(write_wifi_secrets, config_dir, ssid, password)
         return await self.get_state()
 
     @api_command("onboarding/mark_acknowledged")

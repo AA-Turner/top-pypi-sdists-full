@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, cast, get_args, overload
+from typing import TYPE_CHECKING, Any, Literal, cast, get_args, overload
 
 import numpy as np
 import pgtrigger
@@ -44,7 +44,14 @@ from .run import (
     TracksRun,
     TracksUpdates,
 )
-from .sqlrecord import BaseSQLRecord, HasType, Registry, SQLRecord, _get_record_kwargs
+from .sqlrecord import (
+    BaseSQLRecord,
+    HasType,
+    Registry,
+    SQLRecord,
+    _get_record_kwargs,
+    pop_space_branch_kwargs,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -609,10 +616,7 @@ def process_init_feature_param(args, kwargs):
     is_type: bool = kwargs.pop("is_type", False)
     type_: Feature | str | None = kwargs.pop("type", None)
     description: str | None = kwargs.pop("description", None)
-    branch = kwargs.pop("branch", None)
-    branch_id = kwargs.pop("branch_id", 1)
-    space = kwargs.pop("space", None)
-    space_id = kwargs.pop("space_id", 1)
+    space_branch_kwargs = pop_space_branch_kwargs(kwargs)
     _skip_validation = kwargs.pop("_skip_validation", False)
     if kwargs:
         valid_keywords = ", ".join([val[0] for val in _get_record_kwargs(Feature)])
@@ -620,10 +624,7 @@ def process_init_feature_param(args, kwargs):
     kwargs["name"] = name
     kwargs["type"] = type_
     kwargs["is_type"] = is_type
-    kwargs["branch"] = branch
-    kwargs["branch_id"] = branch_id
-    kwargs["space"] = space
-    kwargs["space_id"] = space_id
+    kwargs.update(space_branch_kwargs)
     kwargs["_skip_validation"] = _skip_validation
     kwargs["description"] = description
     # cast dtype
@@ -727,15 +728,15 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
         ln.Feature(name="sample", dtype=ln.ULabel).save()
 
-    Restrict a categorical feature to a specific `ULabel` type::
+    Restrict a categorical feature to a specific `ULabel` type, here a perturbations registry::
 
-        perturbation = ln.ULabel(name="Perturbation", is_type=True).save()
-        ln.Feature(name="perturbation", dtype=perturbation).save()
+        perturbation_registry = ln.ULabel(name="Perturbations", is_type=True).save()
+        ln.Feature(name="perturbation", dtype=perturbation_registry).save()
 
-    Restrict a categorical feature to a specific `Record` type::
+    Restrict a categorical feature to a `Record` type, here an experiments registry::
 
-        experiment = ln.Record(name="Experiment", is_type=True).save()
-        ln.Feature(name="experiment", dtype=experiment).save()
+        experiments_registry = ln.Record(name="Experiments", is_type=True).save()
+        ln.Feature(name="experiment", dtype=experiments_registry).save()
 
     Restrict a categorical feature to the `bt.CellType` registry::
 
@@ -995,6 +996,49 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         ):
             triggers = [
                 pgtrigger.Trigger(
+                    name="prevent_feature_type_cycle",
+                    operation=pgtrigger.Update | pgtrigger.Insert,
+                    when=pgtrigger.Before,
+                    condition=pgtrigger.Condition("NEW.type_id IS NOT NULL"),
+                    func="""
+                        IF EXISTS (
+                            SELECT 1
+                            FROM lamindb_feature f
+                            WHERE f.id = NEW.type_id
+                              AND f._aux->>'ss' = '1'
+                              AND f.space_id IS DISTINCT FROM NEW.space_id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: feature space must match single-space type space';
+                        END IF;
+
+                        -- Check for direct self-reference
+                        IF NEW.type_id = NEW.id THEN
+                            RAISE EXCEPTION 'Cannot set type: feature cannot be its own type';
+                        END IF;
+
+                        -- Check for cycles in the type chain
+                        IF EXISTS (
+                            WITH RECURSIVE type_chain AS (
+                                SELECT type_id, 1 as depth
+                                FROM lamindb_feature
+                                WHERE id = NEW.type_id
+
+                                UNION ALL
+
+                                SELECT f.type_id, tc.depth + 1
+                                FROM lamindb_feature f
+                                INNER JOIN type_chain tc ON f.id = tc.type_id
+                                WHERE tc.depth < 100
+                            )
+                            SELECT 1 FROM type_chain WHERE type_id = NEW.id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: would create a cycle';
+                        END IF;
+
+                        RETURN NEW;
+                    """,
+                ),
+                pgtrigger.Trigger(
                     name="update_feature_on_name_change",
                     operation=pgtrigger.Update,
                     when=pgtrigger.Before,
@@ -1028,6 +1072,8 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     Note that mutating this field currently does not trigger re-validation of existing values.
     """
+    _ounit_str: str | None = CharField(db_index=True, null=True)
+    """The string-serialized observational unit."""
     type: Feature | None = ForeignKey(
         "self", PROTECT, null=True, related_name="features"
     )
@@ -1108,6 +1154,15 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         default_value: Any | None = None,
         coerce: bool | None = None,
         cat_filters: dict[str, SQLRecord | bool | str] | None = None,
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        *,
+        name: str,
+        is_type: Literal[True],
+        description: str | None = None,
     ): ...
 
     @overload
@@ -1509,10 +1564,12 @@ class Feature(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
 
     #     Note: This attribute might in the future be used to distinguish different types of observational units (e.g. single cells vs. physical samples vs. study subjects etc.).
     #     """
-    #     if self._expect_many:
+    #     if self._ounit_str == "Observation":
     #         return "Observation"  # this here might be replaced with the specific observational unit
-    #     else:
+    #     elif self._ounit_str == "Artifact":
     #         return "Artifact"
+    #     else:
+    #         return None
 
 
 class JsonValue(SQLRecord, TracksRun):

@@ -1696,7 +1696,7 @@ class ChatBedrockConverse(BaseChatModel):
         closing fence. The resulting text is parsed against ``schema``.
         """
         if isinstance(schema, type) and is_basemodel_subclass(schema):
-            json_schema = schema.model_json_schema()
+            json_schema = dict(schema.model_json_schema().items())
         elif isinstance(schema, dict):
             json_schema = copy.deepcopy(schema)
         else:
@@ -1734,17 +1734,17 @@ class ChatBedrockConverse(BaseChatModel):
         if isinstance(schema, type) and is_basemodel_subclass(schema):
             from langchain_core.output_parsers import PydanticOutputParser
 
-            text_parser: OutputParserLike = PydanticOutputParser(pydantic_object=schema)
+            output_parser: OutputParserLike = PydanticOutputParser(
+                pydantic_object=schema
+            )
         else:
             from langchain_core.output_parsers import JsonOutputParser
 
-            text_parser = JsonOutputParser()
-
-        extract_then_parse = RunnableLambda(_extract_prompt_prefill_text) | text_parser
+            output_parser = JsonOutputParser()
 
         if include_raw:
             parser_assign = RunnablePassthrough.assign(
-                parsed=itemgetter("raw") | extract_then_parse,
+                parsed=itemgetter("raw") | output_parser,
                 parsing_error=lambda _: None,
             )
             parser_none = RunnablePassthrough.assign(parsed=lambda _: None)
@@ -1752,7 +1752,7 @@ class ChatBedrockConverse(BaseChatModel):
                 [parser_none], exception_key="parsing_error"
             )
             return prepare | RunnableMap(raw=llm) | parser_with_fallback
-        return prepare | llm | extract_then_parse
+        return prepare | llm | output_parser
 
     def _converse_params(
         self,
@@ -1969,14 +1969,26 @@ ChatBedrockConverse.with_structured_output.__doc__ = _base_wso_doc.replace(
 _PROMPT_PREFILL_VALUE = "```json"
 _PROMPT_PREFILL_STOP = "```"
 
+_PROMPT_PREFILL_INSTRUCTIONS = """You MUST respond with a single JSON object matching the schema provided. For this schema you'll be provided with all the "properties" and their types, as well as the required properties.
+
+As an example, for the schema {{"properties": {{"foo": {{"title": "Foo", "description": "a list of strings", "type": "array", "items": {{"type": "string"}}}}}}, "required": ["foo"]}}
+the object {{"foo": ["bar", "baz"]}} is a well-formatted instance of the schema. The object {{"properties": {{"foo": ["bar", "baz"]}}}} is NOT well-formatted.
+
+Do not include any preamble, explanation, or text outside the JSON. Wrap the JSON in a ```json ... ``` fenced code block.
+
+## Response Schema:
+{schema}
+"""  # noqa: E501
+
 
 def _prompt_prefill_instructions(json_schema: dict) -> str:
-    return (
-        "You MUST respond with a single JSON object matching the schema below. "
-        "Do not include any preamble, explanation, or text outside the JSON. "
-        "Wrap the JSON in a ```json ... ``` fenced code block.\n\n"
-        "## Response Schema:\n"
-        f"```json\n{json.dumps(json_schema, indent=2)}\n```"
+    if "title" in json_schema:
+        del json_schema["title"]
+    if "type" in json_schema:
+        del json_schema["type"]
+
+    return _PROMPT_PREFILL_INSTRUCTIONS.format(
+        schema=json.dumps(json_schema, indent=2, ensure_ascii=True)
     )
 
 
@@ -2014,26 +2026,6 @@ def _append_to_system_message(
             new_content[last_text_idx] = block
 
     return [SystemMessage(content=new_content), *messages[1:]]
-
-
-def _extract_prompt_prefill_text(message: AIMessage) -> str:
-    """Extract JSON text from a Nova prompt-prefill response."""
-    content = message.content
-    if isinstance(content, list):
-        text_parts = [
-            block.get("text", "")
-            for block in content
-            if isinstance(block, dict) and block.get("type") in (None, "text")
-        ]
-        text = "".join(text_parts)
-    else:
-        text = content or ""
-    return (
-        text.strip()
-        .removeprefix(_PROMPT_PREFILL_VALUE)
-        .removesuffix(_PROMPT_PREFILL_STOP)
-        .strip()
-    )
 
 
 def _handle_bedrock_error(error: ClientError) -> None:

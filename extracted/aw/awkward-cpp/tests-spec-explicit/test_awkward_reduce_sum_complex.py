@@ -8,8 +8,9 @@ def test_awkward_reduce_sum_complex_1():
 	lenparents = 0
 	outlength = 0
 	parents = []
+	offsets = []
 	funcPy = getattr(kernels, 'awkward_reduce_sum_complex')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = []
 	assert toptr == pytest_toptr
 
@@ -20,8 +21,9 @@ def test_awkward_reduce_sum_complex_2():
 	lenparents = 1
 	outlength = 1
 	parents = [0]
+	offsets = [0, 1]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_complex')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [0, 0]
 	assert toptr == pytest_toptr
 
@@ -32,8 +34,9 @@ def test_awkward_reduce_sum_complex_3():
 	lenparents = 9
 	outlength = 6
 	parents = [0, 0, 0, 2, 2, 3, 4, 4, 5]
+	offsets = [0, 3, 3, 5, 6, 8, 9]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_complex')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [10, 10, 0, 0, 18, 18, 13, 13, 36, 36, 23, 23]
 	assert toptr == pytest_toptr
 
@@ -44,8 +47,9 @@ def test_awkward_reduce_sum_complex_4():
 	lenparents = 6
 	outlength = 4
 	parents = [0, 0, 0, 2, 2, 3]
+	offsets = [0, 3, 3, 5, 6]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_complex')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 3, 0, 0, 1, 2, 0, 1]
 	assert toptr == pytest_toptr
 

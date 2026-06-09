@@ -9,27 +9,30 @@ from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 from pydantic import BaseModel, BeforeValidator, Field, computed_field
-from pymatgen.core import Lattice
-from pymatgen.electronic_structure.bandstructure import (
-    BandStructure as PmgBandStructure,
-)
-from pymatgen.electronic_structure.bandstructure import Kpoint
-from pymatgen.electronic_structure.core import Orbital, Spin
-from pymatgen.electronic_structure.dos import CompleteDos, Dos
-from pymatgen.symmetry.bandstructure import HighSymmKpath
 
+from emmet.core.io.pymatgen import BandStructure as PmgBandStructure
+from emmet.core.io.pymatgen import (
+    CompleteDos,
+    Dos,
+    HighSymmKpath,
+    Kpoint,
+    Lattice,
+    Orbital,
+    Spin,
+)
 from emmet.core.math import Matrix3D, Vector3D
 from emmet.core.settings import EmmetSettings
-from emmet.core.types.pymatgen_types.structure_adapter import StructureType
 from emmet.core.types.enums import ValueEnum
+from emmet.core.types.pymatgen_types.structure_adapter import StructureType
+from emmet.core.vasp.calc_types import RunType
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Sequence
     from typing import Any
 
-    from pymatgen.core.sites import PeriodicSite
-    from pymatgen.core.structure import Structure
     from typing_extensions import Self
+
+    from emmet.core.io.pymatgen import PeriodicSite, Structure
 
 BAND_GAP_TOL = 1e-4
 SETTINGS = EmmetSettings()  # type: ignore[call-arg]
@@ -50,11 +53,15 @@ class BandTheoryBase(BaseModel):
     structure: StructureType | None = Field(
         None, description="The structure associated with this calculation."
     )
+    run_type: RunType | None = Field(
+        None, description="The functional used in the calculation."
+    )
 
     def __str__(self) -> str:
         return (
             f"{self.__class__.__name__}({self.identifier or ''}"
-            f"{': ' + self.structure.formula if self.structure else ''})"
+            f"{': ' if self.identifier else ''}"
+            f"{self.structure.formula if self.structure else ''})"
         )
 
     def __repr__(self) -> str:
@@ -472,6 +479,8 @@ def obtain_path_type(
         Structure associated with the bandstructure
     kpoints : list of tuple[float,float,float]
         A list of (all) k-points included in the bandstructure.
+    user_kpoint_labels: dict of str to Vector3D, or None = None
+        An optional dict of user-defined k-point labels
     symprecs : list[float] = [SETTINGS.SYMPREC,0.01]
         List of `symprec` values to pass to `HighSymmKpath`
     angtols : list[float] = [SETTINGS.ANGLE_TOL]
@@ -485,6 +494,7 @@ def obtain_path_type(
     -----------
     BSPathType
     """
+    found_path_types: set[BSPathType] = set()
     for path_type in (bspt for bspt in BSPathType if bspt.value != "unknown"):  # type: ignore[attr-defined]
         found_path_type = False
         for symprec, angtol in product(symprecs, angtols):
@@ -520,9 +530,10 @@ def obtain_path_type(
                 or (num_extra > 0 and _coarse_list_superset(inferred_kpath, ref_path))
             ):
                 found_path_type = True
+                found_path_types.add(path_type)
                 yield path_type, inferred_kpath, kpoint_labels
 
-    if not found_path_type:
+    if not found_path_types:
         yield BSPathType.unknown, None, {}
 
 

@@ -152,17 +152,20 @@ class IngestionService:
 
     def send_lineage(
         self,
-        resource_uuid: str,
-        resource_type: str,
-        events: list[LineageEvent],
+        resource_uuid: str | None = None,
+        resource_type: str | None = None,
+        events: list[LineageEvent] | None = None,
         event_type: LineageEventType | str | None = None,
     ) -> dict | None:
         """
         Send lineage data to Monte Carlo.
 
-        :param resource_uuid: UUID of the Monte Carlo resource (warehouse/lake).
+        :param resource_uuid: UUID of the Monte Carlo resource (warehouse/lake)
+            for same-warehouse lineage. Omit it for **cross-warehouse** lineage,
+            in which case every :class:`LineageAssetRef` must carry its own
+            ``resource_uuid`` / ``resource_type`` instead.
         :param resource_type: Resource type identifier, e.g. ``"snowflake"``,
-            ``"bigquery"`` (lowercase).
+            ``"bigquery"`` (lowercase). Provide alongside ``resource_uuid``.
         :param events: One or more :class:`LineageEvent` objects describing
             the data-flow relationships to ingest.
         :param event_type: Explicit event type (``"LINEAGE"`` or

@@ -113,13 +113,13 @@ static void free_matmul_data(expr *node)
     free_CSR_matrix(mnode->B);
     free_CSR_matrix(mnode->BJg);
     free_CSC_matrix(mnode->BJg_CSC);
-    free(mnode->BJg_csc_work);
+    sp_free(mnode->BJg_csc_work);
     free_CSR_matrix(mnode->C);
     free_CSR_matrix(mnode->CT);
-    free(mnode->idx_map_C);
-    free(mnode->idx_map_CT);
-    free(mnode->idx_map_Hf);
-    free(mnode->idx_map_Hg);
+    sp_free(mnode->idx_map_C);
+    sp_free(mnode->idx_map_CT);
+    sp_free(mnode->idx_map_Hf);
+    sp_free(mnode->idx_map_Hg);
 }
 
 static bool is_affine(const expr *node)
@@ -241,6 +241,7 @@ static void jacobian_init_chain_rule(expr *node)
     mnode->term1_CSR = YT_kron_I_alloc(m, k, n, f->work->jacobian_csc);
     mnode->term2_CSR = I_kron_X_alloc(m, k, n, g->work->jacobian_csc);
     int max_nnz = mnode->term1_CSR->nnz + mnode->term2_CSR->nnz;
+    max_nnz = MIN(max_nnz, sat_mul_int(node->size, node->n_vars));
     CSR_matrix *jac = new_CSR_matrix(node->size, node->n_vars, max_nnz);
     sum_csr_alloc(mnode->term1_CSR, mnode->term2_CSR, jac);
     node->jacobian = new_sparse_matrix(jac);
@@ -433,12 +434,12 @@ static void wsum_hess_init_chain_rule(expr *node)
     mnode->B = build_cross_hessian_sparsity(m, k, n);
     mnode->BJg = csr_csc_matmul_alloc(mnode->B, Jg);
     int max_alloc = MAX(mnode->BJg->m, mnode->BJg->n);
-    mnode->BJg_csc_work = (int *) SP_MALLOC(max_alloc * sizeof(int));
+    mnode->BJg_csc_work = (int *) sp_malloc(max_alloc * sizeof(int));
     mnode->BJg_CSC = csr_to_csc_alloc(mnode->BJg, mnode->BJg_csc_work);
     mnode->C = BTA_alloc(mnode->BJg_CSC, Jf);
 
     /* initialize C^T */
-    node->work->iwork = (int *) SP_MALLOC(mnode->C->m * sizeof(int));
+    node->work->iwork = (int *) sp_malloc(mnode->C->m * sizeof(int));
     mnode->CT = AT_alloc(mnode->C, node->work->iwork);
 
     /* initialize Hessians of children */
@@ -475,7 +476,7 @@ static void wsum_hess_init_chain_rule(expr *node)
     if (!f->is_affine(f) || !g->is_affine(g))
     {
         node->work->dwork =
-            (double *) SP_MALLOC(MAX(f->size, g->size) * sizeof(double));
+            (double *) sp_malloc(MAX(f->size, g->size) * sizeof(double));
     }
 }
 
@@ -560,7 +561,7 @@ expr *new_matmul(expr *x, expr *y)
     }
 
     /* Allocate the expression node */
-    expr *node = (expr *) SP_CALLOC(1, sizeof(matmul_expr));
+    expr *node = (expr *) sp_calloc(1, sizeof(matmul_expr));
 
     /* Choose no-chain-rule or chain-rule function pointers */
     bool use_chain_rule = !(x->var_id != NOT_A_VARIABLE &&

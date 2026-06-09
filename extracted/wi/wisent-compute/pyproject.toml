@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wisent-compute"
-version = "0.4.339"
+version = "0.4.345"
 description = "Job queue and compute management for Wisent GPU workloads"
 requires-python = ">=3.10"
 dependencies = [
@@ -43,6 +43,7 @@ dev = ["functions-framework>=3.0.0"]
 wc = "wisent_compute.cli:main"
 wc-coverage = "wisent_compute.coverage.cli:main"
 wc-fix = "wisent_compute.failure_fixer.cli:main"
+wc-watchdog = "wisent_compute.deploy.watchdog.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["wisent_compute*"]

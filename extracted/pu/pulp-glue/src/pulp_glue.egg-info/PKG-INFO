@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulp-glue
-Version: 0.39.3
+Version: 0.40.1
 Summary: Version agnostic glue library to talk to pulpcore's REST API.
 Author-email: Pulp Team <pulp-list@redhat.com>
 License-Expression: GPL-2.0-or-later
@@ -14,12 +14,13 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: System :: Software Distribution
 Classifier: Typing :: Typed
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.16,>=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: multidict<6.8,>=6.0.5
 Requires-Dist: packaging<=26.2,>=22.0
 Requires-Dist: pydantic<3,>=2.9.2
-Requires-Dist: requests<2.34,>=2.24.0
+Requires-Dist: requests<2.34,>=2.24.0; python_version < "3.12"
+Requires-Dist: requests<2.34,>=2.25.1; python_version >= "3.12"
 Requires-Dist: tomli<2.1,>=2.0.0; python_version < "3.11"
 
 # Pulp Glue

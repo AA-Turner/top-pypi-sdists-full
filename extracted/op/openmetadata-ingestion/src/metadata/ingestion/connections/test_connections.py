@@ -18,6 +18,7 @@ from functools import partial
 from typing import Callable, List, Optional
 
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.inspection import inspect
 
@@ -134,7 +135,7 @@ def _test_connection_steps_automation_workflow(
                 )
             except Exception as err:
                 logger.debug(traceback.format_exc())
-                logger.warning(f"{step.name}-{err}")
+                logger.error(f"{step.name}-{err}")
                 test_connection_result.steps.append(
                     TestConnectionStepResult(
                         name=step.name,
@@ -430,7 +431,8 @@ def test_query(engine: Engine, statement: str):
     to test if user has access to the tables specified
     in the sql statement
     """
-    engine.execute(statement).fetchone()
+    with engine.connect() as conn:
+        conn.execute(text(statement)).fetchone()
 
 
 def execute_inspector_func(engine: Engine, func_name: str):

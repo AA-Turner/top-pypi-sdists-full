@@ -43,6 +43,16 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 
+def _normalize_email(email: str) -> str:
+    """Canonical form for an auth identity email: trimmed + lowercased (#1342 M2).
+
+    The store is the single normalization chokepoint so the case-insensitive identity
+    invariant holds regardless of whether a caller remembered to lowercase. The
+    ``users_email_lower_key`` functional index is the structural backstop for raw-SQL
+    paths that bypass these methods."""
+    return (email or "").strip().lower()
+
+
 def _appspec_has_tenant_root(appspec: Any) -> bool:
     """True iff the appspec declares an ``is_tenant_root`` / archetype:tenant
     entity (auth Plan 1d — selects the 1:1 org<->root mirror provisioning)."""
@@ -86,7 +96,7 @@ class UserStoreMixin:
         import json
 
         user = UserRecord(
-            email=email,
+            email=_normalize_email(email),  # canonical-lowercase storage (#1342 M2)
             password_hash=hash_password(password),
             username=username,
             is_superuser=is_superuser,
@@ -136,8 +146,9 @@ class UserStoreMixin:
         )
 
     def get_user_by_email(self, email: str) -> UserRecord | None:
-        """Get user by email."""
-        row = self._execute_one("SELECT * FROM users WHERE email = %s", (email,))
+        """Get user by email. Case-insensitive: the argument is normalized to the canonical
+        (trimmed + lowercased) form so any-case input resolves the same identity (#1342 M2)."""
+        row = self._execute_one("SELECT * FROM users WHERE email = %s", (_normalize_email(email),))
         return self._row_to_user(row) if row else None
 
     def get_user_by_id(self, user_id: UUID) -> UserRecord | None:
@@ -734,6 +745,7 @@ class SessionStoreMixin:
             roles=json.loads(row["roles"]) if row.get("roles") else [],
             status=row["status"],
             invited_by=row.get("invited_by"),
+            external_id=row.get("external_id"),
             joined_at=datetime.fromisoformat(row["joined_at"]),
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
@@ -747,6 +759,7 @@ class SessionStoreMixin:
         roles: list[str] | None = None,
         status: str = "active",
         invited_by: str | None = None,
+        external_id: str | None = None,
         actor_id: str | None = None,
         reason: str | None = None,
     ) -> MembershipRecord:
@@ -776,15 +789,16 @@ class SessionStoreMixin:
             roles=roles or [],
             status=status,
             invited_by=invited_by,
+            external_id=external_id,
         )
         with self._transaction() as cur:
             cur.execute("SELECT pg_advisory_xact_lock(%s)", (MEMBERSHIP_EVENTS_LOCK_KEY,))
             cur.execute(
                 """
                 INSERT INTO memberships
-                    (id, tenant_id, identity_id, roles, status, invited_by,
+                    (id, tenant_id, identity_id, roles, status, invited_by, external_id,
                      joined_at, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     membership.id,
@@ -793,6 +807,7 @@ class SessionStoreMixin:
                     json.dumps(membership.roles),
                     membership.status,
                     membership.invited_by,
+                    membership.external_id,
                     membership.joined_at.isoformat(),
                     membership.created_at.isoformat(),
                     membership.updated_at.isoformat(),
@@ -986,6 +1001,39 @@ class SessionStoreMixin:
             (tenant_id,),
         )
         return [self._row_to_membership(r) for r in rows]
+
+    def get_membership_by_external_id(
+        self, tenant_id: str, external_id: str
+    ) -> MembershipRecord | None:
+        """Resolve the membership an IdP `externalId` (Entra user GUID) names in an org.
+
+        The dedup chokepoint for SCIM provisioning (#1342 gap 1): lets a re-push under a
+        changed email find the existing membership instead of forking a duplicate. Scoped
+        to ``tenant_id`` (one org's SCIM connection is authoritative only for its own org).
+        """
+        row = self._execute_one(
+            "SELECT * FROM memberships WHERE tenant_id = %s AND external_id = %s",
+            (tenant_id, external_id),
+        )
+        return self._row_to_membership(row) if row else None
+
+    def update_membership_external_id(
+        self, membership_id: str, external_id: str | None
+    ) -> MembershipRecord | None:
+        """Persist (or backfill) the IdP `externalId` on a membership. Returns the updated
+        record, or ``None`` if no such membership. No lifecycle event — externalId is an
+        IdP correlation key, not an access change."""
+        with self._transaction() as cur:
+            cur.execute(
+                "UPDATE memberships SET external_id = %s, updated_at = %s WHERE id = %s",
+                (external_id, datetime.now(UTC).isoformat(), membership_id),
+            )
+            updated = cur.rowcount
+            cur.execute("SELECT * FROM memberships WHERE id = %s", (membership_id,))
+            row = cur.fetchone()
+        if not updated or row is None:
+            return None
+        return self._row_to_membership(row)
 
     # -- Membership lifecycle events (auth Plan 2a — compliance evidence) -----
 
@@ -1209,6 +1257,17 @@ class SessionStoreMixin:
             "SELECT * FROM connections WHERE tenant_id = %s ORDER BY created_at", (tenant_id,)
         )
         return [self._row_to_connection(r) for r in rows]
+
+    def connection_type_counts(self) -> dict[str, int]:
+        """``{connection.type: count}`` for the capability boot guard (#1344). Defensive:
+        returns ``{}`` on ANY failure (missing ``connections`` table on a fresh/unmigrated
+        DB, query error) — a boot guard must never break boot."""
+        try:
+            rows = self._execute("SELECT type, COUNT(*) AS n FROM connections GROUP BY type")
+        except Exception:  # noqa: BLE001 — advisory guard; a read failure must not abort boot
+            logger.debug("connection_type_counts: read failed (benign at boot)", exc_info=True)
+            return {}
+        return {str(r["type"]): int(r["n"]) for r in rows}
 
     def get_connection_by_verified_domain(self, domain: str) -> "ConnectionRecord | None":  # noqa: F821
         """Route an email domain to its org's connection — VERIFIED domains only.
@@ -1497,9 +1556,8 @@ class SessionStoreMixin:
                 raise ValueError(
                     f"request signing is SAML-only (connection {connection_id!r} is {conn_type!r})"
                 )
-            config["sp_cert"] = sp_cert
             config["sign_requests"] = "true"
-            secrets["sp_private_key"] = sp_private_key
+            self._ensure_sp_keypair(config, secrets, sp_cert=sp_cert, sp_private_key=sp_private_key)
             self._write_connection_config_and_secrets(cur, connection_id, config, secrets)
             self._write_secret_event(
                 cur,
@@ -1525,15 +1583,156 @@ class SessionStoreMixin:
             )
             if config is None or not config.get("sign_requests"):
                 return False
-            config.pop("sp_cert", None)
             config.pop("sign_requests", None)
-            secrets.pop("sp_private_key", None)
+            self._maybe_remove_sp_keypair(config, secrets)
             self._write_connection_config_and_secrets(cur, connection_id, config, secrets)
             self._write_secret_event(
                 cur,
                 connection_id=connection_id,
                 tenant_id=ten or "",
                 event=SECRET_EVENT_SIGNING_DISABLED,
+                actor="cli",
+                detail={"type": conn_type},
+                at=datetime.now(UTC).isoformat(),
+            )
+        return True
+
+    def set_connection_idp_initiated(
+        self, connection_id: str, allowed: bool, *, tenant_id: str | None = None
+    ) -> bool:
+        """Toggle the per-connection ``allow_idp_initiated`` flag (SAML #1342). When on, the ACS
+        accepts unsolicited (IdP-initiated) Responses — replay-protected by one-time assertion
+        consumption (``record_consumed_assertion``). SAML-only; raises on another type so a flag
+        can't be written onto an OIDC/SCIM connection. Returns True if a row changed."""
+        import json
+
+        with self._transaction() as cur:
+            config, secrets, _ten, conn_type = self._load_config_secrets(
+                cur, connection_id, tenant_id
+            )
+            if config is None:
+                return False
+            if conn_type != "saml":
+                raise ValueError(
+                    f"IdP-initiated is SAML-only (connection {connection_id!r} is {conn_type!r})"
+                )
+            if allowed:
+                config["allow_idp_initiated"] = "true"
+            else:
+                config.pop("allow_idp_initiated", None)
+            cur.execute(
+                "UPDATE connections SET config = %s, updated_at = %s WHERE id = %s",
+                (json.dumps(config), datetime.now(UTC).isoformat(), connection_id),
+            )
+        return True
+
+    def record_consumed_assertion(
+        self,
+        assertion_id: str,
+        *,
+        connection_id: str,
+        tenant_id: str | None,
+        expires_at: str,
+    ) -> bool:
+        """One-time-use guard for an IdP-initiated SAML assertion (#1342 replay defense).
+
+        Returns True if ``assertion_id`` was newly recorded (fresh — proceed), False if it was
+        already consumed (replay — refuse). The ``INSERT ... ON CONFLICT DO NOTHING`` is the
+        atomic, race-safe check (two concurrent replays can't both win). Expired rows (past their
+        assertion ``NotOnOrAfter``) are purged first to bound growth."""
+        now = datetime.now(UTC).isoformat()
+        with self._transaction() as cur:
+            cur.execute("DELETE FROM saml_consumed_assertions WHERE expires_at < %s", (now,))
+            cur.execute(
+                "INSERT INTO saml_consumed_assertions "
+                "(assertion_id, connection_id, tenant_id, expires_at, created_at) "
+                "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (assertion_id) DO NOTHING",
+                (assertion_id, connection_id, tenant_id, expires_at, now),
+            )
+            inserted = cur.rowcount
+        return bool(inserted)
+
+    @staticmethod
+    def _ensure_sp_keypair(
+        config: dict[str, Any],
+        secrets: dict[str, Any],
+        *,
+        sp_cert: str,
+        sp_private_key: str,
+    ) -> None:
+        """Write the shared SP keypair only if absent — never clobber an existing key, so
+        enabling the second feature (sign/encrypt) keeps the first feature's key. Rotation
+        stays explicit (disable both features, then re-enable)."""
+        config.setdefault("sp_cert", sp_cert)
+        secrets.setdefault("sp_private_key", sp_private_key)
+
+    @staticmethod
+    def _maybe_remove_sp_keypair(config: dict[str, Any], secrets: dict[str, Any]) -> None:
+        """Drop the shared SP keypair iff NEITHER request-signing nor assertion-encryption
+        uses it any more."""
+        if not config.get("sign_requests") and not config.get("encrypt_assertions"):
+            config.pop("sp_cert", None)
+            secrets.pop("sp_private_key", None)
+
+    def enable_connection_assertion_encryption(
+        self,
+        connection_id: str,
+        *,
+        sp_cert: str,
+        sp_private_key: str,
+        tenant_id: str | None = None,
+    ) -> bool:
+        """Persist SAML assertion-encryption material (#1342 feature B): set
+        ``encrypt_assertions='true'`` and ensure the shared SP keypair. Returns True if a
+        row changed. SAML-only at the store layer; tenant-fenced when given."""
+        from dazzle.back.runtime.auth.secret_rotation import SECRET_EVENT_ENCRYPTION_ENABLED
+
+        with self._transaction() as cur:
+            config, secrets, ten, conn_type = self._load_config_secrets(
+                cur, connection_id, tenant_id
+            )
+            if config is None:
+                return False
+            if conn_type != "saml":
+                raise ValueError(
+                    f"assertion encryption is SAML-only (connection {connection_id!r} "
+                    f"is {conn_type!r})"
+                )
+            config["encrypt_assertions"] = "true"
+            self._ensure_sp_keypair(config, secrets, sp_cert=sp_cert, sp_private_key=sp_private_key)
+            self._write_connection_config_and_secrets(cur, connection_id, config, secrets)
+            self._write_secret_event(
+                cur,
+                connection_id=connection_id,
+                tenant_id=ten or "",
+                event=SECRET_EVENT_ENCRYPTION_ENABLED,
+                actor="cli",
+                detail={"type": conn_type},
+                at=datetime.now(UTC).isoformat(),
+            )
+        return True
+
+    def disable_connection_assertion_encryption(
+        self, connection_id: str, *, tenant_id: str | None = None
+    ) -> bool:
+        """Remove ``encrypt_assertions`` and drop the shared SP keypair iff request-signing
+        is also off (one transaction). Returns True iff encryption was on."""
+        from dazzle.back.runtime.auth.secret_rotation import SECRET_EVENT_ENCRYPTION_DISABLED
+
+        with self._transaction() as cur:
+            config, secrets, ten, conn_type = self._load_config_secrets(
+                cur, connection_id, tenant_id
+            )
+            if config is None or not config.get("encrypt_assertions"):
+                return False
+            config.pop("encrypt_assertions", None)
+            self._maybe_remove_sp_keypair(config, secrets)
+            self._write_connection_config_and_secrets(cur, connection_id, config, secrets)
+            self._write_secret_event(
+                cur,
+                connection_id=connection_id,
+                tenant_id=ten or "",
+                event=SECRET_EVENT_ENCRYPTION_DISABLED,
                 actor="cli",
                 detail={"type": conn_type},
                 at=datetime.now(UTC).isoformat(),
@@ -1930,7 +2129,9 @@ class AuthStore(UserStoreMixin, SessionStoreMixin, TwoFactorMixin):
     # SCIM Groups (#1342) — connection-scoped; members link to memberships.
     # ------------------------------------------------------------------ #
 
-    def create_scim_group(self, connection_id: str, display_name: str) -> "ScimGroupRecord":  # noqa: F821
+    def create_scim_group(
+        self, connection_id: str, display_name: str, external_id: str | None = None
+    ) -> "ScimGroupRecord":  # noqa: F821
         from uuid import uuid4
 
         from dazzle.back.runtime.auth.models import ScimGroupRecord
@@ -1938,17 +2139,45 @@ class AuthStore(UserStoreMixin, SessionStoreMixin, TwoFactorMixin):
         now = datetime.now(UTC).isoformat()
         gid = str(uuid4())
         self._execute(
-            "INSERT INTO scim_groups (id, connection_id, display_name, created_at, updated_at) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            (gid, connection_id, display_name, now, now),
+            "INSERT INTO scim_groups (id, connection_id, display_name, external_id, "
+            "created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s)",
+            (gid, connection_id, display_name, external_id, now, now),
         )
         return ScimGroupRecord(
             id=gid,
             connection_id=connection_id,
             display_name=display_name,
+            external_id=external_id,
             created_at=now,
             updated_at=now,
         )
+
+    def update_scim_group_external_id(
+        self, group_id: str, connection_id: str, external_id: str | None
+    ) -> None:
+        """Set/refresh a SCIM group's IdP stable id (#1342) — e.g. a PUT replace carrying it."""
+        self._execute(
+            "UPDATE scim_groups SET external_id = %s, updated_at = %s "
+            "WHERE id = %s AND connection_id = %s",
+            (external_id, datetime.now(UTC).isoformat(), group_id, connection_id),
+        )
+
+    def get_member_group_keys(self, membership_id: str, connection_id: str) -> list[str]:
+        """Role-mapping candidate keys for a member's SCIM groups: each group's display_name
+        AND its external_id (GUID) when set, so a ``group_mapping`` keyed by EITHER (Entra GUID
+        / Google name) matches (#1342 schools gap 2). Connection-scoped (org containment)."""
+        rows = self._execute(
+            "SELECT g.display_name AS display_name, g.external_id AS external_id "
+            "FROM scim_group_members m JOIN scim_groups g ON g.id = m.group_id "
+            "WHERE m.membership_id = %s AND g.connection_id = %s",
+            (membership_id, connection_id),
+        )
+        keys: list[str] = []
+        for r in rows:
+            keys.append(r["display_name"])
+            if r.get("external_id"):
+                keys.append(r["external_id"])
+        return keys
 
     def _row_to_scim_group(self, row: dict[str, Any]) -> "ScimGroupRecord":  # noqa: F821
         from dazzle.back.runtime.auth.models import ScimGroupRecord
@@ -1957,6 +2186,7 @@ class AuthStore(UserStoreMixin, SessionStoreMixin, TwoFactorMixin):
             id=row["id"],
             connection_id=row["connection_id"],
             display_name=row["display_name"],
+            external_id=row.get("external_id"),
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )
@@ -2280,10 +2510,36 @@ class AuthStore(UserStoreMixin, SessionStoreMixin, TwoFactorMixin):
                     PRIMARY KEY (group_id, membership_id)
                 )
             """)
+            # #1342 schools-gap: the IdP's stable id for the user (membership) / group — the
+            # SCIM externalId (Entra objectId GUID). Persisted so group→role + identity joins
+            # can key on it instead of mutable email/displayName. See the SCIM/SAML gaps.
+            cursor.execute("ALTER TABLE memberships ADD COLUMN IF NOT EXISTS external_id TEXT")
+            cursor.execute("ALTER TABLE scim_groups ADD COLUMN IF NOT EXISTS external_id TEXT")
+            # Dedup guarantee for SCIM provisioning (#1342 gap 1): one membership per
+            # (org, IdP user GUID). Partial so non-SCIM / pre-existing NULL external_ids
+            # are unconstrained. Closes the concurrent double-POST race lookup-first dedup
+            # alone can't (two provisions for the same externalId → two rows).
+            cursor.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_memberships_tenant_external "
+                "ON memberships(tenant_id, external_id) WHERE external_id IS NOT NULL"
+            )
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS ix_scim_group_members_member "
                 "ON scim_group_members(membership_id)"
             )
+            # SAML IdP-initiated replay cache (#1342): one-time consumption of an assertion id, so a
+            # captured unsolicited Response can't be replayed within its NotOnOrAfter window. Only
+            # written on the IdP-initiated path (SP-initiated is replay-safe via the session request
+            # id). Rows are purged once expired.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS saml_consumed_assertions (
+                    assertion_id  TEXT PRIMARY KEY,
+                    connection_id TEXT NOT NULL,
+                    tenant_id     TEXT,
+                    expires_at    TEXT NOT NULL,
+                    created_at    TEXT NOT NULL
+                )
+            """)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS password_reset_tokens (
                     token TEXT PRIMARY KEY,

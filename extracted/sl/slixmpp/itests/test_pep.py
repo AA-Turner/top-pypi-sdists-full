@@ -1,4 +1,3 @@
-import asyncio
 import unittest
 from uuid import uuid4
 from slixmpp.exceptions import IqError

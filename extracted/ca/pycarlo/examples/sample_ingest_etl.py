@@ -29,7 +29,9 @@ from pycarlo.core import Client, Session
 from pycarlo.features.ingestion import (
     AssetRef,
     EtlAsset,
+    EtlGroup,
     EtlRunEvent,
+    EtlTask,
     IngestionService,
     Owner,
     Schedule,
@@ -52,6 +54,9 @@ def build_sample_asset(job_source_id: str) -> EtlAsset:
     return EtlAsset(
         job_source_id=job_source_id,
         name="Load orders (sample)",
+        # Optional group the job belongs to (e.g. an Airflow DAG). The
+        # backend mints the group's identifiers from source_id.
+        group=EtlGroup(source_id="sample_dag", name="Sample DAG", group_type="DAG"),
         description="Sample ETL job for /ingest/v1/etl/metadata.",
         folder="sample/etl",
         is_paused=False,
@@ -88,6 +93,44 @@ def build_sample_asset(job_source_id: str) -> EtlAsset:
                 role="OUTPUT",
                 fully_qualified_name="analytics:prod_internal_bi.account_health_scoring",
             )
+        ],
+        # Child tasks of the job — nested under the job in the canonical
+        # group -> job -> tasks hierarchy.
+        tasks=[
+            EtlTask(
+                task_source_id=f"{job_source_id}.extract",
+                name="Extract orders",
+                task_type="PythonOperator",
+                outputs=[
+                    AssetRef(
+                        asset_type="TABLE",
+                        role="OUTPUT",
+                        fully_qualified_name="analytics:prod_internal_bi.staged_orders",
+                    )
+                ],
+            ),
+            EtlTask(
+                task_source_id=f"{job_source_id}.load",
+                name="Load orders",
+                task_type="PythonOperator",
+                # Task-level dependency on the upstream extract task (by
+                # source ID — the backend resolves it to an internal ID).
+                upstream_task_source_ids=[f"{job_source_id}.extract"],
+                inputs=[
+                    AssetRef(
+                        asset_type="TABLE",
+                        role="INPUT",
+                        fully_qualified_name="analytics:prod_internal_bi.staged_orders",
+                    )
+                ],
+                outputs=[
+                    AssetRef(
+                        asset_type="TABLE",
+                        role="OUTPUT",
+                        fully_qualified_name="analytics:prod_internal_bi.account_health_scoring",
+                    )
+                ],
+            ),
         ],
     )
 

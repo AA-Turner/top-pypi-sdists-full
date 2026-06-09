@@ -99,10 +99,13 @@ def to_geotiff(data: xr.DataArray | np.ndarray,
     codec and options).
 
     Dask-backed DataArrays are written in streaming mode: one tile-row
-    at a time, without materialising the full array into RAM.  Peak
-    memory is roughly ``tile_size * width * bytes_per_sample``.  COG
-    output (``cog=True``) still materialises because overviews need the
-    full array.
+    at a time, without materialising the full array into RAM. The
+    per-compute budget is sized from the source chunk geometry, so a
+    ``map_overlap`` source (e.g. ``slope`` / ``aspect``) chunked taller
+    than the tile stays within ``streaming_buffer_bytes`` instead of
+    pulling several source chunk-rows at once (#3007). COG output
+    (``cog=True``) still materialises because overviews need the full
+    array.
 
     Automatically dispatches to GPU compression when:
     - ``gpu=True`` is passed, or
@@ -496,13 +499,16 @@ def to_geotiff(data: xr.DataArray | np.ndarray,
     # Up-front validation: catch bad compression names before they reach
     # any of the deeper write paths (streaming, GPU, VRT, COG) where the
     # error surfaces from _compression_tag with a less obvious traceback.
-    if not isinstance(compression, str) and compression is not None:
+    if not isinstance(compression, str):
         # The string block below validates bad NAMES, but a non-string
         # ``compression`` skips it entirely and later lands in
         # ``compression.lower()`` during compression_level validation,
         # surfacing as ``AttributeError`` instead of a typed error.
-        # Reject the bad TYPE here with the same shape as the low-level
-        # writer's guard in ``_writer.py``.
+        # ``None`` is included: the contract is ``compression: str`` (use
+        # the ``'none'`` string to disable compression), so ``None`` is
+        # rejected here rather than aliased (#2978). Reject the bad TYPE
+        # with the same shape as the low-level writer's guard in
+        # ``_writer.py``.
         raise TypeError(
             f"compression must be a str (in to_geotiff); "
             f"got {type(compression).__name__}.")
@@ -1240,6 +1246,10 @@ def _write_vrt_tiled(data, vrt_path, *, crs=None, nodata=None,
         res_unit = None
         gdal_meta_xml = None
         extra_tags_list = None
+        # Default to the kwarg default so a plain-ndarray write (which
+        # skips the DataArray branch below) still has a defined value
+        # when it reaches the per-tile ``restore_sentinel=`` pass-through.
+        restore_sentinel = True
 
         if isinstance(data, xr.DataArray):
             raw = data.data

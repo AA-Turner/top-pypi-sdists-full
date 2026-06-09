@@ -26,12 +26,23 @@ from metadata.generated.schema.entity.services.connections.connectionBasicType i
     DataStorageConfig,
 )
 from metadata.generated.schema.entity.services.databaseService import DatabaseService
+from metadata.generated.schema.type.basic import ProfileSampleType
+from metadata.generated.schema.type.dynamicSamplingConfig import DynamicSamplingConfig
+from metadata.generated.schema.type.samplingConfig import (
+    ProfileSampleConfig,
+    SampleConfigType,
+)
+from metadata.generated.schema.type.staticSamplingConfig import StaticSamplingConfig
 from metadata.profiler.api.models import ProfilerProcessorConfig
 from metadata.profiler.config import (
     get_database_profiler_config,
     get_schema_profiler_config,
 )
-from metadata.sampler.models import DatabaseAndSchemaConfig, SampleConfig, TableConfig
+from metadata.sampler.models import (
+    DatabaseAndSchemaConfig,
+    SampleConfig,
+    TableConfig,
+)
 
 
 def get_sample_storage_config(
@@ -89,10 +100,59 @@ def get_storage_config_for_table(
         return get_sample_storage_config(database_profiler_config)
 
     try:
-        return db_service.connection.config.sampleDataStorageConfig.config
+        return db_service.connection.config.sampleDataStorageConfig.config  # pyright: ignore[reportAttributeAccessIssue]
     except AttributeError:
         pass
 
+    return None
+
+
+def _resolve_profile_sample_config(
+    entity_config: Optional[Union[TableConfig, DatabaseAndSchemaConfig]],
+    table_profiler_config,
+    schema_profiler_config,
+    database_profiler_config,
+    default_sample_config: Optional[SampleConfig],
+) -> Optional[ProfileSampleConfig]:
+    """Resolve profileSampleConfig through the config hierarchy.
+
+    Checks profileSampleConfig first, then falls back to flat profileSample
+    fields on manual config models (TableConfig, DatabaseAndSchemaConfig).
+    """
+    for config in (
+        entity_config,
+        table_profiler_config,
+        schema_profiler_config,
+        database_profiler_config,
+        default_sample_config,
+    ):
+        if not config:
+            continue
+        try:
+            psc = config.profileSampleConfig
+            if psc:
+                unwrapped = psc.root if hasattr(psc, "root") else psc
+                if isinstance(unwrapped, ProfileSampleConfig):
+                    return unwrapped
+                return ProfileSampleConfig.model_validate(
+                    unwrapped.model_dump()
+                    if hasattr(unwrapped, "model_dump")
+                    else unwrapped
+                )
+        except AttributeError:
+            pass
+        try:
+            if config.profileSample:
+                return ProfileSampleConfig(
+                    sampleConfigType=SampleConfigType.STATIC,
+                    config=StaticSamplingConfig(
+                        profileSample=config.profileSample,
+                        profileSampleType=config.profileSampleType,
+                        samplingMethodType=config.samplingMethodType,
+                    ),
+                )
+        except AttributeError:
+            pass
     return None
 
 
@@ -109,25 +169,15 @@ def get_profile_sample_config(
         database_entity=database_entity
     )
 
-    for config in (
-        entity_config,
-        entity.tableProfilerConfig,
-        schema_profiler_config,
-        database_profiler_config,
-        default_sample_config,
-    ):
-        try:
-            if config and config.profileSample:
-                return SampleConfig(
-                    profileSample=config.profileSample,
-                    profileSampleType=config.profileSampleType,
-                    samplingMethodType=config.samplingMethodType,
-                    randomizedSample=config.randomizedSample,
-                )
-        except AttributeError:
-            pass
+    profile_sample_config = _resolve_profile_sample_config(
+        entity_config=entity_config,
+        table_profiler_config=entity.tableProfilerConfig,
+        schema_profiler_config=schema_profiler_config,
+        database_profiler_config=database_profiler_config,
+        default_sample_config=default_sample_config,
+    )
 
-    return SampleConfig()
+    return SampleConfig(profileSampleConfig=profile_sample_config)
 
 
 def get_sample_query(
@@ -236,3 +286,66 @@ def get_exclude_columns(
         return entity.tableProfilerConfig.excludeColumns
 
     return None
+
+
+def get_tiered_sample(row_count: int) -> StaticSamplingConfig:
+    """
+    Get the appropriate sampling config based on the row count
+    and the defined thresholds.
+
+    Args:
+        row_count (int): the row count of the table
+    """
+    if row_count <= 100_000:
+        return StaticSamplingConfig(
+            profileSample=100,
+            profileSampleType=ProfileSampleType.PERCENTAGE,
+            samplingMethodType=None,
+        )
+    if row_count <= 1_000_000:
+        return StaticSamplingConfig(
+            profileSample=50, profileSampleType=ProfileSampleType.PERCENTAGE, samplingMethodType=None
+        )
+    if row_count <= 10_000_000:
+        return StaticSamplingConfig(
+            profileSample=10, profileSampleType=ProfileSampleType.PERCENTAGE, samplingMethodType=None
+        )
+    if row_count <= 100_000_000:
+        return StaticSamplingConfig(
+            profileSample=5, profileSampleType=ProfileSampleType.PERCENTAGE, samplingMethodType=None
+        )
+    if row_count <= 1_000_000_000:
+        return StaticSamplingConfig(
+            profileSample=1, profileSampleType=ProfileSampleType.PERCENTAGE, samplingMethodType=None
+        )
+    return StaticSamplingConfig(
+        profileSample=0.1, profileSampleType=ProfileSampleType.PERCENTAGE, samplingMethodType=None
+    )
+
+
+def resolve_static_sampling_config(
+    sample_config: ProfileSampleConfig | None,
+    row_count: int | None = None,
+) -> StaticSamplingConfig | None:
+    """Get the sampling config from the sample config object"""
+    if not sample_config:
+        return None
+    if sample_config.sampleConfigType == SampleConfigType.DYNAMIC and isinstance(
+        sample_config.config, DynamicSamplingConfig
+    ):
+        dynamic: DynamicSamplingConfig = sample_config.config
+        row_count = row_count or 0
+        if not dynamic.smartSampling and dynamic.thresholds is not None:
+            for threshold in sorted(dynamic.thresholds, key=lambda t: t.rowCountThreshold, reverse=True):
+                if row_count >= threshold.rowCountThreshold:
+                    return StaticSamplingConfig(
+                        profileSample=threshold.profileSample,
+                        profileSampleType=threshold.profileSampleType,
+                        samplingMethodType=threshold.samplingMethodType,
+                    )
+        if dynamic.smartSampling:
+            return get_tiered_sample(row_count)
+
+        return None
+
+    return sample_config.config if isinstance(sample_config.config, StaticSamplingConfig) else None

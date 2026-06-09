@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-rrmngmnt
-Version: 0.2.2
+Version: 0.2.3
 Summary: Tool to manage remote systems and services
 Project-URL: Homepage, https://github.com/rhevm-qe-automation/python-rrmngmnt
 Author-email: Lukas Bednar <lukyn17@gmail.com>

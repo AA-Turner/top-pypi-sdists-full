@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt
-from typing import Any, ClassVar, Dict, List, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -28,7 +28,8 @@ class OrderLevel(BaseModel):
     """ # noqa: E501
     price: Union[StrictFloat, StrictInt] = Field(description="0.0 to 1.0 (probability)")
     size: Union[StrictFloat, StrictInt] = Field(description="contracts/shares")
-    __properties: ClassVar[List[str]] = ["price", "size"]
+    order_count: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="orderCount")
+    __properties: ClassVar[List[str]] = ["price", "size", "orderCount"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -82,7 +83,8 @@ class OrderLevel(BaseModel):
 
         _obj = cls.model_validate({
             "price": obj.get("price"),
-            "size": obj.get("size")
+            "size": obj.get("size"),
+            "orderCount": obj.get("orderCount")
         })
         return _obj
 

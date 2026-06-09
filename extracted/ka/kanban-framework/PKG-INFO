@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kanban-framework
-Version: 0.155.2
+Version: 0.156.2
 Summary: Kanban multi-agent orchestration framework for Claude Code
 Requires-Python: >=3.10
 Requires-Dist: jieba>=0.42

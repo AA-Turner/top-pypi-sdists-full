@@ -41,6 +41,7 @@ from metadata.generated.schema.metadataIngestion.workflow import (
 )
 from metadata.generated.schema.tests.testSuite import ServiceType
 from metadata.generated.schema.type.entityReference import EntityReference
+from metadata.ingestion import diagnostics
 from metadata.ingestion.api.step import Step, Summary
 from metadata.ingestion.ometa.client_utils import create_ometa_client
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
@@ -51,9 +52,10 @@ from metadata.utils.class_helper import (
     get_reference_type_from_service_type,
     get_service_class_from_service_type,
 )
-from metadata.utils.execution_time_tracker import ExecutionTimeTracker
 from metadata.utils.helpers import datetime_to_ts
 from metadata.utils.logger import ingestion_logger, set_loggers_level
+from metadata.utils.operation_metrics import OperationMetricsState
+from metadata.utils.progress_tracker import ProgressTrackerState
 from metadata.utils.streamable_logger import (
     cleanup_streamable_logging,
     setup_streamable_logging_for_workflow,
@@ -105,9 +107,6 @@ class BaseWorkflow(ABC, WorkflowStatusMixin):
         self._ingestion_pipeline: Optional[IngestionPipeline] = None
         self._start_ts = datetime_to_ts(datetime.now())
 
-        # Execution time tracking is always enabled for workflows regardless of the log level
-        self._execution_time_tracker = ExecutionTimeTracker(enabled=True)
-
         set_loggers_level(self.workflow_config.loggerLevel.value)
 
         # We create the ometa client at the workflow level and pass it to the steps
@@ -134,11 +133,19 @@ class BaseWorkflow(ABC, WorkflowStatusMixin):
         self.metadata.log_server_version()
 
         self._log_workflow_execution_info()
+
+        # Set run context for operation metrics tracking
+        OperationMetricsState().set_run_context(
+            run_id=str(self.config.pipelineRunId.root)
+            if self.config.pipelineRunId
+            else None,
+            pipeline_fqn=self.config.ingestionPipelineFQN,
+        )
         self.set_ingestion_pipeline_status(state=PipelineState.running)
 
         self.post_init()
 
-    def _build_user_agent(self) -> Optional[str]:  # noqa: UP045
+    def _build_user_agent(self) -> Optional[str]:
         """
         HTTP User-Agent identifying this workflow's requests to the OpenMetadata server.
         Subclasses override this to provide more specific identifiers. Best-effort: the
@@ -165,6 +172,16 @@ class BaseWorkflow(ABC, WorkflowStatusMixin):
         # Stop the timer first. This runs in a separate thread and if not properly closed
         # it can hung the workflow
         self.timer.stop()
+
+        # Stop diagnostics threads if they were installed. Emits the
+        # `diag.time_budget` summary line through the diag logger before
+        # the threads exit, which gets captured by the streamable
+        # handler's synchronous shutdown in `execute()`'s outer finally.
+        diagnostics.shutdown()
+
+        # Reset progress and metrics tracking singletons
+        ProgressTrackerState().reset()
+        OperationMetricsState().reset()
 
         self.metadata.close()
 
@@ -259,8 +276,17 @@ class BaseWorkflow(ABC, WorkflowStatusMixin):
         """
         pipeline_state = PipelineState.success
         self.timer.trigger()
+        diagnostics.install(self)
+        # `self.config` is typed Union[Any, Dict]; getattr keeps the static
+        # checker happy without changing behavior (the Dict branch never
+        # carries this attribute at runtime).
+        pipeline_fqn = getattr(self.config, "ingestionPipelineFQN", None)
         try:
-            self.execute_internal()
+            with (
+                diagnostics.operation("workflow.execute", fqn=pipeline_fqn),
+                diagnostics.dump_on_memory_error(),
+            ):
+                self.execute_internal()
 
             if self.workflow_config.successThreshold <= self.calculate_success() < 100:
                 pipeline_state = PipelineState.partialSuccess
@@ -282,8 +308,10 @@ class BaseWorkflow(ABC, WorkflowStatusMixin):
             ingestion_status = self.build_ingestion_status()
             self.set_ingestion_pipeline_status(pipeline_state, ingestion_status)
             try:
-                self.stop()
-                self.print_status()
+                try:
+                    self.print_status()
+                finally:
+                    self.stop()
             finally:
                 # Must run after every other emitter so the tail is captured.
                 cleanup_streamable_logging()
@@ -404,6 +432,9 @@ class BaseWorkflow(ABC, WorkflowStatusMixin):
                     f"({metrics.memory_usage_percent:.2f}%) | "
                     f"Processes: {metrics.active_processes}"
                 )
+
+            # Send progress update to the server for live tracking
+            self.send_progress_update()
 
         except Exception as exc:
             logger.debug(traceback.format_exc())

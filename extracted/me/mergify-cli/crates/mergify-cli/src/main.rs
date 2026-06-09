@@ -30,6 +30,7 @@ use mergify_ci::git_refs::Format as GitRefsFormat;
 use mergify_ci::git_refs::GitRefsOptions;
 use mergify_ci::junit_process::JunitProcessOptions;
 use mergify_ci::scopes_send::ScopesSendOptions;
+use mergify_ci::tests_quarantine::GetOptions;
 use mergify_ci::tests_quarantine::QuarantineOptions;
 use mergify_ci::tests_quarantine::QuarantinedOptions;
 use mergify_ci::tests_quarantine::UnquarantineOptions;
@@ -47,6 +48,8 @@ use mergify_queue::pause::PauseOptions;
 use mergify_queue::show::ShowOptions;
 use mergify_queue::status::StatusOptions;
 use mergify_queue::unpause::UnpauseOptions;
+
+mod cli_schema;
 
 fn main() -> ExitCode {
     let argv: Vec<String> = env::args().skip(1).collect();
@@ -145,9 +148,7 @@ const NATIVE_COMMANDS: &[(&str, &str)] = &[
     ("ci", "junit-process"),
     ("ci", "junit-upload"),
     ("tests", "show"),
-    ("tests", "quarantine"),
-    ("tests", "unquarantine"),
-    ("tests", "quarantined"),
+    ("tests", "quarantines"),
     ("queue", "pause"),
     ("queue", "unpause"),
     ("queue", "status"),
@@ -158,8 +159,13 @@ const NATIVE_COMMANDS: &[(&str, &str)] = &[
     ("freeze", "delete"),
     ("stack", "drop"),
     ("stack", "edit"),
+    ("stack", "fixup"),
+    ("stack", "move"),
     ("stack", "new"),
     ("stack", "note"),
+    ("stack", "reorder"),
+    ("stack", "reword"),
+    ("stack", "squash"),
     // Internal Python migration helpers. Listed so `looks_native`
     // routes `mergify _internal …` past the shim fallback when
     // clap rejects it, but they stay hidden from `--help` (see
@@ -171,6 +177,9 @@ const NATIVE_COMMANDS: &[(&str, &str)] = &[
     // rewrite the todo file in-process. Not a user-facing
     // command; not stable.
     ("_internal", "rebase-todo-rewrite"),
+    // Emits the machine-readable CLI schema the docs site renders
+    // into the command reference. Hidden; not a stable surface.
+    ("_internal", "dump-cli-schema"),
 ];
 
 /// Native commands the Rust binary handles without delegating to
@@ -195,6 +204,7 @@ enum NativeCommand {
     TestsShow(TestsShowOpts),
     TestsQuarantine(TestsQuarantineOpts),
     TestsUnquarantine(TestsUnquarantineOpts),
+    TestsQuarantineGet(TestsQuarantineGetOpts),
     TestsQuarantined(TestsQuarantinedOpts),
     QueuePause(QueuePauseOpts),
     QueueUnpause(QueueUnpauseOpts),
@@ -233,6 +243,23 @@ enum NativeCommand {
     /// `mergify stack drop <COMMIT>... [--dry-run]` — drop one or
     /// more commits from the stack via the rebase-todo machinery.
     StackDrop(StackDropOpts),
+    /// `mergify stack fixup <COMMIT>... [--dry-run]` — fold one
+    /// or more commits into their parents via the rebase-todo
+    /// machinery.
+    StackFixup(StackFixupOpts),
+    /// `mergify stack reword <COMMIT> [-m <msg>] [--dry-run]` —
+    /// change a commit's message in place.
+    StackReword(StackRewordOpts),
+    /// `mergify stack reorder <COMMIT>... [--dry-run]` — rebase
+    /// the stack with the requested commit order.
+    StackReorder(StackReorderOpts),
+    /// `mergify stack move <COMMIT> <POSITION> [<TARGET>]
+    /// [--dry-run]` — move a single commit within the stack.
+    StackMove(StackMoveOpts),
+    /// `mergify stack squash <SRC>... into <TARGET> [-m <msg>]
+    /// [--dry-run]` — fold several commits into a target,
+    /// reordering them adjacent first.
+    StackSquash(StackSquashOpts),
     /// `_internal rebase-todo-rewrite --action <ACTION>
     /// --sha <SHA> <TODO_PATH>` — self-invocation target set as
     /// `GIT_SEQUENCE_EDITOR` by the rebase-family stack
@@ -240,6 +267,10 @@ enum NativeCommand {
     /// applies the named transformation, writes it back in place.
     /// Wire format is not stable.
     InternalRebaseTodoRewrite(InternalRebaseTodoRewriteOpts),
+    /// `_internal dump-cli-schema` — serialize the clap command tree
+    /// to JSON for the docs site. Pure introspection; no async, no I/O
+    /// beyond stdout.
+    InternalDumpCliSchema,
 }
 
 struct StackEditOpts {
@@ -253,16 +284,61 @@ struct StackDropOpts {
     dry_run: bool,
 }
 
+struct StackFixupOpts {
+    commit_prefixes: Vec<String>,
+    dry_run: bool,
+}
+
+struct StackRewordOpts {
+    commit_prefix: String,
+    message: Option<String>,
+    dry_run: bool,
+}
+
+struct StackReorderOpts {
+    commit_prefixes: Vec<String>,
+    dry_run: bool,
+}
+
+struct StackMoveOpts {
+    commit_prefix: String,
+    position: StackMovePosition,
+    target_prefix: Option<String>,
+    dry_run: bool,
+}
+
+#[derive(Clone, Copy, clap::ValueEnum)]
+enum StackMovePosition {
+    First,
+    Last,
+    Before,
+    After,
+}
+
+struct StackSquashOpts {
+    src_prefixes: Vec<String>,
+    target_prefix: String,
+    message: Option<String>,
+    dry_run: bool,
+}
+
 struct InternalRebaseTodoRewriteOpts {
     /// Which transformation to apply. New variants land with the
-    /// respective port slices (today: `edit`, `drop`).
+    /// respective port slices (today: `edit`, `drop`, `fixup`,
+    /// `reword`, `exec-after`, `reorder`, `squash`).
     action: InternalRebaseAction,
-    /// Target commit SHA — used by `edit`. Required for any
-    /// single-target action.
+    /// Target commit SHA — used by `edit`, `reword`, `exec-after`,
+    /// and (optionally) `squash` for the post-fixup exec.
     sha: Option<String>,
-    /// Comma-separated commit SHAs — used by `drop`. Required
-    /// for multi-target actions.
+    /// Comma-separated commit SHAs — used by `drop`, `fixup`,
+    /// `reorder`, `squash` (the full new order in this case).
     shas: Option<String>,
+    /// Comma-separated SHAs that should fold as `fixup` — used
+    /// by `squash`.
+    fixup_shas: Option<String>,
+    /// Shell command to inject as an `exec` line — used by
+    /// `exec-after`, `squash`.
+    command: Option<String>,
     /// Path to the rebase-todo file git wrote.
     todo_path: PathBuf,
 }
@@ -271,6 +347,11 @@ struct InternalRebaseTodoRewriteOpts {
 enum InternalRebaseAction {
     Edit,
     Drop,
+    Fixup,
+    Reword,
+    ExecAfter,
+    Reorder,
+    Squash,
 }
 
 struct StackNoteOpts {
@@ -409,6 +490,14 @@ struct TestsQuarantineOpts {
 }
 
 struct TestsUnquarantineOpts {
+    repository: Option<String>,
+    name_or_id: String,
+    token: Option<String>,
+    api_url: Option<String>,
+    json: bool,
+}
+
+struct TestsQuarantineGetOpts {
     repository: Option<String>,
     name_or_id: String,
     token: Option<String>,
@@ -584,7 +673,93 @@ fn dispatch_stack(debug: bool, args: Vec<String>) -> Dispatch {
             };
             Dispatch::Native(NativeCommand::StackDrop(StackDropOpts::from(parsed)))
         }
+        Some("fixup") => {
+            let parsed = match StackFixupCli::try_parse_from(&args) {
+                Ok(p) => p,
+                Err(err) => err.exit(),
+            };
+            Dispatch::Native(NativeCommand::StackFixup(StackFixupOpts::from(parsed)))
+        }
+        Some("reword") => {
+            let parsed = match StackRewordCli::try_parse_from(&args) {
+                Ok(p) => p,
+                Err(err) => err.exit(),
+            };
+            Dispatch::Native(NativeCommand::StackReword(StackRewordOpts::from(parsed)))
+        }
+        Some("reorder") => {
+            let parsed = match StackReorderCli::try_parse_from(&args) {
+                Ok(p) => p,
+                Err(err) => err.exit(),
+            };
+            Dispatch::Native(NativeCommand::StackReorder(StackReorderOpts::from(parsed)))
+        }
+        Some("move") => {
+            let parsed = match StackMoveCli::try_parse_from(&args) {
+                Ok(p) => p,
+                Err(err) => err.exit(),
+            };
+            Dispatch::Native(NativeCommand::StackMove(StackMoveOpts::from(parsed)))
+        }
+        Some("squash") => {
+            let parsed = match StackSquashCli::try_parse_from(&args) {
+                Ok(p) => p,
+                Err(err) => err.exit(),
+            };
+            match StackSquashOpts::try_from(parsed) {
+                Ok(opts) => Dispatch::Native(NativeCommand::StackSquash(opts)),
+                Err(msg) => {
+                    eprintln!("error: {msg}");
+                    std::process::exit(2);
+                }
+            }
+        }
         _ => Dispatch::Shim(inject_global_flags(debug, prepend_one("stack", args))),
+    }
+}
+
+/// Build the run options for `quarantines add`.
+fn quarantine_opts(args: TestsQuarantineCliArgs) -> TestsQuarantineOpts {
+    TestsQuarantineOpts {
+        repository: args.repository,
+        test_name: args.test_name,
+        reason: args.reason,
+        branch: args.branch,
+        token: args.token,
+        api_url: args.api_url,
+        json: args.json,
+    }
+}
+
+/// Build the run options for `quarantines remove`.
+fn unquarantine_opts(args: TestsUnquarantineCliArgs) -> TestsUnquarantineOpts {
+    TestsUnquarantineOpts {
+        repository: args.repository,
+        name_or_id: args.name_or_id,
+        token: args.token,
+        api_url: args.api_url,
+        json: args.json,
+    }
+}
+
+/// Build the run options for `quarantines list`.
+fn quarantined_opts(args: TestsQuarantinedCliArgs) -> TestsQuarantinedOpts {
+    TestsQuarantinedOpts {
+        repository: args.repository,
+        token: args.token,
+        api_url: args.api_url,
+        json: args.json,
+    }
+}
+
+/// Build the run options for `quarantines get`.
+fn quarantine_get_opts(args: TestsQuarantineGetCliArgs) -> TestsQuarantineGetOpts {
+    TestsQuarantineGetOpts {
+        repository: args.repository,
+        name_or_id: args.name_or_id,
+        token: args.token,
+        api_url: args.api_url,
+        json: args.json,
     }
 }
 
@@ -633,6 +808,8 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
                     action,
                     sha,
                     shas,
+                    fixup_shas,
+                    command,
                     todo_path,
                 }),
         }) => Dispatch::Native(NativeCommand::InternalRebaseTodoRewrite(
@@ -640,9 +817,14 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
                 action,
                 sha,
                 shas,
+                fixup_shas,
+                command,
                 todo_path,
             },
         )),
+        Subcommands::Internal(InternalArgs {
+            command: InternalSubcommand::DumpCliSchema,
+        }) => Dispatch::Native(NativeCommand::InternalDumpCliSchema),
         Subcommands::Ci(CiArgs {
             command:
                 CiSubcommand::Scopes(ScopesCliArgs {
@@ -774,55 +956,21 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
             json,
         })),
         Subcommands::Tests(TestsArgs {
-            command:
-                TestsSubcommand::Quarantine(TestsQuarantineCliArgs {
-                    test_name,
-                    repository,
-                    reason,
-                    branch,
-                    token,
-                    api_url,
-                    json,
-                }),
-        }) => Dispatch::Native(NativeCommand::TestsQuarantine(TestsQuarantineOpts {
-            repository,
-            test_name,
-            reason,
-            branch,
-            token,
-            api_url,
-            json,
-        })),
-        Subcommands::Tests(TestsArgs {
-            command:
-                TestsSubcommand::Unquarantine(TestsUnquarantineCliArgs {
-                    name_or_id,
-                    repository,
-                    token,
-                    api_url,
-                    json,
-                }),
-        }) => Dispatch::Native(NativeCommand::TestsUnquarantine(TestsUnquarantineOpts {
-            repository,
-            name_or_id,
-            token,
-            api_url,
-            json,
-        })),
-        Subcommands::Tests(TestsArgs {
-            command:
-                TestsSubcommand::Quarantined(TestsQuarantinedCliArgs {
-                    repository,
-                    token,
-                    api_url,
-                    json,
-                }),
-        }) => Dispatch::Native(NativeCommand::TestsQuarantined(TestsQuarantinedOpts {
-            repository,
-            token,
-            api_url,
-            json,
-        })),
+            command: TestsSubcommand::Quarantines(TestsQuarantinesArgs { command }),
+        }) => Dispatch::Native(match command {
+            QuarantinesSubcommand::Add(args) => {
+                NativeCommand::TestsQuarantine(quarantine_opts(args))
+            }
+            QuarantinesSubcommand::Remove(args) => {
+                NativeCommand::TestsUnquarantine(unquarantine_opts(args))
+            }
+            QuarantinesSubcommand::Get(args) => {
+                NativeCommand::TestsQuarantineGet(quarantine_get_opts(args))
+            }
+            QuarantinesSubcommand::List(args) => {
+                NativeCommand::TestsQuarantined(quarantined_opts(args))
+            }
+        }),
         Subcommands::Queue(QueueArgs {
             repository,
             token,
@@ -975,6 +1123,12 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
 
 #[allow(clippy::too_many_lines)] // mostly mechanical match arms
 fn run_native(cmd: NativeCommand) -> ExitCode {
+    // Pure introspection — no async runtime, network, or shared output
+    // machinery. Handle it before spinning up tokio.
+    if matches!(cmd, NativeCommand::InternalDumpCliSchema) {
+        return cli_schema::run();
+    }
+
     let rt = match tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -993,6 +1147,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
         NativeCommand::TestsShow(opts) if opts.json => OutputMode::Json,
         NativeCommand::TestsQuarantine(opts) if opts.json => OutputMode::Json,
         NativeCommand::TestsUnquarantine(opts) if opts.json => OutputMode::Json,
+        NativeCommand::TestsQuarantineGet(opts) if opts.json => OutputMode::Json,
         NativeCommand::TestsQuarantined(opts) if opts.json => OutputMode::Json,
         _ => OutputMode::Human,
     };
@@ -1000,6 +1155,10 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
 
     let result: Result<mergify_core::ExitCode, mergify_core::CliError> = rt.block_on(async {
         match cmd {
+            // Handled above, before the runtime was built.
+            NativeCommand::InternalDumpCliSchema => {
+                unreachable!("dump-cli-schema is handled before the runtime starts")
+            }
             NativeCommand::ConfigValidate { config_file } => {
                 mergify_config::validate::run(config_file.as_deref(), &mut output)
                     .await
@@ -1122,6 +1281,18 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
             NativeCommand::TestsUnquarantine(opts) => {
                 mergify_ci::tests_quarantine::unquarantine(
                     UnquarantineOptions {
+                        repository: opts.repository.as_deref(),
+                        name_or_id: &opts.name_or_id,
+                        token: opts.token.as_deref(),
+                        api_url: opts.api_url.as_deref(),
+                    },
+                    &mut output,
+                )
+                .await
+            }
+            NativeCommand::TestsQuarantineGet(opts) => {
+                mergify_ci::tests_quarantine::get(
+                    GetOptions {
                         repository: opts.repository.as_deref(),
                         name_or_id: &opts.name_or_id,
                         token: opts.token.as_deref(),
@@ -1383,6 +1554,199 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                 }
                 Ok(mergify_core::ExitCode::Success)
             }
+            NativeCommand::StackFixup(opts) => {
+                let mergify_binary = std::env::current_exe().map_err(|e| {
+                    mergify_core::CliError::Generic(format!(
+                        "could not locate current binary path for GIT_SEQUENCE_EDITOR: {e}"
+                    ))
+                })?;
+                let outcome = mergify_stack::commands::fixup::run(
+                    &mergify_stack::commands::fixup::Options {
+                        repo_dir: None,
+                        commit_prefixes: &opts.commit_prefixes,
+                        dry_run: opts.dry_run,
+                        mergify_binary: &mergify_binary,
+                    },
+                )?;
+                match outcome {
+                    mergify_stack::commands::fixup::Outcome::Squashed { fixed_up } => {
+                        for c in &fixed_up {
+                            let short = &c.sha[..c.sha.len().min(12)];
+                            println!("Fixing up: {short} {subject}", subject = c.subject);
+                        }
+                        println!("Commits squashed successfully.");
+                    }
+                    mergify_stack::commands::fixup::Outcome::DryRun { plan } => {
+                        println!("Fixup plan:");
+                        for c in &plan {
+                            let short = &c.sha[..c.sha.len().min(12)];
+                            println!("  fixup {short} {subject}", subject = c.subject);
+                        }
+                        println!("Dry run — no changes made");
+                    }
+                    mergify_stack::commands::fixup::Outcome::EmptyStack => {
+                        println!("No commits in the stack");
+                    }
+                }
+                Ok(mergify_core::ExitCode::Success)
+            }
+            NativeCommand::StackReword(opts) => {
+                let mergify_binary = std::env::current_exe().map_err(|e| {
+                    mergify_core::CliError::Generic(format!(
+                        "could not locate current binary path for GIT_SEQUENCE_EDITOR: {e}"
+                    ))
+                })?;
+                let outcome = mergify_stack::commands::reword::run(
+                    &mergify_stack::commands::reword::Options {
+                        repo_dir: None,
+                        commit_prefix: &opts.commit_prefix,
+                        message: opts.message.as_deref(),
+                        dry_run: opts.dry_run,
+                        mergify_binary: &mergify_binary,
+                    },
+                )?;
+                match outcome {
+                    mergify_stack::commands::reword::Outcome::Reworded { commit } => {
+                        let short = &commit.sha[..commit.sha.len().min(12)];
+                        println!(
+                            "Reworded {short} {subject}",
+                            subject = commit.subject,
+                        );
+                    }
+                    mergify_stack::commands::reword::Outcome::DryRun {
+                        commit,
+                        inline_message,
+                    } => {
+                        let short = &commit.sha[..commit.sha.len().min(12)];
+                        let verb = if inline_message { "amend" } else { "reword" };
+                        println!("Reword plan:");
+                        println!("  {verb} {short} {subject}", subject = commit.subject);
+                        println!("Dry run — no changes made");
+                    }
+                    mergify_stack::commands::reword::Outcome::EmptyStack => {
+                        println!("No commits in the stack");
+                    }
+                }
+                Ok(mergify_core::ExitCode::Success)
+            }
+            NativeCommand::StackReorder(opts) => {
+                let mergify_binary = std::env::current_exe().map_err(|e| {
+                    mergify_core::CliError::Generic(format!(
+                        "could not locate current binary path for GIT_SEQUENCE_EDITOR: {e}"
+                    ))
+                })?;
+                let outcome = mergify_stack::commands::reorder::run(
+                    &mergify_stack::commands::reorder::Options {
+                        repo_dir: None,
+                        commit_prefixes: &opts.commit_prefixes,
+                        dry_run: opts.dry_run,
+                        mergify_binary: &mergify_binary,
+                    },
+                )?;
+                match outcome {
+                    mergify_stack::commands::reorder::Outcome::Reordered { plan }
+                    | mergify_stack::commands::reorder::Outcome::DryRun { plan } => {
+                        println!("Reorder plan:");
+                        for (i, c) in plan.iter().enumerate() {
+                            let short = &c.sha[..c.sha.len().min(12)];
+                            println!("  {n}. {short} {subject}", n = i + 1, subject = c.subject);
+                        }
+                        if opts.dry_run {
+                            println!("Dry run — no changes made");
+                        } else {
+                            println!("Stack reordered successfully.");
+                        }
+                    }
+                    mergify_stack::commands::reorder::Outcome::AlreadyInOrder => {
+                        println!("Stack is already in the requested order");
+                    }
+                    mergify_stack::commands::reorder::Outcome::EmptyStack => {
+                        println!("No commits in the stack");
+                    }
+                }
+                Ok(mergify_core::ExitCode::Success)
+            }
+            NativeCommand::StackMove(opts) => {
+                let mergify_binary = std::env::current_exe().map_err(|e| {
+                    mergify_core::CliError::Generic(format!(
+                        "could not locate current binary path for GIT_SEQUENCE_EDITOR: {e}"
+                    ))
+                })?;
+                let position = match opts.position {
+                    StackMovePosition::First => mergify_stack::commands::move_cmd::Position::First,
+                    StackMovePosition::Last => mergify_stack::commands::move_cmd::Position::Last,
+                    StackMovePosition::Before => mergify_stack::commands::move_cmd::Position::Before,
+                    StackMovePosition::After => mergify_stack::commands::move_cmd::Position::After,
+                };
+                let outcome = mergify_stack::commands::move_cmd::run(
+                    &mergify_stack::commands::move_cmd::Options {
+                        repo_dir: None,
+                        commit_prefix: &opts.commit_prefix,
+                        position,
+                        target_prefix: opts.target_prefix.as_deref(),
+                        dry_run: opts.dry_run,
+                        mergify_binary: &mergify_binary,
+                    },
+                )?;
+                match outcome {
+                    mergify_stack::commands::move_cmd::Outcome::Moved { plan }
+                    | mergify_stack::commands::move_cmd::Outcome::DryRun { plan } => {
+                        println!("Move plan:");
+                        for (i, c) in plan.iter().enumerate() {
+                            let short = &c.sha[..c.sha.len().min(12)];
+                            println!("  {n}. {short} {subject}", n = i + 1, subject = c.subject);
+                        }
+                        if opts.dry_run {
+                            println!("Dry run — no changes made");
+                        } else {
+                            println!("Commit moved successfully.");
+                        }
+                    }
+                    mergify_stack::commands::move_cmd::Outcome::AlreadyInPosition => {
+                        println!("Commit is already in the requested position");
+                    }
+                    mergify_stack::commands::move_cmd::Outcome::EmptyStack => {
+                        println!("No commits in the stack");
+                    }
+                }
+                Ok(mergify_core::ExitCode::Success)
+            }
+            NativeCommand::StackSquash(opts) => {
+                let mergify_binary = std::env::current_exe().map_err(|e| {
+                    mergify_core::CliError::Generic(format!(
+                        "could not locate current binary path for GIT_SEQUENCE_EDITOR: {e}"
+                    ))
+                })?;
+                let outcome = mergify_stack::commands::squash::run(
+                    &mergify_stack::commands::squash::Options {
+                        repo_dir: None,
+                        src_prefixes: &opts.src_prefixes,
+                        target_prefix: &opts.target_prefix,
+                        message: opts.message.as_deref(),
+                        dry_run: opts.dry_run,
+                        mergify_binary: &mergify_binary,
+                    },
+                )?;
+                match outcome {
+                    mergify_stack::commands::squash::Outcome::Squashed { plan }
+                    | mergify_stack::commands::squash::Outcome::DryRun { plan } => {
+                        println!("Squash plan:");
+                        for (i, c) in plan.iter().enumerate() {
+                            let short = &c.sha[..c.sha.len().min(12)];
+                            println!("  {n}. {short} {subject}", n = i + 1, subject = c.subject);
+                        }
+                        if opts.dry_run {
+                            println!("Dry run — no changes made");
+                        } else {
+                            println!("Commits squashed successfully.");
+                        }
+                    }
+                    mergify_stack::commands::squash::Outcome::EmptyStack => {
+                        println!("No commits in the stack");
+                    }
+                }
+                Ok(mergify_core::ExitCode::Success)
+            }
             NativeCommand::InternalRebaseTodoRewrite(opts) => {
                 let action = match opts.action {
                     InternalRebaseAction::Edit => {
@@ -1408,6 +1772,92 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                             .map(str::to_string)
                             .collect();
                         mergify_stack::rebase_todo::Action::Drop { shas }
+                    }
+                    InternalRebaseAction::Fixup => {
+                        let raw = opts.shas.ok_or_else(|| {
+                            mergify_core::CliError::InvalidState(
+                                "_internal rebase-todo-rewrite --action fixup requires --shas"
+                                    .to_string(),
+                            )
+                        })?;
+                        let shas = raw
+                            .split(',')
+                            .map(str::trim)
+                            .filter(|s| !s.is_empty())
+                            .map(str::to_string)
+                            .collect();
+                        mergify_stack::rebase_todo::Action::Fixup { shas }
+                    }
+                    InternalRebaseAction::Reword => {
+                        let sha = opts.sha.ok_or_else(|| {
+                            mergify_core::CliError::InvalidState(
+                                "_internal rebase-todo-rewrite --action reword requires --sha"
+                                    .to_string(),
+                            )
+                        })?;
+                        mergify_stack::rebase_todo::Action::Reword { sha }
+                    }
+                    InternalRebaseAction::Reorder => {
+                        let raw = opts.shas.ok_or_else(|| {
+                            mergify_core::CliError::InvalidState(
+                                "_internal rebase-todo-rewrite --action reorder requires --shas"
+                                    .to_string(),
+                            )
+                        })?;
+                        let ordered_shas = raw
+                            .split(',')
+                            .map(str::trim)
+                            .filter(|s| !s.is_empty())
+                            .map(str::to_string)
+                            .collect();
+                        mergify_stack::rebase_todo::Action::Reorder { ordered_shas }
+                    }
+                    InternalRebaseAction::Squash => {
+                        let raw_shas = opts.shas.ok_or_else(|| {
+                            mergify_core::CliError::InvalidState(
+                                "_internal rebase-todo-rewrite --action squash requires --shas"
+                                    .to_string(),
+                            )
+                        })?;
+                        let ordered_shas: Vec<String> = raw_shas
+                            .split(',')
+                            .map(str::trim)
+                            .filter(|s| !s.is_empty())
+                            .map(str::to_string)
+                            .collect();
+                        let raw_fixup = opts.fixup_shas.ok_or_else(|| {
+                            mergify_core::CliError::InvalidState(
+                                "_internal rebase-todo-rewrite --action squash requires --fixup-shas"
+                                    .to_string(),
+                            )
+                        })?;
+                        let fixup_shas: Vec<String> = raw_fixup
+                            .split(',')
+                            .map(str::trim)
+                            .filter(|s| !s.is_empty())
+                            .map(str::to_string)
+                            .collect();
+                        mergify_stack::rebase_todo::Action::Squash {
+                            ordered_shas,
+                            fixup_shas,
+                            exec_after_sha: opts.sha,
+                            exec_command: opts.command,
+                        }
+                    }
+                    InternalRebaseAction::ExecAfter => {
+                        let sha = opts.sha.ok_or_else(|| {
+                            mergify_core::CliError::InvalidState(
+                                "_internal rebase-todo-rewrite --action exec-after requires --sha"
+                                    .to_string(),
+                            )
+                        })?;
+                        let command = opts.command.ok_or_else(|| {
+                            mergify_core::CliError::InvalidState(
+                                "_internal rebase-todo-rewrite --action exec-after requires --command"
+                                    .to_string(),
+                            )
+                        })?;
+                        mergify_stack::rebase_todo::Action::ExecAfter { sha, command }
                     }
                 };
                 let original = std::fs::read_to_string(&opts.todo_path).map_err(|e| {
@@ -1576,20 +2026,35 @@ enum InternalSubcommand {
     /// user-facing surface.
     #[command(name = "rebase-todo-rewrite")]
     RebaseTodoRewrite(InternalRebaseTodoRewriteArgs),
+    /// Emit the machine-readable CLI schema (the JSON the docs site
+    /// renders into the command reference) to stdout. Walks the clap
+    /// command tree so every description and flag is sourced from the
+    /// code, never hand-maintained. Not a stable user-facing surface.
+    #[command(name = "dump-cli-schema")]
+    DumpCliSchema,
 }
 
 #[derive(clap::Args)]
 struct InternalRebaseTodoRewriteArgs {
     /// Transformation to apply. New variants land with the
-    /// respective port slices (today: `edit`, `drop`).
+    /// respective port slices (today: `edit`, `drop`, `fixup`,
+    /// `reword`, `exec-after`).
     #[arg(long, value_enum)]
     action: InternalRebaseAction,
-    /// Target SHA — required when `--action edit`.
+    /// Target SHA — required for `edit`, `reword`, `exec-after`.
     #[arg(long)]
     sha: Option<String>,
-    /// Comma-separated SHAs — required when `--action drop`.
+    /// Comma-separated SHAs — required for `drop`, `fixup`,
+    /// `reorder`, `squash` (full new order).
     #[arg(long)]
     shas: Option<String>,
+    /// Comma-separated SHAs to fold as fixup — used by `squash`.
+    #[arg(long = "fixup-shas")]
+    fixup_shas: Option<String>,
+    /// Shell command to inject as an `exec` line — required for
+    /// `exec-after`, optional for `squash`.
+    #[arg(long)]
+    command: Option<String>,
     /// Path to the rebase-todo file git wrote; positional so it
     /// catches whatever git's `sh -c "$EDITOR \"$@\"" sh <path>`
     /// hands us.
@@ -1683,6 +2148,164 @@ impl From<StackDropCli> for StackDropOpts {
             commit_prefixes: cli.commits,
             dry_run: cli.dry_run,
         }
+    }
+}
+
+/// `mergify stack fixup <COMMIT>... [--dry-run]` — clap definition.
+#[derive(Parser)]
+#[command(
+    name = "fixup",
+    about = "Fixup commits into their parent (drops their messages)"
+)]
+struct StackFixupCli {
+    #[arg(required = true)]
+    commits: Vec<String>,
+
+    /// Show the plan without rebasing.
+    #[arg(short = 'n', long = "dry-run", action = clap::ArgAction::SetTrue)]
+    dry_run: bool,
+}
+
+impl From<StackFixupCli> for StackFixupOpts {
+    fn from(cli: StackFixupCli) -> Self {
+        Self {
+            commit_prefixes: cli.commits,
+            dry_run: cli.dry_run,
+        }
+    }
+}
+
+/// `mergify stack reword <COMMIT> [-m <msg>] [--dry-run]`.
+#[derive(Parser)]
+#[command(name = "reword", about = "Change a commit's message")]
+struct StackRewordCli {
+    commit: String,
+
+    /// New message. When omitted, `git rebase -i` pauses at the
+    /// target and opens `$GIT_EDITOR`.
+    #[arg(short = 'm', long = "message")]
+    message: Option<String>,
+
+    /// Show the plan without rebasing.
+    #[arg(short = 'n', long = "dry-run", action = clap::ArgAction::SetTrue)]
+    dry_run: bool,
+}
+
+impl From<StackRewordCli> for StackRewordOpts {
+    fn from(cli: StackRewordCli) -> Self {
+        Self {
+            commit_prefix: cli.commit,
+            message: cli.message,
+            dry_run: cli.dry_run,
+        }
+    }
+}
+
+/// `mergify stack reorder <COMMIT>... [--dry-run]`.
+#[derive(Parser)]
+#[command(name = "reorder", about = "Reorder the stack's commits")]
+struct StackReorderCli {
+    #[arg(required = true)]
+    commits: Vec<String>,
+
+    /// Show the plan without reordering.
+    #[arg(short = 'n', long = "dry-run", action = clap::ArgAction::SetTrue)]
+    dry_run: bool,
+}
+
+impl From<StackReorderCli> for StackReorderOpts {
+    fn from(cli: StackReorderCli) -> Self {
+        Self {
+            commit_prefixes: cli.commits,
+            dry_run: cli.dry_run,
+        }
+    }
+}
+
+/// `mergify stack move <COMMIT> <POSITION> [<TARGET>] [--dry-run]`.
+#[derive(Parser)]
+#[command(name = "move", about = "Move a commit within the stack")]
+struct StackMoveCli {
+    /// Commit to move.
+    commit: String,
+
+    /// Where to put it: `first`, `last`, `before`, `after`.
+    #[arg(value_enum)]
+    position: StackMovePosition,
+
+    /// Required when `position` is `before` or `after`.
+    target: Option<String>,
+
+    /// Show the plan without moving.
+    #[arg(short = 'n', long = "dry-run", action = clap::ArgAction::SetTrue)]
+    dry_run: bool,
+}
+
+impl From<StackMoveCli> for StackMoveOpts {
+    fn from(cli: StackMoveCli) -> Self {
+        Self {
+            commit_prefix: cli.commit,
+            position: cli.position,
+            target_prefix: cli.target,
+            dry_run: cli.dry_run,
+        }
+    }
+}
+
+/// `mergify stack squash <SRC>... into <TARGET> [-m <msg>]
+/// [--dry-run]`. The `<SRC>... into <TARGET>` shape doesn't fit
+/// clap's positional model directly, so we accept a flat
+/// `Vec<String>` and split on the literal `into` keyword inside
+/// [`StackSquashOpts::try_from`].
+#[derive(Parser)]
+#[command(name = "squash", about = "Squash commits into a target commit")]
+struct StackSquashCli {
+    /// `SRC1 SRC2 ... into TARGET` — must contain exactly one
+    /// `into` token; everything before is a source, the single
+    /// token after is the target.
+    #[arg(required = true, num_args = 3..)]
+    tokens: Vec<String>,
+
+    /// Final commit message (required to rename; otherwise the
+    /// target's message is kept).
+    #[arg(short = 'm', long = "message")]
+    message: Option<String>,
+
+    /// Show the plan without rebasing.
+    #[arg(short = 'n', long = "dry-run", action = clap::ArgAction::SetTrue)]
+    dry_run: bool,
+}
+
+impl TryFrom<StackSquashCli> for StackSquashOpts {
+    type Error = String;
+
+    fn try_from(cli: StackSquashCli) -> Result<Self, Self::Error> {
+        let into_positions: Vec<usize> = cli
+            .tokens
+            .iter()
+            .enumerate()
+            .filter_map(|(i, t)| (t == "into").then_some(i))
+            .collect();
+        if into_positions.len() != 1 {
+            return Err(
+                "squash requires exactly one 'into' keyword: SRC... into TARGET".to_string(),
+            );
+        }
+        let idx = into_positions[0];
+        let srcs: Vec<String> = cli.tokens[..idx].to_vec();
+        let after = &cli.tokens[idx + 1..];
+        if srcs.is_empty() {
+            return Err("at least one source commit required before 'into'".to_string());
+        }
+        if after.len() != 1 {
+            return Err("exactly one target commit required after 'into'".to_string());
+        }
+        Ok(Self {
+            src_prefixes: srcs,
+            target_prefix: after[0].clone(),
+            message: cli.message,
+            dry_run: cli.dry_run,
+        })
     }
 }
 
@@ -2022,12 +2645,26 @@ struct TestsArgs {
 enum TestsSubcommand {
     /// Look up tests by name and print their health and metrics.
     Show(TestsShowCliArgs),
+    /// Manage the CI Insights quarantine.
+    Quarantines(TestsQuarantinesArgs),
+}
+
+#[derive(clap::Args)]
+struct TestsQuarantinesArgs {
+    #[command(subcommand)]
+    command: QuarantinesSubcommand,
+}
+
+#[derive(Subcommand)]
+enum QuarantinesSubcommand {
     /// Add a test to the CI Insights quarantine.
-    Quarantine(TestsQuarantineCliArgs),
+    Add(TestsQuarantineCliArgs),
     /// Remove a test from the CI Insights quarantine.
-    Unquarantine(TestsUnquarantineCliArgs),
+    Remove(TestsUnquarantineCliArgs),
+    /// Print a single quarantine by test name or id.
+    Get(TestsQuarantineGetCliArgs),
     /// List the tests currently in the CI Insights quarantine.
-    Quarantined(TestsQuarantinedCliArgs),
+    List(TestsQuarantinedCliArgs),
 }
 
 #[derive(clap::Args)]
@@ -2124,7 +2761,38 @@ struct TestsQuarantineCliArgs {
 #[derive(clap::Args)]
 struct TestsUnquarantineCliArgs {
     /// Test to remove from quarantine: either its fully qualified name
-    /// or the quarantine id (as printed by `tests quarantine`).
+    /// or the quarantine id (as printed by `tests quarantines add`).
+    #[arg(value_name = "NAME_OR_ID")]
+    name_or_id: String,
+
+    /// Repository full name (owner/repo). Detected from the CI
+    /// environment or the local git remote when omitted.
+    #[arg(
+        long,
+        short = 'r',
+        value_parser = mergify_ci::detector::parse_owner_repo,
+    )]
+    repository: Option<String>,
+
+    /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
+    /// then ``GITHUB_TOKEN`` env vars.
+    #[arg(long, short = 't')]
+    token: Option<String>,
+
+    /// Mergify API URL. Falls back to ``MERGIFY_API_URL`` env var,
+    /// then to the default.
+    #[arg(long = "api-url", short = 'u')]
+    api_url: Option<String>,
+
+    /// Emit a single JSON document to stdout instead of human prose.
+    #[arg(long)]
+    json: bool,
+}
+
+#[derive(clap::Args)]
+struct TestsQuarantineGetCliArgs {
+    /// Quarantine to print: either the test's fully qualified name or
+    /// the quarantine id (as printed by `tests quarantines add`).
     #[arg(value_name = "NAME_OR_ID")]
     name_or_id: String,
 
@@ -2384,6 +3052,50 @@ mod tests {
         .expect("argv parses")
     }
 
+    /// The schema is published as a release asset (not committed), so
+    /// guard the generator structurally rather than against a golden
+    /// file: it must serialize to valid JSON, expose every top-level
+    /// group, surface both stack sources, and never leak the hidden
+    /// `_internal` machinery into the public reference.
+    #[test]
+    fn cli_schema_is_well_formed() {
+        let v: serde_json::Value =
+            serde_json::from_str(&cli_schema::dump()).expect("schema is valid JSON");
+
+        let groups: Vec<&str> = v["command"]["commands"]
+            .as_array()
+            .expect("commands array")
+            .iter()
+            .map(|c| c["name"].as_str().expect("group name"))
+            .collect();
+        assert_eq!(
+            groups,
+            ["config", "ci", "tests", "queue", "freeze", "stack"]
+        );
+        assert!(!groups.contains(&"_internal"), "hidden group leaked");
+
+        let stack = v["command"]["commands"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == "stack")
+            .expect("stack group");
+        let sources: std::collections::BTreeSet<&str> = stack["commands"]
+            .as_array()
+            .expect("stack subcommands")
+            .iter()
+            .map(|c| c["source"].as_str().expect("source"))
+            .collect();
+        assert!(
+            sources.contains("native"),
+            "native stack subcommands missing"
+        );
+        assert!(
+            sources.contains("python-shim"),
+            "pending-python stack subcommands missing"
+        );
+    }
+
     #[test]
     fn ci_scopes_parses_when_mergify_config_path_env_var_is_empty() {
         // Regression for monorepo#33423 / gha-mergify-ci:
@@ -2526,5 +3238,58 @@ mod tests {
         assert_eq!(opts.token.as_deref(), Some("tok"));
         assert_eq!(opts.tests_target_branch.as_deref(), Some("main"));
         assert_eq!(opts.files, vec!["report.xml"]);
+    }
+
+    #[test]
+    fn tests_quarantines_add_dispatches_natively() {
+        let parsed = parse(&[
+            "tests",
+            "quarantines",
+            "add",
+            "test_login",
+            "--reason",
+            "flaky",
+            "-r",
+            "owner/repo",
+        ]);
+        let Dispatch::Native(NativeCommand::TestsQuarantine(opts)) = dispatch_from_parsed(parsed)
+        else {
+            panic!("tests quarantines add must dispatch to TestsQuarantine");
+        };
+        assert_eq!(opts.test_name, "test_login");
+        assert_eq!(opts.reason, "flaky");
+        assert_eq!(opts.repository.as_deref(), Some("owner/repo"));
+    }
+
+    #[test]
+    fn tests_quarantines_get_dispatches_natively() {
+        let parsed = parse(&[
+            "tests",
+            "quarantines",
+            "get",
+            "test_login",
+            "-r",
+            "owner/repo",
+        ]);
+        let Dispatch::Native(NativeCommand::TestsQuarantineGet(opts)) =
+            dispatch_from_parsed(parsed)
+        else {
+            panic!("tests quarantines get must dispatch to TestsQuarantineGet");
+        };
+        assert_eq!(opts.name_or_id, "test_login");
+        assert_eq!(opts.repository.as_deref(), Some("owner/repo"));
+    }
+
+    #[test]
+    fn removed_flat_quarantine_commands_are_not_native() {
+        // The deprecated flat commands were removed; only the
+        // `quarantines` subgroup routes natively now.
+        let native = |argv: &[&str]| {
+            looks_native(&argv.iter().map(|s| (*s).to_string()).collect::<Vec<_>>())
+        };
+        assert!(!native(&["mergify", "tests", "quarantine"]));
+        assert!(!native(&["mergify", "tests", "unquarantine"]));
+        assert!(!native(&["mergify", "tests", "quarantined"]));
+        assert!(native(&["mergify", "tests", "quarantines", "add"]));
     }
 }

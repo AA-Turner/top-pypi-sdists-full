@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-storage-file-share
-Version: 12.25.0
+Version: 12.26.0
 Summary: Microsoft Azure Azure File Share Storage Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/storage/azure-storage-file-share
 Author: Microsoft Corporation
@@ -436,6 +436,11 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 
 
 # Release History
+
+## 12.26.0 (2026-06-08)
+
+### Features Added
+- Stable release of features from 12.26.0b1
 
 ## 12.25.0 (2026-05-14)
 

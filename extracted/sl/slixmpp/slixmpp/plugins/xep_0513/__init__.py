@@ -8,3 +8,5 @@ from slixmpp.plugins.base import register_plugin
 from .mentions import XEP_0513
 
 register_plugin(XEP_0513)
+
+__all__ = ['XEP_0513']

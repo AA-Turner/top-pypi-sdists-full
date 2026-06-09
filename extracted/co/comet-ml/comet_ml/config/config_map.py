@@ -71,6 +71,11 @@ CONFIG_MAP = {
     "comet.logging.file_overwrite": {"type": bool, "default": False},
     "comet.logging.hide_api_key": {"type": bool, "default": True},
     "comet.logging.console": {"type": str},
+    "comet.logging.console_strip_inplace_updates": {"type": bool, "default": True},
+    "comet.logging.console_inplace_update_min_interval": {
+        "type": float,
+        "default": 0.25,
+    },
     "comet.logging.metrics_ignore": {
         "type": list,
         "default": "keras:batch_size,keras:batch_batch",

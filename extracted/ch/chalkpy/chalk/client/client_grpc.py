@@ -192,6 +192,7 @@ from chalk.client.models import (
     StreamResolverTestStatus,
     UploadFeaturesResponse,
     WorkflowExecutionInfo,
+    resolve_multi_query_query_name,
 )
 from chalk.client.serialization.model_serialization import ModelSerializer
 from chalk.client.serialization.protos import ChalkErrorConverter, OnlineQueryConverter, UploadFeaturesBulkConverter
@@ -1422,6 +1423,9 @@ class ChalkGRPCClient:
                 query_vmtbf = value_metrics_tag_by_features
             else:
                 query_vmtbf = query.value_metrics_tag_by_features
+            resolved_query_name, resolved_query_name_version = resolve_multi_query_query_name(
+                query, query_name, query_name_version
+            )
             request = self._make_query_bulk_request(
                 input=query.input,
                 output=query.output,
@@ -1429,8 +1433,8 @@ class ChalkGRPCClient:
                 staleness=query.staleness or {},
                 tags=query.tags or (),
                 correlation_id=correlation_id,
-                query_name=query_name,
-                query_name_version=query_name_version,
+                query_name=resolved_query_name,
+                query_name_version=resolved_query_name_version,
                 include_meta=include_meta,
                 meta=meta or {},
                 explain=explain,

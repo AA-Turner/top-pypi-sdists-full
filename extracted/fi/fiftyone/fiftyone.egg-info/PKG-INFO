@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fiftyone
-Version: 1.16.0
+Version: 1.17.0
 Summary: FiftyOne: the open-source tool for building high-quality datasets and computer vision models
 Home-page: https://github.com/voxel51/fiftyone
 Author: Voxel51, Inc.
@@ -19,11 +19,10 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: Deprecated
@@ -45,7 +44,7 @@ Requires-Dist: Jinja2<4,>=3
 Requires-Dist: jsonpatch<2,>=1
 Requires-Dist: mongoengine~=0.29.1
 Requires-Dist: motor~=3.6.0
-Requires-Dist: Pillow!=11.2.*,>=6.2
+Requires-Dist: Pillow>=12.2
 Requires-Dist: plotly<7,>=6.1.1
 Requires-Dist: pprintpp<0.5,>=0.1
 Requires-Dist: protobuf==6.33.6
@@ -59,7 +58,7 @@ Requires-Dist: retrying<2,>=1
 Requires-Dist: sseclient-py<2,>=1.7.2
 Requires-Dist: sse-starlette<4,>=0.10.3
 Requires-Dist: starlette<0.53,>=0.49.1
-Requires-Dist: strawberry-graphql<0.292.0,>=0.262.4
+Requires-Dist: strawberry-graphql<0.317.0,>=0.312.3
 Requires-Dist: tabulate<0.10,>=0.7
 Requires-Dist: tqdm<5,>=2
 Requires-Dist: xmltodict<2,>=1
@@ -72,9 +71,9 @@ Requires-Dist: rtree<2
 Requires-Dist: scikit-learn<2
 Requires-Dist: scikit-image<1
 Requires-Dist: scipy<2
-Requires-Dist: fiftyone-brain<0.22,>=0.21.6
+Requires-Dist: fiftyone-brain<0.23,>=0.22.0
 Requires-Dist: fiftyone-db<2.0,>=0.4
-Requires-Dist: voxel51-eta<0.16,>=0.15.3
+Requires-Dist: voxel51-eta<0.17,>=0.16.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -151,7 +150,7 @@ pip install fiftyone
 
 ### Installation options
 
-FiftyOne supports Python 3.9 - 3.12.
+FiftyOne supports Python 3.10 - 3.12.
 
 For most users, we recommend installing the latest release version of FiftyOne
 via `pip` as shown above.
@@ -185,7 +184,7 @@ App.
 
 You'll need the following tools installed:
 
--   [Python](https://www.python.org) (3.9 - 3.12)
+-   [Python](https://www.python.org) (3.10 - 3.12)
 -   [Node.js](https://nodejs.org) - on Linux, we recommend using
     [nvm](https://github.com/nvm-sh/nvm) to install an up-to-date version.
 -   [Yarn](https://yarnpkg.com) - once Node.js is installed, you can
@@ -384,7 +383,7 @@ complete the Homebrew installation.
 #### 3. Install Python
 
 ```shell
-brew install python@3.9
+brew install python@3.10
 brew install protobuf
 ```
 
@@ -416,7 +415,7 @@ brew install ffmpeg
 ⚠️ The version of Python that is available in the Microsoft Store is **not
 recommended** ⚠️
 
-Download a Python 3.9 - 3.12 installer from
+Download a Python 3.10 - 3.12 installer from
 [python.org](https://www.python.org/downloads/). Make sure to pick a 64-bit
 version. For example, this
 [Python 3.10.11 installer](https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe).

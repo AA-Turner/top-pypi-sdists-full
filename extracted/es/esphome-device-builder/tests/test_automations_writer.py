@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 from esphome_device_builder.controllers.automations import writing
+from esphome_device_builder.controllers.automations.emitter import dump, emit_action_node
 from esphome_device_builder.controllers.automations.parsing import (
     ComponentTarget,
     ParsedAutomation,
@@ -38,6 +39,7 @@ from esphome_device_builder.models.automations import (
     AutomationTree,
     ComponentActionFieldLocation,
     ComponentOnLocation,
+    ConditionNode,
     DeviceOnLocation,
     IntervalLocation,
     LightEffectLocation,
@@ -200,6 +202,20 @@ def test_upsert_device_on_boot_index_out_of_range_raises() -> None:
         )
 
 
+def test_indexed_upsert_wraps_device_shorthand_action_list() -> None:
+    """A 2nd on_boot handler wraps the bare action-list body, preserving actions (#1305)."""
+    text = "esphome:\n  name: x\n  on_boot:\n    - delay: 1s\n    - delay: 2s\n"
+    new_text, _diff = render_upsert(
+        text,
+        tree=AutomationTree(trigger_id="on_boot", trigger_params={}, actions=[]),
+        location=DeviceOnLocation(trigger="on_boot", index=1),
+    )
+    parsed = parse_device_yaml(new_text)
+    assert len(parsed) == 2
+    assert [a.action_id for a in parsed[0].automation.actions] == ["delay", "delay"]
+    assert parsed[1].automation.actions == []
+
+
 def test_upsert_device_on_boot_indexed_refuses_single_mapping() -> None:
     """An indexed upsert against a single-mapping on_boot refuses rather than rewriting it."""
     text = _load("device_on_boot.yaml")  # single-mapping form
@@ -228,6 +244,57 @@ def test_round_trip_inline_on_press_preserves_actions() -> None:
     assert [a.action_id for a in parsed_second[0].automation.actions] == [
         a.action_id for a in parsed_first.automation.actions
     ]
+
+
+_SHORTHAND_ON_PRESS = (
+    "esphome:\n  name: x\n"
+    "button:\n"
+    "  - platform: template\n"
+    "    name: B\n"
+    "    id: bid\n"
+    "    on_press:\n"
+    "      - switch.turn_off: relay\n"
+    '      - uart.write: "go\\r\\n"\n'
+    "      - delay: 1s\n"
+)
+
+
+def test_indexed_upsert_wraps_shorthand_action_list(tmp_path: Path) -> None:
+    """Adding a 2nd handler to a bare action list wraps it, preserving every action (#1305)."""
+    tree = AutomationTree(trigger_id="on_press", trigger_params={}, actions=[])
+    new_text, _diff = render_upsert(
+        _SHORTHAND_ON_PRESS,
+        tree=tree,
+        location=ComponentOnLocation(component_id="bid", trigger="on_press", index=1),
+    )
+    parsed = [p for p in parse_device_yaml(new_text) if p.location.component_id == "bid"]
+    assert len(parsed) == 2
+    # The original three actions land on the first handler; none clobbered.
+    assert [a.action_id for a in parsed[0].automation.actions] == [
+        "switch.turn_off",
+        "uart.write",
+        "delay",
+    ]
+    assert parsed[1].automation.actions == []
+    assert "then: []\n      - then:" not in new_text  # no then-in-then nesting
+
+
+def test_indexed_upsert_does_not_double_wrap_handler_list() -> None:
+    """An existing list of ``then:`` handlers appends without re-wrapping."""
+    text = (
+        "esphome:\n  name: x\n"
+        "button:\n"
+        "  - platform: template\n    name: B\n    id: bid\n"
+        "    on_press:\n      - then:\n          - delay: 1s\n"
+    )
+    new_text, _diff = render_upsert(
+        text,
+        tree=AutomationTree(trigger_id="on_press", trigger_params={}, actions=[]),
+        location=ComponentOnLocation(component_id="bid", trigger="on_press", index=1),
+    )
+    parsed = [p for p in parse_device_yaml(new_text) if p.location.component_id == "bid"]
+    assert len(parsed) == 2
+    assert [a.action_id for a in parsed[0].automation.actions] == ["delay"]
 
 
 def test_upsert_inline_on_press_leaves_sibling_components_untouched() -> None:
@@ -721,6 +788,41 @@ def test_round_trip_if_then_else_preserves_recursive_actions() -> None:
     assert [c.condition_id for c in if_second.conditions] == [
         c.condition_id for c in if_first.conditions
     ]
+
+
+def test_if_emits_condition_before_then_else() -> None:
+    """``if`` re-renders ``condition:`` ahead of ``then:`` / ``else:``."""
+    text = _load("if_then_else.yaml")
+    parsed = parse_device_yaml(text)[0]
+    new_text, _diff = render_upsert(
+        text,
+        tree=parsed.automation,
+        location=parsed.location,
+    )
+    body = new_text[new_text.index("if:") :]
+    assert body.index("condition:") < body.index("then:") < body.index("else:")
+
+
+def test_while_emits_condition_before_then() -> None:
+    """``while`` emits ``condition:`` ahead of its ``then:`` branch."""
+    node = ActionNode(
+        action_id="while",
+        children={"then": [ActionNode(action_id="logger.log", params={"format": "x"})]},
+        conditions=[ConditionNode(condition_id="switch.is_on", params={"id": "relay1"})],
+    )
+    text = dump(emit_action_node(node))
+    assert text.index("condition:") < text.index("then:")
+
+
+def test_wait_until_emits_condition_before_timeout() -> None:
+    """``wait_until`` emits ``condition:`` ahead of its ``timeout:`` param."""
+    node = ActionNode(
+        action_id="wait_until",
+        params={"timeout": "8s"},
+        conditions=[ConditionNode(condition_id="binary_sensor.is_on", params={"id": "occ"})],
+    )
+    text = dump(emit_action_node(node))
+    assert text.index("condition:") < text.index("timeout:")
 
 
 # ---------------------------------------------------------------------------
@@ -2085,3 +2187,70 @@ def test_subentity_context_rejects_incomplete_target() -> None:
     """A sub-entity target missing its parent context raises rather than leaking None."""
     with pytest.raises(CommandError):
         _subentity_context(ComponentTarget(domain="sensor", is_sub_entity=True))
+
+
+# ---------------------------------------------------------------------------
+# !lambda tag preservation (issue #1306)
+# ---------------------------------------------------------------------------
+
+
+def test_round_trip_component_action_lambda_keeps_tag() -> None:
+    """A ``!lambda`` action value re-emits its tag, not a bare ``|`` string.
+
+    Dropping ``!lambda`` would compile the body as a plain string
+    literal instead of a C++ lambda, silently breaking the firmware.
+    """
+    text = (
+        "esphome:\n  name: x\n\n"
+        "number:\n"
+        "  - platform: template\n"
+        "    name: Blockade Time\n"
+        "    id: Blockade_Time\n"
+        "    optimistic: true\n"
+        "    set_action:\n"
+        "      - uart.write: !lambda\n"
+        '          std::string b = "x";\n'
+        "          return std::vector<uint8_t>(b.begin(), b.end());\n"
+    )
+    parsed = parse_device_yaml(text)[0]
+    new_text, diff = render_upsert(text, tree=parsed.automation, location=parsed.location)
+    assert "!lambda" in diff.replacement
+    # Re-parsing yields the same tagged sentinel — a stable round-trip.
+    reparsed = parse_device_yaml(new_text)[0]
+    field = reparsed.automation.actions[0].params["data"]
+    assert field["_tag"] == "!lambda"
+
+
+def test_round_trip_block_tagged_lambda_keeps_newlines() -> None:
+    """A ``!lambda |`` block keeps its tag and its line breaks."""
+    text = (
+        "esphome:\n  name: x\n\n"
+        "interval:\n"
+        "  - interval: 5s\n"
+        "    then:\n"
+        "      - uart.write: !lambda |-\n"
+        "          uint8_t a = 1;\n"
+        "          uint8_t b = 2;\n"
+        "          return {a, b};\n"
+    )
+    parsed = parse_device_yaml(text)[0]
+    _new_text, diff = render_upsert(text, tree=parsed.automation, location=parsed.location)
+    assert "!lambda |" in diff.replacement
+    assert "uint8_t a = 1;\n" in diff.replacement
+    assert "uint8_t b = 2;\n" in diff.replacement
+
+
+def test_round_trip_delay_lambda_stays_plain_lambda() -> None:
+    """``delay: !lambda return 0;`` round-trips as a plain ``!lambda`` (not a ``|`` string)."""
+    text = _load("lambda_tagged_scalars.yaml")
+    script = next(p for p in parse_device_yaml(text) if p.location.kind == "script")
+    _new_text, diff = render_upsert(text, tree=script.automation, location=script.location)
+    assert "delay: !lambda return 0;" in diff.replacement
+
+
+def test_round_trip_untagged_lambda_stays_bare() -> None:
+    """An untagged ``lambda: |`` block doesn't gain a ``!lambda`` tag on write."""
+    text = _load("lambda_action.yaml")
+    parsed = parse_device_yaml(text)[0]
+    _new_text, diff = render_upsert(text, tree=parsed.automation, location=parsed.location)
+    assert "!lambda" not in diff.replacement

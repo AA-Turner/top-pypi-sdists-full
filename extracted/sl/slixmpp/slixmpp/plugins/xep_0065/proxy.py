@@ -12,7 +12,7 @@ from slixmpp.xmlstream.handler import CoroutineCallback
 from slixmpp.xmlstream.matcher import StanzaPath
 from slixmpp.plugins.base import BasePlugin
 
-from slixmpp.plugins.xep_0065 import stanza, Socks5, Socks5Protocol
+from slixmpp.plugins.xep_0065 import Socks5, Socks5Protocol
 
 
 log = logging.getLogger(__name__)

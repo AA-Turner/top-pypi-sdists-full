@@ -329,6 +329,39 @@ class TestLineageAssetRef(TestCase):
         ref = LineageAssetRef(type="TABLE", name="t", database="db", schema="s", asset_id="src1")
         assert ref.to_dict()["asset_id"] == "src1"
 
+    def test_to_dict_omits_none_resource_fields(self):
+        ref = LineageAssetRef(type="TABLE", name="t", database="db", schema="s")
+        result = ref.to_dict()
+        assert "resource_uuid" not in result
+        assert "resource_type" not in result
+
+    def test_to_dict_includes_resource_fields_when_set(self):
+        ref = LineageAssetRef(
+            type="TABLE",
+            name="t",
+            database="db",
+            schema="s",
+            resource_uuid="wh-a",
+            resource_type="snowflake",
+        )
+        result = ref.to_dict()
+        assert result["resource_uuid"] == "wh-a"
+        assert result["resource_type"] == "snowflake"
+
+    def test_resource_uuid_without_resource_type_raises(self):
+        with self.assertRaises(ValueError):
+            LineageAssetRef(type="TABLE", name="t", database="db", schema="s", resource_uuid="wh-a")
+
+    def test_resource_type_without_resource_uuid_raises(self):
+        with self.assertRaises(ValueError):
+            LineageAssetRef(
+                type="TABLE",
+                name="t",
+                database="db",
+                schema="s",
+                resource_type="snowflake",
+            )
+
 
 class TestColumnLineageSourceField(TestCase):
     def test_to_dict(self):
@@ -440,6 +473,55 @@ class TestBuildLineagePayload(TestCase):
         assert len(payload["events"]) == 1
         assert payload["events"][0]["destination"]["name"] == "out"
         assert len(payload["events"][0]["sources"]) == 2
+
+    def _make_cross_warehouse_event(self) -> LineageEvent:
+        return LineageEvent(
+            destination=LineageAssetRef(
+                type="TABLE",
+                database="projB",
+                schema="ds",
+                name="out",
+                resource_uuid="wh-b",
+                resource_type="bigquery",
+            ),
+            sources=[
+                LineageAssetRef(
+                    type="TABLE",
+                    database="dbA",
+                    schema="pub",
+                    name="orders",
+                    resource_uuid="wh-a",
+                    resource_type="snowflake",
+                ),
+            ],
+        )
+
+    def test_cross_warehouse_omits_top_level_resource(self):
+        payload = build_lineage_payload(events=[self._make_cross_warehouse_event()])
+        assert "resource" not in payload
+        assert payload["event_type"] == "LINEAGE"
+        dest = payload["events"][0]["destination"]
+        assert dest["resource_uuid"] == "wh-b"
+        assert dest["resource_type"] == "bigquery"
+        assert payload["events"][0]["sources"][0]["resource_uuid"] == "wh-a"
+
+    def test_same_warehouse_includes_top_level_resource(self):
+        payload = build_lineage_payload(
+            resource_uuid="res-123",
+            resource_type="snowflake",
+            events=[self._make_table_event()],
+        )
+        assert payload["resource"] == {"uuid": "res-123", "resource_type": "snowflake"}
+        # Legacy refs carry no per-asset resource.
+        assert "resource_uuid" not in payload["events"][0]["destination"]
+
+    def test_no_events_raises(self):
+        with self.assertRaises(ValueError):
+            build_lineage_payload(resource_uuid="res-123", resource_type="snowflake", events=[])
+
+    def test_top_level_resource_uuid_without_resource_type_raises(self):
+        with self.assertRaises(ValueError):
+            build_lineage_payload(resource_uuid="res-123", events=[self._make_table_event()])
 
     def test_auto_detects_column_lineage(self):
         payload = build_lineage_payload(

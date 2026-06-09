@@ -16,7 +16,7 @@ from datetime import datetime
 from collections.abc import Callable, Iterable, Iterator
 from enum import IntFlag
 from typing import BinaryIO, final, Literal, Self
-from typing_extensions import disjoint_base
+from typing_extensions import deprecated, disjoint_base
 
 from .stream_io import _GenericReader, _GenericWriter, _ReaderInput, WarcReader, WarcWriter
 
@@ -95,8 +95,7 @@ no_type = WarcRecordType.no_type
 any_type = WarcRecordType.any_type
 
 
-@final
-class HeaderMap:
+class _HeaderMap:
     def __new__(cls, encoding: str = "utf-8") -> Self: ...
 
     @property
@@ -127,12 +126,12 @@ class HeaderMap:
 
     def to_dict(self) -> dict[str, str]: ...
 
-    # deprecated
+    @deprecated("Use to_dict() instead.")
     def asdict(self) -> dict[str, str]: ...
 
     def to_tuples(self) -> tuple[tuple[str, str], ...]: ...
 
-    # deprecated
+    @deprecated("Use to_tuples() instead.")
     def astuples(self) -> tuple[tuple[str, str], ...]: ...
 
     def is_empty(self) -> bool: ...
@@ -198,8 +197,13 @@ class HeaderMap:
     def __setstate__(self, state: tuple[bytes, bool]): ...
 
 
-# Legacy name
-WarcHeaderMap = HeaderMap
+@final
+class HeaderMap(_HeaderMap): ...
+
+
+@deprecated("Use HeaderMap instead.")
+@final
+class WarcHeaderMap(_HeaderMap): ...
 
 
 @final
@@ -287,10 +291,10 @@ class WarcRecord:
 
     def consume(self, n: int | None = None) -> int: ...
 
-    def parse_warc_headers(self, quirks_mode: bool = False) -> int: ...
+    def parse_warc_headers(self, quirks_mode: bool = False, max_header_len: int = 32 << 10) -> int: ...
 
-    def parse_http(self, auto_decode: Literal['none', 'content', 'transfer', 'all'] = 'none', *,
-                   strict_mode: bool = True): ...
+    def parse_http(self, auto_decode: Literal['none', 'content', 'transfer', 'all'] = 'none',
+                   max_header_len: int = 32 << 10, quirks_mode: bool = False, *, strict_mode: bool = True): ...
 
     def verify_block_digest(self, consume: bool = False) -> bool: ...
 
@@ -332,8 +336,10 @@ class ArchiveIterator(Iterable[WarcRecord]):
             verify_digests: bool = False,
             quirks_mode: bool = False,
             auto_decode: Literal['none', 'content', 'transfer', 'all'] = 'none',
+            max_header_len: int = 32 << 10,
             stream_detect: bool = True,
             buffer_size: int = 64 << 10,
+            inplace: bool = False,
             fsspec_args=None,
             *,
             strict_mode: bool = True

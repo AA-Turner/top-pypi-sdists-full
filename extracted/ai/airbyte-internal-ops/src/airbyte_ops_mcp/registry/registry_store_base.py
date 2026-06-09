@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from airbyte_ops_mcp.registry._enums import (
     ConnectorLanguage,
@@ -21,7 +21,9 @@ from airbyte_ops_mcp.registry._enums import (
     SupportLevel,
 )
 from airbyte_ops_mcp.registry.compile import CompileResult, PurgeLatestResult
-from airbyte_ops_mcp.registry.models import ConnectorPublishResult
+from airbyte_ops_mcp.registry.progressive_rollout_marker import (
+    ProgressiveRolloutMarkerResult,
+)
 from airbyte_ops_mcp.registry.publish_artifacts import PublishArtifactsResult
 from airbyte_ops_mcp.registry.rebuild import OutputMode, RebuildResult
 from airbyte_ops_mcp.registry.store import RegistryStore, StoreType
@@ -98,31 +100,12 @@ class Registry(ABC):
     # Write / mutate operations
     # ---------------------------------------------------------------------
 
-    def progressive_rollout_create(
-        self,
-        repo_path: Path,
-        connector_name: str,
-        dry_run: bool = False,
-    ) -> ConnectorPublishResult:
-        raise NotImplementedError(
-            _op_not_implemented_message(self.store_type, "progressive_rollout_create")
-        )
-
-    def progressive_rollout_cleanup(
-        self,
-        repo_path: Path,
-        connector_name: str,
-        dry_run: bool = False,
-    ) -> ConnectorPublishResult:
-        raise NotImplementedError(
-            _op_not_implemented_message(self.store_type, "progressive_rollout_cleanup")
-        )
-
     def yank(
         self,
         connector_name: str,
         version: str,
         reason: str = "",
+        approval_url: str = "",
         dry_run: bool = False,
     ) -> YankResult:
         raise NotImplementedError(_op_not_implemented_message(self.store_type, "yank"))
@@ -135,6 +118,20 @@ class Registry(ABC):
     ) -> YankResult:
         raise NotImplementedError(
             _op_not_implemented_message(self.store_type, "unyank")
+        )
+
+    def finalize_progressive_rollout_marker(
+        self,
+        connector_name: str,
+        outcome: Literal["promoted", "aborted"],
+        version: str | None = None,
+        dry_run: bool = False,
+    ) -> ProgressiveRolloutMarkerResult:
+        raise NotImplementedError(
+            _op_not_implemented_message(
+                self.store_type,
+                "finalize_progressive_rollout_marker",
+            )
         )
 
     def publish_version_artifacts(

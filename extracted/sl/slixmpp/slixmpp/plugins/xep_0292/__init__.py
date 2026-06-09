@@ -4,3 +4,5 @@ from . import stanza, vcard4
 from .vcard4 import XEP_0292
 
 register_plugin(vcard4.XEP_0292)
+
+__all__ = ['stanza', 'vcard4', 'XEP_0292']

@@ -7,9 +7,10 @@ pub(crate) struct Config {
   pub(crate) ceiling: Option<PathBuf>,
   pub(crate) check: bool,
   pub(crate) color: Color,
-  pub(crate) command_color: Option<ansi_term::Color>,
+  pub(crate) command_color: Option<nu_ansi_term::Color>,
   pub(crate) complete_aliases: bool,
   pub(crate) cygpath: PathBuf,
+  pub(crate) default_list: bool,
   pub(crate) dotenv_filename: Option<String>,
   pub(crate) dotenv_path: Option<PathBuf>,
   pub(crate) dry_run: bool,
@@ -52,6 +53,7 @@ impl Config {
       command_color: None,
       complete_aliases: false,
       cygpath: Arguments::DEFAULT_CYGPATH.into(),
+      default_list: false,
       dotenv_filename: None,
       dotenv_path: None,
       dry_run: false,
@@ -204,9 +206,9 @@ impl Config {
       Ok(Subcommand::Dump {
         format: DumpFormat::Json,
       })
-    } else if let Some(path) = arguments.subcommand.list.as_deref() {
+    } else if arguments.subcommand.list.is_some() {
       Ok(Subcommand::List {
-        path: Self::parse_modulepath(path)?,
+        path: Self::parse_modulepath(&positional.arguments)?,
       })
     } else if arguments.subcommand.man {
       Ok(Subcommand::Man)
@@ -215,15 +217,15 @@ impl Config {
         request: serde_json::from_str(request)
           .map_err(|source| ConfigError::RequestParse { source })?,
       })
-    } else if let Some(path) = arguments.subcommand.show.as_deref() {
+    } else if arguments.subcommand.show.is_some() {
       Ok(Subcommand::Show {
-        path: Self::parse_modulepath(path)?,
+        path: Self::parse_modulepath(&positional.arguments)?,
       })
     } else if arguments.subcommand.summary {
       Ok(Subcommand::Summary)
-    } else if let Some(path) = arguments.subcommand.usage.as_deref() {
+    } else if arguments.subcommand.usage.is_some() {
       Ok(Subcommand::Usage {
-        path: Self::parse_modulepath(path)?,
+        path: Self::parse_modulepath(&positional.arguments)?,
       })
     } else if arguments.subcommand.variables {
       Ok(Subcommand::Variables)
@@ -247,7 +249,17 @@ impl Config {
       );
     }
 
-    let positional = Positional::from_values(arguments.arguments.iter().map(String::as_str));
+    let positional = Positional::from_values(
+      arguments
+        .subcommand
+        .list
+        .as_deref()
+        .or(arguments.subcommand.show.as_deref())
+        .or(arguments.subcommand.usage.as_deref())
+        .unwrap_or(arguments.arguments.as_slice())
+        .iter()
+        .map(String::as_str),
+    );
 
     for (path, value) in &positional.overrides {
       overrides.insert(Self::parse_override(path)?, value.into());
@@ -305,6 +317,7 @@ impl Config {
       command_color: arguments.command_color.map(CommandColor::into),
       complete_aliases: arguments.complete_aliases,
       cygpath: arguments.cygpath,
+      default_list: arguments.default_list,
       dotenv_filename: arguments.dotenv_filename,
       dotenv_path: arguments.dotenv_path,
       dry_run: arguments.dry_run,
@@ -919,6 +932,33 @@ mod tests {
     subcommand: Subcommand::Show {
       path: Modulepath::try_from(["foo", "bar"].as_slice()).unwrap(),
     },
+  }
+
+  test! {
+    name: subcommand_list_search_directory,
+    args: ["--list", ".."],
+    search_config: SearchConfig::FromSearchDirectory {
+      search_directory: PathBuf::from(".."),
+    },
+    subcommand: Subcommand::List { path: Modulepath::default() },
+  }
+
+  test! {
+    name: subcommand_show_search_directory,
+    args: ["--show", "../foo"],
+    search_config: SearchConfig::FromSearchDirectory {
+      search_directory: PathBuf::from("../"),
+    },
+    subcommand: Subcommand::Show { path: Modulepath::try_from(["foo"].as_slice()).unwrap() },
+  }
+
+  test! {
+    name: subcommand_usage_search_directory,
+    args: ["--usage", "foo/bar"],
+    search_config: SearchConfig::FromSearchDirectory {
+      search_directory: PathBuf::from("foo/"),
+    },
+    subcommand: Subcommand::Usage { path: Modulepath::try_from(["bar"].as_slice()).unwrap() },
   }
 
   test! {

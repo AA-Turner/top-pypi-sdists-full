@@ -1,6 +1,7 @@
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as _arrow_pb2
 from chalk._gen.chalk.expression.v1 import expression_pb2 as _expression_pb2
 from chalk._gen.chalk.planner.v1 import batch_udf_pb2 as _batch_udf_pb2
+from chalk._gen.chalk.primitive.v1 import primitive_pb2 as _primitive_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -121,6 +122,11 @@ class LogicalTableNodeId(_message.Message):
 
 class LogicalPlanArgument(_message.Message):
     __slots__ = (
+        "primitive_value",
+        "expr_value",
+        "batch_udf_v3",
+        "list_value",
+        "unordered_dict_value",
         "null_value",
         "string_value",
         "int64_value",
@@ -132,12 +138,14 @@ class LogicalPlanArgument(_message.Message):
         "timestamp_value",
         "arrow_schema",
         "arrow_field",
-        "list_value",
-        "unordered_dict_value",
-        "expr_value",
         "batch_udf",
         "batch_udf_v2",
     )
+    PRIMITIVE_VALUE_FIELD_NUMBER: _ClassVar[int]
+    EXPR_VALUE_FIELD_NUMBER: _ClassVar[int]
+    BATCH_UDF_V3_FIELD_NUMBER: _ClassVar[int]
+    LIST_VALUE_FIELD_NUMBER: _ClassVar[int]
+    UNORDERED_DICT_VALUE_FIELD_NUMBER: _ClassVar[int]
     NULL_VALUE_FIELD_NUMBER: _ClassVar[int]
     STRING_VALUE_FIELD_NUMBER: _ClassVar[int]
     INT64_VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -149,11 +157,13 @@ class LogicalPlanArgument(_message.Message):
     TIMESTAMP_VALUE_FIELD_NUMBER: _ClassVar[int]
     ARROW_SCHEMA_FIELD_NUMBER: _ClassVar[int]
     ARROW_FIELD_FIELD_NUMBER: _ClassVar[int]
-    LIST_VALUE_FIELD_NUMBER: _ClassVar[int]
-    UNORDERED_DICT_VALUE_FIELD_NUMBER: _ClassVar[int]
-    EXPR_VALUE_FIELD_NUMBER: _ClassVar[int]
     BATCH_UDF_FIELD_NUMBER: _ClassVar[int]
     BATCH_UDF_V2_FIELD_NUMBER: _ClassVar[int]
+    primitive_value: _primitive_pb2.Primitive
+    expr_value: _expression_pb2.LogicalExprNode
+    batch_udf_v3: _expression_pb2.BatchUDF
+    list_value: LogicalPlanArgumentList
+    unordered_dict_value: LogicalPlanUnorderedDict
     null_value: LogicalPlanArgumentNullOpt
     string_value: str
     int64_value: int
@@ -165,13 +175,15 @@ class LogicalPlanArgument(_message.Message):
     timestamp_value: _timestamp_pb2.Timestamp
     arrow_schema: _arrow_pb2.Schema
     arrow_field: _arrow_pb2.Field
-    list_value: LogicalPlanArgumentList
-    unordered_dict_value: LogicalPlanUnorderedDict
-    expr_value: _expression_pb2.LogicalExprNode
     batch_udf: _batch_udf_pb2.BatchUDF
     batch_udf_v2: BatchUDFV2
     def __init__(
         self,
+        primitive_value: _Optional[_Union[_primitive_pb2.Primitive, _Mapping]] = ...,
+        expr_value: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
+        batch_udf_v3: _Optional[_Union[_expression_pb2.BatchUDF, _Mapping]] = ...,
+        list_value: _Optional[_Union[LogicalPlanArgumentList, _Mapping]] = ...,
+        unordered_dict_value: _Optional[_Union[LogicalPlanUnorderedDict, _Mapping]] = ...,
         null_value: _Optional[_Union[LogicalPlanArgumentNullOpt, _Mapping]] = ...,
         string_value: _Optional[str] = ...,
         int64_value: _Optional[int] = ...,
@@ -183,9 +195,6 @@ class LogicalPlanArgument(_message.Message):
         timestamp_value: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         arrow_schema: _Optional[_Union[_arrow_pb2.Schema, _Mapping]] = ...,
         arrow_field: _Optional[_Union[_arrow_pb2.Field, _Mapping]] = ...,
-        list_value: _Optional[_Union[LogicalPlanArgumentList, _Mapping]] = ...,
-        unordered_dict_value: _Optional[_Union[LogicalPlanUnorderedDict, _Mapping]] = ...,
-        expr_value: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
         batch_udf: _Optional[_Union[_batch_udf_pb2.BatchUDF, _Mapping]] = ...,
         batch_udf_v2: _Optional[_Union[BatchUDFV2, _Mapping]] = ...,
     ) -> None: ...

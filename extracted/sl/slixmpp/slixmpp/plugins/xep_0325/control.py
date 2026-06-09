@@ -5,12 +5,10 @@
 # Copyright (C) 2013 Sustainable Innovation, Joachim.lindborg@sust.se, bjorn.westrom@consoden.se
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-import asyncio
 import logging
 import time
 
 from functools import partial
-from slixmpp.xmlstream import JID
 from slixmpp.xmlstream.handler import Callback
 from slixmpp.xmlstream.matcher import StanzaPath
 from slixmpp.plugins.base import BasePlugin
@@ -222,7 +220,7 @@ class XEP_0325(BasePlugin):
         # Nodes
         if len(iq['set']['nodes']) > 0:
             for n in iq['set']['nodes']:
-                if not n['nodeId'] in self.nodes:
+                if n['nodeId'] not in self.nodes:
                     req_ok = False
                     missing_node = n['nodeId']
                     error_msg = "Invalid nodeId " + n['nodeId']
@@ -284,7 +282,7 @@ class XEP_0325(BasePlugin):
         # Nodes
         if len(msg['set']['nodes']) > 0:
             for n in msg['set']['nodes']:
-                if not n['nodeId'] in self.nodes:
+                if n['nodeId'] not in self.nodes:
                     req_ok = False
                     error_msg = "Invalid nodeId " + n['nodeId']
             process_nodes = [n['nodeId'] for n in msg['set']['nodes']]
@@ -395,7 +393,7 @@ class XEP_0325(BasePlugin):
                                 Error details when a request failed.
         """
 
-        if not session in self.sessions:
+        if session not in self.sessions:
             # This can happen if a session was deleted, like in a timeout. Just drop the data.
             return
 
@@ -537,9 +535,8 @@ class XEP_0325(BasePlugin):
         fields = [f['name'] for f in iq['setResponse']['datas']]
         error_msg = None
 
-        if not iq['setResponse'].xml.find('error') is None and not iq['setResponse']['error']['text'] == "":
+        if iq['setResponse'].xml.find('error') is not None and not iq['setResponse']['error']['text'] == "":
             error_msg = iq['setResponse']['error']['text']
 
         callback = self.sessions[seqnr]["callback"]
         callback(from_jid=from_jid, result=result, nodeIds=nodeIds, fields=fields, error_msg=error_msg)
-

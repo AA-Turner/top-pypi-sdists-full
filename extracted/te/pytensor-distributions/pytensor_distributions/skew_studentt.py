@@ -3,6 +3,7 @@ from pytensor.tensor.math import betaincinv
 from pytensor.tensor.special import betaln
 
 from pytensor_distributions.helper import continuous_entropy, continuous_mode, ppf_bounds_cont
+from pytensor_distributions.lmoments import _lmoments
 
 
 def _raw_moment(n, a, b):
@@ -94,6 +95,25 @@ def kurtosis(a, b, mu, sigma):
     return pt.switch((a_b > 2) & (b_b > 2), result, pt.nan)
 
 
+def lmoment1(a, b, mu, sigma):
+    return mean(a, b, mu, sigma)
+
+
+def lmoment2(a, b, mu, sigma):
+    a_b, b_b, mu_b, sigma_b = pt.broadcast_arrays(a, b, mu, sigma)
+    return pt.switch((a_b > 0.5) & (b_b > 0.5), _lmoments(ppf, a, b, mu, sigma, r=2), pt.nan)
+
+
+def lmoment3(a, b, mu, sigma):
+    a_b, b_b, mu_b, sigma_b = pt.broadcast_arrays(a, b, mu, sigma)
+    return pt.switch((a_b > 0.5) & (b_b > 0.5), _lmoments(ppf, a, b, mu, sigma, r=3), pt.nan)
+
+
+def lmoment4(a, b, mu, sigma):
+    a_b, b_b, mu_b, sigma_b = pt.broadcast_arrays(a, b, mu, sigma)
+    return pt.switch((a_b > 0.5) & (b_b > 0.5), _lmoments(ppf, a, b, mu, sigma, r=4), pt.nan)
+
+
 def entropy(a, b, mu, sigma):
     a_b, b_b, mu_b, sigma_b = pt.broadcast_arrays(a, b, mu, sigma)
     lower = mu_b - 50 * sigma_b
@@ -157,5 +177,5 @@ def isf(q, a, b, mu, sigma):
 
 
 def rvs(a, b, mu, sigma, size=None, random_state=None):
-    u = pt.random.uniform(0, 1, size=size, rng=random_state)
+    u = pt.random.uniform(0, 1, size=size, rng=random_state, return_next_rng=True)[1]
     return ppf(u, a, b, mu, sigma)

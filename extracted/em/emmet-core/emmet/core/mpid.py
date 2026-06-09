@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from math import log, floor
 import re
+from math import floor, log
 from pathlib import Path
 from string import ascii_lowercase, digits
 from typing import TYPE_CHECKING
@@ -19,10 +19,10 @@ else:
 if TYPE_CHECKING:
     from collections.abc import Callable
     from typing import Any
-    from typing_extensions import Self
 
     from pydantic import GetJsonSchemaHandler
     from pydantic.json_schema import JsonSchemaValue
+    from typing_extensions import Self
 
 # matches "mp-1234" or "1234" followed by and optional "-(Alphanumeric)"
 MPID_REGEX_PATTERN = r"^([A-Za-z]+-)?(\d+)(-[A-Za-z0-9]+)*$"
@@ -91,12 +91,18 @@ class MPID(str):
             )
 
     def __eq__(self, other: Any) -> bool:
+        if other is None:
+            return False
+
         if isinstance(other, MPID):
             return self.string == other.string
         elif isinstance(other, AlphaID):
             return other == self
         elif isinstance(other, (int, str)):
-            return self.string == MPID(other).string
+            try:
+                return self.string == MPID(other).string
+            except ValueError:
+                return False
         return NotImplemented
 
     def __str__(self) -> str:
@@ -457,6 +463,9 @@ class AlphaID(str):
         If other is an AlphaID, returns True only if the prefix, separator,
         and value of the two are equal.
         """
+        if other is None:
+            return False
+
         if isinstance(other, MPID) or (
             isinstance(other, str) and other.startswith("mp-")
         ):
@@ -706,3 +715,32 @@ def _next_safe_alpha_id(
     while int(start_id) in FORBIDDEN_ALPHA_ID_VALUES:
         start_id += 1
     return start_id
+
+
+def validate_identifier(
+    idx: str | MPID | AlphaID, serialize: bool = False
+) -> str | MPID | AlphaID:
+    """Format an input string or identifier as a valid Materials Project format identifier.
+
+    Parameters
+    -----------
+    idx : str, MPID, AlphaID
+        The input identifier, can either be an already instantiated
+        identifier object, or a plain string
+    serialize : bool = False
+        If True, returns the string representation of the identifier object.
+        If False, returns the object.
+    """
+
+    try:
+        parsed_idx = AlphaID(idx)
+    except Exception as exc:
+        raise ValueError(f"Invalid identifier {idx}, must be MPID or AlphaID.") from exc
+
+    if serialize:
+        return (
+            str(AlphaID(parsed_idx))
+            if isinstance(parsed_idx, MPID | AlphaID)
+            else str(parsed_idx)
+        )
+    return parsed_idx

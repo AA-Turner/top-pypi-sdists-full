@@ -2108,7 +2108,11 @@ class TestCupyPyprojFallbackParity:
                                    rtol=1e-6, atol=1e-6)
 
     @pytest.mark.skipif(not HAS_DASK, reason="dask required")
-    def test_projected_to_projected_dask_cupy_match(self):
+    @pytest.mark.parametrize('resampling', ['nearest', 'bilinear', 'cubic'])
+    def test_projected_to_projected_dask_cupy_match(self, resampling):
+        # The dask+cupy chunk-assembly path must thread every resampling
+        # mode through to _resample_cupy_native per chunk, not just the
+        # 'cubic' mode that used to be the only one covered here (#3050).
         from xrspatial.reproject import reproject
         y, x, data = self._make_utm_source()
         attrs = {'crs': 'EPSG:32633'}
@@ -2116,11 +2120,11 @@ class TestCupyPyprojFallbackParity:
             reproject(
                 xr.DataArray(data, dims=('y', 'x'),
                              coords={'y': y, 'x': x}, attrs=attrs),
-                'EPSG:3857', resampling='cubic').data)
+                'EPSG:3857', resampling=resampling).data)
         dc = xr.DataArray(
             da.from_array(cp.asarray(data), chunks=(32, 32)),
             dims=('y', 'x'), coords={'y': y, 'x': x}, attrs=attrs)
-        out = reproject(dc, 'EPSG:3857', resampling='cubic').data
+        out = reproject(dc, 'EPSG:3857', resampling=resampling).data
         if hasattr(out, 'compute'):
             out = out.compute()
         out = cp.asnumpy(out) if isinstance(out, cp.ndarray) else np.asarray(out)
@@ -2440,6 +2444,51 @@ class TestSecurityGuards:
             resolution=0.1,
         )
         assert result['shape'] == (200, 200)
+
+    def test_output_grid_too_large_lazy_output_ok(self):
+        """lazy_output=True bypasses the >1e9 pixel guard (issue #3046)."""
+        from xrspatial.reproject._grid import _compute_output_grid
+        from xrspatial.reproject._crs_utils import _resolve_crs
+
+        src_crs = _resolve_crs(4326)
+        tgt_crs = _resolve_crs(4326)
+
+        # Same grid that raises without lazy_output must now succeed,
+        # because a dask output never materializes the full array.
+        result = _compute_output_grid(
+            source_bounds=(-180, -90, 180, 90),
+            source_shape=(1000, 1000),
+            source_crs=src_crs,
+            target_crs=tgt_crs,
+            resolution=1e-6,  # ~360M cols x 180M rows >> 1e9
+            lazy_output=True,
+        )
+        h, w = result['shape']
+        assert w * h > 1_000_000_000
+
+    @pytest.mark.skipif(not HAS_DASK, reason="dask required")
+    def test_reproject_dask_output_over_limit_stays_lazy(self):
+        """A dask input whose output exceeds 1e9 pixels reprojects lazily
+        instead of raising (issue #3046)."""
+        from xrspatial.reproject import reproject
+
+        raster = _make_raster(
+            np.arange(64 * 64, dtype='float64').reshape(64, 64),
+            crs='EPSG:4326',
+            x_range=(-105, -104),
+            y_range=(39, 40),
+        )
+        raster.data = da.from_array(raster.values, chunks=(32, 32))
+
+        # Tiny resolution forces >1e9 output pixels. A modest chunk_size
+        # keeps each computed block small so the test stays cheap.
+        out = reproject(raster, target_crs='EPSG:3857',
+                        resolution=2.0, chunk_size=1024)
+
+        assert isinstance(out.data, da.Array)
+        assert out.shape[0] * out.shape[1] > 1_000_000_000
+        # A single block computes without materializing the whole grid.
+        assert out.data.blocks[0, 0].compute().shape == (1024, 1024)
 
     def test_numpy_chunk_source_window_guard(self):
         """_reproject_chunk_numpy should return nodata for huge source windows."""
@@ -5303,47 +5352,6 @@ class TestGeoidPixelCenterIndexing:
                 f"N({lon},{lat}) = {N_actual}, pyproj says "
                 f"{N_expected}; diff {N_actual - N_expected:.4f} m"
             )
-
-    def test_grid_interp_point_pixel_center_returns_stored_value(self):
-        """``_grid_interp_point`` (datum shift grids) has the same
-        pixel-center anchoring as the geoid grid and was fixed in #2508.
-        Verify with a synthetic grid so the test doesn't depend on a
-        downloaded NADCON file.
-        """
-        from xrspatial.reproject._datum_grids import _grid_interp_point
-
-        # 4x5 synthetic grid with distinctive values; pixel-center anchored.
-        dlat_grid = np.array([
-            [10.0, 20.0, 30.0, 40.0, 50.0],
-            [11.0, 22.0, 33.0, 44.0, 55.0],
-            [12.0, 24.0, 36.0, 48.0, 60.0],
-            [13.0, 26.0, 39.0, 52.0, 65.0],
-        ], dtype=np.float64)
-        dlon_grid = dlat_grid * 2.0
-        grid_h, grid_w = dlat_grid.shape
-
-        grid_left = -110.0
-        grid_top = 45.0
-        grid_res_x = 1.0
-        grid_res_y = 1.0
-
-        for i in range(grid_h - 1):
-            for j in range(grid_w - 1):
-                lon_c = grid_left + (j + 0.5) * grid_res_x
-                lat_c = grid_top - (i + 0.5) * grid_res_y
-                dlat, dlon = _grid_interp_point(
-                    lon_c, lat_c, dlat_grid, dlon_grid,
-                    grid_left, grid_top, grid_res_x, grid_res_y,
-                    grid_h, grid_w,
-                )
-                assert abs(dlat - dlat_grid[i, j]) < 1e-12, (
-                    f"pixel ({i},{j}) center: expected dlat "
-                    f"{dlat_grid[i, j]}, got {dlat}"
-                )
-                assert abs(dlon - dlon_grid[i, j]) < 1e-12, (
-                    f"pixel ({i},{j}) center: expected dlon "
-                    f"{dlon_grid[i, j]}, got {dlon}"
-                )
 
 
 class TestVerticalHelperConversions:

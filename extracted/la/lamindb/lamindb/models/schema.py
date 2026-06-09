@@ -4,6 +4,8 @@ import warnings
 from typing import TYPE_CHECKING, Any, Type, overload
 
 import numpy as np
+import pgtrigger
+from django.conf import settings as django_settings
 from django.db import models
 from django.db.models import CASCADE, PROTECT, ManyToManyField, Q
 from lamin_utils import logger
@@ -46,6 +48,7 @@ from .sqlrecord import (
     SQLRecord,
     _get_record_kwargs,
     init_self_from_db,
+    pop_space_branch_kwargs,
     update_attributes,
 )
 
@@ -200,7 +203,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             Is automatically set to the type of the passed `features`.
         type: `Schema | None = None` Define schema types like `ln.Schema(name="ProteinPanel", is_type=True)`.
         is_type: `bool = False` Whether the schema is a type.
-        index: `Feature | None = None` A `Feature` record to validate an index of a `DataFrame` and therefore also, e.g., `AnnData` obs and var indices.
+        index: `Feature | None = None` Index feature for row keys. For `DataFrame` / `AnnData` curation, validates `df.index` or `obs` / `var` indices. On record sheets, stored on :attr:`~lamindb.Record.name` and must have `dtype=str`; see :class:`~lamindb.Record`.
         flexible: `bool | None = None` Whether to include any feature of the same `itype` during validation & annotation.
             If `features` is passed, defaults to `False` so that, e.g., additional columns of a `DataFrame` encountered during validation are disregarded.
             If `features` is not passed, defaults to `True`.
@@ -289,6 +292,55 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     class Meta(SQLRecord.Meta, TracksRun.Meta, TracksUpdates.Meta):
         abstract = False
         app_label = "lamindb"
+        if (
+            django_settings.DATABASES.get("default", {}).get("ENGINE")
+            == "django.db.backends.postgresql"
+        ):
+            triggers = [
+                pgtrigger.Trigger(
+                    name="prevent_schema_type_cycle",
+                    operation=pgtrigger.Update | pgtrigger.Insert,
+                    when=pgtrigger.Before,
+                    condition=pgtrigger.Condition("NEW.type_id IS NOT NULL"),
+                    func="""
+                        IF EXISTS (
+                            SELECT 1
+                            FROM lamindb_schema s
+                            WHERE s.id = NEW.type_id
+                              AND s._aux->>'ss' = '1'
+                              AND s.space_id IS DISTINCT FROM NEW.space_id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: schema space must match single-space type space';
+                        END IF;
+
+                        -- Check for direct self-reference
+                        IF NEW.type_id = NEW.id THEN
+                            RAISE EXCEPTION 'Cannot set type: schema cannot be its own type';
+                        END IF;
+
+                        -- Check for cycles in the type chain
+                        IF EXISTS (
+                            WITH RECURSIVE type_chain AS (
+                                SELECT type_id, 1 as depth
+                                FROM lamindb_schema
+                                WHERE id = NEW.type_id
+
+                                UNION ALL
+
+                                SELECT s.type_id, tc.depth + 1
+                                FROM lamindb_schema s
+                                INNER JOIN type_chain tc ON s.id = tc.type_id
+                                WHERE tc.depth < 100
+                            )
+                            SELECT 1 FROM type_chain WHERE type_id = NEW.id
+                        ) THEN
+                            RAISE EXCEPTION 'Cannot set type: would create a cycle';
+                        END IF;
+
+                        RETURN NEW;
+                    """,
+                ),
+            ]
         # also see raw SQL constraints for `is_type` and `type` FK validity in migrations
 
     _name_field: str = "name"
@@ -485,10 +537,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
             n_features = kwargs.pop("n")
         else:
             n_features = kwargs.pop("n_members", None)
-        kwargs.pop("branch", None)
-        kwargs.pop("branch_id", 1)
-        kwargs.pop("space", None)
-        kwargs.pop("space_id", 1)
+        space_branch_kwargs = pop_space_branch_kwargs(kwargs)
         # backward compat
         if not slots:
             if "components" in kwargs:
@@ -561,6 +610,7 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
         else:
             validated_kwargs["uid"] = base62_16()
 
+        validated_kwargs.update(space_branch_kwargs)
         super().__init__(**validated_kwargs)
 
     def query_schemas(self) -> QuerySet:
@@ -1060,7 +1110,9 @@ class Schema(SQLRecord, HasType, CanCurate, TracksRun, TracksUpdates):
     def index(self) -> None | Feature:
         """The feature configured to act as index.
 
-        To unset it, set `schema.index` to `None`.
+        For `DataFrame` / `AnnData` schemas, validates row indices during curation.
+        For record sheet schemas, the index feature must have `dtype=str`; see
+        :class:`~lamindb.Record`. To unset, set `schema.index` to `None`.
         """
         if self._index_feature_uid is None:
             return None

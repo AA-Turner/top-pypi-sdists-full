@@ -20,18 +20,23 @@ Tool Modules:
 import argparse
 import logging
 import os
+from pathlib import Path
 
 from fastmcp import FastMCP
+from starlette.middleware import Middleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import FileResponse, JSONResponse, Response
 
 from notebooklm_tools import __version__
+
+from .tools._utils import PUBLIC_DIR, reset_mcp_base_url, set_mcp_base_url
 
 _FALSY = frozenset({"false", "0", "no", "off"})
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
-    """Read a boolean from an environment variable. Unset/empty → *default*; otherwise ``false|0|no|off`` (case-insensitive) → False, anything else → True."""
+    """Read a boolean from an environment variable. Unset/empty Ã¢â€ â€™ *default*; otherwise ``false|0|no|off`` (case-insensitive) Ã¢â€ â€™ False, anything else Ã¢â€ â€™ True."""
     raw = os.environ.get(name, "")
     if not raw:
         return default
@@ -71,6 +76,46 @@ async def health_check(request: Request) -> JSONResponse:
             "version": __version__,
         }
     )
+
+
+class BaseUrlMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        host = request.headers.get(
+            "x-forwarded-host", request.headers.get("host", "127.0.0.1:8000")
+        )
+        proto = request.headers.get("x-forwarded-proto", "http")
+        base_url = f"{proto}://{host}"
+
+        token = set_mcp_base_url(base_url)
+        try:
+            return await call_next(request)
+        finally:
+            reset_mcp_base_url(token)
+
+
+# Ensure FastMCP applies the HTTP middleware to the actual served Starlette app.
+_original_http_app = mcp.http_app
+
+
+def _http_app_with_base_url(*args, middleware=None, **kwargs):
+    merged_middleware = [Middleware(BaseUrlMiddleware), *(middleware or [])]
+    return _original_http_app(*args, middleware=merged_middleware, **kwargs)
+
+
+mcp.http_app = _http_app_with_base_url
+
+
+# Custom route to serve public artifacts
+@mcp.custom_route("/artifacts/{filename}", methods=["GET"])
+async def get_public_artifact(request: Request) -> Response:
+    """Serve downloaded artifacts and source files via the public URL."""
+    filename = request.path_params["filename"]
+    # Clean the path to prevent directory traversal
+    safe_name = Path(filename).name
+    filepath = PUBLIC_DIR / safe_name
+    if not filepath.exists() or not filepath.is_file():
+        return Response("File not found", status_code=404)
+    return FileResponse(str(filepath))
 
 
 def _register_tools() -> None:
@@ -169,7 +214,7 @@ Examples:
         default=_env_bool("NOTEBOOKLM_MCP_STATELESS", default=True),
         help=(
             "Stateless HTTP sessions (default: true). Avoids MCP SDK double-response crash "
-            "(python-sdk#2416). NOTE: this affects the MCP HTTP transport layer only — "
+            "(python-sdk#2416). NOTE: this affects the MCP HTTP transport layer only Ã¢â‚¬â€ "
             "it does NOT control the in-process conversation history cache. To bound the "
             "conversation cache (e.g. for long-lived servers), set "
             "NOTEBOOKLM_CONVERSATION_MAX_TURNS / NOTEBOOKLM_CONVERSATION_MAX_CONVS."
@@ -241,7 +286,7 @@ Examples:
             if not _env_bool("NOTEBOOKLM_ALLOW_EXTERNAL_BIND"):
                 print(
                     f"SECURITY ERROR: Refusing to bind to non-loopback address '{args.host}'.\n"
-                    "There is no built-in authentication — binding externally exposes\n"
+                    "There is no built-in authentication Ã¢â‚¬â€ binding externally exposes\n"
                     "your Google cookies to anyone on the network.\n\n"
                     "To override, set: NOTEBOOKLM_ALLOW_EXTERNAL_BIND=1",
                     file=sys.stderr,

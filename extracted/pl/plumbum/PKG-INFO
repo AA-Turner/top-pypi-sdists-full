@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plumbum
-Version: 2.0.0
+Version: 2.0.1
 Summary: Plumbum: shell combinators library
 Project-URL: Homepage, https://github.com/tomerfiliba/plumbum
 Project-URL: Documentation, https://plumbum.readthedocs.io/
@@ -91,7 +91,7 @@ Basics
     >>> local.cmd.ls
     LocalCommand(/bin/ls)
     >>> local.cmd.ls()
-    'build.py\nCHANGELOG.rst\nconda.recipe\nCONTRIBUTING.rst\ndocs\nexamples\nexperiments\nLICENSE\nMANIFEST.in\nPipfile\nplumbum\nplumbum.egg-info\npytest.ini\nREADME.rst\nsetup.cfg\nsetup.py\ntests\ntranslations.py\n'
+    'build.py\nCHANGELOG.rst\nCONTRIBUTING.rst\ndocs\nexamples\nexperiments\nLICENSE\nMANIFEST.in\nPipfile\nplumbum\nplumbum.egg-info\npytest.ini\nREADME.rst\nsetup.cfg\nsetup.py\ntests\ntranslations.py\n'
     >>> notepad = local["c:\\windows\\notepad.exe"]
     >>> notepad()                                   # Notepad window pops up
     ''                                              # Notepad window is closed by user, command returns

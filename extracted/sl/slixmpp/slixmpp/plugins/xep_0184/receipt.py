@@ -3,7 +3,6 @@
 # Copyright (C) 2012 Erik Reuterborg Larsson, Nathanael C. Fritz
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-import logging
 
 from slixmpp.stanza import Message
 from slixmpp.xmlstream import register_stanza_plugin
@@ -107,7 +106,7 @@ class XEP_0184(BasePlugin):
         if stanza['request_receipt']:
             return stanza
 
-        if not stanza['type'] in self.ack_types:
+        if stanza['type'] not in self.ack_types:
             return stanza
 
         if stanza['receipt']:

@@ -2,38 +2,41 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
-from functools import cached_property
+from hashlib import md5
 import logging
 import os
+from copy import deepcopy
 from datetime import datetime
+from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Annotated, Type
+from typing import TYPE_CHECKING, Annotated, Any, Type
+from typing_extensions import NotRequired, TypedDict
 
 import numpy as np
 import orjson
 from monty.io import zopen
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    model_validator,
-    BeforeValidator,
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
+from emmet.core.io.pymatgen import (
+    bader_analysis_from_path,
+    ChargemolAnalysis,
+    Structure,
+    OrbitalType,
+    CompleteDos,
+    BSVasprun,
+    Kpoints,
+    Locpot,
+    Oszicar,
+    Outcar,
+    Poscar,
+    Potcar as VaspPotcar,
+    PotcarSingle,
+    Vasprun,
+    VolumetricData,
 )
-from pymatgen.command_line.bader_caller import bader_analysis_from_path
-from pymatgen.command_line.chargemol_caller import ChargemolAnalysis
-from pymatgen.core.structure import Structure
-from pymatgen.electronic_structure.core import OrbitalType
-from pymatgen.electronic_structure.dos import CompleteDos
-from pymatgen.io.vasp import BSVasprun, Kpoints, Locpot, Oszicar, Outcar, Poscar
-from pymatgen.io.vasp import Potcar as VaspPotcar
-from pymatgen.io.vasp import PotcarSingle, Vasprun, VolumetricData
-from typing_extensions import NotRequired, TypedDict
-
 from emmet.core.band_theory import ElectronicBS, ElectronicDos
 from emmet.core.math import ListMatrix3D, Matrix3D, Vector3D, Vector6D
+from emmet.core.settings import EmmetSettings
 from emmet.core.trajectory import RelaxTrajectory, Trajectory
-from emmet.core.vasp.models import ElectronicStep, ChgcarLike
 from emmet.core.types.enums import StoreTrajectoryOption, TaskState, VaspObject
 from emmet.core.types.pymatgen_types.bader import BaderAnalysis
 from emmet.core.types.pymatgen_types.kpoints_adapter import KpointsType
@@ -50,15 +53,13 @@ from emmet.core.vasp.calc_types import (
     run_type,
     task_type,
 )
-
-from emmet.core.settings import EmmetSettings
+from emmet.core.vasp.models import ChgcarLike, ElectronicStep
 
 SETTINGS = EmmetSettings()
 
 if TYPE_CHECKING:
+    from emmet.core.io.pymatgen import BandStructure, CompleteDos
     from typing_extensions import Self
-    from pymatgen.electronic_structure.bandstructure import BandStructure
-    from pymatgen.electronic_structure.dos import CompleteDos
 
 
 logger = logging.getLogger(__name__)
@@ -108,11 +109,20 @@ class PotcarSpec(BaseModel):
     """Document defining a VASP POTCAR specification."""
 
     titel: str | None = Field(None, description="TITEL field from POTCAR header")
+
+    # NOTE: The `hash` is no longer used for validating POTCARs.
+    # It is included here for backwards compatibility
+    # However, it is no longer included in `pymatgen-core`.
+    # Thus we must regenerate this ourselves.
+    # Recommend removing eventually.
     hash: str | None = Field(None, description="md5 hash of POTCAR file")
     summary_stats: TypedPotcarSummaryStatsDict | None = Field(
         None,
         description="summary statistics used to ID POTCARs without hashing",
     )
+
+    def get(self, key, default=None):
+        return getattr(self, key, default)
 
     @classmethod
     def from_potcar_single(cls, potcar_single: PotcarSingle) -> Self:
@@ -129,9 +139,12 @@ class PotcarSpec(BaseModel):
         PotcarSpec
             A potcar spec.
         """
+
+        if (potcar_hash := getattr(potcar_single, "md5_header_hash", None)) is None:
+            potcar_hash = md5(potcar_single.data.encode()).hexdigest()
         return cls(
             titel=potcar_single.TITEL,
-            hash=potcar_single.md5_header_hash,
+            hash=potcar_hash,
             summary_stats=potcar_single._summary_stats,  # type: ignore[arg-type]
         )
 
@@ -484,6 +497,13 @@ class FrequencyDependentDielectric(BaseModel):
         description="Energies at which the real and imaginary parts of the dielectric"
         "constant are given",
     )
+
+    @model_validator(mode="before")
+    def migrate_legacy_fields(cls, data: Any) -> Any:
+        if "imag" in data:
+            data["imaginary"] = data["imag"]
+
+        return data
 
     @classmethod
     def from_vasprun(cls, vasprun: Vasprun) -> Self:
@@ -1335,7 +1355,7 @@ def _get_volumetric_data(
         A dictionary mapping the VASP object data type (`VaspObject.LOCPOT`,
         `VaspObject.CHGCAR`, etc) to the volumetric data object.
     """
-    from pymatgen.io.vasp import Chgcar
+    from emmet.core.io.pymatgen import Chgcar
 
     if store_volumetric_data is None or len(store_volumetric_data) == 0:
         return {}

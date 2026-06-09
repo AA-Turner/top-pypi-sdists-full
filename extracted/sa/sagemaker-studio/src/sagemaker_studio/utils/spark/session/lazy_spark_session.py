@@ -44,6 +44,7 @@ class LazySparkSession:
             session_manager: Pre-resolved session manager (if None, resolved lazily on first access).
             connection_name: Connection name for deferred resolution.
             config: ClientConfig for deferred resolution.
+            spark_conf: Optional custom Spark configuration. Values override defaults.
         """
         self._spark = None
         self._session_manager = session_manager
@@ -155,6 +156,15 @@ class LazySparkSession:
             elif e.response["Error"]["Code"] == "ResourceNotFoundException":
                 logger.warning("EMR Serverless session not found, creating a new session.")
                 self.stop()
+            # Glue: session not found or in illegal state
+            elif e.response["Error"]["Code"] in (
+                "EntityNotFoundException",
+                "IllegalSessionStateException",
+            ):
+                logger.warning(
+                    f"Glue session error ({e.response['Error']['Code']}), creating a new session."
+                )
+                self.stop()
             else:
                 raise e
         return getattr(self._get_spark(), name)
@@ -233,6 +243,7 @@ class LazySparkSession:
     _SESSION_TYPE_MAP = {
         "AthenaSparkSessionManager": "ATHENA_SPARK_CONNECT",
         "EMRServerlessSparkSessionManager": "EMR_SERVERLESS_SPARK_CONNECT",
+        "GlueSparkSessionManager": "GLUE_SPARK_CONNECT",
     }
 
     def get_session_info(self) -> dict | None:

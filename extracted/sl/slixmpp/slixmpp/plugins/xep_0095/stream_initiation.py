@@ -8,12 +8,12 @@ import threading
 
 from uuid import uuid4
 
-from slixmpp import Iq, Message
+from slixmpp import Iq
 from slixmpp.exceptions import XMPPError
 from slixmpp.plugins import BasePlugin
 from slixmpp.xmlstream.handler import Callback
 from slixmpp.xmlstream.matcher import StanzaPath
-from slixmpp.xmlstream import register_stanza_plugin, JID
+from slixmpp.xmlstream import register_stanza_plugin
 from slixmpp.plugins.xep_0095 import stanza, SI
 
 

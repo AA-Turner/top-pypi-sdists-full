@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: ecs-deploy
-Version: 1.16.0
+Version: 1.16.3
 Summary: Powerful CLI tool to simplify Amazon ECS deployments, rollbacks & scaling
 Home-page: https://github.com/fabfuel/ecs-deploy
-Download-URL: https://github.com/fabfuel/ecs-deploy/archive/1.16.0.tar.gz
+Download-URL: https://github.com/fabfuel/ecs-deploy/archive/1.16.3.tar.gz
 Author: Fabian Fuelling
 Author-email: pypi@fabfuel.de
 License: BSD-3-Clause
@@ -20,6 +20,12 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
+Requires-Dist: click<9,>=7.1.2
+Requires-Dist: click-log==0.3.2
+Requires-Dist: botocore>=1.32.6
+Requires-Dist: boto3>=1.29.6
+Requires-Dist: requests>=2.32.4
+Requires-Dist: dictdiffer>=0.9.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -30,6 +36,7 @@ Dynamic: home-page
 Dynamic: license
 Dynamic: license-file
 Dynamic: platform
+Dynamic: requires-dist
 Dynamic: summary
 
 ECS Deploy

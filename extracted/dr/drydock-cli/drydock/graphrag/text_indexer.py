@@ -26,7 +26,17 @@ from collections.abc import Iterator
 
 _TEXT_EXTENSIONS = frozenset({
     ".md", ".markdown", ".rst", ".txt",
+    # 2026-06-08: PDF support — extracted via pypdf (already a hard dep).
+    # Treated as plain text after extraction; no per-page chunking yet
+    # (the chunk-plain paragraph splitter still produces reasonable units
+    # for academic/research papers and operator manuals).
+    ".pdf",
 })
+
+# PDFs can be much larger than typical markdown; raise the per-file cap
+# specifically for them. 20 MB is comfortably below any real-world ingest
+# pain point and above the 95th percentile of arxiv-style papers.
+_MAX_PDF_BYTES = 20_000_000
 
 _SKIP_DIR_NAMES = frozenset({
     "__pycache__", ".git", ".venv", "venv", "node_modules",
@@ -104,9 +114,13 @@ def _walk_text_files(root: Path) -> Iterator[Path]:
                 if _is_noisy_file(entry):
                     continue
                 try:
-                    if entry.stat().st_size > _MAX_FILE_BYTES:
-                        continue
+                    size = entry.stat().st_size
                 except OSError:
+                    continue
+                # PDFs get a higher size budget; everything else uses
+                # the legacy 2 MB cap.
+                cap = _MAX_PDF_BYTES if entry.suffix.lower() == ".pdf" else _MAX_FILE_BYTES
+                if size > cap:
                     continue
                 yield entry
 
@@ -123,13 +137,49 @@ def _is_noisy_file(path: Path) -> bool:
 
 
 def _chunk_file(path: Path) -> Iterator[TextChunk]:
-    text = path.read_text(encoding="utf-8", errors="replace")
+    suffix = path.suffix.lower()
+    if suffix == ".pdf":
+        text = _extract_pdf_text(path)
+    else:
+        text = path.read_text(encoding="utf-8", errors="replace")
     if not text.strip():
         return
-    if path.suffix.lower() in (".md", ".markdown"):
+    if suffix in (".md", ".markdown"):
         yield from _chunk_markdown(path, text)
     else:
         yield from _chunk_plain(path, text)
+
+
+def _extract_pdf_text(path: Path) -> str:
+    """Pull readable text out of a PDF using pypdf (already a hard dep).
+
+    Returns an empty string on any failure — caller treats empty text
+    as "skip this file" via the existing `if not text.strip(): return`
+    in `_chunk_file`. PDFs without embedded text (scanned images, OCR
+    needed) are silently skipped rather than crashing the ingest.
+    """
+    try:
+        from pypdf import PdfReader
+        from pypdf.errors import PdfReadError
+    except ImportError:
+        return ""
+    try:
+        reader = PdfReader(str(path))
+        parts: list[str] = []
+        for page in reader.pages:
+            try:
+                # Some pages return None or raise on weird encodings;
+                # treat them as empty rather than aborting the whole file.
+                parts.append(page.extract_text() or "")
+            except Exception:
+                parts.append("")
+        return "\n\n".join(p.strip() for p in parts if p and p.strip())
+    except (PdfReadError, OSError, ValueError):
+        return ""
+    except Exception:
+        # pypdf can raise a wide variety of exceptions on malformed PDFs.
+        # Drop the file rather than fail the whole ingest.
+        return ""
 
 
 _HEADER_RE = re.compile(r"^(#{1,3})\s+(.+?)\s*$", re.MULTILINE)

@@ -4,8 +4,7 @@
 # Copyright (C) 2013 Sustainable Innovation, Joachim.lindborg@sust.se, bjorn.westrom@consoden.se
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-from threading import Thread, Event, Timer
-import time
+from threading import Thread, Event
 
 def TimerReset(*args, **kwargs):
     """ Global function for Timer """

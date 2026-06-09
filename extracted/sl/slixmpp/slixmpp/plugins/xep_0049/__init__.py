@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2012 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.plugins.xep_0049.private_storage import XEP_0049
 
 
 register_plugin(XEP_0049)
+
+__all__ = ['PrivateXML', 'XEP_0049']

@@ -1,17 +1,18 @@
-from emmet.api.query_operator import PaginationQuery, SparseFieldsQuery, NumericQuery
-from emmet.api.resource import ReadOnlyResource
-
-from emmet.core.phonon import PhononBSDOSDoc
-from emmet.api.routes.materials.materials.query_operators import (
-    MultiMaterialIDQuery,
-    ElementsQuery,
-    FormulaQuery,
-    ChemsysQuery,
-    SymmetryQuery,
-)
-from emmet.api.routes.materials.phonon.query_operators import PhononMethodQuery
 from emmet.api.core.global_header import GlobalHeaderProcessor
 from emmet.api.core.settings import MAPISettings
+from emmet.api.query_operator import NumericQuery, PaginationQuery, SparseFieldsQuery
+from emmet.api.resource import ReadOnlyResource
+from emmet.api.routes.materials.materials.query_operators import (
+    ChemsysQuery,
+    ElementsQuery,
+    FormulaQuery,
+    SymmetryQuery,
+)
+from emmet.api.routes.materials.phonon.query_operators import (
+    MultiPhononIDQuery,
+    PhononMethodQuery,
+)
+from emmet.core.phonon import PhononBSDOSDoc
 
 
 def phonon_bsdos_resource(phonon_bs_store):
@@ -19,7 +20,7 @@ def phonon_bsdos_resource(phonon_bs_store):
         phonon_bs_store,
         PhononBSDOSDoc,
         query_operators=[
-            MultiMaterialIDQuery(),
+            MultiPhononIDQuery(),
             FormulaQuery(),
             ChemsysQuery(),
             ElementsQuery(),
@@ -28,7 +29,7 @@ def phonon_bsdos_resource(phonon_bs_store):
             NumericQuery(model=PhononBSDOSDoc, excluded_fields=["composition"]),
             PaginationQuery(),
             SparseFieldsQuery(
-                PhononBSDOSDoc, default_fields=["material_id", "last_updated"]
+                PhononBSDOSDoc, default_fields=["identifier", "last_updated"]
             ),
         ],
         header_processor=GlobalHeaderProcessor(),

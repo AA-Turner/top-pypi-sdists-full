@@ -5,6 +5,7 @@ import typer
 from prime_cli.commands.rl import (
     RLConfig,
     _flatten_config_schema,
+    _is_full_finetune,
     generate_rl_config_template,
     load_config,
 )
@@ -140,6 +141,73 @@ def test_load_config_accepts_sampling_enable_thinking(tmp_path: Path) -> None:
 
     assert cfg.sampling.enable_thinking is False
     assert cfg.sampling.reasoning_effort is None
+
+
+def test_load_config_accepts_eval_sampling_enable_thinking(tmp_path: Path) -> None:
+    """[eval.sampling] block carries enable_thinking through to the API payload."""
+    config_path = tmp_path / "rl.toml"
+    config_path.write_text(
+        'model = "Qwen/Qwen3.5-35B-A3B"\n'
+        "[[eval.env]]\n"
+        'id = "primeintellect/vf-math"\n'
+        "[eval.sampling]\n"
+        "enable_thinking = false\n"
+    )
+
+    cfg = load_config(str(config_path))
+
+    assert cfg.eval.sampling is not None
+    assert cfg.eval.sampling.enable_thinking is False
+    assert cfg.eval.sampling.reasoning_effort is None
+    assert cfg.eval.to_api_dict() == {
+        "environments": [{"id": "primeintellect/vf-math"}],
+        "sampling": {"enable_thinking": False},
+    }
+
+
+def test_load_config_accepts_eval_sampling_reasoning_effort(tmp_path: Path) -> None:
+    config_path = tmp_path / "rl.toml"
+    config_path.write_text(
+        'model = "openai/gpt-oss-20b"\n'
+        "[[eval.env]]\n"
+        'id = "primeintellect/vf-math"\n'
+        "[eval.sampling]\n"
+        'reasoning_effort = "high"\n'
+        "temperature = 0.0\n"
+        "max_tokens = 2048\n"
+    )
+
+    cfg = load_config(str(config_path))
+
+    assert cfg.eval.sampling is not None
+    assert cfg.eval.sampling.reasoning_effort == "high"
+    assert cfg.eval.sampling.temperature == 0.0
+    assert cfg.eval.sampling.max_tokens == 2048
+    assert cfg.eval.to_api_dict() == {
+        "environments": [{"id": "primeintellect/vf-math"}],
+        "sampling": {
+            "reasoning_effort": "high",
+            "temperature": 0.0,
+            "max_tokens": 2048,
+        },
+    }
+
+
+def test_load_config_rejects_eval_sampling_with_both_reasoning_controls(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "rl.toml"
+    config_path.write_text(
+        'model = "openai/gpt-oss-20b"\n'
+        "[[eval.env]]\n"
+        'id = "primeintellect/vf-math"\n'
+        "[eval.sampling]\n"
+        "enable_thinking = false\n"
+        'reasoning_effort = "low"\n'
+    )
+
+    with pytest.raises(typer.Exit):
+        load_config(str(config_path))
 
 
 def test_load_config_accepts_max_inflight_rollouts(tmp_path: Path) -> None:
@@ -492,3 +560,45 @@ def test_tailscale_no_auth_key_anywhere_rejected(tmp_path: Path, monkeypatch) ->
     config_path.write_text('model = "dummy"\n[tailscale]\nenabled = true\n')
     with pytest.raises(typer.Exit):
         load_config(str(config_path))
+
+
+def test_is_full_finetune_top_level_discriminator() -> None:
+    assert _is_full_finetune({"type": "full_finetune"}) is True
+
+
+def test_is_full_finetune_single_node_gpu_sizing() -> None:
+    cfg = {"deployment": {"num_train_gpus": 4, "num_infer_gpus": 4}}
+    assert _is_full_finetune(cfg) is True
+
+
+def test_is_full_finetune_multi_node_node_sizing() -> None:
+    # Mirrors prime-rl's qwen30b_math/rl.toml — multi-node configs use
+    # num_train_nodes/num_infer_nodes instead of the *_gpus variants.
+    cfg = {
+        "deployment": {
+            "type": "multi_node",
+            "num_train_nodes": 2,
+            "num_infer_nodes": 2,
+        }
+    }
+    assert _is_full_finetune(cfg) is True
+
+
+def test_is_full_finetune_deployment_type_alone() -> None:
+    assert _is_full_finetune({"deployment": {"type": "single_node"}}) is True
+    assert _is_full_finetune({"deployment": {"type": "multi_node"}}) is True
+
+
+def test_is_full_finetune_lora_config_rejected() -> None:
+    lora_cfg = {
+        "model": "Qwen/Qwen3.5-4B",
+        "max_steps": 50,
+        "batch_size": 128,
+        "rollouts_per_example": 8,
+    }
+    assert _is_full_finetune(lora_cfg) is False
+
+
+def test_is_full_finetune_empty_deployment_rejected() -> None:
+    # `[deployment]` with no recognised fields shouldn't flip dispatch.
+    assert _is_full_finetune({"deployment": {}}) is False

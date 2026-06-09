@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awkward_cpp
-Version: 52
+Version: 53
 Summary: CPU kernels and compiled extensions for Awkward Array
 Author-Email: Jim Pivarski <jpivarski@gmail.com>
 Maintainer-Email: Scikit-HEP <scikit-hep-admins@googlegroups.com>

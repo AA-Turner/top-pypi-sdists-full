@@ -14,7 +14,7 @@ from typing import (
     TYPE_CHECKING,
 )
 
-from slixmpp import plugins, roster, stanza
+from slixmpp import plugins, roster, stanza, InvalidJID
 from slixmpp.api import APIRegistry
 from slixmpp.exceptions import IqError, IqTimeout
 
@@ -801,11 +801,17 @@ class BaseXMPP(XMLStream):
 
         Update the roster with presence information.
         """
-        if self.roster[presence['from']].ignore_updates:
+        try:
+            pfrom = presence['from']
+            pto = presence['to']
+        except InvalidJID:
+            log.exception("Couldn't handle presence: %s", presence)
+            return
+        if self.roster[pfrom].ignore_updates:
             return
 
-        if not self.is_component and not presence['to'].bare:
-            presence['to'] = self.boundjid
+        if not self.is_component and not pto.bare:
+            pto = self.boundjid
 
         self.event('presence', presence)
         self.event('presence_%s' % presence['type'], presence)
@@ -815,8 +821,8 @@ class BaseXMPP(XMLStream):
                                 'unsubscribe', 'unsubscribed'):
             self.event('changed_subscription', presence)
             return
-        elif not presence['type'] in ('available', 'unavailable') and \
-             not presence['type'] in presence.showtypes:
+        elif presence['type'] not in ('available', 'unavailable') and \
+             presence['type'] not in presence.showtypes:
             return
 
     def exception(self, exception):

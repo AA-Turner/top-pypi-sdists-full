@@ -74,6 +74,10 @@ class MembershipRecord(BaseModel):
     roles: list[str] = Field(default_factory=list)
     status: str = "active"
     invited_by: str | None = None
+    # The IdP's stable user id for this membership (Entra = user objectId GUID),
+    # captured from SCIM `externalId`. Lets a re-push under a changed email update
+    # this membership instead of forking a duplicate identity (#1342 gap 1).
+    external_id: str | None = None
     joined_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -114,6 +118,7 @@ class ScimGroupRecord(BaseModel):
     id: str
     connection_id: str
     display_name: str
+    external_id: str | None = None  # the IdP's stable group id (Entra objectId GUID) — #1342
     created_at: str
     updated_at: str
 

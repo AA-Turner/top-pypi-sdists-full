@@ -142,11 +142,11 @@ class Device(object):
 
         for ts in sorted(self.timestamp_data.keys()):
             tsdt = datetime.datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S")
-            if not from_flag is None:
+            if from_flag is not None:
                 if tsdt < from_flag:
                     #print (str(tsdt) + " < " + str(from_flag))
                     continue
-            if not to_flag is None:
+            if to_flag is not None:
                 if tsdt > to_flag:
                     #print (str(tsdt) + " > " + str(to_flag))
                     continue
@@ -169,7 +169,7 @@ class Device(object):
         callback(session, result="done", nodeId=self.nodeId, timestamp_block=None)
 
     def _datetime_flag_parser(self, flags, flagname):
-        if not flagname in flags:
+        if flagname not in flags:
             return None
 
         dt = None
@@ -220,9 +220,9 @@ class Device(object):
             flags     -- [optional] data classifier flags for the field, e.g. momentary
                          Formatted as a dictionary like { "flag name": "flag value" ... }
         """
-        if not name in self.fields.keys():
+        if name not in self.fields.keys():
             return False
-        if not timestamp in self.timestamp_data:
+        if timestamp not in self.timestamp_data:
             self.timestamp_data[timestamp] = {}
 
         self.timestamp_data[timestamp][name] = {"value": value, "flags": flags}
@@ -252,4 +252,3 @@ class Device(object):
         This function is only for unit testing to produce predictable results.
         """
         self.momentary_timestamp = timestamp
-

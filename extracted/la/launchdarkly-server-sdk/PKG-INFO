@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: launchdarkly-server-sdk
-Version: 9.15.1
+Version: 9.16.0
 Summary: LaunchDarkly SDK for Python
-License: Apache-2.0
+Project-URL: Homepage, https://docs.launchdarkly.com/sdk/server-side/python
+Project-URL: Repository, https://github.com/launchdarkly/python-server-sdk
+Project-URL: Documentation, https://launchdarkly-python-sdk.readthedocs.io/en/latest/
+Author-email: LaunchDarkly <dev@launchdarkly.com>
+License-Expression: Apache-2.0
 License-File: LICENSE.txt
-Author: LaunchDarkly
-Author-email: dev@launchdarkly.com
-Requires-Python: >=3.10
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -18,24 +19,22 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.10
+Requires-Dist: certifi>=2018.4.16
+Requires-Dist: expiringdict>=1.1.4
+Requires-Dist: launchdarkly-eventsource<2.0.0,>=1.5.0
+Requires-Dist: pyrfc3339>=1.0
+Requires-Dist: semver>=2.10.2
+Requires-Dist: urllib3<3,>=1.26.0
 Provides-Extra: consul
+Requires-Dist: python-consul>=1.0.1; extra == 'consul'
 Provides-Extra: dynamodb
+Requires-Dist: boto3>=1.9.71; extra == 'dynamodb'
 Provides-Extra: redis
+Requires-Dist: redis>=2.10.5; extra == 'redis'
 Provides-Extra: test-filesource
-Requires-Dist: boto3 (>=1.9.71) ; extra == "dynamodb"
-Requires-Dist: certifi (>=2018.4.16)
-Requires-Dist: expiringdict (>=1.1.4)
-Requires-Dist: launchdarkly-eventsource (>=1.5.0,<2.0.0)
-Requires-Dist: pyRFC3339 (>=1.0)
-Requires-Dist: python-consul (>=1.0.1) ; extra == "consul"
-Requires-Dist: pyyaml (>=5.3.1) ; extra == "test-filesource"
-Requires-Dist: redis (>=2.10.5) ; extra == "redis"
-Requires-Dist: semver (>=2.10.2)
-Requires-Dist: urllib3 (>=1.26.0,<3)
-Requires-Dist: watchdog (>=3.0.0) ; extra == "test-filesource"
-Project-URL: Documentation, https://launchdarkly-python-sdk.readthedocs.io/en/latest/
-Project-URL: Homepage, https://docs.launchdarkly.com/sdk/server-side/python
-Project-URL: Repository, https://github.com/launchdarkly/python-server-sdk
+Requires-Dist: pyyaml>=5.3.1; extra == 'test-filesource'
+Requires-Dist: watchdog>=3.0.0; extra == 'test-filesource'
 Description-Content-Type: text/markdown
 
 # LaunchDarkly Server-side SDK for Python
@@ -91,4 +90,3 @@ LaunchDarkly uses the [SLSA framework](https://slsa.dev/spec/v1.0/about) (Supply
     * [docs.launchdarkly.com](https://docs.launchdarkly.com/  "LaunchDarkly Documentation") for our documentation and SDK reference guides
     * [apidocs.launchdarkly.com](https://apidocs.launchdarkly.com/  "LaunchDarkly API Documentation") for our API documentation
     * [blog.launchdarkly.com](https://blog.launchdarkly.com/  "LaunchDarkly Blog Documentation") for the latest product updates
-

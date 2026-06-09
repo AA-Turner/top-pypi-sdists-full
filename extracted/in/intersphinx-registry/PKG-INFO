@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: intersphinx_registry
-Version: 0.2605.28
+Version: 0.2606.8
 Summary: This package provides convenient utilities and data to write a sphinx config file.
 Author-email: M Bussonnier <bussonniermatthias@gmail.com>
 Description-Content-Type: text/markdown

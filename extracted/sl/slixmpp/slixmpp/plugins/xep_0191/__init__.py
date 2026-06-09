@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2012 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.plugins.xep_0191.blocking import XEP_0191
 
 
 register_plugin(XEP_0191)
+
+__all__ = ['Block', 'Unblock', 'BlockList', 'BlockItem', 'XEP_0191']

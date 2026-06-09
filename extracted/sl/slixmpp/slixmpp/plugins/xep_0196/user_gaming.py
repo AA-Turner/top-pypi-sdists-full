@@ -6,11 +6,8 @@
 import logging
 
 from asyncio import Future
-from slixmpp import JID
-from typing import Callable
 from slixmpp.plugins.base import BasePlugin
 from slixmpp.plugins.xep_0196 import stanza, UserGaming
-from slixmpp.plugins.xep_0004.stanza import Form
 
 
 log = logging.getLogger(__name__)

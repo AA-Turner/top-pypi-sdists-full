@@ -205,6 +205,7 @@ __all__ = (
     "GetRecommendationSummariesResponseTypeDef",
     "GpuInfoTypeDef",
     "GpuTypeDef",
+    "IdleDimensionTypeDef",
     "IdleEstimatedMonthlySavingsTypeDef",
     "IdleRecommendationErrorTypeDef",
     "IdleRecommendationFilterTypeDef",
@@ -481,13 +482,12 @@ class GpuTypeDef(TypedDict):
     gpuCount: NotRequired[int]
     gpuMemorySizeInMiB: NotRequired[int]
 
+class IdleDimensionTypeDef(TypedDict):
+    key: NotRequired[str]
+    values: NotRequired[list[str]]
+
 class IdleEstimatedMonthlySavingsTypeDef(TypedDict):
     currency: NotRequired[CurrencyType]
-    value: NotRequired[float]
-
-class IdleUtilizationMetricTypeDef(TypedDict):
-    name: NotRequired[IdleMetricNameType]
-    statistic: NotRequired[MetricStatisticType]
     value: NotRequired[float]
 
 class IdleSummaryTypeDef(TypedDict):
@@ -877,6 +877,12 @@ class GetIdleRecommendationsRequestTypeDef(TypedDict):
 
 class GpuInfoTypeDef(TypedDict):
     gpus: NotRequired[list[GpuTypeDef]]
+
+class IdleUtilizationMetricTypeDef(TypedDict):
+    name: NotRequired[IdleMetricNameType]
+    statistic: NotRequired[MetricStatisticType]
+    value: NotRequired[float]
+    dimensions: NotRequired[list[IdleDimensionTypeDef]]
 
 class IdleSavingsOpportunityAfterDiscountsTypeDef(TypedDict):
     savingsOpportunityPercentage: NotRequired[float]

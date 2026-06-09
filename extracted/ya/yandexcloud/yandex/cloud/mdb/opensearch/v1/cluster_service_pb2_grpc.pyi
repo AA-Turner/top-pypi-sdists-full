@@ -30,7 +30,6 @@ class ClusterServiceStub:
         yandex.cloud.mdb.opensearch.v1.cluster_pb2.Cluster,
     ]
     """Returns the specified OpenSearch cluster.
-
     To get the list of all available OpenSearch clusters, make a [List] request.
     """
 
@@ -80,10 +79,7 @@ class ClusterServiceStub:
         yandex.cloud.mdb.opensearch.v1.cluster_service_pb2.RescheduleMaintenanceRequest,
         yandex.cloud.operation.operation_pb2.Operation,
     ]
-    """(-- api-linter: yc::1702::method-verb-prefix=disabled
-    False positive. "Reschedule" is a verb. --)
-    Reschedules a planned maintenance operation.
-    """
+    """Reschedules a planned maintenance operation."""
 
     ListBackups: grpc.UnaryUnaryMultiCallable[
         yandex.cloud.mdb.opensearch.v1.cluster_service_pb2.ListClusterBackupsRequest,
@@ -121,10 +117,8 @@ class ClusterServiceStub:
         yandex.cloud.mdb.opensearch.v1.cluster_service_pb2.StreamClusterLogsRequest,
         yandex.cloud.mdb.opensearch.v1.cluster_service_pb2.StreamLogRecord,
     ]
-    """(-- api-linter: yc::1702::method-verb-prefix=disabled
-    False positive. "Stream" is a verb. --)
-    (-- api-linter: yc::1705::http-method-mapping=disabled
-    Backend already works using GET. --)
+    """(-- api-linter: yc::1705::http-method-mapping=disabled
+    Backend implementation uses GET already. --)
     Same as ListLogs but using server-side streaming. Also allows for 'tail -f' semantics.
     """
 
@@ -207,8 +201,7 @@ class ClusterServiceStub:
         yandex.cloud.mdb.opensearch.v1.cluster_service_pb2.SwitchMasterRequest,
         yandex.cloud.operation.operation_pb2.Operation,
     ]
-    """(-- api-linter: yc::1702::method-verb-prefix=disabled
-    False positive. "Switch" is a verb. --)
+    """(-- api-linter: yc::1702::method-verb-prefix=disabled --)
     Switches current master or ensures that master not on specified hosts.
     """
 
@@ -238,7 +231,6 @@ class ClusterServiceAsyncStub:
         yandex.cloud.mdb.opensearch.v1.cluster_pb2.Cluster,
     ]
     """Returns the specified OpenSearch cluster.
-
     To get the list of all available OpenSearch clusters, make a [List] request.
     """
 
@@ -288,10 +280,7 @@ class ClusterServiceAsyncStub:
         yandex.cloud.mdb.opensearch.v1.cluster_service_pb2.RescheduleMaintenanceRequest,
         yandex.cloud.operation.operation_pb2.Operation,
     ]
-    """(-- api-linter: yc::1702::method-verb-prefix=disabled
-    False positive. "Reschedule" is a verb. --)
-    Reschedules a planned maintenance operation.
-    """
+    """Reschedules a planned maintenance operation."""
 
     ListBackups: grpc.aio.UnaryUnaryMultiCallable[
         yandex.cloud.mdb.opensearch.v1.cluster_service_pb2.ListClusterBackupsRequest,
@@ -329,10 +318,8 @@ class ClusterServiceAsyncStub:
         yandex.cloud.mdb.opensearch.v1.cluster_service_pb2.StreamClusterLogsRequest,
         yandex.cloud.mdb.opensearch.v1.cluster_service_pb2.StreamLogRecord,
     ]
-    """(-- api-linter: yc::1702::method-verb-prefix=disabled
-    False positive. "Stream" is a verb. --)
-    (-- api-linter: yc::1705::http-method-mapping=disabled
-    Backend already works using GET. --)
+    """(-- api-linter: yc::1705::http-method-mapping=disabled
+    Backend implementation uses GET already. --)
     Same as ListLogs but using server-side streaming. Also allows for 'tail -f' semantics.
     """
 
@@ -415,8 +402,7 @@ class ClusterServiceAsyncStub:
         yandex.cloud.mdb.opensearch.v1.cluster_service_pb2.SwitchMasterRequest,
         yandex.cloud.operation.operation_pb2.Operation,
     ]
-    """(-- api-linter: yc::1702::method-verb-prefix=disabled
-    False positive. "Switch" is a verb. --)
+    """(-- api-linter: yc::1702::method-verb-prefix=disabled --)
     Switches current master or ensures that master not on specified hosts.
     """
 
@@ -448,7 +434,6 @@ class ClusterServiceServicer(metaclass=abc.ABCMeta):
         context: _ServicerContext,
     ) -> typing.Union[yandex.cloud.mdb.opensearch.v1.cluster_pb2.Cluster, collections.abc.Awaitable[yandex.cloud.mdb.opensearch.v1.cluster_pb2.Cluster]]:
         """Returns the specified OpenSearch cluster.
-
         To get the list of all available OpenSearch clusters, make a [List] request.
         """
 
@@ -514,10 +499,7 @@ class ClusterServiceServicer(metaclass=abc.ABCMeta):
         request: yandex.cloud.mdb.opensearch.v1.cluster_service_pb2.RescheduleMaintenanceRequest,
         context: _ServicerContext,
     ) -> typing.Union[yandex.cloud.operation.operation_pb2.Operation, collections.abc.Awaitable[yandex.cloud.operation.operation_pb2.Operation]]:
-        """(-- api-linter: yc::1702::method-verb-prefix=disabled
-        False positive. "Reschedule" is a verb. --)
-        Reschedules a planned maintenance operation.
-        """
+        """Reschedules a planned maintenance operation."""
 
     @abc.abstractmethod
     def ListBackups(
@@ -567,10 +549,8 @@ class ClusterServiceServicer(metaclass=abc.ABCMeta):
         request: yandex.cloud.mdb.opensearch.v1.cluster_service_pb2.StreamClusterLogsRequest,
         context: _ServicerContext,
     ) -> typing.Union[collections.abc.Iterator[yandex.cloud.mdb.opensearch.v1.cluster_service_pb2.StreamLogRecord], collections.abc.AsyncIterator[yandex.cloud.mdb.opensearch.v1.cluster_service_pb2.StreamLogRecord]]:
-        """(-- api-linter: yc::1702::method-verb-prefix=disabled
-        False positive. "Stream" is a verb. --)
-        (-- api-linter: yc::1705::http-method-mapping=disabled
-        Backend already works using GET. --)
+        """(-- api-linter: yc::1705::http-method-mapping=disabled
+        Backend implementation uses GET already. --)
         Same as ListLogs but using server-side streaming. Also allows for 'tail -f' semantics.
         """
 
@@ -677,8 +657,7 @@ class ClusterServiceServicer(metaclass=abc.ABCMeta):
         request: yandex.cloud.mdb.opensearch.v1.cluster_service_pb2.SwitchMasterRequest,
         context: _ServicerContext,
     ) -> typing.Union[yandex.cloud.operation.operation_pb2.Operation, collections.abc.Awaitable[yandex.cloud.operation.operation_pb2.Operation]]:
-        """(-- api-linter: yc::1702::method-verb-prefix=disabled
-        False positive. "Switch" is a verb. --)
+        """(-- api-linter: yc::1702::method-verb-prefix=disabled --)
         Switches current master or ensures that master not on specified hosts.
         """
 

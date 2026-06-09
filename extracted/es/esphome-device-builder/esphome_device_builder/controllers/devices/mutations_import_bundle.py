@@ -9,7 +9,6 @@ which to replace, then re-submits with ``overwrite`` set.
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import binascii
 import logging
@@ -66,9 +65,11 @@ async def import_bundle(
         raise CommandError(ErrorCode.INVALID_ARGS, "overwrite must be a list of strings")
 
     config_dir = controller._db.settings.config_dir
-    loop = asyncio.get_running_loop()
-    outcome = await loop.run_in_executor(
-        None, _stage_bundle, file_content_b64, config_dir, overwrite
+    # Staging writes the bundle's files (secrets, !include fragments, packages,
+    # external_components). Funnel through the shared lock + editor-cache drop so
+    # any of those overwrites refreshes an open editor's lint, not just secrets.
+    outcome = await controller._db.write_secrets_locked(
+        _stage_bundle, file_content_b64, config_dir, overwrite
     )
     if outcome.conflicts is not None:
         return ImportBundleResponse(

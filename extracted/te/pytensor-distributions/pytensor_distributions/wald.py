@@ -1,6 +1,7 @@
 import pytensor.tensor as pt
 
 from pytensor_distributions.helper import cdf_bounds
+from pytensor_distributions.lmoments import _lmoments
 from pytensor_distributions.optimization import find_ppf
 
 
@@ -32,6 +33,22 @@ def skewness(mu, lam):
 
 def kurtosis(mu, lam):
     return 15.0 * mu / lam
+
+
+def lmoment1(mu, lam):
+    return mean(mu, lam)
+
+
+def lmoment2(mu, lam):
+    return _lmoments(ppf, mu, lam, r=2)
+
+
+def lmoment3(mu, lam):
+    return _lmoments(ppf, mu, lam, r=3)
+
+
+def lmoment4(mu, lam):
+    return _lmoments(ppf, mu, lam, r=4)
 
 
 def entropy(mu, lam):
@@ -68,7 +85,7 @@ def sf(x, mu, lam):
 
 
 def rvs(mu, lam, size=None, random_state=None):
-    return pt.random.wald(mu, lam, rng=random_state, size=size)
+    return pt.random.wald(mu, lam, rng=random_state, size=size, return_next_rng=True)[1]
 
 
 def logcdf(x, mu, lam):

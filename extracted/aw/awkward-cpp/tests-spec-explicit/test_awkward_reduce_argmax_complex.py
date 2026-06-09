@@ -8,8 +8,9 @@ def test_awkward_reduce_argmax_complex_1():
 	lenparents = 0
 	outlength = 0
 	parents = []
+	offsets = []
 	funcPy = getattr(kernels, 'awkward_reduce_argmax_complex')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = []
 	assert toptr == pytest_toptr
 
@@ -20,8 +21,9 @@ def test_awkward_reduce_argmax_complex_2():
 	lenparents = 1
 	outlength = 1
 	parents = [0]
+	offsets = [0, 1]
 	funcPy = getattr(kernels, 'awkward_reduce_argmax_complex')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [0]
 	assert toptr == pytest_toptr
 
@@ -32,8 +34,9 @@ def test_awkward_reduce_argmax_complex_3():
 	lenparents = 2
 	outlength = 1
 	parents = [0, 0]
+	offsets = [0, 2]
 	funcPy = getattr(kernels, 'awkward_reduce_argmax_complex')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [0]
 	assert toptr == pytest_toptr
 
@@ -44,8 +47,9 @@ def test_awkward_reduce_argmax_complex_4():
 	lenparents = 9
 	outlength = 6
 	parents = [0, 0, 0, 2, 2, 3, 4, 4, 5]
+	offsets = [0, 3, 3, 5, 6, 8, 9]
 	funcPy = getattr(kernels, 'awkward_reduce_argmax_complex')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [2, -1, 4, 5, 7, 8]
 	assert toptr == pytest_toptr
 
@@ -56,8 +60,9 @@ def test_awkward_reduce_argmax_complex_5():
 	lenparents = 6
 	outlength = 4
 	parents = [0, 0, 0, 2, 2, 3]
+	offsets = [0, 3, 3, 5, 6]
 	funcPy = getattr(kernels, 'awkward_reduce_argmax_complex')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [0, -1, 3, 5]
 	assert toptr == pytest_toptr
 

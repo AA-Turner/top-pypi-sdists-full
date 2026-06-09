@@ -388,6 +388,7 @@ def features(
     etl_offline_to_online: bool = ...,
     max_staleness: Optional[Duration] = ...,
     name: Optional[str] = None,
+    description: Optional[str] = None,
 ) -> __stubgen__features_proto: ...
 
 class __stubgen__features_proto(Protocol):"""
@@ -422,6 +423,7 @@ def add_features(
     cache_nulls: Any = ...,
     cache_defaults: Any = ...,
     class_name: Optional[str] = None,
+    description: Optional[str] = None,
 ) -> Type[Features]: ...
 """
         )

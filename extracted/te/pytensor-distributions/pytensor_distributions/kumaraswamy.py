@@ -1,5 +1,5 @@
 import pytensor.tensor as pt
-from pytensor.tensor.xlogx import xlogy0
+from pytensor.tensor.special import betaln, xlogy
 
 from pytensor_distributions.helper import cdf_bounds, ppf_bounds_cont, sf_bounds
 
@@ -45,6 +45,36 @@ def kurtosis(a, b):
     return (m_4 + m_1 * (-4 * m_3 + m_1 * (6 * m_2 - 3 * m_1**2))) / variance**2 - 3
 
 
+def lmoment1(a, b):
+    return mean(a, b)
+
+
+def lmoment2(a, b):
+    inv_a = 1.0 / a
+    term1 = b * pt.exp(betaln(1.0 + inv_a, b))
+    term2 = 2.0 * b * pt.exp(betaln(1.0 + inv_a, 2.0 * b))
+    return term1 - term2
+
+
+def lmoment3(a, b):
+    inv_a = 1.0 / a
+    l2 = lmoment2(a, b)
+    term1 = b * pt.exp(betaln(1.0 + inv_a, b))
+    term2 = 6.0 * b * pt.exp(betaln(1.0 + inv_a, 2.0 * b))
+    term3 = 6.0 * b * pt.exp(betaln(1.0 + inv_a, 3.0 * b))
+    return (term1 - term2 + term3) / l2
+
+
+def lmoment4(a, b):
+    inv_a = 1.0 / a
+    l2 = lmoment2(a, b)
+    term1 = b * pt.exp(betaln(1.0 + inv_a, b))
+    term2 = 12.0 * b * pt.exp(betaln(1.0 + inv_a, 2.0 * b))
+    term3 = 30.0 * b * pt.exp(betaln(1.0 + inv_a, 3.0 * b))
+    term4 = 20.0 * b * pt.exp(betaln(1.0 + inv_a, 4.0 * b))
+    return (term1 - term2 + term3 - term4) / l2
+
+
 def entropy(a, b):
     h_b = pt.psi(b + 1) + pt.euler_gamma
     return (1 - 1 / b) + (1 - 1 / a) * h_b - pt.log(a) - pt.log(b)
@@ -73,7 +103,7 @@ def isf(x, a, b):
 
 
 def rvs(a, b, size=None, random_state=None):
-    u = pt.random.uniform(0, 1, size=size, rng=random_state)
+    u = pt.random.uniform(0, 1, size=size, rng=random_state, return_next_rng=True)[1]
     return ppf(u, a, b)
 
 
@@ -81,7 +111,7 @@ def logpdf(x, a, b):
     return pt.switch(
         pt.bitwise_or(pt.le(x, 0), pt.ge(x, 1)),
         -pt.inf,
-        pt.log(a * b) + xlogy0(a - 1, x) + xlogy0(b - 1, 1 - x**a),
+        pt.log(a * b) + xlogy(a - 1, x) + xlogy(b - 1, 1 - x**a),
     )
 
 

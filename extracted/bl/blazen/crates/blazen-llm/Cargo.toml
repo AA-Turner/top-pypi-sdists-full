@@ -188,7 +188,7 @@ blazen-llm-llamacpp-server = { workspace = true, optional = true }
 blazen-llm-tgi = { workspace = true, optional = true }
 blazen-llm-lmstudio = { workspace = true, optional = true }
 blazen-audio-vc = { workspace = true, optional = true }
-blazen-3d = { version = "0.6.6", path = "../blazen-3d", optional = true }
+blazen-3d = { version = "0.6.7", path = "../blazen-3d", optional = true }
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"], optional = true }
 candle-core = { workspace = true, optional = true }
 blazen-embed-fastembed = { workspace = true, optional = true }

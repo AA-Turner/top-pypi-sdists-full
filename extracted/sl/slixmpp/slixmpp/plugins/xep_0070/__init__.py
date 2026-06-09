@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2015 Emmanuel Gil Peyrot
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.plugins.xep_0070.confirm import XEP_0070
 
 
 register_plugin(XEP_0070)
+
+__all__ = ['Confirm', 'XEP_0070']

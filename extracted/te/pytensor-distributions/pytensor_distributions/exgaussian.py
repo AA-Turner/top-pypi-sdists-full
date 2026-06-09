@@ -1,6 +1,7 @@
 import pytensor.tensor as pt
 
 from pytensor_distributions.helper import continuous_entropy, logdiffexp
+from pytensor_distributions.lmoments import _lmoments
 from pytensor_distributions.normal import logcdf as normal_logcdf
 from pytensor_distributions.normal import logpdf as normal_logpdf
 from pytensor_distributions.optimization import find_ppf
@@ -43,6 +44,22 @@ def kurtosis(mu, sigma, nu):
     return 6.0 * pt.square(nus2) * pt.pow(opnus2, -2)
 
 
+def lmoment1(mu, sigma, nu):
+    return mean(mu, sigma, nu)
+
+
+def lmoment2(mu, sigma, nu):
+    return _lmoments(ppf, mu, sigma, nu, r=2)
+
+
+def lmoment3(mu, sigma, nu):
+    return _lmoments(ppf, mu, sigma, nu, r=3)
+
+
+def lmoment4(mu, sigma, nu):
+    return _lmoments(ppf, mu, sigma, nu, r=4)
+
+
 def entropy(mu, sigma, nu):
     min_x = ppf(0.0001, mu, sigma, nu)
     max_x = ppf(0.9999, mu, sigma, nu)
@@ -71,8 +88,8 @@ def sf(x, mu, sigma, nu):
 
 
 def rvs(mu, sigma, nu, size=None, random_state=None):
-    next_rng, exp_rvs = pt.random.exponential(nu, rng=random_state, size=size).owner.outputs
-    normal_rvs = pt.random.normal(mu, sigma, rng=next_rng, size=size)
+    next_rng, exp_rvs = pt.random.exponential(nu, rng=random_state, size=size, return_next_rng=True)
+    normal_rvs = pt.random.normal(mu, sigma, rng=next_rng, size=size, return_next_rng=True)[1]
     return normal_rvs + exp_rvs
 
 

@@ -9,8 +9,9 @@ def test_awkward_reduce_max_1():
 	lenparents = 0
 	outlength = 0
 	parents = []
+	offsets = []
 	funcPy = getattr(kernels, 'awkward_reduce_max')
-	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = []
 	assert toptr == pytest_toptr
 
@@ -22,8 +23,9 @@ def test_awkward_reduce_max_2():
 	lenparents = 9
 	outlength = 8
 	parents = [0, 0, 0, 6, 6, 1, 1, 7, 2]
+	offsets = [0, 3, 5, 6, 6, 6, 6, 8, 9]
 	funcPy = getattr(kernels, 'awkward_reduce_max')
-	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [13, 11, 5, -9223372036854775808, -9223372036854775808, -9223372036854775808, 23, 19]
 	assert toptr == pytest_toptr
 
@@ -35,8 +37,9 @@ def test_awkward_reduce_max_3():
 	lenparents = 6
 	outlength = 4
 	parents = [0, 0, 1, 3, 3, 3]
+	offsets = [0, 2, 3, 3, 6]
 	funcPy = getattr(kernels, 'awkward_reduce_max')
-	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 3, -9223372036854775808, 6]
 	assert toptr == pytest_toptr
 
@@ -48,8 +51,9 @@ def test_awkward_reduce_max_4():
 	lenparents = 3
 	outlength = 1
 	parents = [0, 0, 0]
+	offsets = [0, 3]
 	funcPy = getattr(kernels, 'awkward_reduce_max')
-	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [3]
 	assert toptr == pytest_toptr
 
@@ -61,8 +65,9 @@ def test_awkward_reduce_max_5():
 	lenparents = 6
 	outlength = 4
 	parents = [0, 0, 1, 1, 1, 3]
+	offsets = [0, 2, 5, 5, 6]
 	funcPy = getattr(kernels, 'awkward_reduce_max')
-	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [4, 5, -9223372036854775808, 6]
 	assert toptr == pytest_toptr
 
@@ -74,8 +79,9 @@ def test_awkward_reduce_max_6():
 	lenparents = 9
 	outlength = 5
 	parents = [0, 0, 0, 1, 1, 2, 2, 3, 4]
+	offsets = [0, 3, 5, 7, 8, 9]
 	funcPy = getattr(kernels, 'awkward_reduce_max')
-	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [5, 3, 5, 4, 2]
 	assert toptr == pytest_toptr
 
@@ -87,8 +93,9 @@ def test_awkward_reduce_max_7():
 	lenparents = 9
 	outlength = 4
 	parents = [0, 0, 0, 0, 0, 2, 2, 2, 3]
+	offsets = [0, 5, 5, 8, 9]
 	funcPy = getattr(kernels, 'awkward_reduce_max')
-	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [5, 4, 4, 5]
 	assert toptr == pytest_toptr
 
@@ -100,8 +107,9 @@ def test_awkward_reduce_max_8():
 	lenparents = 9
 	outlength = 4
 	parents = [0, 0, 0, 0, 0, 2, 2, 2, 3]
+	offsets = [0, 5, 5, 8, 9]
 	funcPy = getattr(kernels, 'awkward_reduce_max')
-	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [6, 4, 4, 6]
 	assert toptr == pytest_toptr
 
@@ -113,8 +121,9 @@ def test_awkward_reduce_max_9():
 	lenparents = 20
 	outlength = 5
 	parents = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4]
+	offsets = [0, 4, 8, 12, 16, 20]
 	funcPy = getattr(kernels, 'awkward_reduce_max')
-	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [5, 7, 9, 10, 7]
 	assert toptr == pytest_toptr
 
@@ -126,8 +135,9 @@ def test_awkward_reduce_max_10():
 	lenparents = 20
 	outlength = 4
 	parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3]
+	offsets = [0, 5, 10, 15, 20]
 	funcPy = getattr(kernels, 'awkward_reduce_max')
-	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [5, 8, 7, 10]
 	assert toptr == pytest_toptr
 
@@ -139,8 +149,9 @@ def test_awkward_reduce_max_11():
 	lenparents = 9
 	outlength = 6
 	parents = [0, 0, 0, 2, 2, 3, 4, 4, 5]
+	offsets = [0, 3, 3, 5, 6, 8, 9]
 	funcPy = getattr(kernels, 'awkward_reduce_max')
-	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [5, -9223372036854775808, 11, 13, 19, 23]
 	assert toptr == pytest_toptr
 
@@ -152,8 +163,9 @@ def test_awkward_reduce_max_12():
 	lenparents = 9
 	outlength = 4
 	parents = [0, 0, 0, 0, 0, 2, 2, 2, 3]
+	offsets = [0, 5, 5, 8, 9]
 	funcPy = getattr(kernels, 'awkward_reduce_max')
-	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [5, -9223372036854775808, 3, 5]
 	assert toptr == pytest_toptr
 
@@ -165,8 +177,9 @@ def test_awkward_reduce_max_13():
 	lenparents = 6
 	outlength = 1
 	parents = [0, 0, 0, 0, 0, 0]
+	offsets = [0, 6]
 	funcPy = getattr(kernels, 'awkward_reduce_max')
-	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,identity = identity,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [6]
 	assert toptr == pytest_toptr
 

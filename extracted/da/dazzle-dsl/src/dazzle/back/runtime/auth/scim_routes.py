@@ -91,6 +91,10 @@ def _render_user(
             "location": f"{base}/scim/v2/Users/{membership.id}",
         },
     }
+    # #1342 gap 1: round-trip the IdP's stable user id (Entra correlates its directory
+    # object to this resource by the externalId it sent).
+    if getattr(membership, "external_id", None):
+        out["externalId"] = membership.external_id
     # #1342: read-only reflection of the membership's persisted SCIM group
     # memberships (RFC: User.groups is server-managed). Only when we have the
     # connection scope to resolve them.
@@ -265,7 +269,12 @@ def create_scim_routes() -> APIRouter:
         active = _coerce_active(active) if not isinstance(active, bool) else active
         try:
             result = provision_scim_user(
-                store, conn, email=email, active=bool(active), groups=_groups_from_body(body)
+                store,
+                conn,
+                email=email,
+                active=bool(active),
+                groups=_groups_from_body(body),
+                external_id=body.get("externalId"),
             )
         except ScimError as exc:
             status = 400 if exc.reason in ("no_email", "domain_not_verified") else 409
@@ -323,7 +332,12 @@ def create_scim_routes() -> APIRouter:
         active = _coerce_active(active) if not isinstance(active, bool) else active
         try:
             provision_scim_user(
-                store, conn, email=email, active=bool(active), groups=_groups_from_body(body)
+                store,
+                conn,
+                email=email,
+                active=bool(active),
+                groups=_groups_from_body(body),
+                external_id=body.get("externalId"),
             )
         except ScimError as exc:
             return _error(400, str(exc), scim_type="invalidValue")
@@ -367,7 +381,7 @@ def create_scim_routes() -> APIRouter:
     # ------------------------------------------------------------------ #
 
     def _group_to_scim(group: Any, member_ids: list[str], base: str) -> dict[str, Any]:
-        return {
+        resource = {
             "schemas": ["urn:ietf:params:scim:schemas:core:2.0:Group"],
             "id": group.id,
             "displayName": group.display_name,
@@ -379,6 +393,10 @@ def create_scim_routes() -> APIRouter:
                 "location": f"{base}/scim/v2/Groups/{group.id}",
             },
         }
+        # Echo the IdP's stable group id (#1342) — Entra reconciles its objectId against it.
+        if getattr(group, "external_id", None):
+            resource["externalId"] = group.external_id
+        return resource
 
     @router.post("/scim/v2/Groups", status_code=201)
     async def scim_create_group(request: Request) -> Any:
@@ -392,7 +410,13 @@ def create_scim_routes() -> APIRouter:
         assert body is not None
         member_ids = [m["value"] for m in (body.get("members") or []) if "value" in m]
         try:
-            group = sp.create_group(store, conn, body.get("displayName", ""), member_ids)
+            group = sp.create_group(
+                store,
+                conn,
+                body.get("displayName", ""),
+                member_ids,
+                external_id=body.get("externalId"),  # the Entra group objectId GUID
+            )
         except sp.SCIMGroupError as e:
             return _error(e.status, str(e))
         base = str(request.base_url).rstrip("/")
@@ -447,6 +471,8 @@ def create_scim_routes() -> APIRouter:
             return _error(400, "displayName is required", scim_type="invalidValue")
         try:
             sp.rename_group(store, conn, group_id, body["displayName"])
+            if "externalId" in body:  # #1342: keep the IdP's stable group id fresh on replace
+                store.update_scim_group_external_id(group_id, conn.id, body.get("externalId"))
             member_ids = [m["value"] for m in (body.get("members") or []) if "value" in m]
             sp.set_group_members(store, conn, group_id, member_ids)
             group = sp.get_group(store, conn, group_id)

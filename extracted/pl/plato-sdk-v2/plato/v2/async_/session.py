@@ -126,6 +126,10 @@ class SerializedEnv(BaseModel):
     alias: str
     artifact_id: str | None = None
     simulator: str | None = None
+    # Carried so a reattached session keeps the SSH login user (plato for
+    # Windows/QEMU) and can reach the VM without re-fetching job info.
+    provider: str | None = None
+    mesh_ip: str | None = None
 
 
 class SerializedSession(BaseModel):
@@ -1197,9 +1201,11 @@ class Session:
             found_env = self.get_env(env)
             if not found_env:
                 raise ValueError(f"Environment with alias '{env}' not found in session")
+            env_obj = found_env
             job_id = found_env.job_id
             alias = env
         else:
+            env_obj = env
             job_id = env.job_id
             alias = env.alias
 
@@ -1214,6 +1220,10 @@ class Session:
 
         if not response.success:
             raise RuntimeError(f"Failed to remove job {job_id}")
+
+        # Forget this VM's SSH host→user entries so a later VM reusing the mesh
+        # IP / host string can't inherit a stale login user.
+        env_obj._unregister_ssh_user()
 
         # Update internal context - remove the environment
         if self._context.envs:
@@ -1851,6 +1861,11 @@ class Session:
             x_api_key=self._api_key,
         )
 
+        # Forget this session's SSH host→user entries so they don't linger in a
+        # long-lived process. Only built Environments ever registered anything.
+        for env in self._envs or []:
+            env._unregister_ssh_user()
+
         self._closed = True
 
     def _check_closed(self) -> None:
@@ -1899,6 +1914,8 @@ class Session:
                     alias=env.alias,
                     artifact_id=env.artifact_id,
                     simulator=env.simulator,
+                    provider=getattr(env, "provider", None),
+                    mesh_ip=getattr(env, "mesh_ip", None),
                 )
                 for env in (self._context.envs or [])
             ],
@@ -1952,6 +1969,8 @@ class Session:
                 alias=env.alias,
                 artifact_id=env.artifact_id,
                 simulator=env.simulator,
+                provider=env.provider,
+                mesh_ip=env.mesh_ip,
             )
             for env in serialized.envs
         ]

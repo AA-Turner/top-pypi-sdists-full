@@ -203,6 +203,44 @@ def build_column_lineage_events(prefix: str) -> list[LineageEvent]:
     ]
 
 
+def build_cross_warehouse_lineage_events(
+    prefix: str,
+    *,
+    source_resource_uuid: str,
+    source_resource_type: str,
+    dest_resource_uuid: str,
+    dest_resource_type: str,
+) -> list[LineageEvent]:
+    """Create a cross-warehouse table->table lineage event.
+
+    Each asset names its own warehouse via ``resource_uuid`` / ``resource_type``.
+    The top-level resource is omitted from the ``send_lineage`` call so the source
+    and destination can live in different warehouses.
+    """
+    return [
+        LineageEvent(
+            destination=LineageAssetRef(
+                type="TABLE",
+                name=asset_name(prefix, "dest"),
+                database=MANUAL_INGESTION_DATABASE,
+                schema=MANUAL_INGESTION_SCHEMA,
+                resource_uuid=dest_resource_uuid,
+                resource_type=dest_resource_type,
+            ),
+            sources=[
+                LineageAssetRef(
+                    type="TABLE",
+                    name=asset_name(prefix, "src"),
+                    database=MANUAL_INGESTION_DATABASE,
+                    schema=MANUAL_INGESTION_SCHEMA,
+                    resource_uuid=source_resource_uuid,
+                    resource_type=source_resource_type,
+                ),
+            ],
+        ),
+    ]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Send sample lineage to Monte Carlo via pycarlo IngestionService",
@@ -224,6 +262,33 @@ def main() -> None:
         "--column-lineage",
         action="store_true",
         help="Send column-level lineage instead of table-level",
+    )
+    parser.add_argument(
+        "--cross-warehouse",
+        action="store_true",
+        help=(
+            "Send cross-warehouse table->table lineage (source and destination in "
+            "different warehouses). Uses per-asset resource_uuid/resource_type and "
+            "omits the top-level resource."
+        ),
+    )
+    parser.add_argument(
+        "--source-resource-uuid",
+        help="Source asset's warehouse UUID (cross-warehouse mode)",
+    )
+    parser.add_argument(
+        "--source-resource-type",
+        default="snowflake",
+        help="Source asset's resource type (cross-warehouse mode)",
+    )
+    parser.add_argument(
+        "--dest-resource-uuid",
+        help="Destination asset's warehouse UUID (cross-warehouse mode)",
+    )
+    parser.add_argument(
+        "--dest-resource-type",
+        default="bigquery",
+        help="Destination asset's resource type (cross-warehouse mode)",
     )
     parser.add_argument(
         "--payload-file",
@@ -254,6 +319,22 @@ def main() -> None:
             payload = json.load(file_handle)
         print(f"Sending raw lineage payload from {args.payload_file} ...")
         result = service.send_lineage_raw(payload=payload)
+    elif args.cross_warehouse:
+        source_wh = args.source_resource_uuid or args.resource_uuid
+        dest_wh = args.dest_resource_uuid or args.resource_uuid
+        events = build_cross_warehouse_lineage_events(
+            args.asset_prefix,
+            source_resource_uuid=source_wh,
+            source_resource_type=args.source_resource_type,
+            dest_resource_uuid=dest_wh,
+            dest_resource_type=args.dest_resource_type,
+        )
+        print(
+            f"Sending {len(events)} cross-warehouse lineage event(s) "
+            f"(source warehouse {source_wh}, destination warehouse {dest_wh}) ..."
+        )
+        # No top-level resource: each asset carries its own resource_uuid.
+        result = service.send_lineage(events=events)
     else:
         if args.column_lineage:
             events = build_column_lineage_events(args.asset_prefix)

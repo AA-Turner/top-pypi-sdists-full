@@ -10,3 +10,5 @@ from slixmpp.plugins.xep_0048.bookmarks import XEP_0048
 
 
 register_plugin(XEP_0048)
+
+__all__ = ['Bookmarks', 'Conference', 'URL', 'XEP_0048']

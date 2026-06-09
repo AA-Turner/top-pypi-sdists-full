@@ -6,6 +6,7 @@ from pytensor_distributions.halfnormal import cdf as halfnormal_cdf
 from pytensor_distributions.halfnormal import entropy as halfnormal_entropy
 from pytensor_distributions.halfnormal import logpdf as halfnormal_logpdf
 from pytensor_distributions.helper import cdf_bounds, ppf_bounds_cont
+from pytensor_distributions.lmoments import _lmoments
 
 
 def mean(nu, sigma):
@@ -60,6 +61,22 @@ def kurtosis(nu, sigma):
     return pt.full_like(nu_b, pt.nan)
 
 
+def lmoment1(nu, sigma):
+    return mean(nu, sigma)
+
+
+def lmoment2(nu, sigma):
+    return pt.switch(nu > 2, _lmoments(ppf, nu, sigma, r=2), pt.inf)
+
+
+def lmoment3(nu, sigma):
+    return pt.switch(nu > 3, _lmoments(ppf, nu, sigma, r=3), pt.inf)
+
+
+def lmoment4(nu, sigma):
+    return pt.switch(nu > 4, _lmoments(ppf, nu, sigma, r=4), pt.inf)
+
+
 def entropy(nu, sigma):
     # we use a halfnormal approximation for large nu
     return pt.switch(
@@ -106,7 +123,7 @@ def sf(x, nu, sigma):
 
 
 def rvs(nu, sigma, size=None, random_state=None):
-    t_samples = pt.random.t(nu, rng=random_state, size=size)
+    t_samples = pt.random.t(nu, rng=random_state, size=size, return_next_rng=True)[1]
     return pt.abs(t_samples * sigma)
 
 

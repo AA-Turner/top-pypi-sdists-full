@@ -15,6 +15,7 @@ from scipy.signal.windows import hann
 import warnings
 from tqdm import trange
 
+
 # Optional cupy imports for GPU acceleration
 try:
     import cupy as cp
@@ -56,11 +57,13 @@ def mse(SMatrix, lambda_true, lambda_pred):
     Calculate the Mean Squared Error (MSE) between two arrays.
     Equivalent to sklearn.metrics.mean_squared_error.
     """
-    xp = get_array_module(SMatrix)
+    xp = get_array_module(SMatrix) if SMatrix is not None else np
 
     lambda_true = xp.asarray(lambda_true)
     lambda_pred = xp.asarray(lambda_pred)
     return xp.mean((lambda_true - lambda_pred) ** 2)
+
+
 
 # =============================================================================
 # ALGORITHM FUNCTIONS

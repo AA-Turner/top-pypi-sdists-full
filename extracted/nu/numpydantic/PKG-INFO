@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: numpydantic
-Version: 1.9.0
+Version: 1.9.1
 Summary: Type and shape validation and serialization for arbitrary array types in pydantic models
 Keywords: arrays,validation,serialization,numpy,pydantic
 Author-Email: sneakers-the-rat <sneakers-the-rat@protonmail.com>

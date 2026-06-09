@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -548,19 +549,30 @@ class GuardChecks:
         if not files:
             return CheckResult(passed=True, warnings=["No files to check"])
 
-        # 2. Build command — replace ${files} placeholder (safe quoting for shell)
+        # 2. Build command — replace ${files} and ${python_bin} placeholders
         import shlex
         tool_name = tool_config.get("name", "unknown")
         command_tmpl = tool_config.get("command", "")
         command = command_tmpl.replace("${files}", shlex.join(files))
+        # Resolve ${python_bin} from config so venv tools work
+        try:
+            from kanban_framework.infra.config import Config as _Cfg
+            _py_bin = _Cfg(self._fs).python_bin or "python"
+        except Exception:
+            _py_bin = "python"
+        command = command.replace("${python_bin}", _py_bin)
         timeout = tool_config.get("timeout_seconds", 120)
-        worktree = task.worktree_path or "."
+        worktree = task.worktree_path or str(self._fs.root)
 
-        # 3. Execute via subprocess
+        # 3. Execute via subprocess — resolve tool binary to handle venv paths
+        tool_bin = shutil.which(command.split()[0]) if not command.startswith(("/", "./", "../")) else command.split()[0]
+        if tool_bin:
+            command = tool_bin + command[len(command.split()[0]):]
+
         try:
             proc = subprocess.run(
                 command, shell=True, capture_output=True, text=True,
-                timeout=timeout, cwd=worktree,
+                timeout=timeout, cwd=str(worktree),
             )
         except FileNotFoundError:
             return CheckResult(

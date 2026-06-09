@@ -3,12 +3,10 @@
 # Copyright (C) 2010 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-import logging
 
 from asyncio import Future
 
-import slixmpp
-from slixmpp import Iq, JID
+from slixmpp import JID
 from slixmpp.xmlstream import register_stanza_plugin
 from slixmpp.plugins import BasePlugin
 from slixmpp.plugins.xep_0004 import Form

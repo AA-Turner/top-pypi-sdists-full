@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2013 Vinay Sajip.
+# Copyright (C) 2013-2026 Vinay Sajip.
 # Licensed to the Python Software Foundation under a contributor agreement.
 # See LICENSE.txt and CONTRIBUTORS.txt.
 #
@@ -689,6 +689,51 @@ class WheelTestCase(DistlibTestCase):
         del sys.modules['minimext']
         self.assertRaises(ImportError, __import__, 'minimext')
 
+        # The EXTENSIONS map in a wheel's .dist-info is attacker-controlled.
+        # install()/update()/verify() already reject archive entries whose
+        # directory portions contain '..', but mount() -> _get_extensions()
+        # did not apply the same check, so a crafted EXTENSIONS entry could
+        # name a cache destination outside the per-wheel dylib cache. mount()
+        # must refuse such a wheel (this mirrors the '..' guard used
+        # elsewhere in this module; the raw extraction is separately
+        # sanitised by the stdlib, so this is a missing-confinement
+        # consistency fix rather than a self-contained RCE).
+        import json
+
+        name, version = 'evilext', '0.1'
+        # Build a filename whose tag is compatible with the running
+        # interpreter, so is_compatible() is True and mount() reaches
+        # _get_extensions().
+        fn = '%s-%s-%s-%s-%s.whl' % (name, version, IMPVER, ABI, ARCH)
+        workdir = tempfile.mkdtemp()
+        try:
+            pathname = os.path.join(workdir, fn)
+            info_dir = '%s-%s.dist-info' % (name, version)
+            extensions = {'evilext._mod': '../../../../tmp/distlib_pwned.so'}
+            with ZipFile(pathname, 'w') as zf:
+                zf.writestr('%s/WHEEL' % info_dir,
+                'Wheel-Version: 1.0\nGenerator: test\n'
+                'Root-Is-Purelib: false\n'
+                'Tag: %s-%s-%s\n' % (IMPVER, ABI, ARCH))
+                zf.writestr('%s/METADATA' % info_dir,
+                'Metadata-Version: 2.1\nName: %s\n'
+                'Version: %s\n' % (name, version))
+                zf.writestr('%s/EXTENSIONS' % info_dir, json.dumps(extensions))
+                zf.writestr('%s/RECORD' % info_dir, '')
+            w = Wheel(pathname)
+            self.assertTrue(w.is_compatible())
+            try:
+                self.assertRaises(DistlibException, w.mount)
+            finally:
+                # mount() inserts the wheel on sys.path before reading
+                # EXTENSIONS; make sure a failed mount leaves no trace.
+                if pathname in sys.path:
+                    w.unmount()
+                self.assertNotIn(pathname, sys.path)
+        finally:
+            shutil.rmtree(workdir)
+
+
     def test_local_version(self):
         w = Wheel('dummy-0.1_1.2')
         self.assertEqual(w.filename, 'dummy-0.1_1.2-%s'
@@ -764,6 +809,29 @@ class WheelTestCase(DistlibTestCase):
         if pip_version() >= (20, 2, 0):
             raise unittest.SkipTest('Test not supported by pip version')
         self.do_build_and_install('Babel == 0.9.6')
+
+    def test_path_doesnt_escape(self):
+        workdir = tempfile.mkdtemp(prefix='distlib-test-')
+        self.addCleanup(shutil.rmtree, workdir)
+        maker = ScriptMaker(None, None)
+        root    = os.path.join(workdir, "venv_root")
+        purelib = os.path.join(root, "lib", "site-packages")
+        scripts = os.path.join(root, "bin")
+        for d in (purelib, scripts):
+            os.makedirs(d)
+        paths = {
+            "prefix":   root,
+            "purelib":  purelib,
+            "platlib":  purelib,
+            "scripts":  scripts,
+            "headers":  os.path.join(root, "include"),
+            "data":     root,
+        }
+        fn = os.path.join(HERE, 'evilpkg-1.0-py3-none-any.whl')
+        w = Wheel(fn)
+        with self.assertRaises(DistlibException) as ctx:
+            w.install(paths, maker)
+        self.assertIn('Wheel member escapes installation directory', str(ctx.exception))
 
 
 if __name__ == '__main__':  # pragma: no cover

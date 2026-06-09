@@ -24,4 +24,3 @@ class HTTPData(ElementBase):
 
     def set_data(self, data, encoding='text'):
         self._set_sub_text(encoding, text=data)
-

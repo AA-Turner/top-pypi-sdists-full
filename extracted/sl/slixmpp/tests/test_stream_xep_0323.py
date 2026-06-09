@@ -1,14 +1,11 @@
 # -*- coding: utf-8 -*-
 
-import sys
 import datetime
 import time
-import threading
 import unittest
 import re
 
 from slixmpp.test import *
-from slixmpp.xmlstream import ElementBase
 from slixmpp.plugins.xep_0323.device import Device
 
 
@@ -674,7 +671,7 @@ class TestStreamSensorData(SlixTest):
             </message>
             """)
 
-        self.assertEqual(results, ["accepted","failure"]);
+        self.assertEqual(results, ["accepted","failure"])
         # self.assertIn("nodeId", callback_data);
         self.assertTrue("nodeId" in callback_data)
         self.assertEqual(callback_data["nodeId"], "Device33")
@@ -1070,7 +1067,7 @@ class TestStreamSensorData(SlixTest):
             </message>
             """)
 
-        self.assertEqual(results, ["queued","started","fields","done"]);
+        self.assertEqual(results, ["queued","started","fields","done"])
         # self.assertIn("nodeId", callback_data);
         self.assertTrue("nodeId" in callback_data)
         self.assertEqual(callback_data["nodeId"], "Device33")
@@ -1220,4 +1217,3 @@ class TestStreamSensorData(SlixTest):
 
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestStreamSensorData)
-

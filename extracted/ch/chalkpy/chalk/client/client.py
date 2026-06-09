@@ -67,6 +67,7 @@ if TYPE_CHECKING:
     import polars as pl
     from pydantic import BaseModel
 
+    from chalk.client._chalkdf_import import ChalkDfDataFrame
     from chalk.client.api import APINamespace
     from chalk.scalinggroup.spec import (
         AutoScalingSpec,
@@ -1089,7 +1090,7 @@ class ChalkClient:
 
     def offline_query(
         self,
-        input: Union[QueryInput, OfflineQueryInputUri] | None = None,
+        input: Union[QueryInput, OfflineQueryInputUri, ChalkDfDataFrame] | None = None,
         input_times: Sequence[datetime] | datetime | None = None,
         output: Sequence[FeatureReference] = (),
         required_output: Sequence[FeatureReference] = (),
@@ -1139,6 +1140,14 @@ class ChalkClient:
             feature, or an existing `DataFrame`.
             Each element in the `DataFrame` or list of values represents
             an observation in line with the timestamp in `input_times`.
+
+            When `input` is a chalkdf DataFrame, the underlying plan is serialized
+            and executed server-side. Use this for inputs referencing server-reachable data
+            sources (e.g., `DataFrame.scan(...)`, `DataFrame.scan_glue_iceberg(...)`,
+            `DataFrame.from_dataset(...)`, `DataFrame.from_catalog_table(...)`).
+            Avoid using chalkdf DataFrames that embed large literal data via `DataFrame.from_dict(...)`
+            or `DataFrame.from_arrow(...)`. Instead, pass that data through `input`
+            directly (as a dict, pandas DataFrame, polars DataFrame, or pyarrow Table).
         spine_sql_query
             A SQL query that will query your offline store and use the result as input.
             See https://docs.chalk.ai/docs/query-offline#input for more information.

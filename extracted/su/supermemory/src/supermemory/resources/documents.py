@@ -535,6 +535,7 @@ class DocumentsResource(SyncAPIResource):
         container_tag: str | Omit = omit,
         container_tags: str | Omit = omit,
         custom_id: str | Omit = omit,
+        dreaming: Literal["instant", "dynamic"] | Omit = omit,
         entity_context: str | Omit = omit,
         filepath: str | Omit = omit,
         file_type: str | Omit = omit,
@@ -564,6 +565,11 @@ class DocumentsResource(SyncAPIResource):
 
           custom_id: Optional custom ID of the document. Max 100 characters, alphanumeric with
               hyphens, underscores, and colons only.
+
+          dreaming: Processing mode. "dynamic" (default) groups related documents together so
+              memories form from coherent, logical units rather than one isolated entry at a
+              time. "instant" processes each document on its own right away, and bills one
+              extra operation per document.
 
           entity_context: Optional entity context for this container tag. Max 1500 characters. Used during
               document processing to guide memory extraction.
@@ -608,6 +614,7 @@ class DocumentsResource(SyncAPIResource):
                 "container_tag": container_tag,
                 "container_tags": container_tags,
                 "custom_id": custom_id,
+                "dreaming": dreaming,
                 "entity_context": entity_context,
                 "filepath": filepath,
                 "file_type": file_type,
@@ -1131,6 +1138,7 @@ class AsyncDocumentsResource(AsyncAPIResource):
         container_tag: str | Omit = omit,
         container_tags: str | Omit = omit,
         custom_id: str | Omit = omit,
+        dreaming: Literal["instant", "dynamic"] | Omit = omit,
         entity_context: str | Omit = omit,
         filepath: str | Omit = omit,
         file_type: str | Omit = omit,
@@ -1160,6 +1168,11 @@ class AsyncDocumentsResource(AsyncAPIResource):
 
           custom_id: Optional custom ID of the document. Max 100 characters, alphanumeric with
               hyphens, underscores, and colons only.
+
+          dreaming: Processing mode. "dynamic" (default) groups related documents together so
+              memories form from coherent, logical units rather than one isolated entry at a
+              time. "instant" processes each document on its own right away, and bills one
+              extra operation per document.
 
           entity_context: Optional entity context for this container tag. Max 1500 characters. Used during
               document processing to guide memory extraction.
@@ -1204,6 +1217,7 @@ class AsyncDocumentsResource(AsyncAPIResource):
                 "container_tag": container_tag,
                 "container_tags": container_tags,
                 "custom_id": custom_id,
+                "dreaming": dreaming,
                 "entity_context": entity_context,
                 "filepath": filepath,
                 "file_type": file_type,

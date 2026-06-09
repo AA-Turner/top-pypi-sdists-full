@@ -73,7 +73,7 @@ def encode_stringify(value: str | dict[str, t.Any]) -> str:
 def _assert_type(
     name: str,
     value: t.Any,
-    types: t.Type[object] | tuple[t.Type[object], ...],
+    types: type[object] | tuple[type[object], ...],
     type_name: str,
 ) -> None:
     if not isinstance(value, types):

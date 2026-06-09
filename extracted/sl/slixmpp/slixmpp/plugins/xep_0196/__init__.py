@@ -11,3 +11,5 @@ from slixmpp.plugins.xep_0196.user_gaming import XEP_0196
 
 
 register_plugin(XEP_0196)
+
+__all__ = ['stanza', 'UserGaming', 'XEP_0196']

@@ -1,5 +1,5 @@
 import unittest
-from slixmpp import Iq, Message, JID
+from slixmpp import Iq, JID
 from slixmpp.test import SlixTest
 from slixmpp.plugins.xep_0405 import stanza
 from slixmpp.plugins.xep_0369 import stanza as mstanza

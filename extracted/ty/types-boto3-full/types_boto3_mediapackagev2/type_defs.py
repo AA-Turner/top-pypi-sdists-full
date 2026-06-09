@@ -27,6 +27,7 @@ from .literals import (
     CmafEncryptionMethodType,
     ContainerTypeType,
     CustomAdTypeType,
+    DashAudioTimelinePatternType,
     DashCompactnessType,
     DashDrmSignalingType,
     DashPeriodTriggerType,
@@ -879,6 +880,7 @@ class GetDashManifestConfigurationTypeDef(TypedDict):
     ProgramInformation: NotRequired[DashProgramInformationTypeDef]
     DvbSettings: NotRequired[DashDvbSettingsOutputTypeDef]
     Compactness: NotRequired[DashCompactnessType]
+    AudioTimelinePattern: NotRequired[DashAudioTimelinePatternType]
     SubtitleConfiguration: NotRequired[DashSubtitleConfigurationTypeDef]
     UriPathType: NotRequired[UriPathTypeType]
     AvailabilityStartTimeConfiguration: NotRequired[
@@ -1014,6 +1016,7 @@ class CreateDashManifestConfigurationTypeDef(TypedDict):
     ProgramInformation: NotRequired[DashProgramInformationTypeDef]
     DvbSettings: NotRequired[DashDvbSettingsUnionTypeDef]
     Compactness: NotRequired[DashCompactnessType]
+    AudioTimelinePattern: NotRequired[DashAudioTimelinePatternType]
     SubtitleConfiguration: NotRequired[DashSubtitleConfigurationTypeDef]
     UriPathType: NotRequired[UriPathTypeType]
     AvailabilityStartTimeConfiguration: NotRequired[

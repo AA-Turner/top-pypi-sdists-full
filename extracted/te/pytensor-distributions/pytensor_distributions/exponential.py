@@ -34,6 +34,25 @@ def kurtosis(lam):
     return pt.full_like(shape, 6.0)
 
 
+def lmoment1(lam):
+    return mean(lam)
+
+
+def lmoment2(lam):
+    shape = pt.broadcast_arrays(lam)[0]
+    return pt.full_like(shape, 1 / lam * 0.5)
+
+
+def lmoment3(lam):
+    shape = pt.broadcast_arrays(lam)[0]
+    return pt.full_like(shape, 1 / 3)
+
+
+def lmoment4(lam):
+    shape = pt.broadcast_arrays(lam)[0]
+    return pt.full_like(shape, 1 / 6)
+
+
 def entropy(lam):
     return 1.0 - pt.log(lam)
 
@@ -61,7 +80,7 @@ def sf(x, lam):
 
 
 def rvs(lam, size=None, random_state=None):
-    return pt.random.exponential(1.0 / lam, rng=random_state, size=size)
+    return pt.random.exponential(1.0 / lam, rng=random_state, size=size, return_next_rng=True)[1]
 
 
 def logcdf(x, lam):

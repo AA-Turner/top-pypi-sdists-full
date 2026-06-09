@@ -1,5 +1,6 @@
 import pytest
-from monty.serialization import MontyDecoder, loadfn
+from monty.serialization import loadfn
+from pydantic import TypeAdapter
 
 from emmet.core import ARROW_COMPATIBLE
 from emmet.core.thermo import ThermoDoc
@@ -8,6 +9,9 @@ if ARROW_COMPATIBLE:
     import pyarrow as pa
 
     from emmet.core.arrow import arrowize
+    from emmet.core.types.pymatgen_types.computed_entries_adapter import (
+        ComputedStructureEntryType,
+    )
 
 
 @pytest.fixture(scope="session")
@@ -44,17 +48,18 @@ def O_structure(test_dir):
 def entries(
     Fe3O4_structure, Fe2O3a_structure, Fe2O3b_structure, Fe_structure, O_structure
 ):
-    return MontyDecoder().process_decoded(
+    return TypeAdapter(list[ComputedStructureEntryType]).validate_python(
         [
             {
                 "@module": "pymatgen.entries.computed_entries",
                 "@class": "ComputedStructureEntry",
                 "correction": 0.0,
                 "structure": Fe3O4_structure.as_dict(),
-                "entry_id": "mp-1",
+                "entry_id": "mp-1-UNKNOWN",
                 "energy": -382.146593528,
                 "composition": {"Fe": 24.0, "O": 32.0},
                 "name": "Fe3O4",
+                "parameters": {},
                 "data": {
                     "material_id": "mp-1",
                     "run_type": "Unknown",
@@ -68,10 +73,11 @@ def entries(
                 "@class": "ComputedStructureEntry",
                 "correction": 0.0,
                 "structure": Fe2O3a_structure.as_dict(),
-                "entry_id": "mp-2",
+                "entry_id": "mp-2-UNKNOWN",
                 "energy": -270.38765404,
                 "composition": {"Fe": 16.0, "O": 24.0},
                 "name": "Fe2O3",
+                "parameters": {},
                 "data": {
                     "material_id": "mp-2",
                     "run_type": "Unknown",
@@ -85,10 +91,11 @@ def entries(
                 "@class": "ComputedStructureEntry",
                 "correction": 0.0,
                 "structure": O_structure.as_dict(),
-                "entry_id": "mp-3",
+                "entry_id": "mp-3-UNKNOWN",
                 "energy": -92.274692568,
                 "composition": {"O": 24.0},
                 "name": "O",
+                "parameters": {},
                 "data": {
                     "material_id": "mp-3",
                     "run_type": "Unknown",
@@ -102,10 +109,11 @@ def entries(
                 "@class": "ComputedStructureEntry",
                 "correction": 0.0,
                 "structure": Fe_structure.as_dict(),
-                "entry_id": "mp-4",
+                "entry_id": "mp-4-UNKNOWN",
                 "energy": -13.00419661,
                 "composition": {"Fe": 2.0},
                 "name": "Fe",
+                "parameters": {},
                 "data": {
                     "material_id": "mp-4",
                     "run_type": "Unknown",
@@ -119,11 +127,12 @@ def entries(
                 "@class": "ComputedStructureEntry",
                 "correction": 0.0,
                 "structure": Fe2O3b_structure.as_dict(),
-                "entry_id": "mp-5",
+                "entry_id": "mp-5-UNKNOWN",
                 "energy": -1080.82678592,
                 "composition": {"Fe": 64.0, "O": 96.0},
                 "name": "Fe2O3",
                 "attribute": None,
+                "parameters": {},
                 "data": {
                     "material_id": "mp-5",
                     "run_type": "Unknown",

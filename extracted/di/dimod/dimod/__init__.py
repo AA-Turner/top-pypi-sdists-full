@@ -13,7 +13,7 @@
 #    limitations under the License.
 
 # version is used by serialization below so we need it before everything
-__version__ = '0.12.21'
+__version__ = '0.12.22'
 
 from dimod.constrained import *
 import dimod.constrained
@@ -64,6 +64,9 @@ from dimod.utilities import *
 import dimod.utilities
 
 from dimod.vartypes import *
+
+import dimod.ess
+from dimod.ess import compute_ess, compute_ess_sampleset
 
 # flags for some global features
 REAL_INTERACTIONS = False

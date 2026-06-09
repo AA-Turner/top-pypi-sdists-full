@@ -22,7 +22,7 @@ class Jingle(ElementBase):
             try:
                 value = JID(value)
             except ValueError:
-                raise ValueError(f'"jid" must be a valid JID object')
+                raise ValueError('"jid" must be a valid JID object')
         self.xml.attrib['jid'] = value.full
 
     def get_jid(self) -> JID | None:

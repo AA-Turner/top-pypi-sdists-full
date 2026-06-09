@@ -57,6 +57,11 @@ ASSET_REF_ASSET_TYPE_VALUES: frozenset[str] = frozenset(
 # Allowed values for ``AssetRef.role``.
 ASSET_REF_ROLE_VALUES: frozenset[str] = frozenset({"INPUT", "OUTPUT"})
 
+# Allowed values for ``Schedule.kind``.
+ETL_SCHEDULE_KIND_VALUES: frozenset[str] = frozenset(
+    {"cron", "interval", "event", "upstream", "manual"}
+)
+
 
 @dataclass
 class Schedule(DataClassJsonMixin):
@@ -66,15 +71,16 @@ class Schedule(DataClassJsonMixin):
     Wire validation is loose (``allow_unknown=True`` on the wire), so the
     field list here is the SDK's canonical view of a schedule.
 
-    :param kind: Schedule kind, e.g. ``"cron"`` or ``"interval"``.
+    :param kind: Schedule kind; one of :data:`ETL_SCHEDULE_KIND_VALUES`.
     :param cron_expression: Cron expression when ``kind == "cron"``.
     :param interval_seconds: Interval in seconds when ``kind == "interval"``.
     :param timezone: IANA timezone the schedule runs against.
     :param next_run_at: ISO8601 string for the next scheduled run.
     :param paused: Whether the schedule is currently paused.
-    :param event_trigger: Event-trigger identifier when the job is event-driven.
-    :param upstream_job_global_ids: Upstream job global IDs that this schedule
-        depends on.
+    :param event_trigger: Structured event-trigger descriptor when the job is
+        event-driven (vendor-specific shape).
+    :param upstream_job_source_ids: Source-system IDs of upstream jobs this
+        schedule depends on. The backend resolves these to internal global IDs.
     :param raw: Vendor-specific payload pass-through.
     """
 
@@ -84,11 +90,18 @@ class Schedule(DataClassJsonMixin):
     timezone: str | None = field(default=None, metadata=config(exclude=_is_none))
     next_run_at: str | None = field(default=None, metadata=config(exclude=_is_none))
     paused: bool | None = field(default=None, metadata=config(exclude=_is_none))
-    event_trigger: str | None = field(default=None, metadata=config(exclude=_is_none))
-    upstream_job_global_ids: list[str] = field(
+    event_trigger: dict | None = field(default=None, metadata=config(exclude=_is_none))
+    upstream_job_source_ids: list[str] = field(
         default_factory=list, metadata=config(exclude=_is_empty)
     )
     raw: dict | None = field(default=None, metadata=config(exclude=_is_none))
+
+    def __post_init__(self) -> None:
+        if self.kind not in ETL_SCHEDULE_KIND_VALUES:
+            raise ValueError(
+                f"Schedule.kind must be one of {sorted(ETL_SCHEDULE_KIND_VALUES)}; "
+                f"got {self.kind!r}."
+            )
 
 
 @dataclass
@@ -154,14 +167,12 @@ class AssetRef(DataClassJsonMixin):
     :param role: One of :data:`ASSET_REF_ROLE_VALUES`.
     :param mcon: Monte Carlo Object Name for the asset.
     :param fully_qualified_name: Fully-qualified name (vendor format).
-    :param metadata: Optional vendor-specific metadata pass-through.
     """
 
     asset_type: str
     role: str
     mcon: str | None = field(default=None, metadata=config(exclude=_is_none))
     fully_qualified_name: str | None = field(default=None, metadata=config(exclude=_is_none))
-    metadata: dict | None = field(default=None, metadata=config(exclude=_is_none))
 
     def __post_init__(self) -> None:
         if self.asset_type not in ASSET_REF_ASSET_TYPE_VALUES:
@@ -178,6 +189,87 @@ class AssetRef(DataClassJsonMixin):
 
 
 @dataclass
+class EtlGroup(DataClassJsonMixin):
+    """
+    Declarative description of the group a job belongs to (e.g. an Airflow
+    DAG, an ADF pipeline-group), nested under :attr:`EtlAsset.group`.
+
+    Mirrors the canonical ``EtlGroup`` producer-supplied fields; the backend
+    mints the group's identifiers (``mcon`` / ``global_id``) from
+    ``source_id``. Wire validation is loose (``allow_unknown=True``), so this
+    is the SDK's canonical view of a group block.
+
+    :param source_id: Vendor-stable source-system ID for the group. Must be
+        the vendor's stable id, not a display name — renaming in the vendor
+        UI must not change it.
+    :param name: Human-readable group name. The consumer falls back to
+        ``source_id`` when unset.
+    :param group_type: Source-system type of the group (e.g. ``"folder"``,
+        ``"DAG"``, ``"project"``). The consumer falls back to ``"folder"``
+        when unset.
+    :param schedule: :class:`Schedule` describing when the group runs.
+    :param attributes: Free-form attributes dict.
+    """
+
+    source_id: str
+    name: str | None = field(default=None, metadata=config(exclude=_is_none))
+    group_type: str | None = field(default=None, metadata=config(exclude=_is_none))
+    schedule: Schedule | None = field(default=None, metadata=config(exclude=_is_none))
+    attributes: dict | None = field(default=None, metadata=config(exclude=_is_none))
+
+
+@dataclass
+class EtlTask(DataClassJsonMixin):
+    """
+    Declarative description of a single task within an ETL job, nested under
+    :attr:`EtlAsset.tasks` on ``POST /ingest/v1/etl/metadata``.
+
+    A task is a leaf node in a job's graph (operator / activity / dbt step),
+    keyed on ``task_source_id``. It is a leaf in the canonical
+    ``group → job → tasks`` hierarchy, so it carries no nested ``tasks`` of
+    its own and no group block — the group lives on the parent
+    :class:`EtlAsset`. Unlike a job, a task has no schedule, owner, or URL of
+    its own; those are job-level concerns.
+
+    ``task_source_id`` and ``name`` are required; everything else is optional
+    and stripped from the serialized dict when unset.
+
+    :param task_source_id: Source-system ID for the task itself.
+    :param name: Human-readable task name.
+    :param task_type: Optional source-system type of the task (e.g. an Airflow
+        operator class, a dbt node type).
+    :param description: Optional human-readable description.
+    :param inputs: Declaration-time asset inputs (assets the task statically
+        reads). Run-time inputs ride on ``EtlRunEvent.inputs`` and are kept
+        separate.
+    :param outputs: Declaration-time asset outputs (assets the task statically
+        writes). Run-time outputs ride on ``EtlRunEvent.outputs`` and are kept
+        separate.
+    :param upstream_task_source_ids: Source-system IDs of sibling tasks in the
+        same job that this task depends on (drives task→task edges). The
+        backend resolves these to internal global IDs.
+    :param triggered_job_source_ids: Source-system IDs of jobs this task
+        triggers (drives task→job edges). The backend resolves these to
+        internal global IDs.
+    :param attributes: Free-form attributes dict.
+    """
+
+    task_source_id: str
+    name: str
+    task_type: str | None = field(default=None, metadata=config(exclude=_is_none))
+    description: str | None = field(default=None, metadata=config(exclude=_is_none))
+    inputs: list[AssetRef] = field(default_factory=list, metadata=config(exclude=_is_empty))
+    outputs: list[AssetRef] = field(default_factory=list, metadata=config(exclude=_is_empty))
+    upstream_task_source_ids: list[str] = field(
+        default_factory=list, metadata=config(exclude=_is_empty)
+    )
+    triggered_job_source_ids: list[str] = field(
+        default_factory=list, metadata=config(exclude=_is_empty)
+    )
+    attributes: dict | None = field(default=None, metadata=config(exclude=_is_none))
+
+
+@dataclass
 class EtlAsset(DataClassJsonMixin):
     """
     Declarative description of an ETL job for ``POST /ingest/v1/etl/metadata``.
@@ -189,8 +281,8 @@ class EtlAsset(DataClassJsonMixin):
 
     :param job_source_id: Source-system ID for the job itself.
     :param name: Human-readable job name.
-    :param group_source_id: Optional source-system ID for the job's group
-        (e.g. an Airflow DAG when this asset is a task).
+    :param group: Optional :class:`EtlGroup` the job belongs to (e.g. an
+        Airflow DAG). The job's tasks attach to the job, not the group.
     :param description: Optional human-readable description.
     :param folder: Optional folder/namespace string.
     :param is_paused: Whether the job is currently paused at the source.
@@ -205,11 +297,18 @@ class EtlAsset(DataClassJsonMixin):
     :param outputs: Declaration-time asset outputs (assets the job statically
         writes). Run-time outputs ride on ``EtlRunEvent.outputs`` and are
         kept separate.
+    :param tasks: Child tasks of this job, nested as :class:`EtlTask` entries.
+        Populates the canonical ``group → job → tasks`` hierarchy in place of
+        the legacy group-flattening workaround.
+    :param triggered_job_source_ids: Source-system IDs of jobs this job
+        triggers at the job level (drives job→job edges). The backend resolves
+        these to internal global IDs. Task-scoped trigger relationships belong
+        on :attr:`EtlTask.triggered_job_source_ids` instead.
     """
 
     job_source_id: str
     name: str
-    group_source_id: str | None = field(default=None, metadata=config(exclude=_is_none))
+    group: EtlGroup | None = field(default=None, metadata=config(exclude=_is_none))
     description: str | None = field(default=None, metadata=config(exclude=_is_none))
     folder: str | None = field(default=None, metadata=config(exclude=_is_none))
     is_paused: bool | None = field(default=None, metadata=config(exclude=_is_none))
@@ -220,6 +319,10 @@ class EtlAsset(DataClassJsonMixin):
     attributes: dict | None = field(default=None, metadata=config(exclude=_is_none))
     inputs: list[AssetRef] = field(default_factory=list, metadata=config(exclude=_is_empty))
     outputs: list[AssetRef] = field(default_factory=list, metadata=config(exclude=_is_empty))
+    tasks: list[EtlTask] = field(default_factory=list, metadata=config(exclude=_is_empty))
+    triggered_job_source_ids: list[str] = field(
+        default_factory=list, metadata=config(exclude=_is_empty)
+    )
 
 
 @dataclass

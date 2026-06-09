@@ -1,6 +1,7 @@
 from chalk._gen.chalk.argo.v1 import workflow_pb2 as _workflow_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import log_pb2 as _log_pb2
+from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper

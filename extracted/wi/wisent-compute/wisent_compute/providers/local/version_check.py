@@ -30,7 +30,9 @@ _CACHE: dict[str, tuple[float, str]] = {}
 _CACHE_TTL_SECONDS = 30
 
 
-def _version_tuple(v: str) -> tuple:
+def _version_tuple(v: str | None) -> tuple:
+    if not v:
+        return ()
     parts = []
     for token in v.replace("-", ".").split("."):
         try:
@@ -71,7 +73,9 @@ def detect_drift() -> dict[str, tuple[str, str]]:
         latest = _pypi_latest(pkg)
         if latest is None:
             continue
-        if _version_tuple(installed) < _version_tuple(latest):
+        installed_tuple = _version_tuple(installed)
+        latest_tuple = _version_tuple(latest)
+        if installed_tuple and installed_tuple < latest_tuple:
             out[pkg] = (installed, latest)
     return out
 

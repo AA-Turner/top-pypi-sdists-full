@@ -1,6 +1,6 @@
 [project]
 name = "svix"
-version = "1.95.1"
+version = "1.95.2"
 description = "Svix webhooks API client and webhook verification library"
 authors = [
     { name = "Svix", email = "development@svix.com" }
@@ -67,6 +67,7 @@ dev = [
     "mypy",
     "pytest-docker==3.*",
     "pytest-httpserver>=1.0.7,<2",
+    "pytest-httpx>=0.22,<1.0",
     "pytest>=7.0",
     "requests>=2,<3",
     "ruff>=0.15.6",

@@ -7,7 +7,7 @@ import logging
 
 from slixmpp.plugins import BasePlugin
 from slixmpp.xmlstream import register_stanza_plugin
-from slixmpp.plugins.xep_0221 import stanza, Media, URI
+from slixmpp.plugins.xep_0221 import Media
 from slixmpp.plugins.xep_0004 import FormField
 
 

@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2013 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -13,3 +12,7 @@ from slixmpp.plugins.xep_0079.amp import XEP_0079
 
 
 register_plugin(XEP_0079)
+
+__all__ = ['AMP', 'Rule', 'InvalidRules', 'UnsupportedConditions',
+           'UnsupportedActions', 'FailedRules', 'FailedRule', 'AMPFeature',
+           'XEP_0079']

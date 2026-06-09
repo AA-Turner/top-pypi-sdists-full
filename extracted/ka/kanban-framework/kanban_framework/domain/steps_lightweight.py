@@ -1,4 +1,4 @@
-"""Lightweight mode step definitions — 13 steps with full KB constraint chain."""
+"""Lightweight mode step definitions — 14 steps with full KB constraint chain."""
 from __future__ import annotations
 from kanban_framework.domain.steps_types import StepDef
 
@@ -117,7 +117,7 @@ $knowledge_protocol
 - 编码完成后运行 pylint 检查代码规范：pylint --output-format=text $output_dir/ 2>&1 | head -50
 - 修复所有 Error 级别问题 (E0001-E9999)，Warning 级别 (W0001-W9999) 尽量修复
 
-完成标志：$task_dir/execution_summary.md 文件存在且非空。""", type="checkpoint", guard={"external_tools": [{"name": "pylint", "command": "pylint --output-format=text ${files}", "scope": "changed", "fail_pattern": ": E\\d+:", "fail_on_exit_code": False, "severity": "error", "warn_pattern": ": [WCR]\\d+:"}]}, use_subagent=True),
+完成标志：$task_dir/execution_summary.md 文件存在且非空。""", type="checkpoint", guard={"external_tools": [{"name": "pylint", "command": "pylint --output-format=text ${files}", "scope": "changed", "fail_pattern": ": E\\d+:", "fail_on_exit_code": False, "severity": "error", "warn_pattern": ": [WCR]\\d+:"}], "guard_prompt": "\u786e\u8ba4 pylint \u68c0\u67e5\u901a\u8fc7\uff08Error \u7ea7\u522b\u4e3a 0\uff09\uff0c\u4ee3\u7801\u53ef\u6b63\u5e38\u8fd0\u884c"}, use_subagent=True),
         StepDef("execute.test", "编写并运行 pytest 单元测试", agent_type="general-purpose", spawn_prompt="""\
 你是 kanban 任务 $task_id 的测试 Agent。
 负责为上一步实现的代码编写 pytest 单元测试并运行验证。
@@ -145,7 +145,7 @@ $knowledge_protocol
 - 完成后立即停止
 - 不要调用任何 kanban CLI 命令
 
-完成标志：pytest 全部通过（guard 会自动验证）。""", type="checkpoint", guard={"checks": ["test_files"], "external_tools": [{"name": "pytest", "command": "pytest --tb=short -q", "scope": "worktree", "fail_on_exit_code": True, "severity": "error"}, {"name": "pylint", "command": "pylint --output-format=text ${files}", "scope": "changed", "fail_pattern": ": E\\d+:", "fail_on_exit_code": False, "severity": "error", "warn_pattern": ": [WCR]\\d+:"}]}, use_subagent=True),
+完成标志：pytest 全部通过（guard 会自动验证）。""", type="checkpoint", guard={"checks": ["test_files"], "external_tools": [{"name": "pytest", "command": "pytest --tb=short -q", "scope": "worktree", "fail_on_exit_code": True, "severity": "error"}, {"name": "pylint", "command": "pylint --output-format=text ${files}", "scope": "changed", "fail_pattern": ": E\\d+:", "fail_on_exit_code": False, "severity": "error", "warn_pattern": ": [WCR]\\d+:"}], "guard_prompt": "\u786e\u8ba4 pytest \u5168\u90e8\u901a\u8fc7\uff0cpylint \u6d4b\u8bd5\u4ee3\u7801\u68c0\u67e5\u901a\u8fc7\uff08Error \u7ea7\u522b\u4e3a 0\uff09"}, use_subagent=True),
         StepDef("execute.verify", "验证执行产物", actions=["kanban guard check-artifacts $task_id execute"], use_subagent=False),
     ],
     "evaluate": [
@@ -266,5 +266,6 @@ $knowledge_protocol
     ],
     "archive": [
         StepDef("archive.guard", "归档 Guards — inbox + subtask + stray", actions=["kanban guard check-inbox $task_id", "kanban guard check-subtask-cleanup $task_id", "kanban guard check-stray-artifacts $task_id"], use_subagent=False),
+        StepDef("archive.audit_kb", "知识库审计 — 归档时自动检查 KB 健康状态", actions=["kanban knowledge audit", "如有 zombie>5 或低质量>5 或领域失衡，输出 warning 提示 curator agent 介入"], use_subagent=False),
     ],
 }

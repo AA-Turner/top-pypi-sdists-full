@@ -2,9 +2,7 @@ from hashlib import blake2b
 
 import numpy as np
 from pydantic import Field
-from pymatgen.core.periodic_table import Element
-from pymatgen.core.structure import Molecule
-from pymatgen.core.trajectory import Trajectory
+from emmet.core.io.pymatgen import Element, Molecule, Trajectory
 
 from emmet.core.molecules import MolPropertyOrigin
 from emmet.core.molecules.molecule_property import PropertyDoc
@@ -120,7 +118,7 @@ class ForcesDoc(PropertyDoc):
             average_force_magnitude=average_force_magnitude,
             max_force_magnitude=max_force_magnitude,
             min_force_magnitude=min_force_magnitude,
-            origins=[MolPropertyOrigin(name="forces", task_id=task.task_id)],
+            origins=[MolPropertyOrigin(name="forces", task_id=task.task_id)],  # type: ignore[call-arg]
             deprecated=deprecated,
             **kwargs,
         )
@@ -503,7 +501,7 @@ class TrajectoryDoc(PropertyDoc):
             resp_partial_charges=resp_partial_charges,
             dipole_moments=dipole_moments,
             resp_dipole_moments=resp_dipole_moments,
-            origins=[MolPropertyOrigin(name="trajectory", task_id=task.task_id)],
+            origins=[MolPropertyOrigin(name="trajectory", task_id=task.task_id)],  # type: ignore[call-arg]
             deprecated=deprecated,
             **kwargs,
         )

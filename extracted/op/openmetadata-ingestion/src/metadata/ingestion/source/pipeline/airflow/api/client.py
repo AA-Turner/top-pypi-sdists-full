@@ -11,6 +11,7 @@
 """
 Client to interact with the Airflow REST API
 """
+
 import traceback
 from typing import List, Optional
 from urllib.parse import quote
@@ -29,7 +30,8 @@ from metadata.generated.schema.entity.utils.common.gcpCredentialsConfig import (
 from metadata.generated.schema.entity.utils.common.mwaaAuthConfig import (
     MwaaAuthentication,
 )
-from metadata.ingestion.ometa.client import REST, ClientConfig
+from metadata.ingestion.connections.source_api_client import TrackedREST
+from metadata.ingestion.ometa.client import ClientConfig
 from metadata.ingestion.source.pipeline.airflow.api.auth import (
     build_access_token_callback,
     build_basic_auth_callback,
@@ -67,11 +69,15 @@ class AirflowApiClient:
             self.mwaa_client = MWAAClient(
                 auth_config.mwaaConfig.awsConfig, environment_name
             )
-            self.client = None  # No need for REST client with MWAA
+            self.client = None  # No need for TrackedREST client with MWAA
         else:
             # Use standard REST client for other authentication types
             self.mwaa_client = None
             auth_token_mode = "Bearer"
+            # getattr() avoids the union-type attribute-access errors that direct
+            # rest_config.verifySSL access raises against the connection-config Union.
+            _verify_value = getattr(rest_config, "verifySSL", None)
+            verify_ssl: bool = True if _verify_value is None else bool(_verify_value)
 
             if isinstance(auth_config, AccessToken):
                 auth_token_fn = build_access_token_callback(
@@ -82,7 +88,7 @@ class AirflowApiClient:
                     host=clean_uri(str(config.hostPort)),
                     username=auth_config.username,
                     password=auth_config.password.get_secret_value(),
-                    verify=rest_config.verifySSL,
+                    verify=verify_ssl,
                 )
             elif isinstance(auth_config, GcpServiceAccount):
                 auth_token_fn = build_gcp_token_callback(auth_config.credentials)
@@ -95,9 +101,9 @@ class AirflowApiClient:
                 auth_header="Authorization" if auth_token_fn else None,
                 auth_token=auth_token_fn,
                 auth_token_mode=auth_token_mode,
-                verify=rest_config.verifySSL,
+                verify=verify_ssl,
             )
-            self.client = REST(client_config)
+            self.client = TrackedREST(client_config, source_name="airflow_api")
 
     @property
     def api_version(self) -> str:
@@ -150,7 +156,7 @@ class AirflowApiClient:
             try:
                 return response.json()
             except Exception as exc:
-                logger.warning(f"Failed to parse JSON response: {exc}")
+                logger.error(f"Failed to parse JSON response: {exc}")
                 logger.warning(
                     f"Response content type: {response.headers.get('content-type')}"
                 )

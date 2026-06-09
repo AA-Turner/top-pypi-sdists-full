@@ -40,26 +40,28 @@ if CUPY_AVAILABLE:
         'ppgmlem_ratio_kernel'
     )
 
-    # Kernel for Preconditioned Update & Clamp
-    # Formula: lambda + alpha * (backproj - sens - grad_U) / (sens + delta * hess_U + gamma)
+    # Kernel for Preconditioned Update & Clamp (Multiplicative MLEM update)
+    # Formula: lambda + lambda * (backproj - sens - grad_U) / (sens + lambda * delta * hess_U)
     ppgmlem_update_kernel = cp.ElementwiseKernel(
-        'float32 lam_in, float32 backproj, float32 sens, float32 grad_u, float32 hess_u, float32 alpha, float32 delta, float32 gamma, float32 eps',
+        'float32 lam_in, float32 backproj, float32 sens, float32 grad_u, float32 hess_u, float32 delta, float32 eps',
         'float32 lam_out, float32 gradient_out',
         '''
         float numerator = backproj - sens - grad_u;
-        float denominator = sens + delta * hess_u + gamma;
         
-        // Prevent division by zero or negative preconditioners
+        // Newton-like preconditioner scaled by the current voxel value
+        float denominator = sens + lam_in * delta * hess_u;
+        
+        // Prevent division by zero
         float denom_safe = denominator < eps ? eps : denominator;
         
-        // Full preconditioned gradient step
-        float step = alpha * (numerator / denom_safe);
+        // Full preconditioned multiplicative gradient step (alpha = 1.0 implicitly)
+        float step = lam_in * (numerator / denom_safe);
         
         float new_val = lam_in + step;
         lam_out = new_val > 0.0f ? new_val : 0.0f; // Clamp positive
         
         // Output the strict mathematical gradient for stopping criteria
-        gradient_out = numerator / denom_safe;
+        gradient_out = step;
         ''',
         'ppgmlem_update_kernel'
     )
@@ -67,13 +69,9 @@ if CUPY_AVAILABLE:
 def PPGMLEM(
     SMatrix: Union['SMatrix_DENSE', 'SMatrix_CSR', 'SMatrix_SELL'],
     y: Union[np.ndarray, 'cp.ndarray'],
-    numIterations: int = 100,
-    alpha: Union[str, float] = "auto",     
+    numIterations: int = 100,    
     beta: float = 1.0,       
-    delta: float = 1.0,      
-    gamma: float = 0.01,     
-    eta: Optional[float] = None,
-    numIterations_stepCalculation: int = 20,
+    delta: float = 1.0,          
     potential_type: PotentialType = PotentialType.QUADRATIC,
     potential_shape: PotentialShapeType = PotentialShapeType.CROSS,
     potential_radius: int = 2,
@@ -105,12 +103,8 @@ def PPGMLEM(
         SMatrix: SMatrix instance (already allocated)
         y: Measurement data (shape: (T, N))
         numIterations: Number of iterations
-        alpha: Step size parameter (float or 'auto' for power method estimation of Lipschitz constant)
         beta: Regularization weight
         delta: Parameter for Huber potential (threshold) or for RELATIVE_DIFFERENCE potential
-        gamma: Preconditioning parameter
-        eta: Parameter for Lipschitz estimation if alpha is "auto"
-        numIterations_stepCalculation: Number of iterations for power method when alpha is "auto"
         potential_type: Type of potential function (QUADRATIC, HUBER, RELATIVE_DIFFERENCE)
         potential_shape: Neighborhood shape (PotentialShapeType enum)
         potential_radius: Neighborhood radius in pixels
@@ -148,8 +142,6 @@ def PPGMLEM(
     sens_img = backward_projection(SMatrix, xp.ones(SMatrix.N * SMatrix.T, dtype=xp.float32))
     xp.maximum(sens_img, 1e-10, out=sens_img)
 
-    alpha = calculate_step_size(SMatrix, eta, numIterations_stepCalculation, show_logs) if alpha == "auto" else alpha
-
     # Setup save indices
     save_indices = np.unique(np.append(np.arange(0, numIterations, max(1, numIterations // max_saves)), numIterations - 1)).tolist()
 
@@ -184,20 +176,13 @@ def PPGMLEM(
 
         # PPGMLEM Update: λ = λ + α * (A^T * (y / Ax) - A^T * 1 - grad_U / (A^T * 1 + δ * hess_U + γ))
         if is_gpu:
-            # We output both the new lambda and the exact preconditioned gradient for the stopping criterion
-            ppgmlem_update_kernel(
-                lambda_flat, backproj_ratio, sens_img, grad_U, hess_U, 
-                float(alpha), float(delta), float(gamma), 1e-10, 
-                lambda_flat, gradient_buffer # Outputs
-            )
+            ppgmlem_update_kernel(lambda_flat, backproj_ratio, sens_img, grad_U, hess_U, float(delta), 1e-10, lambda_flat, gradient_buffer)
         else:
-            # Fallback CPU In-Place (with correctly grouped parenthesis!)
             numerator = backproj_ratio - sens_img - grad_U
-            denominator = sens_img + delta * hess_U + gamma
+            denominator = sens_img + (lambda_flat * delta * hess_U)
             np.maximum(denominator, 1e-10, out=denominator)
-            
-            gradient_buffer = numerator / denominator
-            lambda_flat += float(alpha) * gradient_buffer
+            gradient_buffer = lambda_flat * (numerator / denominator)
+            lambda_flat += gradient_buffer
             np.maximum(lambda_flat, 0.0, out=lambda_flat)
 
         # Stopping Criterion
@@ -209,11 +194,12 @@ def PPGMLEM(
                 iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
             if isStop:
                 if show_logs: print(f"\n[Stopping] Criterion {stop_criterion.name} reached at iteration {it}.")
+                cost_history.pop() if isCostFunction else None
                 break
             
         if isSavingEachIteration and it in save_indices:
-            saved_lambda.append(lambda_flat.reshape(Z, X).get() if hasattr(lambda_flat, 'get') else lambda_flat.reshape(Z, X).copy())
+            saved_lambda.append(lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X).copy())
             saved_indices_list.append(it)
 
-    final_result = lambda_flat.reshape(Z, X).get() if hasattr(lambda_flat, 'get') else lambda_flat.reshape(Z, X)
+    final_result = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X)
     return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else (final_result, None, cost_history)

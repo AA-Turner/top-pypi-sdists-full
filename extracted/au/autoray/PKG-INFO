@@ -1,23 +1,26 @@
 Metadata-Version: 2.4
 Name: autoray
-Version: 0.8.10
+Version: 0.8.11
 Summary: Abstract your array operations.
 Project-URL: Documentation, https://autoray.readthedocs.io/
 Project-URL: Repository, https://github.com/jcmgray/autoray/
 Project-URL: Issues, https://github.com/jcmgray/autoray/issues
 Project-URL: Changelog, https://github.com/jcmgray/autoray/releases
 Author-email: Johnnie Gray <johnniemcgray@gmail.com>
-License: Apache
+License-Expression: Apache-2.0
 License-File: LICENSE
-Keywords: agnostic,array,autograd,cupy,dask,dispatch,jax,numeric,numpy,tensor,tensorflow
-Classifier: Development Status :: 3 - Alpha
+Keywords: agnostic,array,autograd,cupy,dask,dispatch,jax,mlx,numeric,numpy,tensor,tensorflow
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.10
 Provides-Extra: docs
 Requires-Dist: furo; extra == 'docs'
@@ -52,12 +55,12 @@ that means you can write backend agnostic code that works for:
 * [pytorch](https://pytorch.org/)
 * [jax](https://github.com/google/jax)
 * [cupy](https://github.com/cupy/cupy)
+* [mlx](https://github.com/ml-explore/mlx)
 * [dask](https://github.com/dask/dask)
 * [autograd](https://github.com/HIPS/autograd)
 * [tensorflow](https://github.com/tensorflow/tensorflow)
 * [sparse](https://sparse.pydata.org/)
 * [paddle](https://github.com/paddlepaddle/paddle)
-* [mars](https://github.com/mars-project/mars)
 * ... and indeed **any** library that provides a numpy-*ish* api, even if it
   knows nothing about `autoray`.
 

@@ -120,9 +120,11 @@ PLUGINS = [
     'xep_0444',  # Message Reactions
     'xep_0446',  # File metadata element
     'xep_0447',  # Stateless file sharing
+    'xep_0449',  # Stickers
     'xep_0455',  # Service Outage Status
     'xep_0461',  # Message Replies
     'xep_0462',  # PubSub Type Filtering
+    'xep_0463',  # MUC Affiliation Versioning
     'xep_0469',  # Bookmarks Pinning
     'xep_0482',  # Call Invites
     'xep_0490',  # Message Displayed Synchronization

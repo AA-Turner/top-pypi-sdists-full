@@ -51,6 +51,46 @@ SSH_OPTS: list[tuple[str, str]] = [
 ]
 
 
+def ssh_user_for_provider(provider: str | None) -> str:
+    """Return the SSH username for the given VM provider.
+
+    QEMU (Windows) VMs expose a ``plato`` local account; Firecracker (Linux)
+    VMs use ``root``.
+    """
+    if provider == "qemu":
+        return "plato"
+    return "root"
+
+
+# Host (mesh IP / hostname / job_id) -> SSH login user, filled in by the SDK when
+# it builds an Environment (it knows the VM's provider). This lets a bare
+# ``run_ssh(key, host, cmd)`` pick ``plato`` for Windows/QEMU VMs and ``root`` for
+# Linux ones with no extra argument and no probing — the user is derived from the
+# session that created the environment.
+_SSH_USER_BY_HOST: dict[str, str] = {}
+
+
+def register_ssh_user(hostname: str, ssh_user: str) -> None:
+    """Record the SSH login user for ``hostname`` so ``run_ssh`` uses it automatically."""
+    if hostname:
+        _SSH_USER_BY_HOST[hostname] = ssh_user
+
+
+def unregister_ssh_user(hostname: str) -> None:
+    """Forget the SSH login user for ``hostname`` (call when its VM is torn down).
+
+    Prevents a later VM that reuses the same mesh IP / host string in a
+    long-lived process from inheriting a stale login user.
+    """
+    if hostname:
+        _SSH_USER_BY_HOST.pop(hostname, None)
+
+
+def _ssh_user_for_host(hostname: str) -> str:
+    """Look up the registered SSH user for ``hostname`` (``root`` if unknown)."""
+    return _SSH_USER_BY_HOST.get(hostname, "root")
+
+
 _SENSITIVE_ENV_KEY_PATTERN = re.compile(
     r"(?:token|secret|pass|password|key|credential|session|cookie|auth|aws)",
     re.IGNORECASE,
@@ -105,10 +145,15 @@ async def run_ssh(
     timeout: int = 300,
     extra_opts: list[tuple[str, str]] | None = None,
 ) -> tuple[int, str, str]:
-    """Run a command on a remote host via SSH and return (exit_code, stdout, stderr)."""
+    """Run a command on a remote host via SSH and return (exit_code, stdout, stderr).
+
+    The SSH login user is looked up from the host registry the SDK populates when
+    it builds an Environment (``plato`` for Windows/QEMU VMs, ``root`` otherwise).
+    """
     if user != "root":
         command = f"sudo -u {shlex.quote(user)} -- bash -c {shlex.quote(command)}"
-    ssh_cmd = build_ssh_command(ssh_key, hostname, extra_opts=extra_opts)
+    ssh_user = _ssh_user_for_host(hostname)
+    ssh_cmd = build_ssh_command(ssh_key, hostname, extra_opts=extra_opts, ssh_user=ssh_user)
     ssh_cmd.append(command)
     log_command = _sanitize_command_for_logs(command)
 
@@ -159,10 +204,14 @@ async def run_ssh_streaming(
     user: str = "root",
     extra_opts: list[tuple[str, str]] | None = None,
 ) -> int:
-    """Run a command via SSH with real-time output streaming. Returns exit code."""
+    """Run a command via SSH with real-time output streaming. Returns exit code.
+
+    The SSH login user is looked up from the host registry (``root`` if unknown).
+    """
     if user != "root":
         command = f"sudo -u {shlex.quote(user)} -- bash -c {shlex.quote(command)}"
-    ssh_cmd = build_ssh_command(ssh_key, hostname, extra_opts=extra_opts)
+    ssh_user = _ssh_user_for_host(hostname)
+    ssh_cmd = build_ssh_command(ssh_key, hostname, extra_opts=extra_opts, ssh_user=ssh_user)
     ssh_cmd.append(command)
     log_command = _sanitize_command_for_logs(command)
 
@@ -209,9 +258,11 @@ async def scp_content_to_vm(
 
     Writes content to a local temp file, scp's it to the VM, then cleans up.
     Avoids shell argument expansion that causes E2BIG with large payloads.
+    The SSH login user is looked up from the host registry (``root`` if unknown).
     """
     import tempfile
 
+    ssh_user = _ssh_user_for_host(hostname)
     cmd = ["scp", "-i", str(ssh_key)]
     all_opts = list(SSH_OPTS)
     if extra_opts:
@@ -222,7 +273,7 @@ async def scp_content_to_vm(
     with tempfile.NamedTemporaryFile(delete=True) as tmp:
         tmp.write(content)
         tmp.flush()
-        cmd.extend([tmp.name, f"root@{hostname}:{remote_path}"])
+        cmd.extend([tmp.name, f"{ssh_user}@{hostname}:{remote_path}"])
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -249,6 +300,7 @@ def build_ssh_command(
     extra_opts: list[tuple[str, str]] | None = None,
     *,
     multiplex: bool = True,
+    ssh_user: str = "root",
 ) -> list[str]:
     """Build an SSH command list with standard options.
 
@@ -275,5 +327,5 @@ def build_ssh_command(
         all_opts.extend(extra_opts)
     for name, value in all_opts:
         cmd.extend(["-o", f"{name}={value}"])
-    cmd.append(f"root@{hostname}")
+    cmd.append(f"{ssh_user}@{hostname}")
     return cmd

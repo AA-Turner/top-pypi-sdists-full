@@ -1,4 +1,3 @@
-import asyncio
 import unittest
 from slixmpp.test.integration import SlixIntegration
 

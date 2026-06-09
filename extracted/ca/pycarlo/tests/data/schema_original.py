@@ -566,6 +566,7 @@ class AgenticPlatformPipelineType(sgqlc.types.Enum):
 
     Enumeration Choices:
 
+    * `AGENT_HEALTH`None
     * `ALERT_ASSESSMENT`None
     * `MONITORING`None
     * `MONITOR_TUNING`None
@@ -573,7 +574,7 @@ class AgenticPlatformPipelineType(sgqlc.types.Enum):
     """
 
     __schema__ = schema
-    __choices__ = ("ALERT_ASSESSMENT", "MONITORING", "MONITOR_TUNING", "TRIAGE")
+    __choices__ = ("AGENT_HEALTH", "ALERT_ASSESSMENT", "MONITORING", "MONITOR_TUNING", "TRIAGE")
 
 
 class AgenticPlatformScope(sgqlc.types.Enum):
@@ -4440,6 +4441,7 @@ class IntegrationKeyScope(sgqlc.types.Enum):
 class InternalJobType(sgqlc.types.Enum):
     """Enumeration Choices:
 
+    * `AGENT_DATA_LINEAGE`None
     * `AGENT_REACHABILITY`None
     * `AGENT_SPANS`None
     * `CONNECTION_MANIFEST`None
@@ -4460,6 +4462,7 @@ class InternalJobType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = (
+        "AGENT_DATA_LINEAGE",
         "AGENT_REACHABILITY",
         "AGENT_SPANS",
         "CONNECTION_MANIFEST",
@@ -4842,6 +4845,49 @@ class MonitorAggTimeInterval(sgqlc.types.Enum):
     __choices__ = ("DAY", "HOUR", "MONTH", "WEEK")
 
 
+class MonitorApplyEligibility(sgqlc.types.Enum):
+    """Whether a monitor finding can be applied right now, and if not,
+    why.
+
+    Enumeration Choices:
+
+    * `ELIGIBLE`None
+    * `REQUIRES_TABLE_MONITOR`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ELIGIBLE", "REQUIRES_TABLE_MONITOR")
+
+
+class MonitorApplyMode(sgqlc.types.Enum):
+    """How an apply request creates the finding's monitors.
+
+    Enumeration Choices:
+
+    * `CREATE`None
+    * `DRAFT`None
+    * `DRY_RUN`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CREATE", "DRAFT", "DRY_RUN")
+
+
+class MonitorApplyStatus(sgqlc.types.Enum):
+    """Lifecycle of a finding's request to deploy a monitor.
+
+    Enumeration Choices:
+
+    * `APPLIED`None
+    * `FAILED`None
+    * `IN_PROGRESS`None
+    * `PENDING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("APPLIED", "FAILED", "IN_PROGRESS", "PENDING")
+
+
 class MonitorBreachType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -4910,6 +4956,22 @@ class MonitorLabelsMatchType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("AND", "OR")
+
+
+class MonitorLifecycleStatus(sgqlc.types.Enum):
+    """Live lifecycle of an applied monitor, resolved from the monitor
+    itself.
+
+    Enumeration Choices:
+
+    * `CREATED`None
+    * `DELETED`None
+    * `DRAFT`None
+    * `PAUSED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CREATED", "DELETED", "DRAFT", "PAUSED")
 
 
 class MonitorRecommendationModel(sgqlc.types.Enum):
@@ -5396,6 +5458,7 @@ class Permission(sgqlc.types.Enum):
     * `SettingsUserSubscribeWeeklyDigest`None
     * `SettingsUsersAccess`None
     * `SettingsUsersEdit`None
+    * `UsersAccountOwners`None
     * `UsersList`None
     """
 
@@ -5506,6 +5569,7 @@ class Permission(sgqlc.types.Enum):
         "SettingsUserSubscribeWeeklyDigest",
         "SettingsUsersAccess",
         "SettingsUsersEdit",
+        "UsersAccountOwners",
         "UsersList",
     )
 
@@ -5949,6 +6013,35 @@ class QueryType(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("read", "write")
+
+
+class QueuedJobStatus(sgqlc.types.Enum):
+    """Lifecycle status of an asynchronous job.
+
+    Enumeration Choices:
+
+    * `FAILED`None
+    * `IN_PROGRESS`None
+    * `PARTIAL`None
+    * `QUEUED`None
+    * `SUCCEEDED`None
+    * `TIMED_OUT`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("FAILED", "IN_PROGRESS", "PARTIAL", "QUEUED", "SUCCEEDED", "TIMED_OUT")
+
+
+class QueuedJobType(sgqlc.types.Enum):
+    """The kind of work an asynchronous job performs.
+
+    Enumeration Choices:
+
+    * `APPLY_MONITOR_FINDINGS`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("APPLY_MONITOR_FINDINGS",)
 
 
 class RcaJobsModelJobType(sgqlc.types.Enum):
@@ -9172,6 +9265,22 @@ class AzureDevopsSourceSelectionInput(sgqlc.types.Input):
     """ID of Azure DevOps repository"""
 
 
+class BackfillAgentDataLineageSchedulesInput(sgqlc.types.Input):
+    """Input for backfilling the daily agent SQL-lineage companion sweep
+    schedule for agents created before it existed.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("account_uuid", "dry_run")
+    account_uuid = sgqlc.types.Field(UUID, graphql_name="accountUuid")
+    """Restrict the backfill to a single account UUID (all accounts if
+    omitted).
+    """
+
+    dry_run = sgqlc.types.Field(Boolean, graphql_name="dryRun")
+    """Report what would be created without writing any schedules."""
+
+
 class BiWarehouseSourcesInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("warehouse_resource_id", "warehouse_resource_type", "bi_warehouse_id")
@@ -9588,7 +9697,11 @@ class CreateOrUpdatePlatformAgentInput(sgqlc.types.Input):
     """
 
     domain_uuid = sgqlc.types.Field(UUID, graphql_name="domainUuid")
-    """Domain UUID to assign the agent to (optional)"""
+    """Domain to assign a Snowflake agent to (may be required for
+    accounts using domain-based access). Not accepted for Databricks
+    agents — their domains derive from the trace table's catalog
+    domain assignments.
+    """
 
     platform_agent_type = sgqlc.types.Field(PlatformAgentType, graphql_name="platformAgentType")
     """Platform agent integration type. Defaults to SNOWFLAKE when
@@ -10723,6 +10836,7 @@ class FindingFilterInput(sgqlc.types.Input):
         "deployed_monitor_uuids",
         "parent_finding_uuid",
         "include_children",
+        "staged",
         "search_query",
         "needs_attention",
         "detection_time_start",
@@ -10800,6 +10914,13 @@ class FindingFilterInput(sgqlc.types.Input):
     Defaults to false so top-level lists show only root findings. Set
     to true when explicitly fetching children (e.g., for a parent's
     detail view).
+    """
+
+    staged = sgqlc.types.Field(Boolean, graphql_name="staged")
+    """Filter on whether a finding is one phase of a staged monitoring
+    strategy (has a `stage`). `true` = only staged-phase findings;
+    `false` = only non-staged findings (containers, standalone
+    findings); `null` / omitted = no filter.
     """
 
     search_query = sgqlc.types.Field(String, graphql_name="searchQuery")
@@ -17441,6 +17562,18 @@ class AddCustomConnector(sgqlc.types.Type):
     connection = sgqlc.types.Field("Connection", graphql_name="connection")
 
 
+class AddCustomEtlConnector(sgqlc.types.Type):
+    """Add a connection for a custom ETL connector type. Creates an ETL
+    container, connection, and schedules ETL asset collection.
+    Requires a credentials key from testCustomConnector with
+    validationName='save_credentials'.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("connection",)
+    connection = sgqlc.types.Field("Connection", graphql_name="connection")
+
+
 class AddDatabricksConnectionMutation(sgqlc.types.Type):
     """Add a databricks connection and setup any associated jobs. Creates
     a warehouse if not specified
@@ -17945,6 +18078,21 @@ class AgentCustomConnectors(sgqlc.types.Type):
         graphql_name="customConnectors",
     )
     """Custom connector types registered by this agent."""
+
+
+class AgentCustomEtlConnectors(sgqlc.types.Type):
+    """Custom ETL connectors grouped under a single agent."""
+
+    __schema__ = schema
+    __field_names__ = ("agent_uuid", "custom_etl_connectors")
+    agent_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="agentUuid")
+    """UUID of the agent that owns these connectors."""
+
+    custom_etl_connectors = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("CustomEtlConnector"))),
+        graphql_name="customEtlConnectors",
+    )
+    """Custom ETL connector types registered by this agent."""
 
 
 class AgentDetails(sgqlc.types.Type):
@@ -19827,6 +19975,21 @@ class ApiUsageResponse(sgqlc.types.Type):
     )
 
 
+class ApplyMonitorFindings(sgqlc.types.Type):
+    """Apply the monitors of a monitor-creation finding.  The target may
+    be a container (applies all phases in order), a phase (applies
+    that phase's monitors), or a single monitor finding. Modes:
+    ``DRY_RUN`` (validate only), ``DRAFT`` (create paused for review),
+    or ``CREATE`` (create live). Work runs asynchronously — the
+    returned job is polled via ``queuedJob`` and per-monitor progress
+    is read from each monitor finding's ``proposedMonitor``.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("job",)
+    job = sgqlc.types.Field(sgqlc.types.non_null("QueuedJob"), graphql_name="job")
+
+
 class Asset(sgqlc.types.Type):
     """Catalog asset — minimal projection from ``CatalogObjectModel``."""
 
@@ -20638,6 +20801,7 @@ class AvailablePlatformAgentData(sgqlc.types.Type):
         "platform_agent_type",
         "table_prefix",
         "requires_manual_trace_storage_setup",
+        "trace_table_ingested",
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
 
@@ -20654,6 +20818,16 @@ class AvailablePlatformAgentData(sgqlc.types.Type):
     requires_manual_trace_storage_setup = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="requiresManualTraceStorageSetup"
     )
+
+    trace_table_ingested = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="traceTableIngested"
+    )
+    """Whether the agent's real trace table has been catalogued by
+    metadata collection yet. A surfaced status only — registration is
+    NOT blocked when False; the real-table anchor links on catalog
+    ingest. Always true for Snowflake agents, which have no separate
+    trace table.
+    """
 
 
 class AwsAgentExternalId(sgqlc.types.Type):
@@ -21110,6 +21284,45 @@ class AzureInformation(sgqlc.types.Type):
 
     secondary_region = sgqlc.types.Field(String, graphql_name="secondaryRegion")
     """Azure Secondary Region"""
+
+
+class BackfillAgentDataLineageSchedules(sgqlc.types.Type):
+    """Backfill the daily agent SQL-lineage companion sweep schedule for
+    agents created before that wiring existed. New agents get the
+    sweep at creation; this lets the support team backfill older
+    agents without data-engineering intervention. Idempotent — safe to
+    re-run.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("result",)
+    result = sgqlc.types.Field("BackfillAgentDataLineageSchedulesOutput", graphql_name="result")
+    """Counts from the backfill run"""
+
+
+class BackfillAgentDataLineageSchedulesOutput(sgqlc.types.Type):
+    """Counts from backfilling the agent SQL-lineage companion sweep
+    schedules
+    """
+
+    __schema__ = schema
+    __field_names__ = ("created", "skipped_no_connection", "failed", "dry_run", "message")
+    created = sgqlc.types.Field(Int, graphql_name="created")
+    """Companion sweep schedules created (or that would be created on a
+    dry run).
+    """
+
+    skipped_no_connection = sgqlc.types.Field(Int, graphql_name="skippedNoConnection")
+    """Agents skipped because their real-time schedule has no connection."""
+
+    failed = sgqlc.types.Field(Int, graphql_name="failed")
+    """Agents whose backfill raised an error (see logs)."""
+
+    dry_run = sgqlc.types.Field(Boolean, graphql_name="dryRun")
+    """Whether this was a dry run (no writes)."""
+
+    message = sgqlc.types.Field(String, graphql_name="message")
+    """Human-readable summary of the backfill."""
 
 
 class BiContainer(sgqlc.types.Type):
@@ -25327,6 +25540,27 @@ class CustomDashboardWidgetContentData(sgqlc.types.Type):
     """Content data of the widget"""
 
 
+class CustomEtlConnector(sgqlc.types.Type):
+    """A custom ETL connector type registered for an account."""
+
+    __schema__ = schema
+    __field_names__ = ("id", "name", "job_types", "last_updated_time")
+    id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="id")
+    """Unique connection type identifier."""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Display name for the connector."""
+
+    job_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="jobTypes",
+    )
+    """Job types this connector supports (e.g. ETL)."""
+
+    last_updated_time = sgqlc.types.Field(DateTime, graphql_name="lastUpdatedTime")
+    """When the connector's manifest was last synced."""
+
+
 class CustomIntegrationConnection(sgqlc.types.relay.Connection):
     """A connection created as part of a custom integration."""
 
@@ -26389,7 +26623,7 @@ class DataCollectorSchedule(sgqlc.types.Type):
             )
         ),
     )
-    """Schedule for the AGENT_SQL_TOOL_CALLS sweep over this trace table.
+    """Schedule for the AGENT_DATA_LINEAGE sweep over this trace table.
 
     Arguments:
 
@@ -26435,7 +26669,7 @@ class DataCollectorSchedule(sgqlc.types.Type):
             )
         ),
     )
-    """Schedule for the AGENT_SQL_TOOL_CALLS sweep over this platform
+    """Schedule for the AGENT_DATA_LINEAGE sweep over this platform
     agent.
 
     Arguments:
@@ -28542,13 +28776,24 @@ class DeltaLogConnectionPageInfo(sgqlc.types.Type):
 
 
 class DeployedMonitor(sgqlc.types.Type):
-    """Monitor this finding deployed. Clients resolve the full monitor
-    via ``getMonitors``.
+    """A monitor that exists as a result of a finding — the "realized
+    monitor".  Used both as a finding's deployed-monitor reference
+    (``deployedMonitors``) and as the outcome of a proposed monitor
+    once applied (``ProposedMonitor.deployedMonitor``). Clients
+    resolve the full monitor via ``getMonitors``.
     """
 
     __schema__ = schema
-    __field_names__ = ("monitor_uuid",)
+    __field_names__ = ("monitor_uuid", "status", "applied_at")
     monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
+
+    status = sgqlc.types.Field(MonitorLifecycleStatus, graphql_name="status")
+    """Live lifecycle of the monitor; null only if it has since been
+    purged.
+    """
+
+    applied_at = sgqlc.types.Field(DateTime, graphql_name="appliedAt")
+    """When the monitor was created / recorded."""
 
 
 class DeploymentInfo(sgqlc.types.Type):
@@ -32072,6 +32317,28 @@ class FindingEdge(sgqlc.types.Type):
 
     cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
     """A cursor for use in pagination"""
+
+
+class FindingStage(sgqlc.types.Type):
+    """One stage of a use case's phased monitoring plan.  Present only on
+    the per-phase findings that sit between a use case's container
+    finding and its individual monitor children; null on the container
+    finding and on non-staged monitoring findings. Its presence is the
+    container-vs-phase discriminator — a finding with a ``stage`` is
+    one phase of a staged monitoring strategy (a suggested, ordered
+    rollout), not a standalone monitoring finding.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("number", "total", "label")
+    number = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="number")
+    """1-based stage ordinal within the plan."""
+
+    total = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="total")
+    """Total number of stages in the plan."""
+
+    label = sgqlc.types.Field(String, graphql_name="label")
+    """Short human label, e.g. 'Golden tables'."""
 
 
 class FivetranConnectorConnection(sgqlc.types.relay.Connection):
@@ -37060,6 +37327,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_custom_integration",
         "test_custom_connector",
         "add_custom_connector",
+        "add_custom_etl_connector",
         "update_custom_connector",
         "trigger_connection_manifest_job",
         "create_or_update_custom_dashboard",
@@ -37201,6 +37469,7 @@ class Mutation(sgqlc.types.Type):
         "delete_azure_devops_installation",
         "set_azure_devops_source_selections",
         "update_data_share",
+        "backfill_agent_data_lineage_schedules",
         "test_confluent_kafka_credentials",
         "test_confluent_kafka_connect_credentials",
         "test_msk_kafka_credentials",
@@ -37405,6 +37674,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_agentic_notification_route",
         "delete_agentic_notification_route",
         "submit_finding_feedback",
+        "apply_monitor_findings",
         "enable_agent_assistance",
         "disable_agent_assistance",
         "configure_agent_assistance",
@@ -38235,6 +38505,40 @@ class Mutation(sgqlc.types.Type):
     * `name` (`String`): Friendly name for the warehouse.
     * `warehouse_uuid` (`UUID`): Add the connection to an existing
       warehouse instead of creating a new one.
+    """
+
+    add_custom_etl_connector = sgqlc.types.Field(
+        AddCustomEtlConnector,
+        graphql_name="addCustomEtlConnector",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_name",
+                    sgqlc.types.Arg(String, graphql_name="connectionName", default=None),
+                ),
+                (
+                    "connection_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="connectionType", default=None
+                    ),
+                ),
+                (
+                    "key",
+                    sgqlc.types.Arg(sgqlc.types.non_null(String), graphql_name="key", default=None),
+                ),
+                ("name", sgqlc.types.Arg(String, graphql_name="name", default=None)),
+            )
+        ),
+    )
+    """(experimental) Add a connection for a custom ETL connector type.
+
+    Arguments:
+
+    * `connection_name` (`String`): Friendly name for the connection.
+    * `connection_type` (`String!`): Custom ETL connector connection
+      type ID.
+    * `key` (`String!`): Credentials key from testCustomConnector.
+    * `name` (`String`): Friendly name for the ETL container.
     """
 
     update_custom_connector = sgqlc.types.Field(
@@ -43140,6 +43444,31 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `input` (`UpdateDataShareInput!`): Data share configuration
+    """
+
+    backfill_agent_data_lineage_schedules = sgqlc.types.Field(
+        BackfillAgentDataLineageSchedules,
+        graphql_name="backfillAgentDataLineageSchedules",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(BackfillAgentDataLineageSchedulesInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Backfill the daily agent SQL-lineage companion
+    sweep schedule for existing agents (internal/support use).
+
+    Arguments:
+
+    * `input` (`BackfillAgentDataLineageSchedulesInput!`): Backfill
+      scope and dry-run options
     """
 
     test_confluent_kafka_credentials = sgqlc.types.Field(
@@ -52338,6 +52667,35 @@ class Mutation(sgqlc.types.Type):
     * `action` (`FindingFeedbackAction!`)None
     * `finding_uuid` (`UUID!`)None
     * `note` (`String`)None
+    """
+
+    apply_monitor_findings = sgqlc.types.Field(
+        ApplyMonitorFindings,
+        graphql_name="applyMonitorFindings",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "finding_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="findingUuid", default=None
+                    ),
+                ),
+                (
+                    "mode",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(MonitorApplyMode), graphql_name="mode", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Apply a monitor-creation finding's monitors (dry-
+    run, draft, or live).
+
+    Arguments:
+
+    * `finding_uuid` (`UUID!`)None
+    * `mode` (`MonitorApplyMode!`)None
     """
 
     enable_agent_assistance = sgqlc.types.Field(
@@ -61606,6 +61964,42 @@ class PropertyValues(sgqlc.types.Type):
     """List of object property values"""
 
 
+class ProposedMonitor(sgqlc.types.Type):
+    """A monitor a finding proposes to create, with its apply lifecycle.
+    Derived directly from the monitor-creation finding, so it exists
+    from ingestion — before any apply — defaulting to ``PENDING``.
+    ``applyEligibility`` is the pre-apply gate (whether it can be
+    applied right now). ``deployedMonitor`` is null until the monitor
+    is created, then carries the realized monitor and its live status.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "apply_status",
+        "apply_eligibility",
+        "last_error",
+        "last_status_update",
+        "deployed_monitor",
+    )
+    apply_status = sgqlc.types.Field(
+        sgqlc.types.non_null(MonitorApplyStatus), graphql_name="applyStatus"
+    )
+
+    apply_eligibility = sgqlc.types.Field(
+        sgqlc.types.non_null(MonitorApplyEligibility), graphql_name="applyEligibility"
+    )
+    """Whether this monitor can be applied right now, and if not, why."""
+
+    last_error = sgqlc.types.Field(String, graphql_name="lastError")
+    """Error from the last apply attempt, if it failed."""
+
+    last_status_update = sgqlc.types.Field(DateTime, graphql_name="lastStatusUpdate")
+    """When the apply state last changed."""
+
+    deployed_monitor = sgqlc.types.Field(DeployedMonitor, graphql_name="deployedMonitor")
+    """The created monitor; null until this proposal has been applied."""
+
+
 class PruneDeletedTables(sgqlc.types.Type):
     """Prune child monitors for tables that have been deleted
     (is_deleted=True).  This allows users to explicitly remove deleted
@@ -62055,6 +62449,7 @@ class Query(sgqlc.types.Type):
         "get_alert_warehouse_tables",
         "get_monitor_tuning_runs",
         "agentic_notification_routes",
+        "queued_job",
         "findings",
         "finding",
         "get_schema_changes",
@@ -62192,6 +62587,7 @@ class Query(sgqlc.types.Type):
         "get_event_muting_rules",
         "get_users_in_account",
         "get_users_basic_info",
+        "get_account_owners",
         "get_invites_in_account",
         "get_token_metadata",
         "get_integration_keys",
@@ -62242,6 +62638,7 @@ class Query(sgqlc.types.Type):
         "get_alerts_count_by_date",
         "get_alert_access_request",
         "get_custom_connectors",
+        "get_custom_etl_connectors",
         "get_collibra_ping",
         "get_collibra_monitor_note",
         "get_collibra_monitor_table_search_names",
@@ -75998,6 +76395,25 @@ class Query(sgqlc.types.Type):
     caller's account, ordered by most recently created first.
     """
 
+    queued_job = sgqlc.types.Field(
+        "QueuedJob",
+        graphql_name="queuedJob",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "uuid",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="uuid", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Fetch the status of an asynchronous job by UUID.
+
+    Arguments:
+
+    * `uuid` (`UUID!`)None
+    """
+
     findings = sgqlc.types.Field(
         FindingConnection,
         graphql_name="findings",
@@ -81607,6 +82023,31 @@ class Query(sgqlc.types.Type):
     * `last` (`Int`)None
     """
 
+    get_account_owners = sgqlc.types.Field(
+        "UserBasicInfoConnection",
+        graphql_name="getAccountOwners",
+        args=sgqlc.types.ArgDict(
+            (
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """(experimental) Get the ids, emails, and names of all Account
+    Owners in the account.
+
+    Arguments:
+
+    * `offset` (`Int`)None
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
     get_invites_in_account = sgqlc.types.Field(
         "UserInviteConnection",
         graphql_name="getInvitesInAccount",
@@ -83001,8 +83442,25 @@ class Query(sgqlc.types.Type):
             (("agent_uuid", sgqlc.types.Arg(UUID, graphql_name="agentUuid", default=None)),)
         ),
     )
-    """(experimental) List custom connector types visible to the account,
-    grouped by agent. Optionally filter by agent UUID.
+    """(experimental) List custom warehouse connector types visible to
+    the account, grouped by agent. Optionally filter by agent UUID.
+    For ETL connector types, use getCustomEtlConnectors.
+
+    Arguments:
+
+    * `agent_uuid` (`UUID`): Filter to connectors registered by a
+      specific agent.
+    """
+
+    get_custom_etl_connectors = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AgentCustomEtlConnectors)),
+        graphql_name="getCustomEtlConnectors",
+        args=sgqlc.types.ArgDict(
+            (("agent_uuid", sgqlc.types.Arg(UUID, graphql_name="agentUuid", default=None)),)
+        ),
+    )
+    """(experimental) List custom ETL connector types visible to the
+    account, grouped by agent. Optionally filter by agent UUID.
 
     Arguments:
 
@@ -84722,6 +85180,57 @@ class QueryWithResults(sgqlc.types.Type):
     """Result of the query that was run. Either number of rows or the
     serialized representation of the rows themselves.
     """
+
+
+class QueuedJob(sgqlc.types.Type):
+    """Status of an asynchronous job, polled by UUID."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "job_type",
+        "status",
+        "progress_total",
+        "progress_completed",
+        "error",
+        "result",
+        "queued_at",
+        "started_at",
+        "finished_at",
+        "last_heartbeat_at",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Stable identifier for the job."""
+
+    job_type = sgqlc.types.Field(sgqlc.types.non_null(QueuedJobType), graphql_name="jobType")
+    """The kind of work."""
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(QueuedJobStatus), graphql_name="status")
+    """Current lifecycle status."""
+
+    progress_total = sgqlc.types.Field(Int, graphql_name="progressTotal")
+    """Total units of work, when known."""
+
+    progress_completed = sgqlc.types.Field(Int, graphql_name="progressCompleted")
+    """Units of work completed so far."""
+
+    error = sgqlc.types.Field(String, graphql_name="error")
+    """Failure detail when the job failed."""
+
+    result = sgqlc.types.Field(JSONString, graphql_name="result")
+    """Compact summary of the job outcome."""
+
+    queued_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="queuedAt")
+    """When the job was enqueued."""
+
+    started_at = sgqlc.types.Field(DateTime, graphql_name="startedAt")
+    """When processing began."""
+
+    finished_at = sgqlc.types.Field(DateTime, graphql_name="finishedAt")
+    """When the job reached a terminal status."""
+
+    last_heartbeat_at = sgqlc.types.Field(DateTime, graphql_name="lastHeartbeatAt")
+    """Last time the worker reported progress."""
 
 
 class RcaJob(sgqlc.types.Type):
@@ -94367,7 +94876,7 @@ class AgentTraceTable(sgqlc.types.Type, Node):
     sql_tool_calls_schedule = sgqlc.types.Field(
         DataCollectorSchedule, graphql_name="sqlToolCallsSchedule"
     )
-    """Schedule for the AGENT_SQL_TOOL_CALLS sweep over this trace table."""
+    """Schedule for the AGENT_DATA_LINEAGE sweep over this trace table."""
 
     recommendations_generated_at = sgqlc.types.Field(
         DateTime, graphql_name="recommendationsGeneratedAt"
@@ -100530,6 +101039,8 @@ class Finding(sgqlc.types.Type, Node):
         "agentic_scope_uuid",
         "agentic_scope",
         "parent_finding_uuid",
+        "stage",
+        "staged",
         "feedback_action",
         "feedback_at",
         "feedback_by",
@@ -100540,6 +101051,7 @@ class Finding(sgqlc.types.Type, Node):
         "related_monitors_count",
         "deployed_monitors",
         "deployed_monitors_count",
+        "proposed_monitor",
         "related_assets",
         "related_assets_count",
         "tsa_analysis",
@@ -100612,6 +101124,21 @@ class Finding(sgqlc.types.Type, Node):
 
     parent_finding_uuid = sgqlc.types.Field(UUID, graphql_name="parentFindingUuid")
 
+    stage = sgqlc.types.Field(FindingStage, graphql_name="stage")
+    """Set when this finding is one phase of a staged monitoring strategy
+    (a suggested, ordered monitor rollout for a use case); null
+    otherwise — including on the strategy's top-level container. Use
+    `staged` to identify the container, which has no stage of its own.
+    """
+
+    staged = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="staged")
+    """Whether this finding is part of a staged monitoring strategy —
+    true for both a phase (has a `stage`) and the top-level container
+    (no `stage`, but its children are phases). Lets the list
+    distinguish a suggested monitoring strategy from a standalone
+    monitoring finding. Filterable via `staged`.
+    """
+
     feedback_action = sgqlc.types.Field(FindingFeedbackAction, graphql_name="feedbackAction")
     """Latest feedback action on this finding (null if none)."""
 
@@ -100653,6 +101180,13 @@ class Finding(sgqlc.types.Type, Node):
     deployed_monitors_count = sgqlc.types.Field(
         sgqlc.types.non_null(Int), graphql_name="deployedMonitorsCount"
     )
+
+    proposed_monitor = sgqlc.types.Field(ProposedMonitor, graphql_name="proposedMonitor")
+    """The monitor this finding proposes to create, with its apply
+    lifecycle (pending/in_progress/applied/failed), eligibility, and
+    the deployed monitor once applied. Null for findings that are not
+    individual monitor proposals.
+    """
 
     related_assets = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(RelatedAsset))),
@@ -101969,6 +102503,8 @@ class PlatformAgent(sgqlc.types.Type, Node):
         "schedule",
         "sql_tool_calls_schedule",
         "recommendations_generated_at",
+        "trace_table_mcon",
+        "trace_table_ingested",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -102023,7 +102559,7 @@ class PlatformAgent(sgqlc.types.Type, Node):
     sql_tool_calls_schedule = sgqlc.types.Field(
         DataCollectorSchedule, graphql_name="sqlToolCallsSchedule"
     )
-    """Schedule for the AGENT_SQL_TOOL_CALLS sweep over this platform
+    """Schedule for the AGENT_DATA_LINEAGE sweep over this platform
     agent.
     """
 
@@ -102032,6 +102568,29 @@ class PlatformAgent(sgqlc.types.Type, Node):
     )
     """Timestamp when auto-recommended monitors were generated for this
     platform agent.
+    """
+
+    trace_table_mcon = sgqlc.types.Field(String, graphql_name="traceTableMcon")
+    """MCON of the real catalogued trace table this agent is anchored on,
+    for Databricks agents. Carries the agent's domain assignment and
+    lineage. Null for Snowflake agents (which have no backing table)
+    and for Databricks agents whose trace table has not yet been
+    ingested by metadata collection.
+    """
+
+    trace_table_ingested = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="traceTableIngested"
+    )
+    """Whether this agent's real catalogued trace table is linked yet.
+    True for Snowflake agents (no separate trace table) and for
+    Databricks agents already anchored on their catalogued table.
+    False for a Databricks agent registered before metadata collection
+    ingested its trace table — the link is filled automatically on the
+    next catalog ingest. The agent is fully operational meanwhile
+    (spans collect on its synthetic identity); only the catalog /
+    domain / lineage anchoring to the real table is deferred. Use this
+    to distinguish a pending Databricks link (False) from a Snowflake
+    agent (True), which both report a null traceTableMcon.
     """
 
 

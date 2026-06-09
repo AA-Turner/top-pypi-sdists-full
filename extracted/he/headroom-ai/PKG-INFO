@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: headroom-ai
-Version: 0.23.0
+Version: 0.24.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -88,6 +88,8 @@ Requires-Dist: onnxruntime>=1.16.0 ; extra == 'proxy'
 Requires-Dist: transformers>=4.30.0 ; extra == 'proxy'
 Requires-Dist: watchdog>=4.0.0 ; extra == 'proxy'
 Requires-Dist: sqlite-vec>=0.1.6 ; extra == 'proxy'
+Requires-Dist: headroom-ai[proxy] ; extra == 'proxy-prod'
+Requires-Dist: gunicorn>=21.0.0 ; sys_platform != 'win32' and extra == 'proxy-prod'
 Requires-Dist: fastembed>=0.4.0 ; extra == 'relevance'
 Requires-Dist: numpy>=1.24.0 ; extra == 'relevance'
 Requires-Dist: jinja2>=3.0.0 ; extra == 'reports'
@@ -115,6 +117,7 @@ Provides-Extra: memory-stack
 Provides-Extra: ml
 Provides-Extra: otel
 Provides-Extra: proxy
+Provides-Extra: proxy-prod
 Provides-Extra: relevance
 Provides-Extra: reports
 Provides-Extra: strands
@@ -136,7 +139,7 @@ Project-URL: Homepage, https://headroom-docs.vercel.app
 Project-URL: Issues, https://github.com/chopratejas/headroom/issues
 Project-URL: Repository, https://github.com/chopratejas/headroom
 
-```
+<div align="center"><pre>
   ██╗  ██╗███████╗ █████╗ ██████╗ ██████╗  ██████╗  ██████╗ ███╗   ███╗
   ██║  ██║██╔════╝██╔══██╗██╔══██╗██╔══██╗██╔═══██╗██╔═══██╗████╗ ████║
   ███████║█████╗  ███████║██║  ██║██████╔╝██║   ██║██║   ██║██╔████╔██║
@@ -144,7 +147,7 @@ Project-URL: Repository, https://github.com/chopratejas/headroom
   ██║  ██║███████╗██║  ██║██████╔╝██║  ██║╚██████╔╝╚██████╔╝██║ ╚═╝ ██║
   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚═╝     ╚═╝
                   The context compression layer for AI agents
-```
+</pre></div>
 
 <p align="center"><strong>60–95% fewer tokens · library · proxy · MCP · 6 algorithms · local-first · reversible</strong></p>
 
@@ -164,7 +167,8 @@ Project-URL: Repository, https://github.com/chopratejas/headroom
   <a href="#proof">Proof</a> ·
   <a href="#agent-compatibility-matrix">Agents</a> ·
   <a href="https://discord.gg/yRmaUNpsPJ">Discord</a> ·
-  <a href="llms.txt">llms.txt</a>
+  <a href="llms.txt">llms.txt</a> ·
+  <a href="ENTERPRISE.md">Enterprise</a>
 </p>
 
 <p align="center"><sub>
@@ -172,9 +176,9 @@ Project-URL: Repository, https://github.com/chopratejas/headroom
 </sub></p>
 
 ---
-<a href="https://trendshift.io/repositories/20881" target="_blank"><img src="https://trendshift.io/api/badge/repositories/20881" alt="chopratejas%2Fheadroom | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+<p align="center"><a href="https://trendshift.io/repositories/20881" target="_blank"><img src="https://trendshift.io/api/badge/repositories/20881" alt="chopratejas%2Fheadroom | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a></p>
 
-> Headroom compresses everything your AI agent reads — tool outputs, logs, RAG chunks, files, and conversation history — before it reaches the LLM. Same answers, fraction of the tokens.
+Headroom compresses everything your AI agent reads — tool outputs, logs, RAG chunks, files, and conversation history — before it reaches the LLM. Same answers, fraction of the tokens.
 
 <p align="center">
   <img src="HeadroomDemo-Fast.gif" alt="Headroom in action" width="820">
@@ -236,7 +240,7 @@ headroom proxy --port 8787              # drop-in proxy, zero code changes
 headroom perf
 ```
 
-Granular extras: `[proxy]`, `[mcp]`, `[ml]`, `[agno]`, `[langchain]`, `[evals]`. Requires **Python 3.10+**.
+Granular extras: `[proxy]`, `[mcp]`, `[ml]`, `[code]`, `[memory]`, `[relevance]`, `[image]`, `[agno]`, `[langchain]`, `[evals]`. Requires **Python 3.10+**.
 
 ## Proof
 
@@ -260,16 +264,22 @@ Granular extras: `[proxy]`, `[mcp]`, `[ml]`, `[agno]`, `[langchain]`, `[evals]`.
 
 Reproduce: `python -m headroom.evals suite --tier 1` · [Full benchmarks & methodology](https://headroom-docs.vercel.app/docs/benchmarks)
 
+<a href="https://www.star-history.com/?repos=chopratejas%2Fheadroom&type=date&legend=top-left">
+ <picture>
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=chopratejas/headroom&type=date&legend=top-left" />
+ </picture>
+</a>
+
 ## Agent compatibility matrix
 
 | Agent       | `headroom wrap` | Notes                            |
 |-------------|:---------------:|----------------------------------|
-| Claude Code | ●               | `--memory` · `--code-graph`      |
-| Codex       | ●               | shares memory with Claude        |
-| Cursor      | ●               | prints config — paste once       |
-| Aider       | ●               | starts proxy + launches          |
-| Copilot CLI | ●               | starts proxy + launches          |
-| OpenClaw    | ●               | installs as ContextEngine plugin |
+| Claude Code | ✅              | `--memory` · `--code-graph`      |
+| Codex       | ✅              | shares memory with Claude        |
+| Cursor      | ✅              | prints config — paste once       |
+| Aider       | ✅              | starts proxy + launches          |
+| Copilot CLI | ✅              | starts proxy + launches          |
+| OpenClaw    | ✅              | installs as ContextEngine plugin |
 
 Any OpenAI-compatible client works via `headroom proxy`. MCP-native: `headroom mcp install`.
 
@@ -359,7 +369,7 @@ npm install headroom-ai                 # TypeScript / Node
 docker pull ghcr.io/chopratejas/headroom:latest
 ```
 
-Granular extras: `[proxy]`, `[mcp]`, `[ml]` (Kompress-base), `[agno]`, `[langchain]`, `[evals]`. Requires **Python 3.10+**.
+Granular extras: `[proxy]`, `[mcp]`, `[ml]` (Kompress-base), `[code]`, `[memory]`, `[relevance]`, `[image]`, `[agno]`, `[langchain]`, `[evals]`. Requires **Python 3.10+**.
 
 Using `pipx`? Choose a supported interpreter explicitly:
 
@@ -419,4 +429,3 @@ Devcontainers in `.devcontainer/` (default + `memory-stack` with Qdrant & Neo4j)
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).
-

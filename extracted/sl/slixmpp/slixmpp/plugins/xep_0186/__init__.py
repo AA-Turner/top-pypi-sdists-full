@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2012 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -11,3 +10,5 @@ from slixmpp.plugins.xep_0186.invisible_command import XEP_0186
 
 
 register_plugin(XEP_0186)
+
+__all__ = ['stanza', 'Invisible', 'Visible', 'XEP_0186']

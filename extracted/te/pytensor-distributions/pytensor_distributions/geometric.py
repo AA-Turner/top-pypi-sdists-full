@@ -1,6 +1,7 @@
 import pytensor.tensor as pt
 
 from pytensor_distributions.helper import cdf_bounds, ppf_bounds_disc
+from pytensor_distributions.lmoments import _lmoments
 
 
 def mean(p):
@@ -29,6 +30,22 @@ def skewness(p):
 
 def kurtosis(p):
     return 6 + (p**2) / (1 - p)
+
+
+def lmoment1(p):
+    return mean(p)
+
+
+def lmoment2(p):
+    return (1 - p) / (p * (2 - p))
+
+
+def lmoment3(p):
+    return _lmoments(ppf, p, r=3)
+
+
+def lmoment4(p):
+    return _lmoments(ppf, p, r=4)
 
 
 def entropy(p):
@@ -61,7 +78,7 @@ def isf(q, p):
 
 
 def rvs(p, size=None, random_state=None):
-    return pt.random.geometric(p, size=size, rng=random_state)
+    return pt.random.geometric(p, size=size, rng=random_state, return_next_rng=True)[1]
 
 
 def logpdf(x, p):

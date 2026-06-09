@@ -10,18 +10,21 @@ High-level algorithm
 --------------------
 1. **Scan** -- glob for `metadata.yaml` files to discover all
    (connector, version) tuples.  No file *contents* are downloaded.
-2. **Yank set** -- glob for `version-yank.yml` markers to build an
-   exclusion set.
+2. **Marker sets** -- glob for `version-yank.yml` and
+   `progressive-rollout.yml` markers.  No file contents are downloaded.
 3. **Compute latest** -- for each connector, pick the highest GA semver
-   that is not yanked and not a pre-release.
-4. **Fast-check latest/** -- glob for `version=*` marker files inside
+   that is not yanked, not a pre-release, and not mid-progressive-rollout.
+4. **Compute rollout candidates** -- for each connector, pick the highest
+   non-yanked progressive rollout candidate version that is not already promoted
+   to `latest/`.
+5. **Fast-check latest/** -- glob for `version=*` marker files inside
    `latest/` directories.  Compare with the computed latest.  Only
    connectors whose marker disagrees (or is missing) need a resync.
-5. **Resync stale latest/** -- delete the old `latest/` directory,
+6. **Resync stale latest/** -- delete the old `latest/` directory,
    ensure a `version=<x.y.z>` marker exists in the versioned
    directory, then recursively copy the versioned directory to
    `latest/`.
-6. **Write index files**:
+7. **Write index files**:
    a. Global `registries/v0/cloud_registry.json` and
       `registries/v0/oss_registry.json` (backwards-compatible).
    b. Per-connector `versions.json` (new).
@@ -55,9 +58,7 @@ import yaml
 from packaging.version import InvalidVersion, Version
 
 from airbyte_ops_mcp.registry._constants import (
-    METADATA_FILE_NAME,
     METADATA_FOLDER,
-    RELEASE_CANDIDATE_GCS_FOLDER_NAME,
     VALID_REGISTRIES,
 )
 from airbyte_ops_mcp.registry._gcs_helpers import (
@@ -67,6 +68,10 @@ from airbyte_ops_mcp.registry._gcs_helpers import (
 from airbyte_ops_mcp.registry.generate import (
     _get_registry_override,
     is_registry_enabled,
+)
+from airbyte_ops_mcp.registry.markers import (
+    PROGRESSIVE_ROLLOUT_MARKER_FILE,
+    YANK_MARKER_FILE,
 )
 from airbyte_ops_mcp.registry.metrics import (
     apply_metrics_to_registry_entries,
@@ -211,6 +216,12 @@ def _parse_version(version_str: str) -> Version | None:
         return None
 
 
+def _is_release_candidate_version(version_str: str) -> bool:
+    """Return `True` if the version string is an RC semver."""
+    parsed = _parse_version(version_str)
+    return parsed is not None and parsed.pre is not None and parsed.pre[0] == "rc"
+
+
 def _write_gcs_blob_with_custom_ttl(
     bucket_name: str,
     blob_path: str,
@@ -284,62 +295,90 @@ def _extract_connector_version(
 
 
 # ---------------------------------------------------------------------------
-# RC (release candidate) scanning
+# Step 4: Compute active release candidates
 # ---------------------------------------------------------------------------
 
 
-def _scan_release_candidates(
-    fs: gcsfs.GCSFileSystem,
+def _compute_highest_ga_versions(
     *,
-    store: RegistryStore,
-    connector_name: list[str] | None = None,
-) -> dict[str, str]:
-    """Scan for active release candidates by globbing `release_candidate/metadata.yaml`.
+    connector_versions: dict[str, list[str]],
+    yanked: set[tuple[str, str]],
+    progressive_rollouts: set[tuple[str, str]],
+) -> dict[str, tuple[Version, str]]:
+    """Return each connector's highest non-yanked GA version."""
+    highest: dict[str, tuple[Version, str]] = {}
+    for connector, versions in connector_versions.items():
+        candidates: list[tuple[Version, str]] = []
+        for version_str in versions:
+            if (connector, version_str) in yanked:
+                continue
+            if (connector, version_str) in progressive_rollouts:
+                continue
+            if not _is_ga_version(version_str):
+                continue
+            parsed = _parse_version(version_str)
+            if parsed is not None:
+                candidates.append((parsed, version_str))
+        if candidates:
+            highest[connector] = max(candidates)
+    return highest
 
-    For each connector that has a `release_candidate/metadata.yaml` file,
-    reads the metadata to extract the RC version string.
+
+def _compute_release_candidates(
+    *,
+    connector_versions: dict[str, list[str]],
+    yanked: set[tuple[str, str]],
+    progressive_rollouts: set[tuple[str, str]],
+) -> dict[str, str]:
+    """Derive active release candidates from versioned marker files.
+
+    For each connector, selects the highest progressive rollout candidate
+    version that is not already promoted to `latest/` and not already yanked.
 
     Returns:
-        dict mapping connector_name -> RC version string.
+        dict mapping connector_name -> rollout candidate version string.
     """
-    base = f"{store.bucket_root}/{METADATA_FOLDER}/airbyte"
-
-    if connector_name:
-        rc_paths: list[str] = []
-        for name in connector_name:
-            pattern = f"{base}/{name}/{RELEASE_CANDIDATE_GCS_FOLDER_NAME}/{METADATA_FILE_NAME}"
-            rc_paths.extend(fs.glob(pattern))
-    else:
-        pattern = f"{base}/*/{RELEASE_CANDIDATE_GCS_FOLDER_NAME}/{METADATA_FILE_NAME}"
-        rc_paths = fs.glob(pattern)
-
-    _log_progress("Glob found %d release_candidate/metadata.yaml files", len(rc_paths))
-
+    highest_ga = _compute_highest_ga_versions(
+        connector_versions=connector_versions,
+        yanked=yanked,
+        progressive_rollouts=progressive_rollouts,
+    )
     rc_versions: dict[str, str] = {}
-    for path in rc_paths:
-        # Extract connector name from path:
-        # bucket/[prefix/]metadata/airbyte/<connector>/release_candidate/metadata.yaml
-        parts = path.split("/")
-        try:
-            meta_idx = parts.index("metadata")
-            connector = parts[meta_idx + 2]
-        except (ValueError, IndexError):
-            logger.warning("Could not parse RC path: %s", path)
+    for connector, versions in connector_versions.items():
+        latest_ga = highest_ga.get(connector)
+        if latest_ga is None:
             continue
-
-        # Read the metadata to get the RC version
-        try:
-            with fs.open(path, "r") as f:
-                raw = yaml.safe_load(f)
-            version = raw.get("data", {}).get("dockerImageTag")
-            if version:
-                rc_versions[connector] = version
-                logger.info("Found RC for %s: %s", connector, version)
+        latest_ga_version, latest_ga_str = latest_ga
+        ga_candidates: list[tuple[Version, str]] = []
+        rc_candidates: list[tuple[Version, str]] = []
+        for version_str in versions:
+            if (connector, version_str) in yanked:
+                continue
+            if (connector, version_str) not in progressive_rollouts:
+                continue
+            parsed = _parse_version(version_str)
+            if parsed is None:
+                continue
+            is_ga_version = _is_ga_version(version_str)
+            is_release_candidate_version = _is_release_candidate_version(version_str)
+            if not is_ga_version and not is_release_candidate_version:
+                continue
+            if parsed <= latest_ga_version:
+                continue
+            if is_ga_version:
+                ga_candidates.append((parsed, version_str))
             else:
-                logger.warning("RC metadata for %s has no dockerImageTag", connector)
-        except Exception as exc:
-            logger.warning("Failed to read RC metadata for %s: %s", connector, exc)
-
+                rc_candidates.append((parsed, version_str))
+        candidates = ga_candidates or rc_candidates
+        if candidates:
+            _, rc_version = max(candidates)
+            rc_versions[connector] = rc_version
+            logger.info(
+                "Computed rollout candidate for %s: %s (latest GA: %s)",
+                connector,
+                rc_version,
+                latest_ga_str,
+            )
     return rc_versions
 
 
@@ -379,25 +418,26 @@ def _apply_release_candidates_to_entries(
 ) -> list[dict[str, Any]]:
     """Inject `releases.releaseCandidates` into global registry entries.
 
-    For each entry whose `dockerRepository` has an active RC, adds::
+    For each entry whose `dockerRepository` has an active rollout candidate,
+    adds:
 
         {
             "releases": {
                 "releaseCandidates": {
-                    "<rc_version>": { ...full RC registry entry... }
+                    "<candidate_version>": { ...full candidate registry entry... }
                 }
             }
         }
 
-    This matches the format used by the legacy orchestrator so the platform
-    can discover active release candidates from the compiled registry JSON.
+    This matches the legacy field name used by the platform to discover active
+    rollout candidates from the compiled registry JSON.
 
     Args:
         entries: List of registry entry dicts (from `_compile_global_registry`).
         rc_entries: Mapping of `dockerRepository` -> `{"version": str, "entry": dict}`.
 
     Returns:
-        New list with RC info injected (entries without RCs are unchanged).
+        New list with rollout candidate info injected.
     """
     result: list[dict[str, Any]] = []
     for entry in entries:
@@ -416,17 +456,21 @@ def _apply_release_candidates_to_entries(
 
 
 # ---------------------------------------------------------------------------
-# Step 1 + 2: Scan versions and yank markers via glob
+# Steps 1 and 2: Scan versions and yank markers via glob
 # ---------------------------------------------------------------------------
 
 
-def _scan_versions_and_yanks(
+def _scan_versions_and_markers(
     fs: gcsfs.GCSFileSystem,
     *,
     store: RegistryStore,
     connector_name: list[str] | None = None,
-) -> tuple[dict[str, list[str]], set[tuple[str, str]]]:
-    """Scan the registry for all (connector, version) tuples and yank markers.
+) -> tuple[
+    dict[str, list[str]],
+    set[tuple[str, str]],
+    set[tuple[str, str]],
+]:
+    """Scan the registry for versions, yank markers, and rollout markers.
 
     Uses efficient glob patterns -- no file contents are downloaded.
 
@@ -439,6 +483,7 @@ def _scan_versions_and_yanks(
         Tuple of:
         - dict mapping connector_name -> list of version strings
         - set of (connector_name, version) tuples that are yanked
+        - set of (connector_name, version) tuples with active progressive rollout
     """
     base = f"{store.bucket_root}/{METADATA_FOLDER}/airbyte"
 
@@ -466,28 +511,47 @@ def _scan_versions_and_yanks(
     if connector_name:
         yank_paths: list[str] = []
         for name in connector_name:
-            yank_pattern = f"{base}/{name}/*/version-yank.yml"
+            yank_pattern = f"{base}/{name}/*/{YANK_MARKER_FILE}"
             yank_paths.extend(fs.glob(yank_pattern))
     else:
-        yank_pattern = f"{base}/*/*/version-yank.yml"
+        yank_pattern = f"{base}/*/*/{YANK_MARKER_FILE}"
         yank_paths = fs.glob(yank_pattern)
 
-    _log_progress("Glob found %d version-yank.yml markers", len(yank_paths))
+    _log_progress("Glob found %d %s markers", len(yank_paths), YANK_MARKER_FILE)
 
     yanked: set[tuple[str, str]] = set()
     for path in yank_paths:
-        # Path: bucket/[prefix/]metadata/airbyte/<connector>/<version>/version-yank.yml
-        parts = path.split("/")
-        # Find "metadata" index, then airbyte/<connector>/<version>
-        try:
-            meta_idx = parts.index("metadata")
-            connector = parts[meta_idx + 2]
-            version = parts[meta_idx + 3]
+        parsed = _extract_connector_version(path, store=store)
+        if parsed is not None:
+            connector, version = parsed
             yanked.add((connector, version))
-        except (ValueError, IndexError):
+        else:
             logger.warning("Could not parse yank path: %s", path)
 
-    return connector_versions, yanked
+    if connector_name:
+        rollout_paths: list[str] = []
+        for name in connector_name:
+            rollout_pattern = f"{base}/{name}/*/{PROGRESSIVE_ROLLOUT_MARKER_FILE}"
+            rollout_paths.extend(fs.glob(rollout_pattern))
+    else:
+        rollout_pattern = f"{base}/*/*/{PROGRESSIVE_ROLLOUT_MARKER_FILE}"
+        rollout_paths = fs.glob(rollout_pattern)
+
+    _log_progress(
+        "Glob found %d %s markers",
+        len(rollout_paths),
+        PROGRESSIVE_ROLLOUT_MARKER_FILE,
+    )
+
+    progressive_rollouts: set[tuple[str, str]] = set()
+    for path in rollout_paths:
+        parsed = _extract_connector_version(path, store=store)
+        if parsed is not None and parsed not in yanked:
+            progressive_rollouts.add(parsed)
+        elif parsed is None:
+            logger.warning("Could not parse progressive rollout path: %s", path)
+
+    return connector_versions, yanked, progressive_rollouts
 
 
 # ---------------------------------------------------------------------------
@@ -495,56 +559,17 @@ def _scan_versions_and_yanks(
 # ---------------------------------------------------------------------------
 
 
-def _has_progressive_rollout_enabled(
-    fs: gcsfs.GCSFileSystem,
-    *,
-    store: RegistryStore,
-    connector: str,
-    version: str,
-) -> bool:
-    """Check if a version's metadata has `enableProgressiveRollout: true`.
-
-    Reads the version's `metadata.yaml` from GCS and inspects
-    `data.releases.rolloutConfiguration.enableProgressiveRollout`.
-
-    Returns False on any read failure (fail-open: the version stays
-    eligible for latest).
-    """
-    base = f"{store.bucket_root}/{METADATA_FOLDER}/airbyte"
-    metadata_path = f"{base}/{connector}/{version}/{METADATA_FILE_NAME}"
-    try:
-        with fs.open(metadata_path, "r") as f:
-            raw = yaml.safe_load(f)
-        return bool(
-            raw.get("data", {})
-            .get("releases", {})
-            .get("rolloutConfiguration", {})
-            .get("enableProgressiveRollout")
-        )
-    except Exception:
-        logger.debug(
-            "Failed to read metadata for progressive rollout check for %s@%s at %s",
-            connector,
-            version,
-            metadata_path,
-            exc_info=True,
-        )
-        return False
-
-
 def _compute_latest_versions(
     *,
     connector_versions: dict[str, list[str]],
     yanked: set[tuple[str, str]],
-    fs: gcsfs.GCSFileSystem | None = None,
-    store: RegistryStore | None = None,
+    progressive_rollouts: set[tuple[str, str]],
 ) -> dict[str, str]:
     """For each connector, determine the highest GA semver that is not yanked.
 
-    Versions with `enableProgressiveRollout: true` in their metadata are
-    skipped so that an in-progress progressive rollout does not become the
-    default/latest version.  When `fs` is `None` the progressive-rollout
-    check is skipped (useful in unit tests that don't have GCS access).
+    Versions with an active `progressive-rollout.yml` marker are skipped so
+    that an in-progress progressive rollout does not become the default/latest
+    version.
 
     Returns:
         dict mapping connector_name -> latest version string.
@@ -555,6 +580,8 @@ def _compute_latest_versions(
         candidates: list[tuple[Version, str]] = []
         for v_str in versions:
             if (connector, v_str) in yanked:
+                continue
+            if (connector, v_str) in progressive_rollouts:
                 continue
             if not _is_ga_version(v_str):
                 continue
@@ -569,43 +596,13 @@ def _compute_latest_versions(
             )
             continue
 
-        # Pick the highest version that is not mid-progressive-rollout.
-        candidates.sort(reverse=True)
-        chosen: str | None = None
-        for _, v_str in candidates:
-            if (
-                fs is not None
-                and store is not None
-                and _has_progressive_rollout_enabled(
-                    fs,
-                    store=store,
-                    connector=connector,
-                    version=v_str,
-                )
-            ):
-                logger.info(
-                    "Skipping %s@%s for latest (progressive rollout in progress)",
-                    connector,
-                    v_str,
-                )
-                continue
-            chosen = v_str
-            break
-
-        if chosen is not None:
-            latest[connector] = chosen
-        else:
-            logger.warning(
-                "No eligible GA version found for %s "
-                "(%d candidates, all have progressive rollout enabled).",
-                connector,
-                len(candidates),
-            )
+        _, chosen = max(candidates)
+        latest[connector] = chosen
     return latest
 
 
 # ---------------------------------------------------------------------------
-# Step 4: Check version markers in latest/ directories
+# Step 5: Check version markers in latest/ directories
 # ---------------------------------------------------------------------------
 
 
@@ -653,7 +650,7 @@ def _scan_latest_markers(
 
 
 # ---------------------------------------------------------------------------
-# Step 5: Resync stale latest/ directories
+# Step 6: Resync stale latest/ directories
 # ---------------------------------------------------------------------------
 
 
@@ -665,7 +662,7 @@ def _delete_latest_dir(
 ) -> None:
     """Delete a connector's `latest/` directory recursively.
 
-    This is the shared primitive used by both compile (step 5, before
+    This is the shared primitive used by both compile (step 6, before
     copying the new version) and delete-dev-latest (standalone purge).
 
     Silently succeeds if the directory does not exist.
@@ -693,8 +690,8 @@ def _ensure_version_marker(
         f"/{version}/version={version}"
     )
     if not fs.exists(marker_path):
-        with fs.open(marker_path, "wb") as f:
-            f.write(b"")
+        with fs.open(marker_path, "w") as f:
+            f.write("")
         _log_progress("  Created missing marker in versioned dir: version=%s", version)
 
 
@@ -864,7 +861,7 @@ def _apply_overrides_to_latest_entry(
 
 
 # ---------------------------------------------------------------------------
-# Step 6a: Compile global registry JSONs
+# Step 9: Compile global registry JSONs
 # ---------------------------------------------------------------------------
 
 
@@ -1156,7 +1153,7 @@ def _build_composite_registry_json(
 
 
 # ---------------------------------------------------------------------------
-# Step 6c: Specs secrets mask
+# Step 12: Specs secrets mask
 # ---------------------------------------------------------------------------
 
 
@@ -1200,7 +1197,7 @@ def _extract_secret_property_names(
 
 
 # ---------------------------------------------------------------------------
-# Step 6b: Per-connector version index
+# Step 11: Per-connector version index
 # ---------------------------------------------------------------------------
 
 
@@ -1219,9 +1216,9 @@ def _build_version_index(
     For each version, reads `metadata.yaml` to extract `releaseStage`
     and `supportLevel` (only for the latest version to keep scanning fast).
 
-    If *rc_version* is provided, the matching version entry is annotated with
-    `"is_release_candidate": true` and a top-level `"release_candidate"`
-    field is added to the index.
+    If `rc_version` is provided, the matching rollout candidate entry is
+    annotated with the legacy `"is_release_candidate": true` field and a
+    top-level `"release_candidate"` field is added to the index.
     """
     base = f"{store.bucket_root}/{METADATA_FOLDER}/airbyte/{connector}"
 
@@ -1290,13 +1287,13 @@ _PURGE_LATEST_MAX_WORKERS = 20
 """DoP for purge-latest bulk deletes."""
 
 _COMPILE_SYNC_MAX_WORKERS = 80
-"""DoP for Step 5 — resync stale latest/ directories."""
+"""DoP for Step 6 — resync stale latest/ directories."""
 
 _COMPILE_READ_MAX_WORKERS = 20
-"""DoP for Step 6a — read cloud.json / oss.json from latest/ dirs."""
+"""DoP for Step 9 — read cloud.json / oss.json from latest/ dirs."""
 
 _COMPILE_WRITE_MAX_WORKERS = 80
-"""DoP for Step 6b — write per-connector versions.json indexes."""
+"""DoP for Step 11 — write per-connector versions.json indexes."""
 
 # Supported legacy migration versions.
 LEGACY_MIGRATION_VERSIONS = ("v1",)
@@ -1520,18 +1517,22 @@ def compile_registry(
 
     Steps:
         1. Glob for all `metadata.yaml` to discover (connector, version) pairs.
-        2. Glob for `version-yank.yml` to build the yanked set.
+        2. Glob for active marker files.
         3. Compute the latest GA semver per connector.
-        4. Glob for `version=*` markers in `latest/` dirs for a fast check.
-        5. Delete stale `latest/` dirs and recursively copy the versioned dir.
-        5m. (Optional) Legacy migration: delete disabled registry entries.
-        6. Write global registry JSONs and per-connector `versions.json`.
-        6c. (Optional) Regenerate `specs_secrets_mask.yaml`.
+        4. Compute active release candidates from versioned markers.
+        5. Glob for `version=*` markers in `latest/` dirs for a fast check.
+        6. Delete stale `latest/` dirs and recursively copy the versioned dir.
+        7. (Optional) Legacy migration: delete disabled registry entries.
+        8. (Optional) Read latest connector metrics.
+        9. Write global registry JSONs.
+        10. Write composite registry JSON.
+        11. Write per-connector `versions.json`.
+        12. (Optional) Regenerate `specs_secrets_mask.yaml`.
 
     Args:
         store: Registry store (bucket + optional prefix).
         connector_name: If provided, only resync `latest/` directories for
-            these connectors (steps 4-5).  Index rebuilds (steps 6a-6c)
+            these connectors (steps 5-6).  Index rebuilds (steps 9-12)
             always operate on the full set of connectors so that global
             registry files remain complete.
         dry_run: If True, report what would be done without writing.
@@ -1560,10 +1561,10 @@ def compile_registry(
     token = get_gcs_credentials_token()
     fs = gcsfs.GCSFileSystem(token=token)
 
-    # --- Step 1 + 2: Scan versions and yanks ---
-    # Always scan ALL connectors so that index rebuilds (step 6) are complete.
-    _log_progress("Step 1-2: Scanning versions and yank markers...")
-    connector_versions, yanked = _scan_versions_and_yanks(
+    # --- Steps 1 and 2: Scan versions and active markers ---
+    # Always scan ALL connectors so that index rebuilds are complete.
+    _log_progress("Step 1-2: Scanning versions and active markers...")
+    connector_versions, yanked, progressive_rollouts = _scan_versions_and_markers(
         fs,
         store=store,
         connector_name=None,
@@ -1577,29 +1578,29 @@ def compile_registry(
         result.versions_found,
         result.yanked_versions,
     )
-
-    # --- Step 2b: Scan release candidates ---
-    _log_progress("Step 2b: Scanning for active release candidates...")
-    rc_versions = _scan_release_candidates(
-        fs,
-        store=store,
-        connector_name=connector_name,
-    )
-    _log_progress("  Found %d active release candidates", len(rc_versions))
+    _log_progress("  Found %d progressive rollout markers", len(progressive_rollouts))
 
     # --- Step 3: Compute latest ---
     _log_progress("Step 3: Computing latest GA version per connector...")
     latest_versions = _compute_latest_versions(
         connector_versions=connector_versions,
         yanked=yanked,
-        fs=fs,
-        store=store,
+        progressive_rollouts=progressive_rollouts,
     )
     _log_progress("  Computed latest for %d connectors", len(latest_versions))
 
-    # --- Step 4: Check existing latest markers ---
-    # When --connector-name is set, only check/sync those connectors (steps 4-5).
-    # Index rebuilds in step 6 always use the full unfiltered data.
+    # --- Step 4: Compute release candidates ---
+    _log_progress("Step 4: Computing active release candidates...")
+    rc_versions = _compute_release_candidates(
+        connector_versions=connector_versions,
+        yanked=yanked,
+        progressive_rollouts=progressive_rollouts,
+    )
+    _log_progress("  Computed %d active release candidates", len(rc_versions))
+
+    # --- Step 5: Check existing latest markers ---
+    # When --connector-name is set, only check/sync those connectors (steps 5-6).
+    # Index rebuilds always use the full unfiltered data.
     if connector_name:
         connector_name_set = set(connector_name)
         sync_scope = {
@@ -1613,7 +1614,7 @@ def compile_registry(
     else:
         sync_scope = latest_versions
 
-    _log_progress("Step 4: Checking existing latest/ markers...")
+    _log_progress("Step 5: Checking existing latest/ markers...")
     sync_scope_names = list(sync_scope) if connector_name else None
     existing_markers = _scan_latest_markers(
         fs,
@@ -1636,10 +1637,10 @@ def compile_registry(
         result.latest_already_current,
     )
 
-    # --- Step 5: Resync stale latest/ dirs (parallel) ---
+    # --- Step 6: Resync stale latest/ dirs (parallel) ---
     if stale_connectors:
         _log_progress(
-            "Step 5: Syncing %d stale latest/ directories (max_workers=%d)...",
+            "Step 6: Syncing %d stale latest/ directories (max_workers=%d)...",
             len(stale_connectors),
             _COMPILE_SYNC_MAX_WORKERS,
         )
@@ -1695,12 +1696,12 @@ def compile_registry(
                 if i % 100 == 0:
                     _log_progress("  Synced %d / %d...", i, len(sorted_stale))
     else:
-        _log_progress("Step 5: All latest/ directories are current, nothing to sync.")
+        _log_progress("Step 6: All latest/ directories are current, nothing to sync.")
 
-    # --- Step 5m: Legacy migration (optional) ---
+    # --- Step 7: Legacy migration (optional) ---
     if with_legacy_migration == "v1":
         _log_progress(
-            "Step 5m: Legacy migration v1 — deleting disabled registry entries..."
+            "Step 7: Legacy migration v1 — deleting disabled registry entries..."
         )
         migration_deleted = _cleanup_disabled_registry_entries(
             fs,
@@ -1724,10 +1725,10 @@ def compile_registry(
             len(migration_deleted),
         )
 
-    # --- Step 5n: Read latest connector metrics (optional) ---
+    # --- Step 8: Read latest connector metrics (optional) ---
     metrics_bundle = None
     if with_metrics and store.store_type == StoreType.CORAL:
-        _log_progress("Step 5n: Reading latest connector metrics JSONL...")
+        _log_progress("Step 8: Reading latest connector metrics JSONL...")
         try:
             metrics_bundle = read_latest_connector_metrics()
             result.metrics_source = metrics_bundle.blob_path
@@ -1746,13 +1747,13 @@ def compile_registry(
             result.metrics_error = error_msg
             _log_progress("  %s", error_msg)
     elif with_metrics:
-        _log_progress("Step 5n: Skipping connector metrics for non-coral registry.")
+        _log_progress("Step 8: Skipping connector metrics for non-coral registry.")
     else:
-        _log_progress("Step 5n: Connector metrics injection disabled.")
+        _log_progress("Step 8: Connector metrics injection disabled.")
 
-    # --- Step 6a: Compile global registry JSONs ---
-    _log_progress("Step 6a: Compiling global registry JSON files...")
-    all_registry_entries: list[dict[str, Any]] = []  # collected for Step 6c
+    # --- Step 9: Compile global registry JSONs ---
+    _log_progress("Step 9: Compiling global registry JSON files...")
+    all_registry_entries: list[dict[str, Any]] = []  # collected for Step 12
     entries_by_registry_type: dict[str, list[dict[str, Any]]] = {}
     for registry_type in VALID_REGISTRIES:
         entries = _compile_global_registry(
@@ -1763,9 +1764,6 @@ def compile_registry(
         )
 
         # Inject release candidate info into entries that have active RCs.
-        # For each connector with a release_candidate/metadata.yaml, read the
-        # RC version's {registry_type}.json and add it under
-        # releases.releaseCandidates[version] — matching the legacy format.
         if rc_versions:
             rc_entries: dict[str, dict[str, Any]] = {}
             for connector, rc_ver in rc_versions.items():
@@ -1833,8 +1831,8 @@ def compile_registry(
                 entry_count,
             )
 
-    # --- Step 6a.2: Compile composite registry JSON (superset) ---
-    _log_progress("Step 6a.2: Compiling composite_registry.json (superset)...")
+    # --- Step 10: Compile composite registry JSON (superset) ---
+    _log_progress("Step 10: Compiling composite_registry.json (superset)...")
     composite_json = _build_composite_registry_json(
         cloud_entries=entries_by_registry_type.get("cloud", []),
         oss_entries=entries_by_registry_type.get("oss", []),
@@ -1862,9 +1860,9 @@ def compile_registry(
             composite_entry_count,
         )
 
-    # --- Step 6b: Per-connector version indexes (parallel) ---
+    # --- Step 11: Per-connector version indexes (parallel) ---
     _log_progress(
-        "Step 6b: Writing per-connector version indexes (max_workers=%d)...",
+        "Step 11: Writing per-connector version indexes (max_workers=%d)...",
         _COMPILE_WRITE_MAX_WORKERS,
     )
     base = f"{store.bucket_root}/{METADATA_FOLDER}/airbyte"
@@ -1914,10 +1912,10 @@ def compile_registry(
                     "  Wrote %d / %d version indexes...", i, len(sorted_connectors)
                 )
 
-    # --- Step 6c: Specs secrets mask (optional) ---
+    # --- Step 12: Specs secrets mask (optional) ---
     if with_secrets_mask:
-        _log_progress("Step 6c: Generating specs secrets mask...")
-        # Reuse entries collected during Step 6a to avoid redundant GCS reads.
+        _log_progress("Step 12: Generating specs secrets mask...")
+        # Reuse entries collected during Step 9 to avoid redundant GCS reads.
         secret_names = _extract_secret_property_names(all_registry_entries)
         sorted_names = sorted(secret_names)
         result.specs_secrets_mask_properties = len(sorted_names)

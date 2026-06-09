@@ -10,3 +10,5 @@ from slixmpp.plugins.xep_0013.offline import XEP_0013
 
 
 register_plugin(XEP_0013)
+
+__all__ = ['Offline', 'XEP_0013']

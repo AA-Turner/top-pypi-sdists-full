@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hindsight-client
-Version: 0.7.2
+Version: 0.8.0
 Summary: Python client for Hindsight - Semantic memory system with personality-driven thinking
 Author: Hindsight Team
 Requires-Python: >=3.10

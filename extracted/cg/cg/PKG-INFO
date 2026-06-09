@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cg
-Version: 86.2.6
+Version: 86.3.0
 Summary: Clinical Genomics command center
 Requires-Python: >=3.11,<3.13
 Classifier: Programming Language :: Python
@@ -43,6 +43,7 @@ Requires-Dist: housekeeper (==4.13.15)
 Requires-Dist: lxml
 Requires-Dist: marshmallow
 Requires-Dist: mock ; extra == "mock"
+Requires-Dist: nats-py (>=2.14.0,<3.0.0)
 Requires-Dist: openpyxl
 Requires-Dist: packaging
 Requires-Dist: pandas

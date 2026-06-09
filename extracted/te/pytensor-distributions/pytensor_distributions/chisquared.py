@@ -1,7 +1,8 @@
 import pytensor.tensor as pt
-from pytensor.tensor.xlogx import xlogy0
+from pytensor.tensor.special import xlogy
 
 from pytensor_distributions.helper import cdf_bounds, ppf_bounds_cont
+from pytensor_distributions.lmoments import _lmoments
 
 
 def mean(nu):
@@ -32,6 +33,22 @@ def kurtosis(nu):
     return 12 / nu
 
 
+def lmoment1(nu):
+    return mean(nu)
+
+
+def lmoment2(nu):
+    return _lmoments(ppf, nu, r=2)
+
+
+def lmoment3(nu):
+    return _lmoments(ppf, nu, r=3)
+
+
+def lmoment4(nu):
+    return _lmoments(ppf, nu, r=4)
+
+
 def entropy(nu):
     h_nu = nu / 2
     return h_nu + pt.log(2) + pt.gammaln(h_nu) + (1 - h_nu) * pt.digamma(h_nu)
@@ -51,7 +68,7 @@ def pdf(x, nu):
 
 
 def rvs(nu, size=None, random_state=None):
-    return pt.random.chisquare(nu, rng=random_state, size=size)
+    return pt.random.chisquare(nu, rng=random_state, size=size, return_next_rng=True)[1]
 
 
 def logcdf(x, nu):
@@ -70,7 +87,7 @@ def logpdf(x, nu):
     return pt.switch(
         pt.lt(x, 0),
         -pt.inf,
-        xlogy0(nu / 2 - 1, x) - x / 2 - pt.gammaln(nu / 2) - (nu * pt.log(2)) / 2,
+        xlogy(nu / 2 - 1, x) - x / 2 - pt.gammaln(nu / 2) - (nu * pt.log(2)) / 2,
     )
 
 

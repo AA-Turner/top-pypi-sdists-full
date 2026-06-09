@@ -510,6 +510,18 @@ class OfflineQueryInputSql(BaseModel):
     input_sql: str
 
 
+class OfflineQueryInputDataFramePlan(BaseModel):
+    """
+    Input to an offline query specified as a chalkdf DataFrame instead
+    of literal data.
+    """
+
+    plan_proto_bytes: str
+    """Base64-encoded DataFramePlan proto bytes. Used for plans < ~256 KiB"""
+
+    # TODO: upload plans larger than 256 KiB and transmit URI of upload instead
+
+
 class OnlineQueryRequest(BaseModel):
     inputs: Mapping[str, Any]  # Values should be of type TJSON
     outputs: List[str]
@@ -542,6 +554,22 @@ class OnlineQuery:
     required_resolver_tags: Optional[Sequence[str]] = None
     value_metrics_tag_by_features: Sequence[str] = ()
     planner_options: Optional[Mapping[str, Any]] = None
+    query_name: Optional[str] = None
+    query_name_version: Optional[str] = None
+
+
+def resolve_multi_query_query_name(
+    query: OnlineQuery,
+    query_name: Optional[str],
+    query_name_version: Optional[str],
+) -> tuple[Optional[str], Optional[str]]:
+    if query.query_name is not None:
+        return query.query_name, query.query_name_version
+    if query.query_name_version is not None:
+        raise ValueError("Passed 'query_name_version' without 'query_name'.")
+    if query_name is None and query_name_version is not None:
+        raise ValueError("Passed 'query_name_version' without 'query_name'.")
+    return query_name, query_name_version
 
 
 class OnlineQueryManyRequest(BaseModel):
@@ -924,6 +952,7 @@ class CreateOfflineQueryJobRequest(BaseModel):
         UploadedParquetShardedOfflineQueryInput,
         OfflineQueryInputUri,
         OfflineQueryInputSql,
+        OfflineQueryInputDataFramePlan,
     ] = None
     """Any givens"""
 
@@ -1000,7 +1029,13 @@ class CreateOfflineQueryJobRequest(BaseModel):
     @root_validator
     def _validate_multiple_computers(cls, values: Dict[str, Any]):
         if values["input"] is None or isinstance(
-            values["input"], (UploadedParquetShardedOfflineQueryInput, OfflineQueryInputUri, OfflineQueryInputSql)
+            values["input"],
+            (
+                UploadedParquetShardedOfflineQueryInput,
+                OfflineQueryInputUri,
+                OfflineQueryInputSql,
+                OfflineQueryInputDataFramePlan,
+            ),
         ):
             return values
         expected_use_multiple_computers = isinstance(values["input"], tuple)

@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2012 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -12,3 +11,5 @@ from slixmpp.plugins.xep_0047.ibb import XEP_0047
 
 
 register_plugin(XEP_0047)
+
+__all__ = ['Open', 'Close', 'Data', 'IBBytestream', 'XEP_0047', 'stanza']

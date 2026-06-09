@@ -13,7 +13,8 @@ Interface for sampler
 """
 import traceback
 from abc import ABC, abstractmethod
-from typing import List, Optional, Set, Union
+from functools import cached_property
+from typing import Any, List, Optional, Set
 
 from metadata.generated.schema.configuration.profilerConfiguration import (
     SampleDataIngestionConfig,
@@ -23,7 +24,6 @@ from metadata.generated.schema.entity.data.databaseSchema import DatabaseSchema
 from metadata.generated.schema.entity.data.table import (
     ColumnProfilerConfig,
     PartitionProfilerConfig,
-    Table,
     TableData,
 )
 from metadata.generated.schema.entity.services.connections.connectionBasicType import (
@@ -33,10 +33,14 @@ from metadata.generated.schema.entity.services.connections.database.datalakeConn
     DatalakeConnection,
 )
 from metadata.generated.schema.entity.services.databaseService import DatabaseConnection
+from metadata.generated.schema.entity.services.storageService import StorageConnection
 from metadata.generated.schema.metadataIngestion.databaseServiceProfilerPipeline import (
     ProcessingEngine,
 )
+from metadata.generated.schema.type.samplingConfig import SampleConfigType
+from metadata.generated.schema.type.staticSamplingConfig import StaticSamplingConfig
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
+from metadata.pii.types import ClassifiableEntityType
 from metadata.profiler.api.models import TableConfig
 from metadata.profiler.processor.sample_data_handler import upload_sample_data
 from metadata.sampler.config import (
@@ -45,11 +49,14 @@ from metadata.sampler.config import (
     get_profile_sample_config,
     get_sample_data_count_config,
     get_sample_query,
+    resolve_static_sampling_config,
 )
 from metadata.sampler.models import SampleConfig
 from metadata.sampler.partition import get_partition_details
-from metadata.utils.constants import SAMPLE_DATA_DEFAULT_COUNT
-from metadata.utils.execution_time_tracker import calculate_execution_time
+from metadata.utils.constants import (
+    SAMPLE_DATA_DEFAULT_COUNT,
+    SAMPLE_DATA_MAX_CELL_LENGTH,
+)
 from metadata.utils.logger import sampler_logger
 from metadata.utils.sqa_like_column import SQALikeColumn
 from metadata.utils.ssl_manager import get_ssl_connection
@@ -66,9 +73,11 @@ class SamplerInterface(ABC):
     # pylint: disable=too-many-instance-attributes, too-many-arguments
     def __init__(
         self,
-        service_connection_config: Union[DatabaseConnection, DatalakeConnection],
+        service_connection_config: DatabaseConnection
+        | DatalakeConnection
+        | StorageConnection,
         ometa_client: OpenMetadata,
-        entity: Table,
+        entity: ClassifiableEntityType,
         include_columns: Optional[List[ColumnProfilerConfig]] = None,
         exclude_columns: Optional[List[str]] = None,
         sample_config: SampleConfig = SampleConfig(),
@@ -95,14 +104,18 @@ class SamplerInterface(ABC):
 
         self.service_connection_config = service_connection_config
         self.connection = get_ssl_connection(self.service_connection_config)
+        self._row_count = None
+        self._sample_config: StaticSamplingConfig | None = None
 
     # pylint: disable=too-many-arguments, too-many-locals
     @classmethod
     def create(
         cls,
-        service_connection_config: Union[DatabaseConnection, DatalakeConnection],
+        service_connection_config: DatabaseConnection
+        | DatalakeConnection
+        | StorageConnection,
         ometa_client: OpenMetadata,
-        entity: Table,
+        entity: ClassifiableEntityType,
         schema_entity: DatabaseSchema,
         database_entity: Database,
         table_config: Optional[TableConfig] = None,
@@ -176,7 +189,30 @@ class SamplerInterface(ABC):
 
         return self._columns
 
-    def _get_excluded_columns(self) -> Set[str]:
+    @cached_property
+    def _resolve_sample_config(self) -> StaticSamplingConfig | None:
+        """Get the static sampling config. Use cached_property to cache the
+        result since it can be used multiple times during the sampling process
+        and contains a potentially expensive computation.
+
+        Returns:
+            StaticSamplingConfig | None: _description_
+        """
+        self._sample_config = resolve_static_sampling_config(
+            sample_config=self.sample_config.profileSampleConfig,
+            row_count=(
+                self._get_asset_row_count()
+                if (
+                    self.sample_config.profileSampleConfig
+                    and self.sample_config.profileSampleConfig.sampleConfigType
+                    == SampleConfigType.DYNAMIC
+                )
+                else None
+            ),
+        )
+        return self._sample_config
+
+    def _get_excluded_columns(self) -> set[str]:
         """Get excluded  columns for table being profiled"""
         if self.exclude_columns:
             return set(self.exclude_columns)
@@ -232,7 +268,24 @@ class SamplerInterface(ABC):
         """get columns"""
         raise NotImplementedError
 
-    @calculate_execution_time(store=False)
+    def _get_asset_row_count(self) -> int:
+        """
+        Get the row count of the asset being profiled. This is used for dynamic sampling.
+        Default implementation returns 0 and should be overridden by implementations that support fetching row count.
+        """
+        logger.info(
+            "Row count fetching is not implemented for this sampler. "
+            "Returning 0 as default row count. Dynamic sampling will be ignored."
+        )
+        return self._row_count or 0
+
+    @staticmethod
+    def _truncate_cell(value: Any) -> Any:
+        """Truncate string values that exceed the max cell length."""
+        if isinstance(value, str) and len(value) > SAMPLE_DATA_MAX_CELL_LENGTH:
+            return value[:SAMPLE_DATA_MAX_CELL_LENGTH]
+        return value
+
     def generate_sample_data(
         self, sample_data_config: Optional[SampleDataIngestionConfig] = None
     ) -> TableData:
@@ -266,8 +319,13 @@ class SamplerInterface(ABC):
                     f"Fetching sample data for {self.entity.fullyQualifiedName.root}..."
                 )
                 table_data = self.fetch_sample_data(self.columns)
-                table_data.rows = table_data.rows[
-                    : min(SAMPLE_DATA_DEFAULT_COUNT, self.sample_limit)
+                # Truncate large cell values to prevent OOM in downstream
+                # processing (NLP, serialization, etc.)
+                table_data.rows = [
+                    [self._truncate_cell(cell) for cell in row]
+                    for row in table_data.rows[
+                        : min(SAMPLE_DATA_DEFAULT_COUNT, self.sample_limit)
+                    ]
                 ]
                 # Only store the data if configured to do so
                 if self.storage_config and sample_data_config.storeSampleData:

@@ -69,6 +69,26 @@ class AuthSubsystem:
         # (fail-closed — empty means nobody can invite). Read by the invite route.
         _auth_cfg = getattr(ctx.config, "auth_config", None)
         ctx.app.state.org_admin_roles = list(getattr(_auth_cfg, "org_admin_roles", []) or [])
+        # Admin-capability policy (manage_members / manage_connections). org_admin_roles is the
+        # default for any unlisted capability, so apps that set only org_admin_roles are unchanged.
+        from dazzle.back.runtime.auth.admin_policy import AdminPolicy, unknown_admin_personas
+
+        _admin_caps = dict(getattr(_auth_cfg, "admin_capabilities", {}) or {})
+        ctx.app.state.admin_policy = AdminPolicy.from_config(
+            org_admin_roles=ctx.app.state.org_admin_roles,
+            admin_capabilities=_admin_caps,
+        )
+        # Warn (don't fail) on personas referenced in the map that aren't declared — a typo would
+        # silently grant nobody. ctx.config.personas is the declared-persona source (id-keyed).
+        _declared = {p["id"] for p in (getattr(ctx.config, "personas", None) or []) if "id" in p}
+        _unknown = unknown_admin_personas(_admin_caps, _declared)
+        if _unknown:
+            logger.warning(
+                "auth.admin_capabilities references undeclared personas %s — those entries grant "
+                "nobody. Declared personas: %s",
+                sorted(_unknown),
+                sorted(_declared),
+            )
         # auth Plan 1d: expose the AppSpec for the activation path's 1:1 org<->
         # tenant-root mirror provisioning (archetype apps).
         ctx.app.state.appspec = ctx.appspec
@@ -179,10 +199,11 @@ class AuthSubsystem:
 
         ctx.app.include_router(create_member_admin_routes())
 
-        # Org-admin connection surface: an org admin manages their org's connections'
-        # domains (claim + DNS-TXT verify) in-app, RBAC-gated + org-scoped + secret-free.
-        # Gated on an active enterprise capability (#1342) — no enterprise capability
-        # declared → no admin surface. Creation stays in the operator CLI.
+        # Org-admin connection surface: an org admin manages their org's connections in-app
+        # (create OIDC/SCIM/SAML, claim + DNS-TXT verify domains), RBAC-gated + org-scoped.
+        # Read surface is secret-free; creation accepts secrets (encrypted at rest) and shows a
+        # minted SCIM bearer once. Gated on an active enterprise capability (#1342) — no
+        # enterprise capability declared → no admin surface.
         if self._any_enterprise_active(ctx):
             from dazzle.back.runtime.auth.connection_admin_routes import (
                 create_connection_admin_routes,
@@ -269,6 +290,7 @@ class AuthSubsystem:
             ctx.app.include_router(create_sso_routes())
 
         self._mount_enterprise_capabilities(ctx)
+        self._register_capability_boot_guard(ctx)
 
         # 2FA routes — thread the AppSpec-level TwoFactorConfig through so
         # DSL authors can tune recovery-code count etc. at app-configuration
@@ -305,6 +327,29 @@ class AuthSubsystem:
         return caps is not None and any(
             caps.is_active(cid) for cid in self._ENTERPRISE_CAPABILITY_IDS
         )
+
+    def _register_capability_boot_guard(self, ctx: SubsystemContext) -> None:
+        """Loud-log at startup if connection rows exist for a protocol whose enterprise
+        capability isn't active (#1344) — their routes silently don't mount (SSO/SCIM 404).
+
+        A startup hook (not build-time) because the DB pool only opens at lifespan startup;
+        loud-log only (the lifespan registry swallows hook exceptions, and the mismatch is
+        SAFE — aborting would crash-loop a safe deploy). Registered unconditionally: the whole
+        point is to fire when a capability is *absent*."""
+        from dazzle.back.runtime.auth.capability_guard import capability_boot_warnings
+        from dazzle.back.runtime.lifespan_hooks import register_lifespan_hook
+
+        store = getattr(ctx, "auth_store", None)
+        if store is None:
+            return
+        caps = getattr(ctx, "capabilities", None)
+
+        def _startup() -> None:
+            is_active = caps.is_active if caps is not None else (lambda _cid: False)
+            for msg in capability_boot_warnings(store.connection_type_counts(), is_active):
+                logger.error("Capability boot guard: %s", msg)
+
+        register_lifespan_hook(ctx.app, startup=_startup)
 
     def _mount_enterprise_capabilities(self, ctx: SubsystemContext) -> None:
         """Mount each enterprise auth route group gated on its capability (#1342)."""

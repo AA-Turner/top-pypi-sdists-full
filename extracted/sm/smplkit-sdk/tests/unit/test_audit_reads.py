@@ -23,7 +23,9 @@ from smplkit.audit.client import (
     EventListPage,
     EventTypeListPage,
     ResourceTypeListPage,
+    _join_environments,
 )
+from smplkit._generated.audit.types import UNSET
 
 
 def _client_with_handler(handler) -> AuditClient:
@@ -577,6 +579,160 @@ class TestEnvironmentHeaderInjection:
         try:
             client.events.list()
             assert seen == ["explicit-env"]
+        finally:
+            client._close()
+
+
+# ---------------------------------------------------------------------------
+# environments filter — filter[environment] on the read surfaces
+# ---------------------------------------------------------------------------
+
+
+class TestJoinEnvironmentsHelper:
+    """Unit-level coverage of the comma-join helper that backs every
+    ``environments`` kwarg on the audit read methods."""
+
+    def test_none_is_unset(self):
+        assert _join_environments(None) is UNSET
+
+    def test_empty_list_is_unset(self):
+        assert _join_environments([]) is UNSET
+
+    def test_single_value_passes_through(self):
+        assert _join_environments(["production"]) == "production"
+
+    def test_multiple_values_comma_join(self):
+        assert _join_environments(["production", "staging"]) == "production,staging"
+
+    def test_smplkit_bucket_accepted(self):
+        assert _join_environments(["smplkit"]) == "smplkit"
+        assert _join_environments(["production", "smplkit"]) == "production,smplkit"
+
+
+def _list_url_capture(handler_json):
+    """Build a handler that records the request URL and returns ``handler_json``."""
+    seen: list[str] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen.append(str(req.url))
+        return httpx.Response(200, json=handler_json)
+
+    return handler, seen
+
+
+_EVENTS_BODY = {"data": [], "links": {}, "meta": {"page_size": 50}}
+_DISCOVERY_BODY = {"data": [], "meta": {"pagination": {"page": 1, "size": 1000}}}
+
+
+class TestEventsListEnvironments:
+    def test_omitted_by_default(self):
+        handler, seen = _list_url_capture(_EVENTS_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.events.list()
+            url = seen[0]
+            assert "filter%5Benvironment%5D" not in url
+            assert "filter[environment]" not in url
+        finally:
+            client._close()
+
+    def test_empty_list_omits_param(self):
+        handler, seen = _list_url_capture(_EVENTS_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.events.list(environments=[])
+            assert "filter%5Benvironment%5D" not in seen[0]
+        finally:
+            client._close()
+
+    def test_single_value(self):
+        handler, seen = _list_url_capture(_EVENTS_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.events.list(environments=["production"])
+            assert "filter%5Benvironment%5D=production" in seen[0]
+        finally:
+            client._close()
+
+    def test_multiple_values_comma_join(self):
+        handler, seen = _list_url_capture(_EVENTS_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.events.list(environments=["production", "staging"])
+            # httpx percent-encodes the comma as %2C.
+            assert "filter%5Benvironment%5D=production%2Cstaging" in seen[0]
+        finally:
+            client._close()
+
+    def test_smplkit_bucket_accepted(self):
+        handler, seen = _list_url_capture(_EVENTS_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.events.list(environments=["smplkit"])
+            assert "filter%5Benvironment%5D=smplkit" in seen[0]
+        finally:
+            client._close()
+
+
+class TestResourceTypesListEnvironments:
+    def test_omitted_by_default(self):
+        handler, seen = _list_url_capture(_DISCOVERY_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.resource_types.list()
+            assert "filter%5Benvironment%5D" not in seen[0]
+        finally:
+            client._close()
+
+    def test_single_value(self):
+        handler, seen = _list_url_capture(_DISCOVERY_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.resource_types.list(environments=["production"])
+            assert "filter%5Benvironment%5D=production" in seen[0]
+        finally:
+            client._close()
+
+    def test_multiple_values_comma_join(self):
+        handler, seen = _list_url_capture(_DISCOVERY_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.resource_types.list(environments=["production", "smplkit"])
+            assert "filter%5Benvironment%5D=production%2Csmplkit" in seen[0]
+        finally:
+            client._close()
+
+
+class TestEventTypesListEnvironments:
+    def test_omitted_by_default(self):
+        handler, seen = _list_url_capture(_DISCOVERY_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.event_types.list()
+            assert "filter%5Benvironment%5D" not in seen[0]
+        finally:
+            client._close()
+
+    def test_single_value(self):
+        handler, seen = _list_url_capture(_DISCOVERY_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.event_types.list(environments=["staging"])
+            assert "filter%5Benvironment%5D=staging" in seen[0]
+        finally:
+            client._close()
+
+    def test_multiple_values_with_resource_type_filter(self):
+        handler, seen = _list_url_capture(_DISCOVERY_BODY)
+        client = _client_with_handler(handler)
+        try:
+            client.event_types.list(
+                filter_resource_type="user",
+                environments=["production", "staging"],
+            )
+            url = seen[0]
+            assert "filter%5Benvironment%5D=production%2Cstaging" in url
+            assert "filter%5Bresource_type%5D=user" in url
         finally:
             client._close()
 

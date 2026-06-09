@@ -10,3 +10,5 @@ from slixmpp.plugins.xep_0054.vcard_temp import XEP_0054
 
 
 register_plugin(XEP_0054)
+
+__all__ = ['VCardTemp', 'XEP_0054']

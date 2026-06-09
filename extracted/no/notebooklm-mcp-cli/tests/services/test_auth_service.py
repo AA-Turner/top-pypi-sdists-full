@@ -25,6 +25,8 @@ def test_shim_reexports_expected_auth_symbols():
             "AuthProbeResult",
             "AuthTokens",
             "check_auth",
+            "confirm_auth_via_api",
+            "credentials_are_usable",
             "get_active_auth_mtime",
             "get_auth_health_checker",
             "get_cache_path",

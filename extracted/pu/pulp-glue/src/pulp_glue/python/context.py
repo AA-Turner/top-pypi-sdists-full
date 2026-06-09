@@ -4,7 +4,9 @@ from pulp_glue.common.context import (
     EntityDefinition,
     PluginRequirement,
     PulpContentContext,
+    PulpContext,
     PulpDistributionContext,
+    PulpEntityContext,
     PulpPublicationContext,
     PulpRemoteContext,
     PulpRepositoryContext,
@@ -158,8 +160,31 @@ class PulpPythonRepositoryContext(PulpRepositoryContext):
         body = super().preprocess_entity(body, partial=partial)
         if "autopublish" in body:
             self.pulp_ctx.needs_plugin(PluginRequirement("python", specifier=">=3.3.0"))
+        if "allow_package_substitution" in body:
+            self.pulp_ctx.needs_plugin(PluginRequirement("python", specifier=">=3.28.0"))
         return body
 
     def repair_metadata(self) -> t.Any:
         self.needs_capability("repair_metadata")
         return self.call("repair_metadata", parameters={self.HREF: self.pulp_href})
+
+
+class PulpPythonBlocklistEntryContext(PulpEntityContext):
+    ENTITY = _("blocklist entry")
+    ENTITIES = _("blocklist entries")
+    HREF = "python_python_python_blocklist_entry_href"
+    ID_PREFIX = "repositories_python_python_blocklist_entries"
+    NEEDS_PLUGINS = [PluginRequirement("python", specifier=">=3.30.2")]
+    repository_ctx: PulpPythonRepositoryContext
+
+    def __init__(
+        self,
+        pulp_ctx: PulpContext,
+        repository_ctx: PulpPythonRepositoryContext,
+    ) -> None:
+        super().__init__(pulp_ctx)
+        self.repository_ctx = repository_ctx
+
+    @property
+    def scope(self) -> dict[str, t.Any]:
+        return {self.repository_ctx.HREF: self.repository_ctx.pulp_href}

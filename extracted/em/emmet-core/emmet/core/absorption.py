@@ -8,7 +8,7 @@ from pydantic import Field
 from emmet.core.material_property import PropertyDoc
 
 if TYPE_CHECKING:
-    from pymatgen.core import Structure
+    from emmet.core.io.pymatgen import Structure
 
     from emmet.core.types.typing import IdentifierType
 
@@ -17,8 +17,6 @@ class AbsorptionDoc(PropertyDoc):
     """Absorption spectrum based on frequency dependent dielectric function calculations."""
 
     property_name: str = "Optical absorption spectrum"
-
-    task_id: str = Field(..., description="Calculation id")
 
     energies: list[float] = Field(
         ..., description="Absorption energy in eV starting from 0"
@@ -43,7 +41,7 @@ class AbsorptionDoc(PropertyDoc):
 
     bandgap: float | None = Field(None, description="The electronic band gap")
 
-    nkpoints: float | None = Field(
+    nkpoints: int | None = Field(
         None, description="The number of kpoints used in the calculation"
     )
 
@@ -57,7 +55,6 @@ class AbsorptionDoc(PropertyDoc):
     def from_structure(
         cls,
         energies: list,
-        task_id: str,
         real_d: list[np.ndarray],
         imag_d: list[np.ndarray],
         absorption_co: list,
@@ -87,7 +84,6 @@ class AbsorptionDoc(PropertyDoc):
                 "average_real_dielectric": real_d_average,
                 "bandgap": bandgap,
                 "nkpoints": nkpoints,
-                "task_id": task_id,
             },
             **kwargs,
         )

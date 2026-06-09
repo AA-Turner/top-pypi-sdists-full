@@ -9,3 +9,5 @@ from slixmpp.plugins.xep_0482.call_invites import XEP_0482
 
 
 register_plugin(XEP_0482)
+
+__all__ = ['stanza', 'XEP_0482']

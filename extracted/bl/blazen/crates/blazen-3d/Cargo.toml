@@ -11,8 +11,8 @@ description = "Multi-backend 3D-pipeline crate for Blazen (texturizer, rigger, r
 [dependencies]
 async-trait.workspace = true
 base64 = { workspace = true, optional = true }
-blazen-3d-core = { version = "0.6.6", path = "../blazen-3d-core", optional = true }
-blazen-audio-core = { version = "0.6.6", path = "../blazen-audio-core", optional = true }
+blazen-3d-core = { version = "0.6.7", path = "../blazen-3d-core", optional = true }
+blazen-audio-core = { version = "0.6.7", path = "../blazen-audio-core", optional = true }
 candle-core = { workspace = true, optional = true }
 candle-nn = { workspace = true, optional = true }
 futures-core.workspace = true

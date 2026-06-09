@@ -3,8 +3,6 @@
 # Copyright (C) 2020 Mathieu Pasquet <mathieui@mathieui.net>
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permissio
-from xml.etree import ElementTree as ET
-from slixmpp import JID
 from slixmpp.stanza import Presence
 from slixmpp.xmlstream import (
     register_stanza_plugin,

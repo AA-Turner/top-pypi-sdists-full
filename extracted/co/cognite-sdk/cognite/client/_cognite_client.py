@@ -47,8 +47,10 @@ if _should_build_docs := os.getenv("BUILD_COGNITE_SDK_DOCS") == "true":
     from cognite.client._api.ai.tools.documents import AIDocumentsAPI
     from cognite.client._api.data_modeling.containers import ContainersAPI
     from cognite.client._api.data_modeling.data_models import DataModelsAPI
+    from cognite.client._api.data_modeling.files import DataModelingFilesAPI
     from cognite.client._api.data_modeling.graphql import DataModelingGraphQLAPI
     from cognite.client._api.data_modeling.instances import InstancesAPI
+    from cognite.client._api.data_modeling.records import RecordsAPI
     from cognite.client._api.data_modeling.space_statistics import SpaceStatisticsAPI
     from cognite.client._api.data_modeling.spaces import SpacesAPI
     from cognite.client._api.data_modeling.statistics import StatisticsAPI
@@ -259,7 +261,7 @@ class AsyncCogniteClient:
 
         The default configuration creates the URLs based on the project and cluster:
 
-        * Base URL: "https://{cdf_cluster}.cognitedata.com/
+        * Base URL: ``"https://{cdf_cluster}.cognitedata.com/"``
 
         Args:
             project (str): The CDF project.
@@ -287,9 +289,9 @@ class AsyncCogniteClient:
 
         The default configuration creates the URLs based on the project and cluster:
 
-        * Base URL: "https://{cdf_cluster}.cognitedata.com/
-        * Token URL: "https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
-        * Scopes: [f"https://{cdf_cluster}.cognitedata.com/.default"]
+        * Base URL: ``"https://{cdf_cluster}.cognitedata.com/"``
+        * Token URL: ``"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"``
+        * Scopes: ``[f"https://{cdf_cluster}.cognitedata.com/.default"]``
 
         Args:
             project (str): The CDF project.
@@ -319,9 +321,9 @@ class AsyncCogniteClient:
 
         The default configuration creates the URLs based on the tenant_id and cluster:
 
-        * Base URL: "https://{cdf_cluster}.cognitedata.com/
-        * Authority URL: "https://login.microsoftonline.com/{tenant_id}"
-        * Scopes: [f"https://{cdf_cluster}.cognitedata.com/.default"]
+        * Base URL: ``"https://{cdf_cluster}.cognitedata.com/"``
+        * Authority URL: ``"https://login.microsoftonline.com/{tenant_id}"``
+        * Scopes: ``[f"https://{cdf_cluster}.cognitedata.com/.default"]``
 
         Args:
             project (str): The CDF project.
@@ -435,10 +437,12 @@ def _make_accessors_for_building_docs() -> None:
     AsyncCogniteClient.data_modeling.views = ViewsAPI  # type: ignore
     AsyncCogniteClient.data_modeling.containers = ContainersAPI  # type: ignore
     AsyncCogniteClient.data_modeling.instances = InstancesAPI  # type: ignore
+    AsyncCogniteClient.data_modeling.files = DataModelingFilesAPI  # type: ignore
     AsyncCogniteClient.data_modeling.graphql = DataModelingGraphQLAPI  # type: ignore
     AsyncCogniteClient.data_modeling.statistics = StatisticsAPI  # type: ignore
     AsyncCogniteClient.data_modeling.statistics.spaces = SpaceStatisticsAPI  # type: ignore
     AsyncCogniteClient.data_modeling.streams = StreamsAPI  # type: ignore
+    AsyncCogniteClient.data_modeling.records = RecordsAPI  # type: ignore
     AsyncCogniteClient.documents = DocumentsAPI  # type: ignore
     AsyncCogniteClient.documents.previews = DocumentPreviewAPI  # type: ignore
     AsyncCogniteClient.workflows = WorkflowAPI  # type: ignore

@@ -469,8 +469,7 @@ def verify_cli_with_rubric(prompt: str, domain: str = "generate_files") -> None:
             "ask", prompt,
             "--raw",
             "--agent",
-            
-        ])
+        ], input="y\n" * 50)
         
         # Verify exit code
         assert result.exit_code == 0, f"Task CLI execution failed: {result.output}"
@@ -510,8 +509,7 @@ def verify_sms_with_rubric(prompt: str, tmp_path: Path) -> None:
     from email.mime.text import MIMEText
     import subprocess
     import pytest
-    from sage.core.cli_auth import get_auth_token
-    from sage.core.config import get_api_base
+    from sage.core.cli_auth import get_valid_token, SAGE_API_BASE
     import httpx
     from dotenv import load_dotenv
 
@@ -525,8 +523,8 @@ def verify_sms_with_rubric(prompt: str, tmp_path: Path) -> None:
         pytest.skip("SAGE_BRIDGE_APP_PASSWORD not set. Cannot run real email tests.")
 
     # 1. Register the bridge email as a contact for the current user so the backend routes it back to us.
-    token = get_auth_token()
-    api_base = get_api_base()
+    token = get_valid_token()
+    api_base = SAGE_API_BASE
     if token:
         try:
             httpx.post(f"{api_base}/sms/contacts", json={"email": bridge_email, "label": "E2E Test"}, headers={"Authorization": f"Bearer {token}"}, timeout=10.0)

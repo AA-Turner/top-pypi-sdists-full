@@ -16,12 +16,13 @@ _sym_db = _symbol_database.Default()
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as chalk_dot_arrow_dot_v1_dot_arrow__pb2
 from chalk._gen.chalk.expression.v1 import expression_pb2 as chalk_dot_expression_dot_v1_dot_expression__pb2
 from chalk._gen.chalk.planner.v1 import batch_udf_pb2 as chalk_dot_planner_dot_v1_dot_batch__udf__pb2
+from chalk._gen.chalk.primitive.v1 import primitive_pb2 as chalk_dot_primitive_dot_v1_dot_primitive__pb2
 from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n#chalk/planner/v1/logical_plan.proto\x12\x10\x63halk.planner.v1\x1a\x1a\x63halk/arrow/v1/arrow.proto\x1a$chalk/expression/v1/expression.proto\x1a chalk/planner/v1/batch_udf.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"G\n\x0bLogicalPlan\x12\x38\n\x05nodes\x18\x01 \x03(\x0b\x32".chalk.planner.v1.LogicalTableNodeR\x05nodes"\x91\x03\n\x10LogicalTableNode\x12\x41\n\x08ltn_type\x18\x01 \x01(\x0e\x32&.chalk.planner.v1.LogicalTableNodeTypeR\x07ltnType\x12=\n\x07node_id\x18\x02 \x01(\x0b\x32$.chalk.planner.v1.LogicalTableNodeIdR\x06nodeId\x12\x45\n\x0b\x63hild_nodes\x18\x03 \x03(\x0b\x32$.chalk.planner.v1.LogicalTableNodeIdR\nchildNodes\x12O\n\targuments\x18\x04 \x03(\x0b\x32\x31.chalk.planner.v1.LogicalTableNode.ArgumentsEntryR\targuments\x1a\x63\n\x0e\x41rgumentsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12;\n\x05value\x18\x02 \x01(\x0b\x32%.chalk.planner.v1.LogicalPlanArgumentR\x05value:\x02\x38\x01"$\n\x12LogicalTableNodeId\x12\x0e\n\x02id\x18\x01 \x01(\x04R\x02id"\xb7\x07\n\x13LogicalPlanArgument\x12M\n\nnull_value\x18\x01 \x01(\x0b\x32,.chalk.planner.v1.LogicalPlanArgumentNullOptH\x00R\tnullValue\x12#\n\x0cstring_value\x18\x02 \x01(\tH\x00R\x0bstringValue\x12!\n\x0bint64_value\x18\x03 \x01(\x03H\x00R\nint64Value\x12#\n\x0cuint64_value\x18\x06 \x01(\x04H\x00R\x0buint64Value\x12\x1f\n\nbool_value\x18\x04 \x01(\x08H\x00R\tboolValue\x12!\n\x0b\x62ytes_value\x18\t \x01(\x0cH\x00R\nbytesValue\x12#\n\x0c\x64ouble_value\x18\x0e \x01(\x01H\x00R\x0b\x64oubleValue\x12\x42\n\x0e\x64uration_value\x18\r \x01(\x0b\x32\x19.google.protobuf.DurationH\x00R\rdurationValue\x12\x45\n\x0ftimestamp_value\x18\x10 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\x0etimestampValue\x12;\n\x0c\x61rrow_schema\x18\x05 \x01(\x0b\x32\x16.chalk.arrow.v1.SchemaH\x00R\x0b\x61rrowSchema\x12\x38\n\x0b\x61rrow_field\x18\x0f \x01(\x0b\x32\x15.chalk.arrow.v1.FieldH\x00R\narrowField\x12J\n\nlist_value\x18\x07 \x01(\x0b\x32).chalk.planner.v1.LogicalPlanArgumentListH\x00R\tlistValue\x12^\n\x14unordered_dict_value\x18\x08 \x01(\x0b\x32*.chalk.planner.v1.LogicalPlanUnorderedDictH\x00R\x12unorderedDictValue\x12\x45\n\nexpr_value\x18\n \x01(\x0b\x32$.chalk.expression.v1.LogicalExprNodeH\x00R\texprValue\x12=\n\tbatch_udf\x18\x0b \x01(\x0b\x32\x1a.chalk.planner.v1.BatchUDFB\x02\x18\x01H\x00R\x08\x62\x61tchUdf\x12@\n\x0c\x62\x61tch_udf_v2\x18\x0c \x01(\x0b\x32\x1c.chalk.planner.v1.BatchUDFV2H\x00R\nbatchUdfV2B\x05\n\x03\x61rg"X\n\x17LogicalPlanArgumentList\x12=\n\x06values\x18\x01 \x03(\x0b\x32%.chalk.planner.v1.LogicalPlanArgumentR\x06values"\xc8\x01\n\x18LogicalPlanUnorderedDict\x12K\n\x05items\x18\x01 \x03(\x0b\x32\x35.chalk.planner.v1.LogicalPlanUnorderedDict.ItemsEntryR\x05items\x1a_\n\nItemsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12;\n\x05value\x18\x02 \x01(\x0b\x32%.chalk.planner.v1.LogicalPlanArgumentR\x05value:\x02\x38\x01"\xe1\x01\n\nBatchUDFV2\x12$\n\x0e\x62\x61tch_udf_type\x18\x01 \x01(\tR\x0c\x62\x61tchUdfType\x12I\n\targuments\x18\x02 \x03(\x0b\x32+.chalk.planner.v1.BatchUDFV2.ArgumentsEntryR\targuments\x1a\x62\n\x0e\x41rgumentsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12:\n\x05value\x18\x02 \x01(\x0b\x32$.chalk.planner.v1.BatchUDFArgumentV2R\x05value:\x02\x38\x01"\xa3\x01\n\x12\x42\x61tchUDFArgumentV2\x12Q\n\x10logical_plan_arg\x18\x01 \x01(\x0b\x32%.chalk.planner.v1.LogicalPlanArgumentH\x00R\x0elogicalPlanArg\x12\x33\n\x06py_obj\x18\x02 \x01(\x0b\x32\x1a.chalk.planner.v1.PyObjectH\x00R\x05pyObjB\x05\n\x03\x61rg"\x1c\n\x1aLogicalPlanArgumentNullOpt*\x8a\t\n\x14LogicalTableNodeType\x12\'\n#LOGICAL_TABLE_NODE_TYPE_UNSPECIFIED\x10\x00\x12\'\n#LOGICAL_TABLE_NODE_TYPE_NAMED_TABLE\x10\x01\x12&\n"LOGICAL_TABLE_NODE_TYPE_TABLE_SCAN\x10\x02\x12&\n"LOGICAL_TABLE_NODE_TYPE_PROJECTION\x10\x03\x12"\n\x1eLOGICAL_TABLE_NODE_TYPE_FILTER\x10\x04\x12 \n\x1cLOGICAL_TABLE_NODE_TYPE_JOIN\x10\x05\x12&\n"LOGICAL_TABLE_NODE_TYPE_JOIN_AS_OF\x10\x06\x12%\n!LOGICAL_TABLE_NODE_TYPE_SEMI_JOIN\x10\x07\x12"\n\x1eLOGICAL_TABLE_NODE_TYPE_CONCAT\x10\x08\x12!\n\x1dLOGICAL_TABLE_NODE_TYPE_LIMIT\x10\t\x12 \n\x1cLOGICAL_TABLE_NODE_TYPE_SORT\x10\n\x12!\n\x1dLOGICAL_TABLE_NODE_TYPE_TOP_N\x10\x0b\x12\'\n#LOGICAL_TABLE_NODE_TYPE_AGGREGATION\x10\x0c\x12"\n\x1eLOGICAL_TABLE_NODE_TYPE_WINDOW\x10\r\x12#\n\x1fLOGICAL_TABLE_NODE_TYPE_EXPLODE\x10\x0e\x12%\n!LOGICAL_TABLE_NODE_TYPE_PARTITION\x10\x0f\x12%\n!LOGICAL_TABLE_NODE_TYPE_UNIQUE_ID\x10\x10\x12%\n!LOGICAL_TABLE_NODE_TYPE_BATCH_UDF\x10\x11\x12"\n\x1eLOGICAL_TABLE_NODE_TYPE_VALUES\x10\x12\x12#\n\x1fLOGICAL_TABLE_NODE_TYPE_RECHUNK\x10\x13\x12"\n\x1eLOGICAL_TABLE_NODE_TYPE_REPLAY\x10\x14\x12!\n\x1dLOGICAL_TABLE_NODE_TYPE_SPLIT\x10\x15\x12\'\n#LOGICAL_TABLE_NODE_TYPE_CONDITIONAL\x10\x16\x12+\n\'LOGICAL_TABLE_NODE_TYPE_ENSURE_DISTINCT\x10\x17\x12\'\n#LOGICAL_TABLE_NODE_TYPE_TABLE_WRITE\x10\x18\x12+\n\'LOGICAL_TABLE_NODE_TYPE_TIMELINE_TRACER\x10\x19\x12\x32\n.LOGICAL_TABLE_NODE_TYPE_SOURCE_OPERATOR_MARKER\x10\x1a\x12*\n&LOGICAL_TABLE_NODE_TYPE_EMPTY_RELATION\x10\x1b\x12,\n(LOGICAL_TABLE_NODE_TYPE_TOP_N_ROW_NUMBER\x10\x1c\x42\x8a\x01\n\x14\x63om.chalk.planner.v1B\x10LogicalPlanProtoP\x01\xa2\x02\x03\x43PX\xaa\x02\x10\x43halk.Planner.V1\xca\x02\x10\x43halk\\Planner\\V1\xe2\x02\x1c\x43halk\\Planner\\V1\\GPBMetadata\xea\x02\x12\x43halk::Planner::V1b\x06proto3'
+    b'\n#chalk/planner/v1/logical_plan.proto\x12\x10\x63halk.planner.v1\x1a\x1a\x63halk/arrow/v1/arrow.proto\x1a$chalk/expression/v1/expression.proto\x1a chalk/planner/v1/batch_udf.proto\x1a"chalk/primitive/v1/primitive.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"G\n\x0bLogicalPlan\x12\x38\n\x05nodes\x18\x01 \x03(\x0b\x32".chalk.planner.v1.LogicalTableNodeR\x05nodes"\x91\x03\n\x10LogicalTableNode\x12\x41\n\x08ltn_type\x18\x01 \x01(\x0e\x32&.chalk.planner.v1.LogicalTableNodeTypeR\x07ltnType\x12=\n\x07node_id\x18\x02 \x01(\x0b\x32$.chalk.planner.v1.LogicalTableNodeIdR\x06nodeId\x12\x45\n\x0b\x63hild_nodes\x18\x03 \x03(\x0b\x32$.chalk.planner.v1.LogicalTableNodeIdR\nchildNodes\x12O\n\targuments\x18\x04 \x03(\x0b\x32\x31.chalk.planner.v1.LogicalTableNode.ArgumentsEntryR\targuments\x1a\x63\n\x0e\x41rgumentsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12;\n\x05value\x18\x02 \x01(\x0b\x32%.chalk.planner.v1.LogicalPlanArgumentR\x05value:\x02\x38\x01"$\n\x12LogicalTableNodeId\x12\x0e\n\x02id\x18\x01 \x01(\x04R\x02id"\xf4\x08\n\x13LogicalPlanArgument\x12H\n\x0fprimitive_value\x18\x12 \x01(\x0b\x32\x1d.chalk.primitive.v1.PrimitiveH\x00R\x0eprimitiveValue\x12\x45\n\nexpr_value\x18\n \x01(\x0b\x32$.chalk.expression.v1.LogicalExprNodeH\x00R\texprValue\x12\x41\n\x0c\x62\x61tch_udf_v3\x18\x11 \x01(\x0b\x32\x1d.chalk.expression.v1.BatchUDFH\x00R\nbatchUdfV3\x12J\n\nlist_value\x18\x07 \x01(\x0b\x32).chalk.planner.v1.LogicalPlanArgumentListH\x00R\tlistValue\x12^\n\x14unordered_dict_value\x18\x08 \x01(\x0b\x32*.chalk.planner.v1.LogicalPlanUnorderedDictH\x00R\x12unorderedDictValue\x12Q\n\nnull_value\x18\x01 \x01(\x0b\x32,.chalk.planner.v1.LogicalPlanArgumentNullOptB\x02\x18\x01H\x00R\tnullValue\x12\'\n\x0cstring_value\x18\x02 \x01(\tB\x02\x18\x01H\x00R\x0bstringValue\x12%\n\x0bint64_value\x18\x03 \x01(\x03\x42\x02\x18\x01H\x00R\nint64Value\x12\'\n\x0cuint64_value\x18\x06 \x01(\x04\x42\x02\x18\x01H\x00R\x0buint64Value\x12#\n\nbool_value\x18\x04 \x01(\x08\x42\x02\x18\x01H\x00R\tboolValue\x12%\n\x0b\x62ytes_value\x18\t \x01(\x0c\x42\x02\x18\x01H\x00R\nbytesValue\x12\'\n\x0c\x64ouble_value\x18\x0e \x01(\x01\x42\x02\x18\x01H\x00R\x0b\x64oubleValue\x12\x46\n\x0e\x64uration_value\x18\r \x01(\x0b\x32\x19.google.protobuf.DurationB\x02\x18\x01H\x00R\rdurationValue\x12I\n\x0ftimestamp_value\x18\x10 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x02\x18\x01H\x00R\x0etimestampValue\x12?\n\x0c\x61rrow_schema\x18\x05 \x01(\x0b\x32\x16.chalk.arrow.v1.SchemaB\x02\x18\x01H\x00R\x0b\x61rrowSchema\x12<\n\x0b\x61rrow_field\x18\x0f \x01(\x0b\x32\x15.chalk.arrow.v1.FieldB\x02\x18\x01H\x00R\narrowField\x12=\n\tbatch_udf\x18\x0b \x01(\x0b\x32\x1a.chalk.planner.v1.BatchUDFB\x02\x18\x01H\x00R\x08\x62\x61tchUdf\x12\x44\n\x0c\x62\x61tch_udf_v2\x18\x0c \x01(\x0b\x32\x1c.chalk.planner.v1.BatchUDFV2B\x02\x18\x01H\x00R\nbatchUdfV2B\x05\n\x03\x61rg"X\n\x17LogicalPlanArgumentList\x12=\n\x06values\x18\x01 \x03(\x0b\x32%.chalk.planner.v1.LogicalPlanArgumentR\x06values"\xc8\x01\n\x18LogicalPlanUnorderedDict\x12K\n\x05items\x18\x01 \x03(\x0b\x32\x35.chalk.planner.v1.LogicalPlanUnorderedDict.ItemsEntryR\x05items\x1a_\n\nItemsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12;\n\x05value\x18\x02 \x01(\x0b\x32%.chalk.planner.v1.LogicalPlanArgumentR\x05value:\x02\x38\x01"\xe5\x01\n\nBatchUDFV2\x12$\n\x0e\x62\x61tch_udf_type\x18\x01 \x01(\tR\x0c\x62\x61tchUdfType\x12I\n\targuments\x18\x02 \x03(\x0b\x32+.chalk.planner.v1.BatchUDFV2.ArgumentsEntryR\targuments\x1a\x62\n\x0e\x41rgumentsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12:\n\x05value\x18\x02 \x01(\x0b\x32$.chalk.planner.v1.BatchUDFArgumentV2R\x05value:\x02\x38\x01:\x02\x18\x01"\xa7\x01\n\x12\x42\x61tchUDFArgumentV2\x12Q\n\x10logical_plan_arg\x18\x01 \x01(\x0b\x32%.chalk.planner.v1.LogicalPlanArgumentH\x00R\x0elogicalPlanArg\x12\x33\n\x06py_obj\x18\x02 \x01(\x0b\x32\x1a.chalk.planner.v1.PyObjectH\x00R\x05pyObj:\x02\x18\x01\x42\x05\n\x03\x61rg"\x1c\n\x1aLogicalPlanArgumentNullOpt*\x8a\t\n\x14LogicalTableNodeType\x12\'\n#LOGICAL_TABLE_NODE_TYPE_UNSPECIFIED\x10\x00\x12\'\n#LOGICAL_TABLE_NODE_TYPE_NAMED_TABLE\x10\x01\x12&\n"LOGICAL_TABLE_NODE_TYPE_TABLE_SCAN\x10\x02\x12&\n"LOGICAL_TABLE_NODE_TYPE_PROJECTION\x10\x03\x12"\n\x1eLOGICAL_TABLE_NODE_TYPE_FILTER\x10\x04\x12 \n\x1cLOGICAL_TABLE_NODE_TYPE_JOIN\x10\x05\x12&\n"LOGICAL_TABLE_NODE_TYPE_JOIN_AS_OF\x10\x06\x12%\n!LOGICAL_TABLE_NODE_TYPE_SEMI_JOIN\x10\x07\x12"\n\x1eLOGICAL_TABLE_NODE_TYPE_CONCAT\x10\x08\x12!\n\x1dLOGICAL_TABLE_NODE_TYPE_LIMIT\x10\t\x12 \n\x1cLOGICAL_TABLE_NODE_TYPE_SORT\x10\n\x12!\n\x1dLOGICAL_TABLE_NODE_TYPE_TOP_N\x10\x0b\x12\'\n#LOGICAL_TABLE_NODE_TYPE_AGGREGATION\x10\x0c\x12"\n\x1eLOGICAL_TABLE_NODE_TYPE_WINDOW\x10\r\x12#\n\x1fLOGICAL_TABLE_NODE_TYPE_EXPLODE\x10\x0e\x12%\n!LOGICAL_TABLE_NODE_TYPE_PARTITION\x10\x0f\x12%\n!LOGICAL_TABLE_NODE_TYPE_UNIQUE_ID\x10\x10\x12%\n!LOGICAL_TABLE_NODE_TYPE_BATCH_UDF\x10\x11\x12"\n\x1eLOGICAL_TABLE_NODE_TYPE_VALUES\x10\x12\x12#\n\x1fLOGICAL_TABLE_NODE_TYPE_RECHUNK\x10\x13\x12"\n\x1eLOGICAL_TABLE_NODE_TYPE_REPLAY\x10\x14\x12!\n\x1dLOGICAL_TABLE_NODE_TYPE_SPLIT\x10\x15\x12\'\n#LOGICAL_TABLE_NODE_TYPE_CONDITIONAL\x10\x16\x12+\n\'LOGICAL_TABLE_NODE_TYPE_ENSURE_DISTINCT\x10\x17\x12\'\n#LOGICAL_TABLE_NODE_TYPE_TABLE_WRITE\x10\x18\x12+\n\'LOGICAL_TABLE_NODE_TYPE_TIMELINE_TRACER\x10\x19\x12\x32\n.LOGICAL_TABLE_NODE_TYPE_SOURCE_OPERATOR_MARKER\x10\x1a\x12*\n&LOGICAL_TABLE_NODE_TYPE_EMPTY_RELATION\x10\x1b\x12,\n(LOGICAL_TABLE_NODE_TYPE_TOP_N_ROW_NUMBER\x10\x1c\x42\x8a\x01\n\x14\x63om.chalk.planner.v1B\x10LogicalPlanProtoP\x01\xa2\x02\x03\x43PX\xaa\x02\x10\x43halk.Planner.V1\xca\x02\x10\x43halk\\Planner\\V1\xe2\x02\x1c\x43halk\\Planner\\V1\\GPBMetadata\xea\x02\x12\x43halk::Planner::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -34,36 +35,64 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\n\024com.chalk.planner.v1B\020LogicalPlanProtoP\001\242\002\003CPX\252\002\020Chalk.Planner.V1\312\002\020Chalk\\Planner\\V1\342\002\034Chalk\\Planner\\V1\\GPBMetadata\352\002\022Chalk::Planner::V1"
     _globals["_LOGICALTABLENODE_ARGUMENTSENTRY"]._options = None
     _globals["_LOGICALTABLENODE_ARGUMENTSENTRY"]._serialized_options = b"8\001"
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["null_value"]._options = None
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["null_value"]._serialized_options = b"\030\001"
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["string_value"]._options = None
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["string_value"]._serialized_options = b"\030\001"
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["int64_value"]._options = None
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["int64_value"]._serialized_options = b"\030\001"
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["uint64_value"]._options = None
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["uint64_value"]._serialized_options = b"\030\001"
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["bool_value"]._options = None
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["bool_value"]._serialized_options = b"\030\001"
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["bytes_value"]._options = None
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["bytes_value"]._serialized_options = b"\030\001"
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["double_value"]._options = None
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["double_value"]._serialized_options = b"\030\001"
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["duration_value"]._options = None
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["duration_value"]._serialized_options = b"\030\001"
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["timestamp_value"]._options = None
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["timestamp_value"]._serialized_options = b"\030\001"
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["arrow_schema"]._options = None
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["arrow_schema"]._serialized_options = b"\030\001"
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["arrow_field"]._options = None
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["arrow_field"]._serialized_options = b"\030\001"
     _globals["_LOGICALPLANARGUMENT"].fields_by_name["batch_udf"]._options = None
     _globals["_LOGICALPLANARGUMENT"].fields_by_name["batch_udf"]._serialized_options = b"\030\001"
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["batch_udf_v2"]._options = None
+    _globals["_LOGICALPLANARGUMENT"].fields_by_name["batch_udf_v2"]._serialized_options = b"\030\001"
     _globals["_LOGICALPLANUNORDEREDDICT_ITEMSENTRY"]._options = None
     _globals["_LOGICALPLANUNORDEREDDICT_ITEMSENTRY"]._serialized_options = b"8\001"
     _globals["_BATCHUDFV2_ARGUMENTSENTRY"]._options = None
     _globals["_BATCHUDFV2_ARGUMENTSENTRY"]._serialized_options = b"8\001"
-    _globals["_LOGICALTABLENODETYPE"]._serialized_start = 2409
-    _globals["_LOGICALTABLENODETYPE"]._serialized_end = 3571
-    _globals["_LOGICALPLAN"]._serialized_start = 222
-    _globals["_LOGICALPLAN"]._serialized_end = 293
-    _globals["_LOGICALTABLENODE"]._serialized_start = 296
-    _globals["_LOGICALTABLENODE"]._serialized_end = 697
-    _globals["_LOGICALTABLENODE_ARGUMENTSENTRY"]._serialized_start = 598
-    _globals["_LOGICALTABLENODE_ARGUMENTSENTRY"]._serialized_end = 697
-    _globals["_LOGICALTABLENODEID"]._serialized_start = 699
-    _globals["_LOGICALTABLENODEID"]._serialized_end = 735
-    _globals["_LOGICALPLANARGUMENT"]._serialized_start = 738
-    _globals["_LOGICALPLANARGUMENT"]._serialized_end = 1689
-    _globals["_LOGICALPLANARGUMENTLIST"]._serialized_start = 1691
-    _globals["_LOGICALPLANARGUMENTLIST"]._serialized_end = 1779
-    _globals["_LOGICALPLANUNORDEREDDICT"]._serialized_start = 1782
-    _globals["_LOGICALPLANUNORDEREDDICT"]._serialized_end = 1982
-    _globals["_LOGICALPLANUNORDEREDDICT_ITEMSENTRY"]._serialized_start = 1887
-    _globals["_LOGICALPLANUNORDEREDDICT_ITEMSENTRY"]._serialized_end = 1982
-    _globals["_BATCHUDFV2"]._serialized_start = 1985
-    _globals["_BATCHUDFV2"]._serialized_end = 2210
-    _globals["_BATCHUDFV2_ARGUMENTSENTRY"]._serialized_start = 2112
-    _globals["_BATCHUDFV2_ARGUMENTSENTRY"]._serialized_end = 2210
-    _globals["_BATCHUDFARGUMENTV2"]._serialized_start = 2213
-    _globals["_BATCHUDFARGUMENTV2"]._serialized_end = 2376
-    _globals["_LOGICALPLANARGUMENTNULLOPT"]._serialized_start = 2378
-    _globals["_LOGICALPLANARGUMENTNULLOPT"]._serialized_end = 2406
+    _globals["_BATCHUDFV2"]._options = None
+    _globals["_BATCHUDFV2"]._serialized_options = b"\030\001"
+    _globals["_BATCHUDFARGUMENTV2"]._options = None
+    _globals["_BATCHUDFARGUMENTV2"]._serialized_options = b"\030\001"
+    _globals["_LOGICALTABLENODETYPE"]._serialized_start = 2642
+    _globals["_LOGICALTABLENODETYPE"]._serialized_end = 3804
+    _globals["_LOGICALPLAN"]._serialized_start = 258
+    _globals["_LOGICALPLAN"]._serialized_end = 329
+    _globals["_LOGICALTABLENODE"]._serialized_start = 332
+    _globals["_LOGICALTABLENODE"]._serialized_end = 733
+    _globals["_LOGICALTABLENODE_ARGUMENTSENTRY"]._serialized_start = 634
+    _globals["_LOGICALTABLENODE_ARGUMENTSENTRY"]._serialized_end = 733
+    _globals["_LOGICALTABLENODEID"]._serialized_start = 735
+    _globals["_LOGICALTABLENODEID"]._serialized_end = 771
+    _globals["_LOGICALPLANARGUMENT"]._serialized_start = 774
+    _globals["_LOGICALPLANARGUMENT"]._serialized_end = 1914
+    _globals["_LOGICALPLANARGUMENTLIST"]._serialized_start = 1916
+    _globals["_LOGICALPLANARGUMENTLIST"]._serialized_end = 2004
+    _globals["_LOGICALPLANUNORDEREDDICT"]._serialized_start = 2007
+    _globals["_LOGICALPLANUNORDEREDDICT"]._serialized_end = 2207
+    _globals["_LOGICALPLANUNORDEREDDICT_ITEMSENTRY"]._serialized_start = 2112
+    _globals["_LOGICALPLANUNORDEREDDICT_ITEMSENTRY"]._serialized_end = 2207
+    _globals["_BATCHUDFV2"]._serialized_start = 2210
+    _globals["_BATCHUDFV2"]._serialized_end = 2439
+    _globals["_BATCHUDFV2_ARGUMENTSENTRY"]._serialized_start = 2337
+    _globals["_BATCHUDFV2_ARGUMENTSENTRY"]._serialized_end = 2435
+    _globals["_BATCHUDFARGUMENTV2"]._serialized_start = 2442
+    _globals["_BATCHUDFARGUMENTV2"]._serialized_end = 2609
+    _globals["_LOGICALPLANARGUMENTNULLOPT"]._serialized_start = 2611
+    _globals["_LOGICALPLANARGUMENTNULLOPT"]._serialized_end = 2639
 # @@protoc_insertion_point(module_scope)

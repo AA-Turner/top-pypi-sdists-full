@@ -1,6 +1,7 @@
 import pytensor.tensor as pt
 
 from pytensor_distributions.helper import ppf_bounds_cont
+from pytensor_distributions.lmoments import _lmoments
 
 
 def mean(mu, sigma):
@@ -36,6 +37,22 @@ def kurtosis(mu, sigma):
     return pt.full_like(shape, 4)
 
 
+def lmoment1(mu, sigma):
+    return mean(mu, sigma)
+
+
+def lmoment2(mu, sigma):
+    return _lmoments(ppf, mu, sigma, r=2)
+
+
+def lmoment3(mu, sigma):
+    return _lmoments(ppf, mu, sigma, r=3)
+
+
+def lmoment4(mu, sigma):
+    return _lmoments(ppf, mu, sigma, r=4)
+
+
 def entropy(mu, sigma):
     return pt.log(sigma) + 2.0541199
 
@@ -63,7 +80,7 @@ def isf(x, mu, sigma):
 
 
 def rvs(mu, sigma, size=None, random_state=None):
-    u = pt.random.uniform(size=size, rng=random_state)
+    u = pt.random.uniform(size=size, rng=random_state, return_next_rng=True)[1]
     return ppf(u, mu, sigma)
 
 

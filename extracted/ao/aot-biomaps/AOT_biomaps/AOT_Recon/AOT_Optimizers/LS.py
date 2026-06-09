@@ -129,8 +129,8 @@ def LS(
 
 
     alpha = calculate_step_size(SMatrix, eta, numIterations_stepCalculation, show_logs) if alpha == "auto" else alpha
-
-    description = f"AOT-BioMaps -- LS ({SMatrix.matrix_type.name}) ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR ---- {SMatrix.device.upper()}"
+    prec_str = "Diagonal Preconditioner" if preconditioner_type != PreconditionerType.NONE else "No Preconditioner"
+    description = f"AOT-BioMaps --- LS ({SMatrix.matrix_type.name}) --- {prec_str} --- {'WITH' if withTumor else 'WITHOUT'} TUMOR --- {SMatrix.device.upper()}"
     iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
 
     for it in iterator:
@@ -162,11 +162,12 @@ def LS(
                 iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
             if isStop:
                 if show_logs: print(f"\n[Stopping] Criterion {stop_criterion.name} reached at iteration {it}.")
+                cost_history.pop() if isCostFunction else None
                 break
 
         if isSavingEachIteration and it in save_indices:
-            saved_lambda.append(lambda_flat.reshape(Z, X).get() if hasattr(lambda_flat, 'get') else lambda_flat.reshape(Z, X).copy())
+            saved_lambda.append(lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X).copy())
             saved_indices_list.append(it)
 
-    final_result = lambda_flat.reshape(Z, X).get() if hasattr(lambda_flat, 'get') else lambda_flat.reshape(Z, X)
+    final_result = lambda_flat.reshape(Z, X).get() if is_gpu else lambda_flat.reshape(Z, X)
     return (saved_lambda, saved_indices_list, cost_history) if isSavingEachIteration else (final_result, None, cost_history)

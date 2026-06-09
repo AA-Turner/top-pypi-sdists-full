@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
-from typing import Any, ClassVar, Dict, List, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -30,7 +30,8 @@ class Balance(BaseModel):
     total: Union[StrictFloat, StrictInt] = Field(description="Total balance including funds locked in open orders.")
     available: Union[StrictFloat, StrictInt] = Field(description="Balance available to trade (excludes locked funds).")
     locked: Union[StrictFloat, StrictInt] = Field(description="In open orders")
-    __properties: ClassVar[List[str]] = ["currency", "total", "available", "locked"]
+    venue: Optional[StrictStr] = Field(default=None, description="Hosted-mode: which venue this balance belongs to in a multi-venue response. Null when the balance is venue-agnostic.")
+    __properties: ClassVar[List[str]] = ["currency", "total", "available", "locked", "venue"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -71,6 +72,11 @@ class Balance(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if venue (nullable) is None
+        # and model_fields_set contains the field
+        if self.venue is None and "venue" in self.model_fields_set:
+            _dict['venue'] = None
+
         return _dict
 
     @classmethod
@@ -86,7 +92,8 @@ class Balance(BaseModel):
             "currency": obj.get("currency"),
             "total": obj.get("total"),
             "available": obj.get("available"),
-            "locked": obj.get("locked")
+            "locked": obj.get("locked"),
+            "venue": obj.get("venue")
         })
         return _obj
 

@@ -12,7 +12,6 @@ import logging
 
 from sagemaker_studio import Project
 from sagemaker_studio.utils._internal import InternalUtils
-from sagemaker_studio.utils.sqlutils import _ensure_project
 
 CATALOG_LIMIT = 7
 
@@ -44,8 +43,7 @@ def _generate_spark_catalog_spark_configs(account_id):
     }
 
 
-def _generate_s3tables_spark_configs():
-    proj = Project()
+def _generate_s3tables_spark_configs(proj):
     catalogs = proj.connection().catalogs
     conf = {}
     catalog_count = 0
@@ -76,10 +74,9 @@ def _generate_s3tables_spark_configs():
     return conf
 
 
-def _generate_workday_irc_spark_configs():
+def _generate_irc_connection_spark_configs(proj):
     import json
 
-    proj = _ensure_project()
     conf = {}
     connections = proj.connections
     for connection in connections:
@@ -107,9 +104,10 @@ def _generate_workday_irc_spark_configs():
 def generate_spark_configs(account_id):
     """Generate base Spark properties shared across all backends."""
     spark_props = DEFAULT_SPARK_PROPS.copy()
+    proj = Project()
     spark_props.update(_generate_spark_catalog_spark_configs(account_id))
-    spark_props.update(_generate_s3tables_spark_configs())
-    spark_props.update(_generate_workday_irc_spark_configs())
+    spark_props.update(_generate_s3tables_spark_configs(proj))
+    spark_props.update(_generate_irc_connection_spark_configs(proj))
     return spark_props
 
 

@@ -12,11 +12,13 @@ class FeaturePermission(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FEATURE_PERMISSION_ALLOW: _ClassVar[FeaturePermission]
     FEATURE_PERMISSION_ALLOW_INTERNAL: _ClassVar[FeaturePermission]
     FEATURE_PERMISSION_DENY: _ClassVar[FeaturePermission]
+    FEATURE_PERMISSION_ALLOW_DOWNSTREAM: _ClassVar[FeaturePermission]
 
 FEATURE_PERMISSION_UNSPECIFIED: FeaturePermission
 FEATURE_PERMISSION_ALLOW: FeaturePermission
 FEATURE_PERMISSION_ALLOW_INTERNAL: FeaturePermission
 FEATURE_PERMISSION_DENY: FeaturePermission
+FEATURE_PERMISSION_ALLOW_DOWNSTREAM: FeaturePermission
 
 class FeaturePermissions(_message.Message):
     __slots__ = ("tags", "default_permission")

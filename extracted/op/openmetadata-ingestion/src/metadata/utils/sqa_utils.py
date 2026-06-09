@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import sqlalchemy
 from sqlalchemy import Column, and_, func, or_
-from sqlalchemy.orm import DeclarativeMeta, Query
+from sqlalchemy.orm import Query
 from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.sql.elements import BinaryExpression
 from sqlalchemy.sql.expression import TextClause
@@ -207,7 +207,7 @@ def get_query_group_by_for_runner(kwargs: Dict) -> Optional[BinaryExpression]:
 
 
 def handle_array(
-    query: Query, column: Column, table: Union[DeclarativeMeta, AliasedClass]
+    query: Query, column: Column, table: Union[type, AliasedClass]
 ) -> Query:
     """Handle query for array. The curent implementation is
     specific to BigQuery. This should be refactored in the future
@@ -216,22 +216,22 @@ def handle_array(
     Args:
         query (Query): query object
         column (Column): SQA Column object
-        table (Union[DeclarativeMeta, AliasedClass]): table or aliased
+        table (Union[type, AliasedClass]): table or aliased
     Returns:
         Query: query object with the FROM clause set
     """
     # pylint: disable=protected-access
     if not hasattr(column, "_is_array"):
-        return query.select_from(table)
+        return query.select_from(table)  # type: ignore
     if column._is_array:
         return query.select_from(
-            table,
+            table,  # type: ignore
             func.unnest(
                 # unnest expects an array. This type is not used anywhere else
                 Column(column._array_col, ARRAY(String))
             ).alias(column._array_col),
         )
-    return query.select_from(table)
+    return query.select_from(table)  # type: ignore
 
 
 def is_array(kwargs: Dict) -> bool:
@@ -256,8 +256,8 @@ def is_array(kwargs: Dict) -> bool:
     return False
 
 
-def update_mssql_ischema_names(ischema_names):
-    return ischema_names.update(
+def update_mssql_ischema_names(ischema_names: dict) -> None:
+    ischema_names.update(
         {
             "nvarchar": create_sqlalchemy_type("NVARCHAR"),
             "nchar": create_sqlalchemy_type("NCHAR"),

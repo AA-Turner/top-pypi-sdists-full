@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2020 "Maxime “pep” Buquet <pep@bouah.net>"
 # This file is part of Slixmpp.
@@ -8,3 +7,5 @@ from slixmpp.plugins.xep_0421.stanza import OccupantId
 from slixmpp.plugins.xep_0421.occupant_id import XEP_0421
 
 register_plugin(XEP_0421)
+
+__all__ = ['OccupantId', 'XEP_0421']

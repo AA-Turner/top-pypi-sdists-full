@@ -252,6 +252,7 @@ async def invoke(
     abi_logging(f'CREATE AGENT CALLED WITH TOOLS {[t.name for t in actual_tools]}')
     inputs = {"messages": [{"role": "user", "content": prompt}]}
     config = {"configurable": {"thread_id": thread_id}} if thread_id else {}
+    config["recursion_limit"] = 10  # Prevent infinite tool call loops
 
     final_response = None
     async for chunk in agent.astream(inputs, config=config, stream_mode="updates"):
@@ -284,7 +285,8 @@ async def invoke(
                 checkpointer=None,
             )
             retry_inputs = {"messages": [{"role": "user", "content": retry_prompt}]}
-            async for chunk in retry_agent.astream(retry_inputs, config={}, stream_mode="updates"):
+            retry_config = {"recursion_limit": 10}  # Prevent infinite loops
+            async for chunk in retry_agent.astream(retry_inputs, config=retry_config, stream_mode="updates"):
                 for _node, node_data in chunk.items():
                     if "messages" in node_data:
                         for msg in node_data["messages"]:

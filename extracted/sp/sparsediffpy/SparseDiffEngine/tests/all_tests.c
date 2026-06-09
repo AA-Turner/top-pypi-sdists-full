@@ -60,14 +60,15 @@
 #include "problem/test_param_prob.h"
 #include "problem/test_problem.h"
 #include "utils/test_COO_matrix.h"
+#include "utils/test_alloc_overflow.h"
 #include "utils/test_cblas.h"
 #include "utils/test_csc_matrix.h"
 #include "utils/test_csr_csc_conversion.h"
 #include "utils/test_csr_matrix.h"
 #include "utils/test_linalg_sparse_matmuls.h"
 #include "utils/test_linalg_utils_matmul_chain_rule.h"
-#include "utils/test_matrix.h"
 #include "utils/test_matmul_dispatchers.h"
+#include "utils/test_matrix.h"
 #include "utils/test_permuted_dense.h"
 #include "utils/test_stacked_pd.h"
 #include "wsum_hess/affine/test_broadcast.h"
@@ -103,6 +104,7 @@
 #include "wsum_hess/other/test_prod_axis_one.h"
 #include "wsum_hess/other/test_prod_axis_zero.h"
 #include "wsum_hess/other/test_quad_form.h"
+#include "wsum_hess/other/test_quad_form_dense.h"
 #endif /* PROFILE_ONLY */
 
 #ifdef PROFILE_ONLY
@@ -110,6 +112,7 @@
 #include "profiling/profile_hessian_exp_AX.h"
 #include "profiling/profile_left_matmul.h"
 #include "profiling/profile_log_reg.h"
+#include "profiling/profile_memory.h"
 #include "profiling/profile_trimmed_log_reg.h"
 #endif /* PROFILE_ONLY */
 
@@ -210,6 +213,7 @@ int main(void)
     mu_run_test(test_jacobian_sum_log_axis_0, tests_run);
     mu_run_test(test_jacobian_sum_add_log_axis_0, tests_run);
     mu_run_test(test_jacobian_sum_log_axis_1, tests_run);
+    mu_run_test(test_jacobian_sum_axis_minus_one_pd_child, tests_run);
     mu_run_test(test_jacobian_hstack_vectors, tests_run);
     mu_run_test(test_jacobian_hstack_matrix, tests_run);
     mu_run_test(test_jacobian_vstack_vectors, tests_run);
@@ -291,6 +295,10 @@ int main(void)
     mu_run_test(test_wsum_hess_quad_over_lin_xy, tests_run);
     mu_run_test(test_wsum_hess_quad_over_lin_yx, tests_run);
     mu_run_test(test_wsum_hess_quad_form, tests_run);
+    mu_run_test(test_wsum_hess_quad_form_dense, tests_run);
+    mu_run_test(test_wsum_hess_quad_form_dense_affine, tests_run);
+    mu_run_test(test_wsum_hess_quad_form_dense_exp, tests_run);
+    mu_run_test(test_wsum_hess_quad_form_dense_param, tests_run);
     mu_run_test(test_wsum_hess_scalar_mult_log_vector, tests_run);
     mu_run_test(test_wsum_hess_scalar_mult_log_matrix, tests_run);
     mu_run_test(test_wsum_hess_vector_mult_log_vector, tests_run);
@@ -344,6 +352,8 @@ int main(void)
     mu_run_test(test_wsum_hess_matmul_X_X, tests_run);
 
     printf("\n--- Utility Tests ---\n");
+    mu_run_test(test_sat_mul_int_clamps_on_overflow, tests_run);
+    mu_run_test(test_sparse_index_alloc_no_int_overflow, tests_run);
     mu_run_test(test_cblas_ddot, tests_run);
     mu_run_test(test_diag_csr_mult, tests_run);
     mu_run_test(test_csr_sum, tests_run);
@@ -404,6 +414,9 @@ int main(void)
     mu_run_test(test_permuted_dense_BTA_empty_overlap, tests_run);
     mu_run_test(test_permuted_dense_BTA_partial_overlap, tests_run);
     mu_run_test(test_permuted_dense_BTDA_decomposition, tests_run);
+    mu_run_test(test_permuted_dense_sum_all_rows, tests_run);
+    mu_run_test(test_permuted_dense_sum_block_of_rows, tests_run);
+    mu_run_test(test_permuted_dense_sum_evenly_spaced_rows, tests_run);
     mu_run_test(test_BTA_pd_csc_matches_csr, tests_run);
     mu_run_test(test_BA_pd_matrices_pd_pd_full_block_B, tests_run);
     mu_run_test(test_BA_pd_matrices_pd_pd_general_B, tests_run);
@@ -536,6 +549,7 @@ int main(void)
     mu_run_test(profile_trimmed_log_reg, tests_run);
     mu_run_test(profile_BTA_pd_csr_vs_csc, tests_run);
     mu_run_test(profile_hessian_exp_AX, tests_run);
+    mu_run_test(profile_memory, tests_run);
 #endif /* PROFILE_ONLY */
 
     printf("\n=== All %d tests passed ===\n", tests_run);

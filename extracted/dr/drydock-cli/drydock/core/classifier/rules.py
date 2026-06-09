@@ -53,7 +53,11 @@ RULES: tuple[ClassificationRule, ...] = (
     ),
     ClassificationRule(
         pattern_id="harness:bash:heredoc_loop",
-        regex=_r(r"loop[:\s]*bash.*(cat\s*<<|here[-\s]*doc|EOF)"),
+        # Negative lookbehind prevents matching pattern-ID references like
+        # "harness:loop:bash_generic" that appear in status summaries and
+        # trip-log lines — those caused a dispatch feedback loop (23 false
+        # positives per 24h sourced from autonomous_review.log).
+        regex=_r(r"(?<!harness:)loop[:\s]*bash.*(cat\s*<<|here[-\s]*doc)"),
         bucket=Bucket.HARNESS,
         suggested_action="Detect cat-heredoc write pattern in bash loop-breaker; redirect to write_file.",
     ),
@@ -134,7 +138,7 @@ RULES: tuple[ClassificationRule, ...] = (
     ),
     ClassificationRule(
         pattern_id="harness:loop:bash_generic",
-        regex=_r(r"loop[:\s]*bash\b"),
+        regex=_r(r"(?<!harness:)loop[:\s]*bash\b"),
         bucket=Bucket.HARNESS,
         suggested_action="Investigate the bash subcommand pattern; admiral nudge already firing.",
         confidence=0.6,

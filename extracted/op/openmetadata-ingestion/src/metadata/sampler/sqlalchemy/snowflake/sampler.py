@@ -18,10 +18,6 @@ from typing import Dict, Optional, Union
 from sqlalchemy import Table, func, text
 from sqlalchemy.sql.selectable import CTE
 
-from metadata.generated.schema.entity.data.table import (
-    ProfileSampleType,
-    SamplingMethodType,
-)
 from metadata.generated.schema.entity.services.connections.connectionBasicType import (
     DataStorageConfig,
 )
@@ -29,6 +25,8 @@ from metadata.generated.schema.entity.services.connections.database.datalakeConn
     DatalakeConnection,
 )
 from metadata.generated.schema.entity.services.databaseService import DatabaseConnection
+from metadata.generated.schema.type.basic import ProfileSampleType, SamplingMethodType
+from metadata.generated.schema.type.staticSamplingConfig import StaticSamplingConfig
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
 from metadata.sampler.models import SampleConfig
 from metadata.sampler.sqlalchemy.sampler import SQASampler
@@ -66,31 +64,33 @@ class SnowflakeSampler(SQASampler):
             **kwargs,
         )
         self.sampling_method_type = func.bernoulli
-        if (
-            sample_config
-            and sample_config.samplingMethodType == SamplingMethodType.SYSTEM
-        ):
-            self.sampling_method_type = func.system
+        if sample_config:
+            static = self._resolve_sample_config
+            if static and static.samplingMethodType == SamplingMethodType.SYSTEM:
+                self.sampling_method_type = func.system
 
-    def set_tablesample(self, selectable: Table):
+    def set_tablesample(self, static: StaticSamplingConfig | None, selectable: Table):
         """Set the TABLESAMPLE clause for Snowflake
         Args:
-            selectable (Table): _description_
+            static (StaticSamplingConfig | None): sampling configuration
+            selectable (Table): table to sample
         """
-        if self.sample_config.profileSampleType == ProfileSampleType.PERCENTAGE:
+        if static is None:
+            return selectable
+
+        if static and static.profileSampleType == ProfileSampleType.PERCENTAGE:
             return selectable.tablesample(
-                self.sampling_method_type(self.sample_config.profileSample or 100)
+                self.sampling_method_type(static.profileSample or 100)
             )
 
         return selectable.tablesample(
-            func.ROW(text(f"{self.sample_config.profileSample or 100} ROWS"))
+            func.ROW(text(f"{static.profileSample or 100 if static else 100} ROWS"))
         )
 
-    def get_sample_query(self, *, column=None) -> CTE:
+    def get_sample_query(self, static: StaticSamplingConfig | None, *, column=None) -> CTE:
         """Override the base method as ROWS or PERCENT sampling handled through the tablesample clause"""
-        rnd = self._base_sample_query(column).cte(
-            f"{self.get_sampler_table_name()}_rnd"
-        )
+        selectable = self.set_tablesample(static, self.raw_dataset.__table__)  # type: ignore
+        rnd = self._base_sample_query(selectable, column).cte(f"{self.get_sampler_table_name()}_rnd")
         with self.session_factory() as client:
             query = client.query(rnd)
         return query.cte(f"{self.get_sampler_table_name()}_sample")

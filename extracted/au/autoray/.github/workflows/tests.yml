@@ -36,11 +36,14 @@ jobs:
         - os: ubuntu-latest
           pixi_environment: testtensorflow
 
+        - os: macos-latest
+          pixi_environment: testmlx
+
     steps:
       - uses: actions/checkout@v6
 
       - name: Install pixi
-        uses: prefix-dev/setup-pixi@v0.9.3
+        uses: prefix-dev/setup-pixi@v0.9.5
         with:
           environments: ${{ matrix.pixi_environment }}
 
@@ -48,7 +51,7 @@ jobs:
         run: pixi run -e ${{ matrix.pixi_environment }} test
 
       - name: Report to codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 

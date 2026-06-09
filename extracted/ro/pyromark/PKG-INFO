@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyromark
-Version: 0.9.11
+Version: 0.9.12
 Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
@@ -23,7 +23,7 @@ Keywords: converter,html
 Author-email: monosans <hsyqixco@protonmail.com>
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: documentation, https://pyromark.readthedocs.io
+Project-URL: documentation, https://monosans.github.io/pyromark
 Project-URL: repository, https://github.com/monosans/pyromark
 
 # pyromark
@@ -43,7 +43,7 @@ pip install -U pyromark
 
 ## Documentation
 
-<https://pyromark.readthedocs.io>
+<https://monosans.github.io/pyromark>
 
 ## Basic examples
 
@@ -88,7 +88,7 @@ for event in pyromark.events("# Hello world"):
 
 If you use threading, the difference with other libraries will be even more enormous, since pyromark releases the [GIL](https://docs.python.org/3/glossary.html#term-global-interpreter-lock).
 
-See [benchmark](https://pyromark.readthedocs.io/en/latest/performance/).
+See [benchmark](https://monosans.github.io/pyromark/performance/).
 
 ## License
 

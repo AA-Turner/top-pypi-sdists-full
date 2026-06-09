@@ -1257,6 +1257,14 @@ impl<'run, 'src> Parser<'run, 'src> {
       );
     }
 
+    if attributes.contains(AttributeDiscriminant::Script)
+      && attributes.contains(AttributeDiscriminant::Shell)
+    {
+      return Err(name.error(CompileErrorKind::ScriptAndShellAttribute {
+        recipe: name.lexeme(),
+      }));
+    }
+
     let private =
       name.lexeme().starts_with('_') || attributes.contains(AttributeDiscriminant::Private);
 
@@ -1408,6 +1416,8 @@ impl<'run, 'src> Parser<'run, 'src> {
       Keyword::AllowDuplicateVariables => {
         Some(Setting::AllowDuplicateVariables(self.parse_set_bool()?))
       }
+      Keyword::DefaultList => Some(Setting::DefaultList(self.parse_set_bool()?)),
+      Keyword::DefaultScript => Some(Setting::DefaultScript(self.parse_set_bool()?)),
       Keyword::DotenvLoad => Some(Setting::DotenvLoad(self.parse_set_bool()?)),
       Keyword::DotenvOverride => Some(Setting::DotenvOverride(self.parse_set_bool()?)),
       Keyword::DotenvRequired => Some(Setting::DotenvRequired(self.parse_set_bool()?)),

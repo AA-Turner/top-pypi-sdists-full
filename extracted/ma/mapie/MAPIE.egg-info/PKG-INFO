@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: MAPIE
-Version: 1.4.0
+Version: 1.4.1
 Summary: A scikit-learn-compatible module for estimating prediction intervals.
 Maintainer-email: Valentin Laurent <valentin.laurent@capgemini.com>, Louis Lacombe <louis.lacombe@capgemini.com>, Vincent Blot <vincent.blot@capgemini.com>, Geoffray Brelurut <geoffray.brelurut@capgemini.com>, Hassan Maissoro <hassan.maissoro@capgemini.com>, Adrien Le Coz <adrien.le-coz@inria.fr>
 License-Expression: BSD-3-Clause

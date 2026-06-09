@@ -15,7 +15,7 @@ def test_asset(test_case):
     )
 
     invalid_flag = any(
-        v in [invalid_val for f in test_case["entry"].get("flags", []) for invalid_val in f["values"]["invalid"]]
+        v in [invalid_val for f in test_case["entry"].get("flags", []) for invalid_val in f["values"].get("invalid", [])]
         for v in test_case["flag_set"].values()
     )
     

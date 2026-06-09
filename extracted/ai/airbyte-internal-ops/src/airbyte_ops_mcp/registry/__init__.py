@@ -1,11 +1,8 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Registry operations for Airbyte connectors.
 
-This package provides functionality for:
-- Reading connector metadata from the GCS registry
-- Listing connectors and versions in the registry
-- Publishing connector metadata to GCS
-- Promoting and rolling back release candidates
+This package provides functionality for reading, listing, publishing, compiling,
+and validating connector registry artifacts.
 """
 
 from __future__ import annotations
@@ -44,7 +41,6 @@ from airbyte_ops_mcp.registry.generate import (
 from airbyte_ops_mcp.registry.models import (
     ConnectorListResult,
     ConnectorMetadata,
-    ConnectorPublishResult,
     MetadataPublishResult,
     RegistryEntryResult,
     VersionListResult,
@@ -58,13 +54,9 @@ from airbyte_ops_mcp.registry.operations import (
 )
 from airbyte_ops_mcp.registry.publish import (
     CONNECTOR_PATH_PREFIX,
-    create_progressive_rollout_blob,
-    delete_progressive_rollout_blob,
     get_connector_metadata,
     get_gcs_publish_path,
-    is_valid_for_progressive_rollout,
     publish_connector_metadata,
-    strip_rc_suffix,
 )
 from airbyte_ops_mcp.registry.publish_artifacts import (
     PublishArtifactsResult,
@@ -115,7 +107,6 @@ __all__ = [
     "ConnectorLanguage",
     "ConnectorListResult",
     "ConnectorMetadata",
-    "ConnectorPublishResult",
     "ConnectorType",
     "GenerateResult",
     "MetadataPublishResult",
@@ -134,8 +125,6 @@ __all__ = [
     "VersionListResult",
     "YankResult",
     "compile_registry",
-    "create_progressive_rollout_blob",
-    "delete_progressive_rollout_blob",
     "find_unpublished_connectors",
     "generate_version_artifacts",
     "get_connector_metadata",
@@ -143,7 +132,6 @@ __all__ = [
     "get_registry",
     "get_registry_entry",
     "get_registry_spec",
-    "is_valid_for_progressive_rollout",
     "list_connector_versions",
     "list_registry_connectors",
     "list_registry_connectors_filtered",
@@ -152,7 +140,6 @@ __all__ = [
     "purge_latest_dirs",
     "rebuild_registry",
     "resolve_registry_store",
-    "strip_rc_suffix",
     "unyank_connector_version",
     "validate_metadata",
     "yank_connector_version",

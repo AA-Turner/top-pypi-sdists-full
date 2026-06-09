@@ -5,12 +5,11 @@
 from datetime import datetime
 from typing import (
     Any,
-    Iterable,
 )
 
 from slixmpp.stanza import Message
 from slixmpp.jid import JID
-from slixmpp.xmlstream import ElementBase, ET
+from slixmpp.xmlstream import ElementBase
 from slixmpp.plugins import xep_0082
 
 

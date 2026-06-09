@@ -10,7 +10,6 @@ from getpass import getpass
 from argparse import ArgumentParser
 
 import asyncio
-import slixmpp
 from slixmpp.componentxmpp import ComponentXMPP
 
 

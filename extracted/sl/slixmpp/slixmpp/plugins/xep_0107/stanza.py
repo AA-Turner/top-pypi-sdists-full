@@ -3,7 +3,7 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 
-from slixmpp.xmlstream import ElementBase, ET
+from slixmpp.xmlstream import ElementBase
 
 
 class UserMood(ElementBase):

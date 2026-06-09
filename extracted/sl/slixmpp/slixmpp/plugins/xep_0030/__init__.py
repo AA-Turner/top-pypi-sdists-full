@@ -12,3 +12,5 @@ from slixmpp.plugins.xep_0030.disco import XEP_0030
 
 
 register_plugin(XEP_0030)
+
+__all__ = ['DiscoInfo', 'DiscoItems', 'StaticDisco', 'XEP_0030', 'stanza']

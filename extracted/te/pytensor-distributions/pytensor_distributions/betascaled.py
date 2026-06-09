@@ -1,9 +1,9 @@
 import pytensor.tensor as pt
 from pytensor.tensor.math import betaincinv
-from pytensor.tensor.special import betaln
-from pytensor.tensor.xlogx import xlogy0
+from pytensor.tensor.special import betaln, xlogy
 
 from pytensor_distributions.helper import ppf_bounds_cont
+from pytensor_distributions.lmoments import _lmoments
 
 
 def mean(alpha, beta, lower, upper):
@@ -58,6 +58,22 @@ def kurtosis(alpha, beta, lower, upper):
     return result
 
 
+def lmoment1(alpha, beta, lower, upper):
+    return mean(alpha, beta, lower, upper)
+
+
+def lmoment2(alpha, beta, lower, upper):
+    return _lmoments(ppf, alpha, beta, lower, upper, r=2)
+
+
+def lmoment3(alpha, beta, lower, upper):
+    return _lmoments(ppf, alpha, beta, lower, upper, r=3)
+
+
+def lmoment4(alpha, beta, lower, upper):
+    return _lmoments(ppf, alpha, beta, lower, upper, r=4)
+
+
 def entropy(alpha, beta, lower, upper):
     return (
         betaln(alpha, beta)
@@ -90,7 +106,7 @@ def sf(x, alpha, beta, lower, upper):
 
 
 def rvs(alpha, beta, lower, upper, size=None, random_state=None):
-    beta_samples = pt.random.beta(alpha, beta, rng=random_state, size=size)
+    beta_samples = pt.random.beta(alpha, beta, rng=random_state, size=size, return_next_rng=True)[1]
     return beta_samples * (upper - lower) + lower
 
 
@@ -107,8 +123,8 @@ def logpdf(x, alpha, beta, lower, upper):
     return pt.switch(
         pt.bitwise_or(pt.lt(x, lower), pt.gt(x, upper)),
         -pt.inf,
-        (xlogy0((alpha - 1), (x - lower)) + xlogy0((beta - 1), (upper - x)))
-        - (xlogy0((alpha + beta - 1), (upper - lower)) + betaln(alpha, beta)),
+        (xlogy((alpha - 1), (x - lower)) + xlogy((beta - 1), (upper - x)))
+        - (xlogy((alpha + beta - 1), (upper - lower)) + betaln(alpha, beta)),
     )
 
 

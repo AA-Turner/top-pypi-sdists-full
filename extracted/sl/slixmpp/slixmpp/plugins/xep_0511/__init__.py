@@ -8,3 +8,5 @@ from slixmpp.plugins.base import register_plugin
 from .link_metadata import XEP_0511
 
 register_plugin(XEP_0511)
+
+__all__ = ['XEP_0511']

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openbb-core
-Version: 1.6.10
+Version: 1.6.11
 Summary: OpenBB package with core functionality.
 License: AGPL-3.0-only
 Author: OpenBB Team
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: aiohttp (>=3.13.3)
-Requires-Dist: fastapi (>=0.128.0,<0.129.0)
+Requires-Dist: fastapi (>=0.136.3,<0.137.0)
 Requires-Dist: html5lib (>=1.1,<2.0)
 Requires-Dist: importlib-metadata (>=6.8.0)
 Requires-Dist: pandas (>=1.5.3)

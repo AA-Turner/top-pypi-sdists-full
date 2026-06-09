@@ -2,6 +2,7 @@
 
 import logging
 
+from . import exceptions
 from .auth import (
     Authorizer,
     DeviceIDAuthorizer,
@@ -17,4 +18,18 @@ from .sessions import Session, session
 
 logging.getLogger(__package__).addHandler(logging.NullHandler())
 
-__version__ = "3.1.0"
+__version__ = "3.2.0"
+
+__all__ = [
+    "Authorizer",
+    "DeviceIDAuthorizer",
+    "ImplicitAuthorizer",
+    "ReadOnlyAuthorizer",
+    "Requestor",
+    "ScriptAuthorizer",
+    "Session",
+    "TrustedAuthenticator",
+    "UntrustedAuthenticator",
+    "session",
+]
+__all__ += exceptions.__all__

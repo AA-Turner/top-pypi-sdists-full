@@ -108,6 +108,15 @@ def _container(deployment: dict[str, Any], name: str) -> dict[str, Any]:
     raise AssertionError(msg)
 
 
+def _init_container(deployment: dict[str, Any], name: str) -> dict[str, Any]:
+    init_containers = deployment["spec"]["template"]["spec"].get("initContainers", [])
+    for container in init_containers:
+        if container["name"] == name:
+            return container
+    msg = f"init container {name} was not rendered"
+    raise AssertionError(msg)
+
+
 def _env_by_name(container: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {env["name"]: env for env in container["env"]}
 
@@ -252,6 +261,181 @@ def test_instance_chart_wires_image_pull_secrets_to_control_plane_pods() -> None
 
     assert deployment["spec"]["template"]["spec"]["imagePullSecrets"] == [{"name": "ghcr-pull"}]
     assert worker_manager_account["imagePullSecrets"] == [{"name": "ghcr-pull"}]
+
+
+def test_runtime_chart_renders_content_bundle_init_containers_after_user_init_containers(tmp_path: Path) -> None:
+    """Content bundles should copy immutable image contents into runtime storage without replacing user hooks."""
+    values_path = tmp_path / "content-bundles.yaml"
+    values_path.write_text(
+        yaml.safe_dump(
+            {
+                "eventCache": {"postgres": {"auth": {"password": "test-password"}}},
+                "initContainers": [
+                    {
+                        "name": "prepare-storage",
+                        "image": "busybox:1.36",
+                        "command": ["sh", "-ec", "mkdir -p /app/agent_data/bootstrap"],
+                    },
+                ],
+                "contentBundles": [
+                    {
+                        "name": "team-config",
+                        "image": "ghcr.io/example/team-config@sha256:"
+                        "1111111111111111111111111111111111111111111111111111111111111111",
+                        "sourcePath": "/bundle",
+                        "targetPath": "/app/agent_data/content-bundles/team-config",
+                        "seed": {
+                            "enabled": True,
+                            "command": [
+                                "/app/agent_data/content-bundles/team-config/scripts/seed-content.sh",
+                            ],
+                        },
+                    },
+                    {
+                        "name": "policy-pack",
+                        "image": "registry.example.com/team/policy-pack@sha256:"
+                        "2222222222222222222222222222222222222222222222222222222222222222",
+                        "overwrite": False,
+                    },
+                ],
+            },
+        ),
+        encoding="utf-8",
+    )
+
+    docs = _render_chart(
+        Path("cluster/k8s/runtime"),
+        values_files=(values_path,),
+        release_name="mindroom-runtime",
+    )
+    deployment = _resource(docs, "Deployment", "mindroom-runtime")
+    pod_spec = deployment["spec"]["template"]["spec"]
+    team_config = _init_container(deployment, "content-bundle-team-config")
+    policy_pack = _init_container(deployment, "content-bundle-policy-pack")
+
+    assert [container["name"] for container in pod_spec["initContainers"]][:3] == [
+        "prepare-storage",
+        "content-bundle-team-config",
+        "content-bundle-policy-pack",
+    ]
+    assert team_config["image"] == (
+        "ghcr.io/example/team-config@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    )
+    assert team_config["imagePullPolicy"] == "IfNotPresent"
+    assert team_config["command"] == ["sh", "-ec"]
+    assert team_config["args"] == [
+        "set -eu\n"
+        'rm -rf "/app/agent_data/content-bundles/team-config"\n'
+        'mkdir -p "/app/agent_data/content-bundles/team-config"\n'
+        'cp -a "/bundle/." "/app/agent_data/content-bundles/team-config/"\n'
+        '"/app/agent_data/content-bundles/team-config/scripts/seed-content.sh"',
+    ]
+    assert team_config["volumeMounts"] == [
+        {
+            "name": "storage",
+            "mountPath": "/app/agent_data",
+        },
+    ]
+    assert policy_pack["args"] == [
+        "set -eu\n"
+        'mkdir -p "/app/agent_data/content-bundles/policy-pack"\n'
+        'cp -a "/bundle/." "/app/agent_data/content-bundles/policy-pack/"',
+    ]
+
+
+@pytest.mark.parametrize(
+    "image",
+    [
+        "ghcr.io/example/team-config:latest",
+        "ghcr.io/example/team-config@sha256:short",
+    ],
+)
+def test_runtime_chart_rejects_content_bundle_images_without_digest(image: str) -> None:
+    """Hosted bundles should be pinned to immutable image digests."""
+    completed = _run_helm_template(
+        Path("cluster/k8s/runtime"),
+        "eventCache.postgres.auth.password=test-password",
+        "contentBundles[0].name=team-config",
+        f"contentBundles[0].image={image}",
+        release_name="mindroom-runtime",
+    )
+
+    assert completed.returncode != 0
+    assert "contentBundles[0].image must be pinned by full sha256 digest" in completed.stderr
+
+
+def test_runtime_chart_rejects_duplicate_content_bundle_names() -> None:
+    """Generated init container names must stay unique."""
+    completed = _run_helm_template(
+        Path("cluster/k8s/runtime"),
+        "eventCache.postgres.auth.password=test-password",
+        "contentBundles[0].name=team-config",
+        "contentBundles[0].image=ghcr.io/example/team-config@sha256:"
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        "contentBundles[1].name=team-config",
+        "contentBundles[1].image=ghcr.io/example/other-config@sha256:"
+        "2222222222222222222222222222222222222222222222222222222222222222",
+        release_name="mindroom-runtime",
+    )
+
+    assert completed.returncode != 0
+    assert 'contentBundles[1].name "team-config" is used more than once' in completed.stderr
+
+
+def test_runtime_chart_rejects_content_bundle_names_that_would_be_truncated() -> None:
+    """Bundle names must fit in generated Kubernetes init container names."""
+    completed = _run_helm_template(
+        Path("cluster/k8s/runtime"),
+        "eventCache.postgres.auth.password=test-password",
+        f"contentBundles[0].name={'a' * 49}",
+        "contentBundles[0].image=ghcr.io/example/team-config@sha256:"
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        release_name="mindroom-runtime",
+    )
+
+    assert completed.returncode != 0
+    assert "contentBundles[0].name must be 48 characters or fewer" in completed.stderr
+
+
+@pytest.mark.parametrize(
+    ("target_path", "message"),
+    [
+        ("/app/agent_data", "contentBundles[0].targetPath cannot be equal to storage.mountPath /app/agent_data"),
+        ("/app/content/team-config", "contentBundles[0].targetPath must be under storage.mountPath /app/agent_data"),
+        ("/app/agent_data/../outside", "contentBundles[0].targetPath must be under storage.mountPath /app/agent_data"),
+    ],
+)
+def test_runtime_chart_rejects_content_bundle_target_paths_outside_storage(target_path: str, message: str) -> None:
+    """Bundle copy targets must stay inside runtime storage."""
+    completed = _run_helm_template(
+        Path("cluster/k8s/runtime"),
+        "eventCache.postgres.auth.password=test-password",
+        "contentBundles[0].name=team-config",
+        "contentBundles[0].image=ghcr.io/example/team-config@sha256:"
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        f"contentBundles[0].targetPath={target_path}",
+        release_name="mindroom-runtime",
+    )
+
+    assert completed.returncode != 0
+    assert message in completed.stderr
+
+
+def test_runtime_chart_rejects_content_bundle_target_path_equal_root_storage() -> None:
+    """The root path should not be accepted when storage itself is mounted at root."""
+    completed = _run_helm_template(
+        Path("cluster/k8s/runtime"),
+        "eventCache.postgres.auth.password=test-password",
+        "storage.mountPath=/",
+        "contentBundles[0].name=team-config",
+        "contentBundles[0].image=ghcr.io/example/team-config@sha256:"
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        "contentBundles[0].targetPath=/",
+        release_name="mindroom-runtime",
+    )
+
+    assert completed.returncode != 0
+    assert "contentBundles[0].targetPath cannot be equal to storage.mountPath /" in completed.stderr
 
 
 def test_instance_chart_worker_manager_can_only_patch_own_worker_auth_secret() -> None:
@@ -678,6 +862,134 @@ def test_runtime_chart_worker_network_policy_selects_dynamic_worker_labels() -> 
         "app.kubernetes.io/managed-by": "mindroom",
         "app.kubernetes.io/name": "mindroom-worker",
     }
+
+
+def test_runtime_chart_default_configmap_source_wires_runtime_and_worker_configmap() -> None:
+    """Default config mode should preserve the chart-managed ConfigMap mount and worker projection."""
+    docs = _render_runtime_chart()
+    config_map = _resource(docs, "ConfigMap", "mindroom-runtime-config")
+    deployment = _resource(docs, "Deployment", "mindroom-runtime")
+    pod_spec = deployment["spec"]["template"]["spec"]
+    mindroom_container = _container(deployment, "mindroom")
+    mindroom_env = _env_by_name(mindroom_container)
+
+    assert "config.yaml" in config_map["data"]
+    assert {"name": "config", "configMap": {"name": "mindroom-runtime-config"}} in pod_spec["volumes"]
+    assert {
+        "name": "config",
+        "mountPath": "/app/config.yaml",
+        "subPath": "config.yaml",
+        "readOnly": True,
+    } in mindroom_container["volumeMounts"]
+    assert mindroom_env["MINDROOM_CONFIG_PATH"]["value"] == "/app/config.yaml"
+    assert mindroom_env["MINDROOM_KUBERNETES_WORKER_CONFIG_MAP_NAME"]["value"] == "mindroom-runtime-config"
+    assert mindroom_env["MINDROOM_KUBERNETES_WORKER_CONFIG_KEY"]["value"] == "config.yaml"
+    assert mindroom_env["MINDROOM_KUBERNETES_WORKER_CONFIG_PATH"]["value"] == "/app/config.yaml"
+
+
+def test_runtime_chart_file_config_source_uses_bundle_path_without_configmap() -> None:
+    """File config mode should point runtime and workers at the bundle file without rendering a ConfigMap."""
+    config_path = "/app/agent_data/content-bundles/team-config/content/environments/prod/agent-config.yaml"
+    docs = _render_chart(
+        Path("cluster/k8s/runtime"),
+        "workers.backend=kubernetes",
+        "workers.sandbox.proxyToken.value=test-token",
+        "eventCache.postgres.auth.password=test-password",
+        "contentBundles[0].name=team-config",
+        "contentBundles[0].image=registry.example.com/team/mindroom-config@sha256:"
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        "config.source=file",
+        f"config.path={config_path}",
+        release_name="mindroom-runtime",
+    )
+    deployment = _resource(docs, "Deployment", "mindroom-runtime")
+    pod_spec = deployment["spec"]["template"]["spec"]
+    mindroom_container = _container(deployment, "mindroom")
+    mindroom_env = _env_by_name(mindroom_container)
+
+    assert not any(
+        doc.get("kind") == "ConfigMap" and doc.get("metadata", {}).get("name") == "mindroom-runtime-config"
+        for doc in docs
+    )
+    assert not any(volume["name"] == "config" for volume in pod_spec["volumes"])
+    assert not any(mount["name"] == "config" for mount in mindroom_container["volumeMounts"])
+    assert mindroom_env["MINDROOM_CONFIG_PATH"]["value"] == config_path
+    assert "MINDROOM_KUBERNETES_WORKER_CONFIG_MAP_NAME" not in mindroom_env
+    assert "MINDROOM_KUBERNETES_WORKER_CONFIG_KEY" not in mindroom_env
+    assert mindroom_env["MINDROOM_KUBERNETES_WORKER_CONFIG_PATH"]["value"] == config_path
+    assert mindroom_env["MINDROOM_KUBERNETES_WORKER_STORAGE_MOUNT_PATH"]["value"] == "/app/agent_data"
+    assert mindroom_env["MINDROOM_KUBERNETES_WORKER_STORAGE_PVC_NAME"]["value"] == "mindroom-runtime-storage"
+
+
+def test_runtime_chart_static_runner_file_config_source_uses_bundle_path_without_configmap() -> None:
+    """Static runner mode should use the resolved file config path in both containers."""
+    config_path = "/app/agent_data/content-bundles/team-config/content/environments/prod/agent-config.yaml"
+    docs = _render_chart(
+        Path("cluster/k8s/runtime"),
+        "workers.backend=static_runner",
+        "workers.sandbox.proxyToken.value=test-token",
+        "eventCache.postgres.auth.password=test-password",
+        "contentBundles[0].name=team-config",
+        "contentBundles[0].image=registry.example.com/team/mindroom-config@sha256:"
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        "config.source=file",
+        f"config.path={config_path}",
+        release_name="mindroom-runtime",
+    )
+    deployment = _resource(docs, "Deployment", "mindroom-runtime")
+    pod_spec = deployment["spec"]["template"]["spec"]
+    mindroom_container = _container(deployment, "mindroom")
+    runner_container = _container(deployment, "sandbox-runner")
+
+    assert not any(
+        doc.get("kind") == "ConfigMap" and doc.get("metadata", {}).get("name") == "mindroom-runtime-config"
+        for doc in docs
+    )
+    assert not any(volume["name"] == "config" for volume in pod_spec["volumes"])
+    assert not any(mount["name"] == "config" for mount in mindroom_container["volumeMounts"])
+    assert not any(mount["name"] == "config" for mount in runner_container["volumeMounts"])
+    assert _env_by_name(mindroom_container)["MINDROOM_CONFIG_PATH"]["value"] == config_path
+    assert _env_by_name(runner_container)["MINDROOM_CONFIG_PATH"]["value"] == config_path
+
+
+def test_runtime_chart_file_config_source_rejects_missing_path() -> None:
+    """File config mode needs an explicit absolute file path."""
+    completed = _run_helm_template(
+        Path("cluster/k8s/runtime"),
+        "eventCache.postgres.auth.password=test-password",
+        "config.source=file",
+        release_name="mindroom-runtime",
+    )
+
+    assert completed.returncode != 0
+    assert "config.path is required when config.source=file" in completed.stderr
+
+
+def test_runtime_chart_file_config_source_rejects_relative_path() -> None:
+    """File config mode should fail early for paths that are not container-absolute."""
+    completed = _run_helm_template(
+        Path("cluster/k8s/runtime"),
+        "eventCache.postgres.auth.password=test-password",
+        "config.source=file",
+        "config.path=content/environments/prod/agent-config.yaml",
+        release_name="mindroom-runtime",
+    )
+
+    assert completed.returncode != 0
+    assert "config.path must be absolute when config.source=file" in completed.stderr
+
+
+def test_runtime_chart_rejects_unknown_config_source() -> None:
+    """Config source should be constrained to known chart modes."""
+    completed = _run_helm_template(
+        Path("cluster/k8s/runtime"),
+        "eventCache.postgres.auth.password=test-password",
+        "config.source=secret",
+        release_name="mindroom-runtime",
+    )
+
+    assert completed.returncode != 0
+    assert "config.source must be either configMap or file" in completed.stderr
 
 
 def test_runtime_chart_can_route_kubernetes_workers_through_existing_egress_proxy(tmp_path: Path) -> None:
@@ -1281,6 +1593,156 @@ def test_runtime_chart_static_runner_uses_credentials_encryption_key_secret() ->
 
     assert _env_by_name(mindroom_container)["MINDROOM_CREDENTIALS_ENCRYPTION_KEY"] == expected_env
     assert _env_by_name(runner_container)["MINDROOM_CREDENTIALS_ENCRYPTION_KEY"] == expected_env
+
+
+def test_runtime_chart_state_storage_renders_existing_pvc_mounts_and_init_permissions(tmp_path: Path) -> None:
+    """Hosted runtimes should keep Matrix client state on a dedicated PVC."""
+    values_path = tmp_path / "values.yaml"
+    values_path.write_text(
+        yaml.safe_dump(
+            {
+                "eventCache": {"postgres": {"auth": {"password": "test-password"}}},
+                "stateStorage": {
+                    "enabled": True,
+                    "existingClaim": "mindroom-state",
+                    "mountPath": "/app/mindroom_state",
+                    "encryptionKeys": {
+                        "enabled": True,
+                        "mountPath": "/app/agent_data/encryption_keys",
+                        "subPath": "encryption_keys",
+                    },
+                    "syncTokens": {
+                        "enabled": True,
+                        "mountPath": "/app/agent_data/sync_tokens",
+                        "subPath": "sync_tokens",
+                    },
+                    "initPermissions": {
+                        "enabled": True,
+                        "runAsUser": 1000,
+                        "fsGroup": 1000,
+                    },
+                },
+                "initContainers": [
+                    {
+                        "name": "custom-init",
+                        "image": "busybox:1.36",
+                        "command": ["sh", "-c", "true"],
+                    },
+                ],
+                "extraVolumes": [{"name": "custom-config", "configMap": {"name": "custom-config"}}],
+                "extraVolumeMounts": [{"name": "custom-config", "mountPath": "/etc/custom"}],
+            },
+        ),
+        encoding="utf-8",
+    )
+    docs = _render_chart(
+        Path("cluster/k8s/runtime"),
+        values_files=(values_path,),
+        release_name="mindroom-runtime",
+    )
+    deployment = _resource(docs, "Deployment", "mindroom-runtime")
+    pod_spec = deployment["spec"]["template"]["spec"]
+    mindroom_container = _container(deployment, "mindroom")
+    volume_mounts = {mount["mountPath"]: mount for mount in mindroom_container["volumeMounts"]}
+    volumes = {volume["name"]: volume for volume in pod_spec["volumes"]}
+    init_containers = {container["name"]: container for container in pod_spec["initContainers"]}
+
+    assert volumes["state-storage"]["persistentVolumeClaim"]["claimName"] == "mindroom-state"
+    assert volumes["custom-config"]["configMap"]["name"] == "custom-config"
+    assert volume_mounts["/app/mindroom_state"] == {
+        "name": "state-storage",
+        "mountPath": "/app/mindroom_state",
+    }
+    assert volume_mounts["/app/agent_data/encryption_keys"] == {
+        "name": "state-storage",
+        "mountPath": "/app/agent_data/encryption_keys",
+        "subPath": "encryption_keys",
+    }
+    assert volume_mounts["/app/agent_data/sync_tokens"] == {
+        "name": "state-storage",
+        "mountPath": "/app/agent_data/sync_tokens",
+        "subPath": "sync_tokens",
+    }
+    assert volume_mounts["/etc/custom"] == {"name": "custom-config", "mountPath": "/etc/custom"}
+
+    assert "prepare-state-storage" in init_containers
+    assert "custom-init" in init_containers
+    assert init_containers["prepare-state-storage"]["volumeMounts"] == [
+        {"name": "state-storage", "mountPath": "/state"},
+    ]
+    assert init_containers["prepare-state-storage"]["securityContext"] == {
+        "runAsUser": 0,
+        "runAsNonRoot": False,
+        "allowPrivilegeEscalation": False,
+    }
+    assert init_containers["prepare-state-storage"]["command"][:2] == ["sh", "-c"]
+    state_command = init_containers["prepare-state-storage"]["command"][2]
+    assert 'mkdir -p "/state" "/state/encryption_keys" "/state/sync_tokens"' in state_command
+    assert 'chown -R 1000:1000 "/state" "/state/encryption_keys" "/state/sync_tokens"' in state_command
+    assert 'chmod 2775 "/state" "/state/encryption_keys" "/state/sync_tokens"' in state_command
+
+
+def test_runtime_chart_state_storage_can_create_pvc() -> None:
+    """The runtime chart can manage the dedicated state PVC for simple hosted installs."""
+    docs = _render_chart(
+        Path("cluster/k8s/runtime"),
+        "eventCache.postgres.auth.password=test-password",
+        "stateStorage.enabled=true",
+        "stateStorage.create=true",
+        "stateStorage.size=20Gi",
+        "stateStorage.storageClassName=fast-rwo",
+        release_name="mindroom-runtime",
+    )
+    pvc = _resource(docs, "PersistentVolumeClaim", "mindroom-runtime-state")
+
+    assert pvc["spec"] == {
+        "accessModes": ["ReadWriteOnce"],
+        "storageClassName": "fast-rwo",
+        "resources": {"requests": {"storage": "20Gi"}},
+    }
+
+
+@pytest.mark.parametrize(
+    ("conflict_args", "expected_error"),
+    [
+        (
+            ("stateStorage.mountPath=/app/agent_data/encryption_keys",),
+            "stateStorage.mountPath must differ from stateStorage.encryptionKeys.mountPath",
+        ),
+        (
+            ("stateStorage.mountPath=/app/agent_data/sync_tokens",),
+            "stateStorage.mountPath must differ from stateStorage.syncTokens.mountPath",
+        ),
+        (
+            ("stateStorage.encryptionKeys.mountPath=/app/agent_data",),
+            "stateStorage.encryptionKeys.mountPath must differ from storage.mountPath",
+        ),
+        (
+            ("stateStorage.syncTokens.mountPath=/app/agent_data",),
+            "stateStorage.syncTokens.mountPath must differ from storage.mountPath",
+        ),
+        (
+            ("stateStorage.syncTokens.mountPath=/app/agent_data/encryption_keys",),
+            "stateStorage.encryptionKeys.mountPath must differ from stateStorage.syncTokens.mountPath",
+        ),
+    ],
+)
+def test_runtime_chart_state_storage_rejects_mount_path_conflicts(
+    conflict_args: tuple[str, ...],
+    expected_error: str,
+) -> None:
+    """Generated runtime volumeMount paths must stay unique."""
+    completed = _run_helm_template(
+        Path("cluster/k8s/runtime"),
+        "eventCache.postgres.auth.password=test-password",
+        "stateStorage.enabled=true",
+        "stateStorage.existingClaim=mindroom-state",
+        *conflict_args,
+        release_name="mindroom-runtime",
+    )
+
+    assert completed.returncode != 0
+    assert expected_error in completed.stderr
 
 
 def test_runtime_chart_separate_worker_namespace_can_manage_per_worker_auth_secrets() -> None:

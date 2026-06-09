@@ -17,17 +17,31 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
 class ErrorDetail(BaseModel):
     """
-    ErrorDetail
+    Structured error envelope returned inside `BaseResponse.error` and `ErrorResponse.error`. Hosted-mode endpoints populate `code`, `retryable`, and optionally `exchange` / `detail`; legacy local-mode endpoints may still return only `message`.
     """ # noqa: E501
-    message: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["message"]
+    message: Optional[StrictStr] = Field(default=None, description="Human-readable error message.")
+    code: Optional[StrictStr] = Field(default=None, description="Stable machine-readable error code. Hosted-mode errors use the `HostedTradingError` family (e.g. `INSUFFICIENT_ESCROW_BALANCE`, `BUILT_ORDER_EXPIRED`); pre-hosted local errors use the legacy family (e.g. `BAD_REQUEST`, `NOT_FOUND`).")
+    retryable: Optional[StrictBool] = Field(default=None, description="Hint for clients: when `true`, the same request may succeed on retry (e.g. transient network or rate-limit conditions); when `false`, the caller should not retry without modifying the request.")
+    exchange: Optional[StrictStr] = Field(default=None, description="Venue the error originated from, when known (e.g. 'polymarket', 'kalshi').")
+    detail: Optional[Dict[str, Any]] = Field(default=None, description="Free-form hosted-mode detail blob. Shape depends on `code` — e.g. for `INSUFFICIENT_ESCROW_BALANCE` it may include `{ requested, available }`; for `ORDER_SIZE_TOO_SMALL` it may include `{ min }`; for `BUILT_ORDER_EXPIRED` it may include `{ expiry }`.")
+    __properties: ClassVar[List[str]] = ["message", "code", "retryable", "exchange", "detail"]
+
+    @field_validator('code')
+    def code_validate_enum(cls, value):
+        """Validates the enum"""
+        if value is None:
+            return value
+
+        if value not in set(['HOSTED_TRADING_ERROR', 'INSUFFICIENT_ESCROW_BALANCE', 'ORDER_SIZE_TOO_SMALL', 'INVALID_API_KEY', 'OUTCOME_NOT_FOUND', 'CATALOG_UNAVAILABLE', 'BUILT_ORDER_EXPIRED', 'INVALID_SIGNATURE', 'NO_LIQUIDITY', 'MISSING_WALLET_ADDRESS', 'BAD_REQUEST', 'AUTHENTICATION_ERROR', 'PERMISSION_DENIED', 'NOT_FOUND', 'ORDER_NOT_FOUND', 'MARKET_NOT_FOUND', 'EVENT_NOT_FOUND', 'RATE_LIMIT_EXCEEDED', 'INVALID_ORDER', 'INSUFFICIENT_FUNDS', 'VALIDATION_ERROR', 'NETWORK_ERROR', 'EXCHANGE_NOT_AVAILABLE', 'NOT_SUPPORTED']):
+            raise ValueError("must be one of enum values ('HOSTED_TRADING_ERROR', 'INSUFFICIENT_ESCROW_BALANCE', 'ORDER_SIZE_TOO_SMALL', 'INVALID_API_KEY', 'OUTCOME_NOT_FOUND', 'CATALOG_UNAVAILABLE', 'BUILT_ORDER_EXPIRED', 'INVALID_SIGNATURE', 'NO_LIQUIDITY', 'MISSING_WALLET_ADDRESS', 'BAD_REQUEST', 'AUTHENTICATION_ERROR', 'PERMISSION_DENIED', 'NOT_FOUND', 'ORDER_NOT_FOUND', 'MARKET_NOT_FOUND', 'EVENT_NOT_FOUND', 'RATE_LIMIT_EXCEEDED', 'INVALID_ORDER', 'INSUFFICIENT_FUNDS', 'VALIDATION_ERROR', 'NETWORK_ERROR', 'EXCHANGE_NOT_AVAILABLE', 'NOT_SUPPORTED')")
+        return value
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -68,6 +82,16 @@ class ErrorDetail(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if exchange (nullable) is None
+        # and model_fields_set contains the field
+        if self.exchange is None and "exchange" in self.model_fields_set:
+            _dict['exchange'] = None
+
+        # set to None if detail (nullable) is None
+        # and model_fields_set contains the field
+        if self.detail is None and "detail" in self.model_fields_set:
+            _dict['detail'] = None
+
         return _dict
 
     @classmethod
@@ -80,7 +104,11 @@ class ErrorDetail(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "message": obj.get("message")
+            "message": obj.get("message"),
+            "code": obj.get("code"),
+            "retryable": obj.get("retryable"),
+            "exchange": obj.get("exchange"),
+            "detail": obj.get("detail")
         })
         return _obj
 

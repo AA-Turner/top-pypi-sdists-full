@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rumdl
-Version: 0.2.9
+Version: 0.2.10
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -236,7 +236,7 @@ mise ls-remote rumdl
 mise install rumdl
 
 # Use a specific version for the project
-mise use rumdl@0.2.9
+mise use rumdl@0.2.10
 ```
 
 ### Using Nix (macOS/Linux)
@@ -435,7 +435,7 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.9
+    rev: v0.2.10
     hooks:
       - id: rumdl      # Lint only (fails on issues)
       - id: rumdl-fmt  # Auto-format and fail if issues remain
@@ -457,7 +457,7 @@ However, for pre-commit workflows where you want to include all files, even when
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.9
+    rev: v0.2.10
     hooks:
       - id: rumdl
         args: [--no-exclude]  # Disable all exclude patterns
@@ -846,6 +846,7 @@ The search follows these rules:
 - Searches upward for `.rumdl.toml`, `rumdl.toml`, `<dir>/.config/rumdl.toml`, or `pyproject.toml` (with `[tool.rumdl]` section)
 - Precedence order: `.rumdl.toml` > `rumdl.toml` > `<dir>/.config/rumdl.toml` > `pyproject.toml`
 - Stops at the first configuration file found
+- Warns when more than one of these files exists in the same directory, so you can tell which is winning (`rumdl config file` prints the loaded config's path)
 - Stops searching when it encounters a `.git` directory (project boundary)
 - Maximum traversal depth of 100 directories
 - Falls back to markdownlint config files (`.markdownlint.yaml`, etc.) using the same upward traversal

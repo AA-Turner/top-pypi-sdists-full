@@ -252,6 +252,7 @@ def features(
     etl_offline_to_online: bool = False,
     max_staleness: Optional[Duration] = None,
     name: Optional[str] = None,
+    description: Optional[str] = None,
     singleton: bool = False,
     online_store_config: Optional[OnlineStoreConfig] = None,
     cache_nulls: CacheNullsType = True,
@@ -272,6 +273,7 @@ def features(
     etl_offline_to_online: bool = False,
     max_staleness: Optional[Duration] = None,
     name: Optional[str] = None,
+    description: Optional[str] = None,
     singleton: bool = False,
     online_store_config: Optional[OnlineStoreConfig] = None,
     cache_nulls: CacheNullsType = True,
@@ -343,6 +345,10 @@ def features(
         The name for the feature set. By default, the name of a feature is
         taken from the name of the attribute on the class, prefixed with
         the camel-cased name of the class.
+    description
+        The description of the entire feature set. This will be displayed in the 
+        Chalk Dashboard and can be helpful for documentation purposes. Takes precedence 
+        over the description in the class docstring if both are provided.
     singleton
         If `True`, the feature set is a singleton, and there will be only
         one instance of the class. Because there is only one instance, a
@@ -476,6 +482,7 @@ def features(
             cache_strategy=cache_strategy,
             namespace=namespace,
             singleton=singleton,
+            description=description,
             online_store_config=online_store_config,
         )
         assert is_features_cls(updated_class)
@@ -507,6 +514,7 @@ def add_features(
     cache_nulls: CacheNullsType = True,
     cache_defaults: CacheDefaultsType = True,
     class_name: Optional[str] = None,
+    description: Optional[str] = None,
 ) -> Type[Features]:
     """Programmatically build a `@features` class without writing one.
 
@@ -561,6 +569,7 @@ def add_features(
             online_store_config=online_store_config,
             cache_nulls=cache_nulls,
             cache_defaults=cache_defaults,
+            description=description,
         )(cls),
     )
 
@@ -1161,6 +1170,7 @@ def _process_class(
     namespace: str,
     singleton: bool,
     online_store_config: Optional[OnlineStoreConfig],
+    description: Optional[str],
     cache_strategy: CacheStrategy = CacheStrategy.ALL,
 ) -> Type[T]:
     if HAS_PEP_649:
@@ -1673,6 +1683,7 @@ def _process_class(
     set_new_attribute(cls=cls, name="__eq__", value=_eq_fn)
     set_new_attribute(cls=cls, name="__hash__", value=None)
     set_new_attribute(cls=cls, name="__iter__", value=_iter_fn)
+    set_new_attribute(cls=cls, name="__chalk_description__", value=description)
     set_new_attribute(cls=cls, name="items", value=_items_fn)
     set_new_attribute(cls=cls, name="namespace", value=namespace)
     set_new_attribute(cls=cls, name="__chalk_namespace__", value=namespace)

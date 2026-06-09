@@ -38,7 +38,7 @@ def _normalize_relevance(results: list[dict]) -> None:
         r["relevance"] = round(raw_scores[i] / max_raw, 4)
 
 
-def search_fts(km, keyword: str, limit: int = 20, *, biz_context: str | None = None) -> list[dict]:
+def search_fts(km, keyword: str, limit: int = 20, *, biz_context: str | None = None, status: str = "active") -> list[dict]:
     """FTS5 keyword search with jieba segmentation and BM25 ranking."""
     from kanban_framework.domain.knowledge_lazy import (
         _expand_abbreviations, _get_jieba, _substring_match_score, _stale_penalty,
@@ -55,26 +55,26 @@ def search_fts(km, keyword: str, limit: int = 20, *, biz_context: str | None = N
         segmented = " ".join(w for w in _get_jieba().cut(expanded) if w.strip())
         query = """SELECT e.*, rank FROM entries_fts f
                    JOIN entries e ON e.rowid = f.rowid
-                   WHERE entries_fts MATCH ? AND e.status='active' ORDER BY rank LIMIT ?"""
-        params = [segmented, limit]
+                   WHERE entries_fts MATCH ? AND e.status=? ORDER BY rank LIMIT ?"""
+        params = [segmented, status, limit]
         rows = fts_safe(conn, query, params)
         if not rows and " " in segmented:
             or_query = segmented.replace(" ", " OR ")
-            params = [or_query, limit]
+            params = [or_query, status, limit]
             rows = fts_safe(conn, query, params)
         if not rows:
-            params = [keyword, limit]
+            params = [keyword, status, limit]
             rows = fts_safe(conn, query, params)
     else:
         query = """SELECT e.*, rank FROM entries_fts f
                    JOIN entries e ON e.rowid = f.rowid
-                   WHERE entries_fts MATCH ? AND e.status='active' ORDER BY rank LIMIT ?"""
+                   WHERE entries_fts MATCH ? AND e.status=? ORDER BY rank LIMIT ?"""
         for q in (expanded, keyword):
             if q == keyword and expanded == keyword:
-                params = [keyword, limit]
+                params = [keyword, status, limit]
                 rows = fts_safe(conn, query, params)
                 break
-            params = [q, limit]
+            params = [q, status, limit]
             rows = fts_safe(conn, query, params)
             if rows:
                 break

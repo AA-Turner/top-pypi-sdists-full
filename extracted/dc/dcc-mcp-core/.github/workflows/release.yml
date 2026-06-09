@@ -473,6 +473,7 @@ jobs:
       # every wheel/binary is produced successfully.
       test-wheel: ${{ 'false' }}
       checkout-ref: ${{ needs.release-please.outputs.tag_name }}
+      release-tag-name: ${{ needs.release-please.outputs.tag_name }}
 
   publish-clawhub-skills:
     needs: [release-please]
@@ -695,9 +696,9 @@ jobs:
 
       # Always attempt the GitHub Release upload, even if PyPI failed; this is
       # the user-visible artefact set and must be complete per release tag.
-      # Note: build-binaries / build-semantic-wheels already upload each
-      # per-platform wheel directly to the Release. This step is the safety
-      # net for the (unlikely) case where the per-platform upload was skipped.
+      # Note: build-binaries / build-semantic-wheels / build-wheels already
+      # upload each per-platform wheel directly to the Release. This step
+      # is the safety net for the (unlikely) case where upload was skipped.
       - name: Upload wheels to GitHub Release (safety net)
         uses: softprops/action-gh-release@v3
         with:
@@ -768,7 +769,7 @@ jobs:
 
           release_json=""
           missing=""
-          for attempt in {1..10}; do
+          for attempt in {1..20}; do
             release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json tagName,name,url,isPrerelease,isDraft,publishedAt,targetCommitish,assets)"
             missing=""
             for pattern in "${required_patterns[@]}"; do
@@ -782,9 +783,11 @@ jobs:
             fi
 
             assets_count="$(jq '.assets | length' <<<"$release_json")"
-            echo "::warning::Release assets not complete yet (attempt ${attempt}/10, assets=${assets_count}); missing patterns:"
+            current_assets="$(jq -r '[.assets[].name] | join(", ")' <<<"$release_json")"
+            echo "::warning::Release assets not complete yet (attempt ${attempt}/20, assets=${assets_count}); missing patterns:"
             printf '%s' "$missing"
-            if [ "$attempt" -lt 10 ]; then
+            echo "::warning::Current asset names: ${current_assets}"
+            if [ "$attempt" -lt 20 ]; then
               sleep 30
             fi
           done

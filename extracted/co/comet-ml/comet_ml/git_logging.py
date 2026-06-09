@@ -24,6 +24,8 @@ from io import BytesIO
 from urllib.parse import urlparse
 
 import dulwich.errors
+import dulwich.index
+import dulwich.object_store
 import dulwich.objects
 import dulwich.patch
 import dulwich.porcelain
@@ -121,13 +123,21 @@ def get_git_commit(repo):
 
 def git_status(repo):
     # Monkey-patch a dulwich method, see
-    # https://github.com/dulwich/dulwich/pull/601 for an explanation why
-    original = dulwich.porcelain.path_to_tree_path
-    try:
+    # https://github.com/dulwich/dulwich/pull/601 for an explanation why.
+    # Guarded with hasattr so we stay compatible across the dulwich versions
+    # we support: the helper exists in both the 0.x and 1.x lines, but it has
+    # been relocated several times and may eventually disappear. When it is not
+    # there we simply rely on dulwich's own (now fixed) behaviour.
+    should_patch = hasattr(dulwich.porcelain, "path_to_tree_path")
+    if should_patch:
+        original = dulwich.porcelain.path_to_tree_path
         dulwich.porcelain.path_to_tree_path = _patched_path_to_tree_path
 
+    try:
         status = dulwich.porcelain.status(repo)
 
+        # dulwich >= 0.25.1 returns regular strings from porcelain.status while
+        # older versions return bytes; to_utf8 normalizes both to str.
         staged = {
             key: [to_utf8(path) for path in items]
             for (key, items) in status.staged.items()
@@ -138,7 +148,8 @@ def git_status(repo):
         return {"staged": staged, "unstaged": unstaged, "untracked": untracked}
 
     finally:
-        dulwich.porcelain.path_to_tree_path = original
+        if should_patch:
+            dulwich.porcelain.path_to_tree_path = original
 
 
 def get_origin_url(repo):
@@ -256,10 +267,25 @@ def get_git_patch(repo, unstaged=True):
     # Merges names from the index and from the store as some files can be only
     # on index or only on the store
     names = set()
-    for name, _, _ in object_store.iter_tree_contents(tree_id):
+    # dulwich >= 0.21 exposes a module-level iter_tree_contents(store, tree_id),
+    # while the 0.20.x line (down to our 0.20.6 floor) only provides the
+    # ObjectStore.iter_tree_contents(tree_id) method. Prefer the module-level
+    # function where it exists (the method is deprecated in the 1.x line) and
+    # fall back to the method on old dulwich so we never rely on either alone.
+    module_iter_tree_contents = getattr(
+        dulwich.object_store, "iter_tree_contents", None
+    )
+    if module_iter_tree_contents is not None:
+        tree_entries = module_iter_tree_contents(object_store, tree_id)
+    else:
+        tree_entries = object_store.iter_tree_contents(tree_id)
+    for name, _, _ in tree_entries:
         names.add(name)
 
-    names.update(index._byname.keys())
+    # Iterating the Index yields its entry paths via the public __iter__
+    # protocol, avoiding the private ``index._byname`` attribute. ``names`` is
+    # a set, so the iteration order is irrelevant here.
+    names.update(index)
 
     final_changes = dulwich.index.changes_from_tree(
         names, lookup_entry, repo.object_store, tree_id, want_unchanged=False

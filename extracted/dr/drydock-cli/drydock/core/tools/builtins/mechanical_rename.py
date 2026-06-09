@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field
 from drydock.core.tools.base import (
     BaseTool, BaseToolConfig, BaseToolState, InvokeContext, ToolError, ToolPermission,
 )
+from drydock.core.types import ToolStreamEvent
 from drydock.core.tools.ui import ToolCallDisplay, ToolResultDisplay, ToolUIData
 
 if TYPE_CHECKING:
@@ -103,6 +104,10 @@ class MechanicalRename(
     )
 
     @classmethod
+    def get_status_text(cls) -> str:
+        return "Renaming identifier"
+
+    @classmethod
     def format_call_display(cls, args: MechanicalRenameArgs) -> ToolCallDisplay:
         return ToolCallDisplay(
             summary=f"rename: {args.old_name} → {args.new_name} ({args.kind})"
@@ -124,9 +129,9 @@ class MechanicalRename(
             return ToolResultDisplay(success=True, message=msg)
         return ToolResultDisplay(success=False, message="rename failed")
 
-    async def invoke(
-        self, args: MechanicalRenameArgs, ctx: InvokeContext,
-    ) -> AsyncGenerator:
+    async def run(
+        self, args: MechanicalRenameArgs, ctx: InvokeContext | None = None,
+    ) -> AsyncGenerator[ToolStreamEvent | MechanicalRenameResult, None]:
         # Validate inputs.
         old, new = args.old_name.strip(), args.new_name.strip()
         if not old or not new:

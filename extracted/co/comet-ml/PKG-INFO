@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comet_ml
-Version: 3.58.0
+Version: 3.58.1
 Summary: Supercharging Machine Learning
 Home-page: https://www.comet.com
 Author: Comet ML Inc.
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
-Requires-Dist: dulwich!=0.20.33,<1.0.0,>=0.20.6
+Requires-Dist: dulwich!=0.20.33,>=0.20.6
 Requires-Dist: everett[ini]<3.2.0,>=1.0.1
 Requires-Dist: importlib-metadata; python_version < "3.8"
 Requires-Dist: jsonschema!=3.1.0,>=2.6.0

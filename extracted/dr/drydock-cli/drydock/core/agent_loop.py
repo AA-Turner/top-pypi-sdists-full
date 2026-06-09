@@ -7176,6 +7176,43 @@ class AgentLoop:
             logger.warning("[AUTO-RETRIEVE] setup failed: %s", e, exc_info=True)
             return
 
+        # 2026-06-08: first-call lazy bootstrap. Inside fresh containers
+        # (tbench trials, fresh pip-install drydock-cli) the home DB
+        # doesn't exist, so AUTO-RETRIEVE silently no-ops and the
+        # bundled cookbook never gets a chance. Detect that case and
+        # ingest the bundled cookbook into ~/.drydock/graphrag.sqlite
+        # one time. Opt-out via DRYDOCK_AUTO_BOOTSTRAP_GRAPHRAG=0.
+        if not getattr(self, "_graphrag_bootstrap_attempted", False):
+            self._graphrag_bootstrap_attempted = True
+            if os.environ.get(
+                "DRYDOCK_AUTO_BOOTSTRAP_GRAPHRAG", "1"
+            ).strip().lower() not in ("0", "false", "no"):
+                try:
+                    _home_db_check = Path.home() / ".drydock" / "graphrag.sqlite"
+                    if not _home_db_check.is_file():
+                        import drydock as _dd
+                        _bundle = (
+                            Path(_dd.__file__).parent
+                            / "data" / "cookbook"
+                        )
+                        if _bundle.is_dir():
+                            _home_db_check.parent.mkdir(parents=True, exist_ok=True)
+                            logger.warning(
+                                "[AUTO-RETRIEVE] bootstrap: ingesting bundled "
+                                "cookbook %s into %s",
+                                _bundle, _home_db_check,
+                            )
+                            _bootstrap_idx = Index(str(_home_db_check))
+                            _counts = _bootstrap_idx.ingest_path(_bundle)
+                            logger.warning(
+                                "[AUTO-RETRIEVE] bootstrap done: %d files / "
+                                "%d chunks",
+                                _counts.get("files", 0),
+                                _counts.get("chunks", 0),
+                            )
+                except Exception as e:
+                    logger.warning("[AUTO-RETRIEVE] bootstrap failed: %s", e)
+
         # Skip auto-retrieve for file-producing tasks (terminal-bench /
         # harbor wraps everything with "This task has multiple steps...").
         # Retrieve adds 2K tokens of (usually irrelevant) cookbook content
@@ -7199,13 +7236,75 @@ class AgentLoop:
             # tool calls (write_file/bash) not a text-only retrieval response.
             or ("__init__.py" in msg_text and "Requirements:" in msg_text)
         )
-        if is_file_task and os.environ.get(
+        # 2026-06-08: file-task skip used to be unconditional unless
+        # DRYDOCK_AUTO_RETRIEVE_FORCE_ON. That blocked cookbook chunks
+        # (path-tracing, MIPS, FEAL, etc.) from helping tbench multi-step
+        # prompts — exactly the cases where domain cookbook IS the
+        # missing piece. New behavior: do a probe retrieve first; if the
+        # top hit scores >= AUTO_RETRIEVE_BYPASS_SCORE (25.0 by default,
+        # well above the 8.0 quality floor and the typical "incidental
+        # match" range), inject it regardless of file-task heuristic.
+        # Generic noise (binary_search code injected into chess-best-move)
+        # rarely scores that high — the chess prompt's top hit was ~12.
+        _bypass = False
+        if is_file_task:
+            try:
+                _bypass_thresh = float(os.environ.get(
+                    "DRYDOCK_AUTO_RETRIEVE_BYPASS_SCORE", "25.0"
+                ))
+            except ValueError:
+                _bypass_thresh = 25.0
+            # Cheap probe — short query, just enough to read the top score.
+            #
+            # 2026-06-09: strip the harness wrapper from the probe query.
+            # tbench / harbor prompts open with ~600 chars of "WRITE-FIRST
+            # RULE / Process to follow" boilerplate followed by
+            # "----- Task: -----" then the actual task. Using the raw
+            # message made global_rename.md (which contains "tool call",
+            # "rename", "process") score 51.4 — beating the FEAL-specific
+            # cookbook — on a FEAL trial, so the injection was pure noise
+            # that caused an empty model response and 43s session exit.
+            try:
+                from drydock.graphrag import Index as _Probe
+                _raw_for_probe = user_msg or ""
+                _task_marker = _raw_for_probe.find("----- Task: -----")
+                if _task_marker >= 0:
+                    _raw_for_probe = _raw_for_probe[
+                        _task_marker + len("----- Task: -----"):
+                    ]
+                _probe_query = _raw_for_probe.strip()[:300]
+                if _probe_query:
+                    _env_db = os.environ.get("DRYDOCK_GRAPHRAG_DB")
+                    _home_db = str(Path.home() / ".drydock" / "graphrag.sqlite")
+                    _project_db = Path.cwd() / ".drydock" / "graphrag.sqlite"
+                    _probe_db = _env_db or (
+                        str(_project_db) if _project_db.is_file() else _home_db
+                    )
+                    if Path(_probe_db).is_file():
+                        _r = _Probe(_probe_db).retrieve(
+                            _probe_query, symbol_limit=0, text_limit=1
+                        )
+                        _top = _r.text[0] if _r.text else None
+                        _top_score = getattr(_top, 'score', 0.0) if _top else 0.0
+                        if _top_score >= _bypass_thresh:
+                            _bypass = True
+                            logger.warning(
+                                "[AUTO-RETRIEVE] file-task SKIP bypassed by "
+                                "strong cookbook hit (score=%.1f >= %.1f)",
+                                _top_score, _bypass_thresh,
+                            )
+            except Exception as e:
+                logger.warning("[AUTO-RETRIEVE] probe failed: %s", e)
+
+        if is_file_task and not _bypass and os.environ.get(
             "DRYDOCK_AUTO_RETRIEVE_FORCE_ON", ""
         ).strip().lower() not in ("1", "true", "yes"):
             logger.warning(
                 "[AUTO-RETRIEVE] skipped — file-production task detected "
-                "(harbor wrap / multiple /app/ or /tmp/ paths). Override "
-                "with DRYDOCK_AUTO_RETRIEVE_FORCE_ON=1."
+                "(harbor wrap / multiple /app/ or /tmp/ paths) and probe "
+                "found no strong cookbook hit. Override with "
+                "DRYDOCK_AUTO_RETRIEVE_FORCE_ON=1 or lower "
+                "DRYDOCK_AUTO_RETRIEVE_BYPASS_SCORE."
             )
             return
 

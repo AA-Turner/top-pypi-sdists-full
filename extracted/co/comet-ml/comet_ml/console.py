@@ -28,6 +28,7 @@ import select
 import signal
 import sys
 import threading
+import time
 
 from .logging_messages import (
     CONSOLE_CONSUMER_THREAD_DID_NOT_FINISH_WARNING,
@@ -529,9 +530,19 @@ except ImportError:
 
 
 class StdLogger(object):
-    def __init__(self, streamer, wrapper_class):
+    def __init__(
+        self,
+        streamer,
+        wrapper_class,
+        strip_inplace_updates=True,
+        inplace_update_min_interval=0.25,
+    ):
         self.streamer = streamer
         self.experiment = None
+        self.strip_inplace_updates = strip_inplace_updates
+        self.inplace_update_min_interval = inplace_update_min_interval
+        self._inplace_last_ts = {"stdout": 0.0, "stderr": 0.0}
+        self._inplace_lock = threading.Lock()
         self.wrapper = wrapper_class(
             stdout=True,
             stdout_handler=self.stdout_handler,
@@ -577,6 +588,21 @@ class StdLogger(object):
         else:
             raise NotImplementedError()
 
+        # Debounce in-place progress updates (e.g. tqdm \r frames). Forward
+        # at most one CR-only frame per `inplace_update_min_interval` seconds
+        # per stream — enough for the UI to keep showing live progress via
+        # `escapeCarriageReturn` overlay, without flooding the streamer batch.
+        # A frame containing \n is always forwarded (it's a real log line).
+        if self.strip_inplace_updates and "\r" in data and "\n" not in data:
+            now = time.monotonic()
+            with self._inplace_lock:
+                if (
+                    now - self._inplace_last_ts[std_name]
+                    < self.inplace_update_min_interval
+                ):
+                    return
+                self._inplace_last_ts[std_name] = now
+
         message = StandardOutputMessage(
             output=data,
             stderr=stderr,
@@ -586,17 +612,32 @@ class StdLogger(object):
         self.streamer.put_message_in_q(message)
 
 
-def get_std_logger(wrapper_spec, streamer):
+def get_std_logger(
+    wrapper_spec,
+    streamer,
+    strip_inplace_updates=True,
+    inplace_update_min_interval=0.25,
+):
     """A factory that pass the right wrapper class to the StdLogger"""
     if wrapper_spec is None or wrapper_spec is False:
         return None
 
     elif wrapper_spec == "simple":
-        return StdLogger(streamer, BaseStdWrapper)
+        return StdLogger(
+            streamer,
+            BaseStdWrapper,
+            strip_inplace_updates,
+            inplace_update_min_interval,
+        )
 
     elif wrapper_spec == "native":
         if HAS_WURLITZER is True:
-            return StdLogger(streamer, PipeMultiprocessingStdWrapper)
+            return StdLogger(
+                streamer,
+                PipeMultiprocessingStdWrapper,
+                strip_inplace_updates,
+                inplace_update_min_interval,
+            )
 
         else:
             LOGGER.warning(NATIVE_STD_WRAPPER_NOT_AVAILABLE)
@@ -604,4 +645,9 @@ def get_std_logger(wrapper_spec, streamer):
     else:
         LOGGER.warning(UNKNOWN_STD_WRAPPER_SPEC, wrapper_spec)
 
-    return StdLogger(streamer, BaseStdWrapper)
+    return StdLogger(
+        streamer,
+        BaseStdWrapper,
+        strip_inplace_updates,
+        inplace_update_min_interval,
+    )

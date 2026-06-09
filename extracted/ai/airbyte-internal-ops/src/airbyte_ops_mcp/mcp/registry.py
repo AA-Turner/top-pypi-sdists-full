@@ -23,8 +23,13 @@ from fastmcp import FastMCP
 from fastmcp_extensions import mcp_tool, register_mcp_tools
 from pydantic import BaseModel, Field
 
+from airbyte_ops_mcp.approval_resolution import (
+    ApprovalResolutionError,
+    resolve_admin_email_from_approval,
+)
 from airbyte_ops_mcp.github_actions import trigger_workflow_dispatch
 from airbyte_ops_mcp.github_api import resolve_ci_trigger_github_token
+from airbyte_ops_mcp.human_in_the_loop import APPROVAL_REQUEST_SUMMARY_MAX_LENGTH
 from airbyte_ops_mcp.registry import (
     PROD_METADATA_SERVICE_BUCKET_NAME,
     ConnectorListResult,
@@ -243,15 +248,37 @@ def list_connector_versions_in_registry(
 # =============================================================================
 
 YANK_WORKFLOW_REPO_OWNER = "airbytehq"
-YANK_WORKFLOW_REPO_NAME = "airbyte-ops-mcp"
-YANK_WORKFLOW_DEFAULT_BRANCH = "main"
-YANK_WORKFLOW_FILE = "registry-yank.yml"
+YANK_WORKFLOW_REPO_NAME = "airbyte"
+YANK_WORKFLOW_DEFAULT_BRANCH = "master"
+YANK_WORKFLOW_FILE = "version-yank-command.yml"
 
 
 class YankConnectorVersionResponse(BaseModel):
     """Response from triggering a yank connector version workflow."""
 
+    approval_required: bool = Field(
+        default=False,
+        description=(
+            "Whether the operation still requires Slack/HITL approval before dispatch."
+        ),
+    )
     message: str = Field(description="Human-readable status message")
+    approval_request_summary: str | None = Field(
+        default=None,
+        description=(
+            "Short approval summary to pass to `escalate_to_human` when approval is required."
+        ),
+    )
+    approval_request_message: str | None = Field(
+        default=None,
+        description=(
+            "Detailed Slack message to pass to `escalate_to_human` when approval is required."
+        ),
+    )
+    approved_by: str | None = Field(
+        default=None,
+        description="Resolved `@airbyte.io` email for the Slack approver.",
+    )
     workflow_url: str | None = Field(
         default=None,
         description="URL to view the GitHub Actions workflow file",
@@ -263,6 +290,74 @@ class YankConnectorVersionResponse(BaseModel):
     github_run_url: str | None = Field(
         default=None,
         description="Direct URL to the GitHub Actions workflow run",
+    )
+
+
+def _format_yank_action(unyank: bool) -> str:
+    """Return the registry action label for a yank tool call."""
+    return "unyank" if unyank else "yank"
+
+
+def _sanitize_approval_request_summary_text(value: str) -> str:
+    """Return text safe for Slack approval request formatting."""
+    return value.replace("`", "'")
+
+
+def _build_yank_approval_request_summary(
+    *,
+    connector_name: str,
+    version: str,
+    store: str,
+    reason: str,
+    unyank: bool,
+) -> str:
+    """Build a Slack confirmation summary for registry yank approval."""
+    action = _format_yank_action(unyank)
+    sanitized_connector_name = _sanitize_approval_request_summary_text(connector_name)
+    sanitized_version = _sanitize_approval_request_summary_text(version)
+    sanitized_store = _sanitize_approval_request_summary_text(store)
+    summary = (
+        f"{action} {sanitized_connector_name}@{sanitized_version} in "
+        f"{sanitized_store}; registry will be recompiled"
+    )
+    if reason:
+        sanitized_reason = _sanitize_approval_request_summary_text(reason)
+        summary = f"{summary}; reason: {sanitized_reason}"
+    if len(summary) <= APPROVAL_REQUEST_SUMMARY_MAX_LENGTH:
+        return summary
+    return f"{summary[: APPROVAL_REQUEST_SUMMARY_MAX_LENGTH - 3].rstrip()}..."
+
+
+def _build_yank_approval_request_message(
+    *,
+    connector_name: str,
+    version: str,
+    store: str,
+    reason: str,
+    unyank: bool,
+) -> str:
+    """Build the Slack message body for registry yank approval."""
+    action = _format_yank_action(unyank)
+    sanitized_connector_name = _sanitize_approval_request_summary_text(connector_name)
+    sanitized_version = _sanitize_approval_request_summary_text(version)
+    sanitized_store = _sanitize_approval_request_summary_text(store)
+    reason_text = (
+        _sanitize_approval_request_summary_text(reason) if reason else "(none provided)"
+    )
+    return (
+        "Approval requested for an MCP registry connector-version operation.\n\n"
+        f"- Action: `{action}`\n"
+        f"- Connector: `{sanitized_connector_name}`\n"
+        f"- Version: `{sanitized_version}`\n"
+        f"- Store: `{sanitized_store}`\n"
+        f"- Reason: {reason_text}\n"
+        "- Consequence: after approval, the MCP tool will dispatch "
+        "`airbyte/.github/workflows/version-yank-command.yml`; that workflow "
+        "will update the yank marker and run `airbyte-ops registry store compile`, "
+        "recompiling registry indexes and latest pointers.\n\n"
+        "After Slack approval, copy the Slack approval record URL into "
+        "`approval_comment_url` and call `yank_connector_version` again with "
+        "the same connector name, version, store, reason, and unyank values."
     )
 
 
@@ -292,31 +387,96 @@ def yank_connector_version(
         bool,
         "Set to true to unyank (restore) the version instead of yanking it.",
     ] = False,
+    approval_comment_url: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Slack approval record URL. Obtain this by calling "
+                "`escalate_to_human` with `approval_requested=True` using the "
+                "approval request details returned by this tool. The backend "
+                "validates the approval record and resolves the approver's "
+                "`@airbyte.io` email before dispatching the registry workflow."
+            ),
+            default=None,
+        ),
+    ] = None,
 ) -> YankConnectorVersionResponse:
-    """Yank or unyank a connector version and recompile the registry via GitHub Actions.
+    """Yank or unyank a connector version after Slack/HITL approval.
 
-    Triggers a workflow that marks the version as yanked (or unyanked) and then
-    recompiles the registry to update indexes and latest pointers.
+    This MCP tool requires approval for all stores, including dev/test stores,
+    so the safety behavior is consistent and prod-impacting `coral:prod`
+    requests cannot dispatch without approval.
 
-    Returns immediately with a workflow URL. Use check_ci_workflow_status to monitor
-    progress.
+    Without `approval_comment_url`, returns the exact approval request summary
+    and Slack message to send via `escalate_to_human`; no GitHub Actions
+    workflow is triggered. With an approved Slack record URL, validates the
+    approver and then triggers a workflow that marks the version as yanked
+    (or unyanked) and recompiles the registry to update indexes and latest
+    pointers.
 
     Requires GITHUB_CI_WORKFLOW_TRIGGER_PAT or GITHUB_TOKEN environment variable
     with 'actions:write' permission.
     """
+    action = _format_yank_action(unyank)
+    action_title = action.capitalize()
+
+    approval_request_summary = _build_yank_approval_request_summary(
+        connector_name=connector_name,
+        version=version,
+        store=store,
+        reason=reason,
+        unyank=unyank,
+    )
+    approval_request_message = _build_yank_approval_request_message(
+        connector_name=connector_name,
+        version=version,
+        store=store,
+        reason=reason,
+        unyank=unyank,
+    )
+
+    if not approval_comment_url:
+        return YankConnectorVersionResponse(
+            approval_required=True,
+            message=(
+                f"Slack/HITL approval is required before dispatching the {action} "
+                f"workflow for {connector_name}@{version} on {store}. Call "
+                "`escalate_to_human` with `approval_requested=True`, "
+                "`request_type='approval'`, the returned "
+                "`approval_request_summary`, and the returned "
+                "`approval_request_message`. After approval, call this tool "
+                "again with the Slack approval record URL as `approval_comment_url`."
+            ),
+            approval_request_summary=approval_request_summary,
+            approval_request_message=approval_request_message,
+        )
+
+    try:
+        approved_by = resolve_admin_email_from_approval(
+            approval_comment_url=approval_comment_url,
+        )
+    except ApprovalResolutionError as e:
+        return YankConnectorVersionResponse(
+            approval_required=True,
+            message=str(e),
+            approval_request_summary=approval_request_summary,
+            approval_request_message=approval_request_message,
+        )
+
     try:
         token = resolve_ci_trigger_github_token()
     except ValueError as e:
         return YankConnectorVersionResponse(
             message=str(e),
+            approved_by=approved_by,
         )
 
-    action = "Unyank" if unyank else "Yank"
     workflow_inputs: dict[str, str] = {
-        "connector_name": connector_name,
+        "connector-name": connector_name,
         "version": version,
         "store": store,
         "unyank": str(unyank).lower(),
+        "approval-url": approval_comment_url,
     }
     if reason:
         workflow_inputs["reason"] = reason
@@ -334,9 +494,11 @@ def yank_connector_version(
     reason_info = f" (reason: {reason})" if reason else ""
     return YankConnectorVersionResponse(
         message=(
-            f"{action} workflow triggered for {connector_name}@{version} "
-            f"on {store}{reason_info}. View progress at: {view_url}"
+            f"{action_title} workflow triggered for {connector_name}@{version} "
+            f"on {store}{reason_info} after approval by {approved_by}. "
+            f"View progress at: {view_url}"
         ),
+        approved_by=approved_by,
         workflow_url=dispatch_result.workflow_url,
         github_run_id=dispatch_result.run_id,
         github_run_url=dispatch_result.run_url,

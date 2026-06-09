@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2012 Nathanael C. Fritz,
 # Emmanuel Gil Peyrot <linkmauve@linkmauve.fr>
@@ -11,3 +10,5 @@ from slixmpp.plugins.xep_0231.bob import XEP_0231
 
 
 register_plugin(XEP_0231)
+
+__all__ = ['BitsOfBinary', 'XEP_0231']

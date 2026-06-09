@@ -209,8 +209,8 @@ class KafkaconnectSource(PipelineServiceSource):
                 host_port = None
                 if hasattr(service_config, "hostPort") and service_config.hostPort:
                     host_port = service_config.hostPort
-                elif hasattr(service_config, "host") and service_config.host:
-                    host_port = service_config.host
+                elif hasattr(service_config, "host") and service_config.host:  # pyright: ignore[reportAttributeAccessIssue]
+                    host_port = service_config.host  # pyright: ignore[reportAttributeAccessIssue]
 
                 if host_port:
                     # Extract just the hostname (no protocol, no port)
@@ -231,7 +231,7 @@ class KafkaconnectSource(PipelineServiceSource):
 
         except Exception as exc:
             logger.debug(traceback.format_exc())
-            logger.warning(f"Unable to find database service by hostname: {exc}")
+            logger.error(f"Unable to find database service by hostname: {exc}")
             return None
 
     def find_messaging_service_by_brokers(self, brokers: str) -> Optional[str]:
@@ -293,7 +293,7 @@ class KafkaconnectSource(PipelineServiceSource):
 
         except Exception as exc:
             logger.debug(traceback.format_exc())
-            logger.warning(f"Unable to find messaging service by brokers: {exc}")
+            logger.error(f"Unable to find messaging service by brokers: {exc}")
             return None
 
     def get_service_from_connector_config(
@@ -406,7 +406,14 @@ class KafkaconnectSource(PipelineServiceSource):
         Parse topics from connector config and resolve to Topic entities.
         """
         topics_to_process = pipeline_details.topics or []
-
+        if not topics_to_process:
+            raw = pipeline_details.config.get("topics", "")
+            if raw:
+                topics_to_process = [
+                    KafkaConnectTopics(name=t.strip())
+                    for t in raw.split(",")
+                    if t.strip()
+                ]
         if (
             not topics_to_process
             and database_server_name
@@ -651,7 +658,7 @@ class KafkaconnectSource(PipelineServiceSource):
 
         except Exception as exc:
             logger.debug(traceback.format_exc())
-            logger.warning(f"Unable to get dataset entity {exc}")
+            logger.error(f"Unable to get dataset entity {exc}")
 
         return None
 
@@ -1019,7 +1026,7 @@ class KafkaconnectSource(PipelineServiceSource):
 
         except Exception as exc:
             logger.debug(traceback.format_exc())
-            logger.warning(f"Unable to build column lineage: {exc}")
+            logger.error(f"Unable to build column lineage: {exc}")
 
         return None
 
@@ -1103,7 +1110,7 @@ class KafkaconnectSource(PipelineServiceSource):
 
         except Exception as exc:
             logger.debug(traceback.format_exc())
-            logger.warning(f"Unable to search topics by prefix: {exc}")
+            logger.error(f"Unable to search topics by prefix: {exc}")
 
         return topics_found
 
@@ -1164,7 +1171,7 @@ class KafkaconnectSource(PipelineServiceSource):
             logger.warning(f"Invalid regex pattern '{topics_regex}': {exc}")
         except Exception as exc:
             logger.debug(traceback.format_exc())
-            logger.warning(f"Unable to search topics by regex: {exc}")
+            logger.error(f"Unable to search topics by regex: {exc}")
 
         return topics_found
 
@@ -1269,9 +1276,36 @@ class KafkaconnectSource(PipelineServiceSource):
                     )
                     return topic_entities_map[dataset_details.table]
 
+                # 1. Define a list of potential keys used to map Kafka topics to target table names
+                format_keys = ["collection.name.format", "table.name.format"]
+
+                # 2. Extract the first available pattern found in the config
+                pattern = None
+                for key in format_keys:
+                    if key in pipeline_details.config:
+                        pattern = pipeline_details.config[key]
+                        logger.debug(
+                            f"Found naming format using key '{key}': {pattern}"
+                        )
+                        break
+
+                # 3. Fallback logic: if neither key is present, default to just the topic name
+                if not pattern:
+                    pattern = "${topic}"
+                    logger.warning(
+                        "No naming format key found. Defaulting to '${topic}'."
+                    )
+
                 # Try case-insensitive match
                 for topic_name, topic_entity in topic_entities_map.items():
-                    if str(topic_name).lower() == dataset_details.table.lower():
+
+                    # 4. Use the pattern to resolve the table name
+                    # This logic remains the same regardless of which key provided the pattern
+                    sanitized_topic = topic_name.replace(".", "_")
+                    resolved_table = pattern.replace(
+                        "${topic}", sanitized_topic
+                    ).lower()
+                    if resolved_table == dataset_details.table.lower():
                         logger.info(
                             f"Matched sink dataset table '{dataset_details.table}' to topic '{topic_name}' (case-insensitive)"
                         )

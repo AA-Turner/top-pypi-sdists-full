@@ -5,8 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
-from pymatgen.core import Structure
-from pymatgen.core.structure import Molecule
+from emmet.core.io.pymatgen import Structure, Molecule
 
 from emmet.core.base import EmmetBaseModel
 from emmet.core.mpid import MPID, MPculeID
@@ -16,7 +15,7 @@ from emmet.core.types.pymatgen_types.structure_adapter import (
     MoleculeType,
     StructureType,
 )
-from emmet.core.types.typing import DateTimeType, IdentifierType
+from emmet.core.types.typing import DateTimeType, IdentifierType, MaterialIdentifierType
 
 if TYPE_CHECKING:
 
@@ -46,7 +45,7 @@ class BasePropertyMetadata(StructureMetadata, EmmetBaseModel):
     extended, not used directly
     """
 
-    material_id: IdentifierType | None = Field(
+    material_id: MaterialIdentifierType | None = Field(
         None,
         description="The Materials Project ID of the material, used as a universal reference across property documents."
         "This comes in the form: mp-******.",

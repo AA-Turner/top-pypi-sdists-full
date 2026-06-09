@@ -6,3 +6,5 @@ from slixmpp.plugins.xep_0065.proxy import XEP_0065
 
 
 register_plugin(XEP_0065)
+
+__all__ = ['Socks5Protocol', 'Socks5', 'XEP_0065']

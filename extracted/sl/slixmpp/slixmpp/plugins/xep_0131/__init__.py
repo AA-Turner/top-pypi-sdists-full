@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2012 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -11,3 +10,5 @@ from slixmpp.plugins.xep_0131.headers import XEP_0131
 
 
 register_plugin(XEP_0131)
+
+__all__ = ['stanza', 'Headers', 'XEP_0131']

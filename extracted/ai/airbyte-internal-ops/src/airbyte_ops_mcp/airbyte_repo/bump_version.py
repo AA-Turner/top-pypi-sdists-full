@@ -575,20 +575,17 @@ def _set_progressive_rollout_flag(data: dict, enabled: bool) -> bool:
 
 def _setup_progressive_rollout_metadata(
     connector_path: Path,
-    previous_ga_version: str,
     dry_run: bool = False,
 ) -> bool:
     """Enable progressive rollout in `metadata.yaml`.
 
     Called automatically when a version bump produces an RC version.
-    Sets `enableProgressiveRollout: true` and pins
-    `registryOverrides.{cloud,oss}.dockerImageTag` to the previous GA
-    version so non-pinned actors continue using the stable release while
-    the RC is being rolled out.
+    Sets `enableProgressiveRollout: true` to mark the version for rollout
+    handling and release-candidate metadata. The semver-aware registry compiler
+    already excludes pre-release RC tags from default/latest selection.
 
     Args:
         connector_path: Path to the connector directory
-        previous_ga_version: The GA version to pin in registryOverrides
         dry_run: If True, don't actually modify the file
 
     Returns:
@@ -603,17 +600,6 @@ def _setup_progressive_rollout_metadata(
     data = metadata.get("data", {})
 
     modified = _set_progressive_rollout_flag(data, enabled=True)
-
-    # Pin registryOverrides to the previous GA version so the default
-    # version served to non-pinned actors remains the stable release.
-    # If an override is already in place, leave it alone — it was set
-    # intentionally and we should not clobber it.
-    registry_overrides = data.setdefault("registryOverrides", {})
-    for registry_key in ("cloud", "oss"):
-        override = registry_overrides.setdefault(registry_key, {})
-        if "dockerImageTag" not in override:
-            override["dockerImageTag"] = previous_ga_version
-            modified = True
 
     if not modified:
         return False
@@ -633,9 +619,8 @@ def _cleanup_progressive_rollout_metadata(
     """Disable progressive rollout in `metadata.yaml`.
 
     Called automatically when promoting an RC to GA.  Sets
-    `enableProgressiveRollout` to false and removes the
-    `registryOverrides.{cloud,oss}.dockerImageTag` pins that were added
-    during RC setup, so the promoted GA version becomes the new default.
+    `enableProgressiveRollout` to false so the promoted GA version becomes
+    eligible for default/latest evaluation.
 
     Args:
         connector_path: Path to the connector directory
@@ -658,14 +643,6 @@ def _cleanup_progressive_rollout_metadata(
         return False
 
     modified = _set_progressive_rollout_flag(data, enabled=False)
-
-    # Remove registryOverrides dockerImageTag pins added during RC setup.
-    registry_overrides = data.get("registryOverrides", {})
-    for registry_key in ("cloud", "oss"):
-        override = registry_overrides.get(registry_key, {})
-        if "dockerImageTag" in override:
-            del override["dockerImageTag"]
-            modified = True
 
     metadata["data"] = data
 
@@ -784,7 +761,6 @@ def bump_connector_version(
         and not is_current_rc
         and _setup_progressive_rollout_metadata(
             connector_path=connector_path,
-            previous_ga_version=current_version,
             dry_run=dry_run,
         )
         and metadata_file_rel not in files_modified

@@ -277,10 +277,11 @@ def test_parse_on_value_range_float_params_are_json_serialisable() -> None:
 
 
 def test_parse_oversized_lvgl_action_falls_back_to_raw_yaml() -> None:
-    """An oversized LVGL action parses as an unknown id (raw-YAML fallback)."""
+    """An oversized LVGL action is flagged unsupported (raw-YAML fallback)."""
     parsed = parse_device_yaml(_load("lvgl_action_unsupported.yaml"))
     assert len(parsed) == 1
     assert parsed[0].error is not None
+    assert parsed[0].unsupported is True
     assert parsed[0].automation.actions == []
 
 
@@ -289,7 +290,49 @@ def test_parse_small_lvgl_action_stays_editable() -> None:
     parsed = parse_device_yaml(_load("lvgl_action_small_editable.yaml"))
     assert len(parsed) == 1
     assert parsed[0].error is None
+    assert parsed[0].unsupported is False
     assert [a.action_id for a in parsed[0].automation.actions] == ["lvgl.pause"]
+
+
+def test_parse_unknown_action_id_is_not_flagged_unsupported() -> None:
+    """A genuine typo keeps ``unsupported=False`` so the editor shows the error."""
+    yaml = (
+        "esphome:\n"
+        "  name: x\n"
+        "  on_boot:\n"
+        "    then:\n"
+        "      - not_a_real.action:\n"
+        "          foo: bar\n"
+    )
+    parsed = parse_device_yaml(yaml)
+    assert len(parsed) == 1
+    assert parsed[0].error is not None
+    assert parsed[0].unsupported is False
+
+
+def test_parse_oversized_lvgl_shorthand_is_flagged_unsupported() -> None:
+    """The single-action shorthand form also flags a known-but-unsupported action."""
+    yaml = (
+        "esphome:\n"
+        "  name: x\n"
+        "  on_boot:\n"
+        "    lvgl.label.update:\n"
+        "      id: my_label\n"
+        "      text: hello\n"
+    )
+    parsed = parse_device_yaml(yaml)
+    assert len(parsed) == 1
+    assert parsed[0].error is not None
+    assert parsed[0].unsupported is True
+    assert parsed[0].automation.actions == []
+
+
+def test_parse_unknown_action_shorthand_is_not_flagged_unsupported() -> None:
+    """A non-catalogued key in shorthand form is a trigger param, never unsupported."""
+    yaml = "esphome:\n  name: x\n  on_boot:\n    not_a_real.action:\n      foo: bar\n"
+    parsed = parse_device_yaml(yaml)
+    assert len(parsed) == 1
+    assert parsed[0].unsupported is False
 
 
 # ---------------------------------------------------------------------------
@@ -486,6 +529,9 @@ def test_parse_lambda_action_surfaces_lambda_sentinel() -> None:
     assert isinstance(body, dict)
     assert "_lambda" in body
     assert "ESP_LOGI" in body["_lambda"]
+    # A bare ``|`` block is untagged — no ``_tag`` marker, so it
+    # re-emits bare (not ``!lambda``) and the common idiom is a no-op.
+    assert "_tag" not in body
 
 
 def test_parse_tagged_lambda_scalars_render_as_sentinel() -> None:
@@ -493,16 +539,19 @@ def test_parse_tagged_lambda_scalars_render_as_sentinel() -> None:
     parsed = parse_device_yaml(_load("lambda_tagged_scalars.yaml"))
     by_kind = {p.location.kind: p for p in parsed}
 
-    # Script: ``- delay: !lambda return 0;`` → params={"id": {"_lambda": "return 0;"}}.
+    # Script: ``- delay: !lambda return 0;`` → the sentinel carries the
+    # ``!lambda`` tag so the emitter re-emits it (dropping it turns the
+    # lambda into a plain string literal — issue #1306).
     script_actions = by_kind["script"].automation.actions
     assert [a.action_id for a in script_actions] == ["delay"]
-    assert script_actions[0].params == {"id": {"_lambda": "return 0;"}}
+    assert script_actions[0].params == {"id": {"_lambda": "return 0;", "_tag": "!lambda"}}
 
-    # Interval: ``- lambda: !lambda |`` block → params={"lambda": {"_lambda": "<body>"}}.
+    # Interval: ``- lambda: !lambda |`` block → params={"lambda": {"_lambda": "<body>", ...}}.
     interval_actions = by_kind["interval"].automation.actions
     assert [a.action_id for a in interval_actions] == ["lambda"]
     interval_body = interval_actions[0].params["lambda"]
     assert isinstance(interval_body, dict)
+    assert interval_body.get("_tag") == "!lambda"
     assert interval_body.get("_lambda", "").strip().endswith("return;")
 
     # The whole response round-trips through orjson — TaggedScalar

@@ -29,7 +29,8 @@ from metadata.generated.schema.entity.services.connections.database.domoDatabase
 from metadata.generated.schema.entity.services.connections.pipeline.domoPipelineConnection import (
     DomoPipelineConnection,
 )
-from metadata.ingestion.ometa.client import REST, ClientConfig
+from metadata.ingestion.connections.source_api_client import TrackedREST
+from metadata.ingestion.ometa.client import ClientConfig
 from metadata.utils.helpers import clean_uri
 from metadata.utils.logger import ingestion_logger
 
@@ -109,7 +110,7 @@ class DomoClient:
             auth_header="Authorization",
             auth_token=lambda: ("no_token", 0),
         )
-        self.client = REST(client_config)
+        self.client = TrackedREST(client_config)
 
     def get_chart_details(self, page_id) -> Optional[DomoChartDetails]:
         """
@@ -133,7 +134,7 @@ class DomoClient:
                 )
 
         except Exception as exc:
-            logger.warning(f"Error while getting details for Card {page_id} - {exc}")
+            logger.error(f"Error while getting details for Card {page_id} - {exc}")
             logger.debug(traceback.format_exc())
 
         return None
@@ -143,7 +144,7 @@ class DomoClient:
             response = self.client.get(path=WORKFLOW_URL, headers=HEADERS)
             return response
         except Exception as exc:
-            logger.warning(f"Error while getting pipelines - {exc}")
+            logger.error(f"Error while getting pipelines - {exc}")
             logger.debug(traceback.format_exc())
         return []
 
@@ -169,7 +170,7 @@ class DomoClient:
             self.client.get(path="content/v1/cards", headers=HEADERS)
         except Exception as exc:
             logger.debug(traceback.format_exc())
-            logger.warning(f"Error listing cards due to [{exc}]")
+            logger.error(f"Error listing cards due to [{exc}]")
             raise exc
 
 

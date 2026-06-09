@@ -2949,7 +2949,12 @@ def agent_gap(
     from datetime import UTC
     from datetime import datetime as _dt
 
-    from efterlev.agents import GapAgent, GapAgentInput, in_scope_evidence
+    from efterlev.agents import (
+        GapAgent,
+        GapAgentInput,
+        detector_covered_ksis,
+        in_scope_evidence,
+    )
     from efterlev.agents.cost_summary import summarize_run_cost
     from efterlev.agents.dry_run import DryRunSession, active_dry_run
     from efterlev.config import load_config
@@ -3076,6 +3081,11 @@ def agent_gap(
                     evidence=evidence,
                     scan_summary=scan_summary,
                     progress_callback=progress,
+                    # Deterministic detector-coverage signal so the agent
+                    # classifies a covered-but-zero-evidence KSI as
+                    # not_implemented, not evidence_layer_inapplicable
+                    # (DECISIONS 2026-06-08).
+                    detector_covered_ksis=detector_covered_ksis(),
                 )
                 run_reports: list = []
                 with friendly_llm_error_handler():

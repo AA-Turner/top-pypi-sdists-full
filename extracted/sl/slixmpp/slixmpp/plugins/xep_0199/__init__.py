@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2010 Nathanael C. Fritz
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.plugins.xep_0199.ping import XEP_0199
 
 
 register_plugin(XEP_0199)
+
+__all__ = ['Ping', 'XEP_0199']

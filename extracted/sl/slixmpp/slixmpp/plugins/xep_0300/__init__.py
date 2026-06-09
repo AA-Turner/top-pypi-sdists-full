@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2017 Emmanuel Gil Peyrot
 # This file is part of Slixmpp.
@@ -11,3 +10,5 @@ from slixmpp.plugins.xep_0300.hash import XEP_0300
 
 
 register_plugin(XEP_0300)
+
+__all__ = ['stanza', 'Hash', 'XEP_0300']

@@ -410,10 +410,10 @@ class KnowledgeManager:
 
     # ── Public search methods ─────────────────────────────────────────────
 
-    def search(self, keyword, domain=None, limit=20, biz_context=None):
+    def search(self, keyword, domain=None, limit=20, biz_context=None, status="active"):
         if not keyword:
             return []
-        results = self._backend.search(keyword, limit=limit, biz_context=biz_context) if self._backend else self._search_fts(keyword, limit=limit, biz_context=biz_context)
+        results = self._backend.search(keyword, limit=limit, biz_context=biz_context, status=status) if self._backend else self._search_fts(keyword, limit=limit, biz_context=biz_context, status=status)
         if domain:
             results = [r for r in results if r.get("domain") == domain]
         _tag_source(results)
@@ -467,8 +467,8 @@ class KnowledgeManager:
 
     # ── Internal search delegates (called by BuiltinBackend) ──────────────
 
-    def _search_fts(self, keyword, limit=20, *, biz_context=None):
-        return _search_fts_impl(self, keyword, limit=limit, biz_context=biz_context)
+    def _search_fts(self, keyword, limit=20, *, biz_context=None, status="active"):
+        return _search_fts_impl(self, keyword, limit=limit, biz_context=biz_context, status=status)
 
     def _search_semantic(self, query, limit=20, *, biz_context=None):
         return _search_semantic_impl(self, query, limit=limit, biz_context=biz_context)
@@ -558,8 +558,8 @@ class KnowledgeManager:
         )
         self._conn.commit()
 
-    def mark_stale_entries(self):
-        return _mark_stale_entries_impl(self)
+    def mark_stale_entries(self, threshold_days=None):
+        return _mark_stale_entries_impl(self, threshold_days)
 
     def cleanup_zombies(self, min_age_days=60):
         return _cleanup_zombies_impl(self, min_age_days)

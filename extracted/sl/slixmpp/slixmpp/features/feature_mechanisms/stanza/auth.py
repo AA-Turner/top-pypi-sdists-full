@@ -28,13 +28,13 @@ class Auth(StanzaBase):
         self.xml.tag = self.tag_name()
 
     def get_value(self):
-        if not self['mechanism'] in self.plain_mechs:
+        if self['mechanism'] not in self.plain_mechs:
             return base64.b64decode(bytes(self.xml.text))
         else:
             return self.xml.text
 
     def set_value(self, values):
-        if not self['mechanism'] in self.plain_mechs:
+        if self['mechanism'] not in self.plain_mechs:
             if values:
                 self.xml.text = bytes(base64.b64encode(values)).decode('utf-8')
             elif values == b'':

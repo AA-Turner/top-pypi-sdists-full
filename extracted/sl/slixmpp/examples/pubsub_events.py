@@ -6,9 +6,7 @@ from argparse import ArgumentParser
 
 import asyncio
 import slixmpp
-from slixmpp.xmlstream import ET, tostring
-from slixmpp.xmlstream.matcher import StanzaPath
-from slixmpp.xmlstream.handler import Callback
+from slixmpp.xmlstream import tostring
 
 
 class PubsubEvents(slixmpp.ClientXMPP):

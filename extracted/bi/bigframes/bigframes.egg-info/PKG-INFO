@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bigframes
-Version: 2.41.0
+Version: 2.42.0
 Summary: BigQuery DataFrames -- scalable analytics and machine learning with BigQuery
 Home-page: https://dataframes.bigquery.dev
 Download-URL: https://github.com/googleapis/google-cloud-python/tree/main/packages/bigframes/releases
@@ -30,7 +30,7 @@ Requires-Dist: cloudpickle>=2.0.0
 Requires-Dist: fsspec>=2023.3.0
 Requires-Dist: gcsfs!=2025.5.0,!=2026.2.0,!=2026.3.0,>=2023.3.0
 Requires-Dist: geopandas>=0.12.2
-Requires-Dist: google-auth<3.0,>=2.15.0
+Requires-Dist: google-auth[pyopenssl]<3.0,>=2.15.0
 Requires-Dist: google-cloud-bigquery[bqstorage,pandas]>=3.36.0
 Requires-Dist: google-cloud-bigquery-storage<3.0.0,>=2.30.0
 Requires-Dist: google-cloud-functions>=1.12.0
@@ -62,6 +62,7 @@ Requires-Dist: freezegun; extra == "tests"
 Requires-Dist: pytest-snapshot; extra == "tests"
 Requires-Dist: google-cloud-bigtable>=2.24.0; extra == "tests"
 Requires-Dist: google-cloud-pubsub>=2.21.4; extra == "tests"
+Requires-Dist: tzdata; extra == "tests"
 Provides-Extra: polars
 Requires-Dist: polars>=1.21.0; extra == "polars"
 Provides-Extra: scikit-learn
@@ -87,6 +88,7 @@ Requires-Dist: pytest; extra == "all"
 Requires-Dist: pytest-snapshot; extra == "all"
 Requires-Dist: scikit-learn>=1.2.2; extra == "all"
 Requires-Dist: traitlets>=5.0.0; extra == "all"
+Requires-Dist: tzdata; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

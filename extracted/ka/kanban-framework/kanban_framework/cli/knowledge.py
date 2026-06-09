@@ -127,9 +127,14 @@ def dispatch(args: list[str]) -> dict:
         return _handle_maintenance(km, args[1:])
     if sub == "benchmark":
         return handle_benchmark(km, args[1:])
+    if sub == "audit":
+        return _handle_audit(km)
     if sub == "pending":
         from kanban_framework.cli.knowledge_cmd import handle_pending
         return handle_pending(km)
+    if sub == "validate-pending":
+        from kanban_framework.cli.knowledge_cmd import handle_validate_pending
+        return handle_validate_pending(km, args[1:])
     if sub == "approve":
         from kanban_framework.cli.knowledge_cmd import handle_approve
         return handle_approve(km, args[1:])
@@ -157,6 +162,127 @@ def _handle_history(km: KnowledgeManager, args: list[str]) -> dict:
     entry_id = args[0]
     versions = km.list_versions(entry_id)
     return {"entry_id": entry_id, "versions": versions, "count": len(versions)}
+
+
+def _handle_audit(km: KnowledgeManager) -> dict:
+    """Produce a comprehensive KB audit report as markdown text."""
+    health = _handle_health(km)
+    domains = health.get("domain_distribution", {})
+    total = health.get("total_entries", 0)
+    zombies = health.get("zombie_count", 0)
+    low_q = len(health.get("low_quality", []))
+    ref = health.get("reference_effectiveness", {})
+    bm = health.get("benchmark", {})
+    eff = health.get("effectiveness", {})
+
+    lines = [
+        "# 知识库审计报告",
+        "",
+        "## 概览",
+        f"- 总条目: {total}",
+        f"- 活跃条目: {total - zombies}",
+        f"- 僵尸条目: {zombies} (>14天未引用)",
+        f"- 低质量条目: {low_q} (content<20字符)",
+        f"- 重复对: {len(health.get('duplicates', []))}",
+        f"- 冲突: {health.get('conflict_count', 0)}",
+        "",
+        "## 引用有效性",
+        f"- 总引用次数: {ref.get('total_refs', 0)}",
+        f"- 被引用的条目: {ref.get('referenced_count', 0)}",
+        f"- 引用率: {ref.get('ref_rate', 0)}",
+        "",
+        "## Benchmark 覆盖",
+        f"- 含 benchmark 条目: {bm.get('total', 0)}",
+        f"- 覆盖率: {bm.get('coverage', '0%')}",
+        "",
+        "## Effectiveness 追踪",
+        f"- 已追踪条目: {eff.get('tracked', 0)}",
+        f"- 平均评分: {eff.get('avg_score', 0)}",
+        "",
+        "## 领域分布",
+    ]
+    for name, count in sorted(domains.items(), key=lambda x: x[1], reverse=True):
+        pct = count / total * 100 if total else 0
+        lines.append(f"- {name}: {count} ({pct:.1f}%)")
+
+    lines += [
+        "",
+        "## 建议操作",
+    ]
+    if zombies > 5:
+        lines.append("- ⚠️ 僵尸条目过多: `kanban knowledge stale --purge --threshold 14`")
+    if low_q > 5:
+        lines.append("- ⚠️ 低质量条目过多，建议 review 后 edit/delete")
+    if ref.get('ref_rate', 1) < 0.3:
+        lines.append("- ⚠️ 引用率偏低，知识库未被有效利用")
+    if bm.get('total', 0) == 0:
+        lines.append("- ⚠️ 无 benchmark 数据，建议: `kanban knowledge benchmark <id> --generate-case`")
+    if len(health.get('duplicates', [])) > 0:
+        lines.append(f"- ⚠️ {len(health.get('duplicates', []))} 对重复条目，建议合并")
+
+    # Domain balance
+    lines += ["", "## 领域平衡", ""]
+    if domains:
+        top = max(domains.items(), key=lambda x: x[1])
+        if top[1] / total > 0.5 and total > 0:
+            lines.append(f"- ⚠️ 领域失衡: {top[0]} 占比 {top[1]/total*100:.0f}% (超过50%)")
+            lines.append("- 建议补充其他业务领域的知识条目")
+        else:
+            lines.append("- ✓ 领域分布基本均衡")
+    if eff.get('tracked', 0) < total * 0.3:
+        lines.append("- ⚠️ effectiveness 追踪不足 (<30% 条目)")
+    else:
+        lines.append("- ✓ effectiveness 追踪正常")
+
+    # Effectiveness anomaly analysis
+    lines += ["", "## Effectiveness 异常检测", ""]
+    try:
+        from datetime import datetime, timezone, timedelta
+        entries = km.list_entries(status="active", limit=500)
+        high_use_low_eff = []
+        never_used_aged = []
+        top_performers = []
+        now = datetime.now(timezone.utc)
+        for e in entries:
+            refs = e.get("referenced_count") or 0
+            eff_data = e.get("effectiveness")
+            if isinstance(eff_data, str):
+                try:
+                    eff_data = json.loads(eff_data)
+                except Exception:
+                    eff_data = None
+            eff_score = eff_data.get("score") if isinstance(eff_data, dict) else None
+            created_str = e.get("created_at", "")
+            try:
+                age_days = (now - datetime.fromisoformat(created_str.replace("Z", "+00:00"))).days
+            except Exception:
+                age_days = 0
+
+            if eff_score is not None and refs >= 3 and eff_score < 0.3:
+                high_use_low_eff.append((e["id"], e.get("title", ""), refs, eff_score))
+            if refs == 0 and age_days > 30:
+                never_used_aged.append((e["id"], e.get("title", ""), age_days))
+            if eff_score is not None and eff_score >= 0.8 and refs >= 2:
+                top_performers.append((e["id"], e.get("title", ""), refs, eff_score))
+
+        if high_use_low_eff:
+            lines.append("### ⚠️ 高引用低效果（建议 review）")
+            for eid, title, refs, score in high_use_low_eff[:5]:
+                lines.append(f"- **{eid}** {title[:40]}: 引用{refs}次, effectiveness={score}")
+        if never_used_aged:
+            lines.append("### ⚠️ 长期未引用（建议 retire）")
+            for eid, title, days in never_used_aged[:5]:
+                lines.append(f"- **{eid}** {title[:40]}: {days}天未引用")
+        if top_performers:
+            lines.append("### ✅ 高效条目（建议作为种子推广）")
+            for eid, title, refs, score in top_performers[:5]:
+                lines.append(f"- **{eid}** {title[:40]}: 引用{refs}次, effectiveness={score}")
+        if not high_use_low_eff and not never_used_aged:
+            lines.append("✓ 未检测到 effectiveness 异常")
+    except Exception:
+        lines.append("(effectiveness 分析暂不可用)")
+
+    return {"audit": "\n".join(lines), "format": "markdown"}
 
 
 def _handle_restore(km: KnowledgeManager, args: list[str]) -> dict:
@@ -301,7 +427,7 @@ def _handle_list(km: KnowledgeManager, args: list[str]) -> dict:
         else:
             i += 1
     if query:
-        results = km.search(query, domain=domain, biz_context=biz, limit=100)
+        results = km.search(query, domain=domain, biz_context=biz, limit=100, status=status)
     else:
         results = km.list_entries(domain=domain, category=category, status=status, biz_context=biz)
     return {
@@ -769,7 +895,7 @@ def _handle_maintenance(km: KnowledgeManager, args: list[str]) -> dict:
         }
 
     if "scan-stale" in flags or "report" in flags:
-        stale = scan_stale_candidates(km, threshold_days=threshold)
+        stale = scan_stale_candidates(km)
         result["stale"] = {
             "threshold_days": stale["stale_days_threshold"],
             "candidates_found": len(stale["candidates"]),

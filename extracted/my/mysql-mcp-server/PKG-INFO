@@ -1,9 +1,25 @@
 Metadata-Version: 2.4
 Name: mysql_mcp_server
-Version: 0.3.1
+Version: 0.4.1
 Summary: A Model Context Protocol (MCP) server that enables secure interaction with MySQL databases. This server allows AI assistants to list tables, read data, and execute SQL queries through a controlled interface, making database exploration and analysis safer and more structured.
-Author-email: "Dana K. Williams" <dana_w@designcomputer.com>
+Project-URL: Homepage, https://github.com/designcomputer/mysql_mcp_server
+Project-URL: Repository, https://github.com/designcomputer/mysql_mcp_server
+Project-URL: Issues, https://github.com/designcomputer/mysql_mcp_server/issues
+Project-URL: Changelog, https://github.com/designcomputer/mysql_mcp_server/blob/main/CHANGELOG.md
+Author: Dana K. Williams
+Maintainer-email: "Dana K. Williams" <dana_w@designcomputer.com>
+License-Expression: MIT
 License-File: LICENSE
+Keywords: ai,database,llm,mcp,model-context-protocol,mysql
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Database
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.11
 Requires-Dist: mcp>=1.2.0
 Requires-Dist: mysql-connector-python>=9.1.0
@@ -12,20 +28,17 @@ Requires-Dist: starlette>=0.35.0; extra == 'sse'
 Requires-Dist: uvicorn>=0.27.0; extra == 'sse'
 Description-Content-Type: text/markdown
 
-![Tests](https://github.com/designcomputer/mysql_mcp_server/actions/workflows/test.yml/badge.svg)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/mysql-mcp-server)
-[![smithery badge](https://smithery.ai/badge/mysql-mcp-server)](https://smithery.ai/server/mysql-mcp-server)
-[![MseeP.ai Security Assessment Badge](https://mseep.net/mseep-audited.png)](https://mseep.ai/app/designcomputer-mysql-mcp-server)
-[![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/designcomputer/mysql_mcp_server)](https://archestra.ai/mcp-catalog/designcomputer__mysql_mcp_server)
-[![AgentAudit Safe](https://img.shields.io/badge/AgentAudit-safe-brightgreen)](https://www.agentaudit.dev/package/mysql-mcp-server)
-[![MCPSafe](https://api.mcpsafe.io/badge/github/designcomputer/mysql_mcp_server.svg)](https://mcpsafe.io/registry/github/designcomputer/mysql_mcp_server)
+[![Tests](https://github.com/designcomputer/mysql_mcp_server/actions/workflows/test.yml/badge.svg)](https://github.com/designcomputer/mysql_mcp_server/actions)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/mysql-mcp-server)](https://pypi.org/project/mysql-mcp-server/)
+[![AgentAudit Safe](https://img.shields.io/badge/AgentAudit-safe-brightgreen)](https://www.agentaudit.dev/packages/mysql-mcp-server)
 # MySQL MCP Server
 A Model Context Protocol (MCP) implementation that enables secure interaction with MySQL databases. This server component facilitates communication between AI applications (hosts/clients) and MySQL databases, making database exploration and analysis safer and more structured through a controlled interface.
 
-> **Note**: MySQL MCP Server is not designed to be used as a standalone server, but rather as a communication protocol implementation between AI applications and MySQL databases.
+> **Note**: MySQL MCP Server supports both standard input/output (STDIO) and Streamable HTTP (SSE) transport modes. The SSE mode is recommended for remote/self-hosted deployments.
 
-## Hosted deployment
-A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/designcomputer-mysql-mcp-server).
+## Deployment options
+- **Hosted** — [Fronteir AI](https://fronteir.ai/mcp/designcomputer-mysql-mcp-server) runs the server for you; no local setup required.
+- **Local** — [Smithery](https://smithery.ai/server/designcomputer/mysql-mcp-server) installs and runs the server on your own machine.
 
 ## Features
 - List available MySQL tables as resources
@@ -33,9 +46,9 @@ A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/design
 - Execute SQL queries with proper error handling
 - **Multi-database mode** (Optional `MYSQL_DATABASE`)
 - **SSE/HTTP transport support** (`MCP_TRANSPORT=sse`)
-- **SSH Tunneling support** (Contributed by [GeorgeLeex](https://github.com/GeorgeLeex))
-- **Comprehensive schema information** (Contributed by [GeorgeLeex](https://github.com/GeorgeLeex))
-- **Table data sampling** (Contributed by [GeorgeLeex](https://github.com/GeorgeLeex))
+- **SSH Tunneling support**
+- **Comprehensive schema information**
+- **Table data sampling**
 - Secure database access through environment variables
 - Comprehensive logging
 
@@ -46,9 +59,14 @@ pip install mysql-mcp-server
 ```
 
 ### Installing via Smithery
-To install MySQL MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/mysql-mcp-server):
+To install MySQL MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/designcomputer/mysql-mcp-server):
 ```bash
-npx -y @smithery/cli install mysql-mcp-server --client claude
+npx -y @smithery/cli install designcomputer/mysql-mcp-server --client claude
+```
+
+### Installing via Claude Code CLI
+```bash
+claude mcp add --transport stdio designcomputer-mysql_mcp_server uvx mysql_mcp_server
 ```
 
 ## Configuration
@@ -73,8 +91,8 @@ MYSQL_RAISE_ON_WARNINGS=false
 
 # SSE Transport (Optional)
 MCP_TRANSPORT=stdio      # stdio or sse
-MCP_SSE_HOST=127.0.0.1
-MCP_SSE_PORT=8000
+MCP_SSE_HOST=0.0.0.0     # Listen on all interfaces (required for Docker/hosting)
+PORT=8000                # HTTP port (fallback for MCP_SSE_PORT)
 
 # SSH Tunneling (Optional)
 MYSQL_SSH_ENABLE=false   # Set to true to enable
@@ -90,8 +108,8 @@ MYSQL_LOCAL_PORT=3330
 ### Multi-Database Mode
 When `MYSQL_DATABASE` is not set, the server operates in multi-database mode:
 - `list_resources` returns all user databases (system databases are filtered out)
-- Use `USE <database>` in SQL queries to select a database
-- Use fully qualified table names like `mydb.mytable`
+- Use fully qualified table names like `mydb.mytable` in SQL queries
+- **Note:** Only single SQL statements are supported. Multi-statement queries (e.g., `USE db; SELECT ...`) are not supported.
 
 ## Available Tools
 
@@ -99,16 +117,22 @@ When `MYSQL_DATABASE` is not set, the server operates in multi-database mode:
 Executes any standard SQL query.
 - **Arguments:** `query` (string)
 - **Features:** Supports `SELECT`, `SHOW`, `DESCRIBE`, and DML (`INSERT`, `UPDATE`, `DELETE`). DML operations are marked with a destructive hint.
+- **Limitation:** Single statements only. Multi-statement queries are not supported.
+- **Cross-database:** Use `database.table` notation to query any database regardless of the `MYSQL_DATABASE` setting.
 
 ### `get_schema_info`
 Provides detailed metadata about database structures.
 - **Arguments:** `table_name` (optional string)
 - **Output:** Column names, types, nullability, default values, and comments.
+- **Cross-database:** Pass `database.table` to query a table outside `MYSQL_DATABASE`; bare names use the configured database.
+- **Identifier rules:** Names must contain only alphanumeric characters, underscores, and `$` (dots are allowed as a separator between database and table names).
 
 ### `get_table_sample`
 Fetches a representative sample of data.
 - **Arguments:** `table_name` (string), `limit` (optional integer, max 20)
 - **Use Case:** Quickly understand data formats and content without fetching large result sets.
+- **Cross-database:** Pass `database.table` to sample a table outside `MYSQL_DATABASE`; bare names use the configured database.
+- **Identifier rules:** Names must contain only alphanumeric characters, underscores, and `$` (dots are allowed as a separator between database and table names).
 
 ## Usage
 ### With Claude Desktop
@@ -187,12 +211,15 @@ python -m venv venv
 source venv/bin/activate  # or `venv\Scripts\activate` on Windows
 # Install development dependencies
 pip install -r requirements-dev.txt
+# Copy the example config and edit with your credentials
+cp .env.example .env
+# Edit .env with your MySQL connection details
 # Run tests
 pytest
 ```
 
 ## Security Considerations
-- **Identifier Validation:** Built-in protection against SQL injection via strict regex whitelisting for database and table names.
+- **Identifier Validation:** Table and database names passed to `get_schema_info` and `get_table_sample` are validated against a strict whitelist (alphanumeric, underscore, and `$` only; a single dot is allowed as a `database.table` separator). Other special characters are rejected to prevent SQL injection.
 - **Encrypted Access:** Full support for SSL/TLS and SSH Tunneling for secure remote connections.
 - **Log Privacy:** Passwords and SSH private keys are automatically masked in server logs.
 - **Least Privilege:** Always use a dedicated MySQL user with minimal required permissions.

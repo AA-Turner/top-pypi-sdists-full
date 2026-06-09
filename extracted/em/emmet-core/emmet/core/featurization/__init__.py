@@ -12,14 +12,19 @@ Credits to the original authors:
 Author accrediation and references can be found within those packages.
 """
 
+# emmet core featurizer uses different syntax than matminer's
+from emmet.core.featurization.featurizers import Featurizer, SiteStatsFingerprint
+
 try:
     # Use robocrys + matminer if installed
-    from matminer.featurizers.base import BaseFeaturizer as Featurizer
-    from robocrys import SiteStatsFingerprint, StructureCondenser, StructureDescriber
+    from robocrys import StructureCondenser, StructureDescriber
+
 except ImportError:
     # Fall back to emmet if not installed.
-    from emmet.core.featurization.featurizers import Featurizer, SiteStatsFingerprint
-    from emmet.core.featurization.robocrys import StructureCondenser, StructureDescriber
+    from emmet.core.featurization.robocrys import (  # type: ignore[no-redef]
+        StructureCondenser,
+        StructureDescriber,
+    )
 
 __all__ = [
     "Featurizer",

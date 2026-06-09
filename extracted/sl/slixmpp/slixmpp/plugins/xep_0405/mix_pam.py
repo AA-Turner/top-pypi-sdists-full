@@ -4,7 +4,6 @@
 # See the file LICENSE for copying permission.
 
 from slixmpp import JID, Iq
-from slixmpp.exceptions import IqError, IqTimeout
 from slixmpp.plugins import BasePlugin
 from slixmpp.stanza.roster import RosterItem
 from slixmpp.plugins.xep_0405 import stanza

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from slixmpp.test import *
-import slixmpp.plugins.xep_0323 as xep_0323
 
 namespace='sn'
 

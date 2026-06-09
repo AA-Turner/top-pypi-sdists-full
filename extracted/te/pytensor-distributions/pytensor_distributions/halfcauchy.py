@@ -31,6 +31,22 @@ def kurtosis(beta):
     return pt.full_like(beta, pt.nan)
 
 
+def lmoment1(beta):
+    return mean(beta)
+
+
+def lmoment2(beta):
+    return pt.full_like(beta, pt.inf)
+
+
+def lmoment3(beta):
+    return pt.full_like(beta, pt.inf)
+
+
+def lmoment4(beta):
+    return pt.full_like(beta, pt.inf)
+
+
 def entropy(beta):
     return pt.log(2 * pt.pi * beta)
 
@@ -65,7 +81,7 @@ def sf(x, beta):
 
 
 def rvs(beta, size=None, random_state=None):
-    uniform_samples = pt.random.uniform(0, 1, rng=random_state, size=size)
+    uniform_samples = pt.random.uniform(0, 1, rng=random_state, size=size, return_next_rng=True)[1]
     return beta * pt.tan(pt.pi / 2 * uniform_samples)
 
 

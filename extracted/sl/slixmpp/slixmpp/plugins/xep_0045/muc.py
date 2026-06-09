@@ -373,7 +373,7 @@ class XEP_0045(BasePlugin):
                             seconds: int | None = None,
                             since: datetime | None = None,
                             presence_options: PresenceArgs | None = None,
-                            timeout: int = 300) -> JoinResult:
+                            timeout: float = 300) -> JoinResult:
         """
         Try to join a MUC and block until we are joined or get an error.
 
@@ -389,7 +389,7 @@ class XEP_0045(BasePlugin):
         :param maxstanzas: Max number of stanzas to return from history.
         :param seconds: Fetch history until that many seconds in the past.
         :param since: Fetch history since that timestamp.
-        :param timeout: Timeout after which a TimeoutError is raised.
+        :param timeout: Timeout in seconds after which a TimeoutError is raised.
                         None means no timeout.
         :raises: A slixmpp.exceptions.PresenceError if the MUC returns a
                  presence error.
@@ -419,7 +419,7 @@ class XEP_0045(BasePlugin):
         self.our_nicks[pfrom][room] = nick
         return await self._await_join(room, stanza, timeout)
 
-    async def _await_join(self, room: JID, stanza: Presence, timeout: int = 300) -> JoinResult:
+    async def _await_join(self, room: JID, stanza: Presence, timeout: float = 300) -> JoinResult:
         """Do the heavy lifting for awaiting a MUC join
 
         A muc join, once the join stanza is sent, is:
@@ -801,7 +801,7 @@ class XEP_0045(BasePlugin):
         self.xmpp.send(msg)
 
     async def set_self_nick(self, room: JID, new_nick: str,
-                            timeout: int = 60,
+                            timeout: float = 60,
                             presence_options: PresenceArgs | None = None) -> str:
         """
         Set your nickname in a room.
@@ -812,7 +812,7 @@ class XEP_0045(BasePlugin):
 
         :param room: Room in which to change our nickname
         :param new_nick: Our new nickname in the room
-        :param timeout: Time to wait for our new nickname response
+        :param timeout: Time in seconds to wait for our new nickname response
         :param pfrom: (for components) the JID to send our presence from
         """
         new_jid = JID(room)

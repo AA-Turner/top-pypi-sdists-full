@@ -4,7 +4,6 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 
-import logging
 
 from slixmpp import Message
 from slixmpp.plugins import BasePlugin

@@ -4,10 +4,14 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    ignore:
-      # Optional: Official actions have moving tags like v1;
-      # if you use those, you don't need updates.
-      - dependency-name: "actions/*"
+    groups:
+      # Specify a name for the group, which will be used in pull request titles
+      # and branch names
+      github-actions:
+        # Define patterns to include dependencies in the group (based on
+        # dependency name)
+        patterns:
+          - "*"
 
   - package-ecosystem: "uv"
     directory: "/"
@@ -21,5 +25,9 @@ updates:
         # Define patterns to include dependencies in the group (based on
         # dependency name)
         applies-to: version-updates # Applies the group rule to version updates
+        patterns:
+          - "*"
+      python-security-dependencies:
+        applies-to: security-updates # Applies the group rule to security updates
         patterns:
           - "*"

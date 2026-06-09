@@ -21,12 +21,27 @@ path):
   * ``UsageRecordingSubscriber`` — builds records + fans out to recorders.
   * ``ensure_observability_bootstrapped`` / ``shutdown_usage_recording`` —
     env-driven auto-boot helpers.
+  * ``shutdown_observability`` — aggregate flush/teardown for any active backend
+    (registered automatically via ``atexit`` on first boot).
+
+OpenLLMetry (Traceloop) backend — a simple, content-rich local/dev tracing path,
+mutually exclusive with OpenLIT (the production backend):
+  * ``init_traceloop`` / ``setup_traceloop`` / ``shutdown_traceloop`` — activate
+    via ``OBSERVABILITY_TRACELOOP=true`` (or ``usage_backend="traceloop"``).
+
+Per-agent attribution (FEAT-228):
+  * ``current_agent_name`` — task-local ``ContextVar[Optional[str]]`` holding
+    the invoking agent's ``self.name``.
+  * ``agent_identity(name)`` — context-manager that binds the active agent name
+    for the duration of a bot invocation (token-based; nested-safe).
 """
 
 from parrot.observability.bootstrap import (
     ensure_observability_bootstrapped,
+    shutdown_observability,
     shutdown_usage_recording,
 )
+from parrot.observability.context import agent_identity, current_agent_name
 from parrot.observability.config import ObservabilityConfig
 from parrot.observability.cost.calculator import CostCalculator
 from parrot.observability.errors import ConfigurationError
@@ -40,6 +55,11 @@ from parrot.observability.recorders import (
 from parrot.observability.setup import setup_telemetry, shutdown_telemetry
 from parrot.observability.subscribers.metrics import MetricsSubscriber
 from parrot.observability.subscribers.trace import GenAIOpenTelemetrySubscriber
+from parrot.observability.traceloop_integration import (
+    init_traceloop,
+    setup_traceloop,
+    shutdown_traceloop,
+)
 
 __all__: list[str] = [
     "ObservabilityConfig",
@@ -56,4 +76,11 @@ __all__: list[str] = [
     "UsageRecordingSubscriber",
     "ensure_observability_bootstrapped",
     "shutdown_usage_recording",
+    "shutdown_observability",
+    "init_traceloop",
+    "setup_traceloop",
+    "shutdown_traceloop",
+    # FEAT-228: per-agent attribution
+    "current_agent_name",
+    "agent_identity",
 ]

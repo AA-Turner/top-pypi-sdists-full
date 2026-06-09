@@ -24,8 +24,17 @@ import dj_database_url
 import lamindb_setup as ln_setup
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, ProgrammingError, connections, models, transaction
-from django.db.models import CASCADE, DEFERRED, PROTECT, Field, Manager, QuerySet
+from django.db.models import (
+    CASCADE,
+    DEFERRED,
+    PROTECT,
+    Field,
+    Manager,
+)
 from django.db.models import ForeignKey as django_ForeignKey
+from django.db.models import (
+    QuerySet as DjangoQuerySet,
+)
 from django.db.models.base import ModelBase
 from django.db.models.fields.related import (
     ManyToManyField,
@@ -81,6 +90,7 @@ from .query_manager import QueryManager, _lookup, _search
 if TYPE_CHECKING:
     import pandas as pd
 
+    from ..models.query_set import QuerySet
     from .block import BranchBlock, SpaceBlock
     from .project import Project
     from .query_manager import RelatedManager
@@ -200,7 +210,7 @@ class HasType(models.Model):
 
     For instance, using the example of `ln.Record`::
 
-        experiment_type = ln.Record(name="Experiment", is_type=True).save()
+        experiment_type = ln.Record(name="Experiments", is_type=True).save()
         experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
         experiment2 = ln.Record(name="Experiment 2", type=experiment_type).save()
     """
@@ -237,6 +247,73 @@ class HasType(models.Model):
         from .has_parents import _query_ancestors_of_fk
 
         return _query_ancestors_of_fk(self, "type")  # type: ignore
+
+    @property
+    def settings(self) -> SQLRecordSettings:
+        """Settings."""
+        return SQLRecordSettings(self)
+
+
+class SQLRecordSettings:
+    """Settings for :class:`~lamindb.models.SQLRecord` objects."""
+
+    def __init__(self, sqlrecord: SQLRecord):
+        self._sqlrecord = sqlrecord
+
+    @property
+    def single_space(self) -> bool:
+        """Objects in a dynamic registry must be in a single space (default `True`).
+
+        Can only be set if the `SQLRecord` class inherits from `HasType` and `.is_type` is `True`.
+
+        The space that's enforced is the space of the dynamic registry.
+
+        Example:
+
+            Toggle the behavior of a dynamic `Experiments` registry::
+
+                import lamindb as ln
+
+                experiments_registry = ln.Record.get(name="Experiments", is_type=True)
+                experiments_registry.settings.same_space = True
+                experiments_registry.save()
+
+        .. versionadded:: 2.6.0
+            Before, one could by default add objects from different spaces to the same dynamic registry.
+        """
+        assert isinstance(self._sqlrecord, HasType), (
+            "sqlrecord must be a HasType to use this setting"
+        )
+        assert self._sqlrecord.is_type is True, (
+            "sqlrecord must have is_type = True to use this setting"
+        )
+        aux = self._sqlrecord._aux
+        if aux is None:
+            return False
+        return aux.get("ss") == 1
+
+    @single_space.setter
+    def single_space(self, value: bool) -> None:
+        assert isinstance(self._sqlrecord, HasType), (
+            "sqlrecord must be a HasType to use this setting"
+        )
+        assert self._sqlrecord.is_type is True, (
+            "sqlrecord must have is_type = True to use this setting"
+        )
+        aux = self._sqlrecord._aux
+        # the encoding mirrors `Artifact._storage_ongoing`: enabled is stored as `1`,
+        # disabled is represented by the absence of the key
+        if value:
+            if aux is None:
+                aux = {}
+                self._sqlrecord._aux = aux
+            aux["ss"] = 1
+            return
+
+        if aux is not None and "ss" in aux:
+            del aux["ss"]
+            if not aux:
+                self._sqlrecord._aux = None
 
 
 def deferred_attribute__repr__(self):
@@ -463,6 +540,15 @@ def validate_fields(record: SQLRecord, kwargs):
         )
     # validate literals
     validate_literal_fields(record, kwargs)
+
+
+def pop_space_branch_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "branch": kwargs.pop("branch", None),
+        "branch_id": kwargs.pop("branch_id", None),
+        "space": kwargs.pop("space", None),
+        "space_id": kwargs.pop("space_id", None),
+    }
 
 
 def suggest_records_with_similar_names(
@@ -978,6 +1064,24 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
     def __init__(self, *args, **kwargs):
         skip_validation = kwargs.pop("_skip_validation", False)
         if not args:
+
+            def resolve_fk_or_id(field_name: str) -> bool:
+                """Resolve `<fk>` and `<fk>_id` constructor kwargs in one place."""
+                fk_id_field = f"{field_name}_id"
+                fk_model = self._meta.get_field(field_name).remote_field.model
+                fk_record = kwargs.get(field_name)
+                fk_record_id = kwargs.get(fk_id_field)
+                if fk_record is not None and fk_record_id is not None:
+                    raise ValueError(
+                        f"Do not pass both {fk_model.__name__} and its id at the same time."
+                    )
+                if fk_record_id is not None:
+                    kwargs[field_name] = fk_model.objects.get(id=fk_record_id)
+                    kwargs.pop(fk_id_field, None)
+                    return True
+                kwargs.pop(fk_id_field, None)
+                return fk_record is not None
+
             if not os.getenv("LAMINDB_MULTI_INSTANCE") == "true":
                 if (
                     issubclass(self.__class__, SQLRecord)
@@ -987,43 +1091,38 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 ):
                     from lamindb import context as run_context
 
+                    # Precedence is uniform across SQLRecord children:
+                    # explicit `<fk>_id` or `<fk>` (mutually exclusive) > context/settings fallback.
+                    has_explicit_space = resolve_fk_or_id("space")
                     if run_context.space is not None:
                         current_space = run_context.space
                     elif setup_settings.space is not None:
                         current_space = setup_settings.space
+                    else:
+                        current_space = None
 
-                    if current_space is not None:
-                        if "space_id" in kwargs:
-                            # space_id takes precedence over space
-                            # https://claude.ai/share/f045e5dc-0143-4bc5-b8a4-38309229f75e
-                            if kwargs["space_id"] == 1:  # ignore default space
-                                kwargs.pop("space_id")
-                                kwargs["space"] = current_space
-                        elif "space" in kwargs:
-                            if kwargs["space"] is None:
-                                kwargs["space"] = current_space
-                        else:
+                    if not has_explicit_space:
+                        if current_space is not None:
                             kwargs["space"] = current_space
+                        elif kwargs.get("space") is None:
+                            kwargs.pop("space", None)
                 if _is_branch_sensitive_model(self.__class__):
                     from lamindb import context as run_context
 
+                    has_explicit_branch = resolve_fk_or_id("branch")
                     if run_context.branch is not None:
                         current_branch = run_context.branch
                     elif setup_settings.branch is not None:
                         current_branch = setup_settings.branch
+                    else:
+                        current_branch = None
 
-                    if current_branch is not None:
-                        # branch_id takes precedence over branch
-                        # https://claude.ai/share/f045e5dc-0143-4bc5-b8a4-38309229f75e
-                        if "branch_id" in kwargs:
-                            if kwargs["branch_id"] == 1:  # ignore default branch
-                                kwargs.pop("branch_id")
-                                kwargs["branch"] = current_branch
-                        elif "branch" in kwargs:
-                            if kwargs["branch"] is None:
-                                kwargs["branch"] = current_branch
-                        else:
+                    if not has_explicit_branch:
+                        if current_branch is not None:
                             kwargs["branch"] = current_branch
+                        elif kwargs.get("branch") is None:
+                            kwargs.pop("branch", None)
+                    if "branch" in kwargs and kwargs["branch"] is not None:
                         kwargs["created_on"] = kwargs["branch"]
             if skip_validation:
                 super().__init__(**kwargs)
@@ -1329,6 +1428,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
                 self.labels.add_from(self_on_db, transfer_logs=transfer_logs)
             if transfer_logs["run"] is not None:
                 transfer_logs["run"].finished_at = datetime.now(timezone.utc)  # type: ignore
+                transfer_logs["run"]._status_code = 0  # type: ignore[union-attr]
                 transfer_logs["run"].save()  # type: ignore
             for k, v in transfer_logs.items():
                 if k != "run" and len(v) > 0:
@@ -2073,12 +2173,12 @@ def _get_record_kwargs(record_class) -> list[tuple[str, str]]:
 
 
 def get_name_field(
-    registry: type[SQLRecord] | QuerySet | Manager,
+    registry: type[SQLRecord] | DjangoQuerySet | Manager,
     *,
     field: StrField | None = None,
 ) -> str:
     """Get the 1st char or text field from the registry."""
-    if isinstance(registry, (QuerySet, Manager)):
+    if isinstance(registry, (DjangoQuerySet, Manager)):
         registry = registry.model
     model_field_names = [i.name for i in registry._meta.fields]
 
@@ -2129,7 +2229,7 @@ REGISTRY_UNIQUE_FIELD = {"storage": "root", "ulabel": "name"}
 
 
 def update_fk_to_default_db(
-    records: SQLRecord | list[SQLRecord] | QuerySet,
+    records: SQLRecord | list[SQLRecord] | DjangoQuerySet,
     fk: str,
     using_key: str | None,
     transfer_logs: dict,
@@ -2139,7 +2239,7 @@ def update_fk_to_default_db(
     # for certain fks where they have to the same for the whole bulk
     # see transfer_fk_to_default_db_bulk
     # todo: but this has to be changed i think, it is not safe as it is now - Sergei
-    record = records[0] if isinstance(records, (list, QuerySet)) else records
+    record = records[0] if isinstance(records, (list, DjangoQuerySet)) else records
     if getattr(record, f"{fk}_id", None) is not None:
         # set the space of the transferred record to the current space
         if fk == "space":
@@ -2163,7 +2263,7 @@ def update_fk_to_default_db(
                     fk_record_default, using_key, save=True, transfer_logs=transfer_logs
                 )
         # re-set the fks to the newly saved ones in the default db
-        if isinstance(records, (list, QuerySet)):
+        if isinstance(records, (list, DjangoQuerySet)):
             for r in records:
                 setattr(r, f"{fk}", None)
                 setattr(r, f"{fk}_id", fk_record_default.id)
@@ -2180,7 +2280,7 @@ FKBULK = [
 
 
 def transfer_fk_to_default_db_bulk(
-    records: list | QuerySet, using_key: str | None, transfer_logs: dict
+    records: list | DjangoQuerySet, using_key: str | None, transfer_logs: dict
 ):
     for fk in FKBULK:
         update_fk_to_default_db(records, fk, using_key, transfer_logs=transfer_logs)
@@ -2222,7 +2322,11 @@ def get_transfer_run(record) -> Run:
     # it doesn't seem to make sense to create new runs for every transfer
     run = Run.filter(transform=transform, initiated_by_run=initiated_by_run).first()
     if run is None:
-        run = Run(transform=transform, initiated_by_run=initiated_by_run).save()  # type: ignore
+        run = Run(
+            transform=transform,
+            initiated_by_run=initiated_by_run,
+            status="started",
+        ).save()  # type: ignore
         run.initiated_by_run = initiated_by_run  # so that it's available in memory
     return run
 

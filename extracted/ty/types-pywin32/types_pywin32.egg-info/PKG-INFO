@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-pywin32
-Version: 311.0.0.20260521
+Version: 312.0.0.20260609
 Summary: Typing stubs for pywin32
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -21,7 +21,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`pywin32`](https://github.com/mhammond/pywin32) package. It can be used by type checkers
 to check code that uses `pywin32`. This version of
 `types-pywin32` aims to provide accurate annotations for
-`pywin32==311.*`.
+`pywin32==312.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -32,7 +32,7 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.409
+* [pyright](https://github.com/microsoft/pyright) 1.1.410
 
 It was generated from typeshed commit
-[`132ae01fd184883857189406b5f13439c00078e4`](https://github.com/python/typeshed/commit/132ae01fd184883857189406b5f13439c00078e4).
+[`abc114fe3984f89b62f852d9f7237859f8cc1e9c`](https://github.com/python/typeshed/commit/abc114fe3984f89b62f852d9f7237859f8cc1e9c).

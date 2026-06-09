@@ -7,7 +7,6 @@ from uuid import uuid4
 
 import httpx
 import pytest
-import yaml  # type: ignore[import-untyped]
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import (
     AIMessage,
@@ -21,12 +20,18 @@ from langchain_core.tools import BaseTool, tool
 from langchain_tests.integration_tests import ChatModelIntegrationTests
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated, TypedDict
-from vcr import VCR
 
 from langchain_aws import ChatBedrockConverse
 
 
 class TestBedrockStandard(ChatModelIntegrationTests):
+    # `_format_data_content_block` intentionally warns when a PDF is sent
+    # without a filename; the standard `test_pdf_tool_message` does exactly
+    # that, so suppress it to keep test output clean.
+    pytestmark = pytest.mark.filterwarnings(
+        "ignore:Bedrock Converse may require a filename for file inputs.*:UserWarning"
+    )
+
     @property
     def chat_model_class(self) -> Type[BaseChatModel]:
         return ChatBedrockConverse
@@ -355,6 +360,12 @@ def test_tool_use_with_cache_point() -> None:
     # Define a large number of tools to exceed 1024 tokens
     tool_classes = []
 
+    # Bedrock dedupes byte-identical cache prefixes across separate calls for the
+    # cache TTL (5m default), so a re-run within that window would return a cache
+    # read instead of a write and break the assertion below. Salt one tool's
+    # docstring with a per-run unique value so each run sends a fresh prefix.
+    session = uuid4().hex
+
     # Each tool is simple but we'll define many of them
     for i in range(1, 20):
         # Creating a unique class for each tool
@@ -369,7 +380,10 @@ def test_tool_use_with_cache_point() -> None:
                     description=f"Operation {i} to perform on the numbers"
                 )
 
-            ToolClass.__doc__ = f"A tool to calculate the {i}th mathematical operation"
+            ToolClass.__doc__ = (
+                f"A tool to calculate the {i}th mathematical operation "
+                f"(session {session})"
+            )
             return ToolClass
 
         tool_class = create_tool_class(i)
@@ -810,7 +824,6 @@ def test_streaming_tool_use_round_trip() -> None:
     assert isinstance(response, AIMessage)
 
 
-@pytest.mark.default_cassette("test_thinking.yaml.gz")
 @pytest.mark.vcr
 @pytest.mark.parametrize("output_version", ["v0", "v1"])
 def test_thinking(output_version: Literal["v0", "v1"]) -> None:
@@ -1045,27 +1058,38 @@ def test_get_num_tokens_from_messages_integration() -> None:
 
 
 @pytest.mark.parametrize("streaming", [False, True])
-def test_request_headers(tmp_path: Any, streaming: bool) -> None:
-    # Test that we can attach headers to requests
-    cassette_path = tmp_path / "headers.yaml"
+def test_request_headers(streaming: bool) -> None:
+    # Test that we can attach headers to requests. Capture headers via a
+    # botocore `before-send` hook rather than VCR; VCR's urllib3 interception
+    # has proven flaky here (non-streaming Converse calls were not always
+    # recorded in CI), and an event hook fires at the exact wire-level moment
+    # we care about: right after `_add_custom_headers` has applied them.
+    model = ChatBedrockConverse(
+        model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        default_headers={"X-Foo": "Bar"},
+    )
 
-    vcr = VCR(record_mode="all")
-    with vcr.use_cassette(str(cassette_path)):
-        model = ChatBedrockConverse(
-            model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
-            default_headers={"X-Foo": "Bar"},
-        )
+    captured: list[dict[str, str]] = []
+
+    def _capture(request: Any, **_: Any) -> None:
+        captured.append(dict(request.headers))
+
+    event = (
+        "before-send.bedrock-runtime.ConverseStream"
+        if streaming
+        else "before-send.bedrock-runtime.Converse"
+    )
+    model.client.meta.events.register_last(event, _capture)
+    try:
         if streaming:
             _ = list(model.stream("hi"))
         else:
             _ = model.invoke("hi")
+    finally:
+        model.client.meta.events.unregister(event, _capture)
 
-    cassette = yaml.safe_load(cassette_path.read_text())
-    interactions = cassette["interactions"]
-    request = interactions[0]["request"]
-    headers = request["headers"]
-
-    assert headers["X-Foo"] == ["Bar"]
+    assert captured, "no bedrock-runtime request observed"
+    assert captured[0]["X-Foo"] == "Bar"
 
 
 # --- Native structured outputs integration tests ---

@@ -233,6 +233,43 @@ def test_classify_real_admiral_fire_codes():
     assert len({s.pattern_id for s in harness}) >= 3
 
 
+def test_no_false_positives_from_autonomous_review_status_lines():
+    """Status summaries in autonomous_review.log mention pattern IDs by name.
+    The classifier must NOT re-fire those as new signals — that creates a
+    feedback loop where the dispatch queue inflates indefinitely.
+
+    Confirmed real false-positive text that was producing 23 spurious
+    harness:bash:heredoc_loop + harness:loop:bash_generic entries per 24h
+    before classify_pulse.sh stopped scanning autonomous_review.log.
+    """
+    # Trip-log status line that mentions pattern IDs
+    trip_log_line = (
+        "- Dispatch queue top patterns (`harness:loop:bash_generic`, "
+        "`harness:bash:heredoc_loop`) already covered by prior commits"
+    )
+    signals = classify_text(trip_log_line)
+    harness_ids = {s.pattern_id for s in signals if s.bucket == Bucket.HARNESS}
+    assert "harness:bash:heredoc_loop" not in harness_ids, (
+        "harness:bash:heredoc_loop must not fire on status-summary text "
+        "that merely names the pattern — this causes a dispatch feedback loop"
+    )
+    assert "harness:loop:bash_generic" not in harness_ids, (
+        "harness:loop:bash_generic must not fire on pattern-ID references in status summaries"
+    )
+
+    # autonomous_review.log summary line (another real false-positive source)
+    review_log_line = (
+        "Detect cat-heredoc write pattern in bash loop-breaker; redirect to write_file. "
+        "Already addressed by fix in v2.9.x."
+    )
+    signals2 = classify_text(review_log_line)
+    harness_ids2 = {s.pattern_id for s in signals2 if s.bucket == Bucket.HARNESS}
+    assert "harness:bash:heredoc_loop" not in harness_ids2, (
+        "harness:bash:heredoc_loop must not fire on suggested_action text "
+        "from the dispatch queue (feedback loop via autonomous_review.log)"
+    )
+
+
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-v"]))

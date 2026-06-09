@@ -4,10 +4,7 @@ This only covers the component registration side of the XEP-0077 plugin
 
 import unittest
 
-from slixmpp import ComponentXMPP, Iq
-from slixmpp.xmlstream import register_stanza_plugin
 from slixmpp.test import SlixTest
-from slixmpp.plugins.xep_0077 import Register
 
 
 class TestRegistration(SlixTest):

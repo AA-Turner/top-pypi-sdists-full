@@ -674,7 +674,7 @@ def convert_type_to_gql(
     if is_feature_set_class(t):
         return FeatureClassGQL(
             isSingleton=t.__chalk_is_singleton__,
-            doc=t.__doc__,
+            doc=t.__chalk_description__ or t.__doc__,
             name=t.__chalk_namespace__,
             owner=t.__chalk_owner__,
             tags=t.__chalk_tags__,

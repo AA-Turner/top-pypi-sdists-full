@@ -4,7 +4,7 @@ from AOT_biomaps.Config import config
 
 from ._mainRecon import Recon
 from .ReconEnums import NoiseType, ReconType, OptimizerType, ProcessType, SMatrixType, PotentialType, PreconditionerType, PotentialShapeType, StopCriterionType
-from .AOT_Optimizers import MLEM, LS, MAPEM, DEPIERRO, PDHG, PGC, PPGMLEM, LBFGS, PIGD
+from .AOT_Optimizers import MLEM, LS, MAPEM, DEPIERRO, PDHG, PGC, PPGMLEM, LBFGS, FISTA
 from .AOT_SMatrix.SMatrix_CSR import SMatrix_CSR
 from .AOT_SMatrix.SMatrix_SELL import SMatrix_SELL
 from .AOT_SMatrix.SMatrix_DENSE import SMatrix_DENSE
@@ -80,14 +80,11 @@ ALGORITHM_FORMULAS = {
         "formula": "λ^(k+1) = [ λ^(k) + α * (∇EM - ∇U) / (A^T * 1 + δ * H_U + γ) ]_+",
         "description": "Penalized Preconditioned Gradient ML-EM",
         "reference": "Nuyts et al., IEEE TNS, 2002",
-        "required_params": ["alpha", "beta", "gamma", "delta"],
+        "required_params": ["beta", "delta"],
         "constraints": {
-            "alpha": "> 0 or 'auto'",
             "beta": ">= 0",
             "delta": ">= 0",
-            "gamma": ">= 0",
             "numIterations": "> 0",
-            "numIterations_stepCalculation": "> 0",
         },
         "notes": "Additive Poisson gradient descent stabilized by pseudo-Hessian and Tikhonov parameter.",
         "potentialFunction": [PotentialType.QUADRATIC, PotentialType.HUBER, PotentialType.RELATIVE_DIFFERENCE]
@@ -138,19 +135,20 @@ ALGORITHM_FORMULAS = {
         "notes": "Uses λ = w^2 transform to inherently enforce non-negativity without projection artifacts.",
         "potentialFunction": [PotentialType.QUADRATIC, PotentialType.HUBER, PotentialType.RELATIVE_DIFFERENCE]
     },
-    OptimizerType.PIGD: {
-        "formula": "λ^(k+1) = [ λ^(k) - α * diag(A^T 1)^-1 * (∇f(λ^(k)) + ∇U(λ^(k))) ]_+",
-        "description": "Penalized Iterative Gradient Descent",
-        "reference": "Standard Proximal Gradient Method",
-        "required_params": ["alpha", "beta", "delta"],
+    OptimizerType.FISTA: {
+        "formula": "z = x + ((t_k - 1) / t_{k+1}) * (x - x_old) | x = prox_{α*U}(z - α*∇f(z))",
+        "description": "Fast Iterative Shrinkage-Thresholding Algorithm (Accelerated Proximal Gradient)",
+        "reference": "Beck and Teboulle, SIAM J. Imaging Sci., 2009",
+        "required_params": ["alpha", "beta", "delta", "eta"],
         "constraints": {
             "alpha": "> 0 or 'auto'",
             "beta": ">= 0",
-            "delta": "> 0",
+            "delta": ">= 0",
+            "eta": "> 0",
             "numIterations": "> 0",
             "numIterations_stepCalculation": "> 0",
         },
-        "notes": "Poisson gradient descent diagonally preconditioned by sensitivity.",
+        "notes": "Accelerated proximal gradient method with Nesterov momentum. Requires proximal operator for the potential function.",
         "potentialFunction": [PotentialType.QUADRATIC, PotentialType.HUBER, PotentialType.RELATIVE_DIFFERENCE]
     },
 }
@@ -160,7 +158,7 @@ class AlgebraicRecon(Recon):
     Algebraic reconstruction class for AOT_biomaps.
     
     This class provides a unified interface for all iterative reconstruction algorithms,
-    including MLEM, LS, MAPEM, DEPIERRO, PPGMLEM, PGC, PDHG, and PIGD.
+    including MLEM, LS, MAPEM, DEPIERRO, PPGMLEM, PGC, PDHG, and FISTA.
     
     Features:
     - Support for multiple optimizer types
@@ -334,6 +332,8 @@ class AlgebraicRecon(Recon):
         # Initialize reconstruction results
         self.reconPhantom: List[np.ndarray] = []
         self.reconLaser: List[np.ndarray] = []
+        self.cost_historyPhantom = None
+        self.cost_historyLaser = None
         self.indices: List[int] = []
         self.MSE: Optional[List[float]] = None
         self.SSIM: Optional[List[float]] = None
@@ -357,22 +357,22 @@ class AlgebraicRecon(Recon):
         POTENTIAL_COMPATIBILITY = {
             PotentialType.QUADRATIC: [
                 OptimizerType.MAPEM, OptimizerType.DEPIERRO, OptimizerType.PPGMLEM,
-                OptimizerType.PGC, OptimizerType.PDHG, OptimizerType.LBFGS, OptimizerType.PIGD
+                OptimizerType.PGC, OptimizerType.PDHG, OptimizerType.LBFGS, OptimizerType.FISTA
             ],
             PotentialType.HUBER: [
                 OptimizerType.MAPEM, OptimizerType.DEPIERRO, OptimizerType.PPGMLEM, OptimizerType.PGC,
-                OptimizerType.PDHG, OptimizerType.LBFGS, OptimizerType.PIGD
+                OptimizerType.PDHG, OptimizerType.LBFGS, OptimizerType.FISTA
             ],
             PotentialType.RELATIVE_DIFFERENCE: [
                 OptimizerType.MAPEM, OptimizerType.DEPIERRO, OptimizerType.PPGMLEM, OptimizerType.PGC,
-                OptimizerType.PDHG, OptimizerType.LBFGS, OptimizerType.PIGD
+                OptimizerType.PDHG, OptimizerType.LBFGS, OptimizerType.FISTA
             ],
             PotentialType.TOTAL_VARIATION: [
                 OptimizerType.PDHG
             ],
             PotentialType.NONE: [
                 OptimizerType.MLEM, OptimizerType.LS, OptimizerType.MAPEM, OptimizerType.DEPIERRO, 
-                OptimizerType.PPGMLEM, OptimizerType.PGC, OptimizerType.PDHG, OptimizerType.LBFGS, OptimizerType.PIGD
+                OptimizerType.PPGMLEM, OptimizerType.PGC, OptimizerType.PDHG, OptimizerType.LBFGS, OptimizerType.FISTA
             ],
         }
         
@@ -519,13 +519,14 @@ class AlgebraicRecon(Recon):
     def apply_apodization(self, window_vector: np.ndarray):
         self.SMatrix.apply_apodization(window_vector)
     
-    def run(self, processType: ProcessType = ProcessType.PYTHON, withTumor: bool = True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs: bool = True):
+    def run(self, y = None, processType: ProcessType = ProcessType.PYTHON, withTumor: bool = True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs: bool = True):
         """
         Run the algebraic reconstruction process.
         
         Dispatches to the appropriate reconstruction method based on processType.
         
         Args:
+            y: The observed data (if provided). else, it will be loaded from the experiment based on withTumor flag.
             processType: Type of processing (PYTHON or CASToR)
             withTumor: If True, reconstruct with tumor data; otherwise without
             stop_criterion: Criterion for stopping the reconstruction
@@ -542,17 +543,18 @@ class AlgebraicRecon(Recon):
         if processType == ProcessType.CASToR:
             self._algebraic_recon_CASToR(withTumor=withTumor, show_logs=show_logs)
         elif processType == ProcessType.PYTHON:
-            self._algebraic_recon_Python(withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
+            self._algebraic_recon_Python(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
         else:
             raise ValueError(f"Unknown Algebraic reconstruction type: {processType}")
 
-    def _algebraic_recon_Python(self, withTumor: bool = True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs: bool = True):
+    def _algebraic_recon_Python(self, y=None, withTumor: bool = True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs: bool = True):
         """
         Run algebraic reconstruction using Python implementation.
         
         Dispatches to the appropriate optimizer-specific method based on self.optimizer.
         
         Args:
+            y: The observed data (if provided). else, it will be loaded from the experiment based on withTumor flag.
             withTumor: If True, reconstruct with tumor data; otherwise without
             stop_criterion: Criterion for stopping the reconstruction
             stop_threshold: Threshold for the stopping criterion
@@ -564,14 +566,15 @@ class AlgebraicRecon(Recon):
             ValueError: If the optimizer is not supported
         """
         # Check signal availability
-        if withTumor:
-            if self.experiment.AOsignal_withTumor is None:
-                raise ValueError("AO signal with tumor is not available. Please generate AO signal with tumor in the experiment first.")
-            y = self.experiment.AOsignal_withTumor
-        else:
-            if self.experiment.AOsignal_withoutTumor is None:
-                raise ValueError("AO signal without tumor is not available. Please generate AO signal without tumor in the experiment first.")
-            y = self.experiment.AOsignal_withoutTumor
+        if y is None:
+            if withTumor:
+                if self.experiment.AOsignal_withTumor is None:
+                    raise ValueError("AO signal with tumor is not available. Please generate AO signal with tumor in the experiment first.")
+                y = self.experiment.AOsignal_withTumor
+            else:
+                if self.experiment.AOsignal_withoutTumor is None:
+                    raise ValueError("AO signal without tumor is not available. Please generate AO signal without tumor in the experiment first.")
+                y = self.experiment.AOsignal_withoutTumor
         
         self._validate_hyperparameters()
 
@@ -586,8 +589,8 @@ class AlgebraicRecon(Recon):
             self._run_DEPIERRO(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.PPGMLEM:
             self._run_PPGMLEM(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
-        elif self.optimizer == OptimizerType.PIGD:
-            self._run_PIGD(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
+        elif self.optimizer == OptimizerType.FISTA:
+            self._run_FISTA(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.PGC:
             self._run_PGC(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
         elif self.optimizer == OptimizerType.PDHG:
@@ -949,12 +952,8 @@ class AlgebraicRecon(Recon):
                 SMatrix=self.SMatrix,
                 y=y,
                 numIterations=self.numIterations,
-                alpha=self.alpha,
                 beta=self.beta,
                 delta=self.delta,
-                gamma=self.gamma,
-                eta=self.eta,
-                numIterations_stepCalculation=self.numIterations_stepCalculation,
                 potential_type=self.potentialFunction,
                 potential_shape=self.PotentialShape,
                 potential_radius=self.PotentialRadius,
@@ -973,12 +972,8 @@ class AlgebraicRecon(Recon):
                 SMatrix=self.SMatrix,
                 y=y,
                 numIterations=self.numIterations,
-                alpha=self.alpha,
                 beta=self.beta,
                 delta=self.delta,
-                gamma=self.gamma,
-                eta=self.eta,
-                numIterations_stepCalculation=self.numIterations_stepCalculation,
                 potential_type=self.potentialFunction,
                 potential_shape=self.PotentialShape,
                 potential_radius=self.PotentialRadius,
@@ -993,10 +988,10 @@ class AlgebraicRecon(Recon):
                 show_criterion=show_criterion
             )
 
-    def _run_PIGD(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs=True):
-        """Run PIGD reconstruction."""
+    def _run_FISTA(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs=True):
+        """Run FISTA reconstruction."""
         if withTumor:
-            self.reconPhantom, self.indices, self.cost_historyPhantom = PIGD(
+            self.reconPhantom, self.indices, self.cost_historyPhantom = FISTA(
                 SMatrix=self.SMatrix,
                 y=y,
                 numIterations=self.numIterations,
@@ -1019,7 +1014,7 @@ class AlgebraicRecon(Recon):
                 show_criterion=show_criterion
             )
         else:
-            self.reconLaser, self.indices, self.cost_historyLaser = PIGD(
+            self.reconLaser, self.indices, self.cost_historyLaser = FISTA(
                 SMatrix=self.SMatrix,
                 y=y,
                 numIterations=self.numIterations,
@@ -1144,6 +1139,56 @@ class AlgebraicRecon(Recon):
                 show_criterion=show_criterion
             )
     
+    def plot_cost(self, isSaving=True, log_scale_x=False, log_scale_y=False, figSize=(4,3), show_logs=True):
+        """
+        Plot the cost function values.
+
+        Parameters:
+            isSaving: bool, whether to save the plot.
+            log_scale_x: bool, if True, use logarithmic scale for the x-axis.
+            log_scale_y: bool, if True, use logarithmic scale for the y-axis.
+        Returns:
+            None
+        """
+        if self.cost_historyPhantom is None and self.cost_historyLaser is None:
+            raise ValueError("Cost function history is empty. Please calculate it first.")
+        if self.cost_historyPhantom is not None and len(self.cost_historyPhantom) < 1 or self.cost_historyLaser is not None and len(self.cost_historyLaser) < 1:
+            raise ValueError("Plotting cost function requires more than one data point. Please set isSavingEachIteration=True and isCostFunction=True when running the reconstruction to plot cost function history.")
+
+        # Plot cost function curve
+        plt.figure(figsize=figSize)
+        if self.cost_historyPhantom is not None:
+            plt.plot(self.indices, self.cost_historyPhantom/np.max(self.cost_historyPhantom), 'r-', label="Cost (Phantom)")
+        if self.cost_historyLaser is not None:
+            plt.plot(self.indices, self.cost_historyLaser/np.max(self.cost_historyLaser), 'b-', label="Cost (Laser)")
+
+
+        plt.xlabel("Iteration")
+        plt.ylabel("Normalized Cost")
+        plt.title("Cost Function vs. Iteration")
+        if log_scale_x:
+            plt.xscale('log')
+        if log_scale_y:
+            plt.yscale('log')
+        plt.legend()
+        plt.grid(True, which="both", ls="-")
+        plt.tight_layout()
+        if isSaving and self.saveDir is not None:
+            now = datetime.now()
+            date_str = now.strftime("%Y_%d_%m_%y")
+            scale_str = ""
+            if log_scale_x and log_scale_y:
+                scale_str = "_loglog"
+            elif log_scale_x:
+                scale_str = "_logx"
+            elif log_scale_y:
+                scale_str = "_logy"
+            SavingFolder = os.path.join(self.saveDir, f'{len(self.experiment.AcousticFields)}_SCANS_Cost_plot_{self.optimizer.name}_{scale_str}{date_str}.png')
+            plt.savefig(SavingFolder, dpi=300)
+            if show_logs:
+                print(f"Cost plot saved to {SavingFolder}")
+        plt.show()
+    
     def plot_MSE(self, isSaving=True, log_scale_x=False, log_scale_y=False, figSize=(4,3), show_logs=True):
         """
         Plot the Mean Squared Error (MSE) of the reconstruction.
@@ -1157,6 +1202,9 @@ class AlgebraicRecon(Recon):
         """
         if not self.MSE:
             raise ValueError("MSE is empty. Please calculate MSE first.")
+        if self.MSE is not None and len(self.MSE) < 1:
+            raise ValueError("Plotting MSE function requires more than one data point. Please set isSavingEachIteration=True and isCostFunction=True when running the reconstruction to plot MSE history.")  
+
 
         best_idx = self.indices[np.argmin(self.MSE)]
         if show_logs:

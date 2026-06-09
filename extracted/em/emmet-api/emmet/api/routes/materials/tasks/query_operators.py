@@ -2,17 +2,13 @@ from datetime import datetime
 from typing import Any
 
 from fastapi import HTTPException, Query
-from emmet.api.query_operator import QueryOperator
-from emmet.api.utils import STORE_PARAMS
 from monty.json import jsanitize
-from pymatgen.core.periodic_table import Element
-from emmet.api.routes.materials.materials.utils import (
-    formula_to_atlas_criteria,
-)
-from emmet.api.routes.materials.tasks.utils import (
-    calcs_reversed_to_trajectory,
-    task_to_entry,
-)
+from emmet.core.io.pymatgen import Element
+
+from emmet.api.query_operator import MultiTaskIDQuery, QueryOperator
+from emmet.api.routes.materials.materials.utils import formula_to_atlas_criteria
+from emmet.api.routes.materials.tasks.utils import task_to_entry
+from emmet.api.utils import STORE_PARAMS
 
 
 class AtlasBatchIdQuery(QueryOperator):
@@ -192,102 +188,10 @@ class LastUpdatedQuery(QueryOperator):
         return {"criteria": crit}
 
 
-class MultipleTaskIDsQuery(QueryOperator):
-    """
-    Method to generate a query on search docs using multiple task_id values
-    """
-
-    def query(
-        self,
-        task_ids: str | None = Query(
-            None,
-            description="Comma-separated list of task_ids to query on",
-        ),
-    ) -> STORE_PARAMS:
-        return {
-            "criteria": (
-                {
-                    "in": {
-                        "path": "task_id",
-                        "value": [task_id.strip() for task_id in task_ids.split(",")],
-                    }
-                }
-                if task_ids
-                else {}
-            )
-        }
-
-    def post_process(self, docs, query):
-        """
-        Post processing to remove unwanted fields from all task queries
-        """
-        _ = [doc.pop(k, None) for doc in docs for k in ("tags", "sbxn", "dir_name")]
-        return docs
-
-
-class TrajectoryQuery(QueryOperator):
-    """
-    Method to generate a query on calculation trajectory data from task documents
-    """
-
-    def query(
-        self,
-        task_ids: str | None = Query(
-            None,
-            description="Comma-separated list of task_ids to query on",
-        ),
-    ) -> STORE_PARAMS:
-        return {
-            "criteria": (
-                {
-                    "task_id": {
-                        "$in": [task_id.strip() for task_id in task_ids.split(",")]
-                    }
-                }
-                if task_ids
-                else {}
-            )
-        }
-
-    def post_process(self, docs, query):
-        """
-        Post processing to generate trajectory data
-        """
-        return [
-            {
-                "task_id": doc["task_id"],
-                "trajectories": [
-                    traj.model_dump(mode="json")
-                    for traj in calcs_reversed_to_trajectory(doc["calcs_reversed"])
-                ],
-            }
-            for doc in docs
-        ]
-
-
-class EntryQuery(QueryOperator):
+class EntryQuery(MultiTaskIDQuery):
     """
     Method to generate a query on calculation entry data from task documents
     """
-
-    def query(
-        self,
-        task_ids: str | None = Query(
-            None,
-            description="Comma-separated list of task_ids to query on",
-        ),
-    ) -> STORE_PARAMS:
-        return {
-            "criteria": (
-                {
-                    "task_id": {
-                        "$in": [task_id.strip() for task_id in task_ids.split(",")]
-                    }
-                }
-                if task_ids
-                else {}
-            )
-        }
 
     def post_process(self, docs, query):
         """
@@ -296,35 +200,4 @@ class EntryQuery(QueryOperator):
         return [
             {"task_id": doc["task_id"], "entry": jsanitize(task_to_entry(doc))}
             for doc in docs
-        ]
-
-
-class DeprecationQuery(QueryOperator):
-    """
-    Method to generate a query on deprecated calculation data from task documents.
-    """
-
-    def query(
-        self,
-        task_ids: str = Query(
-            ...,
-            description="Comma-separated list of task_ids to query on",
-        ),
-    ) -> STORE_PARAMS:
-        self.task_ids = [task_id.strip() for task_id in task_ids.split(",")]
-        return {
-            "criteria": {"deprecated_tasks": {"$in": self.task_ids}} if task_ids else {}
-        }
-
-    def post_process(self, docs, query):
-        """
-        Post processing to generate deprecation data
-        """
-        return [
-            {
-                "task_id": task_id,
-                "deprecated": any(task_id in doc["deprecated_tasks"] for doc in docs),
-                "deprecation_reason": None,
-            }
-            for task_id in self.task_ids
         ]

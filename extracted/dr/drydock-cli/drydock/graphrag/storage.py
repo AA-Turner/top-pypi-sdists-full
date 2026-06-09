@@ -200,7 +200,7 @@ class Index:
     # ------------------------------------------------------------------
 
     def ingest_path(self, root: str | Path) -> dict[str, int]:
-        """Ingest all .py + .md/.txt files under `root`. Idempotent: a
+        """Ingest all .py + .md/.markdown/.rst/.txt + .pdf files under `root`. Idempotent: a
         re-ingest of the same root replaces records for files that
         re-appear (so editing a file then re-ingesting refreshes
         symbols / chunks).

@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2013 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -11,3 +10,5 @@ from slixmpp.plugins.xep_0095.stream_initiation import XEP_0095
 
 
 register_plugin(XEP_0095)
+
+__all__ = ['stanza', 'SI', 'XEP_0095']

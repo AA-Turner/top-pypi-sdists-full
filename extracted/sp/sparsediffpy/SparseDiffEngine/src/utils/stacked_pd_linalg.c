@@ -35,14 +35,14 @@ matrix *copy_sparsity_spd_alloc(const stacked_pd *A)
 {
     int n_blocks = A->n_blocks;
     permuted_dense **C_blocks =
-        (permuted_dense **) SP_MALLOC(n_blocks * sizeof(permuted_dense *));
+        (permuted_dense **) sp_malloc(n_blocks * sizeof(permuted_dense *));
     for (int k = 0; k < n_blocks; k++)
     {
         C_blocks[k] = (permuted_dense *) copy_sparsity_pd_alloc(A->blocks[k]);
     }
 
     matrix *C = new_stacked_pd(A->base.m, A->base.n, n_blocks, C_blocks, NULL, NULL);
-    free(C_blocks);
+    sp_free(C_blocks);
     return C;
 }
 
@@ -67,7 +67,7 @@ matrix *transpose_spd_alloc(const stacked_pd *A)
 {
     int n_blocks = A->n_blocks;
     permuted_dense **AT_blocks =
-        (permuted_dense **) SP_MALLOC(n_blocks * sizeof(permuted_dense *));
+        (permuted_dense **) sp_malloc(n_blocks * sizeof(permuted_dense *));
     for (int k = 0; k < n_blocks; k++)
     {
         AT_blocks[k] = (permuted_dense *) transpose_pd_alloc(A->blocks[k]);
@@ -77,7 +77,7 @@ matrix *transpose_spd_alloc(const stacked_pd *A)
        overlap so use the unchecked constructor. */
     matrix *raw = new_stacked_pd_unchecked(A->base.n, A->base.m, n_blocks, AT_blocks,
                                            NULL, NULL);
-    free(AT_blocks);
+    sp_free(AT_blocks);
 
     matrix *C = coalesce_spd_alloc((stacked_pd *) raw);
     ((stacked_pd *) C)->pre_coalesce = (stacked_pd *) raw;
@@ -126,13 +126,13 @@ static matrix *spd_blockwise_alloc_coalesce(const stacked_pd *spd_iter, int Cm,
 {
     int n_blocks = spd_iter->n_blocks;
     permuted_dense **partials =
-        (permuted_dense **) SP_MALLOC(n_blocks * sizeof(permuted_dense *));
+        (permuted_dense **) sp_malloc(n_blocks * sizeof(permuted_dense *));
     for (int k = 0; k < n_blocks; k++)
     {
         partials[k] = (permuted_dense *) op(spd_iter->blocks[k], ctx);
     }
     matrix *raw = new_stacked_pd_unchecked(Cm, Cn, n_blocks, partials, NULL, NULL);
-    free(partials);
+    sp_free(partials);
     matrix *C = coalesce_spd_alloc_unchecked((stacked_pd *) raw);
     ((stacked_pd *) C)->pre_coalesce = (stacked_pd *) raw;
     return C;
@@ -217,8 +217,8 @@ matrix *BTA_pd_spd_alloc(const permuted_dense *B, const stacked_pd *A)
     // Find column permutations of C. An A-block contributes if its row_perm overlaps
     // B's row_perm.
     // ------------------------------------------------------------------------------
-    const int **col_perms = (const int **) SP_MALLOC(n_blocks * sizeof(int *));
-    int *lens = (int *) SP_MALLOC(n_blocks * sizeof(int));
+    const int **col_perms = (const int **) sp_malloc(n_blocks * sizeof(int *));
+    int *lens = (int *) sp_malloc(n_blocks * sizeof(int));
 
     int n_contributing_A_blocks = 0;
     for (int k = 0; k < n_blocks; k++)
@@ -242,8 +242,8 @@ matrix *BTA_pd_spd_alloc(const permuted_dense *B, const stacked_pd *A)
                                    B->col_perm, col_union->data, NULL);
 
     iVec_free(col_union);
-    free(col_perms);
-    free(lens);
+    sp_free(col_perms);
+    sp_free(lens);
 
     // -------------------------------------------------------------------------------
     // Set up workspace. We need:
@@ -266,7 +266,7 @@ matrix *BTA_pd_spd_alloc(const permuted_dense *B, const stacked_pd *A)
     }
 
     C_pd->kernel_iwork_size = (size_t) 2 + (size_t) 2 * s_max + (size_t) max_n0_A;
-    C_pd->kernel_iwork = (int *) SP_MALLOC(C_pd->kernel_iwork_size * sizeof(int));
+    C_pd->kernel_iwork = (int *) sp_malloc(C_pd->kernel_iwork_size * sizeof(int));
     C_pd->kernel_iwork[0] = s_max;
     C_pd->kernel_iwork[1] = max_n0_A;
 

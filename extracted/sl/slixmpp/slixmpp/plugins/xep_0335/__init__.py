@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2018 Maxime “pep” Buquet
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.plugins.xep_0335.stanza import JSON_Container
 from slixmpp.plugins.xep_0335.json_containers import XEP_0335
 
 register_plugin(XEP_0335)
+
+__all__ = ['stanza', 'JSON_Container', 'XEP_0335']

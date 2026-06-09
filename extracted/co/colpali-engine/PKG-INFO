@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: colpali_engine
-Version: 0.3.16
+Version: 0.3.17
 Summary: The code used to train and run inference with the ColPali architecture.
 Project-URL: homepage, https://github.com/illuin-tech/colpali
 Author-email: Manuel Faysse <manuel.faysse@illuin.tech>, Hugues Sibille <hugues.sibille@illuin.tech>, Tony Wu <tony.wu@illuin.tech>
@@ -27,6 +27,7 @@ Requires-Dist: bitsandbytes; extra == 'all'
 Requires-Dist: configue>=5.0.0; extra == 'all'
 Requires-Dist: datasets>=2.19.1; extra == 'all'
 Requires-Dist: einops<1.0.0,>=0.8.0; extra == 'all'
+Requires-Dist: late-interaction-kernels<0.5.0,>=0.4.1; extra == 'all'
 Requires-Dist: matplotlib<4.0.0,>=3.9.0; extra == 'all'
 Requires-Dist: mteb<3,>=1.16.3; extra == 'all'
 Requires-Dist: pillow<12.3.0,>=10.0.0; extra == 'all'
@@ -41,6 +42,8 @@ Provides-Extra: interpretability
 Requires-Dist: einops<1.0.0,>=0.8.0; extra == 'interpretability'
 Requires-Dist: matplotlib<4.0.0,>=3.9.0; extra == 'interpretability'
 Requires-Dist: seaborn<1.0.0,>=0.13.2; extra == 'interpretability'
+Provides-Extra: lik
+Requires-Dist: late-interaction-kernels<0.5.0,>=0.4.1; extra == 'lik'
 Provides-Extra: train
 Requires-Dist: accelerate<2.0.0,>=1.1.0; extra == 'train'
 Requires-Dist: bitsandbytes; extra == 'train'
@@ -113,6 +116,16 @@ Mac users using MPS with the ColQwen models have reported errors with torch 2.6.
 
 > [!WARNING]
 > For ColPali versions above v1.0, make sure to install the `colpali-engine` package from source or with a version above v0.2.0.
+
+### Fused MaxSim kernels (optional)
+
+The optional `[lik]` extra installs [`late-interaction-kernels`](https://github.com/hcompai/late-interaction-kernels), a fused Triton MaxSim kernel used automatically on CUDA Ampere+ / Apple Silicon for scoring and the ColBERT losses. It avoids materializing the `[B, B, Lq, Ld]` score tensor, whose memory cost grows quadratically with the batch size and can become the allocation that caps it: in our ColQwen2 + LoRA benchmark on an 80 GB H100, this raised the largest trainable batch size from 64 to 128, with unchanged end-to-end throughput. Full benchmark results in [illuin-tech/colpali#412](https://github.com/illuin-tech/colpali/pull/412):
+
+```bash
+pip install "colpali-engine[lik]"
+```
+
+The `COLPALI_SCORES_BACKEND` environment variable selects the backend (mirrors PyLate's `PYLATE_SCORES_BACKEND`): `auto` (default) uses the kernel when eligible and silently falls back to torch, `torch` forces the pure-torch reference, and `lik` requires the kernel and raises if it cannot run.
 
 ## Development docs
 

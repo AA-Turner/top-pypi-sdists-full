@@ -40,7 +40,10 @@ class Order(BaseModel):
     timestamp: Union[StrictFloat, StrictInt] = Field(description="Unix timestamp in milliseconds when the order was created.")
     fee: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Fee paid for this order, if known.")
     fee_rate_bps: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Fee rate in basis points applied to this order (e.g. 100 = 1%).", alias="feeRateBps")
-    __properties: ClassVar[List[str]] = ["id", "marketId", "outcomeId", "side", "type", "price", "amount", "status", "filled", "filledShares", "remaining", "timestamp", "fee", "feeRateBps"]
+    tx_hash: Optional[StrictStr] = Field(default=None, description="Populated in hosted mode after on-chain settlement; null for local-mode and for non-on-chain venues.", alias="txHash")
+    chain: Optional[StrictStr] = Field(default=None, description="Populated in hosted mode after on-chain settlement; null for local-mode and for non-on-chain venues.")
+    block_number: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Populated in hosted mode after on-chain settlement; null for local-mode and for non-on-chain venues.", alias="blockNumber")
+    __properties: ClassVar[List[str]] = ["id", "marketId", "outcomeId", "side", "type", "price", "amount", "status", "filled", "filledShares", "remaining", "timestamp", "fee", "feeRateBps", "txHash", "chain", "blockNumber"]
 
     @field_validator('side')
     def side_validate_enum(cls, value):
@@ -102,6 +105,21 @@ class Order(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if tx_hash (nullable) is None
+        # and model_fields_set contains the field
+        if self.tx_hash is None and "tx_hash" in self.model_fields_set:
+            _dict['txHash'] = None
+
+        # set to None if chain (nullable) is None
+        # and model_fields_set contains the field
+        if self.chain is None and "chain" in self.model_fields_set:
+            _dict['chain'] = None
+
+        # set to None if block_number (nullable) is None
+        # and model_fields_set contains the field
+        if self.block_number is None and "block_number" in self.model_fields_set:
+            _dict['blockNumber'] = None
+
         return _dict
 
     @classmethod
@@ -127,7 +145,10 @@ class Order(BaseModel):
             "remaining": obj.get("remaining"),
             "timestamp": obj.get("timestamp"),
             "fee": obj.get("fee"),
-            "feeRateBps": obj.get("feeRateBps")
+            "feeRateBps": obj.get("feeRateBps"),
+            "txHash": obj.get("txHash"),
+            "chain": obj.get("chain"),
+            "blockNumber": obj.get("blockNumber")
         })
         return _obj
 

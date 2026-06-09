@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2012 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -9,3 +8,5 @@ from . import stanza
 from .sims import XEP_0385
 
 register_plugin(XEP_0385)
+
+__all__ = ['stanza', 'XEP_0385']

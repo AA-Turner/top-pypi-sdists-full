@@ -1,13 +1,13 @@
 [build-system]
-requires = ["setuptools<83"]
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pulp-glue"
-version = "0.39.3"
+version = "0.40.1"
 description = "Version agnostic glue library to talk to pulpcore's REST API."
 readme = "README.md"
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.10,<3.16"
 license = "GPL-2.0-or-later"
 authors = [
   {name = "Pulp Team", email = "pulp-list@redhat.com"},
@@ -25,7 +25,8 @@ dependencies = [
   "multidict>=6.0.5,<6.8",
   "packaging>=22.0,<=26.2",  # CalVer
   "pydantic>=2.9.2,<3",  # Stable with the exception of experimental features. https://pydantic.dev/docs/validation/latest/get-started/version-policy
-  "requests>=2.24.0,<2.34",
+  "requests>=2.24.0,<2.34;python_version<'3.12'",
+  "requests>=2.25.1,<2.34;python_version>='3.12'",
   "tomli>=2.0.0,<2.1;python_version<'3.11'",
 ]
 
@@ -33,6 +34,11 @@ dependencies = [
 documentation = "https://pulpproject.org/pulp-glue/docs/dev/"
 repository = "https://github.com/pulp/pulp-cli"
 changelog = "https://pulpproject.org/pulp-cli/changes/"
+
+[tool.uv.build-backend]
+package-name = ["pulp_glue"]
+namespace = true
+source-exclude = ["*.pot", "*.po", "**/*\\~"]
 
 [tool.setuptools.packages.find]
 # This section is managed by the cookiecutter templates.
@@ -69,5 +75,5 @@ line-length = 100
 
 [tool.ruff.lint]
 # This section is managed by the cookiecutter templates.
-extend-select = ["I"]
+extend-select = ["I", "INT"]
 

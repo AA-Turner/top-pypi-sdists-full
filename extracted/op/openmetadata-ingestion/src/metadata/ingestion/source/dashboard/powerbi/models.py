@@ -11,6 +11,7 @@
 """
 PowerBI Models
 """
+
 from datetime import datetime
 from typing import List, Optional, Union
 
@@ -53,11 +54,11 @@ class PowerBIDashboard(BaseModel):
     """
 
     id: str
-    displayName: str | None = None  # noqa: N815
-    webUrl: Optional[str] = None  # noqa: N815, UP045
-    embedUrl: Optional[str] = None  # noqa: N815, UP045
-    tiles: Optional[List[Tile]] = []  # noqa: UP006, UP045
-    users: Optional[List[PowerBIUser]] = []  # noqa: UP006, UP045
+    displayName: str | None = None
+    webUrl: Optional[str] = None
+    embedUrl: Optional[str] = None
+    tiles: Optional[List[Tile]] = []
+    users: Optional[List[PowerBIUser]] = []
 
 
 class PowerBIReport(BaseModel):
@@ -68,11 +69,11 @@ class PowerBIReport(BaseModel):
 
     id: str
     name: str | None = None
-    datasetId: Optional[str] = None  # noqa: N815, UP045
-    users: Optional[List[PowerBIUser]] = []  # noqa: UP006, UP045
-    modifiedBy: Optional[str] = None  # noqa: N815, UP045
-    description: Optional[str] = None  # noqa: UP045
-    format: Optional[str] = None  # noqa: UP045
+    datasetId: Optional[str] = None
+    users: Optional[List[PowerBIUser]] = []
+    modifiedBy: Optional[str] = None
+    description: Optional[str] = None
+    format: Optional[str] = None
 
 
 class DashboardsResponse(BaseModel):
@@ -112,9 +113,9 @@ class PowerBiColumns(BaseModel):
     """
 
     name: str | None = None
-    dataType: Optional[str] = None  # noqa: N815, UP045
-    columnType: Optional[str] = None  # noqa: N815, UP045
-    description: Optional[str] = None  # noqa: UP045
+    dataType: Optional[str] = None
+    columnType: Optional[str] = None
+    description: Optional[str] = None
 
 
 class PowerBiMeasureModel(BaseModel):
@@ -122,10 +123,10 @@ class PowerBiMeasureModel(BaseModel):
     Represents a Power BI measure, used before converting to a Column instance.
     """
 
-    dataType: str  # noqa: N815
-    dataTypeDisplay: str  # noqa: N815
+    dataType: str
+    dataTypeDisplay: str
     name: str | None = None
-    displayName: Optional[str] = None  # noqa: N815, UP045
+    displayName: Optional[str] = None
     description: str
 
 
@@ -136,9 +137,9 @@ class PowerBiMeasures(BaseModel):
     """
 
     name: str | None = None
-    expression: Optional[Union[str, List[str]]] = None  # noqa: UP006, UP007, UP045
-    description: Optional[str] = None  # noqa: UP045
-    isHidden: Optional[bool] = False  # noqa: N815, UP045
+    expression: Optional[Union[str, List[str]]] = None
+    description: Optional[str] = None
+    isHidden: Optional[bool] = False
 
     @field_validator("expression", mode="before")
     @classmethod
@@ -180,11 +181,11 @@ class PowerBiTable(BaseModel):
     """
 
     name: str | None = None
-    columns: Optional[List[PowerBiColumns]] = None  # noqa: UP006, UP045
-    measures: Optional[List[PowerBiMeasures]] = None  # noqa: UP006, UP045
-    description: Optional[str] = None  # noqa: UP045
-    source: Optional[List[PowerBITableSource]] = None  # noqa: UP006, UP045
-    partitions: Optional[List[PowerBIPartition]] = None  # noqa: UP006, UP045
+    columns: Optional[List[PowerBiColumns]] = None
+    measures: Optional[List[PowerBiMeasures]] = None
+    description: Optional[str] = None
+    source: Optional[List[PowerBITableSource]] = None
+    partitions: Optional[List[PowerBIPartition]] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -212,7 +213,7 @@ class TablesResponse(BaseModel):
 
 class DatasetExpression(BaseModel):
     name: str | None = None
-    expression: Optional[Union[str, List[str]]] = None  # noqa: UP006, UP007, UP045
+    expression: Optional[Union[str, List[str]]] = None
 
     @field_validator("expression", mode="before")
     @classmethod
@@ -240,13 +241,13 @@ class Dataset(BaseModel):
 
     id: str
     name: str | None = None
-    tables: Optional[List[PowerBiTable]] = []  # noqa: UP006, UP045
-    description: Optional[str] = None  # noqa: UP045
-    users: Optional[List[PowerBIUser]] = []  # noqa: UP006, UP045
-    expressions: Optional[List[DatasetExpression]] = []  # noqa: UP006, UP045
-    configuredBy: Optional[str] = None  # noqa: N815, UP045
-    upstreamDataflows: Optional[List[UpstreaDataflow]] = []  # noqa: N815, UP006, UP045
-    upstreamDatasets: Optional[List[UpstreaDataset]] = []  # noqa: N815, UP006, UP045
+    tables: Optional[List[PowerBiTable]] = []
+    description: Optional[str] = None
+    users: Optional[List[PowerBIUser]] = []
+    expressions: Optional[List[DatasetExpression]] = []
+    configuredBy: Optional[str] = None
+    upstreamDataflows: Optional[List[UpstreaDataflow]] = []
+    upstreamDatasets: Optional[List[UpstreaDataset]] = []
 
 
 class DatasetResponse(BaseModel):
@@ -262,10 +263,10 @@ class DatasetResponse(BaseModel):
 class Dataflow(BaseModel):
     id: str = Field(alias="objectId")
     name: str | None = None
-    description: Optional[str] = None  # noqa: UP045
-    users: Optional[List[PowerBIUser]] = []  # noqa: UP006, UP045
-    modifiedBy: Optional[str] = None  # noqa: N815, UP045
-    upstreamDataflows: Optional[List[UpstreaDataflow]] = []  # noqa: N815, UP006, UP045
+    description: Optional[str] = None
+    users: Optional[List[PowerBIUser]] = []
+    modifiedBy: Optional[str] = None
+    upstreamDataflows: Optional[List[UpstreaDataflow]] = []
 
 
 class Group(BaseModel):
@@ -359,7 +360,7 @@ class ReportPage(BaseModel):
     """
 
     name: str | None = None
-    displayName: Optional[str] = None  # noqa: N815, UP045
+    displayName: Optional[str] = None
 
 
 class ReportPagesAPIResponse(BaseModel):
@@ -412,8 +413,8 @@ class DataflowEntityAttribute(BaseModel):
     """
 
     name: str | None = None
-    dataType: Optional[str] = None  # noqa: N815, UP045
-    description: Optional[str] = None  # noqa: UP045
+    dataType: Optional[str] = None
+    description: Optional[str] = None
 
 
 class DataflowEntity(BaseModel):
@@ -424,8 +425,8 @@ class DataflowEntity(BaseModel):
     """
 
     name: str | None = None
-    description: Optional[str] = None  # noqa: UP045
-    attributes: Optional[List[DataflowEntityAttribute]] = []  # noqa: UP006, UP045
+    description: Optional[str] = None
+    attributes: Optional[List[DataflowEntityAttribute]] = []
 
 
 class DataflowQueryMetadata(BaseModel):

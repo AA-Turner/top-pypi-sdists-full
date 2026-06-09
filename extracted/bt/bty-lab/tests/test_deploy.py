@@ -68,6 +68,76 @@ def test_compose_uses_bind_mount_data_dirs(tmp_path: Path) -> None:
     assert "volumes:\n  withcache-data:" not in body
 
 
+def test_compose_pins_dns_for_stock_ubuntu_hosts(tmp_path: Path) -> None:
+    """withcache + bty-web reach out to GHCR / github.com for blobs +
+    release artifacts. On stock Ubuntu, /etc/resolv.conf points at
+    127.0.0.53 (systemd-resolved stub) which containers can't reach,
+    AND aardvark-dns isn't installed, so podman's bridge gateway also
+    fails as a forwarder. Compose hard-sets DNS so deploy works without
+    operator-side networking archaeology. Override via BTY_DNS in
+    envvars for internal resolvers."""
+    dest = tmp_path / "bty-host"
+    deploy_mod.init_main([str(dest)])
+    body = (dest / "compose.yml").read_text(encoding="utf-8")
+    withcache_block = body.split("  withcache:", 1)[1].split("  bty-web:", 1)[0]
+    bty_web_block = body.split("  bty-web:", 1)[1].split("  tftp:", 1)[0]
+    # Both volume-mounted services declare a DNS via the BTY_DNS knob.
+    assert "${BTY_DNS:-1.1.1.1}" in withcache_block
+    assert "${BTY_DNS:-1.1.1.1}" in bty_web_block
+    # tftp uses host networking, so it doesn't need (and shouldn't have) a dns: block.
+    tftp_block = body.split("  tftp:", 1)[1]
+    assert "${BTY_DNS" not in tftp_block
+
+
+def test_quadlets_pin_dns_for_stock_ubuntu_hosts(tmp_path: Path) -> None:
+    """Same reason as the compose test -- Quadlet-managed installs also
+    run with the systemd-resolved + missing-aardvark-dns gotcha."""
+    dest = tmp_path / "bty-host"
+    deploy_mod.init_main([str(dest), "--systemd"])
+    bty_web_unit = (dest / "quadlet" / "bty-web.container").read_text(encoding="utf-8")
+    withcache_unit = (dest / "quadlet" / "withcache.container").read_text(encoding="utf-8")
+    tftp_unit = (dest / "quadlet" / "bty-tftp.container").read_text(encoding="utf-8")
+    assert "DNS=1.1.1.1" in bty_web_unit
+    assert "DNS=1.1.1.1" in withcache_unit
+    # tftp = host networking; the DNS= line would be ignored, so don't emit it.
+    assert "DNS=" not in tftp_unit
+
+
+def test_envvars_example_documents_bty_dns(tmp_path: Path) -> None:
+    dest = tmp_path / "bty-host"
+    deploy_mod.init_main([str(dest)])
+    example = (dest / "envvars.example").read_text(encoding="utf-8")
+    assert "# BTY_DNS=" in example
+    # Live envvars rendered for deploy_main also advertises the knob,
+    # but commented (we ship a sane default).
+    live = deploy_mod._render_envvars_filled(
+        host_addr="10.0.0.5",
+        withcache_pw="bty",
+        admin_pw="bty",
+        session_secret="x" * 32,
+        data_dir_abs="/opt/bty/data",
+    )
+    assert "# BTY_DNS=" in live
+
+
+def test_prepare_data_dirs_creates_world_writable_mounts(tmp_path: Path) -> None:
+    """withcache (USER app) + bty-web (USER bty) bind-mount ./data/{withcache,bty}
+    and need to write under those paths. Their image-defined UIDs don't match
+    the host operator's, so deploy.py pre-creates the dirs with mode 0o777
+    BEFORE compose up. v0.39.0 shipped without this and withcache crashed on
+    `Permission denied: /data/blobs`."""
+    data_dir = tmp_path / "data"
+    created = deploy_mod._prepare_data_dirs(data_dir)
+    assert sorted(p.name for p in created) == ["bty", "withcache"]
+    for p in created:
+        assert p.is_dir()
+        # Mode mask -- check the low 9 bits are 0o777 regardless of umask.
+        assert (p.stat().st_mode & 0o777) == 0o777, p
+    # Idempotent: a second call on an existing tree is a no-op.
+    again = deploy_mod._prepare_data_dirs(data_dir)
+    assert [p.name for p in again] == ["withcache", "bty"]
+
+
 def test_env_example_has_required_keys(tmp_path: Path) -> None:
     dest = tmp_path / "bty-host"
     deploy_mod.init_main([str(dest)])

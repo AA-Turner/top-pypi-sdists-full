@@ -1,4 +1,4 @@
-// AUTO GENERATED ON 2026-02-08 AT 18:23:02
+// AUTO GENERATED ON 2026-06-08 AT 11:28:09
 // DO NOT EDIT BY HAND!
 //
 // To regenerate file, run
@@ -1095,17 +1095,20 @@ extern "C" {
   awkward_ListOffsetArray32_reduce_local_nextparents_64(
     int64_t* nextparents,
     const int32_t* offsets,
-    int64_t length);
+    int64_t length,
+    int64_t nextparents_length);
   EXPORT_SYMBOL ERROR
   awkward_ListOffsetArray64_reduce_local_nextparents_64(
     int64_t* nextparents,
     const int64_t* offsets,
-    int64_t length);
+    int64_t length,
+    int64_t nextparents_length);
   EXPORT_SYMBOL ERROR
   awkward_ListOffsetArrayU32_reduce_local_nextparents_64(
     int64_t* nextparents,
     const uint32_t* offsets,
-    int64_t length);
+    int64_t length,
+    int64_t nextparents_length);
 
   EXPORT_SYMBOL ERROR
   awkward_ListOffsetArray_reduce_local_outoffsets_64(
@@ -2123,70 +2126,90 @@ extern "C" {
     int64_t* toptr,
     const int8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmax_int16_64(
     int64_t* toptr,
     const int16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmax_int32_64(
     int64_t* toptr,
     const int32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmax_int64_64(
     int64_t* toptr,
     const int64_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmax_uint8_64(
     int64_t* toptr,
     const uint8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmax_uint16_64(
     int64_t* toptr,
     const uint16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmax_uint32_64(
     int64_t* toptr,
     const uint32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmax_uint64_64(
     int64_t* toptr,
     const uint64_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmax_float32_64(
     int64_t* toptr,
     const float* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmax_float64_64(
     int64_t* toptr,
     const double* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
@@ -2194,6 +2217,7 @@ extern "C" {
     int64_t* toptr,
     const float* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2201,6 +2225,7 @@ extern "C" {
     int64_t* toptr,
     const double* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
 
@@ -2209,70 +2234,90 @@ extern "C" {
     int64_t* toptr,
     const int8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_int16_64(
     int64_t* toptr,
     const int16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_int32_64(
     int64_t* toptr,
     const int32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_int64_64(
     int64_t* toptr,
     const int64_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_uint8_64(
     int64_t* toptr,
     const uint8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_uint16_64(
     int64_t* toptr,
     const uint16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_uint32_64(
     int64_t* toptr,
     const uint32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_uint64_64(
     int64_t* toptr,
     const uint64_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_float32_64(
     int64_t* toptr,
     const float* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
   awkward_reduce_argmin_float64_64(
     int64_t* toptr,
     const double* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
+    const int64_t* starts,
     int64_t outlength);
 
   EXPORT_SYMBOL ERROR
@@ -2280,6 +2325,7 @@ extern "C" {
     int64_t* toptr,
     const float* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2287,6 +2333,7 @@ extern "C" {
     int64_t* toptr,
     const double* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
 
@@ -2395,6 +2442,7 @@ extern "C" {
     int8_t* toptr,
     const int8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     int8_t identity);
@@ -2403,6 +2451,7 @@ extern "C" {
     int16_t* toptr,
     const int16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     int16_t identity);
@@ -2411,6 +2460,7 @@ extern "C" {
     int32_t* toptr,
     const int32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     int32_t identity);
@@ -2419,6 +2469,7 @@ extern "C" {
     int64_t* toptr,
     const int64_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     int64_t identity);
@@ -2427,6 +2478,7 @@ extern "C" {
     uint8_t* toptr,
     const uint8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     uint8_t identity);
@@ -2435,6 +2487,7 @@ extern "C" {
     uint16_t* toptr,
     const uint16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     uint16_t identity);
@@ -2443,6 +2496,7 @@ extern "C" {
     uint32_t* toptr,
     const uint32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     uint32_t identity);
@@ -2451,6 +2505,7 @@ extern "C" {
     uint64_t* toptr,
     const uint64_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     uint64_t identity);
@@ -2459,6 +2514,7 @@ extern "C" {
     float* toptr,
     const float* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     float identity);
@@ -2467,6 +2523,7 @@ extern "C" {
     double* toptr,
     const double* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     double identity);
@@ -2476,6 +2533,7 @@ extern "C" {
     float* toptr,
     const float* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     float identity);
@@ -2484,6 +2542,7 @@ extern "C" {
     double* toptr,
     const double* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     double identity);
@@ -2493,6 +2552,7 @@ extern "C" {
     int8_t* toptr,
     const int8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     int8_t identity);
@@ -2501,6 +2561,7 @@ extern "C" {
     int16_t* toptr,
     const int16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     int16_t identity);
@@ -2509,6 +2570,7 @@ extern "C" {
     int32_t* toptr,
     const int32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     int32_t identity);
@@ -2517,6 +2579,7 @@ extern "C" {
     int64_t* toptr,
     const int64_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     int64_t identity);
@@ -2525,6 +2588,7 @@ extern "C" {
     uint8_t* toptr,
     const uint8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     uint8_t identity);
@@ -2533,6 +2597,7 @@ extern "C" {
     uint16_t* toptr,
     const uint16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     uint16_t identity);
@@ -2541,6 +2606,7 @@ extern "C" {
     uint32_t* toptr,
     const uint32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     uint32_t identity);
@@ -2549,6 +2615,7 @@ extern "C" {
     uint64_t* toptr,
     const uint64_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     uint64_t identity);
@@ -2557,6 +2624,7 @@ extern "C" {
     float* toptr,
     const float* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     float identity);
@@ -2565,6 +2633,7 @@ extern "C" {
     double* toptr,
     const double* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     double identity);
@@ -2574,6 +2643,7 @@ extern "C" {
     float* toptr,
     const float* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     float identity);
@@ -2582,6 +2652,7 @@ extern "C" {
     double* toptr,
     const double* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength,
     double identity);
@@ -2591,6 +2662,7 @@ extern "C" {
     int32_t* toptr,
     const int8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2598,6 +2670,7 @@ extern "C" {
     int32_t* toptr,
     const int16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2605,6 +2678,7 @@ extern "C" {
     int32_t* toptr,
     const int32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2612,6 +2686,7 @@ extern "C" {
     int64_t* toptr,
     const int8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2619,6 +2694,7 @@ extern "C" {
     int64_t* toptr,
     const int16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2626,6 +2702,7 @@ extern "C" {
     int64_t* toptr,
     const int32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2633,6 +2710,7 @@ extern "C" {
     int64_t* toptr,
     const int64_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2640,6 +2718,7 @@ extern "C" {
     uint32_t* toptr,
     const uint8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2647,6 +2726,7 @@ extern "C" {
     uint32_t* toptr,
     const uint16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2654,6 +2734,7 @@ extern "C" {
     uint32_t* toptr,
     const uint32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2661,6 +2742,7 @@ extern "C" {
     uint64_t* toptr,
     const uint8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2668,6 +2750,7 @@ extern "C" {
     uint64_t* toptr,
     const uint16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2675,6 +2758,7 @@ extern "C" {
     uint64_t* toptr,
     const uint32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2682,6 +2766,7 @@ extern "C" {
     uint64_t* toptr,
     const uint64_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2689,6 +2774,7 @@ extern "C" {
     float* toptr,
     const float* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2696,6 +2782,7 @@ extern "C" {
     double* toptr,
     const double* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
 
@@ -2704,6 +2791,7 @@ extern "C" {
     float* toptr,
     const float* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2711,6 +2799,7 @@ extern "C" {
     double* toptr,
     const double* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
 
@@ -2719,6 +2808,7 @@ extern "C" {
     bool* toptr,
     const bool* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2726,6 +2816,7 @@ extern "C" {
     bool* toptr,
     const int8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2733,6 +2824,7 @@ extern "C" {
     bool* toptr,
     const int16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2740,6 +2832,7 @@ extern "C" {
     bool* toptr,
     const int32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2747,6 +2840,7 @@ extern "C" {
     bool* toptr,
     const int64_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2754,6 +2848,7 @@ extern "C" {
     bool* toptr,
     const uint8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2761,6 +2856,7 @@ extern "C" {
     bool* toptr,
     const uint16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2768,6 +2864,7 @@ extern "C" {
     bool* toptr,
     const uint32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2775,6 +2872,7 @@ extern "C" {
     bool* toptr,
     const uint64_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2782,6 +2880,7 @@ extern "C" {
     bool* toptr,
     const float* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2789,6 +2888,7 @@ extern "C" {
     bool* toptr,
     const double* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
 
@@ -2797,6 +2897,7 @@ extern "C" {
     bool* toptr,
     const float* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2804,6 +2905,7 @@ extern "C" {
     bool* toptr,
     const double* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
 
@@ -2812,6 +2914,7 @@ extern "C" {
     int32_t* toptr,
     const int8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2819,6 +2922,7 @@ extern "C" {
     int32_t* toptr,
     const int16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2826,6 +2930,7 @@ extern "C" {
     int32_t* toptr,
     const int32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2833,6 +2938,7 @@ extern "C" {
     int64_t* toptr,
     const int8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2840,6 +2946,7 @@ extern "C" {
     int64_t* toptr,
     const int16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2847,6 +2954,7 @@ extern "C" {
     int64_t* toptr,
     const int32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2854,6 +2962,7 @@ extern "C" {
     int64_t* toptr,
     const int64_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2861,6 +2970,7 @@ extern "C" {
     uint32_t* toptr,
     const uint8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2868,6 +2978,7 @@ extern "C" {
     uint32_t* toptr,
     const uint16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2875,6 +2986,7 @@ extern "C" {
     uint32_t* toptr,
     const uint32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2882,6 +2994,7 @@ extern "C" {
     uint64_t* toptr,
     const uint8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2889,6 +3002,7 @@ extern "C" {
     uint64_t* toptr,
     const uint16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2896,6 +3010,7 @@ extern "C" {
     uint64_t* toptr,
     const uint32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2903,6 +3018,7 @@ extern "C" {
     uint64_t* toptr,
     const uint64_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2910,6 +3026,7 @@ extern "C" {
     float* toptr,
     const float* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2917,6 +3034,7 @@ extern "C" {
     double* toptr,
     const double* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
 
@@ -2925,6 +3043,7 @@ extern "C" {
     float* toptr,
     const float* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2932,6 +3051,7 @@ extern "C" {
     double* toptr,
     const double* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
 
@@ -2940,6 +3060,7 @@ extern "C" {
     bool* toptr,
     const bool* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2947,6 +3068,7 @@ extern "C" {
     bool* toptr,
     const int8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2954,6 +3076,7 @@ extern "C" {
     bool* toptr,
     const int16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2961,6 +3084,7 @@ extern "C" {
     bool* toptr,
     const int32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2968,6 +3092,7 @@ extern "C" {
     bool* toptr,
     const int64_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2975,6 +3100,7 @@ extern "C" {
     bool* toptr,
     const uint8_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2982,6 +3108,7 @@ extern "C" {
     bool* toptr,
     const uint16_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2989,6 +3116,7 @@ extern "C" {
     bool* toptr,
     const uint32_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -2996,6 +3124,7 @@ extern "C" {
     bool* toptr,
     const uint64_t* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -3003,6 +3132,7 @@ extern "C" {
     bool* toptr,
     const float* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -3010,6 +3140,7 @@ extern "C" {
     bool* toptr,
     const double* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
 
@@ -3018,6 +3149,7 @@ extern "C" {
     bool* toptr,
     const float* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
   EXPORT_SYMBOL ERROR
@@ -3025,6 +3157,7 @@ extern "C" {
     bool* toptr,
     const double* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
 
@@ -3033,6 +3166,7 @@ extern "C" {
     int32_t* toptr,
     const bool* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
 
@@ -3041,6 +3175,7 @@ extern "C" {
     int64_t* toptr,
     const bool* fromptr,
     const int64_t* parents,
+    const int64_t* offsets,
     int64_t lenparents,
     int64_t outlength);
 

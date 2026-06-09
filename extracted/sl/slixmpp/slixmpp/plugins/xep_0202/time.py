@@ -85,4 +85,3 @@ class XEP_0202(BasePlugin):
         iq['from'] = ifrom
         iq.enable('entity_time')
         return iq.send(**iqargs)
-

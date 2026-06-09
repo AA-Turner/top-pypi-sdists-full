@@ -1,6 +1,3 @@
-import asyncio
-import threading
-import time
 
 import unittest
 from slixmpp.test import SlixTest

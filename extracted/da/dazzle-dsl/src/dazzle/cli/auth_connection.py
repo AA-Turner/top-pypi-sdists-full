@@ -309,6 +309,121 @@ def disable_request_signing(
         console.print(f"[yellow]Request signing was not enabled[/yellow] for {connection_id}.")
 
 
+@connection_app.command("enable-idp-initiated")
+def enable_idp_initiated(
+    connection_id: Annotated[str, typer.Argument(help="SAML connection id")],
+) -> None:
+    """Accept IdP-initiated (unsolicited) SAML Responses on this connection (SAML only).
+
+    OFF by default — Dazzle is SP-initiated only, which is also a replay defense (the one-time
+    session AuthnRequest id). Turning this on accepts unsolicited Responses, which have no such
+    binding; replay is instead prevented by ONE-TIME assertion consumption (an assertion id can be
+    used once within its NotOnOrAfter window). Only enable this if your IdP/portal requires
+    IdP-initiated SSO.
+    """
+    store = _store()
+    conn = store.get_connection(connection_id)
+    if conn is None:
+        console.print(f"[red]No connection {connection_id!r}[/red]")
+        raise typer.Exit(code=1)
+    if conn.type != "saml":
+        console.print(
+            f"[red]Connection {connection_id!r} is {conn.type!r} — IdP-initiated is SAML-only[/red]"
+        )
+        raise typer.Exit(code=1)
+    if (conn.config or {}).get("allow_idp_initiated"):
+        console.print(f"[yellow]IdP-initiated already enabled[/yellow] for {connection_id}.")
+        raise typer.Exit(code=0)
+    store.set_connection_idp_initiated(connection_id, True)
+    console.print(f"[green]IdP-initiated SSO enabled[/green] for connection {connection_id}.")
+    console.print(
+        "[yellow]Unsolicited Responses are now accepted[/yellow] — replay-protected by one-time "
+        "assertion consumption. Disable with [cyan]disable-idp-initiated[/cyan] when no longer needed."
+    )
+
+
+@connection_app.command("disable-idp-initiated")
+def disable_idp_initiated(
+    connection_id: Annotated[str, typer.Argument(help="SAML connection id")],
+) -> None:
+    """Stop accepting IdP-initiated Responses (back to SP-initiated only) for this connection."""
+    store = _store()
+    conn = store.get_connection(connection_id)
+    if conn is None:
+        console.print(f"[red]No connection {connection_id!r}[/red]")
+        raise typer.Exit(code=1)
+    if conn.type != "saml":
+        console.print(
+            f"[red]Connection {connection_id!r} is {conn.type!r} — IdP-initiated is SAML-only[/red]"
+        )
+        raise typer.Exit(code=1)
+    if not (conn.config or {}).get("allow_idp_initiated"):
+        console.print(f"[yellow]IdP-initiated was not enabled[/yellow] for {connection_id}.")
+        raise typer.Exit(code=0)
+    store.set_connection_idp_initiated(connection_id, False)
+    console.print(f"[green]IdP-initiated SSO disabled[/green] for connection {connection_id}.")
+
+
+@connection_app.command("enable-assertion-encryption")
+def enable_assertion_encryption(
+    connection_id: Annotated[str, typer.Argument(help="SAML connection id")],
+) -> None:
+    """Require + decrypt encrypted SAML assertions on this connection (SAML only).
+
+    Reuses the SP keypair if request-signing already created one, else generates it. After
+    enabling, configure the IdP to ENCRYPT assertions and re-import this connection's SP
+    metadata (printed URL) so it has the SP encryption cert. WARNING: once on, a response
+    carrying a plaintext (unencrypted) assertion is rejected — enable the IdP side first.
+    """
+    from dazzle.back.runtime.auth.saml_sp_keys import generate_sp_keypair
+
+    store = _store()
+    conn = store.get_connection(connection_id)
+    if conn is None:
+        console.print(f"[red]No connection {connection_id!r}[/red]")
+        raise typer.Exit(code=1)
+    if conn.type != "saml":
+        console.print(
+            f"[red]Connection {connection_id!r} is {conn.type!r} — assertion encryption is "
+            "SAML-only[/red]"
+        )
+        raise typer.Exit(code=1)
+    if (conn.config or {}).get("encrypt_assertions"):
+        console.print(f"[yellow]Assertion encryption already enabled[/yellow] for {connection_id}.")
+        raise typer.Exit(code=0)
+    cfg = conn.config or {}
+    sp_cert = cfg.get("sp_cert")
+    sp_key = (conn.secrets or {}).get("sp_private_key")
+    if not (sp_cert and sp_key):
+        common_name = cfg.get("sp_entity_id") or connection_id
+        sp_key, sp_cert = generate_sp_keypair(common_name)
+    if not store.enable_connection_assertion_encryption(
+        connection_id, sp_cert=sp_cert, sp_private_key=sp_key
+    ):
+        console.print(f"[red]Failed to enable assertion encryption for {connection_id!r}[/red]")
+        raise typer.Exit(code=1)
+    console.print(f"[green]Assertion encryption enabled[/green] for connection {connection_id}.")
+    console.print(
+        "[yellow]Configure the IdP to encrypt assertions, then re-import this connection's "
+        "SP metadata[/yellow] (a plaintext assertion is now rejected):"
+    )
+    console.print(f"  [cyan]<base_url>/auth/saml/metadata?connection={connection_id}[/cyan]")
+
+
+@connection_app.command("disable-assertion-encryption")
+def disable_assertion_encryption(
+    connection_id: Annotated[str, typer.Argument(help="SAML connection id")],
+) -> None:
+    """Stop requiring encrypted assertions (drops the SP keypair iff signing is also off)."""
+    store = _store()
+    if store.disable_connection_assertion_encryption(connection_id):
+        console.print(
+            f"[green]Assertion encryption disabled[/green] for connection {connection_id}."
+        )
+    else:
+        console.print(f"[yellow]Assertion encryption was not enabled[/yellow] for {connection_id}.")
+
+
 @connection_app.command("rotate-secret")
 def rotate_secret(
     connection_id: Annotated[str, typer.Argument(help="Connection id")],
@@ -556,11 +671,22 @@ def doctor(
     json_out: Annotated[
         bool, typer.Option("--json", help="Emit the diagnosis as JSON (for agents)")
     ] = False,
+    probe: Annotated[
+        bool,
+        typer.Option(
+            "--probe",
+            help="Also run a live reachability probe of the IdP endpoints (network I/O, "
+            "SSRF-guarded). Opt-in; does not affect the exit code.",
+        ),
+    ] = False,
 ) -> None:
     """Report what a connection still needs to go live + an activation runbook.
 
-    Exit code is 0 only when the connection is activation-ready, so CI/agents can gate
-    on it. Never prints the client secret value (only whether one is present).
+    Exit code is 0 only when the connection is activation-ready (config completeness), so
+    CI/agents can gate on it. ``--probe`` adds an opt-in live reachability check of the IdP
+    endpoints on top of the network-free audit — informational only (a transient IdP outage
+    must not flip the gate), so it never changes the exit code. Never prints the client
+    secret value (only whether one is present).
     """
     import json as _json
 
@@ -618,28 +744,37 @@ def doctor(
         conn, secret_key_ok=secret_key_ok, sso_extra_ok=sso_extra_ok, dns_extra_ok=dns_extra_ok
     )
 
+    # Opt-in live reachability probe (network I/O, SSRF-guarded). Informational only — never
+    # affects the exit code, which stays bound to config-readiness (diag.ready).
+    probe_checks: tuple[Any, ...] = ()
+    if probe:
+        from dazzle.back.runtime.auth.connection_probe import probe_connection
+
+        probe_checks = probe_connection(conn)
+
     if json_out:
-        console.print(
-            _json.dumps(
+        payload: dict[str, Any] = {
+            "connection_id": diag.connection_id,
+            "connection_type": diag.connection_type,
+            "ready": diag.ready,
+            "checks": [
                 {
-                    "connection_id": diag.connection_id,
-                    "connection_type": diag.connection_type,
-                    "ready": diag.ready,
-                    "checks": [
-                        {
-                            "name": c.name,
-                            "level": c.level,
-                            "status": c.status,
-                            "detail": c.detail,
-                            "remedy": c.remedy,
-                        }
-                        for c in diag.checks
-                    ],
-                    "runbook": list(diag.runbook),
-                },
-                indent=2,
-            )
-        )
+                    "name": c.name,
+                    "level": c.level,
+                    "status": c.status,
+                    "detail": c.detail,
+                    "remedy": c.remedy,
+                }
+                for c in diag.checks
+            ],
+            "runbook": list(diag.runbook),
+        }
+        if probe:
+            payload["probe"] = [
+                {"name": c.name, "level": c.level, "status": c.status, "detail": c.detail}
+                for c in probe_checks
+            ]
+        console.print(_json.dumps(payload, indent=2))
         if not diag.ready:
             raise typer.Exit(code=1)
         return
@@ -659,6 +794,15 @@ def doctor(
     console.print("\n[bold]Activation runbook:[/bold]")
     for i, step in enumerate(diag.runbook, 1):
         console.print(f"  {i}. {step}")
+
+    if probe:
+        probe_table = Table(title="Live probe (network)")
+        for col in ("", "check", "detail"):
+            probe_table.add_column(col)
+        for c in probe_checks:
+            probe_table.add_row(_symbol.get(c.status, "?"), c.name, c.detail)
+        console.print()
+        console.print(probe_table)
 
     if not diag.ready:
         raise typer.Exit(code=1)

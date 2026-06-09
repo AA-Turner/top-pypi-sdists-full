@@ -1,0 +1,394 @@
+import json
+import logging
+import sys
+from typing import Any, Callable
+from urllib.parse import urlparse
+
+import requests
+from big_segment_store_fixture import BigSegmentStoreFixture
+from flag_change_listener import ListenerRegistry
+from hook import PostingHook
+
+from ldclient import *
+from ldclient import (
+    Context,
+    ExecutionOrder,
+    MigratorBuilder,
+    MigratorFn,
+    Operation,
+    Stage
+)
+from ldclient.config import BigSegmentsConfig
+from ldclient.datasystem import (
+    custom,
+    fdv1_fallback_ds_builder,
+    polling_ds_builder,
+    streaming_ds_builder
+)
+from ldclient.feature_store import CacheConfig
+from ldclient.impl.datasourcev2.polling import PollingDataSourceBuilder
+from ldclient.integrations import Consul, DynamoDB, Redis
+from ldclient.interfaces import DataStoreMode
+
+
+class ClientEntity:
+    def __init__(self, tag, config):
+        self.log = logging.getLogger(tag)
+        opts = {"sdk_key": config["credential"]}
+
+        tags = config.get('tags', {})
+        if tags:
+            opts['application'] = {
+                'id': tags.get('applicationId', ''),
+                'version': tags.get('applicationVersion', ''),
+            }
+
+        datasystem_config = config.get('dataSystem')
+        if datasystem_config is not None:
+            datasystem = custom()
+
+            init_configs = datasystem_config.get('initializers')
+            if init_configs is not None:
+                initializers = []
+                for init_config in init_configs:
+                    polling = init_config.get('polling')
+                    if polling is not None:
+                        polling_builder = polling_ds_builder()
+                        _set_optional_value(polling, "baseUri", polling_builder.base_uri)
+                        _set_optional_time(polling, "pollIntervalMs", polling_builder.poll_interval)
+                        initializers.append(polling_builder)
+
+                datasystem.initializers(initializers)
+            sync_configs = datasystem_config.get('synchronizers')
+            if sync_configs is not None:
+                sync_builders = []
+
+                for sync_config in sync_configs:
+                    streaming = sync_config.get('streaming')
+                    if streaming is not None:
+                        builder = streaming_ds_builder()
+                        _set_optional_value(streaming, "baseUri", builder.base_uri)
+                        _set_optional_time(streaming, "initialRetryDelayMs", builder.initial_reconnect_delay)
+                        sync_builders.append(builder)
+                    elif sync_config.get('polling') is not None:
+                        polling = sync_config.get('polling')
+
+                        builder = polling_ds_builder()
+                        _set_optional_value(polling, "baseUri", builder.base_uri)
+                        _set_optional_time(polling, "pollIntervalMs", builder.poll_interval)
+                        sync_builders.append(builder)
+
+                if sync_builders:
+                    datasystem.synchronizers(*sync_builders)
+
+            # The FDv1 Fallback Synchronizer is engaged only in response to a
+            # server-directed FDv1 Fallback Directive; it is configured separately
+            # from the FDv2 Primary/Fallback synchronizer chain.
+            fdv1_fallback_config = datasystem_config.get('fdv1Fallback')
+            if fdv1_fallback_config is not None:
+                fallback_builder = fdv1_fallback_ds_builder()
+                _set_optional_value(fdv1_fallback_config, "baseUri", fallback_builder.base_uri)
+                _set_optional_time(fdv1_fallback_config, "pollIntervalMs", fallback_builder.poll_interval)
+                datasystem.fdv1_compatible_synchronizer(fallback_builder)
+
+            if datasystem_config.get("payloadFilter") is not None:
+                opts["payload_filter_key"] = datasystem_config["payloadFilter"]
+
+            # Handle persistent data store configuration for dataSystem
+            store_config = datasystem_config.get("store")
+            if store_config is not None:
+                persistent_store_config = store_config.get("persistentDataStore")
+                if persistent_store_config is not None:
+                    store = _create_persistent_store(persistent_store_config)
+
+                    # Parse store mode (0 = READ_ONLY, 1 = READ_WRITE)
+                    store_mode_value = datasystem_config.get("storeMode", 0)
+                    store_mode = DataStoreMode.READ_WRITE if store_mode_value == 1 else DataStoreMode.READ_ONLY
+
+                    datasystem.data_store(store, store_mode)
+
+            opts["datasystem_config"] = datasystem.build()
+
+        elif config.get("streaming") is not None:
+            streaming = config["streaming"]
+            if streaming.get("baseUri") is not None:
+                opts["stream_uri"] = streaming["baseUri"]
+            if streaming.get("filter") is not None:
+                opts["payload_filter_key"] = streaming["filter"]
+            _set_optional_time_prop(streaming, "initialRetryDelayMs", opts, "initial_reconnect_delay")
+        elif config.get("polling") is not None:
+            opts['stream'] = False
+            polling = config["polling"]
+            if polling.get("baseUri") is not None:
+                opts["base_uri"] = polling["baseUri"]
+            if polling.get("filter") is not None:
+                opts["payload_filter_key"] = polling["filter"]
+            _set_optional_time_prop(polling, "pollIntervalMs", opts, "poll_interval")
+        else:
+            opts['use_ldd'] = True
+
+        if config.get("events") is not None:
+            events = config["events"]
+            opts["enable_event_compression"] = events.get("enableGzip", False)
+            if events.get("baseUri") is not None:
+                opts["events_uri"] = events["baseUri"]
+            if events.get("capacity") is not None:
+                opts["events_max_pending"] = events["capacity"]
+            opts["diagnostic_opt_out"] = not events.get("enableDiagnostics", False)
+            opts["all_attributes_private"] = events.get("allAttributesPrivate", False)
+            opts["private_attributes"] = events.get("globalPrivateAttributes", {})
+            _set_optional_time_prop(events, "flushIntervalMs", opts, "flush_interval")
+            opts["omit_anonymous_contexts"] = events.get("omitAnonymousContexts", False)
+        else:
+            opts["send_events"] = False
+
+        if config.get("hooks") is not None:
+            opts["hooks"] = [PostingHook(h["name"], h["callbackUri"], h.get("data", {}), h.get("errors", {})) for h in config["hooks"]["hooks"]]
+
+        if config.get("bigSegments") is not None:
+            big_params = config["bigSegments"]
+            big_config = {"store": BigSegmentStoreFixture(big_params["callbackUri"])}
+            if big_params.get("userCacheSize") is not None:
+                big_config["context_cache_size"] = big_params["userCacheSize"]
+            _set_optional_time_prop(big_params, "userCacheTimeMs", big_config, "context_cache_time")
+            _set_optional_time_prop(big_params, "statusPollIntervalMs", big_config, "status_poll_interval")
+            _set_optional_time_prop(big_params, "staleAfterMs", big_config, "stale_after")
+            opts["big_segments"] = BigSegmentsConfig(**big_config)
+
+        if config.get("persistentDataStore") is not None:
+            opts["feature_store"] = _create_persistent_store(config["persistentDataStore"])
+
+        start_wait = config.get("startWaitTimeMs") or 5000
+        config = Config(**opts)
+
+        self.client = client.LDClient(config, start_wait / 1000.0)
+        self.listeners = ListenerRegistry(self.client.flag_tracker)
+
+    def is_initializing(self) -> bool:
+        return self.client.is_initialized()
+
+    def evaluate(self, params: dict) -> dict:
+        response = {}
+
+        if params.get("detail", False):
+            detail = self.client.variation_detail(params["flagKey"], Context.from_dict(params["context"]), params["defaultValue"])
+            response["value"] = detail.value
+            response["variationIndex"] = detail.variation_index
+            response["reason"] = detail.reason
+        else:
+            response["value"] = self.client.variation(params["flagKey"], Context.from_dict(params["context"]), params["defaultValue"])
+
+        return response
+
+    def evaluate_all(self, params: dict):
+        opts = {}
+        opts["client_side_only"] = params.get("clientSideOnly", False)
+        opts["with_reasons"] = params.get("withReasons", False)
+        opts["details_only_for_tracked_flags"] = params.get("detailsOnlyForTrackedFlags", False)
+
+        state = self.client.all_flags_state(Context.from_dict(params["context"]), **opts)
+
+        return {"state": state.to_json_dict()}
+
+    def track(self, params: dict):
+        self.client.track(params["eventKey"], Context.from_dict(params["context"]), params["data"], params.get("metricValue", None))
+
+    def identify(self, params: dict):
+        self.client.identify(Context.from_dict(params["context"]))
+
+    def flush(self):
+        self.client.flush()
+
+    def secure_mode_hash(self, params: dict) -> dict:
+        return {"result": self.client.secure_mode_hash(Context.from_dict(params["context"]))}
+
+    def context_build(self, params: dict) -> dict:
+        if params.get("multi"):
+            b = Context.multi_builder()
+            for c in params.get("multi"):
+                b.add(self._context_build_single(c))
+            return self._context_response(b.build())
+        return self._context_response(self._context_build_single(params["single"]))
+
+    def _context_build_single(self, params: dict) -> Context:
+        b = Context.builder(params["key"])
+        if "kind" in params:
+            b.kind(params["kind"])
+        if "name" in params:
+            b.name(params["name"])
+        if "anonymous" in params:
+            b.anonymous(params["anonymous"])
+        if "custom" in params:
+            for k, v in params.get("custom").items():
+                b.set(k, v)
+        if "private" in params:
+            for attr in params.get("private"):
+                b.private(attr)
+        return b.build()
+
+    def context_convert(self, params: dict) -> dict:
+        input = params["input"]
+        try:
+            props = json.loads(input)
+            return self._context_response(Context.from_dict(props))
+        except Exception as e:
+            return {"error": str(e)}
+
+    def _context_response(self, c: Context) -> dict:
+        if c.valid:
+            return {"output": c.to_json_string()}
+        return {"error": c.error}
+
+    def get_big_segment_store_status(self) -> dict:
+        status = self.client.big_segment_store_status_provider.status
+        return {"available": status.available, "stale": status.stale}
+
+    def migration_variation(self, params: dict) -> dict:
+        stage, _ = self.client.migration_variation(params["key"], Context.from_dict(params["context"]), Stage.from_str(params["defaultStage"]))
+
+        return {'result': stage.value}
+
+    def migration_operation(self, params: dict) -> dict:
+        builder = MigratorBuilder(self.client)
+
+        if params["readExecutionOrder"] == "concurrent":
+            params["readExecutionOrder"] = "parallel"
+
+        builder.read_execution_order(ExecutionOrder.from_str(params["readExecutionOrder"]))
+        builder.track_latency(params["trackLatency"])
+        builder.track_errors(params["trackErrors"])
+
+        def callback(endpoint) -> MigratorFn:
+            def fn(payload) -> Result:
+                response = requests.post(endpoint, data=payload)
+
+                if response.status_code == 200:
+                    return Result.success(response.text)
+
+                return Result.error(f"Request failed with status code {response.status_code}")
+
+            return fn
+
+        if params["trackConsistency"]:
+            builder.read(callback(params["oldEndpoint"]), callback(params["newEndpoint"]), lambda lhs, rhs: lhs == rhs)
+        else:
+            builder.read(callback(params["oldEndpoint"]), callback(params["newEndpoint"]))
+
+        builder.write(callback(params["oldEndpoint"]), callback(params["newEndpoint"]))
+        migrator = builder.build()
+
+        if isinstance(migrator, str):
+            return {"result": migrator}
+
+        if params["operation"] == Operation.READ.value:
+            result = migrator.read(params["key"], Context.from_dict(params["context"]), Stage.from_str(params["defaultStage"]), params["payload"])
+            return {"result": result.value if result.is_success() else result.error}
+
+        result = migrator.write(params["key"], Context.from_dict(params["context"]), Stage.from_str(params["defaultStage"]), params["payload"])
+        return {"result": result.authoritative.value if result.authoritative.is_success() else result.authoritative.error}
+
+    def register_flag_change_listener(self, params: dict):
+        self.listeners.register_flag_change_listener(
+            listener_id=params['listenerId'],
+            callback_uri=params['callbackUri'],
+        )
+
+    def register_flag_value_change_listener(self, params: dict):
+        self.listeners.register_flag_value_change_listener(
+            listener_id=params["listenerId"],
+            flag_key=params["flagKey"],
+            context=Context.from_dict(params["context"]),
+            callback_uri=params["callbackUri"],
+        )
+
+    def unregister_listener(self, params: dict) -> bool:
+        return self.listeners.unregister(params['listenerId'])
+
+    def close(self):
+        self.listeners.close_all()
+        self.client.close()
+        self.log.info('Test ended')
+
+
+def _set_optional_time_prop(params_in: dict, name_in: str, params_out: dict, name_out: str):
+    if params_in.get(name_in) is not None:
+        params_out[name_out] = params_in[name_in] / 1000.0
+
+
+def _set_optional_time(params_in: dict, name_in: str, func: Callable[[float], Any]):
+    if params_in.get(name_in) is not None:
+        func(params_in[name_in] / 1000.0)
+
+
+def _set_optional_value(params_in: dict, name_in: str, func: Callable[[Any], Any]):
+    if params_in.get(name_in) is not None:
+        func(params_in[name_in])
+
+
+def _create_persistent_store(persistent_store_config: dict):
+    """
+    Creates a persistent store instance based on the configuration.
+    Used for both v2 and v3 (dataSystem) configurations.
+    """
+    store_params = persistent_store_config["store"]
+    store_type = store_params["type"]
+    dsn = store_params["dsn"]
+    prefix = store_params.get("prefix")
+
+    # Parse cache configuration
+    cache_config = persistent_store_config.get("cache", {})
+    cache_mode = cache_config.get("mode", "ttl")
+
+    if cache_mode == "off":
+        caching = CacheConfig.disabled()
+    elif cache_mode == "infinite":
+        caching = CacheConfig(expiration=sys.maxsize)
+    elif cache_mode == "ttl":
+        ttl_seconds = cache_config.get("ttl", 15)
+        caching = CacheConfig(expiration=ttl_seconds)
+    else:
+        caching = CacheConfig.default()
+
+    # Create the appropriate store based on type
+    if store_type == "redis":
+        return Redis.new_feature_store(
+            url=dsn,
+            prefix=prefix or Redis.DEFAULT_PREFIX,
+            caching=caching
+        )
+    elif store_type == "dynamodb":
+        # Parse endpoint from DSN (handle URLs without scheme)
+        parsed = urlparse(dsn) if '://' in dsn else urlparse(f'http://{dsn}')
+        endpoint_url = f"{parsed.scheme}://{parsed.netloc}"
+
+        # Import boto3 for DynamoDB configuration
+        import boto3
+
+        # Create DynamoDB client with test credentials
+        dynamodb_opts = {
+            'endpoint_url': endpoint_url,
+            'region_name': 'us-east-1',
+            'aws_access_key_id': 'dummy',
+            'aws_secret_access_key': 'dummy'
+        }
+
+        return DynamoDB.new_feature_store(
+            table_name="sdk-contract-tests",
+            prefix=prefix,
+            dynamodb_opts=dynamodb_opts,
+            caching=caching
+        )
+    elif store_type == "consul":
+        # Parse host and port from DSN
+        parsed = urlparse(dsn) if '://' in dsn else urlparse(f'http://{dsn}')
+        host = parsed.hostname or 'localhost'
+        port = parsed.port or 8500
+
+        return Consul.new_feature_store(
+            host=host,
+            port=port,
+            prefix=prefix,
+            caching=caching
+        )
+    else:
+        raise ValueError(f"Unsupported data store type: {store_type}")

@@ -4,7 +4,9 @@ isort:skip_file
 """
 
 import builtins
+import collections.abc
 import google.protobuf.descriptor
+import google.protobuf.internal.containers
 import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import sys
@@ -53,7 +55,7 @@ class _TelemetrySensorTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wra
     """
     SHTC3: _TelemetrySensorType.ValueType  # 7
     """
-    High accuracy temperature and humidity
+    TODO - REMOVE High accuracy temperature and humidity
     """
     LPS22: _TelemetrySensorType.ValueType  # 8
     """
@@ -73,7 +75,7 @@ class _TelemetrySensorTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wra
     """
     SHT31: _TelemetrySensorType.ValueType  # 12
     """
-    High accuracy temperature and humidity
+    TODO - REMOVE High accuracy temperature and humidity
     """
     PMSA003I: _TelemetrySensorType.ValueType  # 13
     """
@@ -93,7 +95,7 @@ class _TelemetrySensorTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wra
     """
     SHT4X: _TelemetrySensorType.ValueType  # 17
     """
-    Sensirion High accuracy temperature and humidity
+    TODO - REMOVE Sensirion High accuracy temperature and humidity
     """
     VEML7700: _TelemetrySensorType.ValueType  # 18
     """
@@ -213,11 +215,31 @@ class _TelemetrySensorTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wra
     """
     SHT21: _TelemetrySensorType.ValueType  # 47
     """
-    STH21 Temperature and R. Humidity sensor
+    TODO - REMOVE STH21 Temperature and R. Humidity sensor
     """
     STC31: _TelemetrySensorType.ValueType  # 48
     """
     Sensirion STC31 CO2 sensor
+    """
+    SCD30: _TelemetrySensorType.ValueType  # 49
+    """
+    SCD30 CO2, humidity, temperature sensor
+    """
+    SHTXX: _TelemetrySensorType.ValueType  # 50
+    """
+    SHT family of sensors for temperature and humidity
+    """
+    DS248X: _TelemetrySensorType.ValueType  # 51
+    """
+    DS248X Bridge for one-wire temperature sensors
+    """
+    MMC5983MA: _TelemetrySensorType.ValueType  # 52
+    """
+    MMC5983MA 3-Axis Digital Magnetic Sensor
+    """
+    ICM42607P: _TelemetrySensorType.ValueType  # 53
+    """
+    ICM-42607-P 6‑Axis IMU
     """
 
 class TelemetrySensorType(_TelemetrySensorType, metaclass=_TelemetrySensorTypeEnumTypeWrapper):
@@ -255,7 +277,7 @@ High accuracy temperature and pressure
 """
 SHTC3: TelemetrySensorType.ValueType  # 7
 """
-High accuracy temperature and humidity
+TODO - REMOVE High accuracy temperature and humidity
 """
 LPS22: TelemetrySensorType.ValueType  # 8
 """
@@ -275,7 +297,7 @@ QMC5883L: TelemetrySensorType.ValueType  # 11
 """
 SHT31: TelemetrySensorType.ValueType  # 12
 """
-High accuracy temperature and humidity
+TODO - REMOVE High accuracy temperature and humidity
 """
 PMSA003I: TelemetrySensorType.ValueType  # 13
 """
@@ -295,7 +317,7 @@ RCWL-9620 Doppler Radar Distance Sensor, used for water level detection
 """
 SHT4X: TelemetrySensorType.ValueType  # 17
 """
-Sensirion High accuracy temperature and humidity
+TODO - REMOVE Sensirion High accuracy temperature and humidity
 """
 VEML7700: TelemetrySensorType.ValueType  # 18
 """
@@ -415,11 +437,31 @@ HDC1080 Temperature and Humidity Sensor
 """
 SHT21: TelemetrySensorType.ValueType  # 47
 """
-STH21 Temperature and R. Humidity sensor
+TODO - REMOVE STH21 Temperature and R. Humidity sensor
 """
 STC31: TelemetrySensorType.ValueType  # 48
 """
 Sensirion STC31 CO2 sensor
+"""
+SCD30: TelemetrySensorType.ValueType  # 49
+"""
+SCD30 CO2, humidity, temperature sensor
+"""
+SHTXX: TelemetrySensorType.ValueType  # 50
+"""
+SHT family of sensors for temperature and humidity
+"""
+DS248X: TelemetrySensorType.ValueType  # 51
+"""
+DS248X Bridge for one-wire temperature sensors
+"""
+MMC5983MA: TelemetrySensorType.ValueType  # 52
+"""
+MMC5983MA 3-Axis Digital Magnetic Sensor
+"""
+ICM42607P: TelemetrySensorType.ValueType  # 53
+"""
+ICM-42607-P 6‑Axis IMU
 """
 global___TelemetrySensorType = TelemetrySensorType
 
@@ -510,6 +552,7 @@ class EnvironmentMetrics(google.protobuf.message.Message):
     RAINFALL_24H_FIELD_NUMBER: builtins.int
     SOIL_MOISTURE_FIELD_NUMBER: builtins.int
     SOIL_TEMPERATURE_FIELD_NUMBER: builtins.int
+    ONE_WIRE_TEMPERATURE_FIELD_NUMBER: builtins.int
     temperature: builtins.float
     """
     Temperature measured
@@ -600,6 +643,12 @@ class EnvironmentMetrics(google.protobuf.message.Message):
     """
     Soil temperature measured (*C)
     """
+    @property
+    def one_wire_temperature(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.float]:
+        """
+        One-wire temperature (*C)
+        """
+
     def __init__(
         self,
         *,
@@ -625,9 +674,10 @@ class EnvironmentMetrics(google.protobuf.message.Message):
         rainfall_24h: builtins.float | None = ...,
         soil_moisture: builtins.int | None = ...,
         soil_temperature: builtins.float | None = ...,
+        one_wire_temperature: collections.abc.Iterable[builtins.float] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_barometric_pressure", b"_barometric_pressure", "_current", b"_current", "_distance", b"_distance", "_gas_resistance", b"_gas_resistance", "_iaq", b"_iaq", "_ir_lux", b"_ir_lux", "_lux", b"_lux", "_radiation", b"_radiation", "_rainfall_1h", b"_rainfall_1h", "_rainfall_24h", b"_rainfall_24h", "_relative_humidity", b"_relative_humidity", "_soil_moisture", b"_soil_moisture", "_soil_temperature", b"_soil_temperature", "_temperature", b"_temperature", "_uv_lux", b"_uv_lux", "_voltage", b"_voltage", "_weight", b"_weight", "_white_lux", b"_white_lux", "_wind_direction", b"_wind_direction", "_wind_gust", b"_wind_gust", "_wind_lull", b"_wind_lull", "_wind_speed", b"_wind_speed", "barometric_pressure", b"barometric_pressure", "current", b"current", "distance", b"distance", "gas_resistance", b"gas_resistance", "iaq", b"iaq", "ir_lux", b"ir_lux", "lux", b"lux", "radiation", b"radiation", "rainfall_1h", b"rainfall_1h", "rainfall_24h", b"rainfall_24h", "relative_humidity", b"relative_humidity", "soil_moisture", b"soil_moisture", "soil_temperature", b"soil_temperature", "temperature", b"temperature", "uv_lux", b"uv_lux", "voltage", b"voltage", "weight", b"weight", "white_lux", b"white_lux", "wind_direction", b"wind_direction", "wind_gust", b"wind_gust", "wind_lull", b"wind_lull", "wind_speed", b"wind_speed"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_barometric_pressure", b"_barometric_pressure", "_current", b"_current", "_distance", b"_distance", "_gas_resistance", b"_gas_resistance", "_iaq", b"_iaq", "_ir_lux", b"_ir_lux", "_lux", b"_lux", "_radiation", b"_radiation", "_rainfall_1h", b"_rainfall_1h", "_rainfall_24h", b"_rainfall_24h", "_relative_humidity", b"_relative_humidity", "_soil_moisture", b"_soil_moisture", "_soil_temperature", b"_soil_temperature", "_temperature", b"_temperature", "_uv_lux", b"_uv_lux", "_voltage", b"_voltage", "_weight", b"_weight", "_white_lux", b"_white_lux", "_wind_direction", b"_wind_direction", "_wind_gust", b"_wind_gust", "_wind_lull", b"_wind_lull", "_wind_speed", b"_wind_speed", "barometric_pressure", b"barometric_pressure", "current", b"current", "distance", b"distance", "gas_resistance", b"gas_resistance", "iaq", b"iaq", "ir_lux", b"ir_lux", "lux", b"lux", "radiation", b"radiation", "rainfall_1h", b"rainfall_1h", "rainfall_24h", b"rainfall_24h", "relative_humidity", b"relative_humidity", "soil_moisture", b"soil_moisture", "soil_temperature", b"soil_temperature", "temperature", b"temperature", "uv_lux", b"uv_lux", "voltage", b"voltage", "weight", b"weight", "white_lux", b"white_lux", "wind_direction", b"wind_direction", "wind_gust", b"wind_gust", "wind_lull", b"wind_lull", "wind_speed", b"wind_speed"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_barometric_pressure", b"_barometric_pressure", "_current", b"_current", "_distance", b"_distance", "_gas_resistance", b"_gas_resistance", "_iaq", b"_iaq", "_ir_lux", b"_ir_lux", "_lux", b"_lux", "_radiation", b"_radiation", "_rainfall_1h", b"_rainfall_1h", "_rainfall_24h", b"_rainfall_24h", "_relative_humidity", b"_relative_humidity", "_soil_moisture", b"_soil_moisture", "_soil_temperature", b"_soil_temperature", "_temperature", b"_temperature", "_uv_lux", b"_uv_lux", "_voltage", b"_voltage", "_weight", b"_weight", "_white_lux", b"_white_lux", "_wind_direction", b"_wind_direction", "_wind_gust", b"_wind_gust", "_wind_lull", b"_wind_lull", "_wind_speed", b"_wind_speed", "barometric_pressure", b"barometric_pressure", "current", b"current", "distance", b"distance", "gas_resistance", b"gas_resistance", "iaq", b"iaq", "ir_lux", b"ir_lux", "lux", b"lux", "one_wire_temperature", b"one_wire_temperature", "radiation", b"radiation", "rainfall_1h", b"rainfall_1h", "rainfall_24h", b"rainfall_24h", "relative_humidity", b"relative_humidity", "soil_moisture", b"soil_moisture", "soil_temperature", b"soil_temperature", "temperature", b"temperature", "uv_lux", b"uv_lux", "voltage", b"voltage", "weight", b"weight", "white_lux", b"white_lux", "wind_direction", b"wind_direction", "wind_gust", b"wind_gust", "wind_lull", b"wind_lull", "wind_speed", b"wind_speed"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_barometric_pressure", b"_barometric_pressure"]) -> typing.Literal["barometric_pressure"] | None: ...
     @typing.overload

@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2011 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.plugins.xep_0086.legacy_error import XEP_0086
 
 
 register_plugin(XEP_0086)
+
+__all__ = ['LegacyError', 'XEP_0086']

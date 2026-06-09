@@ -16,7 +16,7 @@ import base64
 import json
 import re
 import string
-from typing import Any, Dict, Optional, Type, TypeVar, Union
+from typing import Any, Dict, Optional, Type, TypeVar, Union  # noqa: UP035
 
 from pydantic import BaseModel
 from requests.utils import quote as url_quote

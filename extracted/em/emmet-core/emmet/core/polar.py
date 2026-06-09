@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from pydantic import BaseModel, Field
-from pymatgen.analysis.piezo import PiezoTensor as BasePiezoTensor
-from pymatgen.core.tensors import Tensor
+from emmet.core.io.pymatgen import PiezoTensor as BasePiezoTensor, Tensor
 
 from emmet.core.material_property import PropertyDoc
 from emmet.core.math import Matrix3D
@@ -17,7 +16,7 @@ from emmet.core.types.pymatgen_types.ir_dielectric_tensor_adapter import (
 )
 
 if TYPE_CHECKING:
-    from pymatgen.core.structure import Structure
+    from emmet.core.io.pymatgen import Structure
 
     from emmet.core.types.typing import IdentifierType
 
@@ -54,14 +53,14 @@ class DielectricDoc(PropertyDoc):
     @classmethod
     def from_ionic_and_electronic(
         cls,
-        ionic: Matrix3D,
-        electronic: Matrix3D,
+        epsilon_ionic: Matrix3D,
+        epsilon_static: Matrix3D,
         structure: Structure,
         material_id: IdentifierType | None = None,
         **kwargs,
     ):
-        ionic_tensor = Tensor(ionic).convert_to_ieee(structure)
-        electronic_tensor = Tensor(electronic).convert_to_ieee(structure)
+        ionic_tensor = Tensor(epsilon_ionic).convert_to_ieee(structure)
+        electronic_tensor = Tensor(epsilon_static).convert_to_ieee(structure)
 
         total = ionic_tensor + electronic_tensor
 
@@ -107,14 +106,14 @@ class PiezoelectricDoc(PropertyDoc):
     @classmethod
     def from_ionic_and_electronic(
         cls,
-        ionic: PiezoTensor,
-        electronic: PiezoTensor,
+        piezo_ionic: PiezoTensor,
+        piezo_static: PiezoTensor,
         structure: Structure,
         material_id: IdentifierType | None = None,
         **kwargs,
     ):
-        ionic_tensor = BasePiezoTensor.from_vasp_voigt(ionic)
-        electronic_tensor = BasePiezoTensor.from_vasp_voigt(electronic)
+        ionic_tensor = BasePiezoTensor.from_vasp_voigt(piezo_ionic)
+        electronic_tensor = BasePiezoTensor.from_vasp_voigt(piezo_static)
         total: BasePiezoTensor = ionic_tensor + electronic_tensor  # type: ignore[assignment]
 
         # Symmeterize Convert to IEEE orientation

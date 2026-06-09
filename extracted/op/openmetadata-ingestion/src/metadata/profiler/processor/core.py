@@ -20,7 +20,6 @@ from typing import Any, Dict, Generic, List, Optional, Set, Tuple, Type, cast
 
 from pydantic import ValidationError
 from sqlalchemy import Column
-from sqlalchemy.orm import DeclarativeMeta
 
 from metadata.generated.schema.api.data.createTableProfile import (
     CreateTableProfileRequest,
@@ -35,11 +34,14 @@ from metadata.generated.schema.entity.data.table import (
     SystemProfile,
     TableProfile,
 )
-from metadata.generated.schema.settings.settings import Settings
+from metadata.generated.schema.entity.data.table import (
+    ProfileSampleType as TableProfileSampleType,
+)
+from metadata.generated.schema.settings.settings import Settings  # noqa: TC001
 from metadata.generated.schema.tests.customMetric import (
     CustomMetric as CustomMetricEntity,
 )
-from metadata.generated.schema.type.basic import Timestamp
+from metadata.generated.schema.type.basic import ProfileSampleType, Timestamp
 from metadata.profiler.api.models import ProfilerResponse, ThreadPoolMetrics
 from metadata.profiler.interface.profiler_interface import ProfilerInterface
 from metadata.profiler.metrics.core import (
@@ -89,7 +91,7 @@ class Profiler(Generic[TMetric]):
         """
         :param metrics: Metrics to run. We are receiving the uninitialized classes
         :param profiler_interface: Where to run the queries
-        :param table: DeclarativeMeta containing table info
+        :param table: type containing table info
         :param ignore_cols: List of columns to ignore when computing the profile
         :param profile_sample: % of rows to use for sampling column metrics
         """
@@ -124,7 +126,7 @@ class Profiler(Generic[TMetric]):
         self.data_frame_list = None
 
     @property
-    def table(self) -> DeclarativeMeta:
+    def table(self) -> type:
         return self.profiler_interface.table
 
     @property
@@ -480,15 +482,13 @@ class Profiler(Generic[TMetric]):
         in a Dict in the shape {col_name: Profiler}
         """
 
-        if self.source_config.computeMetrics:
-            logger.debug(
-                f"Computing profile metrics for {self.profiler_interface.table_entity.fullyQualifiedName.root}..."
-            )
-            self.compute_metrics()
+        logger.debug(
+            f"Computing profile metrics for {self.profiler_interface.table_entity.fullyQualifiedName.root}..."
+        )
+        self.compute_metrics()
 
         profile = self.get_profile()
-        if self.source_config.computeMetrics:
-            self._check_profile_and_handle(profile)
+        self._check_profile_and_handle(profile)
 
         table_profile = ProfilerResponse(
             table=self.profiler_interface.table_entity,
@@ -544,21 +544,20 @@ class Profiler(Generic[TMetric]):
             if raw_create_date:
                 raw_create_date = raw_create_date.replace(tzinfo=timezone.utc)
 
+            sampler = self.profiler_interface.sampler
+            sample_config = sampler._sample_config
+
             table_profile = TableProfile(
                 timestamp=self.profile_ts,
                 columnCount=self._table_results.get("columnCount"),
                 rowCount=self._table_results.get(RowCount.name()),
                 createDateTime=raw_create_date,
                 sizeInByte=self._table_results.get("sizeInBytes"),
-                profileSample=(
-                    self.profiler_interface.sampler.sample_config.profileSample
-                    if self.profiler_interface.sampler.sample_config
-                    else None
-                ),
-                profileSampleType=(
-                    self.profiler_interface.sampler.sample_config.profileSampleType
-                    if self.profiler_interface.sampler.sample_config
-                    else None
+                profileSample=(sample_config.profileSample if sample_config else None),
+                profileSampleType=TableProfileSampleType(
+                    sample_config.profileSampleType
+                    if sample_config and sample_config.profileSampleType
+                    else ProfileSampleType.PERCENTAGE
                 ),
                 customMetrics=self._table_results.get("customMetrics"),
             )

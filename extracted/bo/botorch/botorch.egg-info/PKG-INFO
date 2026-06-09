@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: botorch
-Version: 0.18.0
+Version: 0.18.1
 Summary: Bayesian Optimization in PyTorch
 Author: Meta Platforms, Inc.
 License-Expression: MIT
@@ -21,16 +21,18 @@ Requires-Dist: pyre_extensions
 Requires-Dist: gpytorch>=1.15.2
 Requires-Dist: linear_operator>=0.6.1
 Requires-Dist: torch>=2.4
-Requires-Dist: jax<0.10,>=0.4.35
-Requires-Dist: jaxlib<0.10,>=0.4.35
-Requires-Dist: numpyro>=0.18.0
 Requires-Dist: scipy
 Requires-Dist: multipledispatch
 Requires-Dist: threadpoolctl
 Requires-Dist: ninja
 Provides-Extra: pymoo
 Requires-Dist: pymoo; extra == "pymoo"
+Provides-Extra: fully-bayesian
+Requires-Dist: jax<0.10,>=0.4.35; extra == "fully-bayesian"
+Requires-Dist: jaxlib<0.10,>=0.4.35; extra == "fully-bayesian"
+Requires-Dist: numpyro>=0.18.0; extra == "fully-bayesian"
 Provides-Extra: test
+Requires-Dist: botorch[fully_bayesian]; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: requests; extra == "test"
@@ -44,6 +46,7 @@ Requires-Dist: flake8-docstrings; extra == "dev"
 Requires-Dist: sphinx; extra == "dev"
 Requires-Dist: sphinx-rtd-theme; extra == "dev"
 Provides-Extra: tutorials
+Requires-Dist: botorch[fully_bayesian]; extra == "tutorials"
 Requires-Dist: cma; extra == "tutorials"
 Requires-Dist: jupyter; extra == "tutorials"
 Requires-Dist: matplotlib; extra == "tutorials"

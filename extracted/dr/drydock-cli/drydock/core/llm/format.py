@@ -182,16 +182,31 @@ class APIToolFormatHandler:
         return "api"
 
     def get_available_tools(self, tool_manager: ToolManager) -> list[AvailableTool]:
-        return [
-            AvailableTool(
-                function=AvailableFunction(
-                    name=tool_class.get_name(),
-                    description=tool_class.description,
-                    parameters=tool_class.get_parameters(),
+        # 2026-06-08: per-tool isolation. Previously a single tool with a
+        # broken run() annotation (e.g. bare AsyncGenerator) raised
+        # TypeError from get_parameters() and crashed the entire LLM
+        # call — model got an empty tool list and the session save died.
+        # Now: skip the broken tool with a logged warning, continue with
+        # the rest. One bad tool ≠ a dead session.
+        out: list[AvailableTool] = []
+        for tool_class in tool_manager.available_tools.values():
+            try:
+                out.append(AvailableTool(
+                    function=AvailableFunction(
+                        name=tool_class.get_name(),
+                        description=tool_class.description,
+                        parameters=tool_class.get_parameters(),
+                    )
+                ))
+            except Exception as e:
+                # Defensive log; the tool is now invisible to the model
+                # for this turn, but the session keeps going.
+                from drydock.core.logger import logger
+                logger.error(
+                    "[get_available_tools] skipping tool %r: %s",
+                    getattr(tool_class, "__name__", tool_class), e,
                 )
-            )
-            for tool_class in tool_manager.available_tools.values()
-        ]
+        return out
 
     def get_tool_choice(self) -> StrToolChoice | AvailableTool:
         return "auto"

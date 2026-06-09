@@ -4,7 +4,6 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 from slixmpp.xmlstream import ElementBase, ET
-from slixmpp.plugins.xep_0030.stanza.items import DiscoItems
 
 
 class Set(ElementBase):

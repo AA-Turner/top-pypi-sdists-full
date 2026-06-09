@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2020 Mathieu Pasquet
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.plugins.xep_0377.spam_reporting import XEP_0377
 
 
 register_plugin(XEP_0377)
+
+__all__ = ['Report', 'Text', 'XEP_0377']

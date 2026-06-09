@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: open-aea-ledger-cosmos
-Version: 2.2.7
+Version: 2.2.8
 Summary: Python package wrapping the public and private key cryptography and ledger api of Cosmos.
 Author: Valory AG
 License: Apache-2.0

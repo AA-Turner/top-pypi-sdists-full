@@ -1,4 +1,3 @@
-import threading
 
 import unittest
 from slixmpp.test import SlixTest

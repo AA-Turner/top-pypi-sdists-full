@@ -6,7 +6,7 @@
 from base64 import b64encode, b64decode
 
 from slixmpp.util import bytes
-from slixmpp.xmlstream import ET, ElementBase, register_stanza_plugin
+from slixmpp.xmlstream import ElementBase, register_stanza_plugin
 
 
 class Data(ElementBase):

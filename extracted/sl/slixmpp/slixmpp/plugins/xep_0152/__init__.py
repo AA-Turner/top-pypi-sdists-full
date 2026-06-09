@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2013 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -11,3 +10,5 @@ from slixmpp.plugins.xep_0152.reachability import XEP_0152
 
 
 register_plugin(XEP_0152)
+
+__all__ = ['stanza', 'Reachability', 'XEP_0152']

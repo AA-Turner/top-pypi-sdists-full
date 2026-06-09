@@ -11,3 +11,5 @@ from slixmpp.plugins.xep_0009.stanza import RPCQuery, MethodCall, MethodResponse
 
 
 register_plugin(XEP_0009)
+
+__all__ = ['XEP_0009', 'RPCQuery', 'MethodCall', 'MethodResponse', 'stanza']

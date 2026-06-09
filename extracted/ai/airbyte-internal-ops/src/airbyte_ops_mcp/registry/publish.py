@@ -2,9 +2,7 @@
 """Core logic for registry connector publish operations.
 
 This module provides the core functionality for publishing connectors
-to the Airbyte registry, including:
-- Deleting release candidate metadata blobs from GCS
-- Publishing metadata to GCS
+to the Airbyte registry, including publishing metadata to GCS.
 """
 
 from __future__ import annotations
@@ -20,7 +18,6 @@ from airbyte_ops_mcp.registry._constants import (
     LATEST_GCS_FOLDER_NAME,
     METADATA_FILE_NAME,
     METADATA_FOLDER,
-    RELEASE_CANDIDATE_GCS_FOLDER_NAME,
 )
 from airbyte_ops_mcp.registry._gcs_helpers import (
     get_gcs_storage_client,
@@ -28,7 +25,6 @@ from airbyte_ops_mcp.registry._gcs_helpers import (
 )
 from airbyte_ops_mcp.registry.models import (
     ConnectorMetadata,
-    ConnectorPublishResult,
     MetadataPublishResult,
 )
 
@@ -68,209 +64,6 @@ def get_connector_metadata(repo_path: Path, connector_name: str) -> ConnectorMet
         docker_image_tag=data.get("dockerImageTag", "unknown"),
         support_level=data.get("supportLevel"),
         definition_id=data.get("definitionId"),
-    )
-
-
-def is_valid_for_progressive_rollout(version: str) -> bool:
-    """Check if a version string is valid for progressive rollout.
-
-    Currently rejects only `-preview` versions.  All other semver
-    versions (GA and RC alike) are accepted.  This gate is intentionally
-    kept generic so it can be tightened or turned into a no-op in the
-    future.
-
-    Args:
-        version: The version string to check.
-
-    Returns:
-        True if the version may be used in a progressive rollout,
-        False if the version format is explicitly disallowed.
-    """
-    return "-preview." not in version
-
-
-def strip_rc_suffix(version: str) -> str:
-    """Strip the release candidate suffix from a version string.
-
-    Args:
-        version: The version string (e.g., '1.2.3-rc.1').
-
-    Returns:
-        The base version without RC suffix (e.g., '1.2.3').
-        Returns the original version if no RC suffix is present.
-    """
-    if "-rc." in version:
-        return version.split("-rc.")[0]
-    return version
-
-
-def create_progressive_rollout_blob(
-    repo_path: Path,
-    connector_name: str,
-    dry_run: bool = False,
-    bucket_name: str | None = None,
-) -> ConnectorPublishResult:
-    """Create the `release_candidate/metadata.yaml` blob in GCS.
-
-    Copies the versioned metadata (e.g. `1.2.3-rc.1/metadata.yaml` or
-    `2.1.0/metadata.yaml` for GA progressive rollouts) to
-    `release_candidate/metadata.yaml` so the platform knows a progressive
-    rollout is active for this connector.
-
-    The connector's `metadata.yaml` on disk must declare a version that
-    is valid for progressive rollout (i.e. not a `-preview` build).
-    The versioned blob must already exist in GCS (i.e. the version must
-    have been published first).
-
-    Requires `GCS_CREDENTIALS` environment variable to be set.
-    """
-    if not bucket_name:
-        raise ValueError("bucket_name is required for progressive rollout create.")
-
-    metadata = get_connector_metadata(repo_path, connector_name)
-    version = metadata.docker_image_tag
-    docker_repo = metadata.docker_repository
-
-    if not is_valid_for_progressive_rollout(version):
-        return ConnectorPublishResult(
-            connector=metadata.name,
-            version=version,
-            action="progressive-rollout-create",
-            status="failure",
-            docker_image=f"{docker_repo}:{version}",
-            registry_updated=False,
-            message=f"Version '{version}' is not valid for progressive rollout. "
-            "Preview versions are not supported.",
-        )
-
-    gcp_connector_dir = f"{METADATA_FOLDER}/{docker_repo}"
-    versioned_path = f"{gcp_connector_dir}/{version}/{METADATA_FILE_NAME}"
-    rc_path = (
-        f"{gcp_connector_dir}/{RELEASE_CANDIDATE_GCS_FOLDER_NAME}/{METADATA_FILE_NAME}"
-    )
-
-    if dry_run:
-        return ConnectorPublishResult(
-            connector=metadata.name,
-            version=version,
-            action="progressive-rollout-create",
-            status="dry-run",
-            docker_image=f"{docker_repo}:{version}",
-            registry_updated=False,
-            message=f"Would copy {versioned_path} to {rc_path}",
-        )
-
-    storage_client = get_gcs_storage_client()
-    gcs_bucket = storage_client.bucket(bucket_name)
-
-    # Verify the versioned blob exists
-    versioned_blob = gcs_bucket.blob(versioned_path)
-    if not versioned_blob.exists():
-        return ConnectorPublishResult(
-            connector=metadata.name,
-            version=version,
-            action="progressive-rollout-create",
-            status="failure",
-            docker_image=f"{docker_repo}:{version}",
-            registry_updated=False,
-            message=f"Versioned metadata not found: {versioned_path}. "
-            "The version must be published before creating the progressive rollout marker.",
-        )
-
-    # Copy the versioned metadata to the release_candidate/ path
-    gcs_bucket.copy_blob(versioned_blob, gcs_bucket, rc_path)
-    logger.info(
-        "Created progressive rollout metadata blob: %s (copied from %s)",
-        rc_path,
-        versioned_path,
-    )
-
-    return ConnectorPublishResult(
-        connector=metadata.name,
-        version=version,
-        action="progressive-rollout-create",
-        status="success",
-        docker_image=f"{docker_repo}:{version}",
-        registry_updated=True,
-        message=f"Created release_candidate/ blob for {metadata.name} at {rc_path} "
-        f"(copied from {versioned_path}).",
-    )
-
-
-def delete_progressive_rollout_blob(
-    repo_path: Path,
-    connector_name: str,
-    dry_run: bool = False,
-    bucket_name: str | None = None,
-) -> ConnectorPublishResult:
-    """Delete the `release_candidate/` metadata blob from GCS.
-
-    This is the only GCS operation needed when finalizing a progressive
-    rollout (both promote and rollback).  The versioned blob (e.g.
-    `1.2.3-rc.1/metadata.yaml`) is intentionally preserved as an
-    audit trail of what was actually deployed during the rollout.
-
-    Requires `GCS_CREDENTIALS` environment variable to be set.
-    """
-    if not bucket_name:
-        raise ValueError("bucket_name is required for progressive rollout cleanup.")
-
-    metadata = get_connector_metadata(repo_path, connector_name)
-    version = metadata.docker_image_tag
-    docker_repo = metadata.docker_repository
-
-    # NOTE: We intentionally do NOT gate on version format here.
-    # In the promote workflow the on-disk version will already be bumped
-    # to GA (e.g. 1.2.3) before cleanup runs.  The rc_path is derived
-    # solely from docker_repo + the fixed RELEASE_CANDIDATE_GCS_FOLDER_NAME
-    # constant, so the on-disk version is irrelevant.
-
-    gcp_connector_dir = f"{METADATA_FOLDER}/{docker_repo}"
-    rc_path = (
-        f"{gcp_connector_dir}/{RELEASE_CANDIDATE_GCS_FOLDER_NAME}/{METADATA_FILE_NAME}"
-    )
-
-    if dry_run:
-        return ConnectorPublishResult(
-            connector=metadata.name,
-            version=version,
-            action="progressive-rollout-cleanup",
-            status="dry-run",
-            docker_image=f"{docker_repo}:{version}",
-            registry_updated=False,
-            message=f"Would delete release_candidate/ blob for {metadata.name} "
-            f"(version {version}) at {rc_path}",
-        )
-
-    storage_client = get_gcs_storage_client()
-    gcs_bucket = storage_client.bucket(bucket_name)
-    rc_blob = gcs_bucket.blob(rc_path)
-
-    if not rc_blob.exists():
-        logger.info(
-            "Progressive rollout metadata already deleted (idempotent): %s", rc_path
-        )
-        return ConnectorPublishResult(
-            connector=metadata.name,
-            version=version,
-            action="progressive-rollout-cleanup",
-            status="success",
-            docker_image=f"{docker_repo}:{version}",
-            registry_updated=False,
-            message=f"Progressive rollout metadata already deleted (no-op): {rc_path}",
-        )
-
-    rc_blob.delete()
-    logger.info("Deleted progressive rollout metadata blob: %s", rc_path)
-
-    return ConnectorPublishResult(
-        connector=metadata.name,
-        version=version,
-        action="progressive-rollout-cleanup",
-        status="success",
-        docker_image=f"{docker_repo}:{version}",
-        registry_updated=True,
-        message=f"Deleted release_candidate/ blob for {metadata.name} at {rc_path}.",
     )
 
 

@@ -490,18 +490,22 @@ _VALID_VERDICTS = frozenset({"pass", "partial", "fail"})
 
 
 def handle_benchmark(km: KnowledgeManager, args: list[str]) -> dict:
-    """Generate evaluation prompt or submit evaluation report for a benchmark entry."""
+    """Generate evaluation prompt, benchmark case, or submit evaluation report."""
     if not args:
         return {"error": "entry_id required"}
 
     entry_id = ""
     generate_prompt = False
+    generate_case = False
     submit_report = ""
     output_file = ""
     i = 0
     while i < len(args):
         if args[i] == "--generate-prompt":
             generate_prompt = True
+            i += 1
+        elif args[i] == "--generate-case":
+            generate_case = True
             i += 1
         elif args[i] == "--submit-report" and i + 1 < len(args):
             submit_report = args[i + 1]
@@ -522,11 +526,15 @@ def handle_benchmark(km: KnowledgeManager, args: list[str]) -> dict:
     if not entry:
         return {"error": f"entry {entry_id} not found"}
 
+    if generate_case:
+        return _generate_benchmark_case(entry, output_file)
+
     benchmark = entry.get("benchmark")
     if not benchmark or not isinstance(benchmark, dict):
         return {
             "error": f"entry {entry_id} has no benchmark data",
-            "hint": "Add benchmark when creating the entry: --benchmark '{\"user_requirement\":\"...\",\"ai_error\":\"...\",\"expected_behavior\":\"...\"}'"
+            "hint": "Use --generate-case to create a benchmark case from this entry, "
+                    "or add benchmark data: --benchmark '{\"user_requirement\":\"...\",...}'"
         }
 
     if generate_prompt:
@@ -535,7 +543,7 @@ def handle_benchmark(km: KnowledgeManager, args: list[str]) -> dict:
     if submit_report:
         return _submit_benchmark_report(km, entry_id, submit_report)
 
-    return {"error": "specify --generate-prompt or --submit-report"}
+    return {"error": "specify --generate-prompt, --generate-case, or --submit-report"}
 
 
 def _generate_benchmark_prompt(entry: dict, benchmark: dict, output_file: str) -> dict:
@@ -553,6 +561,63 @@ def _generate_benchmark_prompt(entry: dict, benchmark: dict, output_file: str) -
         return {"generated": True, "output_file": output_file}
 
     return {"generated": True, "prompt": prompt}
+
+
+def _generate_benchmark_case(entry: dict, output_file: str) -> dict:
+    """Generate a benchmark suite case YAML from a knowledge entry (no benchmark data needed).
+
+    Extracts the entry's domain, category, title and content to build a meaningful
+    verification case. The generated YAML can be added to a suites/*.yml file.
+    """
+    import yaml
+
+    domain = entry.get("domain", "unknown")
+    category = entry.get("category", "知识")
+    title = entry.get("title", "")
+    content = entry.get("content", "")
+    tags = entry.get("tags", [])
+    tag_str = ", ".join(tags) if tags else domain
+
+    # Build requirement from entry content
+    requirement = (
+        f"验证知识条目 {title} 的正确性和适用性。\n"
+        f"领域: {domain} | 类别: {category} | 标签: {tag_str}\n\n"
+        f"知识内容:\n{content[:500]}"
+    )
+
+    # Build acceptance criteria from entry metadata
+    acceptance = [
+        f"实现对 {title} 中描述的场景验证",
+        f"测试覆盖 {category} 的核心用例",
+        f"代码遵循 {domain} 领域的规范",
+    ]
+
+    case_yaml = {
+        "id": f"verify_{entry.get('id', 'unknown')}",
+        "requirement": requirement,
+        "acceptance": acceptance,
+    }
+
+    yaml_str = yaml.dump(
+        {"cases": [case_yaml]},
+        allow_unicode=True, default_flow_style=False, sort_keys=False,
+    )
+
+    if output_file:
+        Path(output_file).write_text(yaml_str, encoding="utf-8")
+        return {
+            "generated": True,
+            "entry_id": entry.get("id"),
+            "output_file": output_file,
+            "hint": f"Add to your benchmark suite. Run: kanban benchmark run <suite.yml>",
+        }
+
+    return {
+        "generated": True,
+        "entry_id": entry.get("id"),
+        "yaml": yaml_str,
+        "hint": f"Add the yaml to your benchmark suite. Run: kanban benchmark run <suite.yml>",
+    }
 
 
 def _submit_benchmark_report(km: KnowledgeManager, entry_id: str, report_path: str) -> dict:

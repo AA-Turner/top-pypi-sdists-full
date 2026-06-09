@@ -39,7 +39,7 @@ classifiers = [
     "Topic :: File Formats :: JSON :: JSON Schema",
     "Topic :: Utilities",
 ]
-version = "1.9.0"
+version = "1.9.1"
 
 [project.license]
 text = "MIT"
@@ -158,6 +158,7 @@ markers = [
     "numpy: numpy interface",
     "video: video interface",
     "zarr: zarr interface",
+    "datetime: datetime handling",
     "union: union dtypes",
     "pipe_union: union dtypes specified with a pipe",
     "scalar: scalar values",

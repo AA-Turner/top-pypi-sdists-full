@@ -4,7 +4,7 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 from typing import ClassVar
-from slixmpp.xmlstream import StanzaBase, ElementBase
+from slixmpp.xmlstream import StanzaBase
 from slixmpp.xmlstream.xmlstream import InvalidCABundle
 
 import logging

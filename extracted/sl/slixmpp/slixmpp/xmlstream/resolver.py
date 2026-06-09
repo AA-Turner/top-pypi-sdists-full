@@ -7,7 +7,7 @@ import socket
 import logging
 import random
 from asyncio import Future, AbstractEventLoop, gather
-from typing import cast, Literal, Protocol, TYPE_CHECKING
+from typing import Literal, Protocol
 from dataclasses import dataclass
 
 

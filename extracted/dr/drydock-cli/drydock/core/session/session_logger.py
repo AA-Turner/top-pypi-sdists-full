@@ -298,18 +298,31 @@ class SessionLogger:
             messages_data = [m.model_dump(exclude_none=True) for m in new_messages]
             await SessionLogger.persist_messages(messages_data, self.session_dir)
 
-            # If message update succeeded, write metadata
-            tools_available = [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": tool_class.get_name(),
-                        "description": tool_class.description,
-                        "parameters": tool_class.get_parameters(),
-                    },
-                }
-                for tool_class in tool_manager.available_tools.values()
-            ]
+            # If message update succeeded, write metadata.
+            # 2026-06-08: per-tool isolation — same defensive pattern as
+            # format.get_available_tools. A single tool with a broken
+            # run() annotation used to crash session save (and through
+            # save_interaction's re-raise, the whole TUI session). Skip
+            # broken tools with a logged warning; the session metadata
+            # just lacks those entries.
+            tools_available = []
+            for tool_class in tool_manager.available_tools.values():
+                try:
+                    tools_available.append({
+                        "type": "function",
+                        "function": {
+                            "name": tool_class.get_name(),
+                            "description": tool_class.description,
+                            "parameters": tool_class.get_parameters(),
+                        },
+                    })
+                except Exception as tool_err:
+                    from drydock.core.logger import logger
+                    logger.error(
+                        "[session_logger] skipping broken tool %r: %s",
+                        getattr(tool_class, "__name__", tool_class),
+                        tool_err,
+                    )
 
             title = self._get_title(messages)
             system_prompt = (

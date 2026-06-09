@@ -15,7 +15,9 @@ Source connection handler
 from copy import deepcopy
 from functools import partial
 from typing import Optional
+from urllib.parse import quote_plus
 
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import DatabaseError
 from sqlalchemy.inspection import inspect
@@ -40,6 +42,9 @@ from metadata.ingestion.connections.test_connections import (
 )
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
 from metadata.ingestion.source.database.databricks.auth import get_auth_config
+from metadata.ingestion.source.database.databricks.log_filters import (
+    suppress_user_agent_entry_deprecation_log,
+)
 from metadata.ingestion.source.database.databricks.queries import (
     DATABRICKS_GET_CATALOGS,
     DATABRICKS_SQL_STATEMENT_TEST,
@@ -56,6 +61,8 @@ from metadata.utils.logger import ingestion_logger
 
 logger = ingestion_logger()
 
+suppress_user_agent_entry_deprecation_log()
+
 
 class DatabricksEngineWrapper:
     """Wrapper to store engine and schemas to avoid multiple calls"""
@@ -71,7 +78,7 @@ class DatabricksEngineWrapper:
         """Get schemas and cache them"""
         if schema_name is not None:
             with self.engine.connect() as connection:
-                connection.execute(f"USE CATALOG `{self.first_catalog}`")
+                connection.execute(text(f"USE CATALOG `{self.first_catalog}`"))
             self.first_schema = schema_name
             return [schema_name]
         if self.schemas is None:
@@ -98,7 +105,7 @@ class DatabricksEngineWrapper:
         if self.first_schema:
             with self.engine.connect() as connection:
                 tables = connection.execute(
-                    f"SHOW TABLES IN `{self.first_catalog}`.`{self.first_schema}`"
+                    text(f"SHOW TABLES IN `{self.first_catalog}`.`{self.first_schema}`")
                 )
             return tables
         return []
@@ -110,7 +117,7 @@ class DatabricksEngineWrapper:
         if self.first_schema:
             with self.engine.connect() as connection:
                 views = connection.execute(
-                    f"SHOW VIEWS IN `{self.first_catalog}`.`{self.first_schema}`"
+                    text(f"SHOW VIEWS IN `{self.first_catalog}`.`{self.first_schema}`")
                 )
             return views
         return []
@@ -122,7 +129,7 @@ class DatabricksEngineWrapper:
             self.first_catalog = catalog_name
             return [catalog_name]
         with self.engine.connect() as connection:
-            catalogs = connection.execute(DATABRICKS_GET_CATALOGS).fetchall()
+            catalogs = connection.execute(text(DATABRICKS_GET_CATALOGS)).fetchall()
             for catalog in catalogs:
                 if catalog[0] != "__databricks_internal":
                     self.first_catalog = catalog[0]
@@ -131,7 +138,11 @@ class DatabricksEngineWrapper:
 
 
 def get_connection_url(connection: DatabricksConnection) -> str:
-    return f"{connection.scheme.value}://{connection.hostPort}"
+    scheme = connection.scheme.value if connection.scheme else "databricks"
+    url = f"{scheme}://{connection.hostPort}"
+    if connection.catalog:
+        url = f"{url}?catalog={quote_plus(connection.catalog)}"
+    return url
 
 
 def get_connection(connection: DatabricksConnection) -> Engine:
@@ -181,7 +192,7 @@ def test_connection(
         """
         try:
             connection = engine.connect()
-            connection.execute(statement).fetchone()
+            connection.execute(text(statement)).fetchone()
         except DatabaseError as soe:
             logger.debug(f"Failed to fetch catalogs due to: {soe}")
 

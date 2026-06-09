@@ -34,6 +34,7 @@ pub(crate) use {
     count::Count,
     delimiter::Delimiter,
     dependency::Dependency,
+    disabled::Disabled,
     dump_format::DumpFormat,
     enclosure::Enclosure,
     error::Error,
@@ -82,6 +83,7 @@ pub(crate) use {
     reference::Reference,
     references::References,
     request::Request,
+    resolution::Resolution,
     scope::Scope,
     search::Search,
     search_config::SearchConfig,
@@ -227,6 +229,7 @@ mod constants;
 mod count;
 mod delimiter;
 mod dependency;
+mod disabled;
 mod dump_format;
 mod enclosure;
 mod error;
@@ -275,6 +278,7 @@ mod recipe_resolver;
 mod recipe_signature;
 mod reference;
 mod references;
+mod resolution;
 mod run;
 mod scope;
 mod search;

@@ -8,12 +8,6 @@ from typing import Any, Literal, Mapping, Optional, Sequence, TypedDict, Union
 from typing_extensions import NotRequired
 
 
-class AgentCapabilities(TypedDict):
-    bash_retainInactiveSessions: NotRequired[bool]
-    graphql_mutations: NotRequired[bool]
-    session_storeSessions: NotRequired[bool]
-
-
 class AgentSpanContext(TypedDict):
     type: Literal["span"]
     projectNodeId: NotRequired[str]
@@ -56,6 +50,11 @@ class AssistantMessageMetadataUsageTokens(TypedDict):
 class CategoricalAnnotationValue(TypedDict):
     label: str
     score: NotRequired[float]
+
+
+class CodeEvaluatorContext(TypedDict):
+    type: Literal["code_evaluator"]
+    evaluatorNodeId: NotRequired[str]
 
 
 class CreateExperimentRequestBody(TypedDict):
@@ -111,6 +110,12 @@ class Dataset(TypedDict):
     created_at: str
     updated_at: str
     example_count: int
+
+
+class DatasetContext(TypedDict):
+    type: Literal["dataset"]
+    datasetNodeId: str
+    datasetVersionNodeId: NotRequired[str]
 
 
 class DatasetExample(TypedDict):
@@ -184,25 +189,17 @@ class FileUIPart(TypedDict):
     providerMetadata: NotRequired[Mapping[str, Mapping[str, Any]]]
 
 
-class FreeformAnnotationConfig(TypedDict):
-    type: Literal["FREEFORM"]
-    name: str
-    id: str
-    description: NotRequired[str]
-
-
-class FreeformAnnotationConfigData(TypedDict):
-    type: Literal["FREEFORM"]
-    name: str
-    description: NotRequired[str]
-
-
 class GetDatasetResponseBody(TypedDict):
     data: DatasetWithExampleCount
 
 
 class GetExperimentResponseBody(TypedDict):
     data: Experiment
+
+
+class GraphQLContext(TypedDict):
+    type: Literal["graphql"]
+    mutationsEnabled: bool
 
 
 class IncompleteExperimentEvaluation(TypedDict):
@@ -316,9 +313,23 @@ class OtlpStatus(TypedDict):
     message: NotRequired[str]
 
 
-class PlaygroundContext(TypedDict):
-    type: Literal["playground"]
-    instanceIds: Sequence[int]
+class PlaygroundBuiltinModelContext(TypedDict):
+    type: Literal["builtin"]
+    provider: str
+    modelName: str
+
+
+class PlaygroundCustomProviderModelContext(TypedDict):
+    type: Literal["custom"]
+    customProviderId: str
+    customProviderName: str
+    provider: str
+    modelName: str
+
+
+class PlaygroundInstanceContext(TypedDict):
+    instanceId: int
+    model: NotRequired[Union[PlaygroundBuiltinModelContext, PlaygroundCustomProviderModelContext]]
 
 
 class Project(TypedDict):
@@ -720,6 +731,7 @@ class ToolApprovalResponded(TypedDict):
 class ToolApprovalRespondedPart(TypedDict):
     type: str
     toolCallId: str
+    title: NotRequired[str]
     state: NotRequired[str]
     input: NotRequired[Any]
     providerExecuted: NotRequired[bool]
@@ -736,6 +748,7 @@ class ToolCallFunction(TypedDict):
 class ToolInputAvailablePart(TypedDict):
     type: str
     toolCallId: str
+    title: NotRequired[str]
     state: NotRequired[str]
     input: NotRequired[Any]
     providerExecuted: NotRequired[bool]
@@ -746,6 +759,7 @@ class ToolInputAvailablePart(TypedDict):
 class ToolInputStreamingPart(TypedDict):
     type: str
     toolCallId: str
+    title: NotRequired[str]
     state: NotRequired[str]
     input: NotRequired[Any]
     providerExecuted: NotRequired[bool]
@@ -756,6 +770,7 @@ class ToolInputStreamingPart(TypedDict):
 class ToolOutputAvailablePart(TypedDict):
     type: str
     toolCallId: str
+    title: NotRequired[str]
     state: NotRequired[str]
     input: NotRequired[Any]
     output: NotRequired[Any]
@@ -768,6 +783,7 @@ class ToolOutputAvailablePart(TypedDict):
 class ToolOutputDeniedPart(TypedDict):
     type: str
     toolCallId: str
+    title: NotRequired[str]
     state: NotRequired[str]
     input: NotRequired[Any]
     providerExecuted: NotRequired[bool]
@@ -779,6 +795,7 @@ class ToolOutputErrorPart(TypedDict):
     type: str
     toolCallId: str
     errorText: str
+    title: NotRequired[str]
     state: NotRequired[str]
     input: NotRequired[Any]
     rawInput: NotRequired[Any]
@@ -897,8 +914,17 @@ class ValidationError(TypedDict):
     ctx: NotRequired[Mapping[str, Any]]
 
 
+class WebAccessContext(TypedDict):
+    type: Literal["web_access"]
+    enabled: bool
+
+
 class FieldSummarizeResponse(TypedDict):
     summary: str
+
+
+class ToolCallProviderMetadata(TypedDict):
+    tool_execution_environment: Literal["client", "server"]
 
 
 class AnnotateSessionsRequestBody(TypedDict):
@@ -996,10 +1022,6 @@ class ContinuousAnnotationConfigData(TypedDict):
     upper_bound: NotRequired[float]
 
 
-class CreateAnnotationConfigResponseBody(TypedDict):
-    data: Union[CategoricalAnnotationConfig, ContinuousAnnotationConfig, FreeformAnnotationConfig]
-
-
 class CreateExperimentResponseBody(TypedDict):
     data: Experiment
 
@@ -1045,16 +1067,14 @@ class CreateUserResponseBody(TypedDict):
     data: Union[LocalUser, OAuth2User, LDAPUser]
 
 
-class DeleteAnnotationConfigResponseBody(TypedDict):
-    data: Union[CategoricalAnnotationConfig, ContinuousAnnotationConfig, FreeformAnnotationConfig]
-
-
 class DynamicToolApprovalRequestedPart(TypedDict):
     type: Literal["dynamic-tool"]
     toolName: str
     toolCallId: str
     input: Any
+    title: NotRequired[str]
     state: NotRequired[str]
+    providerExecuted: NotRequired[bool]
     callProviderMetadata: NotRequired[Mapping[str, Mapping[str, Any]]]
     approval: NotRequired[Union[ToolApprovalRequested, ToolApprovalResponded]]
 
@@ -1064,7 +1084,9 @@ class DynamicToolApprovalRespondedPart(TypedDict):
     toolName: str
     toolCallId: str
     input: Any
+    title: NotRequired[str]
     state: NotRequired[str]
+    providerExecuted: NotRequired[bool]
     callProviderMetadata: NotRequired[Mapping[str, Mapping[str, Any]]]
     approval: NotRequired[Union[ToolApprovalRequested, ToolApprovalResponded]]
 
@@ -1074,7 +1096,9 @@ class DynamicToolInputAvailablePart(TypedDict):
     toolName: str
     toolCallId: str
     input: Any
+    title: NotRequired[str]
     state: NotRequired[str]
+    providerExecuted: NotRequired[bool]
     callProviderMetadata: NotRequired[Mapping[str, Mapping[str, Any]]]
     approval: NotRequired[Union[ToolApprovalRequested, ToolApprovalResponded]]
 
@@ -1083,8 +1107,10 @@ class DynamicToolInputStreamingPart(TypedDict):
     type: Literal["dynamic-tool"]
     toolName: str
     toolCallId: str
+    title: NotRequired[str]
     state: NotRequired[str]
     input: NotRequired[Any]
+    providerExecuted: NotRequired[bool]
     callProviderMetadata: NotRequired[Mapping[str, Mapping[str, Any]]]
     approval: NotRequired[Union[ToolApprovalRequested, ToolApprovalResponded]]
 
@@ -1095,7 +1121,9 @@ class DynamicToolOutputAvailablePart(TypedDict):
     toolCallId: str
     input: Any
     output: Any
+    title: NotRequired[str]
     state: NotRequired[str]
+    providerExecuted: NotRequired[bool]
     callProviderMetadata: NotRequired[Mapping[str, Mapping[str, Any]]]
     preliminary: NotRequired[bool]
     approval: NotRequired[Union[ToolApprovalRequested, ToolApprovalResponded]]
@@ -1106,7 +1134,9 @@ class DynamicToolOutputDeniedPart(TypedDict):
     toolName: str
     toolCallId: str
     input: Any
+    title: NotRequired[str]
     state: NotRequired[str]
+    providerExecuted: NotRequired[bool]
     callProviderMetadata: NotRequired[Mapping[str, Mapping[str, Any]]]
     approval: NotRequired[Union[ToolApprovalRequested, ToolApprovalResponded]]
 
@@ -1117,9 +1147,32 @@ class DynamicToolOutputErrorPart(TypedDict):
     toolCallId: str
     input: Any
     errorText: str
+    title: NotRequired[str]
     state: NotRequired[str]
+    providerExecuted: NotRequired[bool]
     callProviderMetadata: NotRequired[Mapping[str, Mapping[str, Any]]]
     approval: NotRequired[Union[ToolApprovalRequested, ToolApprovalResponded]]
+
+
+class FreeformAnnotationConfig(TypedDict):
+    type: Literal["FREEFORM"]
+    name: str
+    id: str
+    description: NotRequired[str]
+    optimization_direction: NotRequired[Literal["MINIMIZE", "MAXIMIZE", "NONE"]]
+    threshold: NotRequired[float]
+    lower_bound: NotRequired[float]
+    upper_bound: NotRequired[float]
+
+
+class FreeformAnnotationConfigData(TypedDict):
+    type: Literal["FREEFORM"]
+    name: str
+    description: NotRequired[str]
+    optimization_direction: NotRequired[Literal["MINIMIZE", "MAXIMIZE", "NONE"]]
+    threshold: NotRequired[float]
+    lower_bound: NotRequired[float]
+    upper_bound: NotRequired[float]
 
 
 class GetAnnotationConfigResponseBody(TypedDict):
@@ -1173,6 +1226,11 @@ class GetViewerResponseBody(TypedDict):
 
 class HTTPValidationError(TypedDict):
     detail: NotRequired[Sequence[ValidationError]]
+
+
+class PlaygroundContext(TypedDict):
+    type: Literal["playground"]
+    instances: NotRequired[Sequence[PlaygroundInstanceContext]]
 
 
 class PromptAnthropicInvocationParametersContent(TypedDict):
@@ -1324,6 +1382,7 @@ class SpansResponseBody(TypedDict):
 class ToolApprovalRequestedPart(TypedDict):
     type: str
     toolCallId: str
+    title: NotRequired[str]
     state: NotRequired[str]
     input: NotRequired[Any]
     providerExecuted: NotRequired[bool]
@@ -1442,10 +1501,20 @@ class ChatRegenerateMessage(TypedDict):
     exportRemoteTraces: NotRequired[bool]
     contexts: NotRequired[
         Sequence[
-            Union[AppContext, ProjectContext, TraceContext, AgentSpanContext, PlaygroundContext]
+            Union[
+                AppContext,
+                ProjectContext,
+                TraceContext,
+                AgentSpanContext,
+                PlaygroundContext,
+                CodeEvaluatorContext,
+                DatasetContext,
+                GraphQLContext,
+                WebAccessContext,
+            ]
         ]
     ]
-    capabilities: NotRequired[AgentCapabilities]
+    editPermission: NotRequired[Literal["manual", "bypass"]]
 
 
 class ChatSubmitMessage(TypedDict):
@@ -1457,14 +1526,32 @@ class ChatSubmitMessage(TypedDict):
     exportRemoteTraces: NotRequired[bool]
     contexts: NotRequired[
         Sequence[
-            Union[AppContext, ProjectContext, TraceContext, AgentSpanContext, PlaygroundContext]
+            Union[
+                AppContext,
+                ProjectContext,
+                TraceContext,
+                AgentSpanContext,
+                PlaygroundContext,
+                CodeEvaluatorContext,
+                DatasetContext,
+                GraphQLContext,
+                WebAccessContext,
+            ]
         ]
     ]
-    capabilities: NotRequired[AgentCapabilities]
+    editPermission: NotRequired[Literal["manual", "bypass"]]
+
+
+class CreateAnnotationConfigResponseBody(TypedDict):
+    data: Union[CategoricalAnnotationConfig, ContinuousAnnotationConfig, FreeformAnnotationConfig]
 
 
 class CreateSpansRequestBody(TypedDict):
     data: Sequence[Span]
+
+
+class DeleteAnnotationConfigResponseBody(TypedDict):
+    data: Union[CategoricalAnnotationConfig, ContinuousAnnotationConfig, FreeformAnnotationConfig]
 
 
 class GetSessionResponseBody(TypedDict):

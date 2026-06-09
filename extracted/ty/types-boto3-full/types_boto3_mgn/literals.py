@@ -310,6 +310,7 @@ ReplicationConfigurationReplicatedDiskStagingDiskTypeType = Literal[
 ReplicationTypeType = Literal["AGENT_BASED", "SNAPSHOT_SHIPPING"]
 SecurityGroupMappingStrategyType = Literal["MAP", "MAP_DHCP", "SKIP"]
 SourceEnvironmentType = Literal[
+    "AWS_DISCOVERY_COLLECTOR",
     "CISCO_ACI",
     "FORTIGATE_FIREWALL",
     "LOGICAL_MODEL",

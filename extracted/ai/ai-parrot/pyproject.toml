@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "setuptools>=67.6.1",
+    "setuptools>=77.0.0",
     "Cython==3.0.11",
     "wheel>=0.44.0"
 ]
@@ -352,6 +352,10 @@ groq = [
     "groq==0.33.0"
 ]
 
+zai = [
+    "zai-sdk>=0.2.2"
+]
+
 llms = [
     "google-genai>=2.6.0",
     "openai==2.8.1",
@@ -359,6 +363,7 @@ llms = [
     "anthropic[aiohttp]>=0.105.0,<1.0.0",
     "claude-agent-sdk>=0.1.68",
     "xai-sdk>=0.1.0",
+    "zai-sdk>=0.2.2",
 ]
 
 integrations = [
@@ -442,6 +447,15 @@ observability = [
 # accepts xmltodict<1.0.
 observability-openlit = [
     "openlit>=1.40.0",
+]
+
+# Optional OpenLLMetry (Traceloop) backend (opt-in via enable_traceloop=True).
+# A simple, content-rich local/dev tracing path. Mutually exclusive with OpenLIT
+# at runtime. The Traceloop.init params used (app_name, api_endpoint, api_key,
+# disable_batch, telemetry_enabled, resource_attributes, headers) are stable
+# across the traceloop-sdk 0.x line; floor pinned to avoid the pre-0.30 API.
+observability-traceloop = [
+    "traceloop-sdk>=0.40.0,<1.0",
 ]
 
 # Pluggable usage-logging: Prometheus backend (pull-based metrics + cost).

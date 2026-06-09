@@ -17,8 +17,8 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List, Optional
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
+from typing import Any, ClassVar, Dict, List, Optional, Union
 from pmxt_internal.models.built_order_tx import BuiltOrderTx
 from pmxt_internal.models.create_order_params import CreateOrderParams
 from typing import Optional, Set
@@ -33,7 +33,8 @@ class BuiltOrder(BaseModel):
     signed_order: Optional[Dict[str, Any]] = Field(default=None, description="For CLOB exchanges (Polymarket): the EIP-712 signed order ready to POST to the exchange's order endpoint.", alias="signedOrder")
     tx: Optional[BuiltOrderTx] = None
     raw: Optional[Any] = Field(description="The raw, exchange-native payload. Always present.")
-    __properties: ClassVar[List[str]] = ["exchange", "params", "signedOrder", "tx", "raw"]
+    expiry: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Unix epoch (ms) when this built order expires server-side. Submitting after expiry returns BUILT_ORDER_EXPIRED.")
+    __properties: ClassVar[List[str]] = ["exchange", "params", "signedOrder", "tx", "raw", "expiry"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -85,6 +86,11 @@ class BuiltOrder(BaseModel):
         if self.raw is None and "raw" in self.model_fields_set:
             _dict['raw'] = None
 
+        # set to None if expiry (nullable) is None
+        # and model_fields_set contains the field
+        if self.expiry is None and "expiry" in self.model_fields_set:
+            _dict['expiry'] = None
+
         return _dict
 
     @classmethod
@@ -101,7 +107,8 @@ class BuiltOrder(BaseModel):
             "params": CreateOrderParams.from_dict(obj["params"]) if obj.get("params") is not None else None,
             "signedOrder": obj.get("signedOrder"),
             "tx": BuiltOrderTx.from_dict(obj["tx"]) if obj.get("tx") is not None else None,
-            "raw": obj.get("raw")
+            "raw": obj.get("raw"),
+            "expiry": obj.get("expiry")
         })
         return _obj
 

@@ -6,4 +6,3 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 from slixmpp.plugins.xep_0325.stanza.control import *
-

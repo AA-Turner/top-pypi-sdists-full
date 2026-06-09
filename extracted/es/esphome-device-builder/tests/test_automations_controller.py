@@ -50,6 +50,40 @@ async def test_get_triggers_returns_full_catalog() -> None:
     assert "binary_sensor.on_press" in catalog_ids  # component-level
 
 
+def test_catalog_has_no_action_field_triggers() -> None:
+    """Every catalogued trigger is an ``on_*`` event hook, not an action-field.
+
+    Pins the regenerated catalog: ``set_action`` / ``open_action`` / ``*_mode``
+    and the ``then`` control-flow keys are component action-fields, edited via
+    the component form, and must never leak into the trigger picker.
+    """
+    offenders = [
+        t.id for t in catalog.all_triggers() if not t.id.rsplit(".", 1)[-1].startswith("on_")
+    ]
+    assert offenders == []
+
+
+async def test_get_available_excludes_action_field_triggers(tmp_path: Path) -> None:
+    """A ``number.template`` with ``set_action:`` offers ``on_*`` triggers, not the action-field."""
+    config = tmp_path / "num.yaml"
+    config.write_text(
+        "esphome:\n  name: d\n"
+        "number:\n"
+        "  - platform: template\n"
+        "    name: Blockade Time\n"
+        "    id: Blockade_Time\n"
+        "    optimistic: true\n"
+        "    set_action:\n"
+        "      - delay: 1s\n",
+        encoding="utf-8",
+    )
+    controller = _make_controller(tmp_path)
+    result = await controller.get_available(configuration="num.yaml")
+    trigger_ids = {t["id"] for t in result["triggers"]}
+    assert {"number.on_value", "number.on_value_range"} <= trigger_ids
+    assert not any("set_action" in tid for tid in trigger_ids)
+
+
 async def test_get_actions_returns_full_catalog() -> None:
     """``automations/get_actions`` returns every catalog action."""
     controller = _make_controller(Path("/unused"))
@@ -415,6 +449,37 @@ async def test_get_available_scopes_actions_and_conditions_to_present_domains(
     assert "binary_sensor.is_on" not in condition_ids
 
 
+def test_component_actions_survive_empty_domain_set() -> None:
+    """component.* is universal: present even when no domain matches."""
+    actions = catalog.actions_for_domains([])
+    action_ids = [a.id for a in actions]
+    condition_ids = {c.id for c in catalog.conditions_for_domains([])}
+    assert {"component.update", "component.suspend", "component.resume"} <= set(action_ids)
+    assert "component.is_idle" in condition_ids
+    # A genuinely domain-scoped action still gates on its YAML block.
+    assert "switch.turn_on" not in action_ids
+    # Core control flow stays ahead of the universal component.* family.
+    assert action_ids.index("delay") < action_ids.index("component.update")
+
+
+async def test_get_available_surfaces_component_actions_without_component_block(
+    tmp_path: Path,
+) -> None:
+    """component.* surfaces from get_available though no component: key exists."""
+    config = tmp_path / "c.yaml"
+    # The issue's shape: a button + text_sensor, no component domain.
+    config.write_text(
+        "esphome:\n  name: c\n"
+        "button:\n  - platform: template\n    name: B\n    id: b\n"
+        "text_sensor:\n  - platform: template\n    name: T\n    id: t\n",
+        encoding="utf-8",
+    )
+    controller = _make_controller(tmp_path)
+    result = await controller.get_available(configuration="c.yaml")
+    assert "component.update" in {a["id"] for a in result["actions"]}
+    assert "component.is_idle" in {c["id"] for c in result["conditions"]}
+
+
 async def test_get_available_scopes_to_configured_platform(tmp_path: Path) -> None:
     """Platform-specific catalog entries only surface for the matching platform.
 
@@ -604,6 +669,27 @@ async def test_parse_uses_yaml_override_when_provided(tmp_path: Path) -> None:
     # The interval time the user typed in the wizard round-trips
     # straight back to trigger_params.
     assert parsed["automation"]["trigger_params"]["interval"] == "30s"
+
+
+async def test_get_available_uses_yaml_override_when_provided(tmp_path: Path) -> None:
+    """Scoping honours ``yaml=`` so a wizard-added component's triggers surface pre-save."""
+    config = tmp_path / "draft.yaml"
+    # On disk: only a sensor. The draft adds a binary_sensor whose
+    # on_press trigger must surface from the override, not disk.
+    config.write_text(
+        "esphome:\n  name: draft\nsensor:\n  - platform: template\n    name: s\n    id: s\n",
+        encoding="utf-8",
+    )
+    controller = _make_controller(tmp_path)
+    draft = (
+        "esphome:\n  name: draft\n"
+        "binary_sensor:\n  - platform: gpio\n    name: b\n    id: btn\n    pin: GPIO0\n"
+    )
+    result = await controller.get_available(configuration="draft.yaml", yaml=draft)
+    trigger_ids = {t["id"] for t in result["triggers"]}
+    assert "binary_sensor.on_press" in trigger_ids
+    # The on-disk-only sensor is absent: scoping read the override.
+    assert "sensor.on_value" not in trigger_ids
 
 
 async def test_upsert_uses_yaml_override_when_provided(tmp_path: Path) -> None:

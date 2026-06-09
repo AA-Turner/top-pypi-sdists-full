@@ -242,4 +242,3 @@ class TestTransport(object):
 
     def close(self, *args, **kwargs):
         return
-

@@ -7,8 +7,7 @@ from typing import (
 )
 
 from datetime import datetime
-from slixmpp import JID, Iq
-from slixmpp.exceptions import IqError, IqTimeout
+from slixmpp import JID
 from slixmpp.plugins import BasePlugin
 from slixmpp.plugins.xep_0369 import stanza
 from slixmpp.xmlstream.handler import Callback

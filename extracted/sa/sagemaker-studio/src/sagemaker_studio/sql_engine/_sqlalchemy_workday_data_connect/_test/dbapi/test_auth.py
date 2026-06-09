@@ -288,6 +288,7 @@ class TestSDEAuthSetHttpSession:
 
         assert http_session.headers["Authorization"] == "Bearer token123"
         assert http_session.headers["X-Tenant"] == "test-tenant"
+        assert http_session.headers["X-Trino-Extra-Credential"] == "token=token123"
 
     @patch("sagemaker_studio.sql_engine._sqlalchemy_workday_data_connect.dbapi.auth.requests.post")
     def test_set_http_session_missing_tenant_raises(self, mock_post, auth):
@@ -306,3 +307,125 @@ class TestSDEAuthSetHttpSession:
             mock_jwt.decode.return_value = {"tenant": ""}
             with pytest.raises(Exception, match="Tenant claim is missing"):
                 auth.set_http_session(http_session)
+
+
+class TestInterceptedRequest:
+    """Test the intercepted_request closure installed by set_http_session."""
+
+    def _setup_session(self, auth):
+        """Helper to call set_http_session and return the patched session."""
+        http_session = Mock()
+        http_session.headers = {}
+        original_request = Mock()
+        http_session.request = original_request
+
+        with patch(
+            "sagemaker_studio.sql_engine._sqlalchemy_workday_data_connect.dbapi.auth.requests.post"
+        ) as mock_post, patch(
+            "sagemaker_studio.sql_engine._sqlalchemy_workday_data_connect.dbapi.auth.jwt"
+        ) as mock_jwt:
+            mock_post.return_value = Mock(
+                status_code=200,
+                json=lambda: {"access_token": "tok", "expires_in": 3600},
+            )
+            mock_jwt.encode.return_value = "assertion"
+            mock_jwt.decode.return_value = {"tenant": "t"}
+            auth.set_http_session(http_session)
+
+        return http_session, original_request
+
+    def test_rewrites_netloc(self, auth):
+        http_session, original_request = self._setup_session(auth)
+        original_request.return_value = Mock(status_code=200)
+
+        http_session.request("GET", "http://original-host:1234/v1/statement")
+
+        called_url = original_request.call_args[0][1]
+        assert "example.workday.com:443" in called_url
+
+    def test_adds_dataservice_path_prefix(self, auth):
+        http_session, original_request = self._setup_session(auth)
+        original_request.return_value = Mock(status_code=200)
+
+        http_session.request("GET", "http://host/v1/statement")
+
+        called_url = original_request.call_args[0][1]
+        assert "/dataservice/v1/statement" in called_url
+
+    def test_skips_prefix_when_already_present(self, auth):
+        http_session, original_request = self._setup_session(auth)
+        original_request.return_value = Mock(status_code=200)
+
+        http_session.request("GET", "http://host/dataservice/v1/statement")
+
+        called_url = original_request.call_args[0][1]
+        assert "/dataservice/dataservice" not in called_url
+        assert "/dataservice/v1/statement" in called_url
+
+    def test_skips_prefix_when_config_disables_it(self, valid_properties):
+        valid_properties["include_path_prefix"] = "false"
+        config = DataServiceConfig(valid_properties)
+        auth = SDEAuth(config)
+
+        http_session, original_request = self._setup_session(auth)
+        original_request.return_value = Mock(status_code=200)
+
+        http_session.request("GET", "http://host/v1/statement")
+
+        called_url = original_request.call_args[0][1]
+        assert "/dataservice" not in called_url
+        assert "/v1/statement" in called_url
+
+    def test_non_401_response_returned_directly(self, auth):
+        http_session, original_request = self._setup_session(auth)
+        response = Mock(status_code=200)
+        original_request.return_value = response
+
+        result = http_session.request("GET", "http://host/v1/statement")
+
+        assert result is response
+        assert original_request.call_count == 1
+
+    def test_401_triggers_token_refresh_and_retry(self, auth):
+        http_session, original_request = self._setup_session(auth)
+
+        first_response = Mock(status_code=401)
+        retry_response = Mock(status_code=200)
+        original_request.side_effect = [first_response, retry_response]
+
+        with patch(
+            "sagemaker_studio.sql_engine._sqlalchemy_workday_data_connect.dbapi.auth.requests.post"
+        ) as mock_post, patch(
+            "sagemaker_studio.sql_engine._sqlalchemy_workday_data_connect.dbapi.auth.jwt"
+        ) as mock_jwt:
+            mock_post.return_value = Mock(
+                status_code=200,
+                json=lambda: {"access_token": "refreshed_tok", "expires_in": 3600},
+            )
+            mock_jwt.encode.return_value = "assertion"
+            result = http_session.request("GET", "http://host/v1/statement")
+
+        assert result is retry_response
+        assert original_request.call_count == 2
+        assert http_session.headers["Authorization"] == "Bearer refreshed_tok"
+        assert http_session.headers["X-Trino-Extra-Credential"] == "token=refreshed_tok"
+
+    def test_401_invalidates_cached_token(self, auth):
+        http_session, original_request = self._setup_session(auth)
+
+        original_request.side_effect = [Mock(status_code=401), Mock(status_code=200)]
+
+        with patch(
+            "sagemaker_studio.sql_engine._sqlalchemy_workday_data_connect.dbapi.auth.requests.post"
+        ) as mock_post, patch(
+            "sagemaker_studio.sql_engine._sqlalchemy_workday_data_connect.dbapi.auth.jwt"
+        ) as mock_jwt:
+            mock_post.return_value = Mock(
+                status_code=200,
+                json=lambda: {"access_token": "new", "expires_in": 3600},
+            )
+            mock_jwt.encode.return_value = "assertion"
+            http_session.request("GET", "http://host/path")
+
+        # Token was refreshed (not served from cache)
+        assert auth._cached_token == "new"

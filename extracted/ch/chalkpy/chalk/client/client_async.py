@@ -32,6 +32,8 @@ if TYPE_CHECKING:
     import polars as pl
     import pyarrow as pa
 
+    from chalk.client._chalkdf_import import ChalkDfDataFrame
+
     QueryInput = Mapping[FeatureReference, Any] | pd.DataFrame | pl.DataFrame | DataFrame | str
 
 
@@ -622,7 +624,7 @@ class AsyncChalkClient:
 
     async def offline_query(
         self,
-        input: Union[QueryInput, OfflineQueryInputUri] | None = None,
+        input: Union[QueryInput, OfflineQueryInputUri, ChalkDfDataFrame] | None = None,
         input_times: Sequence[datetime] | datetime | None = None,
         output: Sequence[FeatureReference] = (),
         required_output: Sequence[FeatureReference] = (),
@@ -672,6 +674,14 @@ class AsyncChalkClient:
             feature, or an existing `DataFrame`.
             Each element in the `DataFrame` or list of values represents
             an observation in line with the timestamp in `input_times`.
+
+            When `input` is a chalkdf DataFrame, the underlying plan is serialized
+            and executed server-side. Use this for inputs referencing server-reachable data
+            sources (e.g., `DataFrame.scan(...)`, `DataFrame.scan_glue_iceberg(...)`,
+            `DataFrame.from_dataset(...)`, `DataFrame.from_catalog_table(...)`).
+            Avoid using chalkdf DataFrames that embed large literal data via `DataFrame.from_dict(...)`
+            or `DataFrame.from_arrow(...)`. Instead, pass that data through `input`
+            directly (as a dict, pandas DataFrame, polars DataFrame, or pyarrow Table).
         input_times
             A list of the times of the observations from `input`.
         input_sql

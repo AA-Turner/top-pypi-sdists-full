@@ -597,6 +597,7 @@ class AssociateMemberToFarmRequestTypeDef(TypedDict):
     identityStoreId: str
     membershipLevel: MembershipLevelType
     principalId: str
+    identityCenterRegion: NotRequired[str]
 
 
 class AssociateMemberToFleetRequestTypeDef(TypedDict):
@@ -606,6 +607,7 @@ class AssociateMemberToFleetRequestTypeDef(TypedDict):
     identityStoreId: str
     membershipLevel: MembershipLevelType
     principalId: str
+    identityCenterRegion: NotRequired[str]
 
 
 class AssociateMemberToJobRequestTypeDef(TypedDict):
@@ -616,6 +618,7 @@ class AssociateMemberToJobRequestTypeDef(TypedDict):
     identityStoreId: str
     membershipLevel: MembershipLevelType
     principalId: str
+    identityCenterRegion: NotRequired[str]
 
 
 class AssociateMemberToQueueRequestTypeDef(TypedDict):
@@ -625,6 +628,7 @@ class AssociateMemberToQueueRequestTypeDef(TypedDict):
     identityStoreId: str
     membershipLevel: MembershipLevelType
     principalId: str
+    identityCenterRegion: NotRequired[str]
 
 
 class AssumeFleetRoleForReadRequestTypeDef(TypedDict):

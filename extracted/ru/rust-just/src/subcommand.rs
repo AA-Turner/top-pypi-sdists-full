@@ -136,6 +136,35 @@ impl Subcommand {
     self.into()
   }
 
+  fn default_list_module(
+    config: &Config,
+    justfile: &Justfile,
+    arguments: &[String],
+  ) -> Option<Modulepath> {
+    let path = if arguments.is_empty() {
+      Modulepath::default()
+    } else if arguments[0].contains(':') {
+      if arguments.len() != 1 {
+        return None;
+      }
+
+      Modulepath::from_argument(&arguments[0]).ok()?
+    } else {
+      Modulepath::try_from(
+        arguments
+          .iter()
+          .map(String::as_str)
+          .collect::<Vec<&str>>()
+          .as_slice(),
+      )
+      .ok()?
+    };
+
+    let submodule = justfile.submodule(&path)?;
+
+    (config.default_list || submodule.settings.default_list).then_some(path)
+  }
+
   fn run<'src>(
     config: &Config,
     loader: &'src Loader,
@@ -152,6 +181,10 @@ impl Subcommand {
           config.search_config,
           SearchConfig::FromInvocationDirectory | SearchConfig::FromSearchDirectory { .. }
         );
+
+      if let Some(path) = Self::default_list_module(config, justfile, arguments) {
+        return Self::list(config, justfile, &path);
+      }
 
       let result = justfile.run(config, &search, arguments, &compilation.overrides);
 
@@ -394,6 +427,9 @@ impl Subcommand {
       }
 
       Err(Error::FormatCheckFoundDiff)
+    } else if matches!(config.search_config, SearchConfig::FromStandardInput { .. }) {
+      print!("{formatted}");
+      Ok(())
     } else {
       fs::write(&search.justfile, formatted).map_err(|io_error| Error::WriteJustfile {
         justfile: search.justfile.clone(),
@@ -473,12 +509,17 @@ impl Subcommand {
 
   fn list(config: &Config, mut module: &Justfile, path: &Modulepath) -> RunResult<'static> {
     for name in &path.components {
-      module = module
-        .modules
-        .get(name)
-        .ok_or_else(|| Error::UnknownSubmodule {
+      if let Some(submodule) = module.modules.get(name) {
+        module = submodule;
+      } else if module.absent_modules.contains(name) {
+        return Err(Error::ModuleAbsent {
+          module: module.module_path.join(name),
+        });
+      } else {
+        return Err(Error::UnknownSubmodule {
           path: path.to_string(),
-        })?;
+        });
+      }
     }
 
     Self::list_module(config, 0, &config.groups, module)?;
@@ -845,12 +886,17 @@ impl Subcommand {
     path: &Modulepath,
   ) -> RunResult<'src, (Option<&'run Alias<'src>>, &'run Recipe<'src>)> {
     for name in &path.components[0..path.components.len() - 1] {
-      module = module
-        .modules
-        .get(name)
-        .ok_or_else(|| Error::UnknownSubmodule {
+      if let Some(submodule) = module.modules.get(name) {
+        module = submodule;
+      } else if module.absent_modules.contains(name) {
+        return Err(Error::ModuleAbsent {
+          module: module.module_path.join(name),
+        });
+      } else {
+        return Err(Error::UnknownSubmodule {
           path: path.to_string(),
-        })?;
+        });
+      }
     }
 
     let name = path.components.last().unwrap();

@@ -69,6 +69,7 @@ __all__ = [
     "KsiClassification",
     "UnmappedFinding",
     "compute_unmapped_findings",
+    "detector_covered_ksis",
     "fill_missing_classifications",
     "in_scope_evidence",
     "plan_batches",
@@ -92,6 +93,28 @@ def in_scope_evidence(evidence: list[Evidence]) -> list[Evidence]:
     only enforces it at the agent-input layer, where it was previously missing.
     """
     return [ev for ev in evidence if ev.boundary_state != "out_of_boundary"]
+
+
+def detector_covered_ksis() -> frozenset[str]:
+    """Return the set of KSIs that have at least one registered IaC detector.
+
+    Unioned deterministically from every `DetectorSpec.ksis` in the registry
+    (importing `efterlev.detectors` populates it via the `@detector` decorator).
+    A KSI in this set has an IaC evidence path, so **zero evidence for it means
+    the scanner looked and found the control absent** — the honest verdict is
+    `not_implemented`, not `evidence_layer_inapplicable` (which is reserved for
+    KSIs with NO detector, i.e. procedural / manifest-only outcomes). The Gap
+    Agent uses this to apply `gap_prompt.md`'s structural invariant correctly
+    instead of guessing (govnotes-demo gaps #16 / #19 mis-classified as
+    inapplicable, found in the 2026-06-07 validation; see DECISIONS 2026-06-08).
+
+    Computed from the registry rather than hard-coded so it can't drift when a
+    detector is added or removed.
+    """
+    import efterlev.detectors  # noqa: F401 — import-for-side-effect: populates _REGISTRY
+    from efterlev.detectors.base import get_registry
+
+    return frozenset(ksi for spec in get_registry().values() for ksi in spec.ksis)
 
 
 # Substring of the message raised by `KsiClassification._positive_status_requires_evidence`
@@ -133,6 +156,15 @@ class GapAgentInput(BaseModel):
     # None when the agent is invoked directly (e.g. unit tests) without a
     # prior scan in the active store. Priority 0 (2026-04-27).
     scan_summary: ScanSummary | None = None
+    # v0.1.221: the deterministic set of KSIs that have a registered IaC
+    # detector (from `detector_covered_ksis()`). When non-empty, the prompt
+    # marks these KSIs so the agent applies the structural invariant correctly:
+    # a covered KSI with zero evidence is `not_implemented` (the scanner had a
+    # path and found nothing), not `evidence_layer_inapplicable` (reserved for
+    # KSIs with no detector). Default-empty → no markers, no rule, byte-identical
+    # behavior — keeps direct/unit-test invocation backward compatible. See
+    # DECISIONS 2026-06-08.
+    detector_covered_ksis: frozenset[str] = frozenset()
     # v0.1.86: optional streaming-progress callback. CLI installs a
     # `GapProgressReporter` from `efterlev.agents.gap_progress` when
     # stderr is a TTY (regex-extracts KSI IDs from the streaming JSON
@@ -382,6 +414,7 @@ class GapAgent(Agent):
                 unmapped,
                 nonce=nonce,
                 scan_summary=input.scan_summary,
+                covered_ksis=input.detector_covered_ksis,
             )
             report, _response, _system_prompt = self._invoke_with_validator_retry(
                 user_message=user_message,
@@ -450,6 +483,7 @@ class GapAgent(Agent):
                 unmapped_evidence=[],
                 nonce=nonce,
                 scan_summary=input.scan_summary,
+                covered_ksis=input.detector_covered_ksis,
             )
 
             batch_report, response, _system_prompt = self._invoke_with_validator_retry(
@@ -795,6 +829,7 @@ def _build_user_message(
     *,
     nonce: str,
     scan_summary: ScanSummary | None = None,
+    covered_ksis: frozenset[str] = frozenset(),
 ) -> str:
     """Assemble the per-batch user message with fenced evidence blocks.
 
@@ -803,18 +838,27 @@ def _build_user_message(
     findings are now computed deterministically post-batch, so no
     unmapped evidence is sent to the LLM). Saves tokens on every
     batch call.
+
+    v0.1.221: when `covered_ksis` is non-empty, each KSI in the set is
+    marked `[IaC-detector-covered]` and a rule block tells the model that a
+    marked KSI with zero evidence is `not_implemented`, not
+    `evidence_layer_inapplicable`. Empty set → no markers, no rule block →
+    byte-identical to pre-v0.1.221 output. See DECISIONS 2026-06-08.
     """
     ksi_lines: list[str] = []
     for ind in indicators:
         statement = ind.statement or "(no statement in FRMR)"
-        ksi_lines.append(f"- {ind.id} — {ind.name}: {statement}")
+        marker = " [IaC-detector-covered]" if ind.id in covered_ksis else ""
+        ksi_lines.append(f"- {ind.id}{marker} — {ind.name}: {statement}")
 
     fenced_mapped = format_evidence_for_prompt(mapped_evidence, nonce=nonce)
     summary_block = _format_scan_summary_block(scan_summary)
+    covered_rule = _format_covered_ksi_rule(indicators, covered_ksis)
 
     parts = [
         "Classify the following KSIs from the loaded FedRAMP 20x baseline.\n\n",
         summary_block,
+        covered_rule,
         "## KSIs to classify\n\n",
         "\n".join(ksi_lines),
         "\n\n## Evidence attached to one or more KSIs\n\n",
@@ -829,6 +873,32 @@ def _build_user_message(
         "No prose, no code fences, no commentary."
     )
     return "".join(parts)
+
+
+def _format_covered_ksi_rule(indicators: list[Indicator], covered_ksis: frozenset[str]) -> str:
+    """Rule block telling the model how to read the `[IaC-detector-covered]` marker.
+
+    Only emitted when at least one indicator in THIS batch is covered — keeps the
+    block out of all-procedural batches and out of the empty-set (backward-compat)
+    path. Reinforces `gap_prompt.md`'s structural invariant with the deterministic
+    coverage signal the model otherwise lacks (DECISIONS 2026-06-08).
+    """
+    if not covered_ksis or not any(ind.id in covered_ksis for ind in indicators):
+        return ""
+    return (
+        "## Detector-coverage rule (overrides your inapplicable/not_implemented choice)\n\n"
+        "A KSI marked `[IaC-detector-covered]` below has at least one deterministic "
+        "IaC detector registered for it. That means the scanner HAS a path to evidence "
+        "this KSI from infrastructure-as-code.\n\n"
+        "- If a `[IaC-detector-covered]` KSI has **zero attached evidence**, the scanner "
+        "looked and found the control absent. Classify it `not_implemented` (a real gap) "
+        "— NOT `evidence_layer_inapplicable`. The absence IS the finding.\n"
+        "- Reserve `evidence_layer_inapplicable` for KSIs WITHOUT the marker: those have "
+        "no IaC detector, so the scanner genuinely has no path and the evidence layer is "
+        "inapplicable by design (procedural / manifest-only outcomes).\n"
+        "- This does not change the rule that `partial` / `implemented` still require at "
+        "least one cited evidence_id. It only decides which zero-evidence status to use.\n\n"
+    )
 
 
 def _format_scan_summary_block(scan_summary: ScanSummary | None) -> str:

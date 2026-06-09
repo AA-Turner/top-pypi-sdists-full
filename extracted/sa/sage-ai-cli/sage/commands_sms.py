@@ -271,10 +271,15 @@ def sms_start(
         bool,
         typer.Option("--foreground", "-f", help="Run in foreground (default: background daemon)"),
     ] = False,
+    no_announce: Annotated[
+        bool,
+        typer.Option("--no-announce", help="Do not send online announcement to contacts"),
+    ] = False,
 ) -> None:
     """Start the bridge daemon in the background — requires sage login."""
     from sage.main import _sms_process_alive
     import shutil
+    import os
     import subprocess as _sp
     from sage.core.sms_bridge import SMSConfig, SAGEMessageBridge, SMS_PID_FILE, SMS_LOG_FILE, _load_sage_token
 
@@ -289,6 +294,9 @@ def sms_start(
         cfg.model = model
     if name:
         cfg.computer_name = name
+
+    if no_announce:
+        os.environ["SAGE_DISABLE_ANNOUNCE"] = "1"
 
     try:
         token, api_base = _load_sage_token()

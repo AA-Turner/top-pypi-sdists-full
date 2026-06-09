@@ -20,12 +20,13 @@ from lamindb.base.users import current_user_id
 from .._secret_redaction import redact_secrets_in_source_code
 from ..models._is_versioned import process_revises
 from ._is_versioned import IsVersioned, _adjust_is_latest_when_deleting_is_versioned
-from .run import Run, User
+from .run import Run, TracksRun, User
 from .sqlrecord import (
     BaseSQLRecord,
     IsLink,
     SQLRecord,
     init_self_from_db,
+    pop_space_branch_kwargs,
     update_attributes,
 )
 
@@ -46,7 +47,7 @@ if TYPE_CHECKING:
 
 # does not inherit from TracksRun because the Transform
 # is needed to define a run
-class Transform(SQLRecord, IsVersioned):
+class Transform(SQLRecord, IsVersioned, TracksRun):
     """Data transformations such as scripts, notebooks, functions, or pipelines.
 
     If you execute a transform, you generate a run
@@ -213,10 +214,6 @@ class Transform(SQLRecord, IsVersioned):
     """Linked projects ← :attr:`~lamindb.Project.transforms`."""
     references: RelatedManager[Reference]
     """Linked references ← :attr:`~lamindb.Reference.transforms`."""
-    created_at: datetime = DateTimeField(
-        editable=False, db_default=models.functions.Now(), db_index=True
-    )
-    """Time of creation of record."""
     updated_at: datetime = DateTimeField(
         editable=False, db_default=models.functions.Now(), db_index=True
     )
@@ -276,10 +273,7 @@ class Transform(SQLRecord, IsVersioned):
         kind = kind if kind is not None else (type if type is not None else "pipeline")
         reference: str | None = kwargs.pop("reference", None)
         reference_type: str | None = kwargs.pop("reference_type", None)
-        branch = kwargs.pop("branch", None)
-        branch_id = kwargs.pop("branch_id", 1)
-        space = kwargs.pop("space", None)
-        space_id = kwargs.pop("space_id", 1)
+        space_branch_kwargs = pop_space_branch_kwargs(kwargs)
         skip_hash_lookup: bool = kwargs.pop("skip_hash_lookup", False)
         using_key = kwargs.pop("using_key", None)
         # below is internal use that we'll hopefully be able to eliminate
@@ -363,10 +357,7 @@ class Transform(SQLRecord, IsVersioned):
             _has_consciously_provided_uid=has_consciously_provided_uid,
             revises=revises,
             _refresh_revises_if_stale=refresh_revises_if_stale,
-            branch=branch,
-            branch_id=branch_id,
-            space=space,
-            space_id=space_id,
+            **space_branch_kwargs,
         )
 
     @classmethod
@@ -572,7 +563,7 @@ def _permanent_delete_transforms(transforms: Transform | QuerySet) -> None:
     DjangoQuerySet.delete(qs)
 
 
-class TransformTransform(BaseSQLRecord, IsLink):
+class TransformTransform(BaseSQLRecord, IsLink, TracksRun):
     id: int = models.BigAutoField(primary_key=True)
     successor: Transform = ForeignKey(
         "Transform", CASCADE, related_name="links_predecessor"
@@ -581,12 +572,6 @@ class TransformTransform(BaseSQLRecord, IsLink):
         "Transform", CASCADE, related_name="links_successor"
     )
     config: dict | None = models.JSONField(default=None, null=True)
-    created_at: datetime = DateTimeField(
-        editable=False, db_default=models.functions.Now()
-    )
-    created_by: User = ForeignKey(
-        "lamindb.User", PROTECT, default=current_user_id, related_name="+"
-    )
 
     class Meta:
         app_label = "lamindb"

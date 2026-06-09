@@ -91,13 +91,34 @@ def handle_mark_step(args: list[str], fs: Filesystem, tm: TaskManager,
             from kanban_framework.domain.step_registry import find_step_def
             step_def = find_step_def(step_id, mode=getattr(task, 'mode', None))
             if step_def and (step_def.type == "checkpoint" or getattr(step_def, 'guard', None)):
+                guard_cfg = getattr(step_def, 'guard', None) or {}
                 from kanban_framework.domain.guard import Guard
                 guard = Guard(fs, cfg)
                 guard_result = guard.check_step(task, {
                     "id": step_def.id,
                     "type": getattr(step_def, 'type', 'action'),
-                    "guard": getattr(step_def, 'guard', None),
+                    "guard": guard_cfg,
                 })
+
+                # guard_prompt: requires agent verification before completing
+                guard_prompt = guard_cfg.get("guard_prompt", "")
+                guard_agent = guard_cfg.get("guard_agent_type")
+                verified = "--verified" in args
+
+                if guard_prompt and not verified:
+                    return {
+                        "task_id": task_id, "step_id": step_id,
+                        "status": "verification_required",
+                        "verification": {
+                            "prompt": guard_prompt,
+                            "agent_type": guard_agent or "general-purpose",
+                            "hint": (
+                                f"Spawn a {guard_agent or 'general-purpose'} agent with this prompt, "
+                                f"then re-run: kanban workflow mark-step {task_id} {step_id} completed --verified"
+                            ),
+                        },
+                    }
+
                 if not guard_result.passed:
                     return {
                         "task_id": task_id, "step_id": step_id, "status": "blocked",

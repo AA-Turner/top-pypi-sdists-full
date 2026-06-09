@@ -78,8 +78,16 @@ def _create_session_manager(
 ):
     """Route to the correct session manager based on connection type and props.
 
-    Uses SPARK_CONNECT type filtering + props-based service identification:
-    - SPARK_CONNECT type → identify service from props (computeArn / athenaProperties / sparkGlueProperties)
+    Accepts both SPARK_CONNECT and SPARK connection types — DZ currently creates Glue
+    connections with type=SPARK (not SPARK_CONNECT). The props-based service identification
+    is the real routing signal, not the type string.
+
+    Routing:
+    - SPARK_CONNECT or SPARK type → identify service from props:
+        - sparkEmrProperties.computeArn → EMR_SERVERLESS / EMR_EKS / EMR_EC2
+        - sparkGlueProperties → GLUE
+        - athenaProperties → ATHENA
+        - Default → ATHENA
     - Unknown type:
         - If user explicitly chose this connection → raise error (don't silently give them Athena)
         - If no explicit choice (default path) → fall back to Athena
@@ -90,12 +98,51 @@ def _create_session_manager(
     from sagemaker_studio.utils.spark.session.emr_serverless.emr_serverless_spark_session_manager import (
         EMRServerlessSparkSessionManager,
     )
+    from sagemaker_studio.utils.spark.session.glue.glue_spark_session_manager import (
+        GlueSparkSessionManager,
+    )
+
+    def _raise_or_fallback_to_athena(msg, stacklevel=3):
+        """Raise RuntimeError if user explicitly chose this connection, else fall back to Athena."""
+        if is_explicit_choice:
+            raise RuntimeError(msg)
+        logger.warning(f"{msg} Falling back to Athena.")
+        # Surface in notebook cell output so user is aware of the silent fallback.
+        warnings.warn(f"{msg} Falling back to Athena Spark Connect.", stacklevel=stacklevel)
+        return AthenaSparkSessionManager(config=config, spark_conf=spark_conf)
+
+    def _validate_service(conn_type, service):
+        """Validate the connection type and service combination. Raises on invalid configs."""
+        if service == "UNKNOWN":
+            raise RuntimeError(
+                "Could not identify the Spark backend from the connection properties. "
+                "Ensure the connection has valid athenaProperties, sparkEmrProperties, "
+                "or sparkGlueProperties. Supported backends: Athena, EMR Serverless, Glue."
+            )
+        if service in ("EMR_EKS", "EMR_EC2"):
+            raise RuntimeError(
+                f"Spark Connect is not yet supported for {service} connections. "
+                "Supported backends: Athena, EMR Serverless, Glue."
+            )
+        # SPARK type is only valid for Glue (DZ creates Glue connections with type=SPARK).
+        if conn_type == "SPARK" and service != "GLUE":
+            return _raise_or_fallback_to_athena(
+                f"Connection type 'SPARK' is only supported for Glue connections. "
+                f"Identified service '{service}' requires type 'SPARK_CONNECT'.",
+                stacklevel=4,
+            )
+        return None
 
     conn_type = getattr(connection, "type", None)
 
-    if conn_type == "SPARK_CONNECT":
+    if conn_type in ("SPARK_CONNECT", "SPARK"):
         service = _identify_service_from_props(connection)
-        logger.info(f"Connection type SPARK_CONNECT, identified service={service}")
+        logger.info(f"Connection type {conn_type}, identified service={service}")
+
+        # Validate — raises or returns Athena fallback on invalid configs.
+        fallback = _validate_service(conn_type, service)
+        if fallback is not None:
+            return fallback
 
         if service == "EMR_SERVERLESS":
             return EMRServerlessSparkSessionManager(
@@ -105,54 +152,29 @@ def _create_session_manager(
                 spark_conf=spark_conf,
             )
 
-        if service in ("GLUE", "EMR_EKS", "EMR_EC2"):
-            raise RuntimeError(
-                f"Spark Connect is not yet supported for {service} connections. "
-                "Supported backends: Athena, EMR Serverless."
-            )
-
-        if service == "UNKNOWN":
-            raise RuntimeError(
-                "Could not identify the Spark backend from the connection properties. "
-                "Ensure the connection has valid athenaProperties or sparkEmrProperties "
-                "with a recognized computeArn. Supported backends: Athena, EMR Serverless."
-            )
-
-        if service == "ATHENA":
-            return AthenaSparkSessionManager(
+        if service == "GLUE":
+            return GlueSparkSessionManager(
                 connection=connection,
                 connection_name=connection_name,
-                connection_id=connection_id,
                 config=config,
                 spark_conf=spark_conf,
             )
 
-        # Should not reach here for SPARK_CONNECT
-        raise RuntimeError(
-            f"Unhandled Spark Connect service type: {service}. "
-            "Supported backends: Athena, EMR Serverless."
+        # Athena (default for SPARK_CONNECT)
+        return AthenaSparkSessionManager(
+            connection=connection,
+            connection_name=connection_name,
+            connection_id=connection_id,
+            config=config,
+            spark_conf=spark_conf,
         )
 
     # Unrecognized connection type for Spark Connect
-    if is_explicit_choice:
-        raise RuntimeError(
-            f"Connection type '{conn_type}' is not a recognized Spark Connect type. "
-            "Verify that the connection type is SPARK_CONNECT with the appropriate "
-            "service properties (e.g., athenaProperties, sparkEmrProperties, sparkGlueProperties)."
-        )
-
-    # No explicit choice (default path) — fall back to Athena
-    logger.warning(
-        f"Connection type '{conn_type}' does not match a Spark Connect-enabled backend — defaulting to Athena session manager"
-    )
-    warnings.warn(
+    return _raise_or_fallback_to_athena(
         f"Connection type '{conn_type}' is not a recognized Spark Connect type. "
-        "Falling back to Athena Spark Connect. Verify that the connection type is "
-        "SPARK_CONNECT with the appropriate service properties (e.g., athenaProperties, "
-        "sparkEmrProperties, sparkGlueProperties).",
-        stacklevel=2,
+        "Verify that the connection type is SPARK_CONNECT or SPARK with the appropriate "
+        "service properties (e.g., athenaProperties, sparkEmrProperties, sparkGlueProperties)."
     )
-    return AthenaSparkSessionManager(config=config, spark_conf=spark_conf)
 
 
 def get_spark_options(connection_name: str):

@@ -95,6 +95,7 @@ def load_cached_tokens() -> AuthTokens | None:
                 cookies=profile.cookies,
                 csrf_token=profile.csrf_token or "",
                 session_id=profile.session_id or "",
+                build_label=profile.build_label or "",
                 extracted_at=(
                     profile.last_validated.timestamp() if profile.last_validated else time.time()
                 ),

@@ -31,6 +31,7 @@ EXTENSIONS_MAP = {
     'text': 'txt',
 }
 
+
 class XEP_0454(BasePlugin):
     """
         XEP-0454: OMEMO Media Sharing
@@ -172,5 +173,6 @@ class XEP_0454(BasePlugin):
 
         url = await self.xmpp['xep_0363'].upload_file(**kwargs)
         return self.format_url(url, fragment)
+
 
 register_plugin(XEP_0454)

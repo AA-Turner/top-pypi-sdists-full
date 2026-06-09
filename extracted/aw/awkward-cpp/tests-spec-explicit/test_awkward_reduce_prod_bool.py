@@ -8,8 +8,9 @@ def test_awkward_reduce_prod_bool_1():
 	lenparents = 0
 	outlength = 0
 	parents = []
+	offsets = []
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = []
 	assert toptr == pytest_toptr
 
@@ -20,8 +21,9 @@ def test_awkward_reduce_prod_bool_2():
 	lenparents = 9
 	outlength = 8
 	parents = [0, 0, 0, 6, 6, 1, 1, 7, 2]
+	offsets = [0, 3, 5, 6, 6, 6, 6, 8, 9]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [0, 0, 1, 1, 1, 1, 0, 1]
 	assert toptr == pytest_toptr
 
@@ -32,8 +34,9 @@ def test_awkward_reduce_prod_bool_3():
 	lenparents = 6
 	outlength = 2
 	parents = [0, 0, 0, 1, 1, 1]
+	offsets = [0, 3, 6]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [0, 1]
 	assert toptr == pytest_toptr
 
@@ -44,8 +47,9 @@ def test_awkward_reduce_prod_bool_4():
 	lenparents = 9
 	outlength = 6
 	parents = [0, 0, 0, 2, 2, 3, 4, 4, 5]
+	offsets = [0, 3, 3, 5, 6, 8, 9]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [0, 1, 0, 1, 0, 1]
 	assert toptr == pytest_toptr
 
@@ -56,8 +60,9 @@ def test_awkward_reduce_prod_bool_5():
 	lenparents = 10
 	outlength = 4
 	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3]
+	offsets = [0, 3, 6, 9, 10]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [0, 1, 0, 1]
 	assert toptr == pytest_toptr
 
@@ -68,8 +73,9 @@ def test_awkward_reduce_prod_bool_6():
 	lenparents = 10
 	outlength = 4
 	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3]
+	offsets = [0, 3, 6, 9, 10]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [0, 1, 0, 1]
 	assert toptr == pytest_toptr
 
@@ -80,8 +86,9 @@ def test_awkward_reduce_prod_bool_7():
 	lenparents = 10
 	outlength = 3
 	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2]
+	offsets = [0, 3, 6, 10]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [0, 1, 1]
 	assert toptr == pytest_toptr
 
@@ -92,8 +99,9 @@ def test_awkward_reduce_prod_bool_8():
 	lenparents = 25
 	outlength = 6
 	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5]
+	offsets = [0, 3, 6, 10, 15, 21, 25]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [0, 1, 1, 0, 1, 1]
 	assert toptr == pytest_toptr
 
@@ -104,8 +112,9 @@ def test_awkward_reduce_prod_bool_9():
 	lenparents = 15
 	outlength = 5
 	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4]
+	offsets = [0, 3, 6, 9, 12, 15]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [0, 1, 1, 1, 0]
 	assert toptr == pytest_toptr
 
@@ -116,8 +125,9 @@ def test_awkward_reduce_prod_bool_10():
 	lenparents = 22
 	outlength = 6
 	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5]
+	offsets = [0, 3, 6, 11, 15, 19, 22]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 0, 0, 1, 1, 0]
 	assert toptr == pytest_toptr
 
@@ -128,8 +138,9 @@ def test_awkward_reduce_prod_bool_11():
 	lenparents = 10
 	outlength = 3
 	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2]
+	offsets = [0, 3, 6, 10]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 0, 0]
 	assert toptr == pytest_toptr
 
@@ -140,8 +151,9 @@ def test_awkward_reduce_prod_bool_12():
 	lenparents = 19
 	outlength = 5
 	parents = [0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4]
+	offsets = [0, 5, 8, 11, 14, 19]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 0, 0, 1, 1]
 	assert toptr == pytest_toptr
 
@@ -152,8 +164,9 @@ def test_awkward_reduce_prod_bool_13():
 	lenparents = 10
 	outlength = 3
 	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2]
+	offsets = [0, 3, 6, 10]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 0, 0]
 	assert toptr == pytest_toptr
 
@@ -164,8 +177,9 @@ def test_awkward_reduce_prod_bool_14():
 	lenparents = 6
 	outlength = 2
 	parents = [0, 0, 0, 1, 1, 1]
+	offsets = [0, 3, 6]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 0]
 	assert toptr == pytest_toptr
 
@@ -176,8 +190,9 @@ def test_awkward_reduce_prod_bool_15():
 	lenparents = 9
 	outlength = 3
 	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2]
+	offsets = [0, 3, 6, 9]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 1, 0]
 	assert toptr == pytest_toptr
 
@@ -188,8 +203,9 @@ def test_awkward_reduce_prod_bool_16():
 	lenparents = 15
 	outlength = 5
 	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4]
+	offsets = [0, 3, 6, 9, 12, 15]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 1, 0, 1, 1]
 	assert toptr == pytest_toptr
 
@@ -200,8 +216,9 @@ def test_awkward_reduce_prod_bool_17():
 	lenparents = 11
 	outlength = 3
 	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2]
+	offsets = [0, 3, 6, 11]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 1, 1]
 	assert toptr == pytest_toptr
 
@@ -212,8 +229,9 @@ def test_awkward_reduce_prod_bool_18():
 	lenparents = 17
 	outlength = 5
 	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4]
+	offsets = [0, 3, 6, 10, 14, 17]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 1, 1, 1, 1]
 	assert toptr == pytest_toptr
 
@@ -224,8 +242,9 @@ def test_awkward_reduce_prod_bool_19():
 	lenparents = 19
 	outlength = 5
 	parents = [0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4]
+	offsets = [0, 3, 8, 12, 16, 19]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 1, 1, 1, 1]
 	assert toptr == pytest_toptr
 
@@ -236,8 +255,9 @@ def test_awkward_reduce_prod_bool_20():
 	lenparents = 22
 	outlength = 6
 	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5]
+	offsets = [0, 3, 6, 11, 15, 19, 22]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 1, 1, 1, 1, 1]
 	assert toptr == pytest_toptr
 
@@ -248,8 +268,9 @@ def test_awkward_reduce_prod_bool_21():
 	lenparents = 3
 	outlength = 1
 	parents = [0, 0, 0]
+	offsets = [0, 3]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1]
 	assert toptr == pytest_toptr
 
@@ -260,8 +281,9 @@ def test_awkward_reduce_prod_bool_22():
 	lenparents = 6
 	outlength = 1
 	parents = [0, 0, 0, 0, 0, 0]
+	offsets = [0, 6]
 	funcPy = getattr(kernels, 'awkward_reduce_prod_bool')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1]
 	assert toptr == pytest_toptr
 

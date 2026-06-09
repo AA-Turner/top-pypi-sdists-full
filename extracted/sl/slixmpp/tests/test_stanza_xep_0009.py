@@ -9,7 +9,6 @@
 """
 
 import base64
-import sys
 
 from slixmpp.plugins.xep_0009.stanza import RPCQuery, MethodCall, \
     MethodResponse
@@ -305,4 +304,3 @@ class TestJabberRPC(SlixTest):
                          "XML to struct conversion")
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestJabberRPC)
-

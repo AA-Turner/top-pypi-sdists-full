@@ -34,6 +34,25 @@ def kurtosis(lower, upper):
     return -(6 * (n**2 + 1)) / (5 * (n**2 - 1))
 
 
+def lmoment1(lower, upper):
+    return mean(lower, upper)
+
+
+def lmoment2(lower, upper):
+    n = upper - lower + 1
+    return (n**2 - 1) / (6 * n)
+
+
+def lmoment3(lower, upper):
+    shape = pt.broadcast_arrays(lower, upper)[0]
+    return pt.zeros_like(shape)
+
+
+def lmoment4(lower, upper):
+    n = upper - lower + 1
+    return -1.0 / (n**2)
+
+
 def entropy(lower, upper):
     return discrete_entropy(lower, upper + 1, logpdf, lower, upper)
 
@@ -62,7 +81,9 @@ def isf(q, lower, upper):
 
 
 def rvs(lower, upper, size=None, random_state=None):
-    return pt.random.integers(lower, upper + 1, size=size, rng=random_state)
+    return pt.random.integers(lower, upper + 1, size=size, rng=random_state, return_next_rng=True)[
+        1
+    ]
 
 
 def logpdf(x, lower, upper):

@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2012 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -12,3 +11,6 @@ from slixmpp.plugins.xep_0280.carbons import XEP_0280
 
 
 register_plugin(XEP_0280)
+
+__all__ = ['ReceivedCarbon', 'SentCarbon', 'PrivateCarbon', 'CarbonEnable',
+           'CarbonDisable', 'XEP_0280']

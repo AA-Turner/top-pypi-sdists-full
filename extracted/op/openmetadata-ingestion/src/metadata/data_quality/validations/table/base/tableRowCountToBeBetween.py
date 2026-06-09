@@ -43,11 +43,11 @@ class BaseTableRowCountToBeBetweenValidator(BaseTestValidator):
             TestCaseResult: The test case result for the overall validation
         """
         try:
-            res = self._run_results(Metrics.ROW_COUNT)
+            res = self._run_results(Metrics.rowCount)
         except ValueError as exc:
             msg = f"Error computing {self.test_case.fullyQualifiedName}: {exc}"  # type: ignore
             logger.debug(traceback.format_exc())
-            logger.warning(msg)
+            logger.error(msg)
             return self.get_test_case_result_object(
                 self.execution_date,
                 TestCaseStatus.Aborted,

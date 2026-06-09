@@ -568,7 +568,7 @@ class XMLStream(asyncio.BaseProtocol):
         self.init_parser()
         self.send_raw(self.stream_header)
 
-    def data_received(self, data: bytes) -> None:
+    def data_received(self, data: bytes | str) -> None:
         """Called when incoming data is received on the socket.
 
         We feed that data to the parser and the see if this produced any XML
@@ -1018,7 +1018,7 @@ class XMLStream(asyncio.BaseProtocol):
         :param disposable: If set to ``True``, the handler will be
                            discarded after one use. Defaults to ``False``.
         """
-        if not name in self.__event_handlers:
+        if name not in self.__event_handlers:
             self.__event_handlers[name] = []
         self.__event_handlers[name].append((pointer, disposable))
 
@@ -1028,7 +1028,7 @@ class XMLStream(asyncio.BaseProtocol):
         :param name: The name of the event.
         :param pointer: The function to remove as a handler.
         """
-        if not name in self.__event_handlers:
+        if name not in self.__event_handlers:
             return
 
         # Need to keep handlers that do not use
@@ -1495,8 +1495,9 @@ class XMLStream(asyncio.BaseProtocol):
         finally:
             self.del_event_handler(event, handler)
 
-    def wrap(self, coroutine: Coroutine[None, None, T]) -> Future:
-        """Make a Future out of a coroutine with the current loop.
+    def wrap(self, coroutine: Awaitable[T]) -> Future[T]:
+        """Make a Future out of a coroutine or another awaitable
+        with the current loop.
 
         :param coroutine: The coroutine to wrap.
         """

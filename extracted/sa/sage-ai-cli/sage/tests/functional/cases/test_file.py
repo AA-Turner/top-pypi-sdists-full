@@ -19,7 +19,7 @@ def test_file(test_case):
     # Basic sanity checks
     # Invalid combinations might exit non-zero, which is expected
     invalid_flag = any(
-        v in [invalid_val for f in test_case["entry"].get("flags", []) for invalid_val in f["values"]["invalid"]]
+        v in [invalid_val for f in test_case["entry"].get("flags", []) for invalid_val in f["values"].get("invalid", [])]
         for v in test_case["flag_set"].values()
     )
     

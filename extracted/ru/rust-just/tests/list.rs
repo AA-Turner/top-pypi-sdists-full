@@ -1,6 +1,22 @@
 use super::*;
 
 #[test]
+fn list_recipes_in_search_directory() {
+  Test::new()
+    .justfile("root-recipe:")
+    .write("child/justfile", "child-recipe:")
+    .current_dir("child")
+    .args(["--list", ".."])
+    .stdout(
+      "
+        Available recipes:
+            root-recipe
+      ",
+    )
+    .success();
+}
+
+#[test]
 fn modules_unsorted() {
   Test::new()
     .write("foo.just", "foo:")
@@ -479,4 +495,45 @@ fn list_submodules_requires_list() {
     .arg("--list-submodules")
     .stderr_regex("error: the following required arguments were not provided:\n  --list .*")
     .status(2);
+}
+
+#[test]
+fn options_are_collapsed_in_signature() {
+  Test::new()
+    .justfile(
+      "
+        [arg('foo', long)]
+        bar foo='baz':
+          echo {{foo}}
+      ",
+    )
+    .arg("--list")
+    .stdout(
+      "
+        Available recipes:
+            bar [OPTIONS]
+      ",
+    )
+    .success();
+}
+
+#[test]
+fn positional_and_option_parameters_in_signature() {
+  Test::new()
+    .justfile(
+      "
+        [arg('foo', long)]
+        [arg('bar', short='b')]
+        recipe qux foo='x' bar='y' baz='z':
+          echo {{foo}} {{bar}} {{baz}} {{qux}}
+      ",
+    )
+    .arg("--list")
+    .stdout(
+      "
+        Available recipes:
+            recipe [OPTIONS] qux baz='z'
+      ",
+    )
+    .success();
 }

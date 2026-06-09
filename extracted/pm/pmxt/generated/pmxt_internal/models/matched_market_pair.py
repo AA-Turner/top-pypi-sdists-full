@@ -36,7 +36,7 @@ class MatchedMarketPair(BaseModel):
     price_b: Union[StrictFloat, StrictInt] = Field(alias="priceB")
     relation: Optional[StrictStr] = Field(default=None, description="The set-theoretic relation between the two markets (e.g. identity, subset).")
     confidence: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Match confidence score (0.0 to 1.0).")
-    reasoning: Optional[StrictStr] = None
+    reasoning: Optional[StrictStr] = Field(default=None, description="Why the two markets were matched.")
     __properties: ClassVar[List[str]] = ["marketA", "marketB", "priceDifference", "venueA", "venueB", "priceA", "priceB", "relation", "confidence", "reasoning"]
 
     @field_validator('relation')

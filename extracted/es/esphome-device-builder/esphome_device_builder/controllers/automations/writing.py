@@ -9,8 +9,9 @@ left untouched. Delete is the inverse splice.
 
 Trigger handlers always emit the explicit ``then:`` form — the
 parser accepts both shortcut forms but emitting one shape keeps
-round-trips deterministic. Lambdas render as ruamel
-:class:`LiteralScalarString` block scalars.
+round-trips deterministic. Untagged lambdas render as ruamel
+:class:`LiteralScalarString` block scalars; an ``!lambda``-tagged
+value re-emits its tag (see :func:`emitter.encode_value`).
 """
 
 from __future__ import annotations
@@ -210,6 +211,7 @@ def _upsert_device_on_entry(
         item=emit_trigger_list_item(tree),
         index=index,
         strategy=_DEVICE_STRATEGY,
+        trigger=catalog.trigger_by_id(trigger),
     )
 
 
@@ -245,6 +247,7 @@ def _upsert_component_on(
             domain=instance_domain,
             component_id=location.component_id,
             trigger_key=location.trigger,
+            trigger=trigger,
             index=location.index,
         )
     domain = trigger.applies_to[0] if trigger.applies_to else ""

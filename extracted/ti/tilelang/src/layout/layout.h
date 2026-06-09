@@ -96,7 +96,8 @@ public:
                          const PrimExpr rescale_num = Integer(1),
                          const PrimExpr rescale_den = Integer(1)) const;
 
-  virtual std::pair<Layout, arith::IterMapLevel> InverseWithLevel() const;
+  virtual std::pair<Layout, arith::IterMapLevel>
+  InverseWithLevel(bool require_padding_guard = false) const;
 
   virtual std::string DebugOutput() const;
 
@@ -142,7 +143,8 @@ public:
                  const PrimExpr rescale_num = Integer(1),
                  const PrimExpr rescale_den = Integer(1)) const;
 
-  std::pair<Layout, arith::IterMapLevel> InverseWithLevel() const final;
+  std::pair<Layout, arith::IterMapLevel>
+  InverseWithLevel(bool require_padding_guard = false) const final;
 
   PrimExpr ThreadExtent() const;
 
@@ -170,7 +172,8 @@ public:
 
   bool IsCompletedReplicated() const;
 
-  arith::IterMapResult DetectInjective() const;
+  arith::IterMapResult
+  DetectInjective(bool require_padding_guard = false) const;
 
   static void RegisterReflection();
 
@@ -309,6 +312,9 @@ constexpr const char *kLayoutMap = "layout_map";
 constexpr const char *kParallelLoopLayout = "parallel_loop_layout";
 // ForAttr, Containing the predicate for a parallel for loop
 constexpr const char *kParallelLoopPredicate = "parallel_loop_predicate";
+// ForAttr, Marks a ragged SIMT loop layout that needs guarded inverse lowering
+constexpr const char *kParallelLoopRequiresPaddingGuard =
+    "parallel_loop_requires_padding_guard";
 // ForAttr, Width (in elements) for coalesced memory access
 constexpr const char *kCoalescedWidth = "coalesced_width";
 } // namespace attr

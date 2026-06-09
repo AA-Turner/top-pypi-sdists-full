@@ -35,10 +35,12 @@ from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
     DEFINITION_FILENAME,
     SnowflakeAppManager,
+    _filter_accessible_remote_defaults,
     _get_entity,
     _poll_until,
     _resolve_deploy_defaults,
     _resolve_entity_id,
+    _ts,
     app_fqn,
     perform_bundle,
 )
@@ -123,6 +125,9 @@ def snowflake_app_setup(
     metrics = ctx.metrics
     with metrics.span("snowflake_app.setup.resolve_defaults"):
         params = manager.fetch_snow_apps_parameters()
+        # Drop the account-configured destination database/schema the current
+        # role cannot access so resolution falls back to the personal database.
+        params = _filter_accessible_remote_defaults(manager, params)
         managed_compute_pool_enabled = manager.is_managed_compute_pool_enabled()
 
     def _resolve(
@@ -441,6 +446,7 @@ def snowflake_app_deploy(
     upload_only: bool,
     build_only: bool,
     deploy_only: bool,
+    interactive: Optional[bool] = None,
 ) -> CommandResult:
     """Build and deploy a Snowflake App Runtime through upload, build, and deploy phases."""
     phase_flags = sum((upload_only, build_only, deploy_only))
@@ -500,7 +506,7 @@ def snowflake_app_deploy(
     app_icon = entity.meta.icon if entity.meta else None
 
     # ── Resolve defaults (snowflake.yml > account parameters > built-in) ──
-    manager = SnowflakeAppManager()
+    manager = SnowflakeAppManager(interactive=interactive)
     defaults = _resolve_deploy_defaults(entity, manager, app_name=app_name)
 
     database = defaults["database"]
@@ -677,7 +683,7 @@ def snowflake_app_deploy(
                     )
                 artifact_build_job_fqn = FQN.from_string(match.group(1))
                 cli_console.step(
-                    f"Waiting for artifact repo build to complete: "
+                    f"[{_ts()}] Waiting for artifact repo build to complete: "
                     f"{artifact_build_job_fqn}..."
                 )
 
@@ -776,7 +782,7 @@ def snowflake_app_deploy(
     try:
         with metrics.span("snowflake_app.endpoint_provision"):
             if did_upgrade:
-                cli_console.step("Waiting for upgrade to complete...")
+                cli_console.step(f"[{_ts()}] Waiting for upgrade to complete...")
                 with metrics.span("snowflake_app.endpoint_provision.wait_for_upgrade"):
                     desc = _poll_until(
                         poll_fn=lambda: manager.describe_app_service(service_fqn),
@@ -792,7 +798,9 @@ def snowflake_app_deploy(
                         ),
                     )
             else:
-                cli_console.step("Waiting for application service endpoint...")
+                cli_console.step(
+                    f"[{_ts()}] Waiting for application service endpoint..."
+                )
                 with metrics.span("snowflake_app.endpoint_provision.wait_for_endpoint"):
                     desc = _poll_until(
                         poll_fn=lambda: manager.describe_app_service(service_fqn),

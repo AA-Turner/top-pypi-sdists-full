@@ -153,7 +153,7 @@ if __name__ == '__main__':
         for line in resp.split():
             k, v = line.split(b'=', 1)
             data[k] = v
-    except Exception as e:
+    except Exception:
         print('Could not retrieve login data')
         sys.exit()
 

@@ -10,6 +10,7 @@ import sys
 from pathlib import Path, PurePosixPath
 from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
+from uuid import uuid4
 
 import anndata as ad
 import h5py
@@ -152,11 +153,7 @@ def test_cloud_path_init_missing_artifact_raises(monkeypatch):
 
 def test_path_init_existing_artifact():
     # any artifact on s3 fits this test
-    artifact = (
-        ln.Artifact.connect("laminlabs/lamindata")
-        .filter(storage__root__startswith="s3://")
-        .first()
-    )
+    artifact = ln.Artifact.connect("laminlabs/lamindata").get("cGi8QjXNQQfZzL4n")
     assert artifact is not None
 
     artifact_transfer = ln.Artifact(artifact.path)
@@ -1967,9 +1964,12 @@ def test_artifact_space_change(tsv_file):
 
 
 def test_passing_foreign_keys_ids(tsv_file):
+    suffix = uuid4().hex[:8]
     transform = ln.Transform(key="test passings foreign keys ids").save()
     first_run = ln.Run(transform).save()
     second_run = ln.Run(transform).save()
+    branch = ln.Branch(name=f"artifact-fk-ids-branch-{suffix}").save()
+    space = ln.Space(name=f"artifact-fk-ids-space-{suffix}").save()
 
     # check that passing a wrong type errors
     with pytest.raises(AssertionError):
@@ -1978,6 +1978,12 @@ def test_passing_foreign_keys_ids(tsv_file):
     with pytest.raises(ValueError) as err:
         ln.Artifact(tsv_file, run=first_run, run_id=first_run.id)
     assert "Do not pass both Run and its id at the same time." in err.exconly()
+    with pytest.raises(ValueError) as err:
+        ln.Artifact(tsv_file, branch=branch, branch_id=branch.id)
+    assert "Do not pass both Branch and its id at the same time." in err.exconly()
+    with pytest.raises(ValueError) as err:
+        ln.Artifact(tsv_file, space=space, space_id=space.id)
+    assert "Do not pass both Space and its id at the same time." in err.exconly()
 
     artifact = ln.Artifact(tsv_file, run=first_run, key="test_fk.tsv").save()
     artifact_id = artifact.id
@@ -2003,4 +2009,6 @@ def test_passing_foreign_keys_ids(tsv_file):
     artifact.delete(permanent=True)
     second_run.delete(permanent=True)
     first_run.delete(permanent=True)
+    space.delete(permanent=True)
+    branch.delete(permanent=True)
     transform.delete(permanent=True)

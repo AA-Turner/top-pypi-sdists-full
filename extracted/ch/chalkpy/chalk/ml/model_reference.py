@@ -1,18 +1,10 @@
 from __future__ import annotations
 
 import inspect
-import os
 from datetime import datetime
 from typing import TYPE_CHECKING
 
 from chalk.ml.model_version import ModelVersion
-from chalk.ml.utils import (
-    ModelClass,
-    get_model_spec,
-    get_registry_metadata_file,
-    model_encoding_from_proto,
-    model_type_from_proto,
-)
 from chalk.utils.object_inspect import get_source_object_starting
 from chalk.utils.source_parsing import should_skip_source_code_parsing
 
@@ -104,31 +96,19 @@ class ModelReference:
 
         MODEL_REFERENCE_REGISTRY[(name, identifier)] = self
 
+        mv = ModelVersion(
+            name=name,
+            version=version,
+            alias=alias,
+            as_of_date=as_of_date,
+            identifier=identifier,
+            resource_hint=resource_hint,
+            resource_group=resource_group,
+            venv=venv,
+        )
+        mv.try_hydrate()
         # Only load model if the metadata file exists, which only happens in deployed environments
-        registry_metadata_file = get_registry_metadata_file()
-        if registry_metadata_file is not None and os.path.exists(registry_metadata_file):
-            model_artifact_metadata = get_model_spec(
-                model_name=name, identifier=identifier, registry_metadata_file=registry_metadata_file
-            )
-
-            mv = ModelVersion(
-                filename=model_artifact_metadata.model_path,
-                name=name,
-                version=version,
-                as_of_date=as_of_date,
-                identifier=identifier,
-                model_type=model_type_from_proto(model_artifact_metadata.spec.model_type),
-                model_encoding=model_encoding_from_proto(model_artifact_metadata.spec.model_encoding),
-                model_class=(
-                    ModelClass(model_artifact_metadata.spec.model_class)
-                    if model_artifact_metadata.spec.model_class
-                    else None
-                ),
-                resource_hint=resource_hint,
-                resource_group=resource_group,
-                venv=venv,
-            )
-
+        if mv.metadata_available:
             from chalk.features.hooks import before_all
 
             def hook():
@@ -136,11 +116,7 @@ class ModelReference:
 
             before_all(hook, resource_hint=resource_hint, resource_group=resource_group, venv=venv)
 
-            self.model_version = mv
-        else:
-            self.model_version = ModelVersion(
-                name=name, identifier=identifier, resource_hint=resource_hint, resource_group=resource_group, venv=venv
-            )
+        self.model_version = mv
 
     @classmethod
     def as_of(

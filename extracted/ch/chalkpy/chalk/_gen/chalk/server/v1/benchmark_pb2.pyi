@@ -164,6 +164,7 @@ class CreateBenchmarkRequest(_message.Message):
         "dedicated_engine",
         "benchmark_runner",
         "result_targets",
+        "protocol",
     )
     WARMUP_QPS_FIELD_NUMBER: _ClassVar[int]
     WARMUP_DURATION_FIELD_NUMBER: _ClassVar[int]
@@ -188,6 +189,7 @@ class CreateBenchmarkRequest(_message.Message):
     DEDICATED_ENGINE_FIELD_NUMBER: _ClassVar[int]
     BENCHMARK_RUNNER_FIELD_NUMBER: _ClassVar[int]
     RESULT_TARGETS_FIELD_NUMBER: _ClassVar[int]
+    PROTOCOL_FIELD_NUMBER: _ClassVar[int]
     warmup_qps: int
     warmup_duration: _duration_pb2.Duration
     qps: int
@@ -211,6 +213,7 @@ class CreateBenchmarkRequest(_message.Message):
     dedicated_engine: DedicatedBenchmarkEngine
     benchmark_runner: BenchmarkRunner
     result_targets: _containers.RepeatedScalarFieldContainer[BenchmarkResultTargetType]
+    protocol: str
     def __init__(
         self,
         warmup_qps: _Optional[int] = ...,
@@ -236,6 +239,7 @@ class CreateBenchmarkRequest(_message.Message):
         dedicated_engine: _Optional[_Union[DedicatedBenchmarkEngine, _Mapping]] = ...,
         benchmark_runner: _Optional[_Union[BenchmarkRunner, str]] = ...,
         result_targets: _Optional[_Iterable[_Union[BenchmarkResultTargetType, str]]] = ...,
+        protocol: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateBenchmarkResponse(_message.Message):

@@ -26,9 +26,19 @@ class OutboundCallConfig(UncheckedBaseModel):
     The name of the project to use for the call.
     """
 
+    generate_welcome_message: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    When `true`, the welcome message will be automatically generated and the `welcome_message` field will be ignored.
+    """
+
+    is_welcome_message_interruptible: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    When `false`, the welcome message will not be interruptible by the user.
+    """
+
     welcome_message: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Message to play when the conversation starts. Can contain template variables like `{{customer_name}}`.
+    Message to play when the conversation starts. Can contain template variables like `{{customer_name}}`. Ignored when `generate_welcome_message` is `true`.
     """
 
     system_prompt: typing.Optional[str] = pydantic.Field(default=None)
@@ -83,7 +93,7 @@ class OutboundCallConfig(UncheckedBaseModel):
 
     multilingual_mode: typing.Optional[OutboundCallConfigMultilingualMode] = pydantic.Field(default=None)
     """
-    If `"auto"`, each user audio is automatically identified for the language to respond in. If `"request"`, user must request to change language (recommended).
+    If `"auto"`, each user audio is automatically identified for the language to respond in. If `"request"`, user must request to change language (recommended). If `"initial"` the first turn user audio determines the language for the rest of the conversation.
     """
 
     push_to_talk: typing.Optional[bool] = pydantic.Field(default=None)
@@ -111,6 +121,11 @@ class OutboundCallConfig(UncheckedBaseModel):
     tools: typing.Optional[typing.List[OutboundCallConfigToolsItem]] = pydantic.Field(default=None)
     """
     Array of built-in or custom tool names to use.
+    """
+
+    enable_redaction: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    When `true`, PII and PHI are redacted from text transcripts (e.g. replaced with tags like `[PHONE NUMBER]`) and bleeped from audio recordings after the conversation ends.
     """
 
     if IS_PYDANTIC_V2:

@@ -32,6 +32,13 @@ class ActionRequestOwnerSourceConfig(ConfigModel):
     batch_size: int = 200
 
 
+# Action requests of this type derive their assignees from the action workflow's step
+# actor resolution (ActionWorkflowService), not from entity ownership. The proposal
+# assignee computation (getActionRequestAssignee) has no handler for this type and returns
+# an empty list, so this source must not recompute/overwrite their assignees. See CAT-2218.
+WORKFLOW_FORM_REQUEST_TYPE = "WORKFLOW_FORM_REQUEST"
+
+
 class ActionRequestOwnerSourceReport(SourceReport):
     total_requests: int = 0
     processed_proposals = 0
@@ -40,6 +47,7 @@ class ActionRequestOwnerSourceReport(SourceReport):
     incorrect_proposal_owners = 0
     missing_entity = 0
     action_request_info_not_found = 0
+    skipped_workflow_requests = 0
 
 
 ACTION_REQUESTS = """
@@ -96,6 +104,11 @@ class ActionRequestOwnerSource(Source):
         self.report.processed_proposals += 1
         action_request_urn = action_request.get("urn")
         action_type = action_request.get("type")
+        # Workflow form requests own their assignees via the workflow step definition;
+        # recomputing here would wipe them (getActionRequestAssignee returns []). See CAT-2218.
+        if action_type == WORKFLOW_FORM_REQUEST_TYPE:
+            self.report.skipped_workflow_requests += 1
+            return None
         action_request_entity = action_request.get("entity")
         if action_request_entity is None:
             self.report.warning(

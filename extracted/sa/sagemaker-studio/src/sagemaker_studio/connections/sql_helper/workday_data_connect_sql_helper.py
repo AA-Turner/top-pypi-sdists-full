@@ -14,7 +14,7 @@ class WorkdayDataConnectSqlHelper(SqlHelper):
         sql_configs["client_id"] = secret["wd.authn.clientId"]
         sql_configs["isu"] = secret["wd.authn.isu"]
         sql_configs["access_token_endpoint"] = secret["wd.authn.accessTokenEndpoint"]
-        sql_configs["private_key_file"] = secret["wd.authn.privateKey"]
+        sql_configs["private_key_file"] = secret["wd.authn.privateKey"].replace("\\n", "")
         sql_configs["host"] = glue_connection.connection_properties.get("HOST")
         sql_configs["port"] = glue_connection.connection_properties.get("PORT")
 

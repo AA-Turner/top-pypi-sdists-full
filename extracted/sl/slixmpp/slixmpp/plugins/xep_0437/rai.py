@@ -2,7 +2,6 @@
 # Copyright (C) 2020 Mathieu Pasquet
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-from typing import Iterable
 
 from slixmpp import JID
 from slixmpp.plugins import BasePlugin

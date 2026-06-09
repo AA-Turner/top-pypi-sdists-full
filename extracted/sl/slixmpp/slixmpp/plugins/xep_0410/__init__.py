@@ -6,3 +6,5 @@ from slixmpp.plugins.base import register_plugin
 from slixmpp.plugins.xep_0410.self_ping import XEP_0410, PingStatus
 
 register_plugin(XEP_0410)
+
+__all__ = ['XEP_0410', 'PingStatus']

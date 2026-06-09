@@ -62,17 +62,12 @@ from metadata.ingestion.models.ometa_classification import OMetaTagAndClassifica
 from metadata.ingestion.models.patch_request import PatchedEntity, PatchRequest
 from metadata.ingestion.ometa.ometa_api import OpenMetadata
 from metadata.ingestion.source.connections import get_connection
-from metadata.ingestion.source.connections_utils import kill_active_connections
 from metadata.ingestion.source.database.database_service import DatabaseServiceSource
 from metadata.ingestion.source.database.sql_column_handler import SqlColumnHandlerMixin
 from metadata.ingestion.source.database.sqlalchemy_source import SqlAlchemySource
 from metadata.ingestion.source.database.stored_procedures_mixin import QueryByProcedure
 from metadata.utils import fqn
 from metadata.utils.constraints import get_relationship_type
-from metadata.utils.execution_time_tracker import (
-    calculate_execution_time,
-    calculate_execution_time_generator,
-)
 from metadata.utils.filters import filter_by_table
 from metadata.utils.helpers import retry_with_docker_host
 from metadata.utils.logger import ingestion_logger
@@ -152,15 +147,42 @@ class CommonDbSourceService(
         :param database_name: new database to set
         """
 
-        kill_active_connections(self.engine)
+        self._release_engine()
         logger.info(f"Ingesting from database: {database_name}")
 
         new_service_connection = deepcopy(self.service_connection)
         new_service_connection.database = database_name
         self.engine = get_connection(new_service_connection)
+        self.session = create_and_bind_thread_safe_session(self.engine)
+        self.connection_obj = self.engine
 
-        self._connection_map = {}  # Lazy init as well
+    def _release_engine(self) -> None:
+        # Close fairies first so _ConnectionRecord drops its pool reference;
+        # dispose alone leaves them orphaned and causes _finalize_fairy
+        # RecursionErrors at GC time. Clearing _inspector_map is what
+        # actually frees Inspector.info_cache — dispose() does not.
+        if getattr(self, "engine", None) is None:
+            return
+        for conn in self._connection_map.values():
+            try:
+                conn.close()
+            except Exception:  # pylint: disable=broad-except
+                logger.debug("Connection already closed", exc_info=True)
+        self._connection_map = {}
         self._inspector_map = {}
+        session = getattr(self, "session", None)
+        if session is not None:
+            try:
+                session.remove()
+            except Exception:  # pylint: disable=broad-except
+                logger.debug("Session cleanup failed", exc_info=True)
+            self.session = None
+        try:
+            self.engine.dispose()
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.error(f"Failed to dispose engine: {exc}")
+        self.engine = None
+        self.connection_obj = None
 
     def get_database_names(self) -> Iterable[str]:
         """
@@ -197,7 +219,6 @@ class CommonDbSourceService(
         by default there will be no stored procedure description
         """
 
-    @calculate_execution_time_generator()
     def yield_database(
         self, database_name: str
     ) -> Iterable[Either[CreateDatabaseRequest]]:
@@ -259,7 +280,6 @@ class CommonDbSourceService(
         """
         yield from self._get_filtered_schema_names()
 
-    @calculate_execution_time_generator()
     def yield_database_schema(
         self, schema_name: str
     ) -> Iterable[Either[CreateDatabaseSchemaRequest]]:
@@ -320,7 +340,6 @@ class CommonDbSourceService(
         self.register_record_schema_request(schema_request=schema_request)
 
     @staticmethod
-    @calculate_execution_time()
     def get_table_description(
         schema_name: str, table_name: str, inspector: Inspector
     ) -> str:
@@ -385,12 +404,16 @@ class CommonDbSourceService(
             try:
                 table_iter = self.query_table_names_and_types(schema_name)
             except Exception as err:
-                logger.warning(f"Fetching table list failed for schema {schema_name} due to - {err}")
+                logger.warning(
+                    f"Fetching table list failed for schema {schema_name} due to - {err}"
+                )
                 logger.debug(traceback.format_exc())
                 table_iter = []
             for table_and_type in table_iter:
                 try:
-                    table_name = self.standardize_table_name(schema_name, table_and_type.name)
+                    table_name = self.standardize_table_name(
+                        schema_name, table_and_type.name
+                    )
                     table_fqn = fqn.build(
                         self.metadata,
                         entity_type=Table,
@@ -414,7 +437,9 @@ class CommonDbSourceService(
                         )
                         continue
                 except Exception as err:
-                    logger.warning(f"Skipping table {table_and_type.name!r} in schema {schema_name} due to - {err}")
+                    logger.warning(
+                        f"Skipping table {table_and_type.name!r} in schema {schema_name} due to - {err}"
+                    )
                     logger.debug(traceback.format_exc())
                     continue
                 yield table_name, table_and_type.type_
@@ -423,12 +448,16 @@ class CommonDbSourceService(
             try:
                 view_iter = self.query_view_names_and_types(schema_name)
             except Exception as err:
-                logger.warning(f"Fetching view list failed for schema {schema_name} due to - {err}")
+                logger.warning(
+                    f"Fetching view list failed for schema {schema_name} due to - {err}"
+                )
                 logger.debug(traceback.format_exc())
                 view_iter = []
             for view_and_type in view_iter:
                 try:
-                    view_name = self.standardize_table_name(schema_name, view_and_type.name)
+                    view_name = self.standardize_table_name(
+                        schema_name, view_and_type.name
+                    )
                     view_fqn = fqn.build(
                         self.metadata,
                         entity_type=Table,
@@ -452,12 +481,13 @@ class CommonDbSourceService(
                         )
                         continue
                 except Exception as err:
-                    logger.warning(f"Skipping view {view_and_type.name!r} in schema {schema_name} due to - {err}")
+                    logger.warning(
+                        f"Skipping view {view_and_type.name!r} in schema {schema_name} due to - {err}"
+                    )
                     logger.debug(traceback.format_exc())
                     continue
                 yield view_name, view_and_type.type_
 
-    @calculate_execution_time()
     def get_schema_definition(
         self,
         table_type: TableType,
@@ -545,16 +575,11 @@ class CommonDbSourceService(
         by default there will be no location path
         """
 
-    def get_table_extensions(
-        self,
-        table_name: str,  # pyright: ignore[reportUnusedParameter]
-        table_type: TableType | None = None,  # pyright: ignore[reportUnusedParameter]
-    ):
+    def get_table_extensions(self, table_name: str):
         """
         Method to fetch the extensions of the table
         """
 
-    @calculate_execution_time_generator()
     def yield_table(
         self, table_name_and_type: Tuple[str, TableType]
     ) -> Iterable[Either[CreateTableRequest]]:
@@ -634,15 +659,21 @@ class CommonDbSourceService(
                     table_type=table_type,
                 ),
                 owners=self.get_owner_ref(table_name=table_name),
-                locationPath=self.get_location_path(table_name=table_name, schema_name=schema_name),
-                extension=self.get_table_extensions(table_name=table_name, table_type=table_type),
+                locationPath=self.get_location_path(
+                    table_name=table_name, schema_name=schema_name
+                ),
+                extension=self.get_table_extensions(table_name=table_name),
             )
 
             is_partitioned, partition_details = self.get_table_partition_details(
                 table_name=table_name, schema_name=schema_name, inspector=self.inspector
             )
-            if is_partitioned:
+            if is_partitioned and table_type not in (
+                TableType.View,
+                TableType.MaterializedView,
+            ):
                 table_request.tableType = TableType.Partitioned.value
+            if is_partitioned:
                 table_request.tablePartition = partition_details
 
             yield Either(right=table_request)
@@ -679,13 +710,12 @@ class CommonDbSourceService(
             database_name = column.get("referred_database")
         else:
             database_name = self.context.get().database
-        referred_table_fqn = fqn.build(
-            metadata=self.metadata,
-            entity_type=Table,
-            table_name=column.get("referred_table"),
-            schema_name=column.get("referred_schema"),
-            database_name=database_name,
-            service_name=self.context.get().database_service,
+
+        referred_schema = column.get("referred_schema") or schema_name
+        referred_table_fqn = (
+            f"{self.context.get().database_service}."
+            f"{database_name}.{referred_schema}."
+            f"{column.get('referred_table')}"
         )
         referred_table = self.metadata.get_by_name(entity=Table, fqn=referred_table_fqn)
         if referred_table:
@@ -745,7 +775,6 @@ class CommonDbSourceService(
 
         return foreign_constraints
 
-    @calculate_execution_time()
     def update_table_constraints(
         self,
         table_name,
@@ -795,14 +824,10 @@ class CommonDbSourceService(
         return self._inspector_map[thread_id]
 
     def close(self):
-        if self.connection is not None:
-            self.connection.close()
-        for connection in self._connection_map.values():
-            connection.close()
+        self._release_engine()
         if hasattr(self, "ssl_manager") and self.ssl_manager:
             self.ssl_manager = cast(SSLManager, self.ssl_manager)
             self.ssl_manager.cleanup_temp_files()
-        self.engine.dispose()
 
     def fetch_table_tags(
         self,

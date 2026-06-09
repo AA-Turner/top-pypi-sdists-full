@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rf-protocols
-Version: 4.0.1
+Version: 4.1.0
 Summary: Library to decode and encode radio frequency signals.
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/home-assistant-libs/rf-protocols

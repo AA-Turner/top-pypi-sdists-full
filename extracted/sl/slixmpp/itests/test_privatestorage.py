@@ -1,5 +1,4 @@
 import unittest
-from slixmpp import ET
 from slixmpp.test.integration import SlixIntegration
 from slixmpp.plugins.xep_0048.stanza import Bookmarks
 

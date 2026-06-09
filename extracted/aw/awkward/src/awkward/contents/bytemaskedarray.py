@@ -45,7 +45,7 @@ from awkward.contents.content import (
 from awkward.errors import AxisError
 from awkward.forms.bytemaskedform import ByteMaskedForm
 from awkward.forms.form import Form, FormKeyPathT
-from awkward.index import Index
+from awkward.index import Index, resolve_index
 
 if TYPE_CHECKING:
     from awkward._slicing import SliceItem
@@ -72,7 +72,7 @@ class ByteMaskedArray(ByteMaskedMeta[Content], Content):
     to mask all node types.
 
     To illustrate how the constructor arguments are interpreted, the following is a
-    simplified implementation of `__init__`, `__len__`, and `__getitem__`:
+    simplified implementation of `__init__`, `__len__`, and `__getitem__`::
 
         class ByteMaskedArray(Content):
             def __init__(self, mask, content, valid_when):
@@ -134,8 +134,8 @@ class ByteMaskedArray(ByteMaskedMeta[Content], Content):
             )
         if (
             content.backend.nplike.known_data
-            and mask.length is not unknown_length
-            and content.length is not unknown_length
+            and ak._util.maybe_length_of(mask) is not unknown_length
+            and ak._util.maybe_length_of(content) is not unknown_length
             and mask.length > content.length
         ):
             raise ValueError(
@@ -802,30 +802,32 @@ class ByteMaskedArray(ByteMaskedMeta[Content], Content):
             parameters=self._parameters,
         )
 
-    def _is_unique(self, negaxis, starts, parents, outlength):
+    def _is_unique(self, negaxis, starts, parents, offsets, outlength):
         if self._mask.length is not unknown_length and self._mask.length == 0:
             return True
         return self.to_IndexedOptionArray64()._is_unique(
-            negaxis, starts, parents, outlength
+            negaxis, starts, parents, offsets, outlength
         )
 
-    def _unique(self, negaxis, starts, parents, outlength):
+    def _unique(self, negaxis, starts, parents, offsets, outlength):
         if self._mask.length is not unknown_length and self._mask.length == 0:
             return self
         return self.to_IndexedOptionArray64()._unique(
-            negaxis, starts, parents, outlength
+            negaxis, starts, parents, offsets, outlength
         )
 
     def _argsort_next(
-        self, negaxis, starts, shifts, parents, outlength, ascending, stable
+        self, negaxis, starts, shifts, parents, offsets, outlength, ascending, stable
     ):
         return self.to_IndexedOptionArray64()._argsort_next(
-            negaxis, starts, shifts, parents, outlength, ascending, stable
+            negaxis, starts, shifts, parents, offsets, outlength, ascending, stable
         )
 
-    def _sort_next(self, negaxis, starts, parents, outlength, ascending, stable):
+    def _sort_next(
+        self, negaxis, starts, parents, offsets, outlength, ascending, stable
+    ):
         return self.to_IndexedOptionArray64()._sort_next(
-            negaxis, starts, parents, outlength, ascending, stable
+            negaxis, starts, parents, offsets, outlength, ascending, stable
         )
 
     def _combinations(self, n, replacement, recordlookup, parameters, axis, depth):
@@ -852,6 +854,7 @@ class ByteMaskedArray(ByteMaskedMeta[Content], Content):
         starts,
         shifts,
         parents,
+        offsets,
         outlength,
         mask,
         keepdims,
@@ -882,6 +885,9 @@ class ByteMaskedArray(ByteMaskedMeta[Content], Content):
         nextcarry = ak.index.Index64.empty(next_length, nplike=self._backend.nplike)
         nextparents = ak.index.Index64.empty(next_length, nplike=self._backend.nplike)
         outindex = ak.index.Index64.empty(mask_length, nplike=self._backend.nplike)
+
+        parents = resolve_index(parents, self._backend)
+
         assert (
             nextcarry.nplike is self._backend.nplike
             and nextparents.nplike is self._backend.nplike
@@ -961,6 +967,7 @@ class ByteMaskedArray(ByteMaskedMeta[Content], Content):
             starts,
             nextshifts,
             nextparents,
+            offsets,
             outlength,
             mask,
             keepdims,

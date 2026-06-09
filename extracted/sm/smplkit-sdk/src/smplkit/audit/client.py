@@ -78,6 +78,21 @@ def _expect_status(resp: Any, *expected: int) -> None:
         )
 
 
+def _join_environments(environments: list[str] | None) -> str | Any:
+    """Comma-join an ``environments`` filter list for ``filter[environment]``.
+
+    Returns ``UNSET`` when the caller passes ``None`` or an empty list so
+    the query param is omitted entirely (preserving the pre-filter wire
+    shape). When non-empty, the values are joined with ``,`` to form the
+    comma-separated set the audit read endpoints expect — each value is a
+    real environment key or the reserved ``"smplkit"`` control-plane
+    bucket.
+    """
+    if not environments:
+        return UNSET
+    return ",".join(environments)
+
+
 def _extract_next_cursor(body_dict: dict[str, Any]) -> str | None:
     next_link = (body_dict.get("links") or {}).get("next")
     if next_link and "page[after]=" in next_link:
@@ -303,6 +318,7 @@ class _EventsClient:
         actor_type: str | None = None,
         actor_id: str | None = None,
         occurred_at_range: str | None = None,
+        environments: list[str] | None = None,
         page_size: int | None = None,
         page_after: str | None = None,
     ) -> EventListPage:
@@ -312,6 +328,13 @@ class _EventsClient:
         string against whatever the recording call stored. Pagination
         uses an opaque cursor (``page_after``); the returned page
         exposes ``next_cursor`` if more pages are available.
+
+        ``environments`` scopes the read to a set of environments: pass
+        a list of environment keys and/or the reserved ``"smplkit"``
+        control-plane bucket; the values are sent comma-separated as
+        ``filter[environment]``. Omit it (the default) to leave the
+        param off entirely and let environment scope fall back to the
+        ``X-Smplkit-Environment`` request header.
         """
         resp = _gen_list_events.sync_detailed(
             client=self._auth,
@@ -321,6 +344,7 @@ class _EventsClient:
             filteractor_type=actor_type if actor_type is not None else UNSET,
             filteractor_id=actor_id if actor_id is not None else UNSET,
             filteroccurred_at=occurred_at_range if occurred_at_range is not None else UNSET,
+            filterenvironment=_join_environments(environments),
             pagesize=page_size if page_size is not None else UNSET,
             pageafter=page_after if page_after is not None else UNSET,
         )
@@ -353,6 +377,7 @@ class _ResourceTypesClient:
     def list(
         self,
         *,
+        environments: list[str] | None = None,
         page_number: int | None = None,
         page_size: int | None = None,
         meta_total: bool | None = None,
@@ -363,9 +388,16 @@ class _ResourceTypesClient:
         response time is independent of how many years of events the
         account has accumulated. Sorted alphabetically; offset paginated
         per ADR-014.
+
+        ``environments`` scopes the listing to a set of environments:
+        pass a list of environment keys and/or the reserved ``"smplkit"``
+        control-plane bucket; the values are sent comma-separated as
+        ``filter[environment]``. Omit it (the default) to leave the
+        param off entirely.
         """
         resp = _gen_list_resource_types.sync_detailed(
             client=self._auth,
+            filterenvironment=_join_environments(environments),
             pagenumber=page_number if page_number is not None else UNSET,
             pagesize=page_size if page_size is not None else UNSET,
             metatotal=meta_total if meta_total is not None else UNSET,
@@ -389,6 +421,7 @@ class _EventTypesClient:
         self,
         *,
         filter_resource_type: str | None = None,
+        environments: list[str] | None = None,
         page_number: int | None = None,
         page_size: int | None = None,
         meta_total: bool | None = None,
@@ -401,12 +434,19 @@ class _EventTypesClient:
         that specific resource_type, powering the cascading-filter
         behavior on the Activity tab.
 
+        ``environments`` scopes the listing to a set of environments:
+        pass a list of environment keys and/or the reserved ``"smplkit"``
+        control-plane bucket; the values are sent comma-separated as
+        ``filter[environment]``. Omit it (the default) to leave the
+        param off entirely.
+
         ADR-047 §2.5. Sorted alphabetically; offset paginated per
         ADR-014.
         """
         resp = _gen_list_event_types.sync_detailed(
             client=self._auth,
             filterresource_type=(filter_resource_type if filter_resource_type is not None else UNSET),
+            filterenvironment=_join_environments(environments),
             pagenumber=page_number if page_number is not None else UNSET,
             pagesize=page_size if page_size is not None else UNSET,
             metatotal=meta_total if meta_total is not None else UNSET,

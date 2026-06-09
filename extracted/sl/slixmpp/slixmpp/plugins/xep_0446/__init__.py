@@ -4,3 +4,5 @@ from . import stanza
 from .file_metadata import XEP_0446
 
 register_plugin(XEP_0446)
+
+__all__ = ['stanza', 'XEP_0446']

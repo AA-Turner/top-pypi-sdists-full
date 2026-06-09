@@ -12,8 +12,7 @@ from argparse import ArgumentParser
 import asyncio
 import slixmpp
 
-from slixmpp import ClientXMPP, Iq
-from slixmpp.exceptions import IqError, IqTimeout, XMPPError
+from slixmpp import Iq
 from slixmpp.xmlstream import register_stanza_plugin
 from slixmpp.xmlstream.handler import Callback
 from slixmpp.xmlstream.matcher import StanzaPath

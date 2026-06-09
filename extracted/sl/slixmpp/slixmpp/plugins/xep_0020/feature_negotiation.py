@@ -7,9 +7,7 @@ import logging
 
 from slixmpp import Iq, Message
 from slixmpp.plugins import BasePlugin
-from slixmpp.xmlstream.handler import Callback
-from slixmpp.xmlstream.matcher import StanzaPath
-from slixmpp.xmlstream import register_stanza_plugin, JID
+from slixmpp.xmlstream import register_stanza_plugin
 from slixmpp.plugins.xep_0020 import stanza, FeatureNegotiation
 from slixmpp.plugins.xep_0004 import Form
 

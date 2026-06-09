@@ -12,7 +12,6 @@ from threading import Thread, Lock, Timer
 
 from slixmpp.plugins.xep_0323.timerreset import TimerReset
 
-from slixmpp.xmlstream import JID
 from slixmpp.xmlstream.handler import Callback
 from slixmpp.xmlstream.matcher import StanzaPath
 from slixmpp.plugins.base import BasePlugin
@@ -247,7 +246,7 @@ class XEP_0323(BasePlugin):
         process_nodes = []
         if len(iq['req']['nodes']) > 0:
             for n in iq['req']['nodes']:
-                if not n['nodeId'] in self.nodes:
+                if n['nodeId'] not in self.nodes:
                     req_ok = False
                     error_msg = "Invalid nodeId " + n['nodeId']
             process_nodes = [n['nodeId'] for n in iq['req']['nodes']]
@@ -281,7 +280,7 @@ class XEP_0323(BasePlugin):
                 req_ok = False
                 error_msg = "Invalid datetime in 'when' flag, please use ISO format (i.e. 2013-04-05T15:00:03)."
 
-            if not dt is None:
+            if dt is not None:
                 # Datetime properly formatted
                 dtnow = datetime.datetime.now()
                 dtdiff = dt - dtnow
@@ -298,13 +297,13 @@ class XEP_0323(BasePlugin):
 
             iq = iq.reply()
             iq['accepted']['seqnr'] = seqnr
-            if not request_delay_sec is None:
+            if request_delay_sec is not None:
                 iq['accepted']['queued'] = "true"
             iq.send()
 
             self.sessions[session]["node_list"] = process_nodes
 
-            if not request_delay_sec is None:
+            if request_delay_sec is not None:
                 # Delay request to requested time
                 timer = Timer(request_delay_sec, self._event_delayed_req, args=(session, process_fields, req_flags))
                 self.sessions[session]["commTimers"]["delaytimer"] = timer
@@ -436,7 +435,7 @@ class XEP_0323(BasePlugin):
             error_msg        -- [optional] Only applies when result == "error".
                                 Error details when a request failed.
         """
-        if not session in self.sessions:
+        if session not in self.sessions:
             # This can happen if a session was deleted, like in a cancellation. Just drop the data.
             return
 
@@ -705,5 +704,3 @@ class XEP_0323(BasePlugin):
         seqnr = msg['started']['seqnr']
         callback = self.sessions[seqnr]["callback"]
         callback(from_jid=msg['from'], result="started")
-
-

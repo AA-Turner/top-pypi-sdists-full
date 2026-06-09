@@ -60,10 +60,15 @@ class TestBrowsers:
             },
             telemetry={
                 "browser": {
+                    "captcha": {"enabled": True},
+                    "connection": {"enabled": True},
                     "console": {"enabled": True},
+                    "control": {"enabled": True},
                     "interaction": {"enabled": True},
                     "network": {"enabled": True},
                     "page": {"enabled": True},
+                    "screenshot": {"enabled": True},
+                    "system": {"enabled": True},
                 },
                 "enabled": True,
             },
@@ -102,7 +107,7 @@ class TestBrowsers:
     @parametrize
     def test_method_retrieve(self, client: Kernel) -> None:
         browser = client.browsers.retrieve(
-            id="htzv5orfit78e1m2biiifpbv",
+            id_or_name="htzv5orfit78e1m2biiifpbv",
         )
         assert_matches_type(BrowserRetrieveResponse, browser, path=["response"])
 
@@ -110,7 +115,7 @@ class TestBrowsers:
     @parametrize
     def test_method_retrieve_with_all_params(self, client: Kernel) -> None:
         browser = client.browsers.retrieve(
-            id="htzv5orfit78e1m2biiifpbv",
+            id_or_name="htzv5orfit78e1m2biiifpbv",
             include_deleted=True,
         )
         assert_matches_type(BrowserRetrieveResponse, browser, path=["response"])
@@ -119,7 +124,7 @@ class TestBrowsers:
     @parametrize
     def test_raw_response_retrieve(self, client: Kernel) -> None:
         response = client.browsers.with_raw_response.retrieve(
-            id="htzv5orfit78e1m2biiifpbv",
+            id_or_name="htzv5orfit78e1m2biiifpbv",
         )
 
         assert response.is_closed is True
@@ -131,7 +136,7 @@ class TestBrowsers:
     @parametrize
     def test_streaming_response_retrieve(self, client: Kernel) -> None:
         with client.browsers.with_streaming_response.retrieve(
-            id="htzv5orfit78e1m2biiifpbv",
+            id_or_name="htzv5orfit78e1m2biiifpbv",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -144,16 +149,16 @@ class TestBrowsers:
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_retrieve(self, client: Kernel) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id_or_name` but received ''"):
             client.browsers.with_raw_response.retrieve(
-                id="",
+                id_or_name="",
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_update(self, client: Kernel) -> None:
         browser = client.browsers.update(
-            id="htzv5orfit78e1m2biiifpbv",
+            id_or_name="htzv5orfit78e1m2biiifpbv",
         )
         assert_matches_type(BrowserUpdateResponse, browser, path=["response"])
 
@@ -161,7 +166,7 @@ class TestBrowsers:
     @parametrize
     def test_method_update_with_all_params(self, client: Kernel) -> None:
         browser = client.browsers.update(
-            id="htzv5orfit78e1m2biiifpbv",
+            id_or_name="htzv5orfit78e1m2biiifpbv",
             disable_default_proxy=True,
             profile={
                 "id": "id",
@@ -171,10 +176,15 @@ class TestBrowsers:
             proxy_id="proxy_id",
             telemetry={
                 "browser": {
+                    "captcha": {"enabled": True},
+                    "connection": {"enabled": True},
                     "console": {"enabled": True},
+                    "control": {"enabled": True},
                     "interaction": {"enabled": True},
                     "network": {"enabled": True},
                     "page": {"enabled": True},
+                    "screenshot": {"enabled": True},
+                    "system": {"enabled": True},
                 },
                 "enabled": True,
             },
@@ -191,7 +201,7 @@ class TestBrowsers:
     @parametrize
     def test_raw_response_update(self, client: Kernel) -> None:
         response = client.browsers.with_raw_response.update(
-            id="htzv5orfit78e1m2biiifpbv",
+            id_or_name="htzv5orfit78e1m2biiifpbv",
         )
 
         assert response.is_closed is True
@@ -203,7 +213,7 @@ class TestBrowsers:
     @parametrize
     def test_streaming_response_update(self, client: Kernel) -> None:
         with client.browsers.with_streaming_response.update(
-            id="htzv5orfit78e1m2biiifpbv",
+            id_or_name="htzv5orfit78e1m2biiifpbv",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -216,9 +226,9 @@ class TestBrowsers:
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_update(self, client: Kernel) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id_or_name` but received ''"):
             client.browsers.with_raw_response.update(
-                id="",
+                id_or_name="",
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
@@ -359,7 +369,7 @@ class TestBrowsers:
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_delete_by_id(self, client: Kernel) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id_or_name` but received ''"):
             client.browsers.with_raw_response.delete_by_id(
                 "",
             )
@@ -472,10 +482,15 @@ class TestAsyncBrowsers:
             },
             telemetry={
                 "browser": {
+                    "captcha": {"enabled": True},
+                    "connection": {"enabled": True},
                     "console": {"enabled": True},
+                    "control": {"enabled": True},
                     "interaction": {"enabled": True},
                     "network": {"enabled": True},
                     "page": {"enabled": True},
+                    "screenshot": {"enabled": True},
+                    "system": {"enabled": True},
                 },
                 "enabled": True,
             },
@@ -514,7 +529,7 @@ class TestAsyncBrowsers:
     @parametrize
     async def test_method_retrieve(self, async_client: AsyncKernel) -> None:
         browser = await async_client.browsers.retrieve(
-            id="htzv5orfit78e1m2biiifpbv",
+            id_or_name="htzv5orfit78e1m2biiifpbv",
         )
         assert_matches_type(BrowserRetrieveResponse, browser, path=["response"])
 
@@ -522,7 +537,7 @@ class TestAsyncBrowsers:
     @parametrize
     async def test_method_retrieve_with_all_params(self, async_client: AsyncKernel) -> None:
         browser = await async_client.browsers.retrieve(
-            id="htzv5orfit78e1m2biiifpbv",
+            id_or_name="htzv5orfit78e1m2biiifpbv",
             include_deleted=True,
         )
         assert_matches_type(BrowserRetrieveResponse, browser, path=["response"])
@@ -531,7 +546,7 @@ class TestAsyncBrowsers:
     @parametrize
     async def test_raw_response_retrieve(self, async_client: AsyncKernel) -> None:
         response = await async_client.browsers.with_raw_response.retrieve(
-            id="htzv5orfit78e1m2biiifpbv",
+            id_or_name="htzv5orfit78e1m2biiifpbv",
         )
 
         assert response.is_closed is True
@@ -543,7 +558,7 @@ class TestAsyncBrowsers:
     @parametrize
     async def test_streaming_response_retrieve(self, async_client: AsyncKernel) -> None:
         async with async_client.browsers.with_streaming_response.retrieve(
-            id="htzv5orfit78e1m2biiifpbv",
+            id_or_name="htzv5orfit78e1m2biiifpbv",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -556,16 +571,16 @@ class TestAsyncBrowsers:
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_retrieve(self, async_client: AsyncKernel) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id_or_name` but received ''"):
             await async_client.browsers.with_raw_response.retrieve(
-                id="",
+                id_or_name="",
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_update(self, async_client: AsyncKernel) -> None:
         browser = await async_client.browsers.update(
-            id="htzv5orfit78e1m2biiifpbv",
+            id_or_name="htzv5orfit78e1m2biiifpbv",
         )
         assert_matches_type(BrowserUpdateResponse, browser, path=["response"])
 
@@ -573,7 +588,7 @@ class TestAsyncBrowsers:
     @parametrize
     async def test_method_update_with_all_params(self, async_client: AsyncKernel) -> None:
         browser = await async_client.browsers.update(
-            id="htzv5orfit78e1m2biiifpbv",
+            id_or_name="htzv5orfit78e1m2biiifpbv",
             disable_default_proxy=True,
             profile={
                 "id": "id",
@@ -583,10 +598,15 @@ class TestAsyncBrowsers:
             proxy_id="proxy_id",
             telemetry={
                 "browser": {
+                    "captcha": {"enabled": True},
+                    "connection": {"enabled": True},
                     "console": {"enabled": True},
+                    "control": {"enabled": True},
                     "interaction": {"enabled": True},
                     "network": {"enabled": True},
                     "page": {"enabled": True},
+                    "screenshot": {"enabled": True},
+                    "system": {"enabled": True},
                 },
                 "enabled": True,
             },
@@ -603,7 +623,7 @@ class TestAsyncBrowsers:
     @parametrize
     async def test_raw_response_update(self, async_client: AsyncKernel) -> None:
         response = await async_client.browsers.with_raw_response.update(
-            id="htzv5orfit78e1m2biiifpbv",
+            id_or_name="htzv5orfit78e1m2biiifpbv",
         )
 
         assert response.is_closed is True
@@ -615,7 +635,7 @@ class TestAsyncBrowsers:
     @parametrize
     async def test_streaming_response_update(self, async_client: AsyncKernel) -> None:
         async with async_client.browsers.with_streaming_response.update(
-            id="htzv5orfit78e1m2biiifpbv",
+            id_or_name="htzv5orfit78e1m2biiifpbv",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -628,9 +648,9 @@ class TestAsyncBrowsers:
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_update(self, async_client: AsyncKernel) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id_or_name` but received ''"):
             await async_client.browsers.with_raw_response.update(
-                id="",
+                id_or_name="",
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
@@ -771,7 +791,7 @@ class TestAsyncBrowsers:
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_delete_by_id(self, async_client: AsyncKernel) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id_or_name` but received ''"):
             await async_client.browsers.with_raw_response.delete_by_id(
                 "",
             )

@@ -1,8 +1,4 @@
-#!/usr/bin/env python
-
-"""
-CLI entry point for the program.
-"""
+"""CLI entry point for the sparklines program."""
 
 import argparse
 import importlib.util
@@ -11,10 +7,7 @@ import sys
 from importlib.metadata import version
 from typing import Optional
 
-if sys.version_info.major >= 3:
-    from sparklines.sparklines import sparklines, demo
-else:
-    from sparklines import sparklines, demo
+from sparklines.sparklines import NumLines, sparklines, demo
 
 HAVE_TERMCOLOR = bool(importlib.util.find_spec("termcolor"))
 
@@ -49,26 +42,47 @@ def test_valid_number(arg: str) -> str:
 
 def test_valid_emphasis(arg: str) -> str:
     """Argparse validator for color filter expressions."""
-    pat = r"\w+\:(eq|gt|ge|lt|le)\:.+"
-    if re.match(pat, arg):
+    if re.fullmatch(r"\w+\:(eq|gt|ge|lt|le)\:.+", arg):
         return arg
-
+    if re.fullmatch(r"\w+\:\[[^\]]*\]", arg):
+        return arg
     raise ValueError()
 
 
+def parse_num_lines(arg: str) -> "NumLines":
+    """Parse -n argument: integer, 'auto', or 'up:down'."""
+    if arg == "auto":
+        return "auto"
+    if ":" in arg:
+        parts = arg.split(":", 1)
+        try:
+            up, down = int(parts[0]), int(parts[1])
+        except ValueError as e:
+            raise argparse.ArgumentTypeError(
+                f"invalid row split: {arg!r} (use up:down, e.g. 4:4)"
+            ) from e
+        if up < 1 or down < 1:
+            raise argparse.ArgumentTypeError(
+                f"row split must be >= 1 on each side, got {arg!r}"
+            )
+        return (up, down)
+    try:
+        n = int(arg)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(
+            f"invalid row count: {arg!r} (use a positive integer, 'auto', or up:down)"
+        ) from e
+    if n < 1:
+        raise argparse.ArgumentTypeError(f"-n must be >= 1, got {n}")
+    return n
+
+
 def main(argv: Optional[list[str]] = None) -> None:
-    """Main entry point for the CLI."""
+    """Run the sparklines CLI."""
     desc = """Sparklines on the command-line, e.g. ▃▁▄▁▄█▂▅ for
         3 1 4 1 5 9 2 6. Please add bug reports and suggestions to
         https://github.com/deeplook/sparklines/issues."""
     p = argparse.ArgumentParser(description=desc)
-
-    p.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Provide more verbose (debugging) output (none for now).",
-    )
 
     p.add_argument(
         "-V",
@@ -90,11 +104,11 @@ def main(argv: Optional[list[str]] = None) -> None:
         "-M", "--max", type=float, help="Use this value as the maximum for scaling."
     )
 
-    help_emph = f"""Emphasize input values below or above a certain
-        threshold (e.g. "green:gt:5.0"). This option takes one argument
-        value, but can be given repeatedly. Works only when optional
-        dependancy "termcolor" is met (which is {HAVE_TERMCOLOR} here). Otherwise
-        has no effect."""
+    help_emph = f"""Emphasize bars by value (e.g. "green:gt:5.0") or by
+        index using a Python slice (e.g. "red:[0:3]", "blue:[::2]",
+        "yellow:[-1:]"). This option takes one argument value, but can be
+        given repeatedly. Works only when optional dependency "termcolor"
+        is met (which is {HAVE_TERMCOLOR} here). Otherwise has no effect."""
     p.add_argument(
         "-e",
         "--emphasize",
@@ -105,15 +119,24 @@ def main(argv: Optional[list[str]] = None) -> None:
         help=help_emph,
     )
 
-    help_n = """The number of lines for one sparkline (higher numbers
-        increase the resolution). An integer >= 1 (default: 1)."""
     p.add_argument(
-        "-n", "--num-lines", metavar="NUMBER", help=help_n, default="1", type=int
+        "-n",
+        "--num-lines",
+        metavar="NUMBER",
+        help="rows per sparkline: integer, 'auto', or up:down (e.g. 4:4). Default: 1.",
+        default=1,
+        type=parse_num_lines,
+    )
+
+    p.add_argument(
+        "--zero",
+        choices=["up", "none"],
+        default="up",
+        help="0 handling: 'up' = positive baseline (default); 'none' = gap.",
     )
 
     help_nums = """A positive numeric value >= 0, e.g. 0, 3.14, 2e2.
-        Negative numbers work, too, but will give unexpected results
-        and raise a warning. The string values null and None (in any
+        Negative numbers are supported. The string values null and None (in any
         spelling) represent empty slots, but not the value 0!"""
     p.add_argument(
         "nums",
@@ -145,10 +168,10 @@ def main(argv: Optional[list[str]] = None) -> None:
         numbers,
         num_lines=a.num_lines,
         emph=a.emphasize,
-        verbose=a.verbose,
         minimum=a.min,
         maximum=a.max,
         wrap=args.wrap,
+        zero=a.zero,
     ):
         print(line)
 

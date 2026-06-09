@@ -11,26 +11,33 @@
 """
 Sampling Models
 """
-from typing import List, Optional, Union
 
-from pydantic import Field
-from typing_extensions import Annotated
+from typing import Any, Optional, TypeVar, Union
+
+from pydantic import Field, model_validator
+from typing_extensions import Annotated  # noqa: UP035
 
 from metadata.config.common import ConfigModel
 from metadata.generated.schema.entity.data.table import (
     ColumnProfilerConfig,
     PartitionProfilerConfig,
-    ProfileSampleType,
-    SamplingMethodType,
     Table,
     TableData,
 )
 from metadata.generated.schema.entity.services.connections.connectionBasicType import (
     SampleDataStorageConfig,
 )
-from metadata.generated.schema.type.basic import FullyQualifiedEntityName
+from metadata.generated.schema.type.basic import (
+    FullyQualifiedEntityName,
+    ProfileSampleType,
+    SamplingMethodType,
+)
+from metadata.generated.schema.type.samplingConfig import ProfileSampleConfig
 from metadata.ingestion.models.custom_pydantic import BaseModel
 from metadata.ingestion.models.table_metadata import ColumnTag
+from metadata.pii.types import ClassifiableEntityType
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class BaseProfileConfig(ConfigModel):
@@ -42,13 +49,14 @@ class BaseProfileConfig(ConfigModel):
     samplingMethodType: Optional[SamplingMethodType] = None
     sampleDataCount: Optional[int] = 100
     randomizedSample: Optional[bool] = True
+    profileSampleConfig: Optional[ProfileSampleConfig] = None
 
 
 class ColumnConfig(ConfigModel):
     """Column config for profiler"""
 
-    excludeColumns: Optional[List[str]] = None
-    includeColumns: Optional[List[ColumnProfilerConfig]] = None
+    excludeColumns: Optional[list[str]] = None  # noqa: N815, UP045
+    includeColumns: Optional[list[ColumnProfilerConfig]] = None  # noqa: N815, UP045
 
 
 class TableConfig(BaseProfileConfig):
@@ -57,7 +65,7 @@ class TableConfig(BaseProfileConfig):
     profileQuery: Optional[str] = None
     partitionConfig: Optional[PartitionProfilerConfig] = None
     columnConfig: Optional[ColumnConfig] = None
-    randomizedSample: Optional[bool] = True
+    randomizedSample: Optional[bool] = False
 
     @classmethod
     def from_database_and_schema_config(
@@ -69,6 +77,7 @@ class TableConfig(BaseProfileConfig):
             profileSampleType=config.profileSampleType,
             sampleDataCount=config.sampleDataCount,
             samplingMethodType=config.samplingMethodType,
+            profileSampleConfig=config.profileSampleConfig,
         )
         return table_config
 
@@ -89,21 +98,47 @@ class SampleData(BaseModel):
 
 
 class SamplerResponse(ConfigModel):
-    """PII & Sampler Workflow Response. For a given table, return all the tags and sample data"""
+    """PII & Sampler Workflow Response. For a given entity, return all the tags and sample data"""
 
-    table: Table
-    sample_data: Optional[SampleData] = None
-    column_tags: Optional[List[ColumnTag]] = None
+    entity: ClassifiableEntityType
+    sample_data: Optional[SampleData] = None  # noqa: UP045
+    column_tags: Optional[list[ColumnTag]] = None  # noqa: UP045
+
+    @model_validator(mode="before")
+    @classmethod
+    def handle_backward_compatibility(cls, data: Any) -> Any:
+        """Handle backward compatibility for table -> entity field rename"""
+        if isinstance(data, dict) and "table" in data and "entity" not in data:
+            data["entity"] = data.pop("table")
+        return data
+
+    @property
+    def table(self) -> Table:
+        """Backward compatibility property. Returns entity as Table.
+
+        Deprecated: Use .entity instead. Will be removed when all entity types are supported.
+        """
+        return self.entity  # type: ignore
 
     def __str__(self):
-        """Return the table name being processed"""
-        return f"Table [{self.table.name.root}]"
+        """Return the entity name being processed"""
+        entity_type = type(self.entity).__name__
+        entity_name = (
+            self.entity.name.root if hasattr(self.entity, "name") else "Unknown"
+        )
+        return f"{entity_type} [{entity_name}]"
 
 
 class SampleConfig(ConfigModel):
     """Profile Sample Config"""
 
-    profileSample: Optional[Union[float, int]] = None
-    profileSampleType: Optional[ProfileSampleType] = ProfileSampleType.PERCENTAGE
-    samplingMethodType: Optional[SamplingMethodType] = None
-    randomizedSample: Optional[bool] = True
+    profileSampleConfig: ProfileSampleConfig | None = None  # noqa: N815
+    randomizedSample: bool | None = True  # noqa: N815
+
+    def get_config(self, config_class: type[T]) -> T | None:
+        """Extract the config of the specified type from profileSampleConfig, or None."""
+        if self.profileSampleConfig and self.profileSampleConfig.config:
+            cfg = self.profileSampleConfig.config
+            if isinstance(cfg, config_class):
+                return config_class.model_validate(cfg.model_dump())
+        return None

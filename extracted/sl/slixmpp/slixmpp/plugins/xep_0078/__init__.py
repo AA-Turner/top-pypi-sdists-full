@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2011 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -11,3 +10,5 @@ from slixmpp.plugins.xep_0078.legacyauth import XEP_0078
 
 
 register_plugin(XEP_0078)
+
+__all__ = ['stanza', 'IqAuth', 'AuthFeature', 'XEP_0078']

@@ -14,6 +14,7 @@ DataLake connector to fetch metadata from a files stored s3, gcs and Hdfs
 """
 import json
 import traceback
+from hashlib import md5
 from typing import Any, Iterable, Optional, Tuple
 
 from metadata.generated.schema.api.data.createDatabase import CreateDatabaseRequest
@@ -225,7 +226,7 @@ class DatalakeSource(DatabaseServiceSource):
 
     def get_tables_name_and_type(  # pylint: disable=too-many-branches
         self,
-    ) -> Iterable[Tuple[str, TableType, SupportedTypes]]:
+    ) -> Iterable[Tuple[str, TableType, SupportedTypes, Optional[int]]]:
         """
         Handle table and views.
 
@@ -250,7 +251,7 @@ class DatalakeSource(DatabaseServiceSource):
             skip_cold_storage = (
                 getattr(self.service_connection, "skipColdStorage", False) or False
             )
-            for key_name in self.client.get_table_names(
+            for key_name, file_size in self.client.get_table_names(
                 bucket_name, prefix, skip_cold_storage=skip_cold_storage
             ):
                 table_name = self.standardize_table_name(bucket_name, key_name)
@@ -268,29 +269,31 @@ class DatalakeSource(DatabaseServiceSource):
                     )
                     continue
 
-                yield table_name, TableType.Regular, file_extension
+                yield table_name, TableType.Regular, file_extension, file_size
 
     def yield_table(
-        self, table_name_and_type: Tuple[str, TableType, SupportedTypes]
+        self, table_name_and_type: Tuple[str, TableType, SupportedTypes, Optional[int]]
     ) -> Iterable[Either[CreateTableRequest]]:
         """
         From topology.
         Prepare a table request and pass it to the sink.
         Uses first chunk only for schema inference to avoid loading entire file.
         """
-        table_name, table_type, table_extension = table_name_and_type
+        table_name, table_type, table_extension, file_size = table_name_and_type
         schema_name = self.context.get().database_schema
         try:
             table_constraints = None
             data_frame, raw_data = fetch_dataframe_first_chunk(
                 config_source=self.config_source,
-                client=self.client._client,
+                client=self.client.client,
                 file_fqn=DatalakeTableSchemaWrapper(
                     key=table_name,
                     bucket_name=schema_name,
                     file_extension=table_extension,
+                    file_size=file_size,
                 ),
                 fetch_raw_data=True,
+                session=getattr(self.client, "session", None),
             )
             if data_frame:
                 data_frame = next(data_frame)
@@ -302,8 +305,17 @@ class DatalakeSource(DatabaseServiceSource):
                 # If no data_frame (due to unsupported type), ignore
                 columns = None
             if columns:
+                display_name = None
+                if len(table_name) > 256:
+                    display_name = table_name
+                    table_name = md5(table_name.encode()).hexdigest()
+                    logger.debug(
+                        f"Table name exceeds 256 characters. Using MD5 hash [{table_name}] "
+                        f"as name and storing the full path in displayName: [{display_name}]"
+                    )
                 table_request = CreateTableRequest(
                     name=table_name,
+                    displayName=display_name,
                     tableType=table_type,
                     columns=columns,
                     tableConstraints=table_constraints if table_constraints else None,

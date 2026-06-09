@@ -1,6 +1,7 @@
 import pytensor.tensor as pt
 
 from pytensor_distributions.helper import cdf_bounds, ppf_bounds_cont
+from pytensor_distributions.lmoments import _lmoments
 
 
 def mean(mu, sigma):
@@ -37,6 +38,22 @@ def kurtosis(mu, sigma):
     )
 
 
+def lmoment1(mu, sigma):
+    return mean(mu, sigma)
+
+
+def lmoment2(mu, sigma):
+    return pt.exp(mu + sigma**2 / 2) * pt.erf(sigma / 2)
+
+
+def lmoment3(mu, sigma):
+    return _lmoments(ppf, mu, sigma, r=3)
+
+
+def lmoment4(mu, sigma):
+    return _lmoments(ppf, mu, sigma, r=4)
+
+
 def entropy(mu, sigma):
     shape = pt.broadcast_arrays(mu, sigma)[0]
     return pt.full_like(shape, pt.log(pt.sqrt(2 * pt.pi) * sigma * pt.exp(mu + 0.5)))
@@ -64,7 +81,7 @@ def sf(x, mu, sigma):
 
 
 def rvs(mu, sigma, size=None, random_state=None):
-    return pt.exp(pt.random.normal(mu, sigma, rng=random_state, size=size))
+    return pt.exp(pt.random.normal(mu, sigma, rng=random_state, size=size, return_next_rng=True)[1])
 
 
 def logcdf(x, mu, sigma):

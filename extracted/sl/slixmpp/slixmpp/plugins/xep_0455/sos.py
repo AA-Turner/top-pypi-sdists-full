@@ -81,7 +81,7 @@ class XEP_0455(BasePlugin):
         async with ClientSession(headers={'User-Agent': 'slixmpp'}) as session:
             for address in addresses:
                 scheme, *_ = urlparse(address)
-                if not scheme in ('http', 'https'):
+                if scheme not in ('http', 'https'):
                     continue
                 response = await session.get(address, timeout=60)
                 if response.status >= 400:

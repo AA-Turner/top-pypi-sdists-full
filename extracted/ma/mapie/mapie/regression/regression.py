@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import Any, Iterable, Optional, Tuple, Union, cast
 
 import numpy as np
@@ -25,6 +26,8 @@ from mapie.utils import (
     _check_alpha_and_n_samples,
     _check_cv,
     _check_cv_not_string,
+    _check_cv_not_subsample,
+    _check_deprecated_sample_weight_kwarg,
     _check_estimator_fit_predict,
     _check_if_param_in_allowed_values,
     _check_n_features_in,
@@ -37,7 +40,9 @@ from mapie.utils import (
     _raise_error_if_fit_called_in_prefit_mode,
     _raise_error_if_method_already_called,
     _raise_error_if_previous_method_not_called,
+    _resolve_renamed_parameter,
     _transform_confidence_level_to_alpha_list,
+    _UNSET,
     check_is_fitted,
     check_sklearn_user_model_is_fitted,
 )
@@ -303,6 +308,24 @@ class SplitConformalRegressor:
         )
         return _cast_point_predictions_to_ndarray(predictions)
 
+    @property
+    def conformity_scores(self) -> NDArray:
+        """
+        Returns the conformity scores computed by the `conformalize` method
+        on the conformalization set.
+
+        Returns
+        -------
+        NDArray
+            Array of conformity scores, with shape `(n_samples,)`.
+        """
+        _raise_error_if_previous_method_not_called(
+            "conformity_scores",
+            "conformalize",
+            self._is_conformalized,
+        )
+        return self._mapie_regressor.conformity_scores_
+
 
 class CrossConformalRegressor:
     """
@@ -407,6 +430,7 @@ class CrossConformalRegressor:
             method, "method", CrossConformalRegressor._VALID_METHODS
         )
         _check_cv_not_string(cv)
+        _check_cv_not_subsample(cv)
 
         self._mapie_regressor = _MapieRegressor(
             estimator=estimator,
@@ -426,6 +450,20 @@ class CrossConformalRegressor:
 
         self._predict_params: dict = {}
 
+    def reset(self) -> CrossConformalRegressor:
+        """
+        Discard previously computed conformity scores so that
+        `fit_conformalize` can be called again with new data.
+
+        Returns
+        -------
+        Self
+            This CrossConformalRegressor instance, reset to its pre-fit state.
+        """
+        self.is_fitted_and_conformalized = False
+        self._predict_params = {}
+        return self
+
     def fit_conformalize(
         self,
         X: ArrayLike,
@@ -438,6 +476,10 @@ class CrossConformalRegressor:
         Estimates the uncertainty of the base regressor in a cross-validation style:
         fits the base regressor on different folds of the dataset
         and computes conformity scores on the corresponding out-of-fold data.
+
+        If called on an instance that has already been fitted, a `UserWarning` is
+        emitted and the previously computed conformity scores are discarded before
+        the new fit. Call `reset()` explicitly to suppress the warning.
 
         Parameters
         ----------
@@ -463,10 +505,16 @@ class CrossConformalRegressor:
         Self
             This CrossConformalRegressor instance, fitted and conformalized.
         """
-        _raise_error_if_method_already_called(
-            "fit_conformalize",
-            self.is_fitted_and_conformalized,
-        )
+        if self.is_fitted_and_conformalized:
+            warnings.warn(
+                "CrossConformalRegressor.fit_conformalize was already called; "
+                "conformity scores from the previous fit will be discarded. "
+                "Call .reset() explicitly before fit_conformalize to suppress "
+                "this warning.",
+                UserWarning,
+                stacklevel=2,
+            )
+            self.reset()
 
         fit_params_ = _prepare_params(fit_params)
         self._predict_params = _prepare_params(predict_params)
@@ -484,9 +532,10 @@ class CrossConformalRegressor:
     def predict_interval(
         self,
         X: ArrayLike,
-        aggregate_predictions: Optional[str] = "mean",
+        aggregate_point_predictions: Optional[str] = "mean",
         minimize_interval_width: bool = False,
         allow_infinite_bounds: bool = False,
+        aggregate_predictions: Any = _UNSET,
     ) -> Tuple[NDArray, NDArray]:
         """
         Predicts points and intervals.
@@ -495,14 +544,14 @@ class CrossConformalRegressor:
         intervals will be predicted for each sample. See the return signature.
 
         By default, points are predicted using an aggregation.
-        See the `ensemble` parameter.
+        See the `aggregate_point_predictions` parameter.
 
         Parameters
         ----------
         X : ArrayLike
             Features
 
-        aggregate_predictions : Optional[str], default="mean"
+        aggregate_point_predictions : Optional[str], default="mean"
             The method to predict a point. Options:
 
             - None: a point is predicted using the regressor trained on the entire data
@@ -517,6 +566,12 @@ class CrossConformalRegressor:
         allow_infinite_bounds : bool, default=False
             If True, allows prediction intervals with infinite bounds.
 
+        aggregate_predictions : Optional[str]
+            .. deprecated::
+                Renamed to `aggregate_point_predictions`. Passing
+                `aggregate_predictions` still works but emits a
+                `FutureWarning` and will be removed in a future release.
+
         Returns
         -------
         Tuple[NDArray, NDArray]
@@ -525,14 +580,20 @@ class CrossConformalRegressor:
             - Prediction points, of shape `(n_samples,)`
             - Prediction intervals, of shape `(n_samples, 2, n_confidence_levels)`
         """
+        aggregate_point_predictions = _resolve_renamed_parameter(
+            "aggregate_point_predictions",
+            aggregate_point_predictions,
+            "aggregate_predictions",
+            aggregate_predictions,
+        )
         _raise_error_if_previous_method_not_called(
             "predict_interval",
             "fit_conformalize",
             self.is_fitted_and_conformalized,
         )
 
-        ensemble = self._set_aggregate_predictions_and_return_ensemble(
-            aggregate_predictions
+        ensemble = self._set_aggregate_point_predictions_and_return_ensemble(
+            aggregate_point_predictions
         )
         predictions = self._mapie_regressor.predict(
             X,
@@ -547,20 +608,21 @@ class CrossConformalRegressor:
     def predict(
         self,
         X: ArrayLike,
-        aggregate_predictions: Optional[str] = "mean",
+        aggregate_point_predictions: Optional[str] = "mean",
+        aggregate_predictions: Any = _UNSET,
     ) -> NDArray:
         """
         Predicts points.
 
         By default, points are predicted using an aggregation.
-        See the `ensemble` parameter.
+        See the `aggregate_point_predictions` parameter.
 
         Parameters
         ----------
         X : ArrayLike
             Features
 
-        aggregate_predictions : Optional[str], default="mean"
+        aggregate_point_predictions : Optional[str], default="mean"
             The method to predict a point. Options:
 
             - None: a point is predicted using the regressor trained on the entire data
@@ -569,19 +631,31 @@ class CrossConformalRegressor:
             - "median": Aggregates (using median) the predictions of the regressors
               trained on each cross-validation fold
 
+        aggregate_predictions : Optional[str]
+            .. deprecated::
+                Renamed to `aggregate_point_predictions`. Passing
+                `aggregate_predictions` still works but emits a
+                `FutureWarning` and will be removed in a future release.
+
         Returns
         -------
         NDArray
             Array of point predictions, with shape `(n_samples,)`.
         """
+        aggregate_point_predictions = _resolve_renamed_parameter(
+            "aggregate_point_predictions",
+            aggregate_point_predictions,
+            "aggregate_predictions",
+            aggregate_predictions,
+        )
         _raise_error_if_previous_method_not_called(
             "predict",
             "fit_conformalize",
             self.is_fitted_and_conformalized,
         )
 
-        ensemble = self._set_aggregate_predictions_and_return_ensemble(
-            aggregate_predictions
+        ensemble = self._set_aggregate_point_predictions_and_return_ensemble(
+            aggregate_point_predictions
         )
         predictions = self._mapie_regressor.predict(
             X,
@@ -591,17 +665,36 @@ class CrossConformalRegressor:
         )
         return _cast_point_predictions_to_ndarray(predictions)
 
-    def _set_aggregate_predictions_and_return_ensemble(
-        self, aggregate_predictions: Optional[str]
+    def _set_aggregate_point_predictions_and_return_ensemble(
+        self, aggregate_point_predictions: Optional[str]
     ) -> bool:
-        if not aggregate_predictions:
+        if not aggregate_point_predictions:
             ensemble = False
         else:
             ensemble = True
-            self._mapie_regressor._check_agg_function(aggregate_predictions)
+            self._mapie_regressor._check_agg_function(aggregate_point_predictions)
             # A hack here, to allow choosing the aggregation function at prediction time
-            self._mapie_regressor.agg_function = aggregate_predictions
+            self._mapie_regressor.agg_function = aggregate_point_predictions
         return ensemble
+
+    @property
+    def conformity_scores(self) -> NDArray:
+        """
+        Returns the conformity scores computed by the `fit_conformalize`
+        method, on the out-of-fold predictions produced during
+        cross-validation.
+
+        Returns
+        -------
+        NDArray
+            Array of conformity scores, with shape `(n_samples,)`.
+        """
+        _raise_error_if_previous_method_not_called(
+            "conformity_scores",
+            "fit_conformalize",
+            self.is_fitted_and_conformalized,
+        )
+        return self._mapie_regressor.conformity_scores_
 
 
 class JackknifeAfterBootstrapRegressor:
@@ -715,7 +808,7 @@ class JackknifeAfterBootstrapRegressor:
             JackknifeAfterBootstrapRegressor._VALID_AGGREGATION_METHODS,
         )
 
-        cv = self._check_and_convert_resampling_to_cv(resampling)
+        cv = self._check_and_convert_resampling_to_cv(resampling, random_state)
 
         self._mapie_regressor = _MapieRegressor(
             estimator=estimator,
@@ -736,6 +829,21 @@ class JackknifeAfterBootstrapRegressor:
         self.is_fitted_and_conformalized = False
         self._predict_params: dict = {}
 
+    def reset(self) -> JackknifeAfterBootstrapRegressor:
+        """
+        Discard previously computed conformity scores so that
+        `fit_conformalize` can be called again with new data.
+
+        Returns
+        -------
+        Self
+            This JackknifeAfterBootstrapRegressor instance, reset to its
+            pre-fit state.
+        """
+        self.is_fitted_and_conformalized = False
+        self._predict_params = {}
+        return self
+
     def fit_conformalize(
         self,
         X: ArrayLike,
@@ -747,6 +855,10 @@ class JackknifeAfterBootstrapRegressor:
         Estimates the uncertainty of the base regressor using bootstrap sampling:
         fits the base regressor on (potentially overlapping) samples of the dataset,
         and computes conformity scores on the corresponding out of samples data.
+
+        If called on an instance that has already been fitted, a `UserWarning` is
+        emitted and the previously computed conformity scores are discarded before
+        the new fit. Call `reset()` explicitly to suppress the warning.
 
         Parameters
         ----------
@@ -769,10 +881,16 @@ class JackknifeAfterBootstrapRegressor:
         Self
             This JackknifeAfterBootstrapRegressor instance, fitted and conformalized.
         """
-        _raise_error_if_method_already_called(
-            "fit_conformalize",
-            self.is_fitted_and_conformalized,
-        )
+        if self.is_fitted_and_conformalized:
+            warnings.warn(
+                "JackknifeAfterBootstrapRegressor.fit_conformalize was already "
+                "called; conformity scores from the previous fit will be "
+                "discarded. Call .reset() explicitly before fit_conformalize "
+                "to suppress this warning.",
+                UserWarning,
+                stacklevel=2,
+            )
+            self.reset()
 
         fit_params_ = _prepare_params(fit_params)
         self._predict_params = _prepare_params(predict_params)
@@ -789,9 +907,10 @@ class JackknifeAfterBootstrapRegressor:
     def predict_interval(
         self,
         X: ArrayLike,
-        ensemble: bool = True,
+        aggregate_point_predictions: bool = True,
         minimize_interval_width: bool = False,
         allow_infinite_bounds: bool = False,
+        ensemble: Any = _UNSET,
     ) -> Tuple[NDArray, NDArray]:
         """
         Predicts points and intervals.
@@ -800,14 +919,14 @@ class JackknifeAfterBootstrapRegressor:
         intervals will be predicted for each sample. See the return signature.
 
         By default, points are predicted using an aggregation.
-        See the `ensemble` parameter.
+        See the `aggregate_point_predictions` parameter.
 
         Parameters
         ----------
         X : ArrayLike
             Test data for prediction intervals.
 
-        ensemble : bool, default=True
+        aggregate_point_predictions : bool, default=True
             If True, a predicted point is an aggregation of the predictions of the
             regressors trained on each bootstrap samples. This aggregation depends on
             the `aggregation_method` provided during initialisation.
@@ -821,6 +940,12 @@ class JackknifeAfterBootstrapRegressor:
         allow_infinite_bounds : bool, default=False
             If True, allows prediction intervals with infinite bounds.
 
+        ensemble : bool
+            .. deprecated::
+                Renamed to `aggregate_point_predictions`. Passing `ensemble`
+                still works but emits a `FutureWarning` and will be removed in
+                a future release.
+
         Returns
         -------
         Tuple[NDArray, NDArray]
@@ -829,6 +954,12 @@ class JackknifeAfterBootstrapRegressor:
             - Prediction points, of shape `(n_samples,)`
             - Prediction intervals, of shape `(n_samples, 2, n_confidence_levels)`
         """
+        aggregate_point_predictions = _resolve_renamed_parameter(
+            "aggregate_point_predictions",
+            aggregate_point_predictions,
+            "ensemble",
+            ensemble,
+        )
         _raise_error_if_previous_method_not_called(
             "predict_interval",
             "fit_conformalize",
@@ -840,7 +971,7 @@ class JackknifeAfterBootstrapRegressor:
             alpha=self._alphas,
             optimize_beta=minimize_interval_width,
             allow_infinite_bounds=allow_infinite_bounds,
-            ensemble=ensemble,
+            ensemble=aggregate_point_predictions,
             **self._predict_params,
         )
         return _cast_predictions_to_ndarray_tuple(predictions)
@@ -848,31 +979,44 @@ class JackknifeAfterBootstrapRegressor:
     def predict(
         self,
         X: ArrayLike,
-        ensemble: bool = True,
+        aggregate_point_predictions: bool = True,
+        ensemble: Any = _UNSET,
     ) -> NDArray:
         """
         Predicts points.
 
         By default, points are predicted using an aggregation.
-        See the `ensemble` parameter.
+        See the `aggregate_point_predictions` parameter.
 
         Parameters
         ----------
         X : ArrayLike
             Data features for generating point predictions.
 
-        ensemble : bool, default=True
+        aggregate_point_predictions : bool, default=True
             If True, a predicted point is an aggregation of the predictions of the
             regressors trained on each bootstrap samples. This aggregation depends on
             the `aggregation_method` provided during initialisation.
             If False, a point is predicted using the regressor trained on the entire
             data
 
+        ensemble : bool
+            .. deprecated::
+                Renamed to `aggregate_point_predictions`. Passing `ensemble`
+                still works but emits a `FutureWarning` and will be removed in
+                a future release.
+
         Returns
         -------
         NDArray
             Array of point predictions, with shape `(n_samples,)`.
         """
+        aggregate_point_predictions = _resolve_renamed_parameter(
+            "aggregate_point_predictions",
+            aggregate_point_predictions,
+            "ensemble",
+            ensemble,
+        )
         _raise_error_if_previous_method_not_called(
             "predict",
             "fit_conformalize",
@@ -882,7 +1026,7 @@ class JackknifeAfterBootstrapRegressor:
         predictions = self._mapie_regressor.predict(
             X,
             alpha=None,
-            ensemble=ensemble,
+            ensemble=aggregate_point_predictions,
             **self._predict_params,
         )
         return _cast_point_predictions_to_ndarray(predictions)
@@ -890,14 +1034,34 @@ class JackknifeAfterBootstrapRegressor:
     @staticmethod
     def _check_and_convert_resampling_to_cv(
         resampling: Union[int, Subsample],
+        random_state: Optional[Union[int, np.random.RandomState]] = None,
     ) -> Subsample:
         if isinstance(resampling, int):
-            cv = Subsample(n_resamplings=resampling)
+            cv = Subsample(n_resamplings=resampling, random_state=random_state)
         elif isinstance(resampling, Subsample):
             cv = resampling
         else:
             raise ValueError("resampling must be an integer or a Subsample instance")
         return cv
+
+    @property
+    def conformity_scores(self) -> NDArray:
+        """
+        Returns the conformity scores computed by the `fit_conformalize`
+        method, on the out-of-fold predictions produced during
+        cross-validation.
+
+        Returns
+        -------
+        NDArray
+            Array of conformity scores, with shape `(n_samples,)`.
+        """
+        _raise_error_if_previous_method_not_called(
+            "conformity_scores",
+            "fit_conformalize",
+            self.is_fitted_and_conformalized,
+        )
+        return self._mapie_regressor.conformity_scores_
 
 
 class _MapieRegressor(RegressorMixin, BaseEstimator):
@@ -1404,6 +1568,7 @@ class _MapieRegressor(RegressorMixin, BaseEstimator):
         **kwargs: Any,
     ):
         self._fit_params = _prepare_params(kwargs.pop("fit_params", {}))
+        _check_deprecated_sample_weight_kwarg(kwargs)
 
         # Checks
         (

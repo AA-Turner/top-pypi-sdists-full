@@ -24,17 +24,21 @@ from typing_extensions import Self
 
 class Position(BaseModel):
     """
-    Position
+    A current position in a market. In hosted mode, `outcomeLabel`, `entryPrice`, `currentPrice` and `unrealizedPnL` may be null when the server cannot derive them (e.g. `with_mtm=false` or no fill history). Venue-direct callers continue to populate every field.
     """ # noqa: E501
     market_id: StrictStr = Field(description="The market this position is held in.", alias="marketId")
     outcome_id: StrictStr = Field(description="The outcome this position is held in.", alias="outcomeId")
-    outcome_label: StrictStr = Field(description="Human-readable label for the outcome held.", alias="outcomeLabel")
+    outcome_label: Optional[StrictStr] = Field(default=None, description="Human-readable label for the outcome held. Optional in hosted mode.", alias="outcomeLabel")
     size: Union[StrictFloat, StrictInt] = Field(description="Positive for long, negative for short")
-    entry_price: Union[StrictFloat, StrictInt] = Field(description="Average entry price for the position (probability between 0.0 and 1.0).", alias="entryPrice")
-    current_price: Union[StrictFloat, StrictInt] = Field(description="Current mark price for the position (probability between 0.0 and 1.0).", alias="currentPrice")
-    unrealized_pn_l: Union[StrictFloat, StrictInt] = Field(description="Unrealized profit or loss at the current price (USD).", alias="unrealizedPnL")
+    entry_price: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Average entry price for the position (probability between 0.0 and 1.0). Optional in hosted mode when no fill history is available.", alias="entryPrice")
+    current_price: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Current mark price for the position (probability between 0.0 and 1.0). Optional in hosted mode when mark-to-market data is unavailable.", alias="currentPrice")
+    current_value: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Current market value of the position (size * currentPrice). Null when currentPrice is unavailable.", alias="currentValue")
+    unrealized_pn_l: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Unrealized profit or loss at the current price (USD). Optional in hosted mode when mark-to-market data is unavailable.", alias="unrealizedPnL")
     realized_pn_l: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Realized profit or loss booked so far (USD).", alias="realizedPnL")
-    __properties: ClassVar[List[str]] = ["marketId", "outcomeId", "outcomeLabel", "size", "entryPrice", "currentPrice", "unrealizedPnL", "realizedPnL"]
+    tx_hash: Optional[StrictStr] = Field(default=None, description="Populated in hosted mode after on-chain settlement (from the last fill); null for local-mode and for non-on-chain venues.", alias="txHash")
+    chain: Optional[StrictStr] = Field(default=None, description="Populated in hosted mode after on-chain settlement (from the last fill); null for local-mode and for non-on-chain venues.")
+    block_number: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Populated in hosted mode after on-chain settlement (from the last fill); null for local-mode and for non-on-chain venues.", alias="blockNumber")
+    __properties: ClassVar[List[str]] = ["marketId", "outcomeId", "outcomeLabel", "size", "entryPrice", "currentPrice", "currentValue", "unrealizedPnL", "realizedPnL", "txHash", "chain", "blockNumber"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -75,6 +79,46 @@ class Position(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if outcome_label (nullable) is None
+        # and model_fields_set contains the field
+        if self.outcome_label is None and "outcome_label" in self.model_fields_set:
+            _dict['outcomeLabel'] = None
+
+        # set to None if entry_price (nullable) is None
+        # and model_fields_set contains the field
+        if self.entry_price is None and "entry_price" in self.model_fields_set:
+            _dict['entryPrice'] = None
+
+        # set to None if current_price (nullable) is None
+        # and model_fields_set contains the field
+        if self.current_price is None and "current_price" in self.model_fields_set:
+            _dict['currentPrice'] = None
+
+        # set to None if current_value (nullable) is None
+        # and model_fields_set contains the field
+        if self.current_value is None and "current_value" in self.model_fields_set:
+            _dict['currentValue'] = None
+
+        # set to None if unrealized_pn_l (nullable) is None
+        # and model_fields_set contains the field
+        if self.unrealized_pn_l is None and "unrealized_pn_l" in self.model_fields_set:
+            _dict['unrealizedPnL'] = None
+
+        # set to None if tx_hash (nullable) is None
+        # and model_fields_set contains the field
+        if self.tx_hash is None and "tx_hash" in self.model_fields_set:
+            _dict['txHash'] = None
+
+        # set to None if chain (nullable) is None
+        # and model_fields_set contains the field
+        if self.chain is None and "chain" in self.model_fields_set:
+            _dict['chain'] = None
+
+        # set to None if block_number (nullable) is None
+        # and model_fields_set contains the field
+        if self.block_number is None and "block_number" in self.model_fields_set:
+            _dict['blockNumber'] = None
+
         return _dict
 
     @classmethod
@@ -93,8 +137,12 @@ class Position(BaseModel):
             "size": obj.get("size"),
             "entryPrice": obj.get("entryPrice"),
             "currentPrice": obj.get("currentPrice"),
+            "currentValue": obj.get("currentValue"),
             "unrealizedPnL": obj.get("unrealizedPnL"),
-            "realizedPnL": obj.get("realizedPnL")
+            "realizedPnL": obj.get("realizedPnL"),
+            "txHash": obj.get("txHash"),
+            "chain": obj.get("chain"),
+            "blockNumber": obj.get("blockNumber")
         })
         return _obj
 

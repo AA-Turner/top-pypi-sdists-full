@@ -23,6 +23,15 @@ pub struct CheckRunContext<'a> {
     pub cache: Option<Arc<crate::cache::LintCache>>,
     pub workspace_cache_dir: Option<&'a Path>,
     pub project_root: Option<&'a Path>,
+    /// Upper bound for per-directory config grouping. Equals `project_root` for
+    /// single/zero-path runs; for multi-path runs with no discovered project
+    /// config it is the common-ancestor anchor, so standalone subdirectory configs
+    /// are still grouped while `project_root` stays unset (keeping the cache dir,
+    /// per-file globs and displayed paths cwd-relative).
+    pub grouping_root: Option<&'a Path>,
+    /// Inline `--config 'RULE.key=value'` overrides, re-applied to each discovered
+    /// subdirectory config so CLI precedence holds across all config groups.
+    pub inline_overrides: &'a [toml::Table],
     pub explicit_config: bool,
     pub isolated: bool,
 }
@@ -41,6 +50,8 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> (bool, bool, bool, usize)
         ref cache,
         workspace_cache_dir,
         project_root,
+        grouping_root,
+        inline_overrides,
         explicit_config,
         isolated,
     } = *ctx;
@@ -112,10 +123,13 @@ pub fn perform_check_run(ctx: &CheckRunContext<'_>) -> (bool, bool, bool, usize)
             &file_paths,
             config,
             args,
-            project_root,
+            &crate::resolution::ResolutionRoots {
+                grouping_root,
+                project_root,
+            },
+            inline_overrides,
             cache,
-            explicit_config,
-            isolated,
+            explicit_config || isolated,
         )
     );
 

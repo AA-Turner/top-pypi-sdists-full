@@ -16,12 +16,13 @@ ADR-0014: no ``from __future__ import annotations`` in FastAPI route files.
 """
 
 import logging
-from typing import Annotated, Any
+from typing import Annotated, Any, Protocol, cast
 
 from fastapi import APIRouter, Query, Request, Response
 from fastapi.responses import RedirectResponse
 
 from dazzle.back.runtime.auth.connections import ConnectionError, resolve_provider
+from dazzle.back.runtime.auth.cookie_name import names_to_clear
 from dazzle.back.runtime.auth.enterprise_login import (
     EnterpriseLoginError,
     provision_enterprise_login,
@@ -33,6 +34,15 @@ from dazzle.back.runtime.auth.redirect_safety import (
 from dazzle.back.runtime.auth.sso_session import finish_login_session
 
 _logger = logging.getLogger(__name__)
+
+
+class _SamlLogoutProvider(Protocol):
+    """The SLO-capable slice of the SAML provider — process_logout is SAML-specific, so it
+    is not on the general ConnectionProvider Protocol (OIDC has no SAML logout). The SLS
+    route guards ``conn.type == 'saml'`` before casting to this."""
+
+    def process_logout(self, connection: Any, request: Any) -> Any: ...
+
 
 _SESSION_CONN_KEY = "saml_conn_id"
 _SESSION_NEXT_KEY = "saml_next"
@@ -160,4 +170,88 @@ def create_saml_routes(*, cookie_name: str = "dazzle_session") -> APIRouter:
             )
         return Response(content=xml, media_type="application/samlmetadata+xml")
 
+    # HTTP-Redirect binding only (the binding the SP advertises in its metadata SLS): the
+    # IdP sends the LogoutRequest as a GET query param. The SAMLRequest is deflate+base64;
+    # cap its length BEFORE python3-saml decompresses it (the library inflates with no size
+    # limit, before signature validation — a small compressed payload could inflate to GBs
+    # and OOM the worker on this unauthenticated endpoint). A real LogoutRequest is ~1-3 KB.
+    _MAX_SAML_REQUEST_B64 = 16384
+
+    @router.get("/auth/saml/sls")
+    async def saml_sls(request: Request, connection: Annotated[str, Query()] = "") -> Response:
+        """SAML Single Logout Service (#1342) — handles both directions:
+
+        - inbound ``SAMLRequest`` (IdP-initiated): signature-verified, then kill the named
+          user's sessions in the connection's org; a forged/unsigned request kills nothing (400).
+        - inbound ``SAMLResponse`` (SP-initiated completion): the user is ALREADY locally logged
+          out (cleared at /logout), so this is post-logout cosmetic — validate for hygiene, then
+          land logged-out; a validation error does NOT 400 the returning user.
+
+        Only mounted when the ``auth.enterprise.saml`` capability is active.
+        """
+        store = request.app.state.auth_store
+        qp = request.query_params
+        has_request, has_response = "SAMLRequest" in qp, "SAMLResponse" in qp
+        # A legitimate SLO message is EITHER a LogoutRequest OR a LogoutResponse, never both.
+        # Reject the ambiguous both-present case outright rather than relying on python3-saml's
+        # internal key precedence (which could let a forged LogoutRequest ride a trivial
+        # SAMLResponse down the lenient path on a future library change).
+        if has_request and has_response:
+            return Response(content="invalid SAML logout", status_code=400, media_type="text/plain")
+        is_response = has_response  # SP-initiated completion vs IdP-initiated request
+        # Zip-bomb guard: cap the deflated message BEFORE python3-saml's unbounded decompress.
+        if (
+            max(len(qp.get("SAMLRequest", "")), len(qp.get("SAMLResponse", "")))
+            > _MAX_SAML_REQUEST_B64
+        ):
+            return Response(content="invalid SAML logout", status_code=400, media_type="text/plain")
+        conn = _resolve_saml_connection(store, request, connection_id=connection, email="")
+        if conn is None or conn.type != "saml" or conn.status != "active":
+            return Response(content="invalid SAML logout", status_code=400, media_type="text/plain")
+        try:
+            provider = cast(_SamlLogoutProvider, resolve_provider(conn))
+            result = provider.process_logout(conn, request)
+        except Exception as exc:  # noqa: BLE001 — surface in logs, never 500-leak
+            _logger.warning(
+                "SAML SLS: logout %s failed: %s", "response" if is_response else "request", exc
+            )  # nosemgrep
+            if is_response:
+                # The returning user is already locally logged out — land them on a
+                # logged-out page rather than 400'ing. (A forged inbound LogoutRequest still 400s.)
+                return _logged_out_response(request, cookie_name)
+            return Response(content="invalid SAML logout", status_code=400, media_type="text/plain")
+
+        # Org-scoped kill: every session the NameID's user holds in THIS connection's org
+        # (only trustworthy because process_logout verified the IdP signature first). The
+        # lookups run uniformly whether or not the user/membership exists — no email-existence
+        # timing oracle (a known vs unknown NameID takes the same path).
+        user = store.get_user_by_email(result.name_id) if result.name_id else None
+        memberships = store.get_memberships_for_identity(str(user.id)) if user is not None else []
+        for m in memberships:
+            if m.tenant_id == conn.tenant_id:
+                store.delete_sessions_for_membership(m.id)
+
+        if result.redirect_url:
+            # Intentionally cross-origin: process_slo builds this from the operator-configured
+            # idp_slo_url (the LogoutResponse back to the IdP), NOT from attacker input — so a
+            # same-origin guard would be wrong here. Do NOT thread request data into this URL.
+            response: Response = RedirectResponse(url=result.redirect_url, status_code=303)
+            _clear_session_cookies(response, request, cookie_name)
+            return response
+        return _logged_out_response(request, cookie_name)
+
     return router
+
+
+def _clear_session_cookies(response: Response, request: Request, cookie_name: str) -> None:
+    """Clear this browser's auth + CSRF cookies (best-effort for the carrier browser)."""
+    for name in names_to_clear(request, default=cookie_name):
+        response.delete_cookie(name)
+    response.delete_cookie("dazzle_csrf")
+
+
+def _logged_out_response(request: Request, cookie_name: str) -> Response:
+    """A plain 200 logged-out response with the session cookies cleared."""
+    response = Response(content="logged out", status_code=200, media_type="text/plain")
+    _clear_session_cookies(response, request, cookie_name)
+    return response

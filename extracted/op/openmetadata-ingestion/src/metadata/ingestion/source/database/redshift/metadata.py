@@ -11,11 +11,10 @@
 """
 Redshift source ingestion
 """
-import re
 import traceback
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional
 
-from sqlalchemy import sql
+from sqlalchemy import sql, text
 from sqlalchemy.dialects.postgresql.base import PGDialect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy_redshift.dialect import (
@@ -36,11 +35,8 @@ from metadata.generated.schema.entity.data.storedProcedure import (
 )
 from metadata.generated.schema.entity.data.table import (
     ConstraintType,
-    PartitionColumnDetails,
-    PartitionIntervalTypes,
     Table,
     TableConstraint,
-    TablePartition,
     TableType,
 )
 from metadata.generated.schema.entity.services.connections.database.redshiftConnection import (
@@ -82,23 +78,22 @@ from metadata.ingestion.source.database.redshift.queries import (
     REDSHIFT_GET_DATABASE_NAMES,
     REDSHIFT_GET_STORED_PROCEDURES,
     REDSHIFT_LIFE_CYCLE_QUERY,
-    REDSHIFT_PARTITION_DETAILS,
 )
 from metadata.ingestion.source.database.redshift.utils import (
     _get_all_relation_info,
     _get_column_info,
     _get_pg_column_info,
     _get_schema_column_info,
+    _load_domains,
+    _redshift_initialize,
     get_columns,
+    get_multi_columns,
     get_redshift_columns,
     get_table_comment,
+    get_temp_table_names,
     get_view_definition,
 )
 from metadata.utils import fqn
-from metadata.utils.execution_time_tracker import (
-    calculate_execution_time,
-    calculate_execution_time_generator,
-)
 from metadata.utils.filters import filter_by_database
 from metadata.utils.helpers import clean_up_starting_ending_double_quotes_in_string
 from metadata.utils.logger import ingestion_logger
@@ -121,11 +116,15 @@ STANDARD_TABLE_TYPES = {
 # pylint: disable=protected-access
 RedshiftDialectMixin._get_column_info = _get_column_info
 RedshiftDialectMixin._get_schema_column_info = _get_schema_column_info
+RedshiftDialectMixin.initialize = _redshift_initialize
+RedshiftDialectMixin._load_domains = _load_domains
 RedshiftDialectMixin.get_columns = get_columns
+RedshiftDialectMixin.get_multi_columns = get_multi_columns
 PGDialect._get_column_info = _get_pg_column_info
 RedshiftDialect.get_all_table_comments = get_all_table_comments
 RedshiftDialect.get_table_comment = get_table_comment
 RedshiftDialect.get_view_definition = get_view_definition
+RedshiftDialect.get_temp_table_names = get_temp_table_names
 RedshiftDialect._get_redshift_columns = get_redshift_columns
 RedshiftDialect._get_all_relation_info = (  # pylint: disable=protected-access
     _get_all_relation_info
@@ -149,7 +148,6 @@ class RedshiftSource(
         incremental_configuration: IncrementalConfig,
     ):
         super().__init__(config, metadata)
-        self.partition_details = {}
         self.constraint_details: dict[
             str, dict[str, set[str] | list[dict[str, str]]]
         ] = {}
@@ -190,20 +188,19 @@ class RedshiftSource(
             (self.context.get().database, schema_name, table_name)
         )
 
-    def get_partition_details(self) -> None:
-        """
-        Populate partition details
+    def _clear_reflection_cache(self) -> None:
+        """Clear the SQLAlchemy inspector's info_cache to release
+        cached column / relation data from prior schemas.
+
+        This prevents unbounded memory growth when ingesting many
+        schemas, since _get_schema_column_info, get_columns, and
+        _get_all_relation_info all use @reflection.cache.
         """
         try:
-            self.partition_details.clear()
-            results = self.connection.execute(
-                statement=REDSHIFT_PARTITION_DETAILS
-            ).fetchall()
-            for row in results:
-                self.partition_details[f"{row.schema}.{row.table}"] = row.diststyle
-        except Exception as exe:
-            logger.debug(traceback.format_exc())
-            logger.debug(f"Failed to fetch partition details due: {exe}")
+            if hasattr(self.inspector, "info_cache"):
+                self.inspector.info_cache.clear()
+        except Exception as exc:
+            logger.debug(f"Failed to clear reflection cache: {exc}")
 
     def query_table_names_and_types(
         self, schema_name: str
@@ -211,6 +208,10 @@ class RedshiftSource(
         """
         Handle custom table types
         """
+        # Clear cached column / relation data from prior schemas to
+        # prevent unbounded memory growth (issue #20649)
+        self._clear_reflection_cache()
+
         self._set_constraint_details(schema_name)
 
         result = self.connection.execute(
@@ -294,11 +295,12 @@ class RedshiftSource(
 
     def set_external_location_map(self, database_name: str) -> None:
         self.external_location_map.clear()
-        results = self.connection.execute(
-            sql.text(
-                REDSHIFT_EXTERNAL_TABLE_LOCATION.format(database_name=database_name)
-            )
-        ).all()
+        with self.engine.connect() as conn:
+            results = conn.execute(
+                text(
+                    REDSHIFT_EXTERNAL_TABLE_LOCATION.format(database_name=database_name)
+                )
+            ).all()
         self.external_location_map = {
             (database_name, row.schemaname, row.tablename): row.location
             for row in results
@@ -307,7 +309,6 @@ class RedshiftSource(
     def get_database_names(self) -> Iterable[str]:
         if not self.config.serviceConnection.root.config.ingestAllDatabases:
             configured_db = self.config.serviceConnection.root.config.database
-            self.get_partition_details()
             self._set_incremental_table_processor(configured_db)
             self.set_external_location_map(configured_db)
             yield configured_db
@@ -333,7 +334,6 @@ class RedshiftSource(
 
                 try:
                     self.set_inspector(database_name=new_database)
-                    self.get_partition_details()
                     self._set_incremental_table_processor(new_database)
                     self.set_external_location_map(new_database)
                     yield new_database
@@ -342,36 +342,6 @@ class RedshiftSource(
                     logger.error(
                         f"Error trying to connect to database {new_database}: {exc}"
                     )
-
-    def _get_partition_key(self, diststyle: str) -> Optional[str]:
-        try:
-            regex = re.match(r"KEY\((\w+)\)", diststyle)
-            if regex:
-                return regex.group(1)
-        except Exception as err:
-            logger.debug(traceback.format_exc())
-            logger.warning(err)
-        return None
-
-    @calculate_execution_time()
-    def get_table_partition_details(
-        self, table_name: str, schema_name: str, inspector: Inspector
-    ) -> Tuple[bool, Optional[TablePartition]]:
-        diststyle = self.partition_details.get(f"{schema_name}.{table_name}")
-        if diststyle:
-            distkey = self._get_partition_key(diststyle)
-            if distkey is not None:
-                partition_details = TablePartition(
-                    columns=[
-                        PartitionColumnDetails(
-                            columnName=distkey,
-                            intervalType=PartitionIntervalTypes.COLUMN_VALUE,
-                            interval=None,
-                        )
-                    ]
-                )
-                return True, partition_details
-        return False, None
 
     def process_additional_table_constraints(
         self, column: dict, table_constraints: List[TableConstraint]
@@ -400,17 +370,18 @@ class RedshiftSource(
         """List Snowflake stored procedures"""
         if self.source_config.includeStoredProcedures:
             results = self.connection.execute(
-                REDSHIFT_GET_STORED_PROCEDURES.format(
-                    schema_name=self.context.get().database_schema,
+                text(
+                    REDSHIFT_GET_STORED_PROCEDURES.format(
+                        schema_name=self.context.get().database_schema,
+                    )
                 )
             ).all()
             for row in results:
-                stored_procedure = RedshiftStoredProcedure.model_validate(dict(row))
+                stored_procedure = RedshiftStoredProcedure.model_validate(row._asdict())
                 if self.is_stored_procedure_filtered(stored_procedure.name):
                     continue
                 yield stored_procedure
 
-    @calculate_execution_time_generator()
     def yield_stored_procedure(
         self, stored_procedure: RedshiftStoredProcedure
     ) -> Iterable[Either[CreateStoredProcedureRequest]]:

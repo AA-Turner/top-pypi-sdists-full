@@ -3,7 +3,7 @@
 # Copyright (C) 2020 Mathieu Pasquet
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-from slixmpp.xmlstream import ET, ElementBase
+from slixmpp.xmlstream import ElementBase
 
 
 class Report(ElementBase):

@@ -104,6 +104,7 @@ class SDEAuth(Authentication):
 
         http_session.headers["Authorization"] = f"Bearer {token}"
         http_session.headers["X-Tenant"] = tenant
+        http_session.headers["X-Trino-Extra-Credential"] = f"token={token}"
 
         original_request = http_session.request
 
@@ -129,6 +130,7 @@ class SDEAuth(Authentication):
                 self._token_expires_at = None
                 refreshed_token = self.get_token()
                 http_session.headers["Authorization"] = f"Bearer {refreshed_token}"
+                http_session.headers["X-Trino-Extra-Credential"] = f"token={refreshed_token}"
                 response = original_request(method, modified_url, **kwargs)
 
             return response

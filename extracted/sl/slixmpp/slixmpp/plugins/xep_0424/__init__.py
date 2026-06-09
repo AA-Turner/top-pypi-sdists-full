@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2020 Mathieu Pasquet <mathieui@mathieui.net>
 # This file is part of Slixmpp.
@@ -7,3 +6,5 @@ from slixmpp.plugins.base import register_plugin
 from .retraction import XEP_0424
 
 register_plugin(XEP_0424)
+
+__all__ = ['XEP_0424']

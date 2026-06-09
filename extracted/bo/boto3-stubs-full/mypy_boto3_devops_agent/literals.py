@@ -33,6 +33,10 @@ __all__ = (
     "GoalTypeType",
     "IpAddressTypeType",
     "ListAgentSpacesPaginatorName",
+    "ListAssetFilesPaginatorName",
+    "ListAssetTypesPaginatorName",
+    "ListAssetVersionsPaginatorName",
+    "ListAssetsPaginatorName",
     "ListAssociationsPaginatorName",
     "ListBacklogTasksPaginatorName",
     "ListExecutionsPaginatorName",
@@ -50,6 +54,7 @@ __all__ = (
     "PrivateConnectionTypeType",
     "RecommendationPriorityType",
     "RecommendationStatusType",
+    "ResourceConfigDnsResolutionType",
     "ResourceServiceName",
     "SchedulerStateType",
     "ServiceName",
@@ -74,6 +79,10 @@ GoalStatusType = Literal["ACTIVE", "COMPLETE", "PAUSED"]
 GoalTypeType = Literal["CUSTOMER_DEFINED", "ONCALL_REPORT"]
 IpAddressTypeType = Literal["DUAL_STACK", "IPV4", "IPV6"]
 ListAgentSpacesPaginatorName = Literal["list_agent_spaces"]
+ListAssetFilesPaginatorName = Literal["list_asset_files"]
+ListAssetTypesPaginatorName = Literal["list_asset_types"]
+ListAssetVersionsPaginatorName = Literal["list_asset_versions"]
+ListAssetsPaginatorName = Literal["list_assets"]
 ListAssociationsPaginatorName = Literal["list_associations"]
 ListBacklogTasksPaginatorName = Literal["list_backlog_tasks"]
 ListExecutionsPaginatorName = Literal["list_executions"]
@@ -109,6 +118,7 @@ RecommendationPriorityType = Literal["HIGH", "LOW", "MEDIUM"]
 RecommendationStatusType = Literal[
     "ACCEPTED", "CLOSED", "COMPLETED", "PROPOSED", "REJECTED", "UPDATE_IN_PROGRESS"
 ]
+ResourceConfigDnsResolutionType = Literal["IN_VPC", "PUBLIC"]
 SchedulerStateType = Literal["DISABLED", "ENABLED"]
 ServiceType = Literal[
     "azure",
@@ -140,6 +150,7 @@ TaskStatusType = Literal[
     "PENDING_CUSTOMER_APPROVAL",
     "PENDING_START",
     "PENDING_TRIAGE",
+    "SKIPPED",
     "TIMED_OUT",
 ]
 TaskTypeType = Literal["EVALUATION", "INVESTIGATION"]
@@ -579,6 +590,10 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "list_agent_spaces",
+    "list_asset_files",
+    "list_asset_types",
+    "list_asset_versions",
+    "list_assets",
     "list_associations",
     "list_backlog_tasks",
     "list_executions",

@@ -28,6 +28,8 @@ from facebook_business.adobjects.serverside.app_data import AppData
 from facebook_business.adobjects.serverside.messaging_channel import MessagingChannel
 from facebook_business.adobjects.serverside.original_event_data import OriginalEventData
 from facebook_business.adobjects.serverside.attribution_data import AttributionData
+from facebook_business.adobjects.serverside.preference import Preference
+from capi_param_builder import ParamBuilder
 
 
 class Event(object):
@@ -48,14 +50,15 @@ class Event(object):
         'messaging_channel': 'MessagingChannel',
         'original_event_data': 'OriginalEventData',
         'attribution_data': 'AttributionData',
+        'referrer_url': 'str',
     }
 
     def __init__(self, event_name = None, event_time = None, event_source_url = None,
                  opt_out = None, event_id = None, user_data = None, custom_data = None,
                  app_data = None, data_processing_options = None, data_processing_options_country = None,
                  data_processing_options_state = None, action_source = None, advanced_measurement_table = None, messaging_channel = None,
-                 original_event_data = None, attribution_data = None):
-        # type: (str, int, str, bool, str, UserData, CustomData, AppData, list[str], int, int, ActionSource, str, MessagingChannel, OriginalEventData, AttributionData) -> None
+                 original_event_data = None, attribution_data = None, referrer_url = None):
+        # type: (str, int, str, bool, str, UserData, CustomData, AppData, list[str], int, int, ActionSource, str, MessagingChannel, OriginalEventData, AttributionData, str) -> None
 
         """Conversions API Event"""
         self._event_name = None
@@ -76,6 +79,10 @@ class Event(object):
         self._messaging_channel = None
         self._original_event_data = None
         self._attribution_data = None
+        self._referrer_url = None
+        self._context = None
+        self._preference = None
+        self._param_builder = None
         if event_source_url is not None:
             self.event_source_url = event_source_url
         if opt_out is not None:
@@ -104,6 +111,8 @@ class Event(object):
             self.original_event_data = original_event_data
         if attribution_data is not None:
             self.attribution_data = attribution_data
+        if referrer_url is not None:
+            self.referrer_url = referrer_url
 
     @property
     def event_name(self):
@@ -181,6 +190,29 @@ class Event(object):
         """
 
         self._event_source_url = event_source_url
+
+    @property
+    def referrer_url(self):
+        """Gets the referrer_url of this Event.
+
+        The referrer URL of the browser request that triggered the event.
+
+        :return: The referrer_url of this Event.
+        :rtype: str
+        """
+        return self._referrer_url
+
+    @referrer_url.setter
+    def referrer_url(self, referrer_url):
+        """Sets the referrer_url of this Event.
+
+        The referrer URL of the browser request that triggered the event.
+
+        :param referrer_url: The referrer_url of this Event.
+        :type: str
+        """
+
+        self._referrer_url = referrer_url
 
     @property
     def opt_out(self):
@@ -484,13 +516,87 @@ class Event(object):
         """
         self._attribution_data = attribution_data
 
+    def set_request_context(self, context, preference=None):
+        """Sets the request context and optional preference for automatic data extraction.
+
+        Stores the context and constructs a CAPI ParamBuilder; extraction of
+        parameters (fbc, fbp, ...) into UserData is deferred until normalize()
+        runs at send time, so call order with user_data assignment does not
+        matter. The preference object controls which data are allowed to be
+        auto-set. If no preference is provided, all fields default to true.
+
+        :param context: The context object (e.g. HTTP request object).
+        :param preference: Optional Preference object to control auto-extraction.
+        :type preference: Preference
+        :return: self
+        """
+        if preference is not None and not isinstance(preference, Preference):
+            raise TypeError('Event.preference must be of type Preference')
+
+        self._context = context
+        self._preference = preference if preference is not None else Preference()
+        self._param_builder = ParamBuilder()
+        self._param_builder.process_request_from_context(context)
+        return self
+
+    def _apply_param_builder_defaults(self):
+        """Fills empty UserData and Event fields from the ParamBuilder-extracted
+        values, gated by Preference. No-op when set_request_context was never
+        called. Idempotent: only fills fields that are currently empty, so the
+        caller's explicit values always take precedence regardless of call order.
+        """
+        if self._param_builder is None or self._preference is None:
+            return
+
+        user_data = self._user_data if self._user_data is not None else UserData()
+
+        builder_fbc = self._param_builder.get_fbc()
+        if self._preference.is_fbc_allowed and not user_data.fbc and builder_fbc:
+            user_data.fbc = builder_fbc
+
+        builder_fbp = self._param_builder.get_fbp()
+        if self._preference.is_fbp_allowed and not user_data.fbp and builder_fbp:
+            user_data.fbp = builder_fbp
+
+        self._user_data = user_data
+
+        builder_event_source_url = self._param_builder.get_event_source_url()
+        if (self._preference.is_event_source_url_allowed
+                and not self._event_source_url
+                and builder_event_source_url):
+            self.event_source_url = builder_event_source_url
+
+        builder_referrer_url = self._param_builder.get_referrer_url()
+        if (self._preference.is_referrer_url_allowed
+                and not self._referrer_url
+                and builder_referrer_url):
+            self.referrer_url = builder_referrer_url
+
+    def get_request_context(self):
+        """Gets the request context object.
+
+        :return: The request context.
+        """
+        return self._context
+
+    def get_preference(self):
+        """Gets the Preference object.
+
+        :return: The Preference object.
+        :rtype: Preference
+        """
+        return self._preference
+
     def normalize(self):
+        self._apply_param_builder_defaults()
+
         normalized_payload = {'event_name': self.event_name, 'event_time': self.event_time,
                               'event_source_url': self.event_source_url, 'opt_out': self.opt_out,
                               'event_id': self.event_id, 'data_processing_options': self.data_processing_options,
                               'data_processing_options_country' : self.data_processing_options_country,
                               'data_processing_options_state': self.data_processing_options_state,
-                              'advanced_measurement_table': self.advanced_measurement_table }
+                              'advanced_measurement_table': self.advanced_measurement_table,
+                              'referrer_url': self.referrer_url }
 
         if self.user_data is not None:
             normalized_payload['user_data'] = self.user_data.normalize()

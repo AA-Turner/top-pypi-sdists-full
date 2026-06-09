@@ -13,6 +13,7 @@ Mixin class containing PATCH specific methods
 
 To be used by OpenMetadata class
 """
+
 import json
 import traceback
 from copy import deepcopy
@@ -28,6 +29,7 @@ from metadata.generated.schema.entity.automations.workflow import (
     Workflow as AutomationWorkflow,
 )
 from metadata.generated.schema.entity.automations.workflow import WorkflowStatus
+from metadata.generated.schema.entity.data.container import Container
 from metadata.generated.schema.entity.data.table import Column, Table, TableConstraint
 from metadata.generated.schema.entity.services.connections.testConnectionResult import (
     TestConnectionResult,
@@ -52,6 +54,7 @@ from metadata.ingestion.ometa.mixins.patch_mixin_utils import (
     PatchPath,
 )
 from metadata.ingestion.ometa.utils import model_str
+from metadata.pii.types import ClassifiableEntityType
 from metadata.utils.deprecation import deprecated
 from metadata.utils.logger import get_log_name, ometa_logger
 
@@ -60,6 +63,24 @@ logger = ometa_logger()
 T = TypeVar("T", bound=BaseModel)
 
 OWNER_TYPES: List[str] = ["user", "team"]
+
+
+def _summarize_patch(patch: Any) -> str:
+    """Return op count and `op:path` list for a JSON Patch, without values.
+
+    Values are intentionally excluded — they may contain descriptions, sample
+    data, or tag content that should not be logged.
+    """
+    if patch is None:
+        return "<patch not built>"
+    try:
+        ops = json.loads(str(patch))
+    except (ValueError, TypeError):
+        return "<unparsable patch>"
+    if not isinstance(ops, list):
+        return "<patch is not a list>"
+    op_paths = [f"{op.get('op', '?')}:{op.get('path', '?')}" for op in ops if isinstance(op, dict)]
+    return f"{len(ops)} op(s) [{', '.join(op_paths)}]"
 
 
 def convert_uuids_to_strings(obj: Any) -> Any:
@@ -166,6 +187,7 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
         Returns
             Updated Entity
         """
+        patch = None
         try:
             patch = build_patch(
                 source=source,
@@ -188,19 +210,19 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
 
         except Exception as exc:
             logger.debug(traceback.format_exc())
+            patch_summary = _summarize_patch(patch)
+            entity_name = get_log_name(source)
             if skip_on_failure:
-                entity_name = get_log_name(source)
                 logger.warning(
                     f"Failed to update {entity_name}. The patch operation was skipped. "
-                    f"Reason: {exc}"
+                    f"Reason: {exc} | Patch ops: {patch_summary}"
                 )
                 return None
-            else:
-                entity_name = get_log_name(source)
-                raise RuntimeError(
-                    f"Failed to update {entity_name}. The patch operation failed. "
-                    f"Set 'skip_on_failure=True' to skip failed patches. Error: {exc}"
-                ) from exc
+            raise RuntimeError(
+                f"Failed to update {entity_name}. The patch operation failed. "
+                f"Set 'skip_on_failure=True' to skip failed patches. "
+                f"Error: {exc} | Patch ops: {patch_summary}"
+            ) from exc
 
     def patch_description(
         self,
@@ -446,9 +468,73 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
 
         return self.patch(entity=entity, source=instance, destination=destination)
 
-    def patch_column_tags(
+    def _get_fields_for_entity(self, entity: ClassifiableEntityType) -> List[str]:
+        """Get fields to fetch based on entity type"""
+        if isinstance(entity, Table):
+            return ["tags", "columns"]
+        if isinstance(entity, Container):
+            return ["tags", "dataModel"]
+        return ["tags"]
+
+    def _prepare_table_destination(
         self,
         table: Table,
+        instance: Table,
+        column_tags: List[ColumnTag],
+        operation: PatchOperation,
+    ) -> Table:
+        """Prepare Table destination with updated column tags"""
+        table.columns = instance.columns
+        destination = table.model_copy(deep=True)
+        for column_tag in column_tags or []:
+            update_column_tags(destination.columns, column_tag, operation)
+        return destination
+
+    def _prepare_container_destination(
+        self,
+        container: Container,
+        instance: Container,
+        column_tags: List[ColumnTag],
+        operation: PatchOperation,
+    ) -> Optional[Container]:
+        """Prepare Container destination with updated column tags"""
+        if container.dataModel is None or instance.dataModel is None:
+            logger.warning(
+                f"Container {container.fullyQualifiedName.root} has no dataModel, skipping column tag patch"
+            )
+            return None
+
+        container.dataModel.columns = instance.dataModel.columns
+        destination = container.model_copy(deep=True)
+        for column_tag in column_tags or []:
+            update_column_tags(destination.dataModel.columns, column_tag, operation)
+        return destination
+
+    def _prepare_destination_for_column_tags(
+        self,
+        table: ClassifiableEntityType,
+        instance: ClassifiableEntityType,
+        column_tags: List[ColumnTag],
+        operation: PatchOperation,
+    ) -> Optional[ClassifiableEntityType]:
+        """Prepare destination entity with updated column tags"""
+        if isinstance(table, Table):
+            return self._prepare_table_destination(
+                table, instance, column_tags, operation
+            )
+        if isinstance(table, Container):
+            return self._prepare_container_destination(
+                table, instance, column_tags, operation
+            )
+
+        logger.warning(
+            f"Unsupported entity type for column tag patching: {type(table).__name__}"
+        )
+        return None
+
+    def patch_column_tags(
+        self,
+        table: ClassifiableEntityType,
         column_tags: List[ColumnTag],
         operation: Union[
             PatchOperation.ADD, PatchOperation.REMOVE
@@ -457,28 +543,32 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
         """Given an Entity ID, JSON PATCH the tag of the column
 
         Args
-            entity_id: ID
-            tag_label: TagLabel to add or remove
-            column_name: column to update
+            table: Classifiable entity (Table or Container) to update
+            column_tags: List of ColumnTag to add or remove
             operation: Patch Operation to add or remove
         Returns
             Updated Entity
         """
-        instance: Optional[Table] = self._fetch_entity_if_exists(
-            entity=Table, entity_id=table.id, fields=["tags", "columns"]
+        entity_type = type(table)
+        fields = self._get_fields_for_entity(table)
+
+        instance = self._fetch_entity_if_exists(
+            entity=entity_type, entity_id=table.id, fields=fields
         )
 
         if not instance:
             return None
 
-        # Make sure we run the patch against the last updated data from the API
-        table.columns = instance.columns
+        destination = self._prepare_destination_for_column_tags(
+            table, instance, column_tags, operation
+        )
 
-        destination = table.model_copy(deep=True)
-        for column_tag in column_tags or []:
-            update_column_tags(destination.columns, column_tag, operation)
+        if destination is None:
+            return None
 
-        patched_entity = self.patch(entity=Table, source=table, destination=destination)
+        patched_entity = self.patch(
+            entity=entity_type, source=table, destination=destination
+        )
         if patched_entity is None:
             logger.debug(
                 f"Empty PATCH result. Either everything is up to date or the "
@@ -608,10 +698,15 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
         }
 
         try:
-            self.client.patch(
+            resp = self.client.patch(
                 path=f"{self.get_suffix(AutomationWorkflow)}/{model_str(automation_workflow.id)}",
                 data=json.dumps([result_data, status_data]),
             )
+            if resp is None:
+                logger.error(
+                    "PATCH returned None for automation workflow "
+                    f"[{model_str(automation_workflow)}] — the server may have rejected the request"
+                )
         except Exception as exc:
             logger.debug(traceback.format_exc())
             logger.error(
@@ -726,9 +821,11 @@ class OMetaPatchMixin(OMetaPatchMixinBase):
                 data=json.dumps(
                     [
                         {
-                            PatchField.OPERATION: PatchOperation.REPLACE
-                            if existing_custom_properties
-                            else PatchOperation.ADD,
+                            PatchField.OPERATION: (
+                                PatchOperation.REPLACE
+                                if existing_custom_properties
+                                else PatchOperation.ADD
+                            ),
                             PatchField.PATH: "/extension",
                             PatchField.VALUE: final_properties,
                         }

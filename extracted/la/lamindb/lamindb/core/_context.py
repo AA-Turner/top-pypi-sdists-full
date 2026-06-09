@@ -774,18 +774,20 @@ class Context:
                 )
                 self._logging_message_track += f", re-started Run('{run.uid}'{entrypoint_str}) at {format_field_value(run.started_at)}"
 
-        if run is None:  # create new run
-            run = Run(transform=self._transform, plan=plan_record)
-            if entrypoint is not None:
-                run.entrypoint = entrypoint
-            if initiated_by_run_record is not None:
-                run.initiated_by_run = initiated_by_run_record
-            run.started_at = datetime.now(timezone.utc)
-            run._status_code = -1  # started
+        if run is None:  # create new run with auto-populated started_at timestamp
+            run = Run(
+                transform=self._transform,
+                status="started",
+                initiated_by_run=initiated_by_run_record,
+                entrypoint=entrypoint,
+                plan=plan_record,
+            )
             entrypoint_str = (
                 f", entrypoint='{entrypoint}'" if entrypoint is not None else ""
             )
-            self._logging_message_track += f", started new Run('{run.uid}'{entrypoint_str}) at {format_field_value(run.started_at)}"
+            # run.started_at is set on insert by the database (db_default=Now()), independently of the Python code
+            # hence we log datetime.now(timezone.utc) instead of run.started_at
+            self._logging_message_track += f", started new Run('{run.uid}'{entrypoint_str}) at {format_field_value(datetime.now(timezone.utc))}"
         # can only determine at ln.finish() if run was consecutive in
         # interactive session, otherwise, is consecutive
         run.is_consecutive = True if is_run_from_ipython else None

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: quacc
-Version: 1.2.9
+Version: 1.2.10
 Summary: A platform to enable high-throughput, database-driven quantum chemistry and computational materials science
 Author-email: "Andrew S. Rosen" <asrosen@princeton.edu>
 Maintainer-email: "Andrew S. Rosen" <asrosen@princeton.edu>
@@ -44,7 +44,7 @@ Requires-Dist: shakenbreak>=3.2.0; extra == "defects"
 Provides-Extra: fairchem
 Requires-Dist: fairchem-data-omat>=0.2; extra == "fairchem"
 Requires-Dist: fairchem-data-oc>=1.0.2; extra == "fairchem"
-Requires-Dist: fairchem-core>=2.2.0; extra == "fairchem"
+Requires-Dist: fairchem-core>=2.21.0; extra == "fairchem"
 Provides-Extra: jobflow
 Requires-Dist: jobflow>=0.3.0; extra == "jobflow"
 Requires-Dist: jobflow-remote>=1.0.0; extra == "jobflow"

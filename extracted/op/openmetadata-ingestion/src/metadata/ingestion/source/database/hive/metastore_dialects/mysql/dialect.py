@@ -50,7 +50,6 @@ class HiveMysqlMetaStoreDialect(HiveMetaStoreDialectMixin, MySQLDialect_pymysql)
         # This allows reflection to not crash at the cost of being inaccurate
         query = self._get_table_names_base_query(schema=schema)
         query += """ WHERE TBL_TYPE = 'VIRTUAL_VIEW'"""
-
         view_names = [row[0] for row in connection.execute(text(query))]
         logger.debug(f"Fetched view names for schema '{schema}': {view_names}")
         return view_names
@@ -89,7 +88,7 @@ class HiveMysqlMetaStoreDialect(HiveMetaStoreDialectMixin, MySQLDialect_pymysql)
             {schema_join}
         """
 
-        return connection.execute(query).fetchall()
+        return connection.execute(text(query)).fetchall()
 
     def _get_table_names_base_query(self, schema=None):
         query = "SELECT TBL_NAME from TBLS tbl"

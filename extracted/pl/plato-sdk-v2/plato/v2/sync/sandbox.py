@@ -65,6 +65,7 @@ from plato._generated.models import (
     SessionStateResponse,
     VMManagementRequest,
 )
+from plato.utils.subprocess import ssh_user_for_provider
 from plato.v1.models.sandbox import PlatoConfig
 from plato.v2._wait_for_ready import is_terminal_status, poll_until_ready_sync
 from plato.v2.async_.flow_executor import FlowExecutor
@@ -146,7 +147,7 @@ def _generate_ssh_config(
         ssh_host: Host alias in config.
         provider: Hypervisor backing the job ("firecracker", "qemu", or None
             when unknown). Determines the ``User`` line — see
-            :func:`_ssh_user_for_provider`. ``None`` falls back to ``root``.
+            :func:`~plato.utils.subprocess.ssh_user_for_provider`. ``None`` falls back to ``root``.
 
     Returns:
         Path to the generated SSH config file (relative to working_dir).
@@ -169,7 +170,7 @@ def _generate_ssh_config(
     # SNI format: {job_id}--{port}.{gateway_host} (matches v1 proxy.py)
     ssh_port = 22
     sni = f"{job_id}--{ssh_port}.{gateway_host}"
-    ssh_user = _ssh_user_for_provider(provider)
+    ssh_user = ssh_user_for_provider(provider)
 
     config_content = f"""# Plato Sandbox SSH Config
 # Generated for job: {job_id}
@@ -388,19 +389,6 @@ def _get_or_create_cached_ssh_key_pair() -> tuple[str, str]:
     return public_key_path.read_text().strip(), str(private_key_path)
 
 
-def _ssh_user_for_provider(provider: str | None) -> str:
-    """Return the SSH username sshd accepts on the guest for ``provider``.
-
-    Firecracker rootfs uses ``root``. QEMU Windows rootfs exposes a single
-    ``plato`` local account in sshd_config — connecting as root fails at
-    auth even when authorized_keys is wired up correctly, because no such
-    user exists on the guest.
-    """
-    if provider == "qemu":
-        return "plato"
-    return "root"
-
-
 def _generate_ssh_config_content(job_id: str, private_key_path: str, provider: str | None = None) -> str:
     """Generate SSH config content for a job.
 
@@ -409,7 +397,7 @@ def _generate_ssh_config_content(job_id: str, private_key_path: str, provider: s
         private_key_path: Path to private key.
         provider: Hypervisor backing the job ("firecracker", "qemu", or None
             when unknown). Determines the ``User`` line — see
-            :func:`_ssh_user_for_provider`. ``None`` falls back to ``root``
+            :func:`~plato.utils.subprocess.ssh_user_for_provider`. ``None`` falls back to ``root``
             for backwards compatibility with older job-info responses.
 
     Returns:
@@ -420,7 +408,7 @@ def _generate_ssh_config_content(job_id: str, private_key_path: str, provider: s
     # SNI format: {job_id}--{port}.{gateway_host}
     ssh_port = 22
     sni = f"{job_id}--{ssh_port}.{gateway_host}"
-    ssh_user = _ssh_user_for_provider(provider)
+    ssh_user = ssh_user_for_provider(provider)
 
     config_content = f"""# Plato SSH Config for job: {job_id}
 # Generated dynamically for -J/--job-id option
@@ -932,7 +920,7 @@ class SandboxClient:
                     # Non-fatal: provider lookup failure → fall through with root user.
                     self.console.print(f"[dim]Provider lookup failed (defaulting to firecracker): {e}[/dim]")
 
-            install_user = _ssh_user_for_provider(provider)
+            install_user = ssh_user_for_provider(provider)
             public_key, private_key_path = _generate_ssh_key_pair(session_id[:8], Path(self.working_dir))
 
             # ``username`` is advisory — the v2 add_ssh_key endpoint enforces
@@ -1573,7 +1561,7 @@ class SandboxClient:
             provider = getattr(job_info, "provider", None) or (
                 job_info.model_dump().get("provider") if hasattr(job_info, "model_dump") else None
             )
-            install_user = _ssh_user_for_provider(provider)
+            install_user = ssh_user_for_provider(provider)
 
             auth_path = SSH_CACHE_DIR / "authorized_sessions"
             authorized = set(auth_path.read_text().splitlines()) if auth_path.exists() else set()

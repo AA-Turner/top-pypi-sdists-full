@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2011 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.plugins.xep_0085.chat_states import XEP_0085
 
 
 register_plugin(XEP_0085)
+
+__all__ = ['ChatState', 'XEP_0085']

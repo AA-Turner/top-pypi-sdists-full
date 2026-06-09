@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 from asyncio import Event, wait_for, TimeoutError
 from typing import TYPE_CHECKING
-from xml.etree.ElementTree import Element
 
 import slixmpp
 from slixmpp.xmlstream.stanzabase import StanzaBase

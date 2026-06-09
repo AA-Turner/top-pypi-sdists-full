@@ -4,7 +4,6 @@ import logging
 from slixmpp import JID
 from slixmpp.test import SlixTest
 
-from slixmpp.plugins import xep_0100
 from slixmpp.plugins.xep_0100 import LegacyError
 
 

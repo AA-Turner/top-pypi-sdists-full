@@ -74,6 +74,8 @@ PaymentOptionType = Literal["AllUpfront", "NoUpfront", "PartialUpfront"]
 ResourceTypeType = Literal[
     "AuroraDbClusterStorage",
     "ComputeSavingsPlans",
+    "DocumentDBCluster",
+    "DynamoDBTable",
     "DynamoDbReservedCapacity",
     "EbsVolume",
     "Ec2AutoScalingGroup",
@@ -81,8 +83,10 @@ ResourceTypeType = Literal[
     "Ec2InstanceSavingsPlans",
     "Ec2ReservedInstances",
     "EcsService",
+    "ElastiCacheCluster",
     "ElastiCacheReservedInstances",
     "LambdaFunction",
+    "MemoryDBCluster",
     "MemoryDbReservedInstances",
     "NatGateway",
     "OpenSearchReservedInstances",
@@ -90,7 +94,9 @@ ResourceTypeType = Literal[
     "RdsDbInstanceStorage",
     "RdsReservedInstances",
     "RedshiftReservedInstances",
+    "SageMakerEndpoint",
     "SageMakerSavingsPlans",
+    "WorkSpaces",
 ]
 SavingsEstimationModeType = Literal["AfterDiscounts", "BeforeDiscounts"]
 SourceType = Literal["ComputeOptimizer", "CostExplorer"]

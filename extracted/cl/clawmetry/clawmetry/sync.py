@@ -5753,21 +5753,39 @@ def _runtime_data_paths(rid: str) -> list:
     return _M.get(rid, [])
 
 
+# Transient sidecar files whose mtime changes on mere DB OPEN (no real activity):
+# SQLite write-ahead log + shared-memory + rollback journal, and lock files. A
+# read-only open of goose's sessions.db touches ``sessions.db-shm`` → the runtime
+# falsely classified "active 0h ago" while its actual conversations were weeks
+# old (founder 2026-06-08). Excluded so filesystem recency reflects real writes.
+_TRANSIENT_MTIME_SUFFIXES = ("-shm", "-wal", "-journal", ".lock", ".lck", "lock")
+
+
+def _is_transient_mtime_file(name: str) -> bool:
+    n = (name or "").lower()
+    return any(n.endswith(suf) for suf in _TRANSIENT_MTIME_SUFFIXES)
+
+
 def _newest_mtime(paths: list, cap: int = 4000):
     """Newest mtime (epoch float) across the given files/dirs, or None. Bounded
     walk (cap files) so a huge ~/.claude/projects tree can't make the heartbeat
-    expensive. Never raises."""
+    expensive. Skips SQLite sidecar / lock files whose mtime bumps on a mere DB
+    open (they don't indicate real activity). Never raises."""
     newest = 0.0
     seen = 0
     for p in (paths or []):
         try:
             if os.path.isfile(p):
+                if _is_transient_mtime_file(os.path.basename(p)):
+                    continue
                 m = os.path.getmtime(p)
                 if m > newest:
                     newest = m
             elif os.path.isdir(p):
                 for root, _dirs, files in os.walk(p):
                     for f in files:
+                        if _is_transient_mtime_file(f):
+                            continue
                         seen += 1
                         if seen > cap:
                             return newest or None
@@ -6264,6 +6282,58 @@ def _detect_billing_opencode(home: Path) -> dict:
     return _bm("unknown")
 
 
+def _detect_billing_openclaw(home: Path) -> dict:
+    """Classify OpenClaw's billing from ``~/.openclaw/openclaw.json`` (or
+    ``$OPENCLAW_HOME``). OpenClaw doesn't call models itself — it DELEGATES each
+    model to a runtime (``agents.defaults.models[*].agentRuntime.id``):
+
+      * ``claude-cli`` — the Claude CLI runs the calls, so the billing IS the
+        Claude CLI's: a Max/Pro **subscription** (or **metered** if the CLI is on
+        an API key). We delegate to ``_detect_billing_claude_code`` — which is
+        why a user on Claude Max sees OpenClaw as their plan, not "unconfirmed".
+      * a direct-API runtime — **metered** at the model provider's API rates,
+        read from the model-name prefix (``anthropic/`` / ``openai/`` /
+        ``openrouter/`` / ``google/`` …). This is how OpenClaw configured for a
+        Claude/OpenAI/OpenRouter API key gets billed correctly.
+
+    NEVER reads a secret value, NEVER raises → ``unknown`` on any failure.
+    """
+    oc_home = _bm_env("OPENCLAW_HOME")
+    base = Path(oc_home) if oc_home else (home / ".openclaw")
+    cfg = _bm_read_json(base / "openclaw.json")
+    if not isinstance(cfg, dict):
+        return _bm("unknown")
+    models = (((cfg.get("agents") or {}).get("defaults")) or {}).get("models") or {}
+    if not isinstance(models, dict) or not models:
+        return _bm("unknown")
+    runtime_ids: list[str] = []
+    providers: list[str] = []
+    for mname, mcfg in models.items():
+        rid = ""
+        if isinstance(mcfg, dict):
+            rid = str(((mcfg.get("agentRuntime") or {}).get("id")) or "").lower()
+        runtime_ids.append(rid)
+        providers.append(str(mname or "").split("/")[0].lower())
+    # claude-cli dominant → inherit the Claude CLI's billing (sub or metered).
+    cli = sum(1 for r in runtime_ids if "claude-cli" in r or r == "claude")
+    if cli and cli >= len(runtime_ids) / 2:
+        return _detect_billing_claude_code(home)
+    # Otherwise a direct-API runtime → metered at the dominant provider's rates.
+    prov = max(set(providers), key=providers.count) if providers else ""
+    metered_label = {
+        "anthropic": "Anthropic API",
+        "openai": "OpenAI API",
+        "openrouter": "OpenRouter",
+        "google": "Google API", "gemini": "Google API",
+        "xai": "xAI API", "mistral": "Mistral API", "groq": "Groq API",
+    }.get(prov)
+    if metered_label:
+        return _bm("metered", label=metered_label)
+    if prov in ("ollama", "local", "lmstudio", "llamacpp"):
+        return _bm("local", label="Local model")
+    return _bm("unknown")
+
+
 _BILLING_DETECTORS = {
     "claude_code": _detect_billing_claude_code,
     "codex":       _detect_billing_codex,
@@ -6273,6 +6343,7 @@ _BILLING_DETECTORS = {
     "aider":       _detect_billing_aider,
     "goose":       _detect_billing_goose,
     "opencode":    _detect_billing_opencode,
+    "openclaw":    _detect_billing_openclaw,
 }
 
 
@@ -6322,7 +6393,7 @@ def _build_billing_payload(config: dict) -> dict | None:
         except Exception:
             detected = []
         # Always attempt claude_code (it anchors account_plan) even if 0-session.
-        rt_ids = list(dict.fromkeys(["claude_code"] + detected))
+        rt_ids = list(dict.fromkeys(["claude_code", "openclaw"] + detected))
         runtimes: dict = {}
         for rid in rt_ids:
             if rid not in _BILLING_DETECTORS:
@@ -6393,12 +6464,42 @@ def _detect_runtimes_for_heartbeat() -> list:
     # source) so the Fleet stops presenting a months-old Cursor history or an
     # OpenClaw sub-agent as a live standalone runtime. Back-compat: consumers
     # that don't read the new keys are unaffected.
+    # Authoritative recency = the newest INGESTED event per runtime (what the
+    # Brain/Tracing tabs show). Overrides the filesystem-mtime classification so
+    # a runtime can't read "active" while its Brain feed is empty (goose's
+    # sessions.db-shm bumped to now with no real activity — founder 2026-06-08).
+    _ev_recency = {}
+    try:
+        from clawmetry import local_store as _ls_rec
+        _store_rec = _ls_rec.get_store()
+        if _store_rec is not None:
+            _ev_recency = _store_rec.query_runtime_last_active() or {}
+    except Exception:
+        _ev_recency = {}
     out = []
     for r in merged.values():
         if int(r.get("sessions") or 0) <= 0:
             continue
         try:
             r.update(_classify_runtime(r["id"]))
+        except Exception:
+            pass
+        # Prefer the events-table recency when this runtime has ingested events:
+        # it reflects real conversation activity, not a DB-open/WAL-checkpoint
+        # mtime. (Filesystem stays the fallback for detected-but-not-yet-ingested
+        # runtimes so on-disk-only detection still works.)
+        try:
+            _iso = _ev_recency.get(r["id"])
+            if _iso:
+                _s = str(_iso).replace("Z", "+00:00")
+                _dtp = datetime.fromisoformat(_s)
+                if _dtp.tzinfo is None:
+                    _dtp = _dtp.replace(tzinfo=timezone.utc)
+                _ep = _dtp.timestamp()
+                r["last_active"] = int(_ep)
+                _age = time.time() - _ep
+                r["status"] = ("active" if _age < _RT_ACTIVE_SECS
+                               else "idle" if _age < _RT_IDLE_SECS else "stale")
         except Exception:
             pass
         out.append(r)
@@ -9443,14 +9544,51 @@ def sync_session_metadata(config: dict, state: dict = None) -> int:
                 _local_ingest_sessions_batch(rows, node_id)
             except Exception as _e:
                 log.warning("local-store sessions ingest failed (cloud sync continues): %s", _e)
+            # Bridge cost/tokens from the events table before pushing to cloud.
+            # The JSONL ``message.usage`` fields above are EMPTY for OpenClaw
+            # sessions driven by the Claude CLI (no assistant-usage in the
+            # gateway transcript), so ``total_cost``/``total_tokens`` were pushed
+            # as 0 even though the events table (daemon-stamped at ingest) has the
+            # real figures — the cloud "Your agents" / Usage views then showed
+            # $0 (#web-accuracy). GREATEST(JSONL-derived, SUM(events)) mirrors
+            # query_sessions_table's bridge: only ever raises a stale-low value,
+            # never lowers a JSONL value that's already correct.
+            try:
+                from clawmetry import local_store as _ls
+                _store = _ls.get_store()
+                if _store is not None:
+                    _ev_totals = _store.query_event_totals_by_session(
+                        [s.get("session_id") for s in rows]
+                    )
+                    for s in rows:
+                        _t = _ev_totals.get(s.get("session_id"))
+                        if not _t:
+                            continue
+                        s["total_tokens"] = max(int(s.get("total_tokens") or 0),
+                                                int(_t.get("tokens") or 0))
+                        s["total_cost"] = max(float(s.get("total_cost") or 0.0),
+                                              float(_t.get("cost_usd") or 0.0))
+            except Exception as _e:
+                log.debug("event-cost bridge skipped (push uses JSONL value): %s", _e)
             _post("/ingest/sessions", {"node_id": node_id, "sessions": rows}, api_key)
             return len(rows)
 
         batch: list = []
         total_uploaded = 0
         BATCH_SIZE = 50
-        for fpath, current_mtime in jsonl_files:
-            if last_mtimes.get(fpath.name) == current_mtime:
+        # jsonl_files is sorted mtime-desc. ALWAYS re-process the most-recent
+        # _ALWAYS_RESYNC_RECENT sessions, even when their JSONL mtime is unchanged
+        # — OpenClaw's Claude-CLI JSONL doesn't bump mtime on append AND carries
+        # no usage, so a session's REAL cost/tokens only land via the events
+        # bridge in _flush(). Without this, the bridge never re-reaches Postgres
+        # for an already-synced session and the cloud "Your agents" / device-
+        # summary cost stayed $0 forever (#web-accuracy / audit FIX 7). Bounded
+        # so steady-state cost stays tiny (re-parse a handful of small JSONLs).
+        _ALWAYS_RESYNC_RECENT = int(
+            os.environ.get("CLAWMETRY_RESYNC_RECENT_SESSIONS", "30") or "30")
+        for _idx, (fpath, current_mtime) in enumerate(jsonl_files):
+            if _idx >= _ALWAYS_RESYNC_RECENT and \
+                    last_mtimes.get(fpath.name) == current_mtime:
                 continue
             try:
                 # `<uuid>.jsonl` -> stem is `<uuid>`. For an archived
@@ -10737,35 +10875,36 @@ def _build_model_attribution():
     Best-effort: any failure yields {} (cloud falls back to its empty state).
     """
     try:
-        from collections import defaultdict
         from clawmetry import local_store as _ls
 
         store = _ls.get_store()
         if store is None:
             return {}
-        evs = store.query_events(limit=20000)
-        if not evs:
+        # Uncapped SQL rollup over the FULL events table (was a most-recent-20k
+        # event scan that starved every runtime once claude_code passed ~20k
+        # events — #web-accuracy). One GROUP BY, tiny output.
+        rollup = store.query_model_rollup() or {}
+        by_rtm = rollup.get("by_runtime_model") or []
+        if not by_rtm:
             return {}
+        # Global per-model totals = sum across runtimes (a session belongs to
+        # exactly one runtime by session-id prefix, so distinct-session counts
+        # don't double-count when summed).
         model_turns: dict = {}
-        sess_models = defaultdict(list)
-        saw_any = False
-        for ev in sorted(evs, key=lambda e: (e.get("session_id") or "", e.get("ts") or "")):
-            m = (ev.get("model") or "").strip()
+        model_sessions: dict = {}
+        for r in by_rtm:
+            m = (r.get("model") or "").strip()
             if not m:
                 continue
-            saw_any = True
-            model_turns[m] = model_turns.get(m, 0) + 1
-            sid = ev.get("session_id") or ""
-            if sid and (not sess_models[sid] or sess_models[sid][-1] != m):
-                sess_models[sid].append(m)
-        if not saw_any:
+            model_turns[m] = model_turns.get(m, 0) + int(r.get("turns") or 0)
+            model_sessions[m] = model_sessions.get(m, 0) + int(r.get("sessions") or 0)
+        if not model_turns:
             return {}
-        model_sessions: dict = {}
-        switches = []
-        for sid, mlist in sess_models.items():
-            model_sessions[mlist[0]] = model_sessions.get(mlist[0], 0) + 1
-            for prev, nxt in zip(mlist, mlist[1:]):
-                switches.append({"session": sid, "from_model": prev, "to_model": nxt})
+        switches = [
+            {"session": s.get("session", ""), "from_model": s.get("from_model", ""),
+             "to_model": s.get("to_model", "")}
+            for s in (rollup.get("switches") or [])
+        ]
         total_turns = sum(model_turns.values())
         sorted_models = sorted(model_turns.items(), key=lambda x: -x[1])
         primary_model = sorted_models[0][0] if sorted_models else ""
@@ -10821,59 +10960,58 @@ def _build_runtime_summary(limit: int = 20000):
         store = _ls.get_store()
         if store is None:
             return {}
-        evs = store.query_events(limit=int(limit)) or []
+        # Uncapped SQL rollup over the FULL events table. The previous
+        # query_events(limit=20000) scan returned only the 20k most-recent events
+        # GLOBALLY, so a high-volume runtime (claude_code at 100k+ events)
+        # consumed the entire budget — smaller runtimes (goose/hermes/opencode/
+        # qwen_code) dropped out of the snapshot entirely and the big runtime was
+        # undercounted ~5× (#web-accuracy). The ``limit`` kwarg is retained for
+        # signature compatibility but no longer caps the aggregate.
+        rollup = store.query_model_rollup() or {}
+        by_runtime = rollup.get("by_runtime") or {}
+        by_rtm = rollup.get("by_runtime_model") or []
         # NOTE: we no longer early-return on empty events — a node that ONLY ever
         # sent OTLP traces (a pure OpenLLMetry app, no OpenClaw sessions) has no
         # events but DOES have foreign-app spans to surface below.
-        agg: dict = {}
-        sess_models = defaultdict(list)  # (rt, sid) -> ordered model list
-        for ev in sorted(evs, key=lambda e: (e.get("session_id") or "", e.get("ts") or "")):
-            sid = ev.get("session_id") or ""
-            rt = _runtime_of_session(sid)
-            a = agg.setdefault(rt, {"turns": 0, "tokens": 0, "cost": 0.0,
-                                    "models": {}, "sessions": set()})
-            if sid:
-                a["sessions"].add(sid)
-            try:
-                a["tokens"] += int(ev.get("token_count") or 0)
-            except (TypeError, ValueError):
-                pass
-            try:
-                a["cost"] += float(ev.get("cost_usd") or 0.0)
-            except (TypeError, ValueError):
-                pass
-            m = (ev.get("model") or "").strip()
+        rt_models: dict = defaultdict(dict)  # rt -> {model: {turns, sessions}}
+        for r in by_rtm:
+            rt = r.get("runtime") or "openclaw"
+            m = (r.get("model") or "").strip()
             if not m:
                 continue
-            a["turns"] += 1
-            a["models"][m] = a["models"].get(m, 0) + 1
-            key = (rt, sid)
-            if sid and (not sess_models[key] or sess_models[key][-1] != m):
-                sess_models[key].append(m)
-        rt_model_sessions = defaultdict(lambda: defaultdict(int))
-        rt_switches = defaultdict(int)
-        for (rt, _sid), mlist in sess_models.items():
-            if mlist:
-                rt_model_sessions[rt][mlist[0]] += 1
-            rt_switches[rt] += max(0, len(mlist) - 1)
+            rt_models[rt][m] = {
+                "turns": int(r.get("turns") or 0),
+                "sessions": int(r.get("sessions") or 0),
+            }
+        rt_switches: dict = defaultdict(int)
+        for s in (rollup.get("switches") or []):
+            rt_switches[s.get("runtime") or "openclaw"] += 1
         out: dict = {}
-        for rt, a in agg.items():
-            total = sum(a["models"].values())
-            sorted_models = sorted(a["models"].items(), key=lambda x: -x[1])
+        # Union of runtimes seen in the per-runtime totals and the per-model rows
+        # (a runtime with only model-less events still gets a card with 0 turns).
+        for rt in set(by_runtime) | set(rt_models):
+            totals = by_runtime.get(rt) or {}
+            models = rt_models.get(rt) or {}
+            total = sum(mm["turns"] for mm in models.values())
+            sorted_models = sorted(models.items(), key=lambda x: -x[1]["turns"])
             models_out = [{
-                "model": m, "turns": t,
-                "sessions": rt_model_sessions[rt].get(m, 0),
-                "share_pct": round(t / total * 100, 2) if total else 0,
-            } for m, t in sorted_models[:15]]
+                "model": m, "turns": mm["turns"],
+                "sessions": mm["sessions"],
+                "share_pct": round(mm["turns"] / total * 100, 2) if total else 0,
+            } for m, mm in sorted_models[:15]]
             out[rt] = {
-                "sessions": len(a["sessions"]),
-                "turns": a["turns"],
-                "tokens": a["tokens"],
-                "cost_usd": round(a["cost"], 4),
+                "sessions": int(totals.get("sessions") or 0),
+                "turns": total,
+                "tokens": int(totals.get("tokens") or 0),
+                "cost_usd": round(float(totals.get("cost_usd") or 0.0), 4),
+                # LIFETIME cost_usd above; rolling last-24h slice for the
+                # dual-column UI.
+                "cost_24h_usd": round(float(totals.get("cost_24h_usd") or 0.0), 4),
+                "tokens_24h": int(totals.get("tokens_24h") or 0),
                 "primary_model": sorted_models[0][0] if sorted_models else "",
                 "total_turns": total,
                 "models": models_out,
-                "switch_count": rt_switches[rt],
+                "switch_count": rt_switches.get(rt, 0),
             }
         # Fold in foreign OTLP / OpenLLMetry apps (#2822/#2853 follow-up). These
         # derive ``agent_type`` from the resource ``service.name`` and have NO
@@ -11074,6 +11212,9 @@ def _build_agent_inventory(
                 "turns": summ.get("turns", 0),
                 "tokens": summ.get("tokens", 0),
                 "costUsd": round(float(summ.get("cost_usd", 0.0) or 0.0), 4),
+                # LIFETIME (costUsd) vs rolling-24h split for the dual-column roster.
+                "cost24hUsd": round(float(summ.get("cost_24h_usd", 0.0) or 0.0), 4),
+                "tokens24h": summ.get("tokens_24h", 0),
                 "primaryModel": summ.get("primary_model", "") or "",
                 # already bounded to 15 in runtime_summary; trim to 5 for size.
                 "models": (summ.get("models") or [])[:5],
@@ -13933,6 +14074,33 @@ def _build_device_summary(spending, daily_usage):
             ]
         except Exception:
             pass
+        # schema 2: per-session titles for the device's runtime-detail recent
+        # -sessions rows. The title is the session's FIRST USER MESSAGE (real
+        # content, e.g. "read flywheel.md ..."), so it rides the ENCRYPTED
+        # deviceSummary (decrypted on-device) and NEVER the plaintext
+        # device-agent endpoint -- raw content never leaves the daemon in the
+        # clear (the cloud only ever stores an empty display_name for these).
+        # The firmware looks each recent-session row up here by its BARE session
+        # id (post-':' so it matches the device-agent rows) and falls back to a
+        # short id when absent. Keyed by bare id, capped + truncated to keep the
+        # ~8s-polled summary small. ``rows`` is already last_active DESC.
+        try:
+            titles: dict = {}
+            for s in rows:
+                if not isinstance(s, dict):
+                    continue
+                t = (s.get("title") or "").strip()
+                if not t:
+                    continue
+                bare = str(s.get("session_id") or "").rsplit(":", 1)[-1]
+                if bare and bare not in titles:
+                    titles[bare] = t[:56]
+                if len(titles) >= 40:
+                    break
+            if titles:
+                summary["sessionTitles"] = titles
+        except Exception:
+            pass
     except Exception:
         pass
     try:
@@ -15047,6 +15215,94 @@ def start_event_streamer(config: dict, state: dict, paths: dict) -> threading.Th
     return t
 
 
+_APP_BASE = os.environ.get("CLAWMETRY_APP_BASE", "https://app.clawmetry.com").rstrip("/")
+
+
+def _is_placeholder_email(email) -> bool:
+    """Zero-friction installs land on a throwaway placeholder account
+    (agent+<hash>@clawmetry.auto, renamed .linked after device pairing)."""
+    e = (email or "").strip().lower()
+    return e.endswith("@clawmetry.auto") or e.endswith("@clawmetry.linked")
+
+
+def _cloud_get_json(path: str, timeout: float = 4.0):
+    """Best-effort GET app.clawmetry.com<path> -> dict (or None). Never raises."""
+    try:
+        import urllib.request as _ur
+        with _ur.urlopen(_APP_BASE + path, timeout=timeout) as r:
+            return json.loads(r.read() or b"{}")
+    except Exception:
+        return None
+
+
+def start_claim_watcher(config: dict):
+    """ONE-STEP onboarding (daemon half). A zero-friction install lands on a
+    throwaway placeholder account; the cloud /cloud page claims it onto the
+    user's real (logged-in) account when `connect` opens the browser. While we
+    are on a placeholder, poll every ~5s for that claim; the moment it lands,
+    rewrite config with the real account's key and RE-EXEC -- so every thread
+    (heartbeat, snapshot push, pro auto-provision) restarts on the real account
+    and the node syncs there with NO `clawmetry connect --key`. Stops itself
+    once on a real account.
+
+    Re-exec (not an in-place key swap) because the running threads each captured
+    the old api_key; restarting is the clean way to have them all adopt the new
+    one. On restart, run_daemon's _auto_pro() provisions the pro package for the
+    now-entitled (Trial/Pro) account, so the other runtimes start syncing too."""
+    def _loop():
+        import urllib.parse as _up
+        node_id = (config.get("node_id") or "").strip()
+        token = (config.get("api_key") or "").strip()
+        if not token.startswith("cm_") or not node_id:
+            return
+        # Only watch placeholder accounts; a real account never gets "claimed".
+        acct = _cloud_get_json("/api/cloud/account?token=" + _up.quote(token))
+        if not acct or not _is_placeholder_email(acct.get("email")):
+            return
+        log.info("Placeholder account — watching for a one-step account claim (every 5s)")
+        while True:
+            time.sleep(5)
+            try:
+                res = _cloud_get_json(
+                    "/api/cloud/claim-status?token=%s&node_id=%s"
+                    % (_up.quote(token), _up.quote(node_id)))
+                if not res or not res.get("claimed"):
+                    continue
+                new_key = (res.get("api_key") or "").strip()
+                new_email = (res.get("email") or "").strip()
+                if not new_key.startswith("cm_") or new_key == token:
+                    continue
+                cfg = load_config()
+                cfg["api_key"] = new_key
+                cfg["account_email"] = new_email
+                save_config(cfg)
+                log.info("Node claimed onto %s — adopting the real account and "
+                         "restarting (pro auto-provision runs on restart)", new_email)
+                # Clean re-exec: the new process image keeps this PID, so
+                # _acquire_pid_lock would see its OWN live PID and abort, and the
+                # DuckDB writer lock would still be held. Stop the store (flush +
+                # release the writer lock) and drop the pid lock first; then the
+                # re-exec'd run_daemon starts cleanly. (launchd KeepAlive is the
+                # backstop if execv ever fails.)
+                try:
+                    from clawmetry import local_store as _ls
+                    _ls.get_store().stop(flush=True)
+                except Exception:
+                    pass
+                try:
+                    _release_pid_lock()
+                except Exception:
+                    pass
+                time.sleep(0.5)
+                os.execv(sys.executable, [sys.executable] + sys.argv)
+            except Exception as e:
+                log.debug("claim-watcher: %s", e)
+
+    th = threading.Thread(target=_loop, daemon=True, name="claim-watcher")
+    th.start()
+    return th
+
+
 def run_daemon() -> None:
     if not _acquire_pid_lock():
         print(
@@ -15123,6 +15379,13 @@ def run_daemon() -> None:
                 log.info("clawmetry-pro: %s", _pro_msg)
     except Exception as _pe:
         log.debug("pro auto-provision (daemon) skipped: %s", _pe)
+    # One-step onboarding: if this node is on a placeholder account, watch for
+    # it being claimed onto the user's real account and adopt it automatically
+    # (no `clawmetry connect --key`). No-op for a real account.
+    try:
+        start_claim_watcher(config)
+    except Exception as _cw:
+        log.debug("claim-watcher start skipped: %s", _cw)
     paths = detect_paths()
     enc = "🔒 E2E encrypted" if config.get("encryption_key") else "⚠️  unencrypted"
     try:

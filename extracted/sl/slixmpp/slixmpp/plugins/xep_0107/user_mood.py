@@ -9,8 +9,6 @@ from asyncio import Future
 
 from slixmpp import Message
 from slixmpp.xmlstream import register_stanza_plugin
-from slixmpp.xmlstream.handler import Callback
-from slixmpp.xmlstream.matcher import MatchXPath
 from slixmpp.plugins.base import BasePlugin
 from slixmpp.plugins.xep_0107 import stanza, UserMood
 

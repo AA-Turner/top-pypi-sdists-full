@@ -9,8 +9,6 @@ from asyncio import Future
 from slixmpp import JID
 from slixmpp.stanza import Iq
 from slixmpp.plugins import BasePlugin
-from slixmpp.xmlstream.handler import Callback
-from slixmpp.xmlstream.matcher import StanzaPath
 from slixmpp.xmlstream import register_stanza_plugin, ElementBase
 from slixmpp.plugins.xep_0049 import stanza, PrivateXML
 

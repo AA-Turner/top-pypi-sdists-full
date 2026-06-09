@@ -1,4 +1,5 @@
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as _arrow_pb2
+from chalk._gen.chalk.primitive.v1 import primitive_pb2 as _primitive_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -557,6 +558,66 @@ class CallResolver(_message.Message):
     def __init__(
         self, resolver_fqn: _Optional[str] = ..., output_type: _Optional[_Union[_arrow_pb2.ArrowType, _Mapping]] = ...
     ) -> None: ...
+
+class BatchUDF(_message.Message):
+    __slots__ = ("batch_udf_type", "arguments")
+    class ArgumentsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: BatchUDFArgument
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[BatchUDFArgument, _Mapping]] = ...
+        ) -> None: ...
+
+    BATCH_UDF_TYPE_FIELD_NUMBER: _ClassVar[int]
+    ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    batch_udf_type: str
+    arguments: _containers.MessageMap[str, BatchUDFArgument]
+    def __init__(
+        self, batch_udf_type: _Optional[str] = ..., arguments: _Optional[_Mapping[str, BatchUDFArgument]] = ...
+    ) -> None: ...
+
+class BatchUDFArgument(_message.Message):
+    __slots__ = ("primitive_value", "expr_value", "list_value", "unordered_dict_value")
+    PRIMITIVE_VALUE_FIELD_NUMBER: _ClassVar[int]
+    EXPR_VALUE_FIELD_NUMBER: _ClassVar[int]
+    LIST_VALUE_FIELD_NUMBER: _ClassVar[int]
+    UNORDERED_DICT_VALUE_FIELD_NUMBER: _ClassVar[int]
+    primitive_value: _primitive_pb2.Primitive
+    expr_value: LogicalExprNode
+    list_value: BatchUDFArgumentList
+    unordered_dict_value: BatchUDFUnorderedDict
+    def __init__(
+        self,
+        primitive_value: _Optional[_Union[_primitive_pb2.Primitive, _Mapping]] = ...,
+        expr_value: _Optional[_Union[LogicalExprNode, _Mapping]] = ...,
+        list_value: _Optional[_Union[BatchUDFArgumentList, _Mapping]] = ...,
+        unordered_dict_value: _Optional[_Union[BatchUDFUnorderedDict, _Mapping]] = ...,
+    ) -> None: ...
+
+class BatchUDFArgumentList(_message.Message):
+    __slots__ = ("values",)
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    values: _containers.RepeatedCompositeFieldContainer[BatchUDFArgument]
+    def __init__(self, values: _Optional[_Iterable[_Union[BatchUDFArgument, _Mapping]]] = ...) -> None: ...
+
+class BatchUDFUnorderedDict(_message.Message):
+    __slots__ = ("items",)
+    class ItemsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: BatchUDFArgument
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[BatchUDFArgument, _Mapping]] = ...
+        ) -> None: ...
+
+    ITEMS_FIELD_NUMBER: _ClassVar[int]
+    items: _containers.MessageMap[str, BatchUDFArgument]
+    def __init__(self, items: _Optional[_Mapping[str, BatchUDFArgument]] = ...) -> None: ...
 
 class ExprLiteral(_message.Message):
     __slots__ = ("value", "is_arrow_scalar_object")

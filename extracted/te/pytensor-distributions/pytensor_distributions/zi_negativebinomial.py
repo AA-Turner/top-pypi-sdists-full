@@ -2,6 +2,7 @@ import pytensor.tensor as pt
 
 from pytensor_distributions import negativebinomial as NegativeBinomial
 from pytensor_distributions.helper import cdf_bounds, discrete_entropy, sf_bounds, zi_mode
+from pytensor_distributions.lmoments import _lmoments
 from pytensor_distributions.optimization import find_ppf_discrete
 
 
@@ -73,6 +74,22 @@ def kurtosis(psi, n, p):
     return mu4 / pt.power(mu2, 2) - 3
 
 
+def lmoment1(psi, n, p):
+    return mean(psi, n, p)
+
+
+def lmoment2(psi, n, p):
+    return _lmoments(ppf, psi, n, p, r=2)
+
+
+def lmoment3(psi, n, p):
+    return _lmoments(ppf, psi, n, p, r=3)
+
+
+def lmoment4(psi, n, p):
+    return _lmoments(ppf, psi, n, p, r=4)
+
+
 def entropy(psi, n, p):
     lower = ppf(0.0001, psi, n, p)
     upper = ppf(0.9999, psi, n, p)
@@ -131,9 +148,11 @@ def isf(q, psi, n, p):
 
 
 def rvs(psi, n, p, size=None, random_state=None):
-    base_samples = pt.random.negative_binomial(n, p, size=size, rng=random_state)
-    mask = pt.random.bernoulli(psi, size=size)
-    return pt.cast(mask, "int64") * base_samples
+    next_rng, nbase_samples = pt.random.negative_binomial(
+        n, p, size=size, rng=random_state, return_next_rng=True
+    )
+    next_rng, mask = pt.random.bernoulli(psi, size=size, rng=next_rng, return_next_rng=True)
+    return pt.cast(mask, "int64") * nbase_samples
 
 
 def logcdf(x, psi, n, p):

@@ -10,7 +10,7 @@ import hashlib
 from slixmpp.jid import JID
 from slixmpp.exceptions import IqError, IqTimeout
 from slixmpp.stanza import Iq, StreamFeatures
-from slixmpp.xmlstream import ElementBase, ET, register_stanza_plugin
+from slixmpp.xmlstream import register_stanza_plugin
 from slixmpp.plugins import BasePlugin
 from slixmpp.plugins.xep_0078 import stanza
 
@@ -112,7 +112,7 @@ class XEP_0078(BasePlugin):
         # Step 3: Send credentials
         try:
             result = iq.send()
-        except IqError as err:
+        except IqError:
             log.info("Authentication failed")
             self.xmpp.event("failed_auth")
             self.xmpp.disconnect()

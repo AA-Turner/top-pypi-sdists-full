@@ -3,7 +3,6 @@
 # Copyright (C) 2010 Nathanael C. Fritz
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-import slixmpp
 from slixmpp.xmlstream import ElementBase
 
 

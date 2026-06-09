@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GameSentenceMiner
-Version: 2026.6.9
+Version: 2026.6.10
 Summary: A tool for mining sentences from games. Update: Dependencies, replay buffer based line searching, and bug fixes.
 Author-email: Beangate <bpwhelan95@gmail.com>
 License:                     GNU GENERAL PUBLIC LICENSE
@@ -692,6 +692,7 @@ Requires-Dist: watchdog~=6.0.0
 Requires-Dist: soundfile~=0.13.1
 Requires-Dist: toml~=0.10.2
 Requires-Dist: psutil~=7.1.0
+Requires-Dist: python-xlib; sys_platform == "linux"
 Requires-Dist: rapidfuzz~=3.10.0
 Requires-Dist: plyer~=2.1.0
 Requires-Dist: keyboard~=0.13.5

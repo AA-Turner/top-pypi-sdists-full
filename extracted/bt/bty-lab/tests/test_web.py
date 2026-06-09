@@ -350,137 +350,6 @@ def test_pxe_does_not_overwrite_assignment(app_client: TestClient) -> None:
 # ---------- image / boot upload --------------------------------------------
 
 
-def test_put_image_uploads_to_image_root(app_client: TestClient) -> None:
-    """``PUT /images/{name}`` lands the body bytes at
-    ``image_root/<name>`` and the file is round-trippable via the
-    open ``GET /images/{name}``."""
-    body = b"\x01\x02\x03" * 1024
-    r = app_client.put("/images/upload.qcow2", content=body, cookies=AUTH)
-    assert r.status_code == 200, r.text
-    payload = r.json()
-    assert payload["name"] == "upload.qcow2"
-    assert payload["size_bytes"] == len(body)
-    # Same bytes flow back via the open serve route.
-    served = app_client.get("/images/upload.qcow2")
-    assert served.status_code == 200
-    assert served.content == body
-
-
-def test_put_image_overwrites_existing(app_client: TestClient) -> None:
-    first = app_client.put("/images/x.qcow2", content=b"old", cookies=AUTH)
-    assert first.status_code == 200
-    second = app_client.put("/images/x.qcow2", content=b"newer-bytes", cookies=AUTH)
-    assert second.status_code == 200
-    assert second.json()["size_bytes"] == len(b"newer-bytes")
-    assert app_client.get("/images/x.qcow2").content == b"newer-bytes"
-
-
-def test_put_image_rejects_path_traversal(app_client: TestClient) -> None:
-    """``..`` and slashes mustn't escape the image root. FastAPI's
-    path converter already strips raw ``/`` from ``{name}``, but
-    URL-encoded variants and ``..`` need an explicit reject."""
-    r = app_client.put("/images/..%2Fescape.qcow2", content=b"x", cookies=AUTH)
-    # Three valid rejects: 400 (explicit traversal-reject), 404 (no
-    # such file), 405 (URL-decoded path becomes ``..%2F...`` which
-    # routes onto the GET /images/{key}/{name:path} pattern and
-    # PUT isn't allowed there). All three deny the upload; the
-    # vulnerability would be a 200 + actual write outside image_root.
-    assert r.status_code in {400, 404, 405}
-
-
-def test_put_image_requires_auth(app_client: TestClient) -> None:
-    r = app_client.put("/images/x.qcow2", content=b"x")
-    assert r.status_code == 401
-
-
-def test_put_image_rejects_oversized_upload(
-    app_client: TestClient,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """``_stream_upload`` caps the body at ``BTY_MAX_UPLOAD_BYTES``
-    (default 200 GiB; tunable via env). Without the cap a runaway
-    script or hostile request that streams forever would fill the
-    image-root partition. The cap kills the upload mid-stream, the
-    .partial cleanup branch unlinks the half-written file, and the
-    response is 413."""
-    # Set a tiny cap so the test doesn't actually need to push GiBs.
-    monkeypatch.setenv("BTY_MAX_UPLOAD_BYTES", "16")
-
-    # 64-byte payload, well past the 16-byte cap.
-    payload = b"a" * 64
-    r = app_client.put("/images/oversized.img", content=payload, cookies=AUTH)
-    assert r.status_code == 413
-    # Partial cleanup: no oversized.img or oversized.img.partial
-    # left in the image-root. ``demo.qcow2`` from the fixture is
-    # expected; its ``.sha256`` sidecar may also be present
-    # (auto-import races the test). Anything ``oversized*`` would
-    # be the bug.
-    image_root = tmp_path / "images"
-    leftovers = sorted(p.name for p in image_root.iterdir() if p.name.startswith("oversized"))
-    assert leftovers == [], f"upload cap left behind: {leftovers}"
-
-
-def test_put_image_inserts_catalog_entries_row_immediately(
-    app_client: TestClient,
-) -> None:
-    """``PUT /images/{name}`` runs the auto-import sweep after a
-    successful upload so the new file lands in ``catalog_entries``
-    (keyed by ``bty_image_ref``) without waiting for the HashManager
-    or a bty-web restart. Verifies the operator can immediately bind
-    a machine by the new ref."""
-    from bty.catalog import image_ref_for_src
-
-    body = b"auto-import-on-upload-bytes"
-    r = app_client.put("/images/just-uploaded.img", content=body, cookies=AUTH)
-    assert r.status_code == 200, r.text
-    rows = app_client.get("/catalog/entries", cookies=AUTH).json()
-    by_src = {row["src"]: row for row in rows}
-    src = "file://just-uploaded.img"
-    assert src in by_src, f"expected catalog row for {src!r}; got {sorted(by_src)}"
-    expected_ref = image_ref_for_src(src)
-    assert by_src[src]["bty_image_ref"] == expected_ref
-
-
-def test_put_image_triggers_hash_so_entry_appears_in_listing(
-    app_client: TestClient,
-    tmp_path: Path,
-) -> None:
-    """A successful PUT /images/{name} enqueues a hash job so the
-    image surfaces in /images on the next request without waiting
-    for the next server restart's auto-import sweep. Without this,
-    operators uploading via the API would see the file land but
-    ``bty --catalog`` clients would not see it as flashable until
-    bty-web bounced.
-    """
-    import hashlib
-    import time
-
-    payload = b"upload-and-hash"
-    expected_sha = hashlib.sha256(payload).hexdigest()
-    r = app_client.put("/images/uploaded.img", content=payload, cookies=AUTH)
-    assert r.status_code == 200
-    # The auto-import sweep on upload inserts a ``catalog_entries``
-    # row with ``disk_image_sha=None`` immediately, so the row
-    # appears before the HashManager finishes. Poll for the URL to
-    # flip from the ``file://`` src (unhashed) to
-    # ``/images/<sha>/<name>`` (hash worker done).
-    deadline = time.monotonic() + 5.0
-    sha_url = f"/images/{expected_sha}/uploaded.img"
-    r2 = app_client.get("/images")  # initial fetch so r2 is always bound
-    while time.monotonic() < deadline:
-        by_name = {row["name"]: row for row in r2.json()}
-        url = by_name.get("uploaded.img", {}).get("url", "")
-        if url.endswith(sha_url):
-            break
-        time.sleep(0.05)
-        r2 = app_client.get("/images")
-    rows = r2.json()
-    by_name = {row["name"]: row for row in rows}
-    assert "uploaded.img" in by_name, "upload didn't trigger an auto-hash"
-    assert by_name["uploaded.img"]["url"].endswith(sha_url)
-
-
 def test_put_boot_uploads_to_boot_root(app_client: TestClient) -> None:
     """``PUT /boot/{name}`` symmetric to /images/{name} but lands
     under boot_root - this is how the live trio gets onto the
@@ -527,30 +396,7 @@ def test_put_boot_rejects_oversized_upload(
     assert leftovers == [], f"upload cap left behind: {leftovers}"
 
 
-def test_put_image_empty_body_writes_zero_byte_file(app_client: TestClient) -> None:
-    """An empty body is a 0-byte file. Not an error -- the upload
-    completes, the file exists, just empty. Documents the
-    behaviour so a future "reject empty uploads" change has a
-    test to flip."""
-    r = app_client.put("/images/zero.qcow2", content=b"", cookies=AUTH)
-    assert r.status_code == 200
-    assert r.json()["size_bytes"] == 0
-    served = app_client.get("/images/zero.qcow2")
-    assert served.status_code == 200
-    assert served.content == b""
-
-
 # ---------- images ----------------------------------------------------------
-
-
-def test_list_images_returns_seeded_fixture(app_client: TestClient) -> None:
-    """The fixture seeds ``demo.qcow2`` so the file-serving routes
-    have something to return; ``GET /images`` exposes it via the
-    image catalog."""
-    r = app_client.get("/images", cookies=AUTH)
-    assert r.status_code == 200
-    rows = r.json()
-    assert {row["name"] for row in rows} == {"demo.qcow2"}
 
 
 def test_list_images_is_open_for_pxe_clients(app_client: TestClient) -> None:
@@ -560,570 +406,6 @@ def test_list_images_is_open_for_pxe_clients(app_client: TestClient) -> None:
     (already open) and the other ``/pxe/`` routes."""
     r = app_client.get("/images")  # no Authorization header
     assert r.status_code == 200
-
-
-def test_auto_import_hashes_unhashed_dir_scan_files(tmp_path: Path) -> None:
-    """bty-web's lifespan walks ``BTY_IMAGE_ROOT`` at startup and
-    enqueues a hash job for every file without a ``.sha256``
-    sidecar. After the hashing settles, the file is listable via
-    ``/images`` with a server URL.
-
-    Asserts the auto-import path fires; uses tiny payloads + a
-    short polling loop for the sidecar to avoid flake on slow CI.
-    """
-    import hashlib
-    import time
-
-    image_root = tmp_path / "images"
-    image_root.mkdir()
-    payload = b"auto-import me"
-    expected_sha = hashlib.sha256(payload).hexdigest()
-    img_path = image_root / "fresh.img"
-    img_path.write_bytes(payload)
-    sidecar = image_root / "fresh.img.sha256"
-    assert not sidecar.exists()
-
-    state = tmp_path / "state.db"
-    app = create_app(
-        state_path=state,
-        service_user=TEST_SERVICE_USER,
-        secret_key=TEST_SECRET_KEY,
-        image_root=image_root,
-    )
-    with TestClient(app) as client:
-        # The lifespan's auto-import enqueues the hash job; the
-        # HashManager processes it in a worker thread. Wait briefly
-        # for the sidecar to land (tiny file -> ms-scale).
-        deadline = time.monotonic() + 5.0
-        while time.monotonic() < deadline and not sidecar.exists():
-            time.sleep(0.05)
-        assert sidecar.exists(), "auto-import didn't write the sidecar"
-        # Sidecar carries the right digest.
-        assert sidecar.read_text().strip().split()[0] == expected_sha
-        # /images now lists the entry with a server URL.
-        r = client.get("/images")
-        rows = r.json()
-        names = {row["name"] for row in rows}
-        assert "fresh.img" in names
-        entry = next(row for row in rows if row["name"] == "fresh.img")
-        assert entry["url"].endswith(f"/images/{expected_sha}/fresh.img")
-
-
-def test_auto_import_skips_catalog_cache_files_in_hash_enqueue(tmp_path: Path) -> None:
-    """v0.33.28+: the lifespan's hash auto-enqueue loop must skip
-    catalog-fetched cache files (``catalog-<ref:12>-<slug>.<ext>``).
-    The DownloadManager computes the sha while bytes flow during
-    fetch and writes it directly to ``catalog_entries.disk_image_sha``
-    -- no .sha256 sidecar is left behind. Re-hashing on every restart
-    wasted I/O and, on Pi-class boxes with multi-GiB images, blocked
-    the operator binding flow behind the redundant queue.
-
-    Asserts no sidecar materialises for the catalog-cache file even
-    after we give the hash worker a generous window to run.
-    """
-    import time
-
-    image_root = tmp_path / "images"
-    image_root.mkdir()
-    # An operator-typed file (gets hashed) + a catalog-cache file
-    # (must be skipped).
-    (image_root / "operator.img").write_bytes(b"operator payload")
-    catalog_cache_name = "catalog-0123456789ab-someimage.img"
-    (image_root / catalog_cache_name).write_bytes(b"catalog cached payload")
-
-    state = tmp_path / "state.db"
-    app = create_app(
-        state_path=state,
-        service_user=TEST_SERVICE_USER,
-        secret_key=TEST_SECRET_KEY,
-        image_root=image_root,
-    )
-    operator_sidecar = image_root / "operator.img.sha256"
-    catalog_sidecar = image_root / f"{catalog_cache_name}.sha256"
-
-    with TestClient(app):
-        # Wait for the operator file's sidecar to land (proves the
-        # auto-enqueue loop ran at least one cycle).
-        deadline = time.monotonic() + 5.0
-        while time.monotonic() < deadline and not operator_sidecar.exists():
-            time.sleep(0.05)
-        assert operator_sidecar.exists(), "lifespan didn't process the operator file"
-        # Give the catalog cache file the same window. It should
-        # STILL not have a sidecar because the enqueue loop skipped it.
-        time.sleep(0.2)
-        assert not catalog_sidecar.exists(), (
-            "catalog-prefix cache file was re-hashed on startup; "
-            "the auto-enqueue loop must skip catalog-<ref:12>-... files "
-            "(DownloadManager already backfilled disk_image_sha at fetch)."
-        )
-
-
-def test_serve_image_stream_source_error_returns_502_not_500(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A network failure while streaming a remote source (URLError --
-    no route, DNS, etc.) returns a clean 502 Bad Gateway, not a 500
-    server traceback. The live env's image GET surfaces a recognisable
-    "source not reachable" on tty1; the client treats 502 the same as
-    any unreachable URL."""
-    import hashlib
-    import os
-    import urllib.error
-
-    state_dir = tmp_path / "state"
-    state_dir.mkdir()
-    state = state_dir / "state.db"
-    image_root = tmp_path / "images"
-    image_root.mkdir()
-
-    def fake_urlopen(*_a: object, **_kw: object) -> None:
-        raise urllib.error.URLError("no route to host")
-
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-    os.environ["BTY_STATE_DIR"] = str(state_dir)
-    try:
-        app = create_app(
-            state_path=state,
-            service_user=TEST_SERVICE_USER,
-            secret_key=TEST_SECRET_KEY,
-            image_root=image_root,
-        )
-        with TestClient(app) as client:
-            # Seed a catalog_entries row with no disk_image_sha so
-            # the cache-through path activates. We have to do this
-            # directly via sqlite because /catalog/entries POST
-            # also probes the URL with HEAD (which would also raise).
-            import sqlite3
-
-            ref = hashlib.sha256(b"https://example.invalid/img.img.gz").hexdigest()
-            with sqlite3.connect(state) as conn:
-                conn.execute(
-                    "INSERT INTO catalog_entries "
-                    "(bty_image_ref, src, name, added_at) VALUES (?, ?, ?, ?)",
-                    (
-                        ref,
-                        "https://example.invalid/img.img.gz",
-                        "img.img.gz",
-                        "2026-05-17T00:00:00+00:00",
-                    ),
-                )
-                conn.commit()
-            r = client.get(f"/images/{ref}/img.img.gz")
-            # 502 (upstream source failed), not a 500 traceback.
-            assert r.status_code == 502, r.text
-    finally:
-        os.environ.pop("BTY_STATE_DIR", None)
-
-
-def test_serve_image_streams_uncached_remote_ref(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """``GET /images/<ref>`` for a remote catalog row with no local
-    cache STREAMS the source bytes straight through (no buffer, no
-    cache): 200 + the bytes, ``disk_image_sha`` stays NULL, and no cache
-    file is written. Each GET re-streams (the cache is populated only by
-    an explicit Download). This replaced the buffer-then-serve
-    cache-through that timed out the client's probe on large images."""
-    import hashlib
-    import io
-    import os
-
-    state_dir = tmp_path / "state"
-    state_dir.mkdir()
-    state = state_dir / "state.db"
-    image_root = tmp_path / "images"
-    image_root.mkdir()
-    payload = b"cache-through delivers these bytes"
-    expected_sha = hashlib.sha256(payload).hexdigest()
-
-    fetched = {"count": 0}
-
-    class _MockResp(io.BytesIO):
-        def __init__(self, data: bytes) -> None:
-            super().__init__(data)
-            self.headers = {"Content-Length": str(len(data))}
-
-        def __enter__(self):  # type: ignore[no-untyped-def]
-            return self
-
-        def __exit__(self, *_args):  # type: ignore[no-untyped-def]
-            return None
-
-    def fake_urlopen(req_or_url, *_a, **_kw):  # type: ignore[no-untyped-def]
-        if isinstance(req_or_url, str):
-            url = req_or_url
-            method = "GET"
-        else:
-            url = req_or_url.full_url
-            method = getattr(req_or_url, "method", None) or "GET"
-        if "example.invalid/streamed.img" in url and method == "GET":
-            fetched["count"] += 1
-            return _MockResp(payload)
-        return _MockResp(b"")  # HEAD calls (catalog entry add path)
-
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-
-    os.environ["BTY_STATE_DIR"] = str(state_dir)
-    monkeypatch.setenv("BTY_ADMIN_PASSWORD", TEST_PASSWORD)
-    try:
-        app = create_app(
-            state_path=state,
-            service_user=TEST_SERVICE_USER,
-            secret_key=TEST_SECRET_KEY,
-            image_root=image_root,
-        )
-
-        with TestClient(app) as client:
-            login = client.post(
-                "/ui/login",
-                data={"password": TEST_PASSWORD},
-                follow_redirects=False,
-            )
-            assert login.status_code == 303
-            cookie = login.cookies.get("bty-token")
-            assert cookie is not None
-            auth = {"bty-token": cookie}
-
-            # Add a URL-only entry (disk_image_sha = NULL after add).
-            url = "https://example.invalid/streamed.img"
-            add = client.post(
-                "/catalog/entries",
-                json={"image_url": url},
-                cookies=auth,
-            )
-            assert add.status_code == 201, add.text
-            ref = add.json()["bty_image_ref"]
-            assert add.json()["disk_image_sha"] is None
-
-            # GET streams the remote source straight through: 200 + the
-            # bytes, one upstream fetch.
-            r = client.get(f"/images/{ref}")
-            assert r.status_code == 200, r.text
-            assert r.content == payload
-            assert fetched["count"] == 1
-
-            # Streaming never caches: disk_image_sha stays NULL + no cache
-            # file is written.
-            rows = client.get("/catalog/entries", cookies=auth).json()
-            row = next(r for r in rows if r["bty_image_ref"] == ref)
-            assert row["disk_image_sha"] is None
-            assert not (state_dir / "cache" / expected_sha).exists()
-
-            # A second GET re-streams (no cache to short-circuit).
-            r = client.get(f"/images/{ref}")
-            assert r.status_code == 200
-            assert r.content == payload
-            assert fetched["count"] == 2
-    finally:
-        os.environ.pop("BTY_STATE_DIR", None)
-
-
-def test_auto_import_inserts_catalog_entries_row_per_dir_scan_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Auto-import sweep: every dir-scan file lands in
-    ``catalog_entries`` with src ``file://<name>``, computed
-    ``bty_image_ref``, and (once hashed) ``disk_image_sha``.
-
-    Makes the file bindable via the UI picker without waiting for
-    the operator to manually add a URL. Idempotent on bty-web
-    restart (``INSERT OR IGNORE``)."""
-    import hashlib
-    import os
-    import time
-
-    image_root = tmp_path / "images"
-    image_root.mkdir()
-    state_dir = tmp_path / "state"
-    state_dir.mkdir()
-    payload = b"auto-import as catalog row"
-    expected_sha = hashlib.sha256(payload).hexdigest()
-    (image_root / "demo.img").write_bytes(payload)
-
-    state = state_dir / "state.db"
-    os.environ["BTY_STATE_DIR"] = str(state_dir)
-    monkeypatch.setenv("BTY_ADMIN_PASSWORD", TEST_PASSWORD)
-    try:
-        app = create_app(
-            state_path=state,
-            service_user=TEST_SERVICE_USER,
-            secret_key=TEST_SECRET_KEY,
-            image_root=image_root,
-        )
-        with TestClient(app) as client:
-            r = client.post(
-                "/ui/login",
-                data={"password": TEST_PASSWORD},
-                follow_redirects=False,
-            )
-            assert r.status_code == 303
-            cookie = r.cookies.get("bty-token")
-            assert cookie is not None
-            auth = {"bty-token": cookie}
-
-            # Wait for the auto-import sweep + hash to settle.
-            sidecar = image_root / "demo.img.sha256"
-            deadline = time.monotonic() + 5.0
-            while time.monotonic() < deadline and not sidecar.exists():
-                time.sleep(0.05)
-            assert sidecar.exists()
-
-            rows = client.get("/catalog/entries", cookies=auth).json()
-            row = next(r for r in rows if r["src"] == "file://demo.img")
-            assert row["name"] == "demo.img"
-            assert len(row["bty_image_ref"]) == 64
-            # disk_image_sha propagates from HashManager terminal step
-            # via UPDATE of the catalog_entries row.
-            deadline = time.monotonic() + 5.0
-            while time.monotonic() < deadline:
-                rows = client.get("/catalog/entries", cookies=auth).json()
-                row = next(r for r in rows if r["src"] == "file://demo.img")
-                if row["disk_image_sha"] == expected_sha:
-                    break
-                time.sleep(0.05)
-            assert row["disk_image_sha"] == expected_sha
-    finally:
-        os.environ.pop("BTY_STATE_DIR", None)
-
-
-def test_auto_import_skips_catalog_cache_files(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """REGRESSION (v0.33.0 -> v0.33.1): the auto-import sweep must not
-    create synthetic ``catalog_entries`` rows for ``catalog-<ref:12>-
-    <slug>.<ext>`` cache files. Those files are owned by an upstream
-    catalog entry; auto-importing them with ``src=file://catalog-...``
-    creates a second row whose ``bty_image_ref`` doesn't match the
-    upstream entry's ref, and /ui/images then renders both rows for
-    the same logical image."""
-    import os
-
-    image_root = tmp_path / "images"
-    image_root.mkdir()
-    state_dir = tmp_path / "state"
-    state_dir.mkdir()
-
-    # Drop two files: one operator-typed (should be auto-imported)
-    # and one catalog-prefixed (must be skipped).
-    (image_root / "operator.img").write_bytes(b"operator-typed")
-    (image_root / "catalog-deadbeef0123-nosi-fedora-rolling.img.gz").write_bytes(
-        b"a catalog-cache form belonging to some upstream entry"
-    )
-
-    state = state_dir / "state.db"
-    os.environ["BTY_STATE_DIR"] = str(state_dir)
-    monkeypatch.setenv("BTY_ADMIN_PASSWORD", TEST_PASSWORD)
-    try:
-        app = create_app(
-            state_path=state,
-            service_user=TEST_SERVICE_USER,
-            secret_key=TEST_SECRET_KEY,
-            image_root=image_root,
-        )
-        with TestClient(app) as client:
-            r = client.post(
-                "/ui/login",
-                data={"password": TEST_PASSWORD},
-                follow_redirects=False,
-            )
-            cookie = r.cookies.get("bty-token")
-            assert cookie is not None
-            auth = {"bty-token": cookie}
-
-            rows = client.get("/catalog/entries", cookies=auth).json()
-            srcs = {r["src"] for r in rows}
-            assert "file://operator.img" in srcs, "operator-typed file must still auto-import"
-            catalog_srcs = [s for s in srcs if "catalog-" in s]
-            assert not catalog_srcs, (
-                f"catalog cache files must not auto-import as their own "
-                f"catalog_entries row; found {catalog_srcs!r}"
-            )
-    finally:
-        os.environ.pop("BTY_STATE_DIR", None)
-
-
-def test_list_images_returns_files_under_image_root(
-    tmp_path: Path,
-) -> None:
-    """``/images`` returns one entry per SHA-keyed image with a ``url``
-    field. Files with sidecars surface immediately as server URLs;
-    the bytes are served via ``/images/<sha>`` regardless of the
-    on-disk filename."""
-    import hashlib
-
-    image_root = tmp_path / "images"
-    image_root.mkdir()
-    alpha_payload = b"\0" * 256
-    beta_payload = b"\0" * 512
-    (image_root / "alpha.qcow2").write_bytes(alpha_payload)
-    (image_root / "beta.img").write_bytes(beta_payload)
-    # Pre-create sidecars so the entries are immediately listable
-    # rather than queued for auto-import.
-    alpha_sha = hashlib.sha256(alpha_payload).hexdigest()
-    beta_sha = hashlib.sha256(beta_payload).hexdigest()
-    (image_root / "alpha.qcow2.sha256").write_text(f"{alpha_sha}  alpha.qcow2\n")
-    (image_root / "beta.img.sha256").write_text(f"{beta_sha}  beta.img\n")
-
-    state = tmp_path / "state.db"
-    app = create_app(
-        state_path=state,
-        service_user=TEST_SERVICE_USER,
-        secret_key=TEST_SECRET_KEY,
-        image_root=image_root,
-    )
-    with TestClient(app) as client:
-        # ``/images`` is open (the TUI-on-PXE flow needs to enumerate
-        # without auth), so no session-cookie setup needed.
-        r = client.get("/images")
-
-    assert r.status_code == 200
-    rows = r.json()
-    names = {row["name"] for row in rows}
-    assert names == {"alpha.qcow2", "beta.img"}
-    # Each entry carries a ``url`` that the client (TUI / CLI)
-    # flashes from. For dir-scan images the URL points at the
-    # bty-web server's ``/images/<sha>`` endpoint.
-    by_name = {row["name"]: row for row in rows}
-    # URL shape is ``/images/<sha>/<filename>``: the sha binds the
-    # content, the filename is decorative so format-by-extension
-    # keeps working on the client.
-    assert by_name["alpha.qcow2"]["url"].endswith(f"/images/{alpha_sha}/alpha.qcow2")
-    assert by_name["beta.img"]["url"].endswith(f"/images/{beta_sha}/beta.img")
-    assert by_name["alpha.qcow2"]["cached"] is True
-
-
-def test_list_catalog_toml_renders_unified_catalog(tmp_path: Path) -> None:
-    """``GET /catalog.toml`` serves the same unified-catalog rows as
-    ``GET /images`` but as a TOML manifest matching the
-    ``bty.catalog.Catalog`` schema. ``bty --catalog`` consumes
-    this without server-specific code paths --
-    it's the same shape it'd consume from any static catalog file."""
-    import hashlib
-
-    from bty.catalog import load_bytes as catalog_load_bytes
-
-    image_root = tmp_path / "images"
-    image_root.mkdir()
-    payload = b"\0" * 256
-    (image_root / "alpha.qcow2").write_bytes(payload)
-    sha = hashlib.sha256(payload).hexdigest()
-    (image_root / "alpha.qcow2.sha256").write_text(f"{sha}  alpha.qcow2\n")
-
-    state = tmp_path / "state.db"
-    app = create_app(
-        state_path=state,
-        service_user=TEST_SERVICE_USER,
-        secret_key=TEST_SECRET_KEY,
-        image_root=image_root,
-    )
-    with TestClient(app) as client:
-        r = client.get("/catalog.toml")
-
-    assert r.status_code == 200
-    assert r.headers["content-type"].startswith("application/toml")
-    # Body must parse via the standard catalog loader, not need bty-
-    # web-specific knowledge.
-    parsed = catalog_load_bytes(r.content, source="<test>")
-    by_name = {entry.name: entry for entry in parsed.entries}
-    assert "alpha.qcow2" in by_name
-    entry = by_name["alpha.qcow2"]
-    assert entry.sha256 == sha
-    assert entry.format == "qcow2"
-    assert entry.size_bytes == 256
-    # bty-web hosts the bytes; the URL points at this server's
-    # ``/images/<sha>/<name>`` route just like /images JSON does.
-    assert entry.src.endswith(f"/images/{sha}/alpha.qcow2")
-
-
-def test_list_catalog_toml_url_encodes_special_chars_in_names(tmp_path: Path) -> None:
-    """Regression: when a catalog entry's ``name`` contains spaces
-    or parens (real example: ``nosi fedora-sysdev (x86_64,
-    rolling)``), the ``/catalog.toml`` endpoint must percent-
-    encode the trailing name segment of the served URL. Without
-    encoding, the URL ``/images/<sha>/nosi fedora-sysdev (...)``
-    travels through ``bty`` to ``http.client.HTTPConnection.
-    putrequest``, which calls ``_validate_path`` -- a
-    CVE-2019-9740 mitigation that rejects any URL path with a
-    space or control character. The operator sees a Textual
-    traceback ``InvalidURL: URL can't contain control characters
-    ...`` instead of the flash completing.
-
-    Pinning the encoding contract: the ``/catalog.toml`` body
-    must contain the percent-encoded form (``%20`` for space,
-    ``%28`` for ``(`` etc.) and must NOT contain the raw form
-    with a literal space character in the URL.
-    """
-    import hashlib
-
-    image_root = tmp_path / "images"
-    image_root.mkdir()
-    # File on disk uses an ASCII basename (fs reality); the
-    # spaces-in-name regression is driven by a catalog manifest
-    # entry whose declared ``name`` has spaces. Seed the
-    # ``catalog_entries`` DB row directly so the merge surfaces
-    # the human-readable name as the entry name (the dir-scan
-    # name uses the filename).
-    payload = b"\0" * 256
-    (image_root / "fedora.qcow2").write_bytes(payload)
-    sha = hashlib.sha256(payload).hexdigest()
-    (image_root / "fedora.qcow2.sha256").write_text(f"{sha}  fedora.qcow2\n")
-
-    state = tmp_path / "state.db"
-    app = create_app(
-        state_path=state,
-        service_user=TEST_SERVICE_USER,
-        secret_key=TEST_SECRET_KEY,
-        image_root=image_root,
-    )
-    # Inject a catalog_entries row whose ``name`` carries spaces
-    # + parens, matching the real catalog entry the user hit.
-    # ``bty_image_ref`` is sha256(canonicalise_src(src)); for
-    # this regression test the exact value does not matter as
-    # long as it's hex-shaped.
-    from bty.web import _db as _bty_db
-
-    with _bty_db.open_db(state) as conn:
-        conn.execute(
-            "INSERT INTO catalog_entries "
-            "(bty_image_ref, src, disk_image_sha, name, "
-            "sha_url, format, size_bytes, description, added_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                "a" * 64,
-                f"http://example.invalid/{sha}.qcow2",
-                sha,
-                "nosi fedora-sysdev (x86_64, rolling)",
-                None,
-                "qcow2",
-                256,
-                None,
-                "2026-05-17T22:00:00+00:00",
-            ),
-        )
-        conn.commit()
-
-    with TestClient(app) as client:
-        r = client.get("/catalog.toml")
-
-    assert r.status_code == 200
-    body = r.text
-    # No raw space inside the path segment after /images/<sha>/...
-    # An encoded form (``%20``) is acceptable; a literal space is
-    # the regression.
-    assert "/images/" in body
-    # Walk every src= line and assert no literal-space character
-    # appears between ``/images/`` and the trailing ``"`` quote.
-    for line in body.splitlines():
-        if not line.startswith("src = ") or "/images/" not in line:
-            continue
-        path_start = line.index("/images/")
-        path_end = line.rindex('"')
-        path_segment = line[path_start:path_end]
-        assert " " not in path_segment, (
-            f"unencoded space in /catalog.toml src URL: {line!r} -- "
-            "regression of the http.client InvalidURL bug"
-        )
-        assert "(" not in path_segment, f"unencoded paren in /catalog.toml src URL: {line!r}"
 
 
 # ---------- create_app sanity ----------------------------------------------
@@ -1424,9 +706,11 @@ def test_pxe_plan_flash_policy_with_target_returns_auto(
     ``mode=flash`` with the image URL and target serial filled in.
     ``bty`` runs the flash without prompts.
 
-    The image URL takes the same ``/images/<ref>/<name>`` shape as
-    the ipxe_flash.j2 chain -- serve_image cache-through resolves
-    the ref to bytes server-side."""
+    For an https catalog entry without a withcache configured, the
+    plan emits the origin URL directly -- bty-web is out of the
+    bytes path. (v0.40: dropped the ``/images`` stream-proxy fallback
+    for https sources; withcache 404s on miss anyway, and the live env
+    fetches origin happily.)"""
     flash_sha = "0123456789abcdef" * 4
 
     def fake_urlopen(*_a, **_kw):  # type: ignore[no-untyped-def]
@@ -1463,7 +747,59 @@ def test_pxe_plan_flash_policy_with_target_returns_auto(
     body = r.json()
     assert body["mode"] == "flash"
     assert body["target_disk_serial"] == "WD-WX12345"
-    assert body["image"].startswith(f"http://bty.local:8080/images/{ref}/")
+    # No withcache configured -> live env fetches direct from origin.
+    assert body["image"] == "https://example.invalid/demo.img.gz"
+
+
+def test_pxe_plan_flash_uses_withcache_url_when_blob_is_cached(
+    app_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When a withcache is configured AND already holds the origin
+    blob (is_cached True), the plan returns withcache's ``/b/<token>/``
+    URL so the live env streams from the warm cache instead of
+    re-fetching from origin every boot. On a cold cache (is_cached
+    False) the plan returns the origin URL directly -- see
+    ``test_pxe_plan_flash_policy_with_target_returns_auto``."""
+    from bty.web import _settings_store, _withcache
+
+    flash_sha = "0123456789abcdef" * 4
+
+    def fake_urlopen(*_a, **_kw):  # type: ignore[no-untyped-def]
+        return _MockResp(b"", headers={"Content-Length": "0"})
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    monkeypatch.setattr("bty.catalog.fetch_sha256_for_url", lambda *_a, **_kw: flash_sha)
+    # Pin a withcache URL via the override key.
+    monkeypatch.setenv(_settings_store.ENV_WITHCACHE_URL, "http://cache.invalid:3000")
+    # Force is_cached -> True without standing up a stub server.
+    monkeypatch.setattr(_withcache, "is_cached", lambda *_a, **_kw: True)
+
+    r = app_client.post(
+        "/catalog/entries",
+        json={
+            "image_url": "https://example.invalid/demo.img.gz",
+            "sha_url": "https://example.invalid/demo.img.gz.sha256",
+        },
+        cookies=AUTH,
+    )
+    assert r.status_code == 201, r.text
+    ref = r.json()["bty_image_ref"]
+
+    mac = "aa:bb:cc:dd:ee:c0"
+    app_client.put(
+        f"/machines/{mac}",
+        json={
+            "bty_image_ref": ref,
+            "boot_mode": "bty-flash-always",
+            "target_disk_serial": "WC-CACHED-SERIAL",
+        },
+        cookies=AUTH,
+    )
+    plan = app_client.get(f"/pxe/{mac}/plan", headers={"Host": "bty.local:8080"}).json()
+    assert plan["mode"] == "flash"
+    # Plan rewrites to withcache's ``/b/<urlsafe-b64(origin)>/<basename>``.
+    assert plan["image"].startswith("http://cache.invalid:3000/b/")
+    assert plan["image"].endswith("/demo.img.gz")
 
 
 def test_pxe_plan_flash_policy_without_target_falls_back_to_interactive(
@@ -3031,31 +2367,6 @@ def test_events_list_includes_machine_lifecycle(app_client: TestClient) -> None:
             assert e["subject_id"] == mac
 
 
-def test_events_include_image_hashed_from_auto_import(app_client: TestClient) -> None:
-    """The lifespan startup auto-imports image_root files without
-    sidecars; the HashManager logs ``image.hashed`` as ``actor=
-    'system'`` once each completes. The fixture seeds
-    ``demo.qcow2`` so a row should be present by the time the
-    test runs.
-
-    Filter by kind to dodge the bare-list ordering -- relying on
-    "the first event" would be brittle if the lifespan grew more
-    auto-import work.
-    """
-    r = app_client.get("/events", params={"kind": "image.hashed"}, cookies=AUTH)
-    assert r.status_code == 200
-    events = r.json()["events"]
-    assert events, "expected an image.hashed row from auto-import"
-    row = events[0]
-    assert row["actor"] == "system"
-    assert row["subject_kind"] == "image"
-    assert row["subject_id"] == "demo.qcow2"
-    # Sha lands in details.
-    assert row["details"] is not None
-    assert isinstance(row["details"]["sha256"], str)
-    assert len(row["details"]["sha256"]) == 64
-
-
 def test_source_ip_uses_x_forwarded_for_when_trusted_proxy(
     app_client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -3216,61 +2527,6 @@ def test_catalog_entry_add_sha_failure_logs_event(
     assert "upstream gave 404" in row["details"]["error"]
 
 
-def test_image_upload_oversized_logs_failure_event(
-    app_client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """An upload that exceeds ``BTY_MAX_UPLOAD_BYTES`` lands an
-    ``image.upload.failed`` event so the audit trail is symmetric
-    with the success path's ``image.uploaded``. Force the cap
-    very low so the test fixture's ~10-byte payload trips it."""
-    monkeypatch.setenv("BTY_MAX_UPLOAD_BYTES", "5")
-    r = app_client.put(
-        "/images/big.qcow2",
-        content=b"this is more than 5 bytes",
-        cookies=AUTH,
-    )
-    assert r.status_code == 413
-    r = app_client.get("/events", params={"kind": "image.upload.failed"}, cookies=AUTH)
-    events = r.json()["events"]
-    assert len(events) == 1
-    row = events[0]
-    assert row["actor"] == "operator"
-    assert row["subject_kind"] == "image"
-    assert row["subject_id"] == "big.qcow2"
-    assert row["details"]["status_code"] == 413
-
-
-def test_image_upload_oserror_logs_failure_event(
-    app_client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """An OSError mid-upload (disk full, read-only fs, etc.) also
-    lands an ``image.upload.failed`` event so the audit trail
-    isn't only HTTPException-shaped failures.
-
-    Starlette's TestClient re-raises server exceptions by default
-    (``raise_server_exceptions=True``); we accept the OSError
-    propagating in-test and assert the event was recorded
-    *before* the re-raise."""
-    from bty.web import _app
-
-    async def boom(*_a: object, **_kw: object) -> dict[str, object]:
-        raise OSError(28, "No space left on device")
-
-    monkeypatch.setattr(_app, "_stream_upload", boom)
-    with pytest.raises(OSError, match="No space left on device"):
-        app_client.put(
-            "/images/whatever.qcow2",
-            content=b"...",
-            cookies=AUTH,
-        )
-    r = app_client.get("/events", params={"kind": "image.upload.failed"}, cookies=AUTH)
-    events = r.json()["events"]
-    assert len(events) == 1
-    row = events[0]
-    assert row["details"]["status_code"] == 500
-    assert "No space left on device" in row["details"]["error"]
-
-
 def test_events_filter_by_subject_id(app_client: TestClient) -> None:
     """The per-MAC embedded card on /ui/machines/{mac} drives this
     filter -- only events for the given MAC come back. The /pxe
@@ -3317,24 +2573,6 @@ def test_ui_events_page_renders_filtered(app_client: TestClient) -> None:
     body = r.text
     assert "machine.discovered" in body
     assert "aa:bb:cc:dd:ee:ff" in body
-
-
-def test_ui_events_page_image_subject_links_to_filter(app_client: TestClient) -> None:
-    """Non-machine subjects (image / catalog / boot / settings)
-    have no detail page, so the subject_id cell pivots into the
-    timeline filtered by that subject. Regression-class: an
-    earlier version rendered them as plain ``<code>`` text with
-    no pivot, leaving operators with no way to see "everything
-    that touched this image"."""
-    # Auto-import seeds an image.hashed event with subject_kind=image
-    # and subject_id="demo.qcow2" via the lifespan startup.
-    r = app_client.get("/ui/events", params={"kind": "image.hashed"}, cookies=AUTH)
-    assert r.status_code == 200
-    body = r.text
-    assert "demo.qcow2" in body
-    # Pivot URL: subject_kind + subject_id both URL-encoded.
-    # ``&amp;`` between params (HTML-compliant escape).
-    assert "/ui/events?subject_kind=image&amp;subject_id=demo.qcow2" in body
 
 
 def test_ui_events_page_footer_shows_filtered_when_filter_active(
@@ -3535,256 +2773,16 @@ def test_boot_artifact_rejects_traversal(app_client: TestClient) -> None:
         assert r.status_code != 200
 
 
-def test_serve_image_returns_file_bytes(app_client: TestClient) -> None:
-    r = app_client.get("/images/demo.qcow2")
-    assert r.status_code == 200
-    assert r.content == b"fake-image"
-
-
-def test_serve_image_rejects_traversal_attempts(app_client: TestClient) -> None:
-    """``GET /images/{key}`` must reject path-traversal attempts at
-    the boundary even though FastAPI's path converter already
-    strips raw ``/`` from ``{key}``. The URL-encoded ``..%2F``
-    routes onto the GET handler with an opaque ``{key}`` that
-    looks like a normal name but escapes the image_root if not
-    rejected. The sibling PUT route has its own dedicated test
-    (test_put_image_rejects_path_traversal); this one guards the
-    open serve route operators don't have to authenticate to.
-
-    Note: bare ``.`` and ``..`` are intentionally NOT in the
-    attempts list -- Starlette normalizes ``/images/.`` and
-    ``/images/..`` to ``/images/`` which redirects to the
-    unrelated ``GET /images`` listing endpoint (a 200 response
-    with the image catalog, not a traversal leak). The dangerous
-    cases are the URL-encoded ``..%2F`` forms that smuggle past
-    the path normaliser into ``{key}``."""
-    for attempt in (
-        "..%2Fescape.qcow2",
-        "%2E%2E%2Fescape.qcow2",  # double-encoded -- still rejected
-        "..%5Cescape.qcow2",  # backslash variant
-    ):
-        r = app_client.get(f"/images/{attempt}")
-        # Valid rejects: 400 (explicit), 404 (no such file),
-        # 405 (URL-decoded routes onto a non-GET handler), 307
-        # (Starlette path normalisation redirects to a different
-        # route). All deny serving bytes from outside image_root;
-        # the vulnerability would be a 200 + arbitrary bytes.
-        assert r.status_code in {307, 400, 404, 405}, (attempt, r.status_code)
-
-
-def test_serve_image_404_for_missing(app_client: TestClient) -> None:
-    r = app_client.get("/images/does-not-exist.qcow2")
-    assert r.status_code == 404
-
-
-def test_serve_image_accepts_head(app_client: TestClient) -> None:
-    """Regression: ``bty.flash.probe_image_url`` HEADs the image URL
-    before flashing to learn ``Content-Length`` without downloading
-    the bytes. The route at ``/images/{key}`` and the SHA-keyed
-    sibling ``/images/{key}/{name:path}`` previously only declared
-    GET, so the HEAD returned ``405 Method Not Allowed`` -- which
-    ``bty`` caught as ``URLError`` and surfaced as the misleading
-    "image URL not reachable" error.
-
-    Both routes now declare ``methods=["GET", "HEAD"]``. Starlette's
-    FileResponse handles the HEAD shape (200 + Content-Length,
-    empty body) automatically.
-    """
-    # Bare ``/images/{key}`` form.
-    r = app_client.head("/images/demo.qcow2")
-    assert r.status_code == 200, r.text
-    assert r.content == b""  # HEAD never carries a body
-    # Content-Length header must reflect the would-be GET payload
-    # so a probe can size its buffer / progress bar.
-    assert r.headers["content-length"] == str(len(b"fake-image"))
-
-    # Sibling SHA-keyed form ``/images/{key}/{name:path}``. The
-    # ``key`` does not have to be a real sha here -- the
-    # ``key`` resolver also accepts a literal filename for
-    # backward compat with the dir-scan path.
-    r2 = app_client.head("/images/demo.qcow2/decorative-name")
-    assert r2.status_code == 200, r2.text
-    assert r2.content == b""
-
-
-def test_serve_image_resolves_by_sha_dir_scan(tmp_path: Path) -> None:
-    """``GET /images/<sha>`` resolves to the dir-scan file whose
-    ``.sha256`` sidecar holds that digest. Without this, the
-    server-side URLs the /images listing emits would 404 for
-    every ``bty --catalog`` flash."""
-    import hashlib
-
-    image_root = tmp_path / "images"
-    image_root.mkdir()
-    payload = b"fetch-by-sha-dir-scan"
-    sha = hashlib.sha256(payload).hexdigest()
-    (image_root / "demo.img").write_bytes(payload)
-    (image_root / "demo.img.sha256").write_text(f"{sha}  demo.img\n")
-
-    state = tmp_path / "state.db"
-    app = create_app(
-        state_path=state,
-        service_user=TEST_SERVICE_USER,
-        secret_key=TEST_SECRET_KEY,
-        image_root=image_root,
-    )
-    with TestClient(app) as client:
-        r = client.get(f"/images/{sha}")
-        assert r.status_code == 200
-        assert r.content == payload
-
-
-def test_serve_image_resolves_by_sha_via_catalog_entry(tmp_path: Path) -> None:
-    """``GET /images/<sha>`` resolves to the URL-keyed file under
-    image_root when a matching ``catalog_entries`` row carries that
-    disk_image_sha. v0.31.0+: there is no separate cache dir -- the
-    lookup goes (sha -> catalog_entries row -> local_filename_for ->
-    image_root/<catalog-...>) rather than sha -> cache_dir/<sha>."""
-    import hashlib
-
-    from bty import catalog as _catalog_mod
-    from bty.web import _db as _bty_db_mod
-
-    image_root = tmp_path / "images"
-    image_root.mkdir()
-    state_dir = tmp_path / "state"
-    state_dir.mkdir()
-    payload = b"fetch-by-sha-cache"
-    sha = hashlib.sha256(payload).hexdigest()
-    src = "https://example.com/fetch-by-sha.img"
-    name = "fetch-by-sha.img"
-    fmt = "img"
-    ref = _catalog_mod.image_ref_for_src(src)
-    local_filename = _catalog_mod.local_filename_for(ref, name, fmt)
-    (image_root / local_filename).write_bytes(payload)
-
-    state = state_dir / "state.db"
-    # Seed a catalog_entries row matching the sha so the lookup path
-    # has something to find.
-    with _bty_db_mod.open_db(state) as conn:
-        conn.execute(
-            "INSERT INTO catalog_entries "
-            "(bty_image_ref, src, disk_image_sha, name, format, added_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (ref, src, sha, name, fmt, "2026-05-25T00:00:00+00:00"),
-        )
-        conn.commit()
-
-    app = create_app(
-        state_path=state,
-        service_user=TEST_SERVICE_USER,
-        secret_key=TEST_SECRET_KEY,
-        image_root=image_root,
-    )
-    with TestClient(app) as client:
-        r = client.get(f"/images/{sha}")
-        assert r.status_code == 200
-        assert r.content == payload
-
-
 def test_serve_image_404_for_unknown_sha(app_client: TestClient) -> None:
-    """A 64-hex-char key that doesn't match any cached or
-    dir-scan SHA returns 404 cleanly (not a server error)."""
+    """A 64-hex-char key that doesn't match any oras catalog entry
+    returns 404 cleanly (not a server error). v0.40: bty-web is out
+    of the bytes path entirely for https sources; ``/images`` only
+    serves oras blobs now."""
     r = app_client.get("/images/" + "0" * 64)
     assert r.status_code == 404
 
 
-def test_serve_image_with_name_resolves_by_sha(tmp_path: Path) -> None:
-    """``GET /images/<sha>/<filename>`` resolves by SHA; the
-    ``<filename>`` is informational only -- it's there so URL-
-    filename-extension format detection (used by
-    ``bty.flash.probe_image_url`` and ``bty-flash-on-boot``)
-    sees ``foo.img.zst`` rather than a bare 64-hex digest. This
-    is what ``GET /images`` actually advertises now (was
-    ``/images/<sha>`` flat, which 404'd format detection)."""
-    import hashlib
-
-    image_root = tmp_path / "images"
-    image_root.mkdir()
-    payload = b"sha-with-name"
-    sha = hashlib.sha256(payload).hexdigest()
-    (image_root / "demo.img").write_bytes(payload)
-    (image_root / "demo.img.sha256").write_text(f"{sha}  demo.img\n")
-
-    state = tmp_path / "state.db"
-    app = create_app(
-        state_path=state,
-        service_user=TEST_SERVICE_USER,
-        secret_key=TEST_SECRET_KEY,
-        image_root=image_root,
-    )
-    with TestClient(app) as client:
-        # Trailing decorative name -- server ignores it.
-        r = client.get(f"/images/{sha}/whatever-filename.img.zst")
-        assert r.status_code == 200
-        assert r.content == payload
-        # Same SHA, no trailing name -- the bare-SHA URL form is
-        # the lookup; the trailing name is purely decorative.
-        r2 = client.get(f"/images/{sha}")
-        assert r2.status_code == 200
-        assert r2.content == payload
-
-
 # ---------- /catalog endpoints ---------------------------------------------
-
-
-def test_catalog_downloads_requires_auth(app_client: TestClient) -> None:
-    r = app_client.get("/catalog/downloads")
-    assert r.status_code == 401
-
-
-def test_catalog_downloads_no_manifest_returns_empty(app_client: TestClient) -> None:
-    """The fixture's app has no ``catalog.toml`` -- the endpoint
-    returns ``catalog=None`` + empty downloads list, plus the
-    DownloadManager state (``image_root`` + ``max_parallel``) the
-    UI uses for its caption. Stable shape so the polling loop has
-    something to render. v0.31.0+: ``image_root`` replaces the old
-    ``cache_dir`` field (catalog-fetched files merged into the
-    image_root under ``catalog-<ref:12>-<slug>.<ext>`` names)."""
-    r = app_client.get("/catalog/downloads", cookies=AUTH)
-    assert r.status_code == 200
-    body = r.json()
-    assert body["catalog"] is None
-    assert body["downloads"] == []
-    assert "image_root" in body
-    assert "max_parallel" in body
-
-
-def test_catalog_downloads_post_without_manifest_404(app_client: TestClient) -> None:
-    """POSTing an enqueue against an unknown name is a 404 with a
-    clear message. The DownloadManager now always-starts (catalog-less
-    appliances still have a DB-driven download path), so the failure
-    mode is "no entry named X" rather than "no catalog configured"."""
-    r = app_client.post(
-        "/catalog/downloads",
-        json={"name": "anything"},
-        cookies=AUTH,
-    )
-    assert r.status_code == 404
-    detail = r.json()["detail"]
-    assert "no catalog entry named" in detail
-    # Regression (v0.33.5): str(KeyError("msg")) is "'msg'" with literal
-    # single quotes (KeyError wraps via repr). The handler must surface
-    # ``exc.args[0]`` so the operator-visible detail isn't wrapped in
-    # extra quotes.
-    assert not detail.startswith("'"), f"KeyError-wrapped detail leaked the repr quotes: {detail!r}"
-
-
-def test_catalog_downloads_delete_requires_auth(app_client: TestClient) -> None:
-    """Cancelling a download requires the cookie; otherwise an
-    unauth'd client could disrupt operator-initiated work."""
-    r = app_client.delete("/catalog/downloads/anything")
-    assert r.status_code == 401
-
-
-def test_catalog_downloads_delete_no_active_404(app_client: TestClient) -> None:
-    """Cancel against an unknown download -> 404, not 500. Same shape
-    as POST /catalog/downloads; the manager always-starts now so the
-    failure mode is "no active download" rather than the legacy
-    "no catalog configured"."""
-    r = app_client.delete("/catalog/downloads/anything", cookies=AUTH)
-    assert r.status_code == 404
-    assert "no active download" in r.json()["detail"]
 
 
 # ---------- /workers/backups HTTP layer -----------------------------------
@@ -4407,11 +3405,10 @@ def test_pxe_plan_keeps_name_when_it_has_extension(
     plan = app_client.get(f"/pxe/{mac}/plan", headers={"Host": "bty.local:8080"}).json()
     assert plan["mode"] == "flash"
     assert plan["name"] == "demo.img.gz"
-    # URL last segment IS the real filename (no synthesis).
-    last_segment = plan["image"].rsplit("/", 1)[-1]
-    import urllib.parse
-
-    assert urllib.parse.unquote(last_segment) == "demo.img.gz"
+    # https + no withcache -> origin URL straight through. The
+    # synthesis-when-extension-is-missing path only fires when
+    # bty-web builds a /images URL (still hit for oras entries).
+    assert plan["image"] == "https://example.invalid/demo.img.gz"
 
 
 def test_pxe_plan_orphan_ref_falls_back_to_interactive(
@@ -4441,270 +3438,6 @@ def test_pxe_plan_orphan_ref_falls_back_to_interactive(
         f"orphan ref must fall back to wizard, not crash; got {plan!r}"
     )
     assert "catalog" in plan
-
-
-def test_appliance_upgrade_with_persistent_state_disk(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """INTEGRATION: the operator-critical upgrade path.
-
-    Real-world scenario:
-      * Operator runs a bty-server appliance with ``/var/lib/bty`` on
-        a SEPARATE disk (the BTY_IMAGE_STORE pattern). state.db,
-        images/, backups/ all live there.
-      * Operator reflashes the OS via USB: the OS disk is wiped, the
-        state disk survives intact.
-      * New OS boots, mounts the state disk at /var/lib/bty.
-      * bty-web (new version) starts against the existing state dir.
-
-    Three distinct contracts must hold for the upgrade to actually
-    work end-to-end:
-
-      1. ``init_db`` rotates the stale state.db automatically
-         (v0.33.0+ contract).
-      2. Image files in image_root survive untouched -- specifically
-         the ``catalog-<ref:12>-<slug>.<ext>`` cache files MUST be
-         re-associatable with their catalog entries by the new
-         release.
-      3. The pre-upgrade ``bty-web export`` bundle (v3) imports
-         cleanly on the new release: machines re-appear with their
-         hw_lshw + known_disks; the operator re-binds images.
-
-    Each contract had unit-level tests but the full upgrade path
-    had no integration coverage. This test plays the whole scenario
-    end-to-end so a refactor that breaks the COMPOSED contract --
-    not just one piece -- gets caught.
-    """
-    import sqlite3 as _sqlite
-
-    import bty
-    from bty import catalog as _catalog
-    from bty.web import _db, _portability
-
-    # --- "Old appliance": v0.X has been running here for a while.
-    # The state disk mount point. After the OS reflash, the new bty-web
-    # will be pointed at this same directory.
-    state_dir = tmp_path / "var-lib-bty"
-    state_dir.mkdir()
-    state_path = state_dir / "state.db"
-    image_root = state_dir / "images"
-    image_root.mkdir()
-    backups_root = state_dir / "backups"
-    backups_root.mkdir()
-    monkeypatch.setenv("BTY_STATE_DIR", str(state_dir))
-    monkeypatch.setenv("BTY_IMAGE_ROOT", str(image_root))
-    monkeypatch.setenv("BTY_BACKUP_DIR", str(backups_root))
-    monkeypatch.setenv("BTY_ADMIN_PASSWORD", TEST_PASSWORD)
-
-    # Old appliance stamped state.db with a previous-version marker.
-    # We don't have an "old bty-web" available, so we initialise with
-    # the current schema then rewrite the marker to look stale --
-    # which is exactly what the live appliance scenario looks like
-    # from the new bty-web's point of view.
-    _db.init_db(state_path)
-    with _sqlite.connect(state_path) as conn:
-        conn.execute("UPDATE bty_version SET version = ?", ("0.30.0",))
-        # An operator-bound machine the old appliance was managing.
-        conn.execute(
-            "INSERT INTO machines "
-            "(mac, bty_image_ref, hostname, boot_mode, target_disk_serial, "
-            " known_disks, known_disks_at, hw_lshw, hw_lshw_at, "
-            " created_at, updated_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-            (
-                "aa:bb:cc:dd:ee:01",
-                "old-ref-deadbeef" * 4,
-                "lab-box-1",
-                "bty-flash-once",
-                "SN-100",
-                '[{"path": "/dev/sda", "serial": "SN-100"}]',
-                "2026-05-25T00:00:00+00:00",
-                '{"id": "lab-box-1-system"}',
-                "2026-05-25T00:00:00+00:00",
-                "2026-05-20T00:00:00+00:00",
-                "2026-05-25T00:00:00+00:00",
-            ),
-        )
-        conn.commit()
-
-    # The operator ran ``bty-web export`` on the OLD release before
-    # the reflash. We simulate that by writing the v3 inventory.json
-    # directly -- exercising open_db here would trigger the rotation
-    # AHEAD of the new bty-web's startup, which is the wrong story.
-    # The realistic sequence is:
-    #   OLD bty-web export -> reflash -> NEW bty-web starts (rotates)
-    # so the bundle on disk pre-dates the rotation.
-    bundle = backups_root / "pre-upgrade-snapshot"
-    bundle.mkdir()
-    inventory_path = bundle / "inventory.json"
-    import json as _json
-
-    inventory_path.write_text(
-        _json.dumps(
-            {
-                "bty_export_version": 3,
-                "exported_at": "2026-05-26T08:00:00+00:00",
-                "exported_by_bty_version": "0.30.0",
-                "machines": [
-                    {
-                        "mac": "aa:bb:cc:dd:ee:01",
-                        "known_disks": [{"path": "/dev/sda", "serial": "SN-100"}],
-                        "known_disks_at": "2026-05-25T00:00:00+00:00",
-                        "hw_lshw": {"id": "lab-box-1-system"},
-                        "hw_lshw_at": "2026-05-25T00:00:00+00:00",
-                    }
-                ],
-            }
-        )
-    )
-
-    # Image-store disk also has a catalog-cached image file the old
-    # bty-web fetched (URL-keyed name -- v0.31.0+ convention).
-    # When the operator re-imports the catalog on the new appliance,
-    # this file must associate with the catalog entry automatically
-    # (no re-fetch, no operator re-pick).
-    cached_image_name = "ubuntu-22.04-bty.img.gz"
-    cached_src = "https://example.invalid/ubuntu-22.04-bty.img.gz"
-    cached_ref = _catalog.image_ref_for_src(cached_src)
-    cached_filename = _catalog.local_filename_for(cached_ref, cached_image_name, "img.gz")
-    cached_payload = b"the persistent image bytes"
-    (image_root / cached_filename).write_bytes(cached_payload)
-    # The old bty-web's HashManager already wrote the .sha256 sidecar
-    # before the reflash. Pre-create it so the new release's
-    # merge_with_catalog picks up the cached file's content sha
-    # without waiting for the new HashManager to re-hash.
-    import hashlib
-
-    cached_sha = hashlib.sha256(cached_payload).hexdigest()
-    (image_root / f"{cached_filename}.sha256").write_text(f"{cached_sha}  {cached_filename}\n")
-    # An operator-typed image too (no catalog prefix).
-    (image_root / "operator-uploaded.img").write_bytes(b"some-operator-bytes")
-
-    # --- OS REFLASH point: the OS disk is wiped and a new one is
-    # written. The state_dir is on a separate disk; nothing here
-    # changed. bty-web NEW version now boots against this dir.
-
-    app = create_app(
-        state_path=state_path,
-        service_user=TEST_SERVICE_USER,
-        secret_key=TEST_SECRET_KEY,
-        image_root=image_root,
-        boot_root=state_dir / "boot",
-    )
-    with TestClient(app) as client:
-        # Login so the cookie-protected endpoints work below.
-        login = client.post("/ui/login", data={"password": TEST_PASSWORD}, follow_redirects=False)
-        cookie = login.cookies.get("bty-token")
-        assert cookie is not None
-        auth_cookies = {"bty-token": cookie}
-
-        # Force lifespan startup by hitting an endpoint.
-        assert client.get("/healthz").status_code == 200
-
-        # Contract #1: state.db ROTATED to .bak.
-        baks = list(state_dir.glob("state.db.0.30.0.*.bak"))
-        assert len(baks) == 1, (
-            f"expected one rotated .bak alongside the new state.db, "
-            f"found {[b.name for b in baks]!r}"
-        )
-        with _sqlite.connect(state_path) as conn:
-            ver = conn.execute("SELECT version FROM bty_version").fetchone()[0]
-            machine_count = conn.execute("SELECT COUNT(*) FROM machines").fetchone()[0]
-        assert ver == bty.__version__
-        assert machine_count == 0
-
-        # Contract #2: image_root SURVIVED. Auto-import scans
-        # image_root + sees the operator-typed file; the
-        # catalog-prefixed file is SKIPPED (v0.33.1) because it
-        # belongs to a catalog entry the operator re-imports separately.
-        import time
-
-        deadline = time.monotonic() + 5.0
-        while time.monotonic() < deadline:
-            rows = client.get("/catalog/entries", cookies=auth_cookies).json()
-            srcs = {r["src"] for r in rows}
-            if "file://operator-uploaded.img" in srcs:
-                break
-            time.sleep(0.05)
-        rows = client.get("/catalog/entries", cookies=auth_cookies).json()
-        srcs = {r["src"] for r in rows}
-        assert "file://operator-uploaded.img" in srcs, (
-            "operator-typed file in image_root must auto-import as a catalog entry "
-            "on new-release startup"
-        )
-        assert not any("file://catalog-" in s for s in srcs), (
-            f"catalog-cache file must not synthesise its own catalog row; "
-            f"got {[s for s in srcs if 'catalog-' in s]!r}"
-        )
-
-        # Contract #3: bty-web import of the pre-upgrade bundle
-        # restores the machine record.
-        imp = _portability.import_bundle(state_path, bundle, now="2026-05-26T09:00:00+00:00")
-        assert imp.machines == 1
-
-        m = client.get("/machines/aa:bb:cc:dd:ee:01", cookies=auth_cookies).json()
-        assert m["mac"] == "aa:bb:cc:dd:ee:01"
-        assert isinstance(m["known_disks"], list)
-        assert m["known_disks"][0]["serial"] == "SN-100"
-        # Bindings reset on import.
-        assert m["bty_image_ref"] is None
-        assert m["target_disk_serial"] is None
-        assert m["boot_mode"] == "bty-inventory"
-        assert m["last_flashed_at"] is None
-        # hw_lshw landed too -- exposed via the raw download endpoint
-        # (the Machine model doesn't carry the JSON blob, but the
-        # dedicated /lshw.json route serves it).
-        lshw = client.get("/machines/aa:bb:cc:dd:ee:01/lshw.json", cookies=auth_cookies).json()
-        assert lshw == {"id": "lab-box-1-system"}
-
-        # Contract #2 (cont.): operator adds the catalog entry whose
-        # bytes are ALREADY on disk. The /images listing must show
-        # it as cached=True without a re-fetch -- proof that
-        # catalog-prefix association survives the upgrade.
-        monkeypatch.setattr("bty.web._app._head_content_length", lambda url: 9876, raising=False)
-        add = client.post(
-            "/catalog/entries",
-            json={"image_url": cached_src},
-            cookies=auth_cookies,
-        )
-        assert add.status_code == 201, add.text
-
-        images_listing = client.get("/images", cookies=auth_cookies).json()
-        ubuntu = next(
-            (img for img in images_listing if img.get("ref") == cached_ref),
-            None,
-        )
-        assert ubuntu is not None, (
-            f"upstream catalog entry must surface in /images; got names: "
-            f"{[img.get('names') for img in images_listing]!r}"
-        )
-        assert ubuntu["cached"] is True, (
-            "REGRESSION: catalog-<ref:12>-<slug>.<ext> file in image_root "
-            "from the pre-upgrade appliance must re-associate with its "
-            "catalog entry automatically (cached=True). If this fails, "
-            "every upgrade forces operators to re-download every cached "
-            "image -- the appliance-on-separate-disk upgrade story is "
-            "broken."
-        )
-
-        # Operator re-binds the imported machine to the cached image
-        # + sets the target disk -- proves the full upgrade flow
-        # gets the operator back to a flashable state with NO bytes
-        # re-fetched.
-        rebind = client.put(
-            "/machines/aa:bb:cc:dd:ee:01",
-            json={
-                "bty_image_ref": cached_ref,
-                "boot_mode": "bty-flash-once",
-                "target_disk_serial": "SN-100",
-            },
-            cookies=auth_cookies,
-        )
-        assert rebind.status_code == 200
-        # The pre-upgrade .bak + the export bundle are both still on
-        # disk -- forensics + a re-do-the-import lifeline.
-        assert baks[0].is_file()
-        assert inventory_path.is_file()
 
 
 def test_reflash_lifecycle_pxe_offered_event_per_iteration(
@@ -4869,84 +3602,6 @@ def test_create_app_rotates_stale_state_db_end_to_end(
     with _sqlite.connect(baks[0]) as conn:
         old_machines = [r[0] for r in conn.execute("SELECT mac FROM machines")]
     assert old_machines == ["aa:bb:cc:dd:ee:ff"]
-
-
-def test_catalog_downloads_db_only_entry_enqueues(
-    app_client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Integration test for the operator-add path: a row in
-    ``catalog_entries`` (added via the form / JSON API, NOT via
-    ``catalog.toml``) must be enqueueable through ``POST /catalog/
-    downloads``. The DownloadManager falls back to the DB lookup
-    callback when the manifest doesn't have the name -- without
-    that fallback, this path returns 404 even though the row is
-    plainly there on /ui/images."""
-    # The /catalog/entries endpoint HEAD-probes the URL for
-    # Content-Length; stub that out so the test doesn't make a
-    # network call.
-    from bty.web import _app
-
-    monkeypatch.setattr(_app, "_head_content_length", lambda _u: None)
-
-    # Insert a DB-only entry via the JSON endpoint (mirrors what the
-    # /ui/catalog/entries form does -- catalog.toml untouched).
-    r = app_client.post(
-        "/catalog/entries",
-        json={"image_url": "https://example.invalid/db-only-fixture.img.gz"},
-        cookies=AUTH,
-    )
-    assert r.status_code in (200, 201), r.json()
-
-    # Now enqueue a download for the same name. Pre-fix this returned
-    # 404 ("no catalog entry named ..."); post-fix it returns 202
-    # because the DB fallback resolves the entry.
-    r = app_client.post(
-        "/catalog/downloads",
-        json={"name": "db-only-fixture.img.gz"},
-        cookies=AUTH,
-    )
-    assert r.status_code == 202, r.json()
-    body = r.json()
-    assert body["name"] == "db-only-fixture.img.gz"
-    # Status is one of the lifecycle states -- the manager may have
-    # picked the job up + failed at the (invalid) URL between enqueue
-    # and the response.
-    assert body["status"] in ("queued", "running", "completed", "failed"), body
-
-
-def test_catalog_hashes_requires_auth(app_client: TestClient) -> None:
-    r = app_client.get("/catalog/hashes")
-    assert r.status_code == 401
-
-
-def test_catalog_hashes_listing_includes_max_parallel(
-    app_client: TestClient,
-) -> None:
-    """``GET /catalog/hashes`` always returns ``image_root`` +
-    ``max_parallel`` + ``hashes``. Lets the UI render the
-    bty-web hash-pane caption without a separate config endpoint.
-    """
-    r = app_client.get("/catalog/hashes", cookies=AUTH)
-    assert r.status_code == 200
-    body = r.json()
-    assert "image_root" in body
-    assert body["max_parallel"] >= 1
-    assert isinstance(body["hashes"], list)
-
-
-def test_catalog_hashes_post_unknown_file_404(app_client: TestClient) -> None:
-    r = app_client.post(
-        "/catalog/hashes",
-        json={"name": "no-such-file.img"},
-        cookies=AUTH,
-    )
-    assert r.status_code == 404
-    assert "no image file" in r.json()["detail"]
-
-
-def test_catalog_hashes_cancel_unknown_404(app_client: TestClient) -> None:
-    r = app_client.delete("/catalog/hashes/never-was", cookies=AUTH)
-    assert r.status_code == 404
 
 
 # ---------- operator-curated catalog entries -------------------------------
@@ -5159,162 +3814,6 @@ def test_catalog_entries_list_and_delete(
     r = app_client.get("/catalog/entries", cookies=AUTH)
     remaining = {row["src"] for row in r.json()}
     assert url not in remaining
-
-
-def test_catalog_cache_delete_unlinks_file_keeps_entry(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """``DELETE /catalog/cache/{name}`` removes the cached bytes at
-    ``$image_root/catalog-<ref:12>-<slug>.<ext>`` and leaves the catalog
-    entry in place. v0.31.0+: file lives under image_root with URL-
-    keyed name (no separate cache dir). Follow-up
-    ``GET /catalog/entries`` still shows the row; ``GET /images`` shows
-    it as ``cached=False`` so the operator can re-enqueue a fetch."""
-    import hashlib
-    import io
-    import json as _json
-    import os
-
-    from bty import catalog as _catalog_mod
-
-    state_dir = tmp_path / "state"
-    state_dir.mkdir()
-    image_root = tmp_path / "images"
-    image_root.mkdir()
-    boot_root = tmp_path / "boot"
-    boot_root.mkdir()
-
-    # Stage a fake cached file at the URL-keyed filename. The catalog
-    # entry is created via the API below; pre-compute what filename
-    # the entry will land at so the file is in place when the DELETE
-    # arrives.
-    payload = b"cached-bytes-to-evict"
-    sha = hashlib.sha256(payload).hexdigest()
-    src = "oras://ghcr.io/safl/test/deletable:latest"
-    ref = _catalog_mod.image_ref_for_src(src)
-    cached_filename = _catalog_mod.local_filename_for(ref, "deletable.img.gz", "img.gz")
-    cached_file = image_root / cached_filename
-    cached_file.write_bytes(payload)
-
-    # Mock the oras manifest fetch so adding an entry via the API
-    # carries the SHA we just staged. Reuses the helper-style _Resp
-    # pattern from ``test_catalog_entries_add_with_oras_ref_resolves_manifest``.
-    manifest = {
-        "schemaVersion": 2,
-        "mediaType": "application/vnd.oci.image.manifest.v1+json",
-        "layers": [
-            {
-                "mediaType": "application/vnd.nosi.disk-image.layer.v1+gzip",
-                "digest": f"sha256:{sha}",
-                "size": len(payload),
-                "annotations": {"org.opencontainers.image.title": "deletable.img.gz"},
-            },
-        ],
-    }
-
-    def fake_urlopen(req, *_a, **_kw):  # type: ignore[no-untyped-def]
-        url = req if isinstance(req, str) else req.full_url
-
-        class _Resp(io.BytesIO):
-            headers: typing.ClassVar[dict[str, str]] = {}
-
-            def __enter__(self):  # type: ignore[no-untyped-def]
-                return self
-
-            def __exit__(self, *_args):  # type: ignore[no-untyped-def]
-                return None
-
-        if "/token" in url:
-            return _Resp(_json.dumps({"token": "anon-tok"}).encode())
-        if "/manifests/" in url:
-            return _Resp(_json.dumps(manifest).encode())
-        raise AssertionError(f"unexpected URL: {url}")
-
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-
-    os.environ["BTY_STATE_DIR"] = str(state_dir)
-    monkeypatch.setenv("BTY_ADMIN_PASSWORD", TEST_PASSWORD)
-    try:
-        app = create_app(
-            state_path=state_dir / "state.db",
-            service_user=TEST_SERVICE_USER,
-            secret_key=TEST_SECRET_KEY,
-            image_root=image_root,
-            boot_root=boot_root,
-        )
-
-        with TestClient(app) as client:
-            r = client.post(
-                "/ui/login",
-                data={"password": TEST_PASSWORD},
-                follow_redirects=False,
-            )
-            assert r.status_code == 303
-            cookie = r.cookies.get("bty-token")
-            assert cookie is not None
-            auth_cookies = {"bty-token": cookie}
-
-            # Add an oras entry; the cached SHA matches the file we
-            # pre-staged.
-            r = client.post(
-                "/catalog/entries",
-                json={"image_url": "oras://ghcr.io/safl/test/deletable:latest"},
-                cookies=auth_cookies,
-            )
-            assert r.status_code == 201, r.text
-
-            # Cache file exists pre-delete.
-            assert cached_file.exists()
-
-            # Delete the cached bytes only.
-            r = client.delete("/catalog/cache/deletable.img.gz", cookies=auth_cookies)
-            assert r.status_code == 200, r.text
-            body = r.json()
-            assert body["deleted"] is True
-            assert body["disk_image_sha"] == sha
-
-            # File is gone; entry remains.
-            assert not cached_file.exists()
-            r = client.get("/catalog/entries", cookies=auth_cookies)
-            assert r.status_code == 200
-            entries = r.json()
-            names = [e["name"] for e in entries]
-            assert "deletable.img.gz" in names, (
-                f"deletable entry should survive DELETE; got names={names!r}"
-            )
-    finally:
-        os.environ.pop("BTY_STATE_DIR", None)
-
-
-def test_catalog_cache_delete_idempotent_no_cached_file(
-    app_client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """When the entry exists but no cached file is present, the
-    delete endpoint returns 200 with ``deleted=False, reason="not
-    cached"``. Idempotent: repeated calls don't error."""
-
-    def fake_urlopen(*_a, **_kw):  # type: ignore[no-untyped-def]
-        return _MockResp(b"", headers={"Content-Length": "0"})
-
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-    # URL-only entry: sha256 is NULL.
-    app_client.post(
-        "/catalog/entries",
-        json={"image_url": "https://example.invalid/uncached.img.gz"},
-        cookies=AUTH,
-    )
-    r = app_client.delete("/catalog/cache/uncached.img.gz", cookies=AUTH)
-    assert r.status_code == 200
-    assert r.json()["deleted"] is False
-    # v0.31.0+: catalog files have a URL-keyed local_filename regardless
-    # of sha-pin status, so "no sha256 for name" no longer applies. The
-    # reason for the missing file is just "not cached".
-    assert r.json()["reason"] == "not cached"
-
-
-def test_catalog_cache_delete_requires_auth(app_client: TestClient) -> None:
-    r = app_client.delete("/catalog/cache/some.img.gz")
-    assert r.status_code == 401
 
 
 def test_catalog_import_from_local_path(app_client: TestClient, tmp_path: Path) -> None:
@@ -5914,13 +4413,8 @@ def test_ui_catalog_upload_imports_into_db_and_303s_on_success(
     app_client: TestClient,
 ) -> None:
     """Upload a valid catalog -> entries are imported into the
-    ``catalog_entries`` DB, the bytes are written to
-    ``manifest_path`` and the DownloadManager binds, 303 back to
-    /ui/images without an error param. Symmetric with
-    ``test_ui_catalog_fetch_release_imports_into_db_and_303s``:
-    without the write+reload step, per-row Fetch buttons on
-    /ui/images would 404 right after a successful upload.
-    """
+    ``catalog_entries`` DB, the bytes are written to ``manifest_path``,
+    303 back to /ui/images without an error param."""
     body = b'version = 1\n\n[[images]]\nname = "demo"\nsrc = "https://example.com/demo.img.zst"\n'
     r = app_client.post(
         "/ui/catalog/upload",
@@ -5934,15 +4428,6 @@ def test_ui_catalog_upload_imports_into_db_and_303s_on_success(
     # from catalog_entries) -- evidence the import landed in the DB.
     listing = app_client.get("/catalog/entries", cookies=AUTH).json()
     assert any(e["src"] == "https://example.com/demo.img.zst" for e in listing)
-    # /catalog/downloads reports a non-null ``catalog`` -- proves
-    # the write+reload happened so the DownloadManager is bound
-    # and per-row Fetch buttons will work.
-    downloads = app_client.get("/catalog/downloads", cookies=AUTH).json()
-    assert downloads["catalog"] is not None, (
-        "upload-catalog must write the bytes to manifest_path + "
-        "reload so the DownloadManager binds; without it the "
-        "per-row Fetch buttons would 404."
-    )
 
 
 def test_ui_catalog_upload_rejects_bad_manifest_keeps_existing(
@@ -6002,11 +4487,8 @@ def test_ui_catalog_fetch_release_imports_into_db_and_303s(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Fetch-release stubs urlopen, imports the bytes' entries into
-    ``catalog_entries``, writes the bytes to ``manifest_path`` and
-    reloads so the DownloadManager binds, then 303s back to
-    /ui/images. Without the write+reload step, per-row Fetch
-    buttons on /ui/images would 404 with "no catalog configured".
-    """
+    ``catalog_entries``, writes the bytes to ``manifest_path``, then
+    303s back to /ui/images."""
     body = b'version = 1\n\n[[images]]\nname = "rel"\nsrc = "https://example.com/rel.img.zst"\n'
 
     import urllib.request as _urlreq
@@ -6021,16 +4503,6 @@ def test_ui_catalog_fetch_release_imports_into_db_and_303s(
     assert r.headers["location"] == "/ui/images"
     listing = app_client.get("/catalog/entries", cookies=AUTH).json()
     assert any(e["src"] == "https://example.com/rel.img.zst" for e in listing)
-    # /catalog/downloads must now report a non-null ``catalog``
-    # (proves the write+reload happened). Without that step
-    # POST /catalog/downloads would 404; the symmetric GET
-    # would return ``{"catalog": null, ...}``.
-    downloads = app_client.get("/catalog/downloads", cookies=AUTH).json()
-    assert downloads["catalog"] is not None, (
-        "fetch-release must write the catalog to manifest_path + "
-        "reload so the DownloadManager binds; without it the "
-        "per-row Fetch buttons would 404."
-    )
 
 
 # ---------- /ui/catalog/upload and /ui/catalog/fetch-release error matrix --
@@ -6380,27 +4852,6 @@ def test_ui_machines_renders_timestamps_compactly(app_client: TestClient, tmp_pa
     assert "2026-05-17 20:21:09 UTC" not in page.text
     # Raw form kept in the title= attribute for hover precision.
     assert 'title="2026-05-17T20:21:09.155109+00:00"' in page.text
-
-
-def test_catalog_enqueue_request_rejects_traversal_name(app_client: TestClient) -> None:
-    """``CatalogEnqueueRequest.name`` (used by both
-    ``POST /catalog/downloads`` and ``POST /catalog/hashes``)
-    rejects path-traversal characters at the Pydantic layer.
-    Layered with the manager-side check so both surfaces return
-    a clean 422 instead of a 500 from ``ValueError``."""
-    for bad in ("../etc/passwd", "foo/bar", "name\\with\\backslash", "with\0nul"):
-        r = app_client.post(
-            "/catalog/hashes",
-            json={"name": bad},
-            cookies=AUTH,
-        )
-        assert r.status_code == 422, f"expected 422 for {bad!r}, got {r.status_code}"
-        r = app_client.post(
-            "/catalog/downloads",
-            json={"name": bad},
-            cookies=AUTH,
-        )
-        assert r.status_code == 422, f"expected 422 for {bad!r}, got {r.status_code}"
 
 
 # --------------------------------------------------------------------------

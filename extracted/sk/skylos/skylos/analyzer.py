@@ -4,6 +4,7 @@ import sys
 import json
 import logging
 import os
+import re
 import traceback
 from pathlib import Path
 from collections import Counter, defaultdict
@@ -20,7 +21,11 @@ from skylos.analysis.circular_deps import (
     _resolve_from_import_targets,
 )
 
-from skylos.constants import AUTO_CALLED, MARKREFS_TICK_DEFAULT
+from skylos.constants import (
+    AUTO_CALLED,
+    DEFAULT_EXCLUDE_FOLDERS,
+    MARKREFS_TICK_DEFAULT,
+)
 
 from skylos.visitors.framework_aware import FrameworkAwareVisitor
 from skylos.visitors.test_aware import TestAwareVisitor
@@ -39,6 +44,7 @@ from skylos.visitors.languages.go import scan_go_file, clear_go_cache
 from skylos.visitors.languages.java import scan_java_file
 from skylos.visitors.languages.rust import scan_rust_file
 from skylos.visitors.languages.csharp import scan_csharp_file
+from skylos.visitors.languages.kotlin import scan_kotlin_file
 
 from skylos.rules.secrets import scan_ctx as _secrets_scan_ctx
 
@@ -177,10 +183,53 @@ _PHP_SOURCE_EXTS = (".php",)
 _RUST_SOURCE_EXTS = (".rs",)
 _DART_SOURCE_EXTS = (".dart",)
 _CSHARP_SOURCE_EXTS = (".cs",)
+_KOTLIN_SOURCE_EXTS = (".kt", ".kts")
 _SHELL_SOURCE_EXTS = SHELL_SOURCE_EXTS
 _PYTHON_SOURCE_ROOT_NAMES = {"src", "lib", "python"}
 
 _TRY_NODE_TYPES = (ast.Try, getattr(ast, "TryStar", ast.Try))
+
+_HTML_PARSER_CALLBACKS = {
+    "handle_starttag",
+    "handle_startendtag",
+    "handle_endtag",
+    "handle_data",
+    "handle_entityref",
+    "handle_charref",
+    "handle_comment",
+    "handle_decl",
+    "handle_pi",
+    "unknown_decl",
+}
+
+_URLLIB_REQUEST_HANDLER_BASES = {
+    "BaseHandler",
+    "HTTPDefaultErrorHandler",
+    "HTTPRedirectHandler",
+    "HTTPCookieProcessor",
+    "ProxyHandler",
+    "HTTPPasswordMgr",
+    "HTTPPasswordMgrWithDefaultRealm",
+    "AbstractBasicAuthHandler",
+    "HTTPBasicAuthHandler",
+    "ProxyBasicAuthHandler",
+    "AbstractDigestAuthHandler",
+    "HTTPDigestAuthHandler",
+    "ProxyDigestAuthHandler",
+    "HTTPHandler",
+    "HTTPSHandler",
+    "FileHandler",
+    "FTPHandler",
+    "CacheFTPHandler",
+    "UnknownHandler",
+    "HTTPErrorProcessor",
+    "DataHandler",
+}
+
+_URLLIB_REQUEST_PROTOCOL_HOOK_RE = re.compile(
+    r"^(?:[a-z][a-z0-9+.-]*_(?:open|request|response)|"
+    r"http_error(?:_[0-9]{3})?|default_open|unknown_open|redirect_request)$"
+)
 
 
 def _entrypoint_module_name(qname: str) -> str | None:
@@ -197,6 +246,17 @@ def _architecture_iad_strict(architecture_cfg) -> bool:
         if key in architecture_cfg:
             return bool(architecture_cfg.get(key))
     return False
+
+
+def _base_class_leaf_names(class_def) -> set[str]:
+    leaves: set[str] = set()
+    for base in getattr(class_def, "base_classes", []):
+        leaves.add(str(base).split(".")[-1])
+    return leaves
+
+
+def _class_has_base_leaf(class_def, leaf_names: set[str]) -> bool:
+    return bool(_base_class_leaf_names(class_def) & leaf_names)
 
 
 def _expand_reexported_entrypoint_modules(
@@ -597,6 +657,8 @@ class Skylos:
         ".rs": "Rust",
         ".dart": "Dart",
         ".cs": "C#",
+        ".kt": "Kotlin",
+        ".kts": "Kotlin",
         ".sh": "Shell",
         ".bash": "Shell",
         ".zsh": "Shell",
@@ -631,6 +693,7 @@ class Skylos:
             *(_RUST_SOURCE_EXTS),
             *(_DART_SOURCE_EXTS),
             *(_CSHARP_SOURCE_EXTS),
+            *(_KOTLIN_SOURCE_EXTS),
             *(_SHELL_SOURCE_EXTS),
         }
         ext_list = [
@@ -649,6 +712,8 @@ class Skylos:
             "rs",
             "dart",
             "cs",
+            "kt",
+            "kts",
             "sh",
             "bash",
             "zsh",
@@ -787,7 +852,9 @@ class Skylos:
             for def_name, def_obj in self.defs.items():
                 if def_obj.type not in ("function", "method"):
                     continue
-                if str(def_obj.filename).endswith((".java",) + _CSHARP_SOURCE_EXTS):
+                if str(def_obj.filename).endswith(
+                    (".java",) + _CSHARP_SOURCE_EXTS + _KOTLIN_SOURCE_EXTS
+                ):
                     continue
                 if "." not in def_obj.name:
                     continue
@@ -1454,6 +1521,12 @@ class Skylos:
                     class_methods[cls].append(definition)
 
         for cls, methods in class_methods.items():
+            class_def = self.defs[cls]
+            base_classes = getattr(class_def, "base_classes", [])
+            is_textual_app = any(
+                str(base).split(".")[-1] == "App" for base in base_classes
+            )
+
             if self.defs[cls].references > 0:
                 for method in methods:
                     if method.simple_name in AUTO_CALLED:
@@ -1468,6 +1541,159 @@ class Skylos:
 
                     if method.simple_name == "format" and cls.endswith("Formatter"):
                         method.references += 1
+
+            if is_textual_app:
+                for method in methods:
+                    if method.simple_name == "compose":
+                        method.references += 1
+                    elif method.simple_name.startswith("action_"):
+                        method.references += 1
+
+        referenced_class_prefixes = tuple(
+            f"{name}."
+            for name, definition in self.defs.items()
+            if definition.type == "class" and definition.references > 0
+        )
+        for definition in self.defs.values():
+            if definition.type not in ("method", "variable"):
+                continue
+
+            if definition.references > 0:
+                continue
+
+            if not (
+                definition.simple_name.startswith("visit_")
+                or definition.simple_name.startswith("leave_")
+                or definition.simple_name.startswith("transform_")
+            ):
+                continue
+
+            if referenced_class_prefixes and definition.name.startswith(
+                referenced_class_prefixes
+            ):
+                definition.references += 1
+
+        http_handler_metadata = {
+            "protocol_version",
+            "server_version",
+            "sys_version",
+        }
+        http_handler_override_methods = {
+            "do_CONNECT",
+            "do_DELETE",
+            "do_GET",
+            "do_HEAD",
+            "do_OPTIONS",
+            "do_PATCH",
+            "do_POST",
+            "do_PUT",
+            "end_headers",
+            "log_message",
+            "send_error",
+            "version_string",
+        }
+        for definition in self.defs.values():
+            if definition.type != "variable":
+                continue
+
+            if definition.simple_name not in http_handler_metadata:
+                continue
+
+            if "." not in definition.name:
+                continue
+
+            cls = definition.name.rsplit(".", 1)[0]
+            class_def = self.defs.get(cls)
+            if class_def is None or class_def.type != "class":
+                continue
+
+            base_classes = getattr(class_def, "base_classes", [])
+            for base in base_classes:
+                if str(base).split(".")[-1] == "BaseHTTPRequestHandler":
+                    definition.references += 1
+                    break
+
+        for definition in self.defs.values():
+            if definition.type != "method":
+                continue
+
+            if definition.simple_name not in http_handler_override_methods:
+                continue
+
+            if "." not in definition.name:
+                continue
+
+            cls = definition.name.rsplit(".", 1)[0]
+            class_def = self.defs.get(cls)
+            if class_def is None or class_def.type != "class":
+                continue
+
+            base_classes = getattr(class_def, "base_classes", [])
+            for base in base_classes:
+                if str(base).split(".")[-1] in {
+                    "BaseHTTPRequestHandler",
+                    "SimpleHTTPRequestHandler",
+                }:
+                    definition.references += 1
+                    break
+
+        for definition in self.defs.values():
+            if definition.type != "method":
+                continue
+
+            if definition.simple_name not in _HTML_PARSER_CALLBACKS:
+                continue
+
+            if "." not in definition.name:
+                continue
+
+            cls = definition.name.rsplit(".", 1)[0]
+            class_def = self.defs.get(cls)
+            if class_def is None or class_def.type != "class":
+                continue
+
+            if _class_has_base_leaf(class_def, {"HTMLParser"}):
+                definition.references += 1
+
+        for definition in self.defs.values():
+            if definition.type != "method":
+                continue
+
+            if not _URLLIB_REQUEST_PROTOCOL_HOOK_RE.match(definition.simple_name):
+                continue
+
+            if "." not in definition.name:
+                continue
+
+            cls = definition.name.rsplit(".", 1)[0]
+            class_def = self.defs.get(cls)
+            if class_def is None or class_def.type != "class":
+                continue
+
+            if _class_has_base_leaf(class_def, _URLLIB_REQUEST_HANDLER_BASES):
+                definition.references += 1
+
+        textual_app_metadata = {"BINDINGS", "CSS", "TITLE", "SUB_TITLE"}
+        for definition in self.defs.values():
+            if definition.type != "variable":
+                continue
+
+            if definition.simple_name not in textual_app_metadata:
+                continue
+
+            if "." not in definition.name:
+                continue
+
+            cls = definition.name.rsplit(".", 1)[0]
+            class_def = self.defs.get(cls)
+            if class_def is None or class_def.type != "class":
+                continue
+
+            base_classes = getattr(class_def, "base_classes", [])
+            for base in base_classes:
+                if str(base).split(".")[-1] == "App":
+                    definition.references += 1
+                    break
 
         registry_bases = set()
         for name, defn in self.defs.items():
@@ -2684,10 +2910,7 @@ class Skylos:
             if class_name in self._global_protocol_implementers:
                 continue
 
-            for (
-                protocol_name,
-                protocol_methods,
-            ) in self._global_protocol_method_names.items():
+            for protocol_methods in self._global_protocol_method_names.values():
                 if not protocol_methods or len(protocol_methods) < 3:
                     continue
 
@@ -2809,15 +3032,15 @@ class Skylos:
                 if os.getenv("SKYLOS_DEBUG"):
                     logger.error(traceback.format_exc())
 
-            # --- SKY-D260: Prompt injection scanner (multi-file) ---
-            if "SKY-D260" not in project_ignore:
+            # --- SKY-D260/D266: Prompt injection scanner (multi-file) ---
+            if {"SKY-D260", "SKY-D266"} - set(project_ignore):
                 if progress_callback:
                     progress_callback(0, 1, Path("PHASE: prompt injection scan"))
                 try:
                     from skylos.security.injection_scanner import (
                         MAX_SCAN_FILES as _INJECTION_MAX_SCAN_FILES,
                         MAX_SCAN_FINDINGS as _INJECTION_MAX_SCAN_FINDINGS,
-                        SCANNABLE_EXTENSIONS,
+                        is_scannable_path as _injection_is_scannable_path,
                         scan_file as _injection_scan_file,
                     )
 
@@ -2839,6 +3062,11 @@ class Skylos:
                         "prompts.md",
                         "prompts.yaml",
                         "prompts.yml",
+                        "AGENTS.md",
+                        "CLAUDE.md",
+                        ".cursorrules",
+                        ".clinerules",
+                        ".windsurfrules",
                     )
                     high_priority_injection_dirs = (
                         "",
@@ -2847,6 +3075,13 @@ class Skylos:
                         "prompts",
                         "config",
                         "configs",
+                        ".github",
+                        ".continue",
+                    )
+                    agent_instruction_globs = (
+                        ".cursor/rules/*.mdc",
+                        ".continue/**/*",
+                        ".aider*",
                     )
 
                     def _add_injection_candidate(candidate):
@@ -2855,7 +3090,14 @@ class Skylos:
                         candidate_path = Path(candidate)
                         if not candidate_path.is_absolute():
                             candidate_path = injection_root / candidate_path
-                        if candidate_path.suffix.lower() not in SCANNABLE_EXTENSIONS:
+                        rel_hint = None
+                        try:
+                            rel_hint = candidate_path.relative_to(injection_root)
+                        except ValueError:
+                            pass
+                        if not _injection_is_scannable_path(
+                            candidate_path, rel_hint or candidate_path
+                        ):
                             return False
                         try:
                             resolved_path = candidate_path.resolve()
@@ -2887,9 +3129,25 @@ class Skylos:
                                 _add_injection_candidate(
                                     injection_root / base_dir / filename
                                 )
+                        for pattern in agent_instruction_globs:
+                            if len(injection_candidates) >= _INJECTION_MAX_SCAN_FILES:
+                                break
+                            for candidate in injection_root.glob(pattern):
+                                if (
+                                    len(injection_candidates)
+                                    >= _INJECTION_MAX_SCAN_FILES
+                                ):
+                                    break
+                                _add_injection_candidate(candidate)
                         if injection_root.is_dir():
                             pending_dirs = [injection_root]
-                            excluded_dirs = set(exclude_folders or [])
+                            excluded_dirs = {
+                                folder
+                                for folder in DEFAULT_EXCLUDE_FOLDERS
+                                if "*" not in folder
+                            }
+                            excluded_dirs.add("site-packages")
+                            excluded_dirs.update(exclude_folders or [])
                             while (
                                 pending_dirs
                                 and len(injection_candidates)
@@ -2922,10 +3180,7 @@ class Skylos:
                                         except OSError:
                                             continue
 
-                                        if (
-                                            Path(entry.name).suffix.lower()
-                                            in SCANNABLE_EXTENSIONS
-                                        ):
+                                        if _injection_is_scannable_path(entry.path):
                                             _add_injection_candidate(entry.path)
                                 finally:
                                     entries.close()
@@ -2940,7 +3195,11 @@ class Skylos:
                         inj_hits = _injection_scan_file(f, scan_path=scan_path)
                         if inj_hits:
                             remaining = _INJECTION_MAX_SCAN_FINDINGS - injection_findings
-                            bounded_hits = inj_hits[:remaining]
+                            bounded_hits = [
+                                hit
+                                for hit in inj_hits
+                                if hit.get("rule_id") not in project_ignore
+                            ][:remaining]
                             all_dangers.extend(bounded_hits)
                             injection_findings += len(bounded_hits)
                 except Exception:
@@ -3060,6 +3319,19 @@ class Skylos:
         from skylos.visitors.languages.typescript.resolve import MonorepoResolver
 
         monorepo_resolver = MonorepoResolver(str(self._project_root))
+        try:
+            from skylos.deadcode.browser_refs import collect_mdx_ts_imports
+
+            mdx_raw_imports = collect_mdx_ts_imports(
+                Path(root),
+                files,
+                exclude_folders=exclude_folders,
+            )
+            ts_raw_imports.update(mdx_raw_imports)
+        except Exception:
+            if os.getenv("SKYLOS_DEBUG"):
+                logger.error("MDX component import graph scan failed", exc_info=True)
+
         self._build_ts_import_graph(ts_raw_imports, monorepo_resolver)
 
         self._global_type_map = {}
@@ -3069,6 +3341,21 @@ class Skylos:
         self._all_used_attr_context = all_used_attr_context
         self._param_method_refs = all_param_method_refs
         self._call_arg_types = all_call_arg_types
+
+        try:
+            from skylos.deadcode.browser_refs import (
+                collect_browser_event_handler_refs,
+            )
+
+            browser_handler_refs = collect_browser_event_handler_refs(
+                Path(root),
+                files,
+                exclude_folders=exclude_folders,
+            )
+            self.refs.extend(browser_handler_refs)
+        except Exception:
+            if os.getenv("SKYLOS_DEBUG"):
+                logger.error("Browser event handler liveness scan failed", exc_info=True)
 
         for top_level_ref in all_top_level_refs:
             defn = self.defs.get(top_level_ref)
@@ -3268,6 +3555,16 @@ def proc_file(
 
     if str(file).endswith(".cs"):
         out = scan_csharp_file(
+            file,
+            cfg,
+            enable_danger_rules=enable_danger_rules,
+        )
+        if isinstance(out, tuple) and len(out) < 13:
+            return (*out, *([None] * (13 - len(out))))
+        return out[:13]
+
+    if str(file).endswith(_KOTLIN_SOURCE_EXTS):
+        out = scan_kotlin_file(
             file,
             cfg,
             enable_danger_rules=enable_danger_rules,

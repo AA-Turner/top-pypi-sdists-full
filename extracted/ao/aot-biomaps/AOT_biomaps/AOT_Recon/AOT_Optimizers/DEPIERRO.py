@@ -83,26 +83,27 @@ def DEPIERRO(
     any SMatrix type (CSR, SELL, DENSE) and any device (CPU, GPU).
     
     Supports potential functions:
-    - QUADRATIC: 0.5 * β * (u-v)^2
-    - HUBER: β * (0.5 * (u-v)^2 if |u-v| <= δ else δ * (|u-v| - 0.5 * δ))
-    - RELATIVE_DIFFERENCE: β * (u-v)^2 / (v + ε)
+        - NONE: No regularization
+        - QUADRATIC: 0.5 * β * (u-v)^2
+        - HUBER: β * (0.5 * (u-v)^2 if |u-v| <= δ else δ * (|u-v| - 0.5 * δ))
+        - RELATIVE_DIFFERENCE: β * (u-v)^2 / (v + ε)
 
     Supports stopping criteria:
-    - MAX_ITERATIONS: Stop after a fixed number of iterations
-    - RELATIVE_CHANGE: Stop when relative change in lambda is below threshold
-    - COST_FUNCTION: Stop when cost function value changes by less than threshold
-    - MSE: Stop when mean squared error with respect to ground truth is below threshold (requires ground truth) ONLY FOR SIMULATED DATA 
-    - GRADIENT_NORM: Stop when norm of the update step is below threshold
+        - MAX_ITERATIONS: Stop after a fixed number of iterations
+        - RELATIVE_CHANGE: Stop when relative change in lambda is below threshold
+        - COST_FUNCTION: Stop when cost function value changes by less than threshold
+        - MSE: Stop when mean squared error with respect to ground truth is below threshold (requires ground truth) ONLY FOR SIMULATED DATA 
+        - GRADIENT_NORM: Stop when norm of the update step is below threshold
 
     Supports preconditioning:
-    - DIAGONAL: Diagonal preconditioning using A^T * 1 (NECESSARY FOR CONVERGENCE)
+        - DIAGONAL: Diagonal preconditioning using A^T * 1 (NECESSARY FOR CONVERGENCE)
     
     Args:
         SMatrix: SMatrix instance (already allocated)
         y: Measurement data (shape: (T, N))
         numIterations: Number of iterations
         beta: Regularization parameter (weight for potential)
-        delta: Additional parameter for DEPIERRO
+        delta: Huber threshold (only used if potential_type is HUBER)
         potential_type: Type of potential function to use
         potential_shape: Neighborhood shape (PotentialShapeType enum)
         potential_radius: Neighborhood radius in pixels
@@ -190,6 +191,7 @@ def DEPIERRO(
                 iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
             if isStop:
                 if show_logs: print(f"\n[Stopping] Criterion {stop_criterion.name} reached at iteration {it}.")
+                cost_history.pop() if isCostFunction else None
                 break
         
         if isSavingEachIteration and it in save_indices:

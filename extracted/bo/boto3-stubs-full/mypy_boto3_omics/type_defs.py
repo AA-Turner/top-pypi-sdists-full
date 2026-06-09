@@ -549,6 +549,7 @@ class InlineSettingTypeDef(TypedDict):
     parameters: NotRequired[Mapping[str, Any]]
     outputBucketOwnerId: NotRequired[str]
     runTags: NotRequired[Mapping[str, str]]
+    engineSettings: NotRequired[Mapping[str, Any]]
 
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
@@ -681,6 +682,7 @@ class DefaultRunSettingOutputTypeDef(TypedDict):
     workflowVersionName: NotRequired[str]
     networkingMode: NotRequired[NetworkingModeType]
     configurationName: NotRequired[str]
+    engineSettings: NotRequired[dict[str, Any]]
 
 
 class DefaultRunSettingTypeDef(TypedDict):
@@ -704,6 +706,7 @@ class DefaultRunSettingTypeDef(TypedDict):
     workflowVersionName: NotRequired[str]
     networkingMode: NotRequired[NetworkingModeType]
     configurationName: NotRequired[str]
+    engineSettings: NotRequired[Mapping[str, Any]]
 
 
 SourceReferenceTypeDef = TypedDict(

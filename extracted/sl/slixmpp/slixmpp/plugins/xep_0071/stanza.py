@@ -3,9 +3,8 @@
 # Copyright (C) 2012  Nathanael C. Fritz
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-from slixmpp.stanza import Message
 from slixmpp.util import unicode
-from slixmpp.xmlstream import ElementBase, ET, register_stanza_plugin, tostring
+from slixmpp.xmlstream import ElementBase, ET, tostring
 
 
 XHTML_NS = 'http://www.w3.org/1999/xhtml'

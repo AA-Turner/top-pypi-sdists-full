@@ -4,7 +4,6 @@
 # See the file LICENSE for copying permission.
 import logging
 
-from xml.parsers.expat import ExpatError
 from xml.etree.ElementTree import Element
 
 from slixmpp.xmlstream.stanzabase import ET, StanzaBase

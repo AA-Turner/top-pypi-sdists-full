@@ -32,6 +32,7 @@ from importlib import resources
 from typing import Any, NamedTuple
 
 from ...helpers.api import CommandError
+from ...helpers.automation_keys import is_trigger_key
 from ...helpers.json import loads as json_loads
 from ...helpers.lazy_catalog import is_unsafe_catalog_id
 from ...models.api import ErrorCode
@@ -156,7 +157,7 @@ def _parse_device_level(root: Any) -> list[ParsedAutomation]:
             )
             continue
         from_line, to_line = _key_range(esphome, trigger_key)
-        tree, error = _safe_tree(
+        tree, error, unsupported = _safe_tree(
             partial(_decompose_trigger_body, body, trigger_id=trigger_key),
             trigger_id=trigger_key,
         )
@@ -169,6 +170,7 @@ def _parse_device_level(root: Any) -> list[ParsedAutomation]:
                 to_line=to_line,
                 raw_yaml=_dump_slice({trigger_key: body}),
                 error=error,
+                unsupported=unsupported,
             )
         )
     return out
@@ -187,7 +189,7 @@ def _parse_top_level_scripts(root: Any) -> list[ParsedAutomation]:
             continue
         script_id = item.get("id") or f"script_{idx}"
         from_line, to_line = _item_range(scripts, idx)
-        tree, error = _safe_tree(
+        tree, error, unsupported = _safe_tree(
             partial(
                 _block_tree,
                 _collect_block_params(item, action_list_keys={"then"}),
@@ -204,6 +206,7 @@ def _parse_top_level_scripts(root: Any) -> list[ParsedAutomation]:
                 to_line=to_line,
                 raw_yaml=_dump_slice([item]),
                 error=error,
+                unsupported=unsupported,
             )
         )
     return out
@@ -223,7 +226,7 @@ def _parse_top_level_intervals(root: Any) -> list[ParsedAutomation]:
         from_line, to_line = _item_range(intervals, idx)
         every = item.get("interval")
         label = f"Interval: every {every}" if every else f"Interval #{idx + 1}"
-        tree, error = _safe_tree(
+        tree, error, unsupported = _safe_tree(
             partial(
                 _block_tree,
                 _collect_block_params(item, action_list_keys={"then"}),
@@ -240,6 +243,7 @@ def _parse_top_level_intervals(root: Any) -> list[ParsedAutomation]:
                 to_line=to_line,
                 raw_yaml=_dump_slice([item]),
                 error=error,
+                unsupported=unsupported,
             )
         )
     return out
@@ -271,7 +275,7 @@ def _parse_api_actions(root: Any) -> list[ParsedAutomation]:
         if not action_name:
             continue
         from_line, to_line = _item_range(actions, idx)
-        tree, error = _safe_tree(
+        tree, error, unsupported = _safe_tree(
             partial(_block_tree, _collect_api_action_params(item), item.get("then")),
             trigger_id=None,
         )
@@ -284,6 +288,7 @@ def _parse_api_actions(root: Any) -> list[ParsedAutomation]:
                 to_line=to_line,
                 raw_yaml=_dump_slice([item]),
                 error=error,
+                unsupported=unsupported,
             )
         )
     return out
@@ -528,7 +533,7 @@ def _parse_component_action_fields(root: Any) -> list[ParsedAutomation]:
             if key not in fields:
                 continue
             from_line, to_line = _key_range(instance, key)
-            tree, error = _safe_tree(
+            tree, error, unsupported = _safe_tree(
                 partial(_decompose_trigger_body, body, trigger_id=None),
                 trigger_id=None,
             )
@@ -541,6 +546,7 @@ def _parse_component_action_fields(root: Any) -> list[ParsedAutomation]:
                     to_line=to_line,
                     raw_yaml=_dump_slice({key: body}),
                     error=error,
+                    unsupported=unsupported,
                 )
             )
     return out
@@ -555,7 +561,7 @@ def _parse_instance_triggers(
     comp_name = str(instance.get("name") or comp_id)
     out: list[ParsedAutomation] = []
     for key, body in list(instance.items()):
-        if not key.startswith("on_"):
+        if not is_trigger_key(key):
             continue
         trigger = catalog.trigger_by_id(f"{domain}.{key}")
         if trigger is None:
@@ -597,7 +603,7 @@ def _parse_one_inline_trigger(
             label_prefix=f"{comp_name} → {_pretty_name(key)}",
         )
     from_line, to_line = _key_range(instance, key)
-    tree, error = _safe_tree(
+    tree, error, unsupported = _safe_tree(
         partial(_decompose_trigger_body, body, trigger_id=trigger_id),
         trigger_id=trigger_id,
     )
@@ -610,6 +616,7 @@ def _parse_one_inline_trigger(
             to_line=to_line,
             raw_yaml=_dump_slice({key: body}),
             error=error,
+            unsupported=unsupported,
         )
     ]
 
@@ -621,17 +628,17 @@ def _is_list_form_trigger(body: Any, trigger: AutomationTrigger) -> bool:
     A bare action list (``on_press: [{light.turn_on: id}, ...]``) is *not*
     list-form: every item there is a known action id. List-form requires a
     non-empty list whose every item is trigger-shaped (see
-    :func:`_is_trigger_entry`), so the conservative default keeps the
+    :func:`is_trigger_entry`), so the conservative default keeps the
     existing bare-action-list behaviour intact.
     """
     return (
         isinstance(body, list)
         and bool(body)
-        and all(_is_trigger_entry(item, trigger) for item in body)
+        and all(is_trigger_entry(item, trigger) for item in body)
     )
 
 
-def _is_trigger_entry(item: Any, trigger: AutomationTrigger) -> bool:
+def is_trigger_entry(item: Any, trigger: AutomationTrigger) -> bool:
     """
     Report whether *item* looks like one entry of a list-shaped trigger.
 
@@ -664,7 +671,7 @@ def _parse_trigger_list(
     out: list[ParsedAutomation] = []
     for index, entry in enumerate(body):
         from_line, to_line = _item_range(body, index)
-        tree, error = _safe_tree(
+        tree, error, unsupported = _safe_tree(
             partial(_decompose_trigger_mapping, entry, trigger_id=trigger_id),
             trigger_id=trigger_id,
         )
@@ -677,6 +684,7 @@ def _parse_trigger_list(
                 to_line=to_line,
                 raw_yaml=_dump_slice([entry]),
                 error=error,
+                unsupported=unsupported,
             )
         )
     return out

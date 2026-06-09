@@ -6,7 +6,7 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 from slixmpp import Iq, Message
-from slixmpp.xmlstream import register_stanza_plugin, ElementBase, ET, JID
+from slixmpp.xmlstream import register_stanza_plugin, ElementBase
 import re
 
 class Sensordata(ElementBase):
@@ -423,7 +423,7 @@ class FieldsNode(ElementBase):
             self._timestamps.add((timestamp))
             ts = Timestamp(parent=self)
             ts['value'] = timestamp
-            if not substanzas is None:
+            if substanzas is not None:
                 ts.set_datas(substanzas)
                 #print("add_timestamp with substanzas: " + str(substanzas))
             self.iterables.append(ts)

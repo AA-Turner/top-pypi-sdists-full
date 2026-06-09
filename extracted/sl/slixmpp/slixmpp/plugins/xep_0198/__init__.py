@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2012 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -15,3 +14,6 @@ from slixmpp.plugins.xep_0198.stream_management import XEP_0198
 
 
 register_plugin(XEP_0198)
+
+__all__ = ['Enable', 'Enabled', 'Resume', 'Resumed', 'Failed',
+           'StreamManagement', 'Ack', 'RequestAck', 'XEP_0198']

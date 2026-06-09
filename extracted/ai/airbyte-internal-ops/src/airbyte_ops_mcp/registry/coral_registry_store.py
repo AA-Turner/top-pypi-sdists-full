@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from airbyte_ops_mcp.registry._enums import (
     ConnectorLanguage,
@@ -23,16 +23,15 @@ from airbyte_ops_mcp.registry.connector_stubs import (
     read_connector_stubs,
     write_connector_stubs,
 )
-from airbyte_ops_mcp.registry.models import ConnectorPublishResult
 from airbyte_ops_mcp.registry.operations import (
     get_registry_entry,
     list_connector_versions,
     list_registry_connectors,
     list_registry_connectors_filtered,
 )
-from airbyte_ops_mcp.registry.publish import (
-    create_progressive_rollout_blob,
-    delete_progressive_rollout_blob,
+from airbyte_ops_mcp.registry.progressive_rollout_marker import (
+    ProgressiveRolloutMarkerResult,
+    finalize_progressive_rollout_marker,
 )
 from airbyte_ops_mcp.registry.publish_artifacts import (
     PublishArtifactsResult,
@@ -102,37 +101,12 @@ class CoralRegistry(Registry):
     # Write / mutate operations
     # ---------------------------------------------------------------------
 
-    def progressive_rollout_create(
-        self,
-        repo_path: Path,
-        connector_name: str,
-        dry_run: bool = False,
-    ) -> ConnectorPublishResult:
-        return create_progressive_rollout_blob(
-            repo_path=repo_path,
-            connector_name=connector_name,
-            dry_run=dry_run,
-            bucket_name=self.bucket_name,
-        )
-
-    def progressive_rollout_cleanup(
-        self,
-        repo_path: Path,
-        connector_name: str,
-        dry_run: bool = False,
-    ) -> ConnectorPublishResult:
-        return delete_progressive_rollout_blob(
-            repo_path=repo_path,
-            connector_name=connector_name,
-            dry_run=dry_run,
-            bucket_name=self.bucket_name,
-        )
-
     def yank(
         self,
         connector_name: str,
         version: str,
         reason: str = "",
+        approval_url: str = "",
         dry_run: bool = False,
     ) -> YankResult:
         self._require_no_prefix("yank")
@@ -141,6 +115,7 @@ class CoralRegistry(Registry):
             version=version,
             bucket_name=self.bucket_name,
             reason=reason,
+            approval_url=approval_url,
             dry_run=dry_run,
         )
 
@@ -155,6 +130,21 @@ class CoralRegistry(Registry):
             connector_name=connector_name,
             version=version,
             bucket_name=self.bucket_name,
+            dry_run=dry_run,
+        )
+
+    def finalize_progressive_rollout_marker(
+        self,
+        connector_name: str,
+        outcome: Literal["promoted", "aborted"],
+        version: str | None = None,
+        dry_run: bool = False,
+    ) -> ProgressiveRolloutMarkerResult:
+        return finalize_progressive_rollout_marker(
+            connector_name=connector_name,
+            store=self.store,
+            outcome=outcome,
+            version=version,
             dry_run=dry_run,
         )
 

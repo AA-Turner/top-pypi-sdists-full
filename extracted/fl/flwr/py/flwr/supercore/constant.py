@@ -18,8 +18,7 @@
 from __future__ import annotations
 
 import os
-import sys
-from enum import Enum
+from enum import StrEnum
 
 from flwr.common.constant import (
     FLWR_DIR,
@@ -28,22 +27,6 @@ from flwr.common.constant import (
     TIMESTAMP_TOLERANCE,
 )
 from flwr.proto.federation_config_pb2 import SimulationConfig  # pylint: disable=E0611
-
-if sys.version_info >= (3, 11):
-    from enum import StrEnum
-else:
-
-    class StrEnum(str, Enum):
-        """Python 3.10-compatible fallback for enum.StrEnum.
-
-        Preserves StrEnum behavior by returning the member value from str(). Remove this
-        fallback once Python 3.10 support is dropped.
-        """
-
-        def __str__(self) -> str:
-            """Return the member value."""
-            return str(self.value)
-
 
 # Constants for Inflatable
 HEAD_BODY_DIVIDER = b"\x00"
@@ -199,6 +182,7 @@ class InvitationStatus(StrEnum):
 class RunType(StrEnum):
     """Supported run types."""
 
+    AGENT_APP = "agentapp"
     SERVER_APP = "serverapp"
     SIMULATION = "simulation"
 
@@ -208,6 +192,12 @@ class RunTime(StrEnum):
 
     DEPLOYMENT = "deployment"
     SIMULATION = "simulation"
+
+
+class ExecutorType(StrEnum):
+    """Supported SuperExec executor types."""
+
+    SUBPROCESS = "subprocess"
 
 
 class TaskType(StrEnum):
@@ -221,6 +211,20 @@ class TaskType(StrEnum):
     CONNECTOR = "flwr-connector"
 
 
+TASK_TYPE_TO_APPIO_API_ADDRESS_ARG: dict[TaskType, str] = {
+    TaskType.AGENT_APP: "--serverappio-api-address",
+    TaskType.CLIENT_APP: "--clientappio-api-address",
+    TaskType.MODEL: "--serverappio-api-address",
+    TaskType.SERVER_APP: "--serverappio-api-address",
+    TaskType.SIMULATION: "--serverappio-api-address",
+}
+TASK_TYPE_TO_COMMAND: dict[TaskType, str] = {
+    TaskType.AGENT_APP: "flwr-agentapp",
+    TaskType.CLIENT_APP: "flwr-clientapp",
+    TaskType.MODEL: "flwr-model",
+    TaskType.SERVER_APP: "flwr-serverapp",
+    TaskType.SIMULATION: "flwr-simulation",
+}
 TASK_TYPES_ALLOWED_TO_CREATE_TASKS: frozenset[TaskType] = frozenset(
     {
         TaskType.AGENT_APP,

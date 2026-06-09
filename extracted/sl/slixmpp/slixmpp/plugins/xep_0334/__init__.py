@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2012 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -9,3 +8,5 @@ from slixmpp.plugins.xep_0334.stanza import Store, NoStore, NoPermanentStore, No
 from slixmpp.plugins.xep_0334.hints import XEP_0334
 
 register_plugin(XEP_0334)
+
+__all__ = ['Store', 'NoStore', 'NoPermanentStore', 'NoCopy', 'XEP_0334']

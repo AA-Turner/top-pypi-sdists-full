@@ -55,6 +55,7 @@ with patch("sagemaker_studio.Project"):
     for interceptor_path in [
         "sagemaker_studio.utils.spark.session.athena.interceptors",
         "sagemaker_studio.utils.spark.session.emr_serverless.interceptors",
+        "sagemaker_studio.utils.spark.session.glue.interceptors",
     ]:
         mock_interceptors = Mock()
         mock_interceptors.CustomChannelBuilder = Mock()
@@ -195,13 +196,26 @@ def test_create_session_manager_emr_serverless():
     assert isinstance(mgr, EMRServerlessSparkSessionManager)
 
 
-def test_create_session_manager_glue_raises():
-    """Ensure RuntimeError is raised for GLUE connections."""
-    conn = _make_connection({"sparkGlueProperties": {"someKey": "val"}})
-    conn.type = "SPARK_CONNECT"
+def test_create_session_manager_glue():
+    """Ensure Glue session manager is created for GLUE service with SPARK_CONNECT or SPARK type."""
+    from sagemaker_studio.utils.spark.session.glue.glue_spark_session_manager import (
+        GlueSparkSessionManager,
+    )
 
-    with pytest.raises(RuntimeError, match="not yet supported for GLUE"):
-        _create_session_manager(conn, "my-conn", None, MagicMock())
+    # SPARK_CONNECT type
+    conn = _make_connection({"sparkGlueProperties": {"glueVersion": "5.1"}})
+    conn.type = "SPARK_CONNECT"
+    mgr = _create_session_manager(conn, "my-conn", None, MagicMock())
+    assert isinstance(mgr, GlueSparkSessionManager)
+    assert mgr._connection is conn
+    assert mgr.connection_name == "my-conn"
+
+    # SPARK type (DZ creates Glue connections with type=SPARK)
+    conn2 = _make_connection({"sparkGlueProperties": {"glueVersion": "5.0"}})
+    conn2.type = "SPARK"
+    mgr2 = _create_session_manager(conn2, "glue-conn", None, MagicMock())
+    assert isinstance(mgr2, GlueSparkSessionManager)
+    assert mgr2._connection is conn2
 
 
 def test_create_session_manager_emr_eks_raises():
@@ -246,8 +260,8 @@ def test_create_session_manager_unrecognized_compute_arn_raises():
         _create_session_manager(conn, "my-conn", None, MagicMock())
 
 
-def test_create_session_manager_unhandled_service_raises():
-    """Ensure RuntimeError is raised for a service type returned by _identify_service_from_props that is not explicitly handled."""
+def test_create_session_manager_unhandled_service_defaults_to_athena():
+    """Ensure unhandled service types default to Athena session manager for SPARK_CONNECT."""
     conn = _make_connection({"athenaProperties": {"workgroupName": "wg-1"}})
     conn.type = "SPARK_CONNECT"
 
@@ -255,8 +269,13 @@ def test_create_session_manager_unhandled_service_raises():
         "sagemaker_studio.utils.spark.connection_resolver._identify_service_from_props",
         return_value="NEW_SERVICE",
     ):
-        with pytest.raises(RuntimeError, match="Unhandled Spark Connect service type: NEW_SERVICE"):
-            _create_session_manager(conn, "my-conn", None, MagicMock())
+        mgr = _create_session_manager(conn, "my-conn", None, MagicMock())
+
+    from sagemaker_studio.utils.spark.session.athena.athena_spark_session_manager import (
+        AthenaSparkSessionManager,
+    )
+
+    assert isinstance(mgr, AthenaSparkSessionManager)
 
 
 def test_create_session_manager_non_spark_connect_explicit_raises():
@@ -286,6 +305,62 @@ def test_create_session_manager_non_spark_connect_default_falls_back():
     assert isinstance(mgr, AthenaSparkSessionManager)
     assert len(w) == 1
     assert "not a recognized Spark Connect type" in str(w[0].message)
+
+
+def test_create_session_manager_spark_type_with_emr_serverless_explicit_raises():
+    """Ensure RuntimeError when type=SPARK is used with EMR Serverless (only Glue uses SPARK type)."""
+    conn = _make_connection(
+        {
+            "sparkEmrProperties": {
+                "computeArn": "arn:aws:emr-serverless:us-west-2:123:/applications/app-1"
+            }
+        }
+    )
+    conn.type = "SPARK"
+
+    with pytest.raises(RuntimeError, match="only supported for Glue connections"):
+        _create_session_manager(conn, "emr-conn", None, MagicMock(), is_explicit_choice=True)
+
+
+def test_create_session_manager_spark_type_with_athena_explicit_raises():
+    """Ensure RuntimeError when type=SPARK is used with Athena (only Glue uses SPARK type)."""
+    conn = _make_connection({"athenaProperties": {"workgroupName": "wg-1"}})
+    conn.type = "SPARK"
+
+    with pytest.raises(RuntimeError, match="only supported for Glue connections"):
+        _create_session_manager(conn, "athena-conn", None, MagicMock(), is_explicit_choice=True)
+
+
+def test_create_session_manager_spark_type_with_glue_succeeds():
+    """Ensure type=SPARK with sparkGlueProperties routes to GlueSparkSessionManager."""
+    from sagemaker_studio.utils.spark.session.glue.glue_spark_session_manager import (
+        GlueSparkSessionManager,
+    )
+
+    conn = _make_connection({"sparkGlueProperties": {"glueVersion": "5.1"}})
+    conn.type = "SPARK"
+
+    mgr = _create_session_manager(conn, "glue-conn", None, MagicMock())
+    assert isinstance(mgr, GlueSparkSessionManager)
+
+
+def test_create_session_manager_spark_type_with_non_glue_default_falls_back_to_athena():
+    """Ensure type=SPARK with non-Glue service falls back to Athena on default path (not explicit)."""
+    from sagemaker_studio.utils.spark.session.athena.athena_spark_session_manager import (
+        AthenaSparkSessionManager,
+    )
+
+    conn = _make_connection(
+        {
+            "sparkEmrProperties": {
+                "computeArn": "arn:aws:emr-serverless:us-west-2:123:/applications/app-1"
+            }
+        }
+    )
+    conn.type = "SPARK"
+
+    mgr = _create_session_manager(conn, None, None, MagicMock(), is_explicit_choice=False)
+    assert isinstance(mgr, AthenaSparkSessionManager)
 
 
 # ---------------------------------------------------------------------------
@@ -388,6 +463,21 @@ def test_resolve_passes_spark_conf_to_create_session_manager(
 
     mock_create.assert_called_once_with(mock_conn, "my-conn", None, ANY, True, spark_conf=user_conf)
     assert result == "manager"
+
+
+def test_create_session_manager_glue_receives_spark_conf():
+    """Ensure spark_conf is passed to GlueSparkSessionManager."""
+    from sagemaker_studio.utils.spark.session.glue.glue_spark_session_manager import (
+        GlueSparkSessionManager,
+    )
+
+    conn = _make_connection({"sparkGlueProperties": {"glueVersion": "5.1"}})
+    conn.type = "SPARK_CONNECT"
+    user_conf = {"spark.sql.catalog.spark_catalog.warehouse": "s3://bucket/wh"}
+
+    mgr = _create_session_manager(conn, "my-conn", None, MagicMock(), spark_conf=user_conf)
+    assert isinstance(mgr, GlueSparkSessionManager)
+    assert mgr.spark_conf == user_conf
 
 
 def test_create_session_manager_emr_serverless_receives_spark_conf():

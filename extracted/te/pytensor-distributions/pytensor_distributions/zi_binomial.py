@@ -2,6 +2,7 @@ import pytensor.tensor as pt
 
 from pytensor_distributions import binomial as Binomial
 from pytensor_distributions.helper import cdf_bounds, discrete_entropy, zi_mode
+from pytensor_distributions.lmoments import _lmoments
 from pytensor_distributions.optimization import find_ppf_discrete
 
 
@@ -68,6 +69,22 @@ def kurtosis(psi, n, p):
     return mu4 / pt.power(mu2, 2) - 3
 
 
+def lmoment1(psi, n, p):
+    return mean(psi, n, p)
+
+
+def lmoment2(psi, n, p):
+    return _lmoments(ppf, psi, n, p, r=2)
+
+
+def lmoment3(psi, n, p):
+    return _lmoments(ppf, psi, n, p, r=3)
+
+
+def lmoment4(psi, n, p):
+    return _lmoments(ppf, psi, n, p, r=4)
+
+
 def entropy(psi, n, p):
     return discrete_entropy(0, n + 1, logpdf, psi, n, p)
 
@@ -110,8 +127,10 @@ def isf(q, psi, n, p):
 
 
 def rvs(psi, n, p, size=None, random_state=None):
-    base_samples = pt.random.binomial(n, p, size=size, rng=random_state)
-    mask = pt.random.bernoulli(psi, size=size)
+    next_rng, base_samples = pt.random.binomial(
+        n, p, size=size, rng=random_state, return_next_rng=True
+    )
+    next_rng, mask = pt.random.bernoulli(psi, size=size, rng=next_rng, return_next_rng=True)
     return pt.cast(mask, "int64") * base_samples
 
 

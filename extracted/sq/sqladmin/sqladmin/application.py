@@ -220,7 +220,7 @@ class BaseAdmin:
             else:
                 view.identity = getattr(func, "_identity")
                 path = getattr(func, "_path")
-                name = getattr(func, "_identity")
+                name = f"view-{view.identity}"
 
             self.admin.add_route(
                 route=func,
@@ -624,6 +624,17 @@ class Admin(BaseAdminView):
         model_view = self._find_model_view(identity)
 
         Form = await model_view.scaffold_form(model_view._form_create_rules)
+
+        if request.method == "GET":
+            form = Form()
+            context = {
+                "model_view": model_view,
+                "form": form,
+            }
+            return await self.templates.TemplateResponse(
+                request, model_view.create_template, context
+            )
+
         form_data = await self._handle_form_data(request)
         form = Form(form_data)
 
@@ -631,11 +642,6 @@ class Admin(BaseAdminView):
             "model_view": model_view,
             "form": form,
         }
-
-        if request.method == "GET":
-            return await self.templates.TemplateResponse(
-                request, model_view.create_template, context
-            )
 
         if not form.validate():
             return await self.templates.TemplateResponse(
@@ -814,7 +820,10 @@ class Admin(BaseAdminView):
         identifier = get_object_identifier(obj)
 
         if form.get("save") == "Save":
-            return request.url_for("admin:list", identity=identity)
+            url = URL(str(request.url_for("admin:list", identity=identity)))
+            if request.url.query:
+                url = url.replace(query=request.url.query)
+            return url
 
         if form.get("save") == "Save and continue editing" or (
             form.get("save") == "Save as new" and model_view.save_as_continue

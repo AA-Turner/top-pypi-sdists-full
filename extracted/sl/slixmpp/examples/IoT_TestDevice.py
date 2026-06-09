@@ -9,7 +9,6 @@
 
 import logging
 
-from os.path import basename, join as pjoin
 from argparse import ArgumentParser
 from urllib import urlopen
 from getpass import getpass
@@ -155,13 +154,13 @@ if __name__ == '__main__':
         # node=args.nodeid,
         # jid=xmpp.boundjid.full)
 
-        myDevice = TheDevice(args.nodeid);
+        myDevice = TheDevice(args.nodeid)
         # myDevice._add_field(name="Relay", typename="numeric", unit="Bool");
         myDevice._add_field(name="Temperature", typename="numeric", unit="C")
         myDevice._set_momentary_timestamp("2013-03-07T16:24:30")
         myDevice._add_field_momentary_data("Temperature", "23.4", flags={"automaticReadout": "true"})
 
-        xmpp['xep_0323'].register_node(nodeId=args.nodeid, device=myDevice, commTimeout=10);
+        xmpp['xep_0323'].register_node(nodeId=args.nodeid, device=myDevice, commTimeout=10)
         xmpp.beClientOrServer(server=True)
         while not(xmpp.testForRelease()):
             xmpp.connect()

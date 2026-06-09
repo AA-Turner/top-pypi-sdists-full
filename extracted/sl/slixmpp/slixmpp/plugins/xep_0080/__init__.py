@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2010 Nathanael C. Fritz, Erik Reuterborg Larsson
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.plugins.xep_0080.geoloc import XEP_0080
 
 
 register_plugin(XEP_0080)
+
+__all__ = ['Geoloc', 'XEP_0080']

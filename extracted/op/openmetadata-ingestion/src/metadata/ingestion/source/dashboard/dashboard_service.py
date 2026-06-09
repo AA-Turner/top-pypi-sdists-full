@@ -59,7 +59,6 @@ from metadata.ingestion.api.models import Either, Entity
 from metadata.ingestion.api.steps import Source
 from metadata.ingestion.api.topology_runner import C, TopologyRunnerMixin
 from metadata.ingestion.lineage.sql_lineage import get_column_fqn
-from metadata.ingestion.models.barrier import Barrier
 from metadata.ingestion.models.delete_entity import DeleteEntity
 from metadata.ingestion.models.ometa_classification import OMetaTagAndClassification
 from metadata.ingestion.models.ometa_lineage import OMetaLineageRequest
@@ -124,7 +123,11 @@ class DashboardServiceTopology(ServiceTopology):
             ),
         ],
         children=["bulk_data_model", "dashboard"],
-        post_process=["mark_dashboards_as_deleted", "mark_datamodels_as_deleted"],
+        post_process=[
+            "mark_dashboards_as_deleted",
+            "mark_datamodels_as_deleted",
+            "mark_charts_as_deleted",
+        ],
     )
     # Dashboard Services have very different approaches when
     # when dealing with data models. Tableau has the models
@@ -219,6 +222,7 @@ class DashboardServiceSource(TopologyRunnerMixin, Source, ABC):
     context = TopologyContextManager(topology)
     dashboard_source_state: Set = set()
     datamodel_source_state: Set = set()
+    chart_source_state: Set = set()
 
     @retry_with_docker_host()
     def __init__(
@@ -388,10 +392,6 @@ class DashboardServiceSource(TopologyRunnerMixin, Source, ABC):
         We will look for the data in all the services
         we have informed.
         """
-        # Flush the sink buffer so charts, datamodels and dashboards created in this
-        # stage are persisted before lineage resolution looks them up via get_by_name.
-        yield Either(right=Barrier(reason="dashboard_lineage_flush"))  # pyright: ignore[reportCallIssue]
-
         # yield datamodel dashboard lineage
         for lineage in self.yield_datamodel_dashboard_lineage() or []:
             yield from self.yield_lineage_request(lineage)
@@ -442,6 +442,8 @@ class DashboardServiceSource(TopologyRunnerMixin, Source, ABC):
         """
         Method to pick up dashboard usage data
         """
+        if not self.source_config.includeUsage:
+            return
 
     def close(self):
         self.metadata.close()
@@ -486,6 +488,20 @@ class DashboardServiceSource(TopologyRunnerMixin, Source, ABC):
                 params={"service": self.context.get().dashboard_service},
             )
 
+    def mark_charts_as_deleted(self) -> Iterable[Either[DeleteEntity]]:
+        """
+        Method to mark the charts as deleted
+        """
+        if self.source_config.markDeletedCharts:
+            logger.info("Mark Deleted Charts set to True")
+            yield from delete_entity_from_source(
+                metadata=self.metadata,
+                entity_type=Chart,
+                entity_source_state=self.chart_source_state,
+                mark_deleted_entity=self.source_config.markDeletedCharts,
+                params={"service": self.context.get().dashboard_service},
+            )
+
     def get_owner_ref(  # pylint: disable=unused-argument, useless-return
         self, dashboard_details
     ) -> Optional[EntityReferenceList]:
@@ -524,6 +540,19 @@ class DashboardServiceSource(TopologyRunnerMixin, Source, ABC):
         )
 
         self.datamodel_source_state.add(datamodel_fqn)
+
+    def register_record_chart(self, chart_request: CreateChartRequest) -> None:
+        """
+        Mark the chart record as scanned and update the chart_source_state
+        """
+        chart_fqn = fqn.build(
+            self.metadata,
+            entity_type=Chart,
+            service_name=chart_request.service.root,
+            chart_name=chart_request.name.root,
+        )
+
+        self.chart_source_state.add(chart_fqn)
 
     @staticmethod
     def _get_add_lineage_request(

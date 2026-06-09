@@ -1,25 +1,31 @@
 from __future__ import annotations
 
-from fastapi import Path, Query
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from functools import partial
 
-from emmet.api.query_operator import QueryOperator
-from emmet.api.utils import STORE_PARAMS
-from emmet.core.mpid import MPID, AlphaID
+from fastapi import Query
+
+from emmet.api.query_operator import InQuery, QueryOperator
+from emmet.api.utils import STORE_PARAMS, process_identifiers
 
 
-class PhononImgQuery(QueryOperator):
-    """
-    Method to generate a query on phonon image data.
-    """
+@dataclass
+class MultiPhononIDQuery(InQuery):
+    """Generate a query for different phonon ids."""
+
+    field_name: str = "identifier"
+    pre_processor: Callable[[str], list[str]] = field(
+        default=partial(process_identifiers, use_prefix=False)
+    )
 
     def query(
         self,
-        task_id: MPID | AlphaID = Path(
-            ...,
-            description="The calculation (task) ID associated with the data object",
+        identifiers: str | None = Query(
+            None, description="Comma-separated list of phonon_ids to query on"
         ),
     ) -> STORE_PARAMS:
-        return {"criteria": {"task_id": str(task_id)}}
+        return self._prepare_query(identifiers)
 
 
 class PhononMethodQuery(QueryOperator):

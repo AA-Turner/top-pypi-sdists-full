@@ -9,7 +9,6 @@
 import unittest
 from slixmpp import Message
 from slixmpp.test import SlixTest
-from slixmpp.plugins.xep_0444 import XEP_0444
 import slixmpp.plugins.xep_0444.stanza as stanza
 from slixmpp.xmlstream import register_stanza_plugin
 

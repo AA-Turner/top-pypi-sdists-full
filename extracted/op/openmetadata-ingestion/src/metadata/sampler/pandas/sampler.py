@@ -16,9 +16,9 @@ from typing import Callable, List, Optional, cast
 
 from metadata.generated.schema.entity.data.table import (
     PartitionProfilerConfig,
-    ProfileSampleType,
     TableData,
 )
+from metadata.generated.schema.type.basic import ProfileSampleType
 from metadata.mixins.pandas.pandas_mixin import PandasInterfaceMixin
 from metadata.sampler.sampler_interface import SamplerInterface
 from metadata.utils.datalake.datalake_utils import GenericDataFrameColumnParser
@@ -47,10 +47,23 @@ class DatalakeSampler(SamplerInterface, PandasInterfaceMixin):
         if not self._table:
             self._table = self.get_dataframes(
                 service_connection_config=self.service_connection_config,
-                client=self.client.client,
+                client=self.client,
                 table=self.entity,
             )
         return self._table.dataframes
+
+    def _get_asset_row_count(self) -> int:
+        """
+        Get the row count of the asset being profiled. This is used for dynamic sampling.
+        Default implementation returns 0 and should be overridden by implementations that support fetching row count.
+        """
+        try:
+            self._row_count = sum(len(chunk.index) for chunk in self.raw_dataset())
+        except Exception:
+            logger.exception("Failed to fetch row count for asset %s. Defaulting to 0.", self.entity.name)
+            self._row_count = 0
+
+        return self._row_count
 
     def get_client(self):
         return self.connection
@@ -107,15 +120,24 @@ class DatalakeSampler(SamplerInterface, PandasInterfaceMixin):
         if self.partition_details:
             raw_dataset = self._partitioned_table()
 
-        if not self.sample_config.profileSample or (
-            self.sample_config.profileSample == 100
-            and self.sample_config.profileSampleType == ProfileSampleType.PERCENTAGE
+        static = self._resolve_sample_config
+        if (
+            not static
+            or not static.profileSample
+            or (
+                static.profileSample == 100
+                and static.profileSampleType == ProfileSampleType.PERCENTAGE
+                and self.sample_config.randomizedSample is not True
+            )
         ):
             return raw_dataset
-        return self.get_sampled_dataframe(raw_dataset, self.sample_config)
+        return self.get_sampled_dataframe(raw_dataset, static)
 
     def _fetch_rows(self, data_frame):
-        return data_frame.dropna().values.tolist()
+        return [
+            [self._truncate_cell(cell) for cell in row]
+            for row in data_frame.dropna().values.tolist()
+        ]
 
     def fetch_sample_data(
         self, columns: Optional[List[SQALikeColumn]] = None

@@ -36,6 +36,26 @@ def kurtosis(alpha, beta):
     return pt.full_like(alpha_b, pt.nan)
 
 
+def lmoment1(alpha, beta):
+    alpha_b, _ = pt.broadcast_arrays(alpha, beta)
+    return pt.full_like(alpha_b, pt.nan)
+
+
+def lmoment2(alpha, beta):
+    alpha_b, _ = pt.broadcast_arrays(alpha, beta)
+    return pt.full_like(alpha_b, pt.nan)
+
+
+def lmoment3(alpha, beta):
+    alpha_b, _ = pt.broadcast_arrays(alpha, beta)
+    return pt.full_like(alpha_b, pt.nan)
+
+
+def lmoment4(alpha, beta):
+    alpha_b, _ = pt.broadcast_arrays(alpha, beta)
+    return pt.full_like(alpha_b, pt.nan)
+
+
 def entropy(alpha, beta):
     _, beta_b = pt.broadcast_arrays(alpha, beta)
     return pt.log(4 * pt.pi * beta_b)
@@ -62,7 +82,7 @@ def sf(x, alpha, beta):
 
 
 def rvs(alpha, beta, size=None, random_state=None):
-    return pt.random.cauchy(alpha, beta, rng=random_state, size=size)
+    return pt.random.cauchy(alpha, beta, rng=random_state, size=size, return_next_rng=True)[1]
 
 
 def logcdf(x, alpha, beta):

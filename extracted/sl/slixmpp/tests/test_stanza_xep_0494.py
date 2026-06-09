@@ -6,7 +6,6 @@
 import unittest
 from datetime import datetime
 from slixmpp.test import SlixTest
-from slixmpp.plugins.xep_0494 import XEP_0494
 import slixmpp.plugins.xep_0494.stanza as stanza
 
 

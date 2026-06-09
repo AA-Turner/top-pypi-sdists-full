@@ -21,6 +21,10 @@ async def _async_execute(request: dict, model: str) -> TestResult:
         context = await browser.new_context()
         page = await context.new_page()
         
+        console_logs = []
+        page.on("console", lambda msg: console_logs.append(f"[{msg.type}] {msg.text}"))
+        page.on("pageerror", lambda err: console_logs.append(f"[pageerror] {err.message}"))
+        
         await page.goto(url)
         
         await page.evaluate("""() => {
@@ -38,7 +42,7 @@ async def _async_execute(request: dict, model: str) -> TestResult:
             }));
         }""")
         
-        await page.reload(wait_until="networkidle")
+        await page.reload(wait_until="load")
         
         # Check if we are on the login page
         if await page.locator("text=Sign in").count() > 0 or await page.locator("text=Login").count() > 0:
@@ -79,13 +83,22 @@ async def _async_execute(request: dict, model: str) -> TestResult:
             if not chat_input:
                 # Capture screenshot for debugging if it fails
                 await page.screenshot(path=workspace / "web_failure.png")
-                raise RuntimeError("No visible chat input found after retries.")
+                (workspace / "page_content.html").write_text(await page.content())
+                logs_str = "\n".join(console_logs)
+                raise RuntimeError(f"No visible chat input found after retries. Console: {logs_str}")
 
             await chat_input.fill(prompt)
             await chat_input.press("Enter")
             
             # Wait for response
-            await page.wait_for_selector("pre, a[download]", timeout=300000) # 5 min timeout
+            try:
+                # The latest response should be generated
+                await page.wait_for_selector(".message.assistant:last-child", timeout=45000)
+                # Wait for the spinner or generating state to finish
+                await page.wait_for_selector(".spinner", state="detached", timeout=120000)
+                await page.wait_for_timeout(2000)
+            except:
+                pass
             
             response_text = await page.inner_text("body")
             
@@ -97,7 +110,8 @@ async def _async_execute(request: dict, model: str) -> TestResult:
                 artifact_path = workspace / download.suggested_filename
                 await download.save_as(artifact_path)
             else:
-                artifact_path = workspace / "web_output.txt"
+                target_ext = request.get("success_criteria", {}).get("extension", ".txt")
+                artifact_path = workspace / f"web_output{target_ext}"
                 artifact_path.write_text(response_text)
                 
             await browser.close()

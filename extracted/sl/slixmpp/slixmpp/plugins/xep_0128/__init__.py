@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2010 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.plugins.xep_0128.extended_disco import XEP_0128
 
 
 register_plugin(XEP_0128)
+
+__all__ = ['StaticExtendedDisco', 'XEP_0128']

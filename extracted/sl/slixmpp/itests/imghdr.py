@@ -181,4 +181,3 @@ def testall(list, recursive, toplevel):
 
 if __name__ == '__main__':
     test()
-

@@ -145,6 +145,13 @@ class LineageAssetRef(DataClassJsonMixin):
     :param schema: Schema name.
     :param asset_id: Optional local identifier used by column-level lineage
         ``fields`` to cross-reference this asset.
+    :param resource_uuid: Optional per-asset resource (warehouse) UUID. Set it on
+        every source/destination — and omit the top-level resource in
+        :func:`build_lineage_payload` / :meth:`IngestionService.send_lineage` — to
+        express cross-warehouse lineage (linking assets in different warehouses)
+        in a single request.
+    :param resource_type: Resource type for ``resource_uuid`` (e.g.
+        ``"snowflake"``, ``"bigquery"``). Required whenever ``resource_uuid`` is set.
 
     .. note:: Field ordering
         ``name`` is declared before ``database``/``schema`` to work around
@@ -159,6 +166,18 @@ class LineageAssetRef(DataClassJsonMixin):
     database: str
     schema: str
     asset_id: str | None = field(default=None, metadata=config(exclude=_is_none))
+    resource_uuid: str | None = field(default=None, metadata=config(exclude=_is_none))
+    resource_type: str | None = field(default=None, metadata=config(exclude=_is_none))
+
+    def __post_init__(self) -> None:
+        # Per-asset resource is all-or-nothing: a cross-warehouse ref needs both
+        # resource_uuid and resource_type, or neither (same-warehouse mode, where
+        # the resource is supplied at the request level).
+        if (self.resource_uuid is None) != (self.resource_type is None):
+            raise ValueError(
+                "LineageAssetRef.resource_uuid and resource_type must be set "
+                "together (cross-warehouse lineage) — provide both or neither."
+            )
 
 
 @dataclass
@@ -219,13 +238,22 @@ def build_metadata_payload(
 
 
 def build_lineage_payload(
-    resource_uuid: str,
-    resource_type: str,
-    events: list[LineageEvent],
+    resource_uuid: str | None = None,
+    resource_type: str | None = None,
+    events: list[LineageEvent] | None = None,
     event_type: LineageEventType | str | None = None,
 ) -> dict:
     """
     Build the full JSON payload for ``POST /ingest/v1/lineage``.
+
+    Two mutually-exclusive resource modes:
+
+    * **Same-warehouse**: pass *resource_uuid* / *resource_type*; the payload
+      carries a top-level ``resource`` and every asset is interpreted in that
+      warehouse.
+    * **Cross-warehouse**: omit *resource_uuid* / *resource_type* and set
+      ``resource_uuid`` / ``resource_type`` on every :class:`LineageAssetRef`
+      instead. The top-level ``resource`` is then omitted from the payload.
 
     If *event_type* is not given it is auto-detected:
     :attr:`LineageEventType.COLUMN_LINEAGE` when **any** event has
@@ -237,18 +265,26 @@ def build_lineage_payload(
         processes each event individually, so events without ``fields``
         still produce valid table-level lineage edges.
     """
+    events = events or []
+    if not events:
+        raise ValueError("build_lineage_payload requires at least one LineageEvent.")
+    if resource_uuid is not None and resource_type is None:
+        raise ValueError(
+            "resource_type is required when resource_uuid is provided "
+            "(same-warehouse mode); omit both for cross-warehouse mode "
+            "(set resource on each LineageAssetRef instead)."
+        )
     if event_type is None:
         has_fields = any(e.fields for e in events)
         event_type = LineageEventType.COLUMN_LINEAGE if has_fields else LineageEventType.LINEAGE
     resolved_type = event_type.value if isinstance(event_type, LineageEventType) else event_type
-    return {
-        "event_type": resolved_type,
-        "resource": {
-            "uuid": resource_uuid,
-            "resource_type": resource_type,
-        },
-        "events": [e.to_dict() for e in events],
-    }
+    payload: dict = {"event_type": resolved_type}
+    # Same-warehouse mode sends a top-level resource; cross-warehouse mode omits
+    # it (each LineageAssetRef carries its own resource_uuid/resource_type).
+    if resource_uuid is not None:
+        payload["resource"] = {"uuid": resource_uuid, "resource_type": resource_type}
+    payload["events"] = [e.to_dict() for e in events]
+    return payload
 
 
 def build_query_log_payload(

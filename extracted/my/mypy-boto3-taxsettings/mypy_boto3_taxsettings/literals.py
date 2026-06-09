@@ -24,6 +24,8 @@ else:
 
 __all__ = (
     "AddressRoleTypeType",
+    "ChileDocumentTypeType",
+    "CustomerTypeType",
     "EntityExemptionAccountStatusType",
     "HeritageStatusType",
     "IndonesiaTaxRegistrationNumberTypeType",
@@ -36,6 +38,7 @@ __all__ = (
     "MalaysiaServiceTaxCodeType",
     "PaginatorName",
     "PersonTypeType",
+    "PolandTaxRegistrationNumberTypeType",
     "RegistrationTypeType",
     "ResourceServiceName",
     "SaudiArabiaTaxRegistrationNumberTypeType",
@@ -52,6 +55,8 @@ __all__ = (
 
 
 AddressRoleTypeType = Literal["BillingAddress", "ContactAddress", "TaxAddress"]
+ChileDocumentTypeType = Literal["Invoice", "Receipt"]
+CustomerTypeType = Literal["Business", "Individual"]
 EntityExemptionAccountStatusType = Literal["Expired", "None", "Pending", "Valid"]
 HeritageStatusType = Literal["OptIn", "OptOut"]
 IndonesiaTaxRegistrationNumberTypeType = Literal["NIK", "NITKU", "NPWP", "PassportNumber"]
@@ -72,6 +77,9 @@ MalaysiaServiceTaxCodeType = Literal[
     "Consultancy", "Digital Service And Electronic Medium", "IT Services", "Training Or Coaching"
 ]
 PersonTypeType = Literal["Business", "Legal Person", "Physical Person"]
+PolandTaxRegistrationNumberTypeType = Literal[
+    "EUTaxRegistrationNumber", "LocalRegistrationNumber", "LocalTaxRegistrationNumber"
+]
 RegistrationTypeType = Literal["Intra-EU", "Local"]
 SaudiArabiaTaxRegistrationNumberTypeType = Literal[
     "CommercialRegistrationNumber", "TaxIdentificationNumber", "TaxRegistrationNumber"
@@ -80,7 +88,7 @@ SectorType = Literal["Business", "Government", "Individual"]
 SupplementalTaxRegistrationTypeType = Literal["VAT"]
 TaxRegistrationNumberTypeType = Literal["LocalRegistrationNumber", "TaxRegistrationNumber"]
 TaxRegistrationStatusType = Literal["Deleted", "Pending", "Rejected", "Verified"]
-TaxRegistrationTypeType = Literal["CNPJ", "CPF", "GST", "NRIC", "SST", "TIN", "VAT"]
+TaxRegistrationTypeType = Literal["CNPJ", "CPF", "GST", "NIP", "NRIC", "PAN", "SST", "TIN", "VAT"]
 UkraineTrnTypeType = Literal["Business", "Individual"]
 UzbekistanTaxRegistrationNumberTypeType = Literal["Business", "Individual"]
 TaxSettingsServiceName = Literal["taxsettings"]
@@ -408,6 +416,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -435,6 +444,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

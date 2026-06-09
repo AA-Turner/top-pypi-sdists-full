@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2026-02-08 AT 18:23:02
+# AUTO GENERATED ON 2026-06-08 AT 11:28:09
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -23,8 +23,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_1():
     outlength = 0
     parents = []
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = []
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = []
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -38,8 +40,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_2():
     outlength = 1
     parents = [0]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 1]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [0]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -53,8 +57,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_3():
     outlength = 10
     parents = [0, 5, 5, 1, 6, 6, 2, 7, 7, 3, 8, 8, 4, 9, 9]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 1, 2, 3, 4, 5, 7, 9, 11, 13, 15]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [0, 1, 2, 3, 4, 25, 27, 29, 31, 33]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -68,8 +74,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_4():
     outlength = 6
     parents = [0, 0, 0, 2, 2, 3, 4, 4, 5]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 3, 3, 5, 6, 8, 9]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [10, 0, 18, 13, 36, 23]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -83,8 +91,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_5():
     outlength = 4
     parents = [0, 0, 0, 2, 2, 3]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 3, 3, 5, 6]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [1, 0, 1, 0]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -98,8 +108,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_6():
     outlength = 3
     parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 5, 10, 15]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [10, 35, 110]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -113,8 +125,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_7():
     outlength = 6
     parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 5, 10, 15, 20, 25, 30]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [10, 35, 60, 85, 110, 135]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -128,8 +142,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_8():
     outlength = 4
     parents = [0, 0, 1, 3, 3, 3]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 2, 3, 3, 6]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [1, 3, 0, 15]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -143,8 +159,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_9():
     outlength = 10
     parents = [0, 0, 0, 5, 5, 1, 1, 6, 6, 2, 2, 7, 7, 3, 8, 8, 4, 4, 4, 9]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 3, 5, 7, 8, 11, 13, 15, 17, 19, 20]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [15, 12, 14, 8, 27, 40, 42, 44, 46, 29]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -158,8 +176,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_10():
     outlength = 15
     parents = [0, 5, 10, 1, 6, 11, 2, 7, 12, 3, 8, 13, 4, 9, 14]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -173,8 +193,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_11():
     outlength = 15
     parents = [0, 0, 5, 10, 10, 1, 1, 11, 11, 2, 2, 12, 12, 3, 8, 13, 4, 9, 14, 14]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 2, 4, 6, 7, 8, 9, 9, 9, 10, 11, 13, 15, 17, 18, 20]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [15, 17, 19, 18, 4, 5, 0, 0, 8, 9, 35, 37, 39, 28, 43]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -188,8 +210,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_12():
     outlength = 15
     parents = [0, 0, 5, 5, 10, 10, 1, 1, 6, 6, 11, 11, 2, 2, 7, 7, 12, 12, 3, 3, 8, 8, 13, 13, 4, 4, 9, 9, 14, 14]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -203,8 +227,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_13():
     outlength = 10
     parents = [0, 0, 0, 5, 5, 5, 1, 1, 1, 6, 6, 6, 2, 2, 2, 7, 7, 7, 3, 3, 3, 8, 8, 8, 4, 4, 4, 9, 9, 9]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [15, 18, 21, 24, 27, 60, 63, 66, 69, 72]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -218,8 +244,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_14():
     outlength = 3
     parents = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 4, 8, 12]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [15, 240, 0]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -233,8 +261,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_15():
     outlength = 2
     parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 5, 10]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [15, 15]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -248,8 +278,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_16():
     outlength = 1
     parents = [0, 0, 0, 0, 0, 0]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 6]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [21]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -263,8 +295,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_17():
     outlength = 8
     parents = [0, 0, 0, 6, 6, 1, 1, 7, 2]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 3, 5, 6, 6, 6, 6, 8, 9]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [22, 14, 5, 0, 0, 0, 40, 19]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -278,8 +312,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_18():
     outlength = 4
     parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 3, 6, 9, 12]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [17, 34, 68, 136]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -293,8 +329,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_19():
     outlength = 4
     parents = [0, 0, 0, 2, 2, 3]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 3, 3, 5, 6]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [3, 0, 7, 5]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -308,8 +346,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_20():
     outlength = 4
     parents = [0, 0, 1, 1, 1, 3]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 2, 5, 5, 6]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [4, 9, 0, 6]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -323,8 +363,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_21():
     outlength = 2
     parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 5, 10]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [55, 55]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -338,8 +380,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_22():
     outlength = 2
     parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 5, 10]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [56, 55]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -353,8 +397,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_23():
     outlength = 10
     parents = [0, 0, 5, 1, 1, 6, 2, 2, 7, 3, 3, 8, 4, 4, 9]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 2, 4, 6, 8, 10, 11, 12, 13, 14, 15]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [5, 7, 9, 11, 13, 20, 21, 22, 23, 24]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -368,8 +414,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_24():
     outlength = 5
     parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 3, 6, 9, 12, 15]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [60, 63, 66, 69, 72]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -383,8 +431,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_25():
     outlength = 1
     parents = [0, 0, 0]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 3]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [6]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -398,8 +448,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_26():
     outlength = 6
     parents = [0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 5, 5, 5, 5, 5]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 4, 7, 11, 15, 15, 20]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [7, 22, 47, 66, 0, 135]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -413,8 +465,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_27():
     outlength = 3
     parents = [0, 0, 0, 2, 2]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 3, 3, 5]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [8, 0, 10]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -428,8 +482,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_28():
     outlength = 3
     parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 5, 10, 15]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [85, 110, 135]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -443,8 +499,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_29():
     outlength = 2
     parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 5, 10]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [10, 10]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str
@@ -458,8 +516,10 @@ def test_unit_cpuawkward_reduce_sum_uint64_uint64_64_30():
     outlength = 2
     parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
     parents = (ctypes.c_int64*len(parents))(*parents)
+    offsets = [0, 5, 10]
+    offsets = (ctypes.c_int64*len(offsets))(*offsets)
     funcC = getattr(lib, 'awkward_reduce_sum_uint64_uint64_64')
-    ret_pass = funcC(toptr, fromptr, parents, lenparents, outlength)
+    ret_pass = funcC(toptr, fromptr, parents, offsets, lenparents, outlength)
     pytest_toptr = [10, 10]
     assert toptr[:len(pytest_toptr)] == pytest.approx(pytest_toptr)
     assert not ret_pass.str

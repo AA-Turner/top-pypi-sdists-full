@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flask-cors
-Version: 6.0.4
+Version: 6.0.5
 Summary: A Flask extension simplifying CORS support
 Author-email: Cory Dolphin <corydolphin@gmail.com>
 License-Expression: MIT

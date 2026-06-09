@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2010 Nathanael C. Fritz, Erik Reuterborg Larsson
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.plugins.xep_0059.rsm import ResultIterator, XEP_0059
 
 
 register_plugin(XEP_0059)
+
+__all__ = ['Set', 'ResultIterator', 'XEP_0059']

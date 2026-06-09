@@ -11,14 +11,42 @@ from wisent.core.utils.config_tools.constants import (
 )
 
 
+def _has_token_ids(ids) -> bool:
+    if ids is None:
+        return False
+    if hasattr(ids, "numel"):
+        try:
+            return int(ids.numel()) > 0
+        except Exception:
+            return False
+    if isinstance(ids, (list, tuple)):
+        if not ids:
+            return False
+        if isinstance(ids[0], (list, tuple)):
+            return any(_has_token_ids(x) for x in ids)
+        return True
+    try:
+        return bool(ids)
+    except Exception:
+        return False
+
+
 def _tokenizer_has_tokens(tokenizer, text: str) -> bool:
-    if str(text or "").strip():
-        return True
-    enc = tokenizer(text, add_special_tokens=False)
-    if enc.get("input_ids"):
-        return True
-    enc = tokenizer(text, add_special_tokens=True)
-    return bool(enc.get("input_ids"))
+    value = str(text or "")
+    for add_special in (False, True):
+        try:
+            enc = tokenizer(value, add_special_tokens=add_special)
+            ids = enc.get("input_ids") if hasattr(enc, "get") else enc["input_ids"]
+            if _has_token_ids(ids):
+                return True
+        except Exception:
+            pass
+        try:
+            if _has_token_ids(tokenizer.encode(value, add_special_tokens=add_special)):
+                return True
+        except Exception:
+            pass
+    return False
 
 
 def execute_get_activations(args, *, architecture_module_limit: int = ARCHITECTURE_MODULE_LIMIT_DEFAULT):
@@ -211,7 +239,8 @@ def execute_get_activations(args, *, architecture_module_limit: int = ARCHITECTU
                         extraction_strategy, pair.prompt, response_text, model.tokenizer,
                         other_response=other_text, is_positive=is_pos,
                     )
-                    if not _tokenizer_has_tokens(model.tokenizer, full_text):
+                    is_qwen = "qwen" in str(getattr(model.tokenizer, "name_or_path", "")).lower()
+                    if (not is_qwen) and not _tokenizer_has_tokens(model.tokenizer, full_text):
                         empty_input = True
                         break
                 if empty_input:
@@ -430,7 +459,8 @@ def execute_get_activations_multi(
                     s_obj, pair.prompt, response_text, model.tokenizer,
                     other_response=other_text, is_positive=is_pos,
                 )
-                if not _tokenizer_has_tokens(model.tokenizer, full_text):
+                is_qwen = "qwen" in str(getattr(model.tokenizer, "name_or_path", "")).lower()
+                if (not is_qwen) and not _tokenizer_has_tokens(model.tokenizer, full_text):
                     empty_input = True
                     break
             if empty_input:

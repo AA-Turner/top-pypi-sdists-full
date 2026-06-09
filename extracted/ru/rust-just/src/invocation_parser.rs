@@ -50,16 +50,15 @@ impl<'src: 'run, 'run> InvocationParser<'src, 'run> {
   fn parse_invocation(&mut self) -> RunResult<'src, Invocation<'src, 'run>> {
     let recipe = if let Some(next) = self.next() {
       if next.contains(':') {
-        let path = if self.next + 1 == self.arguments.len() {
-          next.strip_suffix("::").unwrap_or(next)
+        let modulepath = if self.next + 1 == self.arguments.len() {
+          Modulepath::from_argument(next)
         } else {
-          next
-        };
-        let modulepath =
-          Modulepath::try_from([path].as_slice()).map_err(|()| Error::UnknownRecipe {
-            recipe: next.into(),
-            suggestion: None,
-          })?;
+          Modulepath::try_from([next].as_slice())
+        }
+        .map_err(|()| Error::UnknownRecipe {
+          recipe: next.into(),
+          suggestion: None,
+        })?;
         let (recipe, _) = self.resolve_recipe(true, &modulepath.components)?;
         self.next += 1;
         recipe
@@ -269,6 +268,26 @@ impl<'src: 'run, 'run> InvocationParser<'src, 'run> {
           });
         }
         return Ok((recipe, i + 1));
+      } else if let Some(disabled) = current.disabled_recipes.get(arg) {
+        return Err(Error::RecipeDisabled {
+          recipe: Modulepath {
+            components: path,
+            spaced: !modulepath,
+          },
+          modules: disabled.modules.clone(),
+        });
+      } else if let Some(disabled) = current.disabled_aliases.get(arg) {
+        return Err(Error::AliasDisabled {
+          alias: Modulepath {
+            components: path,
+            spaced: !modulepath,
+          },
+          modules: disabled.modules.clone(),
+        });
+      } else if current.absent_modules.contains(arg) {
+        return Err(Error::ModuleAbsent {
+          module: current.module_path.join(arg),
+        });
       } else {
         if modulepath && i + 1 < args.len() {
           return Err(Error::UnknownSubmodule {
@@ -277,11 +296,11 @@ impl<'src: 'run, 'run> InvocationParser<'src, 'run> {
         }
 
         return Err(Error::UnknownRecipe {
-          recipe: if modulepath {
-            path.join("::")
-          } else {
-            path.join(" ")
-          },
+          recipe: Modulepath {
+            components: path,
+            spaced: !modulepath,
+          }
+          .to_string(),
           suggestion: current.suggest_recipe(arg),
         });
       }
@@ -443,6 +462,25 @@ mod tests {
         recipe,
         suggestion: None
       } if recipe == "foo::zzz",
+    );
+  }
+
+  #[test]
+  fn recipe_in_absent_optional_module() {
+    let tempdir = tempfile::tempdir().unwrap();
+    tempdir.write("justfile", "mod? foo");
+
+    let loader = Loader::new();
+    let compilation = Compiler::compile(
+      &Config::new().unwrap(),
+      &loader,
+      &tempdir.path().join("justfile"),
+    )
+    .unwrap();
+
+    assert_matches!(
+      InvocationParser::parse_invocations(&compilation.justfile, &["foo::bar"]).unwrap_err(),
+      Error::ModuleAbsent { module } if module.to_string() == "foo",
     );
   }
 

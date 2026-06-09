@@ -6,7 +6,7 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from django.db import IntegrityError
+from django.db import IntegrityError, InternalError
 from lamindb.errors import FieldValidationError
 from lamindb.models.record import IMPORTS_UID, SCHEMA_IMPORTS_UID
 
@@ -21,34 +21,56 @@ def test_record_docstring_examples():
     # describe the record
     sample1.describe()
 
-    # create a flexible record type to track experiments
-    experiment_type = ln.Record(name="Experiment", is_type=True).save()
-    experiment1 = ln.Record(name="Experiment 1", type=experiment_type).save()
+    # create an experiments registry
+    experiments_registry = ln.Record(name="Experiments", is_type=True).save()
+    experiment1 = ln.Record(name="Experiment 1", type=experiments_registry).save()
 
     # create a feature to link experiments
-    experiment = ln.Feature(name="experiment", dtype=experiment_type).save()
+    experiment = ln.Feature(name="experiment", dtype=experiments_registry).save()
 
-    # create a record type to track samples that's constrained with a schema
+    # constrain a samples registry with a schema, turning it into a sheet
     schema = ln.Schema(
         [experiment, gc_content.with_config(optional=True)], name="sample_schema"
     ).save()
     sample_sheet = ln.Record(name="Sample Sheet", is_type=True, schema=schema).save()
 
-    # group the sample1 record under the sample sheet
+    # move the sample1 record into the sample sheet
     sample1.type = sample_sheet
     sample1.save()
 
     # reset the feature values for the record including the experiment
     sample1.features.set_values(
         {
-            "gc_content": 0.5,
-            "experiment": "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
+            gc_content: 0.5,
+            experiment: "Experiment 1",  # automatically resolves by name, also accepts the experiment1 object
         }
     )
 
     # Export all records under a type to a dataframe
-    df = experiment_type.to_dataframe()
+    df = experiments_registry.to_dataframe()
     assert "Experiment 1" in df["__lamindb_record_name__"].values
+
+    # Use Schema.index on a sheet schema to define row keys
+    sample_id = ln.Feature(name="sample_id", dtype=str).save()
+    score = ln.Feature(name="score", dtype=float).save()
+    indexed_schema = ln.Schema(features=[score], index=sample_id).save()
+    indexed_sheet = ln.Record(
+        name="Samples", is_type=True, schema=indexed_schema
+    ).save()
+    indexed_record = ln.Record(
+        type=indexed_sheet, features={"sample_id": "S-001", "score": 1.5}
+    ).save()
+    assert indexed_record.name == "S-001"
+    indexed_df = indexed_sheet.to_dataframe()
+    assert indexed_df.index.name == "sample_id"
+    assert "sample_id" not in indexed_df.columns
+
+    # Import records from a dataframe
+    records = ln.Record.from_dataframe(
+        pd.DataFrame({"gc_content": [0.1, 0.2]}),
+        type="my_df",
+    ).save()
+    assert len(records) == 2
 
     # If you try to set incomplete features in a record in a sheet, you'll get a validation error
     sample2 = ln.Record(name="Sample 2", type=sample_sheet).save()
@@ -56,19 +78,30 @@ def test_record_docstring_examples():
         sample2.features.set_values({"gc_content": 0.6})
 
     # Query records by features
-    assert ln.Record.filter(gc_content=0.5).one() == sample1
-    assert ln.Record.filter(gc_content__gt=0.4).one() == sample1
+    assert ln.Record.filter(gc_content == 0.5).one() == sample1
+    assert ln.Record.filter(gc_content > 0.5).one_or_none() is None
     assert ln.Record.filter(type=sample_sheet).count() >= 1
 
     # Clean up
+    my_df_type = ln.Record.filter(name="my_df", is_type=True).one()
+    my_df_schema = my_df_type.schema
+    ln.Record.filter(type=my_df_type).delete(permanent=True)
+    my_df_type.delete(permanent=True)
+    if my_df_schema is not None:
+        my_df_schema.delete(permanent=True)
     sample1.delete(permanent=True)
     sample2.delete(permanent=True)
     experiment1.delete(permanent=True)
     sample_sheet.delete(permanent=True)
     schema.delete(permanent=True)
-    experiment_type.delete(permanent=True)
+    experiments_registry.delete(permanent=True)
     gc_content.delete(permanent=True)
     experiment.delete(permanent=True)
+    indexed_record.delete(permanent=True)
+    indexed_sheet.delete(permanent=True)
+    indexed_schema.delete(permanent=True)
+    sample_id.delete(permanent=True)
+    score.delete(permanent=True)
 
 
 def test_record_initialization():
@@ -128,6 +161,175 @@ def test_record_from_dataframe_bulk_save_paths():
     ln.Record.filter(name="from-df-sheet").delete(permanent=True)
     schema.delete(permanent=True)
     score.delete(permanent=True)
+
+
+def test_record_schema_index_stored_on_name():
+    """Schema.index is stored on Record.name and surfaced on df.index / get_values."""
+    from lamindb.models.record import (
+        apply_schema_index_to_export_dataframe,
+        coerce_index_value_to_record_name,
+        pop_index_from_feature_dictionary,
+    )
+
+    sample_id = ln.Feature(name="sample_id", dtype=str).save()
+    score = ln.Feature(name="score", dtype=float).save()
+    schema = ln.Schema(
+        features=[score],
+        index=sample_id,
+        name="index-on-name-schema",
+    ).save()
+    sheet = ln.Record(name="index-sheet", is_type=True, schema=schema).save()
+
+    # index helper functions
+    with pytest.raises(TypeError, match="must be a string"):
+        coerce_index_value_to_record_name({"bad": "dict"}, sample_id)
+    with pytest.raises(TypeError, match="must be a string"):
+        coerce_index_value_to_record_name(7, sample_id)
+
+    name, features = pop_index_from_feature_dictionary(
+        {"sample_id": "S-001", "score": 1.5},
+        schema,
+    )
+    assert name == "S-001"
+    assert features == {"score": 1.5}
+
+    # create: index value -> Record.name, not RecordJson
+    record = ln.Record(type=sheet, features={"sample_id": "S-001", "score": 1.5}).save()
+    assert record.name == "S-001"
+    assert ln.models.RecordJson.filter(record=record, feature=sample_id).count() == 0
+    assert record.features.get_values() == {"sample_id": "S-001", "score": 1.5}
+    assert record.features["score"] == 1.5
+
+    # export: index on df.index, omitted from columns
+    df = sheet.to_dataframe()
+    assert df.index.name == "sample_id"
+    assert "sample_id" not in df.columns
+    assert "__lamindb_record_name__" not in df.columns
+    assert df.index.tolist() == ["S-001"]
+    assert not any(col.startswith("__lamindb_record_") for col in df.columns)
+
+    partial_df = sheet.to_dataframe(features=["score"])
+    assert partial_df.index.name == "sample_id"
+    assert partial_df.index.tolist() == ["S-001"]
+    assert partial_df["score"].tolist() == [1.5]
+    assert not any(col.startswith("__lamindb_record_") for col in partial_df.columns)
+
+    # import: index on df.index
+    batch = ln.Record.from_dataframe(
+        pd.DataFrame({"score": [2.5]}, index=pd.Index(["S-002"], name="sample_id")),
+        type=sheet,
+    )
+    batch.save()
+    record2 = ln.Record.get(name="S-002")
+    assert record2.features["score"] == 2.5
+
+    # import: index as a regular column
+    batch_col = ln.Record.from_dataframe(
+        pd.DataFrame({"sample_id": ["S-003"], "score": [3.5]}),
+        type=sheet,
+    )
+    batch_col.save()
+    record3 = ln.Record.get(name="S-003")
+    assert record3.features["score"] == 3.5
+
+    # import: multi-row batch (bulk validation path)
+    batch_bulk = ln.Record.from_dataframe(
+        pd.DataFrame(
+            {"score": [4.0, 5.0]},
+            index=pd.Index(["S-004", "S-005"], name="sample_id"),
+        ),
+        type=sheet,
+    )
+    batch_bulk.save()
+    assert ln.Record.get(name="S-004").features["score"] == 4.0
+    assert ln.Record.get(name="S-005").features["score"] == 5.0
+
+    # rename: Record.name update reflected in get_values index feature
+    record2.name = "S-002-renamed"
+    ln.models.record.persist_record_name(record2)
+    record2.refresh_from_db()
+    assert record2.features.get_values() == {
+        "sample_id": "S-002-renamed",
+        "score": 2.5,
+    }
+
+    # export helper: fall back to __lamindb_record_name__ column
+    raw_df = pd.DataFrame(
+        {"score": [1.5], "__lamindb_record_name__": ["S-001"]},
+        index=[record.id],
+    )
+    exported = apply_schema_index_to_export_dataframe(
+        raw_df,
+        sample_id,
+        encoded_id="__lamindb_record_id__",
+        encoded_name="__lamindb_record_name__",
+    )
+    assert exported.index.tolist() == ["S-001"]
+    assert exported.loc["S-001", "score"] == 1.5
+
+    # artifact export/load round-trip with index in CSV
+    artifact = sheet.to_artifact()
+    assert artifact.path.read_text().startswith("sample_id,score\n")
+    loaded = artifact.load()
+    assert loaded.index.name == "sample_id"
+    assert set(loaded.index) == {"S-001", "S-002-renamed", "S-003", "S-004", "S-005"}
+    artifact.delete(permanent=True)
+
+    # non-str index features are rejected for record sheets
+    row_id = ln.Feature(name="row_id", dtype=int).save()
+    int_schema = ln.Schema(
+        features=[score],
+        index=row_id,
+        name="int-index-schema",
+    ).save()
+    with pytest.raises(ValueError, match="must have dtype str"):
+        ln.Record(name="int-index-sheet", is_type=True, schema=int_schema).save()
+    int_schema.delete(permanent=True)
+    row_id.delete(permanent=True)
+
+    ln.Record.filter(type=sheet).delete(permanent=True)
+    sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    sample_id.delete(permanent=True)
+    score.delete(permanent=True)
+
+
+def test_record_schema_index_stored_on_name_with_link_feature_export_bug():
+    """Export works for index-on-name schema with linked features."""
+    sample_name = ln.Feature(name="sample_name", dtype=str).save()
+    project_feature = ln.Feature(name="project", dtype=ln.Project).save()
+    schema = ln.Schema(
+        features=[project_feature],
+        index=sample_name,
+        name="index-on-name-with-link-schema",
+    ).save()
+    sheet = ln.Record(
+        name="index-on-name-with-link-sheet", is_type=True, schema=schema
+    ).save()
+    project = ln.Project(name="index-export-project").save()
+
+    records = ln.Record.from_dataframe(
+        pd.DataFrame(
+            {"project": [project.name, project.name]},
+            index=pd.Index(["sample-1", "sample-2"], name="sample_name"),
+        ),
+        type=sheet,
+    )
+    records.save()
+
+    df = sheet.to_dataframe()
+    assert df.index.name == "sample_name"
+    assert df.index.tolist() == ["sample-1", "sample-2"]
+    assert "sample_name" not in df.columns
+    assert "__lamindb_record_name__" not in df.columns
+    assert df["project"].tolist() == [project.name, project.name]
+
+    ln.Record.filter(type=sheet).delete(permanent=True)
+    project.delete(permanent=True)
+    sheet.delete(permanent=True)
+    schema.delete(permanent=True)
+    sample_name.delete(permanent=True)
+    project_feature.delete(permanent=True)
 
 
 def test_record_from_dataframe_requires_named_type():
@@ -276,6 +478,61 @@ def test_invalid_type_record_with_schema():
 
     record_type_with_schema.delete(permanent=True)
     schema.delete(permanent=True)
+
+
+@pytest.mark.skipif(
+    os.getenv("LAMINDB_TEST_DB_VENDOR") == "sqlite", reason="Postgres-only"
+)
+def test_single_space_type_requires_same_space():
+    restricted_space = ln.Space(name="other-space").save()
+    assert restricted_space.id != 1
+    constrained_type = ln.Record(
+        name="LockedType", is_type=True, space=restricted_space
+    ).save()
+    assert constrained_type.settings.single_space is False
+    assert constrained_type._aux is None
+
+    unconstrained_record = ln.Record(
+        name="different_space_allowed", type=constrained_type
+    ).save()
+    assert unconstrained_record.space_id == 1
+
+    constrained_type.settings.single_space = True
+    constrained_type.save()
+    constrained_type.refresh_from_db()
+    assert constrained_type.settings.single_space is True
+    assert constrained_type._aux is not None
+    assert constrained_type._aux.get("ss") == 1
+
+    valid_record = ln.Record(
+        name="same_space_record", type=constrained_type, space=restricted_space
+    ).save()
+    assert valid_record.space_id == constrained_type.space_id
+
+    with pytest.raises(InternalError) as error:
+        ln.Record.objects.filter(id=valid_record.id).update(space_id=1)
+    assert "record space must match locked type space" in error.exconly()
+
+    with pytest.raises(InternalError) as error:
+        ln.Record(name="different_space_record", type=constrained_type).save()
+    assert "record space must match locked type space" in error.exconly()
+
+    constrained_type.settings.single_space = False
+    constrained_type.save()
+    constrained_type.refresh_from_db()
+    assert constrained_type.settings.single_space is False
+    assert constrained_type._aux is None
+
+    unconstrained_record_2 = ln.Record(
+        name="different_space_allowed_again", type=constrained_type
+    ).save()
+    assert unconstrained_record_2.space_id == 1
+
+    unconstrained_record.delete(permanent=True)
+    unconstrained_record_2.delete(permanent=True)
+    valid_record.delete(permanent=True)
+    constrained_type.delete(permanent=True)
+    restricted_space.delete(permanent=True)
 
 
 # see test_artifact_features_add_remove_query in test_artifact_external_features_annotations.py for similar test for Artifacts (populate and query by features)

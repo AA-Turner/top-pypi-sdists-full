@@ -11,7 +11,6 @@ from argparse import ArgumentParser
 
 import asyncio
 import slixmpp
-from slixmpp.plugins.xep_0394 import stanza as markup_stanza
 
 
 class EchoBot(slixmpp.ClientXMPP):

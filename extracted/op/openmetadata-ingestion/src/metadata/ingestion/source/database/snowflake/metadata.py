@@ -11,15 +11,17 @@
 """
 Snowflake source module
 """
+
 import json
 import traceback
 from datetime import datetime
-from typing import Iterable, List, Optional, Tuple, cast  # noqa: UP035
+from typing import Iterable, List, Optional, Tuple, cast
 
 import sqlalchemy.types as sqltypes
 import sqlparse
 from snowflake.sqlalchemy.custom_types import VARIANT, StructuredType
 from snowflake.sqlalchemy.snowdialect import SnowflakeDialect, ischema_names
+from sqlalchemy import event
 from sqlalchemy import exc as sa_exc
 from sqlalchemy import text
 from sqlalchemy.engine.reflection import Inspector
@@ -271,46 +273,58 @@ class SnowflakeSource(
 
     def set_session_query_tag(self) -> None:
         """
-        Method to set query tag for current session
+        Register a pool event on the engine so that every connection
+        checked out from the pool gets the QUERY_TAG set automatically.
+        In SA 2.0, each engine.connect() may return a different pooled
+        connection, so setting the tag on a single connection is not enough.
+
+        Called after set_inspector() which creates a new engine per database,
+        so we register the event on the current self.engine.
         """
         if self.service_connection.queryTag:
-            self.engine.execute(
-                SNOWFLAKE_SESSION_TAG_QUERY.format(
-                    query_tag=self.service_connection.queryTag
-                )
-            )
+            query_tag = self.service_connection.queryTag
+
+            @event.listens_for(self.engine, "connect")
+            def _set_query_tag(dbapi_connection, connection_record):
+                cursor = dbapi_connection.cursor()
+                cursor.execute(SNOWFLAKE_SESSION_TAG_QUERY.format(query_tag=query_tag))
+                cursor.close()
 
     def set_partition_details(self) -> None:
         self.partition_details.clear()
-        results = self.engine.execute(SNOWFLAKE_GET_CLUSTER_KEY).all()
-        for row in results:
-            if row.CLUSTERING_KEY:
-                self.partition_details[
-                    f"{row.TABLE_SCHEMA}.{row.TABLE_NAME}"
-                ] = row.CLUSTERING_KEY
+        with self.engine.connect() as conn:
+            for row in conn.execute(text(SNOWFLAKE_GET_CLUSTER_KEY)):
+                if row.CLUSTERING_KEY:
+                    self.partition_details[f"{row.TABLE_SCHEMA}.{row.TABLE_NAME}"] = (
+                        row.CLUSTERING_KEY
+                    )
 
     def set_schema_description_map(self) -> None:
         self.schema_desc_map.clear()
-        results = self.engine.execute(SNOWFLAKE_GET_SCHEMA_COMMENTS).all()
-        for row in results:
-            self.schema_desc_map[(row.DATABASE_NAME, row.SCHEMA_NAME)] = row.COMMENT
+        with self.engine.connect() as conn:
+            for row in conn.execute(text(SNOWFLAKE_GET_SCHEMA_COMMENTS)):
+                self.schema_desc_map[(row.DATABASE_NAME, row.SCHEMA_NAME)] = row.COMMENT
 
     def set_database_description_map(self) -> None:
         self.database_desc_map.clear()
         if not self.database_desc_map:
-            results = self.engine.execute(SNOWFLAKE_GET_DATABASE_COMMENTS).all()
-            for row in results:
-                self.database_desc_map[row.DATABASE_NAME] = row.COMMENT
+            with self.engine.connect() as conn:
+                for row in conn.execute(text(SNOWFLAKE_GET_DATABASE_COMMENTS)):
+                    self.database_desc_map[row.DATABASE_NAME] = row.COMMENT
 
     def set_external_location_map(self, database_name: str) -> None:
         self.external_location_map.clear()
-        results = self.engine.execute(
-            SNOWFLAKE_GET_EXTERNAL_LOCATIONS.format(database_name=database_name)
-        ).all()
-        self.external_location_map = {
-            (row.database_name, row.schema_name, row.name): row.location
-            for row in results
-        }
+        with self.engine.connect() as conn:
+            self.external_location_map = {
+                (row.database_name, row.schema_name, row.name): row.location
+                for row in conn.execute(
+                    text(
+                        SNOWFLAKE_GET_EXTERNAL_LOCATIONS.format(
+                            database_name=database_name
+                        )
+                    )
+                )
+            }
 
     def set_schema_tags_map(self, database_name: str) -> None:
         """Fetch and store all schema-level tags for the current database"""
@@ -319,26 +333,27 @@ class SnowflakeSource(
             return
 
         try:
-            results = self.engine.execute(
-                SNOWFLAKE_FETCH_SCHEMA_TAGS.format(
-                    database_name=database_name,
-                    account_usage=self.service_connection.accountUsageSchema,
-                )
-            ).all()
-
-            for row in results:
-                schema_name = row.SCHEMA_NAME
-                if not row.TAG_VALUE:
-                    logger.warning(
-                        f"Skipping tag '{row.TAG_NAME}' for schema '{schema_name}' - "
-                        "TAG_VALUE is empty. Snowflake tags require a value to be ingested."
+            with self.engine.connect() as conn:
+                for row in conn.execute(
+                    text(
+                        SNOWFLAKE_FETCH_SCHEMA_TAGS.format(
+                            database_name=database_name,
+                            account_usage=self.service_connection.accountUsageSchema,
+                        )
                     )
-                    continue
-                if schema_name not in self.schema_tags_map:
-                    self.schema_tags_map[schema_name] = []
-                self.schema_tags_map[schema_name].append(
-                    {"tag_name": row.TAG_NAME, "tag_value": row.TAG_VALUE}
-                )
+                ):
+                    schema_name = row.SCHEMA_NAME
+                    if not row.TAG_VALUE:
+                        logger.warning(
+                            f"Skipping tag '{row.TAG_NAME}' for schema '{schema_name}' - "
+                            "TAG_VALUE is empty. Snowflake tags require a value to be ingested."
+                        )
+                        continue
+                    if schema_name not in self.schema_tags_map:
+                        self.schema_tags_map[schema_name] = []
+                    self.schema_tags_map[schema_name].append(
+                        {"tag_name": row.TAG_NAME, "tag_value": row.TAG_VALUE}
+                    )
 
         except Exception as exc:
             logger.debug(traceback.format_exc())
@@ -351,20 +366,21 @@ class SnowflakeSource(
             return
 
         try:
-            results = self.engine.execute(
-                SNOWFLAKE_FETCH_DATABASE_TAGS.format(
-                    database_name=database_name,
-                    account_usage=self.service_connection.accountUsageSchema,
-                )
-            ).all()
-
-            for row in results:
-                db_name = row.DATABASE_NAME
-                if db_name not in self.database_tags_map:
-                    self.database_tags_map[db_name] = []
-                self.database_tags_map[db_name].append(
-                    {"tag_name": row.TAG_NAME, "tag_value": row.TAG_VALUE}
-                )
+            with self.engine.connect() as conn:
+                for row in conn.execute(
+                    text(
+                        SNOWFLAKE_FETCH_DATABASE_TAGS.format(
+                            database_name=database_name,
+                            account_usage=self.service_connection.accountUsageSchema,
+                        )
+                    )
+                ):
+                    db_name = row.DATABASE_NAME
+                    if db_name not in self.database_tags_map:
+                        self.database_tags_map[db_name] = []
+                    self.database_tags_map[db_name].append(
+                        {"tag_name": row.TAG_NAME, "tag_value": row.TAG_VALUE}
+                    )
 
         except Exception as exc:
             logger.debug(traceback.format_exc())
@@ -396,7 +412,9 @@ class SnowflakeSource(
         yield from database_names
 
     def get_database_names(self) -> Iterable[str]:
-        configured_db = self.config.serviceConnection.root.config.database
+        configured_db = (
+            self.config.serviceConnection.root.config.database
+        )  # pyright: ignore[reportAttributeAccessIssue]
         if configured_db:
             self.set_inspector(configured_db)
             self.set_session_query_tag()
@@ -543,10 +561,12 @@ class SnowflakeSource(
             result = []
             try:
                 result = self.connection.execute(
-                    SNOWFLAKE_FETCH_TABLE_TAGS.format(
-                        database_name=self.context.get().database,
-                        schema_name=schema_name,
-                        account_usage=self.service_connection.accountUsageSchema,
+                    text(
+                        SNOWFLAKE_FETCH_TABLE_TAGS.format(
+                            database_name=self.context.get().database,
+                            schema_name=schema_name,
+                            account_usage=self.service_connection.accountUsageSchema,
+                        )
                     )
                 )
 
@@ -557,10 +577,12 @@ class SnowflakeSource(
                         f"Error fetching tags {exc}. Trying with quoted names"
                     )
                     result = self.connection.execute(
-                        SNOWFLAKE_FETCH_TABLE_TAGS.format(
-                            database_name=f'"{self.context.get().database}"',
-                            schema_name=f'"{self.context.get().database_schema}"',
-                            account_usage=self.service_connection.accountUsageSchema,
+                        text(
+                            SNOWFLAKE_FETCH_TABLE_TAGS.format(
+                                database_name=f'"{self.context.get().database}"',
+                                schema_name=f'"{self.context.get().database_schema}"',
+                                account_usage=self.service_connection.accountUsageSchema,
+                            )
                         )
                     )
                 except Exception as inner_exc:
@@ -589,13 +611,17 @@ class SnowflakeSource(
                     )
                     continue
 
-                entity_fqn = fqn._build(self.context.get().database_service, *fqn_elements)  # pyright: ignore[reportAttributeAccessIssue]
+                entity_fqn = fqn._build(
+                    self.context.get().database_service, *fqn_elements
+                )  # pyright: ignore[reportAttributeAccessIssue]
                 try:
                     classification = self.tag_canonicalizer.classification(
                         row[0], default_description=SNOWFLAKE_CLASSIFICATION_DESCRIPTION
                     )
                     tag = self.tag_canonicalizer.tag(
-                        classification.name, row[1], default_tag_description=SNOWFLAKE_TAG_DESCRIPTION
+                        classification.name,
+                        row[1],
+                        default_tag_description=SNOWFLAKE_TAG_DESCRIPTION,
                     )
 
                     self.tags_registry.attach(
@@ -622,7 +648,8 @@ class SnowflakeSource(
                 for tag_info in self.schema_tags_map[schema_name]:
                     try:
                         classification = self.tag_canonicalizer.classification(
-                            tag_info["tag_name"], default_description=SNOWFLAKE_CLASSIFICATION_DESCRIPTION
+                            tag_info["tag_name"],
+                            default_description=SNOWFLAKE_CLASSIFICATION_DESCRIPTION,
                         )
                         tag = self.tag_canonicalizer.tag(
                             classification.name,
@@ -648,9 +675,13 @@ class SnowflakeSource(
                             ),
                             right=None,
                         )
-            yield from (Either(left=None, right=record) for record in self.tags_registry.drain())
+            yield from (
+                Either(left=None, right=record) for record in self.tags_registry.drain()
+            )
 
-    def yield_database_tag(self, database_name: str) -> Iterable[Either[OMetaTagAndClassification]]:
+    def yield_database_tag(
+        self, database_name: str
+    ) -> Iterable[Either[OMetaTagAndClassification]]:
         """Yield database-level tags for the topology."""
         if not self.source_config.includeTags:
             return
@@ -670,10 +701,13 @@ class SnowflakeSource(
         for tag_info in self.database_tags_map[database_name]:
             try:
                 classification = self.tag_canonicalizer.classification(
-                    tag_info["tag_name"], default_description=SNOWFLAKE_CLASSIFICATION_DESCRIPTION
+                    tag_info["tag_name"],
+                    default_description=SNOWFLAKE_CLASSIFICATION_DESCRIPTION,
                 )
                 tag = self.tag_canonicalizer.tag(
-                    classification.name, tag_info["tag_value"], default_tag_description=SNOWFLAKE_TAG_DESCRIPTION
+                    classification.name,
+                    tag_info["tag_value"],
+                    default_tag_description=SNOWFLAKE_TAG_DESCRIPTION,
                 )
 
                 self.tags_registry.attach(
@@ -694,7 +728,9 @@ class SnowflakeSource(
                     ),
                     right=None,
                 )
-        yield from (Either(left=None, right=record) for record in self.tags_registry.drain())
+        yield from (
+            Either(left=None, right=record) for record in self.tags_registry.drain()
+        )
 
     def _get_table_names_and_types(
         self, schema_name: str, table_type: TableType = TableType.Regular
@@ -793,7 +829,8 @@ class SnowflakeSource(
 
     def _get_org_name(self) -> Optional[str]:
         try:
-            res = self.engine.execute(SNOWFLAKE_GET_ORGANIZATION_NAME).one()
+            with self.engine.connect() as conn:
+                res = conn.execute(text(SNOWFLAKE_GET_ORGANIZATION_NAME)).one()
             if res:
                 return res.NAME
         except Exception as exc:
@@ -803,7 +840,8 @@ class SnowflakeSource(
 
     def _get_current_account(self) -> Optional[str]:
         try:
-            res = self.engine.execute(SNOWFLAKE_GET_CURRENT_ACCOUNT).one()
+            with self.engine.connect() as conn:
+                res = conn.execute(text(SNOWFLAKE_GET_CURRENT_ACCOUNT)).one()
             if res:
                 return res.ACCOUNT
         except Exception as exc:
@@ -899,26 +937,30 @@ class SnowflakeSource(
         self, query: str
     ) -> Iterable[SnowflakeStoredProcedure]:
         try:
-            results = self.engine.execute(
-                query.format(
-                    database_name=self.context.get().database,
-                    schema_name=self.context.get().database_schema,
-                    account_usage=self.service_connection.accountUsageSchema,
-                )
-            ).all()
-            for row in results:
-                stored_procedure = SnowflakeStoredProcedure.model_validate(dict(row))
-                if stored_procedure.definition is None:
-                    logger.debug(
-                        f"Missing ownership permissions on procedure {stored_procedure.name}."
-                        " Trying to fetch description via DESCRIBE."
+            with self.engine.connect() as conn:
+                for row in conn.execute(
+                    text(
+                        query.format(
+                            database_name=self.context.get().database,
+                            schema_name=self.context.get().database_schema,
+                            account_usage=self.service_connection.accountUsageSchema,
+                        )
                     )
-                    stored_procedure.definition = (
-                        self.describe_procedure_definition(stored_procedure)
+                ):
+                    stored_procedure = SnowflakeStoredProcedure.model_validate(
+                        row._asdict()
                     )
-                if self.is_stored_procedure_filtered(stored_procedure.name):
-                    continue
-                yield stored_procedure
+                    if stored_procedure.definition is None:
+                        logger.debug(
+                            f"Missing ownership permissions on procedure {stored_procedure.name}."
+                            " Trying to fetch description via DESCRIBE."
+                        )
+                        stored_procedure.definition = (
+                            self.describe_procedure_definition(stored_procedure)
+                        )
+                    if self.is_stored_procedure_filtered(stored_procedure.name):
+                        continue
+                    yield stored_procedure
         except Exception as exc:
             logger.debug(traceback.format_exc())
             logger.error(f"Error fetching stored procedures: {exc}")
@@ -948,15 +990,19 @@ class SnowflakeSource(
                 query = SNOWFLAKE_DESC_STORED_PROCEDURE
             else:
                 query = SNOWFLAKE_DESC_FUNCTION
-            res = self.engine.execute(
-                query.format(
-                    database_name=self.context.get().database,
-                    schema_name=self.context.get().database_schema,
-                    procedure_name=stored_procedure.name,
-                    procedure_signature=stored_procedure.unquote_signature(),
+            with self.engine.connect() as conn:
+                res = conn.execute(
+                    text(
+                        query.format(
+                            database_name=self.context.get().database,
+                            schema_name=self.context.get().database_schema,
+                            procedure_name=stored_procedure.name,
+                            procedure_signature=stored_procedure.unquote_signature(),
+                        )
+                    )
                 )
-            )
-            return dict(res.all()).get("body", "")
+                rows = res.all()
+                return rows[0]._mapping["body"] if rows else ""
         except Exception as exc:
             logger.debug(traceback.format_exc())
             logger.error(f"Error fetching stored procedure definition: {exc}")
@@ -1048,7 +1094,11 @@ class SnowflakeSource(
         # since stream does not define columns separately in Snowflake
         if table_type == TableType.Stream:
             cursor = self.connection.execute(
-                SNOWFLAKE_GET_STREAM.format(stream_name=table_name, schema=schema_name)
+                text(
+                    SNOWFLAKE_GET_STREAM.format(
+                        stream_name=table_name, schema=schema_name
+                    )
+                )
             )
             try:
                 result = cursor.fetchone()
@@ -1171,14 +1221,16 @@ class SnowflakeSource(
         parts = fqn.split(tag_fqn) if tag_fqn else []
         return parts[0] if parts else tag_fqn
 
-    def _has_classification(self, classification_name: str, tag_list: List[TagLabel]) -> bool:  # noqa: UP006
+    def _has_classification(
+        self, classification_name: str, tag_list: List[TagLabel]
+    ) -> bool:
         """Check if a tag with the given classification name already exists"""
-        for tag in tag_list:  # noqa: SIM110
+        for tag in tag_list:
             if self._get_classification_name(tag) == classification_name:
                 return True
         return False
 
-    def get_database_tag_labels(self, database_name: str) -> Optional[List[TagLabel]]:  # noqa: UP006, UP045
+    def get_database_tag_labels(self, database_name: str) -> Optional[List[TagLabel]]:
         """Return tags for the database entity from registry."""
         database_fqn = cast(
             "str",
@@ -1191,7 +1243,9 @@ class SnowflakeSource(
         )
         return self.tags_registry.labels_for(database_fqn) or None
 
-    def get_column_tag_labels(self, table_name: str, column: dict) -> Optional[List[TagLabel]]:  # noqa: UP006, UP045
+    def get_column_tag_labels(
+        self, table_name: str, column: dict
+    ) -> Optional[List[TagLabel]]:
         """Return tags for a column entity from the registry.
 
         Column tags don't inherit from parent entities (table/schema/database)
@@ -1212,7 +1266,7 @@ class SnowflakeSource(
         )
         return self.tags_registry.labels_for(col_fqn) or None
 
-    def get_schema_tag_labels(self, schema_name: str) -> Optional[List[TagLabel]]:  # noqa: UP006, UP045
+    def get_schema_tag_labels(self, schema_name: str) -> Optional[List[TagLabel]]:
         """
         Return tags for schema entity including:
         1. Snowflake schema-level tags
@@ -1242,7 +1296,9 @@ class SnowflakeSource(
 
         # Add inherited database tags (only if classification doesn't already exist)
         for label in self.tags_registry.labels_for(database_fqn):
-            if not self._has_classification(self._get_classification_name(label), schema_tags):
+            if not self._has_classification(
+                self._get_classification_name(label), schema_tags
+            ):
                 schema_tags.append(label)
 
         return schema_tags if schema_tags else None
@@ -1293,12 +1349,16 @@ class SnowflakeSource(
 
         # Add inherited schema tags (only if classification doesn't already exist)
         for label in self.tags_registry.labels_for(schema_fqn):
-            if not self._has_classification(self._get_classification_name(label), table_tags):
+            if not self._has_classification(
+                self._get_classification_name(label), table_tags
+            ):
                 table_tags.append(label)
 
         # Add inherited database tags (only if classification doesn't already exist)
         for label in self.tags_registry.labels_for(database_fqn):
-            if not self._has_classification(self._get_classification_name(label), table_tags):
+            if not self._has_classification(
+                self._get_classification_name(label), table_tags
+            ):
                 table_tags.append(label)
 
         return table_tags if table_tags else None

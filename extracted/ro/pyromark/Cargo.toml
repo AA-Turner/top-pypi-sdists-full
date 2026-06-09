@@ -1,6 +1,6 @@
 [package]
 name = "pyromark"
-version = "0.9.11"
+version = "0.9.12"
 edition = "2024"
 license = "MIT"
 include = [
@@ -20,11 +20,15 @@ crate-type = ["cdylib"]
 name = "_pyromark"
 
 [dependencies]
-pulldown-cmark = { version = "=0.13.4", default-features = false, features = [
-  "html",
-  "serde",
-  "simd",
-] }
+pulldown-cmark = {
+  version = "=0.13.4",
+  default-features = false,
+  features = [
+    "html",
+    "serde",
+    "simd",
+  ]
+}
 pyo3 = "=0.28.3"
 pythonize = "=0.28.0"
 

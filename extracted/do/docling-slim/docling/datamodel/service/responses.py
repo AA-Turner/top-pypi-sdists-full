@@ -150,8 +150,37 @@ class PresignedArtifactResult(BaseModel):
 class ConvertedOutcomeCountsMixin(BaseModel):
     num_converted: int
     num_succeeded: int
-    num_partially_succeeded: int
+    num_partially_succeeded: int = 0
     num_failed: int
+
+
+class FailureCategory(str, enum.Enum):
+    POLICY = "policy"
+    CAPACITY = "capacity"
+    SOURCE_UNAVAILABLE = "source_unavailable"
+    TARGET_UNAVAILABLE = "target_unavailable"
+    TIMEOUT = "timeout"
+    INTERNAL = "internal"
+
+
+class FailurePhase(str, enum.Enum):
+    ADMISSION = "admission"
+    SOURCE_ENUMERATION = "source_enumeration"
+    EXECUTION = "execution"
+    ORCHESTRATION = "orchestration"
+
+
+class PublicFailureInfo(BaseModel):
+    category: FailureCategory
+    message: str
+    retryable: bool
+    phase: FailurePhase
+    details: dict[str, str] = Field(default_factory=dict)
+
+
+class TaskFailureResult(BaseModel):
+    kind: Literal["TaskFailureResult"] = "TaskFailureResult"
+    failure: PublicFailureInfo
 
 
 ResultType = Annotated[
@@ -167,6 +196,17 @@ ResultType = Annotated[
 class DoclingTaskResult(ConvertedOutcomeCountsMixin):
     result: ResultType
     processing_time: float
+
+
+class ConvertDocumentResult(DoclingTaskResult):
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "ConvertDocumentResult is deprecated and will be removed in a future version. "
+            "Use DoclingTaskResult instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)
 
 
 class HealthCheckResponse(BaseModel):
@@ -231,6 +271,7 @@ class TaskStatusResponse(BaseModel):
     task_position: Optional[int] = None
     task_meta: Optional[TaskProcessingMeta] = None
     error_message: Optional[str] = None
+    failure: Optional[PublicFailureInfo] = None
 
 
 class MessageKind(str, enum.Enum):

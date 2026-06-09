@@ -13,6 +13,10 @@ Usage::
     from mypy_boto3_devops_agent.client import DevOpsAgentServiceClient
     from mypy_boto3_devops_agent.paginator import (
         ListAgentSpacesPaginator,
+        ListAssetFilesPaginator,
+        ListAssetTypesPaginator,
+        ListAssetVersionsPaginator,
+        ListAssetsPaginator,
         ListAssociationsPaginator,
         ListBacklogTasksPaginator,
         ListExecutionsPaginator,
@@ -25,6 +29,10 @@ Usage::
     client: DevOpsAgentServiceClient = session.client("devops-agent")
 
     list_agent_spaces_paginator: ListAgentSpacesPaginator = client.get_paginator("list_agent_spaces")
+    list_asset_files_paginator: ListAssetFilesPaginator = client.get_paginator("list_asset_files")
+    list_asset_types_paginator: ListAssetTypesPaginator = client.get_paginator("list_asset_types")
+    list_asset_versions_paginator: ListAssetVersionsPaginator = client.get_paginator("list_asset_versions")
+    list_assets_paginator: ListAssetsPaginator = client.get_paginator("list_assets")
     list_associations_paginator: ListAssociationsPaginator = client.get_paginator("list_associations")
     list_backlog_tasks_paginator: ListBacklogTasksPaginator = client.get_paginator("list_backlog_tasks")
     list_executions_paginator: ListExecutionsPaginator = client.get_paginator("list_executions")
@@ -44,6 +52,14 @@ from botocore.paginate import PageIterator, Paginator
 from .type_defs import (
     ListAgentSpacesInputPaginateTypeDef,
     ListAgentSpacesOutputTypeDef,
+    ListAssetFilesRequestPaginateTypeDef,
+    ListAssetFilesResponseTypeDef,
+    ListAssetsRequestPaginateTypeDef,
+    ListAssetsResponseTypeDef,
+    ListAssetTypesRequestPaginateTypeDef,
+    ListAssetTypesResponseTypeDef,
+    ListAssetVersionsRequestPaginateTypeDef,
+    ListAssetVersionsResponseTypeDef,
     ListAssociationsInputPaginateTypeDef,
     ListAssociationsOutputTypeDef,
     ListBacklogTasksRequestPaginateTypeDef,
@@ -66,6 +82,10 @@ else:
 
 __all__ = (
     "ListAgentSpacesPaginator",
+    "ListAssetFilesPaginator",
+    "ListAssetTypesPaginator",
+    "ListAssetVersionsPaginator",
+    "ListAssetsPaginator",
     "ListAssociationsPaginator",
     "ListBacklogTasksPaginator",
     "ListExecutionsPaginator",
@@ -93,6 +113,90 @@ class ListAgentSpacesPaginator(_ListAgentSpacesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/paginator/ListAgentSpaces.html#DevOpsAgentService.Paginator.ListAgentSpaces.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devops_agent/paginators/#listagentspacespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListAssetFilesPaginatorBase = Paginator[ListAssetFilesResponseTypeDef]
+else:
+    _ListAssetFilesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListAssetFilesPaginator(_ListAssetFilesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/paginator/ListAssetFiles.html#DevOpsAgentService.Paginator.ListAssetFiles)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devops_agent/paginators/#listassetfilespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAssetFilesRequestPaginateTypeDef]
+    ) -> PageIterator[ListAssetFilesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/paginator/ListAssetFiles.html#DevOpsAgentService.Paginator.ListAssetFiles.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devops_agent/paginators/#listassetfilespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListAssetTypesPaginatorBase = Paginator[ListAssetTypesResponseTypeDef]
+else:
+    _ListAssetTypesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListAssetTypesPaginator(_ListAssetTypesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/paginator/ListAssetTypes.html#DevOpsAgentService.Paginator.ListAssetTypes)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devops_agent/paginators/#listassettypespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAssetTypesRequestPaginateTypeDef]
+    ) -> PageIterator[ListAssetTypesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/paginator/ListAssetTypes.html#DevOpsAgentService.Paginator.ListAssetTypes.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devops_agent/paginators/#listassettypespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListAssetVersionsPaginatorBase = Paginator[ListAssetVersionsResponseTypeDef]
+else:
+    _ListAssetVersionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListAssetVersionsPaginator(_ListAssetVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/paginator/ListAssetVersions.html#DevOpsAgentService.Paginator.ListAssetVersions)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devops_agent/paginators/#listassetversionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAssetVersionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListAssetVersionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/paginator/ListAssetVersions.html#DevOpsAgentService.Paginator.ListAssetVersions.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devops_agent/paginators/#listassetversionspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListAssetsPaginatorBase = Paginator[ListAssetsResponseTypeDef]
+else:
+    _ListAssetsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListAssetsPaginator(_ListAssetsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/paginator/ListAssets.html#DevOpsAgentService.Paginator.ListAssets)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devops_agent/paginators/#listassetspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAssetsRequestPaginateTypeDef]
+    ) -> PageIterator[ListAssetsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/paginator/ListAssets.html#DevOpsAgentService.Paginator.ListAssets.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devops_agent/paginators/#listassetspaginator)
         """
 
 

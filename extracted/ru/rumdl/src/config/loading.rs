@@ -69,6 +69,85 @@ fn source_from_filename(filename: &str) -> ConfigSource {
     }
 }
 
+/// The rumdl-native config files that actually exist in `dir`, in precedence order.
+///
+/// Walks `RUMDL_CONFIG_FILES` (the single source of truth for discovery) joined onto
+/// `dir`, so `.config/rumdl.toml` is recognised at the same level as `.rumdl.toml`.
+/// `pyproject.toml` counts only when it declares `[tool.rumdl]`. markdownlint configs
+/// are intentionally excluded: they are a separate fallback tier, not a same-tool
+/// collision, and projects routinely keep one around while migrating.
+pub(crate) fn rumdl_configs_in_dir(dir: &Path) -> Vec<PathBuf> {
+    RUMDL_CONFIG_FILES
+        .iter()
+        .map(|name| dir.join(name))
+        .filter(|path| {
+            if !path.exists() {
+                return false;
+            }
+            if path.file_name().and_then(|n| n.to_str()) == Some("pyproject.toml") {
+                std::fs::read_to_string(path).is_ok_and(|content| pyproject_declares_rumdl_config(&content))
+            } else {
+                true
+            }
+        })
+        .collect()
+}
+
+/// A directory holding more than one rumdl-native config file.
+///
+/// `winner` is the file discovery uses (highest precedence); `shadowed` are the
+/// silently-ignored siblings. Having both `.rumdl.toml` and `rumdl.toml` (or either
+/// plus a `[tool.rumdl]` in `pyproject.toml`) in one directory is redundant by
+/// construction and a common footgun: editing the shadowed file appears to do
+/// nothing. Resolution is unchanged (the dot file still wins, matching Ruff); this
+/// type only lets callers surface the collision.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ShadowedConfigs {
+    pub dir: PathBuf,
+    pub winner: PathBuf,
+    pub shadowed: Vec<PathBuf>,
+}
+
+/// Detect rumdl-native config files that shadow each other in `dir`.
+///
+/// Returns `None` unless two or more rumdl-native configs coexist at this directory
+/// level (markdownlint files and configs in other directories never count). The
+/// highest-precedence file is the `winner`; the rest are silently `shadowed`.
+pub(crate) fn detect_shadowed_configs(dir: &Path) -> Option<ShadowedConfigs> {
+    let mut configs = rumdl_configs_in_dir(dir);
+    if configs.len() < 2 {
+        return None;
+    }
+    let winner = configs.remove(0);
+    Some(ShadowedConfigs {
+        dir: dir.to_path_buf(),
+        winner,
+        shadowed: configs,
+    })
+}
+
+/// Format a shadowed-config collision as a single user-facing warning line.
+///
+/// The directory is named once; the winner and shadowed files are shown relative
+/// to it (e.g. `.rumdl.toml`, `.config/rumdl.toml`) rather than repeating the full
+/// directory in every path. Paths are normalized to forward slashes on Windows for
+/// stable, copy-pasteable output; non-UTF-8 components degrade lossily rather than
+/// panicking.
+pub(crate) fn format_shadow_warning(shadow: &ShadowedConfigs) -> String {
+    let norm = |s: String| if cfg!(windows) { s.replace('\\', "/") } else { s };
+    let rel = |path: &Path| {
+        let relative = path.strip_prefix(&shadow.dir).unwrap_or(path);
+        norm(relative.to_string_lossy().into_owned())
+    };
+    let shadowed = shadow.shadowed.iter().map(|p| rel(p)).collect::<Vec<_>>().join(", ");
+    format!(
+        "multiple rumdl config files in {}: using {}, ignoring {}",
+        norm(shadow.dir.to_string_lossy().into_owned()),
+        rel(&shadow.winner),
+        shadowed,
+    )
+}
+
 /// Load a config file (and any base configs it extends) into a SourcedConfig.
 ///
 /// This function handles the recursive `extends` chain:
@@ -459,7 +538,9 @@ impl SourcedConfig<ConfigLoaded> {
     /// through the user-config fallback (`load_user_config`) so the platform
     /// user-config directory keeps precedence over `~/.rumdl.toml`. `home_override`
     /// supplies the boundary for tests; production resolves the real home directory.
-    fn discover_config_upward(home_override: Option<&Path>) -> Option<(std::path::PathBuf, std::path::PathBuf)> {
+    fn discover_config_upward(
+        home_override: Option<&Path>,
+    ) -> Option<(std::path::PathBuf, std::path::PathBuf, Option<ShadowedConfigs>)> {
         use std::env;
 
         const MAX_DEPTH: usize = 100; // Prevent infinite traversal
@@ -480,7 +561,8 @@ impl SourcedConfig<ConfigLoaded> {
 
         let mut current_dir = start_dir.clone();
         let mut depth = 0;
-        let mut found_config: Option<(std::path::PathBuf, std::path::PathBuf)> = None;
+        // (winning config path, directory it was found in, any shadowed siblings there)
+        let mut found_config: Option<(std::path::PathBuf, std::path::PathBuf, Option<ShadowedConfigs>)> = None;
 
         loop {
             if depth >= MAX_DEPTH {
@@ -497,32 +579,17 @@ impl SourcedConfig<ConfigLoaded> {
 
             log::debug!("[rumdl-config] Searching for config in: {}", current_dir.display());
 
-            // Check for config files in order of precedence (only if not already found)
-            if found_config.is_none() {
-                for config_name in RUMDL_CONFIG_FILES {
-                    let config_path = current_dir.join(config_name);
-
-                    if config_path.exists() {
-                        // For pyproject.toml, verify it contains [tool.rumdl] section
-                        if *config_name == "pyproject.toml" {
-                            if let Ok(content) = std::fs::read_to_string(&config_path) {
-                                if pyproject_declares_rumdl_config(&content) {
-                                    log::debug!("[rumdl-config] Found config file: {}", config_path.display());
-                                    // Store config, but continue looking for .git
-                                    found_config = Some((config_path.clone(), current_dir.clone()));
-                                    break;
-                                }
-                                log::debug!("[rumdl-config] Found pyproject.toml but no [tool.rumdl] section");
-                                continue;
-                            }
-                        } else {
-                            log::debug!("[rumdl-config] Found config file: {}", config_path.display());
-                            // Store config, but continue looking for .git
-                            found_config = Some((config_path.clone(), current_dir.clone()));
-                            break;
-                        }
-                    }
-                }
+            // Check for config files in order of precedence (only if not already found).
+            // `rumdl_configs_in_dir` is the single source of truth for "which rumdl
+            // configs live here", shared with the LSP and the shadow detector, so the
+            // winner and the silently-shadowed siblings are computed identically.
+            if found_config.is_none()
+                && let Some(winner) = rumdl_configs_in_dir(&current_dir).into_iter().next()
+            {
+                log::debug!("[rumdl-config] Found config file: {}", winner.display());
+                let shadow = detect_shadowed_configs(&current_dir);
+                // Store config, but continue looking for .git
+                found_config = Some((winner, current_dir.clone(), shadow));
             }
 
             // Check for .git directory (stop boundary)
@@ -545,9 +612,9 @@ impl SourcedConfig<ConfigLoaded> {
         }
 
         // If config found, determine project root by walking up from config location
-        if let Some((config_path, config_dir)) = found_config {
+        if let Some((config_path, config_dir, shadow)) = found_config {
             let project_root = Self::find_project_root_from(&config_dir);
-            return Some((config_path, project_root));
+            return Some((config_path, project_root, shadow));
         }
 
         None
@@ -893,12 +960,18 @@ impl SourcedConfig<ConfigLoaded> {
             log::debug!("[rumdl-config] No explicit config_path, searching default locations");
 
             // Try to discover project config first
-            if let Some((config_file, project_root)) = Self::discover_config_upward(home_dir) {
+            if let Some((config_file, project_root, shadow)) = Self::discover_config_upward(home_dir) {
                 // Project config found - use ONLY this (standalone, no user config).
                 // Rumdl project configs can express all settings directly, so user config
                 // is not needed and omitting it ensures CI and local runs are identical.
                 log::debug!("[rumdl-config] Found project config: {}", config_file.display());
                 log::debug!("[rumdl-config] Project root: {}", project_root.display());
+
+                // Record any same-directory sibling configs that are silently shadowed,
+                // so the CLI and LSP can warn the user. Resolution is unchanged.
+                if let Some(shadow) = shadow {
+                    sourced_config.discovery_warnings.push(format_shadow_warning(&shadow));
+                }
 
                 sourced_config.project_root = Some(project_root);
 
@@ -1011,6 +1084,7 @@ impl SourcedConfig<ConfigLoaded> {
             loaded_files: self.loaded_files,
             unknown_keys: self.unknown_keys,
             project_root: self.project_root,
+            discovery_warnings: self.discovery_warnings,
             validation_warnings: warnings,
             _state: PhantomData,
         })
@@ -1046,6 +1120,7 @@ impl SourcedConfig<ConfigLoaded> {
             loaded_files: self.loaded_files,
             unknown_keys: self.unknown_keys,
             project_root: self.project_root,
+            discovery_warnings: self.discovery_warnings,
             validation_warnings: Vec::new(),
             _state: PhantomData,
         }
@@ -1069,9 +1144,25 @@ impl SourcedConfig<ConfigLoaded> {
         // root and could pick up a config file in a parent directory outside the
         // project.
         let canonical_project_root = std::fs::canonicalize(project_root).ok();
+
+        // Resolve the home boundary so the walk never treats `~/.rumdl.toml` as a
+        // project config, consistent with `discover_config_upward`. This only has
+        // an effect when `project_root` is at or above the home directory (e.g. a
+        // multi-path run whose grouping root spans the home boundary); for the
+        // usual project root below home the walk stops there first.
+        let home_dir = Self::resolve_home_boundary(None);
+        let canonical_home = home_dir.as_deref().and_then(|h| std::fs::canonicalize(h).ok());
+
         let mut current_dir = dir.to_path_buf();
 
         loop {
+            // Stop at the home directory without checking its config: `~/.rumdl.toml`
+            // reaches the loader only via the user-config fallback, never as a
+            // project config promoted over the platform user config.
+            if Self::at_home_boundary(&current_dir, home_dir.as_deref(), canonical_home.as_deref()) {
+                break;
+            }
+
             // Check rumdl config files first (higher precedence)
             for config_name in RUMDL_CONFIG_FILES {
                 let config_path = current_dir.join(config_name);
@@ -1116,12 +1207,16 @@ impl SourcedConfig<ConfigLoaded> {
         None
     }
 
-    /// Load a config from a specific file path, with extends resolution.
+    /// Load a config from a specific file path, with extends resolution, returning
+    /// the still-`Loaded` `SourcedConfig` (before validation and conversion).
     ///
-    /// Creates a fresh `SourcedConfig`, loads the config file using the
-    /// appropriate parser, and converts to `Config`. Used for per-directory
-    /// config loading where each subdirectory config is standalone.
-    pub fn load_config_for_path(config_path: &Path, project_root: &Path) -> Result<Config, ConfigError> {
+    /// Used by per-directory resolution so the caller can layer CLI-level overrides
+    /// (e.g. inline `--config`) on top before converting to `Config`, matching the
+    /// precedence applied to the global config.
+    pub fn load_sourced_for_path(
+        config_path: &Path,
+        project_root: &Path,
+    ) -> Result<SourcedConfig<ConfigLoaded>, ConfigError> {
         let mut sourced_config = SourcedConfig {
             project_root: Some(project_root.to_path_buf()),
             ..SourcedConfig::default()
@@ -1150,7 +1245,16 @@ impl SourcedConfig<ConfigLoaded> {
             load_config_with_extends(&mut sourced_config, config_path, &mut visited, chain_source)?;
         }
 
-        Ok(sourced_config.into_validated_unchecked().into())
+        Ok(sourced_config)
+    }
+
+    /// Load a config from a specific file path, with extends resolution, and convert
+    /// to `Config`. Used for per-directory config loading where each subdirectory
+    /// config is standalone.
+    pub fn load_config_for_path(config_path: &Path, project_root: &Path) -> Result<Config, ConfigError> {
+        Ok(Self::load_sourced_for_path(config_path, project_root)?
+            .into_validated_unchecked()
+            .into())
     }
 }
 
@@ -1282,5 +1386,140 @@ mod tests {
             found, None,
             "discovery must stop at the project root, not overshoot to the parent config"
         );
+    }
+
+    mod shadowed_configs {
+        use super::super::{ShadowedConfigs, detect_shadowed_configs, format_shadow_warning, rumdl_configs_in_dir};
+        use tempfile::tempdir;
+
+        fn names(paths: &[std::path::PathBuf]) -> Vec<String> {
+            paths
+                .iter()
+                .map(|p| {
+                    // Use the last two components so `.config/rumdl.toml` is distinguishable
+                    // from a top-level `rumdl.toml` without depending on the temp dir prefix.
+                    let file = p.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+                    let parent = p.parent().and_then(|d| d.file_name()).and_then(|n| n.to_str());
+                    match parent {
+                        Some(".config") => format!(".config/{file}"),
+                        _ => file.to_string(),
+                    }
+                })
+                .collect()
+        }
+
+        #[test]
+        fn empty_directory_has_no_configs_and_no_shadow() {
+            let tmp = tempdir().unwrap();
+            assert!(rumdl_configs_in_dir(tmp.path()).is_empty());
+            assert!(detect_shadowed_configs(tmp.path()).is_none());
+        }
+
+        #[test]
+        fn single_config_does_not_shadow() {
+            let tmp = tempdir().unwrap();
+            std::fs::write(tmp.path().join(".rumdl.toml"), "").unwrap();
+            assert_eq!(names(&rumdl_configs_in_dir(tmp.path())), vec![".rumdl.toml"]);
+            assert!(detect_shadowed_configs(tmp.path()).is_none());
+        }
+
+        #[test]
+        fn dot_wins_over_non_dot_and_non_dot_is_shadowed() {
+            let tmp = tempdir().unwrap();
+            std::fs::write(tmp.path().join(".rumdl.toml"), "").unwrap();
+            std::fs::write(tmp.path().join("rumdl.toml"), "").unwrap();
+
+            let ShadowedConfigs { winner, shadowed, .. } = detect_shadowed_configs(tmp.path()).unwrap();
+            assert_eq!(names(&[winner]), vec![".rumdl.toml"]);
+            assert_eq!(names(&shadowed), vec!["rumdl.toml"]);
+        }
+
+        #[test]
+        fn config_subdir_counts_as_same_level_shadow() {
+            let tmp = tempdir().unwrap();
+            std::fs::write(tmp.path().join(".rumdl.toml"), "").unwrap();
+            std::fs::create_dir_all(tmp.path().join(".config")).unwrap();
+            std::fs::write(tmp.path().join(".config/rumdl.toml"), "").unwrap();
+
+            let ShadowedConfigs { winner, shadowed, .. } = detect_shadowed_configs(tmp.path()).unwrap();
+            assert_eq!(names(&[winner]), vec![".rumdl.toml"]);
+            assert_eq!(names(&shadowed), vec![".config/rumdl.toml"]);
+        }
+
+        #[test]
+        fn pyproject_counts_only_when_it_declares_rumdl() {
+            // pyproject WITHOUT [tool.rumdl] is not a rumdl config source -> no shadow.
+            let bare = tempdir().unwrap();
+            std::fs::write(bare.path().join(".rumdl.toml"), "").unwrap();
+            std::fs::write(bare.path().join("pyproject.toml"), "[tool.black]\nline-length = 88\n").unwrap();
+            assert_eq!(names(&rumdl_configs_in_dir(bare.path())), vec![".rumdl.toml"]);
+            assert!(detect_shadowed_configs(bare.path()).is_none());
+
+            // pyproject WITH [tool.rumdl] is a real shadowed source.
+            let declared = tempdir().unwrap();
+            std::fs::write(declared.path().join(".rumdl.toml"), "").unwrap();
+            std::fs::write(
+                declared.path().join("pyproject.toml"),
+                "[tool.rumdl]\nline-length = 80\n",
+            )
+            .unwrap();
+            let ShadowedConfigs { winner, shadowed, .. } = detect_shadowed_configs(declared.path()).unwrap();
+            assert_eq!(names(&[winner]), vec![".rumdl.toml"]);
+            assert_eq!(names(&shadowed), vec!["pyproject.toml"]);
+        }
+
+        #[test]
+        fn markdownlint_configs_are_not_rumdl_native_and_never_shadow() {
+            let tmp = tempdir().unwrap();
+            std::fs::write(tmp.path().join(".rumdl.toml"), "").unwrap();
+            std::fs::write(tmp.path().join(".markdownlint.json"), "{}").unwrap();
+            assert_eq!(names(&rumdl_configs_in_dir(tmp.path())), vec![".rumdl.toml"]);
+            assert!(detect_shadowed_configs(tmp.path()).is_none());
+        }
+
+        #[test]
+        fn configs_returned_in_precedence_order() {
+            let tmp = tempdir().unwrap();
+            std::fs::write(tmp.path().join(".rumdl.toml"), "").unwrap();
+            std::fs::write(tmp.path().join("rumdl.toml"), "").unwrap();
+            std::fs::create_dir_all(tmp.path().join(".config")).unwrap();
+            std::fs::write(tmp.path().join(".config/rumdl.toml"), "").unwrap();
+            std::fs::write(tmp.path().join("pyproject.toml"), "[tool.rumdl]\n").unwrap();
+
+            assert_eq!(
+                names(&rumdl_configs_in_dir(tmp.path())),
+                vec![".rumdl.toml", "rumdl.toml", ".config/rumdl.toml", "pyproject.toml"]
+            );
+        }
+
+        #[test]
+        fn warning_names_dir_once_with_relative_filenames() {
+            let tmp = tempdir().unwrap();
+            std::fs::write(tmp.path().join(".rumdl.toml"), "").unwrap();
+            std::fs::write(tmp.path().join("rumdl.toml"), "").unwrap();
+            std::fs::write(tmp.path().join("pyproject.toml"), "[tool.rumdl]\n").unwrap();
+
+            let shadow = detect_shadowed_configs(tmp.path()).unwrap();
+            let msg = format_shadow_warning(&shadow);
+
+            let dir = {
+                let s = tmp.path().to_string_lossy().into_owned();
+                if cfg!(windows) { s.replace('\\', "/") } else { s }
+            };
+            assert!(msg.contains("multiple rumdl config files"), "got: {msg}");
+            // The directory is named once; files are shown relative to it (no
+            // repeated directory prefix on every path).
+            assert_eq!(
+                msg.matches(dir.as_str()).count(),
+                1,
+                "directory should appear exactly once, got: {msg}"
+            );
+            assert!(
+                msg.contains("using .rumdl.toml, ignoring rumdl.toml, pyproject.toml"),
+                "winner and shadowed files should be relative names in precedence order, got: {msg}"
+            );
+            // Paths are normalized to forward slashes on all platforms.
+            assert!(!msg.contains('\\'), "paths must be normalized to '/': {msg}");
+        }
     }
 }

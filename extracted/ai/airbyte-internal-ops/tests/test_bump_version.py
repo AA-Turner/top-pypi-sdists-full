@@ -552,8 +552,8 @@ def _make_connector(
 
 
 @pytest.mark.unit
-def test_rc_bump_pins_registry_overrides():
-    """RC bump should pin registryOverrides.{cloud,oss}.dockerImageTag to the previous GA version."""
+def test_rc_bump_does_not_create_registry_overrides():
+    """RC bump should not add registry override pins."""
     with tempfile.TemporaryDirectory() as tmpdir:
         connector_dir = _make_connector(tmpdir, version="2.3.0")
 
@@ -573,14 +573,12 @@ def test_rc_bump_pins_registry_overrides():
             data["releases"]["rolloutConfiguration"]["enableProgressiveRollout"] is True
         )
 
-        # registryOverrides should pin to previous GA version
-        assert data["registryOverrides"]["cloud"]["dockerImageTag"] == "2.3.0"
-        assert data["registryOverrides"]["oss"]["dockerImageTag"] == "2.3.0"
+        assert "registryOverrides" not in data
 
 
 @pytest.mark.unit
 def test_rc_bump_does_not_clobber_existing_overrides():
-    """RC bump should not overwrite pre-existing registryOverrides.dockerImageTag values."""
+    """RC bump should preserve pre-existing registry override values."""
     with tempfile.TemporaryDirectory() as tmpdir:
         extra = (
             "  registryOverrides:\n"
@@ -602,14 +600,13 @@ def test_rc_bump_does_not_clobber_existing_overrides():
         metadata = yaml.safe_load((connector_dir / "metadata.yaml").read_text())
         data = metadata["data"]
 
-        # Existing overrides should be preserved, not overwritten with 2.3.0
         assert data["registryOverrides"]["cloud"]["dockerImageTag"] == "1.5.0"
         assert data["registryOverrides"]["oss"]["dockerImageTag"] == "1.5.0"
 
 
 @pytest.mark.unit
-def test_promote_removes_registry_override_pins():
-    """Promote (RC → GA) should remove registryOverrides.dockerImageTag pins."""
+def test_promote_preserves_registry_overrides():
+    """Promote (RC → GA) should preserve registry overrides."""
     with tempfile.TemporaryDirectory() as tmpdir:
         extra = (
             "  releases:\n"
@@ -642,9 +639,8 @@ def test_promote_removes_registry_override_pins():
             is False
         )
 
-        # dockerImageTag pins should be removed
-        assert "dockerImageTag" not in data["registryOverrides"]["cloud"]
-        assert "dockerImageTag" not in data["registryOverrides"]["oss"]
+        assert data["registryOverrides"]["cloud"]["dockerImageTag"] == "2.3.0"
+        assert data["registryOverrides"]["oss"]["dockerImageTag"] == "2.3.0"
 
 
 @pytest.mark.unit
@@ -872,8 +868,4 @@ def test_progressive_rollout_enabled_overrides_automatic_rc_behaviour():
             data["releases"]["rolloutConfiguration"]["enableProgressiveRollout"]
             is False
         )
-        # Automatic RC setup still runs (registry overrides are added),
-        # only the boolean flag is overridden by the explicit argument.
-        assert "registryOverrides" in data
-        assert data["registryOverrides"]["cloud"]["dockerImageTag"] == "2.3.0"
-        assert data["registryOverrides"]["oss"]["dockerImageTag"] == "2.3.0"
+        assert "registryOverrides" not in data

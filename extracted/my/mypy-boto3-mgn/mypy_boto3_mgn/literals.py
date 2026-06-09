@@ -310,6 +310,7 @@ ReplicationConfigurationReplicatedDiskStagingDiskTypeType = Literal[
 ReplicationTypeType = Literal["AGENT_BASED", "SNAPSHOT_SHIPPING"]
 SecurityGroupMappingStrategyType = Literal["MAP", "MAP_DHCP", "SKIP"]
 SourceEnvironmentType = Literal[
+    "AWS_DISCOVERY_COLLECTOR",
     "CISCO_ACI",
     "FORTIGATE_FIREWALL",
     "LOGICAL_MODEL",
@@ -651,6 +652,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -678,6 +680,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

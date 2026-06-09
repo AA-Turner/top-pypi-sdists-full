@@ -10,7 +10,6 @@ import weakref
 from weakref import ReferenceType
 from typing import TYPE_CHECKING
 from slixmpp.xmlstream.matcher.base import MatcherBase
-from xml.etree.ElementTree import Element
 
 if TYPE_CHECKING:
     from slixmpp.xmlstream import XMLStream, StanzaBase

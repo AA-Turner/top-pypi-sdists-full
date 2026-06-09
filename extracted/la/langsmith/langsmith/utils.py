@@ -595,6 +595,7 @@ def with_cache(
     from langsmith._internal import _patch as patch_urllib3
 
     patch_urllib3.patch_urllib3()
+    patch_urllib3.patch_vcr_aiohttp()
 
     cache_dir, cache_file = os.path.split(path)
 
@@ -697,8 +698,11 @@ def is_version_greater_or_equal(current_version: str, target_version: str) -> bo
     """Check if the current version is greater or equal to the target version."""
     from packaging import version
 
-    current = version.parse(current_version)
-    target = version.parse(target_version)
+    try:
+        current = version.parse(current_version)
+        target = version.parse(target_version)
+    except version.InvalidVersion:
+        return False
     return current >= target
 
 

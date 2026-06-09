@@ -260,6 +260,7 @@ def LBFGS(
                 iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
             if isStop:
                 if show_logs: print(f"\n[Stopping] Criterion {stop_criterion.name} reached at iteration {it}.")
+                cost_history.pop() if isCostFunction else None
                 break
 
         if isSavingEachIteration and it in save_indices:

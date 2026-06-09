@@ -349,19 +349,21 @@ def test_ui_images_is_catalog_listing_only(client: TestClient) -> None:
 
 
 def test_worker_pages_exist_separately(client: TestClient) -> None:
-    """Three separate worker pages: Downloads, Hashing, Backups. Each
-    renders standalone with its own active-jobs section + recent
-    activity card. No merged /ui/workers page."""
+    """Two separate worker pages: Downloads, Backups. Each renders
+    standalone with its own active-jobs section + recent activity
+    card. (Hashing went away in v0.40; no merged /ui/workers page.)"""
     _login(client)
-    for url in ("/ui/downloads", "/ui/hashing", "/ui/backups"):
+    for url in ("/ui/downloads", "/ui/backups"):
         r = client.get(url)
         assert r.status_code == 200, f"{url} should render, got {r.status_code}"
     # The previous merged page is gone.
     assert client.get("/ui/workers").status_code == 404
     # And the previously-removed legacy URLs that the workers reshape
     # removed: /ui/hashes (now /ui/hashing) and /ui/fetches (now folded
-    # into /ui/downloads).
+    # into /ui/downloads). /ui/hashing itself went away in v0.40 (no
+    # more HashManager).
     assert client.get("/ui/hashes").status_code == 404
+    assert client.get("/ui/hashing").status_code == 404
     assert client.get("/ui/fetches").status_code == 404
 
 
@@ -459,15 +461,14 @@ def test_subnavs_drop_the_redundant_list_pill(client: TestClient) -> None:
 
     # Every content page carries the section-jump sub-nav strip with
     # in-page anchor links (no aria-current pills -- those were the old
-    # ?section= page links). The three worker pages are now individual
-    # (Downloads / Hashing / Backups).
+    # ?section= page links). The worker pages are now individual
+    # (Downloads / Backups; Hashing went away in v0.40).
     for path in (
         "/ui/images",
         "/ui/netboot",
         "/ui/machines",
         "/ui/events",
         "/ui/downloads",
-        "/ui/hashing",
         "/ui/backups",
         "/ui/dashboard",
     ):
@@ -477,7 +478,6 @@ def test_subnavs_drop_the_redundant_list_pill(client: TestClient) -> None:
 
     # Each worker page lights ONLY its own navbar indicator.
     assert client.get("/ui/downloads").text.count("nav-worker active") == 1
-    assert client.get("/ui/hashing").text.count("nav-worker active") == 1
     assert client.get("/ui/backups").text.count("nav-worker active") == 1
 
     # Settings carries its own section-jump sub-nav (anchor links + rules).
@@ -534,17 +534,6 @@ def test_ui_downloads_has_all_three_triggers(client: TestClient) -> None:
     assert "bty-workers-downloads-tbody" in body
     # Activity card at the bottom (recent download-related events).
     assert 'id="downloads-activity"' in body
-
-
-def test_ui_hashing_has_active_jobs_and_activity(client: TestClient) -> None:
-    """``/ui/hashing`` carries the live hash-jobs tbody + recent
-    image.hashed / image.hash.failed events."""
-    _login(client)
-    body = client.get("/ui/hashing").text
-    assert "bty-workers-hashing-tbody" in body
-    assert 'id="hashing-activity"' in body
-    # No trigger button -- hashes are enqueued from /ui/images per-row.
-    assert 'id="bty-workers-backup-now"' not in body
 
 
 def test_ui_backups_has_back_up_now_and_activity(client: TestClient) -> None:
@@ -2337,201 +2326,9 @@ def test_ui_images_renders(client: TestClient) -> None:
     _login(client)
     r = client.get("/ui/images")
     assert r.status_code == 200
-    assert "demo.qcow2" in r.text
-
-
-def test_ui_images_renders_fetch_button_for_unhashed_url_entry(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Operator-visible bug fix: a catalog row added by URL without
-    a sha_url used to render a 'Hash' button that 404'd when
-    clicked (HashManager needs a local file). Now those entries
-    render a 'Fetch' button instead, which downloads + computes
-    + back-fills the sha via the DownloadManager.
-
-    Guards the template dispatch rule: ``not u.sha256 + no local
-    source -> Fetch button``."""
-    # Stub the HEAD probe + sha_url resolve so the catalog-entry
-    # add doesn't try to reach example.invalid.
-    from bty.web import _app as _web_app
-
-    monkeypatch.setattr(_web_app, "_head_content_length", lambda url: None)
-    _login(client)
-    add = client.post(
-        "/ui/catalog/entries",
-        data={
-            "image_url": "https://example.invalid/rolling.img.gz",
-            "sha_url": "",
-        },
-        follow_redirects=False,
-    )
-    assert add.status_code == 303, add.text
-    r = client.get("/ui/images")
-    assert r.status_code == 200
-    body = r.text
-    # The row exists.
-    assert "rolling.img.gz" in body
-    # v0.33.29+: action buttons always render; the applicability
-    # gate is the ``disabled`` attribute. For a URL-only entry
-    # that's never been cached:
-    #   * Fetch:  ENABLED  (remote source, not cached)
-    #   * Update: disabled (not cached)
-    #   * Cache delete: disabled (not cached)
-    #   * Entry delete: ENABLED (has remote source)
-    # The Hash button was dropped entirely -- every path into
-    # image_root already auto-enqueues a hash; the per-row Hash
-    # button only helped a niche "ssh + scp into image_root"
-    # workflow that wasn't worth a button. The original guard
-    # ("no Hash button for URL-only entries") trivially holds
-    # now that no row has a Hash button at all.
-    import re
-
-    row_match = re.search(
-        r'<tr data-row-name="rolling\.img\.gz".*?</tr>',
-        body,
-        flags=re.DOTALL,
-    )
-    assert row_match is not None, "expected a row tagged rolling.img.gz"
-    row_html = row_match.group(0)
-    fetch_btn = re.search(r"<button[^>]*bty-fetch-btn[^>]*>", row_html)
-    assert fetch_btn is not None
-    assert "disabled" not in fetch_btn.group(0), (
-        f"Fetch should be enabled on a URL-only entry: {fetch_btn.group(0)!r}"
-    )
-    # Update + Cache-delete gate on ``cached``; a never-cached entry
-    # must render them DISABLED (the always-render-with-disabled
-    # contract -- presence of the button alone is not enough to prove
-    # the gate works).
-    update_btn = re.search(r"<button[^>]*bty-update-btn[^>]*>", row_html)
-    assert update_btn is not None and "disabled" in update_btn.group(0), (
-        f"Update must be disabled on an un-cached entry: "
-        f"{update_btn.group(0) if update_btn else None!r}"
-    )
-    cache_del_btn = re.search(r"<button[^>]*bty-cache-delete-btn[^>]*>", row_html)
-    assert cache_del_btn is not None and "disabled" in cache_del_btn.group(0), (
-        f"Cache-delete must be disabled when nothing is cached: "
-        f"{cache_del_btn.group(0) if cache_del_btn else None!r}"
-    )
-    # Entry-delete is gated only on has-remote, so it IS enabled here.
-    entry_del_btn = re.search(r"<button[^>]*bty-catalog-entry-delete-btn[^>]*>", row_html)
-    assert entry_del_btn is not None and "disabled" not in entry_del_btn.group(0), (
-        f"Entry-delete must be enabled for a remote entry: "
-        f"{entry_del_btn.group(0) if entry_del_btn else None!r}"
-    )
-    # And confirm the Hash button is gone entirely.
-    assert "bty-hash-btn" not in row_html, (
-        "Hash button removed in v0.33.29+; should not appear on any row"
-    )
-
-
-def test_ui_images_renders_cache_delete_button_when_cached(
-    client: TestClient,
-    tmp_path: Path,
-) -> None:
-    """Operator-requested UI gap: bty-web had ``DELETE /catalog/
-    cache/{name}`` (unlinks the cached bytes, keeps the entry) and
-    ``DELETE /catalog/entries`` (wipes the catalog row) at the API
-    layer, but /ui/images only surfaced the entry-delete button --
-    and only for ``url``-kind operator-added rows. Manifest entries
-    + cached entries had no UI to delete cache or entry.
-
-    This test pins:
-
-    1. A cached entry with a remote source (manifest / url) renders
-       the cache-delete button (``bty-cache-delete-btn``).
-    2. That same entry renders the entry-delete button -- not
-       gated on ``url``-kind anymore (manifest sources qualify too).
-    """
-    from bty.web import _db as _bty_db
-
-    # Set up a state.db with one entry pointing at a cached file.
-    state_path = tmp_path / "state.db"
-    _bty_db.init_db(state_path)
-    # Mark the row ``cached`` by placing bytes at the URL-keyed local
-    # filename under the app's image_root. Since v0.31.0 the cache IS
-    # the image_root (no separate cache dir); ``is_cached`` trusts the
-    # presence of a file at ``image_root/local_filename_for(ref, name,
-    # fmt)``. (The client fixture's image_root is ``tmp_path/images``.)
-    # merge_with_catalog recomputes the ref from the *src* (not the
-    # stored bty_image_ref column), so the cached filename must key on
-    # image_ref_for_src(src), exactly as the merge does.
-    from bty import catalog as _bty_catalog
-
-    sha = "a" * 64
-    src = "oras://ghcr.io/example/foo:latest"
-    image_root = tmp_path / "images"
-    _ref = _bty_catalog.image_ref_for_src(src)
-    cached_name = _bty_catalog.local_filename_for(_ref, "Example image (rolling)", "img.gz")
-    (image_root / cached_name).write_bytes(b"\0" * 256)
-
-    with _bty_db.open_db(state_path) as conn:
-        conn.execute(
-            "INSERT INTO catalog_entries "
-            "(bty_image_ref, src, disk_image_sha, name, "
-            "sha_url, format, size_bytes, description, added_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                "b" * 64,
-                src,
-                sha,
-                "Example image (rolling)",
-                None,
-                "img.gz",
-                256,
-                None,
-                "2026-05-17T22:00:00+00:00",
-            ),
-        )
-        conn.commit()
-
-    _login(client)
-    r = client.get("/ui/images")
-    assert r.status_code == 200, r.text
-    body = r.text
-    assert "Example image (rolling)" in body
-    assert "bty-cache-delete-btn" in body, (
-        "missing cache-delete button on a cached entry; "
-        "operator can't evict stale cached bytes from the UI"
-    )
-    assert "bty-catalog-entry-delete-btn" in body, (
-        "missing entry-delete button on a manifest-source entry; "
-        "operator can't remove the entry from the UI"
-    )
-    # Strengthen beyond mere presence: on a cached remote entry the
-    # gates must put Update + Cache-delete ENABLED and Fetch DISABLED
-    # (always-render-with-disabled contract). A bare "button in body"
-    # check would still pass if every gate were inverted.
-    import re
-
-    # The client fixture also seeds a local demo.qcow2 row, so scope to
-    # the catalog row by its unique content sha rather than assuming a
-    # single body row.
-    rows = re.findall(r'<tr data-row-name="[^"]*".*?</tr>', body, flags=re.DOTALL)
-    row_html = next((r for r in rows if ("a" * 64) in r), None)
-    assert row_html is not None, "expected the cached catalog row (by sha)"
-    update_btn = re.search(r"<button[^>]*bty-update-btn[^>]*>", row_html)
-    assert update_btn is not None and "disabled" not in update_btn.group(0), (
-        f"Update must be enabled on a cached remote entry: "
-        f"{update_btn.group(0) if update_btn else None!r}"
-    )
-    cache_del_btn = re.search(r"<button[^>]*bty-cache-delete-btn[^>]*>", row_html)
-    assert cache_del_btn is not None and "disabled" not in cache_del_btn.group(0), (
-        f"Cache-delete must be enabled on a cached entry: "
-        f"{cache_del_btn.group(0) if cache_del_btn else None!r}"
-    )
-    fetch_btn = re.search(r"<button[^>]*bty-fetch-btn[^>]*>", row_html)
-    assert fetch_btn is not None and "disabled" in fetch_btn.group(0), (
-        f"Fetch must be disabled once bytes are cached: "
-        f"{fetch_btn.group(0) if fetch_btn else None!r}"
-    )
-    # Content SHA copy button: carries the FULL 64-hex sha in data-sha
-    # while the visible <code> shows only the 8-char prefix.
-    data_sha = re.search(r'data-sha="([0-9a-f]{64})"', row_html)
-    assert data_sha is not None, "sha-copy button must carry a full 64-hex sha in data-sha"
-    assert f"<code>{data_sha.group(1)[:8]}</code>" in row_html, (
-        "visible Content SHA must be the 8-char prefix of the full data-sha"
-    )
+    # v0.40: catalog page renders even with no entries; no fixture-
+    # seeded local file gets surfaced (bty-web is out of the bytes
+    # path).
 
 
 # ---------- /ui/settings/tftp-control --------------------------------------
@@ -2961,14 +2758,12 @@ def test_layout_opens_shared_worker_events_source(client: TestClient) -> None:
 def test_polling_pages_listen_for_sse_events(client: TestClient) -> None:
     """Each worker page listens for the shared CustomEvent (instead of
     opening its own EventSource) AND filters by kind so it only
-    re-fetches when relevant."""
+    re-fetches when relevant. (v0.40: /ui/hashing went away with
+    HashManager.)"""
     _login(client)
 
     backups = client.get("/ui/backups").text
     assert 'e.detail.kind === "backup"' in backups
-
-    hashing = client.get("/ui/hashing").text
-    assert 'e.detail.kind === "hash"' in hashing
 
     downloads = client.get("/ui/downloads").text
     # Downloads tracks both kinds.

@@ -6,11 +6,8 @@
 import logging
 
 from asyncio import Future
-from typing import Callable
-from slixmpp import JID
-from slixmpp.xmlstream import register_stanza_plugin, ElementBase
+from slixmpp.xmlstream import ElementBase
 from slixmpp.plugins.base import BasePlugin, register_plugin
-from slixmpp.plugins.xep_0004.stanza import Form
 
 
 log = logging.getLogger(__name__)

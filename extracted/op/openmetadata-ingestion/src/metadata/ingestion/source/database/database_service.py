@@ -11,9 +11,10 @@
 """
 Base class for ingesting database services
 """
+
 import traceback
 from abc import ABC, abstractmethod
-from typing import Any, Iterable, List, Optional, Set, Tuple, cast  # noqa: UP035
+from typing import Any, Iterable, List, Optional, Set, Tuple, cast
 
 from pydantic import BaseModel, Field
 from sqlalchemy.engine import Inspector
@@ -69,7 +70,6 @@ from metadata.ingestion.models.topology import (
 from metadata.ingestion.ometa.utils import model_str
 from metadata.ingestion.source.connections import test_connection_common
 from metadata.utils import fqn
-from metadata.utils.execution_time_tracker import calculate_execution_time
 from metadata.utils.filters import filter_by_schema, filter_by_stored_procedure
 from metadata.utils.logger import ingestion_logger
 from metadata.utils.owner_utils import get_owner_from_config
@@ -247,7 +247,9 @@ class DatabaseServiceSource(
         cached = instance_dict.get("tags_registry")
         if cached is not None:
             return cached
-        return instance_dict.setdefault("tags_registry", TagRegistry(metadata=self.metadata))
+        return instance_dict.setdefault(
+            "tags_registry", TagRegistry(metadata=self.metadata)
+        )
 
     @property
     def tag_canonicalizer(self) -> TagCanonicalizer:
@@ -256,7 +258,9 @@ class DatabaseServiceSource(
         cached = instance_dict.get("tag_canonicalizer")
         if cached is not None:
             return cached
-        return instance_dict.setdefault("tag_canonicalizer", TagCanonicalizer(metadata=self.metadata))
+        return instance_dict.setdefault(
+            "tag_canonicalizer", TagCanonicalizer(metadata=self.metadata)
+        )
 
     @property
     def name(self) -> str:
@@ -336,14 +340,16 @@ class DatabaseServiceSource(
         """
 
     def yield_table_tags(
-        self, table_name_and_type: Tuple[str, TableType]
+        self,
+        table_name_and_type: Tuple[str, TableType],
     ) -> Iterable[Either[OMetaTagAndClassification]]:
         """
         From topology. To be run for each table
         """
 
     def yield_table_tag_details(
-        self, table_name_and_type: Tuple[str, TableType]
+        self,
+        table_name_and_type: Tuple[str, TableType],
     ) -> Iterable[Either[OMetaTagAndClassification]]:
         """
         From topology. To be run for each table
@@ -482,7 +488,6 @@ class DatabaseServiceSource(
         )
         return self.get_tag_by_fqn(entity_fqn=schema_fqn)
 
-    @calculate_execution_time()
     def get_tag_labels(self, table_name: str) -> Optional[List[TagLabel]]:
         """
         This will only get executed if the tags context
@@ -517,7 +522,6 @@ class DatabaseServiceSource(
         )
         return self.get_tag_by_fqn(entity_fqn=col_fqn)
 
-    @calculate_execution_time()
     def register_record(self, table_request: CreateTableRequest) -> None:
         """
         Mark the table record as scanned and update the database_source_state
@@ -734,7 +738,6 @@ class DatabaseServiceSource(
 
         return None
 
-    @calculate_execution_time()
     def get_owner_ref(self, table_name: str) -> Optional[EntityReferenceList]:
         """
         Get owner for table entity using ownerConfig.
@@ -926,7 +929,9 @@ class DatabaseServiceSource(
 
     def clear_schema_tag_scope(self):
         """Drop tag-registry state for the current schema scope."""
-        schema_name = self.context.get().database_schema  # pyright: ignore[reportAttributeAccessIssue]
+        schema_name = (
+            self.context.get().database_schema
+        )  # pyright: ignore[reportAttributeAccessIssue]
         if schema_name:
             schema_fqn = cast(
                 "str",
@@ -943,7 +948,9 @@ class DatabaseServiceSource(
 
     def clear_database_tag_scope(self):
         """Drop tag-registry state for the current database scope."""
-        database_name = self.context.get().database  # pyright: ignore[reportAttributeAccessIssue]
+        database_name = (
+            self.context.get().database
+        )  # pyright: ignore[reportAttributeAccessIssue]
         if database_name:
             database_fqn = cast(
                 "str",

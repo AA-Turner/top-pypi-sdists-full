@@ -5,8 +5,6 @@
 # See the file LICENSE for copying permission.
 import logging
 
-import slixmpp
-from slixmpp.plugins.xep_0030 import StaticDisco
 
 
 log = logging.getLogger(__name__)

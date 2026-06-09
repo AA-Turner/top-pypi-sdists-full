@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2012 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -11,3 +10,5 @@ from slixmpp.plugins.xep_0107.user_mood import XEP_0107
 
 
 register_plugin(XEP_0107)
+
+__all__ = ['stanza', 'UserMood', 'XEP_0107']

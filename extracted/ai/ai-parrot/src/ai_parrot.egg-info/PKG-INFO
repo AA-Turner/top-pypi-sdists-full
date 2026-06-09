@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.25.6
+Version: 0.25.7
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -234,6 +234,8 @@ Requires-Dist: google-genai>=2.6.0; extra == "google"
 Requires-Dist: google-cloud-aiplatform>=1.153.0; extra == "google"
 Provides-Extra: groq
 Requires-Dist: groq==0.33.0; extra == "groq"
+Provides-Extra: zai
+Requires-Dist: zai-sdk>=0.2.2; extra == "zai"
 Provides-Extra: llms
 Requires-Dist: google-genai>=2.6.0; extra == "llms"
 Requires-Dist: openai==2.8.1; extra == "llms"
@@ -241,6 +243,7 @@ Requires-Dist: groq==0.33.0; extra == "llms"
 Requires-Dist: anthropic[aiohttp]<1.0.0,>=0.105.0; extra == "llms"
 Requires-Dist: claude-agent-sdk>=0.1.68; extra == "llms"
 Requires-Dist: xai-sdk>=0.1.0; extra == "llms"
+Requires-Dist: zai-sdk>=0.2.2; extra == "llms"
 Provides-Extra: integrations
 Requires-Dist: querysource>=4.1.11; extra == "integrations"
 Requires-Dist: async-notify[all]>=1.5.2; extra == "integrations"
@@ -277,6 +280,8 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0,>=1.25; extra == "obse
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc<2.0,>=1.25; extra == "observability"
 Provides-Extra: observability-openlit
 Requires-Dist: openlit>=1.40.0; extra == "observability-openlit"
+Provides-Extra: observability-traceloop
+Requires-Dist: traceloop-sdk<1.0,>=0.40.0; extra == "observability-traceloop"
 Provides-Extra: observability-prometheus
 Requires-Dist: prometheus-client<1.0,>=0.20; extra == "observability-prometheus"
 Provides-Extra: dev

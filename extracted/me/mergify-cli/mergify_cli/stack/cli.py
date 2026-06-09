@@ -13,13 +13,9 @@ from mergify_cli import utils
 from mergify_cli.dym import DYMGroup
 from mergify_cli.stack import checkout as stack_checkout_mod
 from mergify_cli.stack import list as stack_list_mod
-from mergify_cli.stack import move as stack_move_mod
 from mergify_cli.stack import open as stack_open_mod
 from mergify_cli.stack import push as stack_push_mod
-from mergify_cli.stack import reorder as stack_reorder_mod
-from mergify_cli.stack import reword as stack_reword_mod
 from mergify_cli.stack import setup as stack_setup_mod
-from mergify_cli.stack import squash as stack_squash_mod
 from mergify_cli.stack import sync as stack_sync_mod
 
 
@@ -197,47 +193,6 @@ async def setup(*, force: bool, check: bool) -> None:
         _print_hooks_status(status)
     else:
         await stack_setup_mod.stack_setup(force=force)
-
-
-@stack.command(help="Reorder the stack's commits")
-@click.argument("commits", nargs=-1, required=True)
-@click.option(
-    "--dry-run",
-    "-n",
-    is_flag=True,
-    default=False,
-    help="Show the plan without reordering",
-)
-@utils.run_with_asyncio
-async def reorder(*, commits: tuple[str, ...], dry_run: bool) -> None:
-    await stack_reorder_mod.stack_reorder(list(commits), dry_run=dry_run)
-
-
-@stack.command(help="Move a commit within the stack")
-@click.argument("commit")
-@click.argument("position", type=click.Choice(["before", "after", "first", "last"]))
-@click.argument("target", required=False, default=None)
-@click.option(
-    "--dry-run",
-    "-n",
-    is_flag=True,
-    default=False,
-    help="Show the plan without moving",
-)
-@utils.run_with_asyncio
-async def move(
-    *,
-    commit: str,
-    position: str,
-    target: str | None,
-    dry_run: bool,
-) -> None:
-    await stack_move_mod.stack_move(
-        commit_prefix=commit,
-        position=position,
-        target_prefix=target,
-        dry_run=dry_run,
-    )
 
 
 @stack.command(
@@ -551,93 +506,3 @@ async def open_cmd(
         token=ctx.obj["token"],
         commit=commit,
     )
-
-
-@stack.command(help="Fixup commits into their parent (drops their messages)")
-@click.argument("commits", nargs=-1, required=True)
-@click.option(
-    "--dry-run",
-    "-n",
-    is_flag=True,
-    default=False,
-    help="Show the plan without rebasing",
-)
-@utils.run_with_asyncio
-async def fixup(*, commits: tuple[str, ...], dry_run: bool) -> None:
-    await stack_squash_mod.stack_fixup(list(commits), dry_run=dry_run)
-
-
-@stack.command(help="Change a commit's message")
-@click.argument("commit")
-@click.option(
-    "-m",
-    "--message",
-    "message",
-    default=None,
-    help="New commit message. If omitted, opens $GIT_EDITOR.",
-)
-@click.option(
-    "--dry-run",
-    "-n",
-    is_flag=True,
-    default=False,
-    help="Show the plan without rebasing",
-)
-@utils.run_with_asyncio
-async def reword(*, commit: str, message: str | None, dry_run: bool) -> None:
-    await stack_reword_mod.stack_reword(
-        commit_prefix=commit,
-        message=message,
-        dry_run=dry_run,
-    )
-
-
-@stack.command(help="Squash commits into a target commit")
-@click.argument("tokens", nargs=-1, required=True)
-@click.option(
-    "-m",
-    "--message",
-    "message",
-    default=None,
-    help="Final commit message (required to rename; otherwise target's is kept)",
-)
-@click.option(
-    "--dry-run",
-    "-n",
-    is_flag=True,
-    default=False,
-    help="Show the plan without rebasing",
-)
-@utils.run_with_asyncio
-async def squash(
-    *,
-    tokens: tuple[str, ...],
-    message: str | None,
-    dry_run: bool,
-) -> None:
-    srcs, target = _parse_squash_tokens(tokens)
-    await stack_squash_mod.stack_squash(
-        src_prefixes=srcs,
-        target_prefix=target,
-        message=message,
-        dry_run=dry_run,
-    )
-
-
-def _parse_squash_tokens(tokens: tuple[str, ...]) -> tuple[list[str], str]:
-    """Parse ``SRC... into TARGET`` from a flat tuple of tokens.
-
-    Raises :class:`click.BadParameter` on shape errors.
-    """
-    into_positions = [i for i, t in enumerate(tokens) if t == "into"]
-    if len(into_positions) != 1:
-        msg = "squash requires exactly one 'into' keyword: SRC... into TARGET"
-        raise click.BadParameter(msg)
-    idx = into_positions[0]
-    srcs = list(tokens[:idx])
-    after = tokens[idx + 1 :]
-    if not srcs:
-        raise click.BadParameter("at least one source commit required before 'into'")
-    if len(after) != 1:
-        raise click.BadParameter("exactly one target commit required after 'into'")
-    return srcs, after[0]

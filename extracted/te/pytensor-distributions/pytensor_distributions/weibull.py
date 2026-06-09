@@ -1,6 +1,5 @@
 import pytensor.tensor as pt
-from pytensor.tensor.special import gamma
-from pytensor.tensor.xlogx import xlogy0
+from pytensor.tensor.special import gamma, xlogy
 
 from pytensor_distributions.helper import ppf_bounds_cont
 
@@ -40,6 +39,29 @@ def kurtosis(alpha, beta):
     return (beta / sigma) ** 4 * gamma(1 + 4 / alpha) - 4 * skew * m_s - 6 * m_s**2 - m_s**4 - 3
 
 
+def lmoment1(alpha, beta):
+    return mean(alpha, beta)
+
+
+def lmoment2(alpha, beta):
+    g = pt.gamma(1.0 + 1.0 / alpha)
+    return beta * (1.0 - 2.0 ** (-1.0 / alpha)) * g
+
+
+def lmoment3(alpha, beta):
+    inv_a = 1.0 / alpha
+    c1 = 1.0 - 2.0 ** (-1.0 - inv_a)
+    c2 = 1.0 - 2.0 * 2.0 ** (-1.0 - inv_a) + 3.0 ** (-1.0 - inv_a)
+    return (6.0 * c2 - 6.0 * c1 + 1.0) / (2.0 * c1 - 1.0)
+
+
+def lmoment4(alpha, beta):
+    inv_a = 1.0 / alpha
+    denom = 1.0 - 2.0 ** (-inv_a)
+    num = 1.0 - 6.0 * (2.0 ** (-inv_a)) + 10.0 * (3.0 ** (-inv_a)) - 5.0 * (4.0 ** (-inv_a))
+    return num / denom
+
+
 def entropy(alpha, beta):
     return pt.euler_gamma * (1 - 1 / alpha) + pt.log(beta / alpha) + 1
 
@@ -66,7 +88,7 @@ def sf(x, alpha, beta):
 
 
 def rvs(alpha, beta, size=None, random_state=None):
-    return pt.random.weibull(alpha, rng=random_state, size=size) * beta
+    return pt.random.weibull(alpha, rng=random_state, size=size, return_next_rng=True)[1] * beta
 
 
 def logcdf(x, alpha, beta):
@@ -83,7 +105,7 @@ def logpdf(x, alpha, beta):
     return pt.switch(
         pt.lt(x, 0),
         -pt.inf,
-        pt.log(alpha / beta) + xlogy0(alpha - 1, x / beta) - (x / beta) ** alpha,
+        pt.log(alpha / beta) + xlogy(alpha - 1, x / beta) - (x / beta) ** alpha,
     )
 
 

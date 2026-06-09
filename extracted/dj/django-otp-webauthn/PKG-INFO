@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-otp-webauthn
-Version: 0.8.0
+Version: 0.9.0
 Summary: FIDO2 WebAuthn support for django-otp: lets your users authenticate with Passkeys
 Project-URL: Changelog, https://github.com/Stormbase/django-otp-webauthn/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://django-otp-webauthn.readthedocs.io/en/latest/
@@ -13,10 +13,9 @@ Keywords: authentication,django,django-otp,fido2,mfa,security,u2f,webauthn
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
@@ -27,11 +26,12 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Communications :: FIDO
 Classifier: Topic :: Security
 Requires-Python: >=3.10
 Requires-Dist: django-otp<2,>=1.4
-Requires-Dist: django>=4.2
+Requires-Dist: django>=5.2
 Requires-Dist: djangorestframework>=3.14
 Requires-Dist: webauthn<3,>=2.6
 Provides-Extra: docs
@@ -70,6 +70,8 @@ Description-Content-Type: text/markdown
 [![codecov](https://codecov.io/gh/Stormbase/django-otp-webauthn/graph/badge.svg?token=09ZH5DHPMK)](https://codecov.io/gh/Stormbase/django-otp-webauthn)
 [![All Contributors](https://img.shields.io/github/all-contributors/Stormbase/django-otp-webauthn?color=ee8449)](#contributors)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Stormbase/django-otp-webauthn/badge)](https://scorecard.dev/viewer/?uri=github.com/Stormbase/django-otp-webauthn)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13030/badge)](https://www.bestpractices.dev/projects/13030)
 
 This package provides an implementation of [WebAuthn Passkeys](https://passkeys.dev/) for Django. It is written as a plugin for the [Django OTP framework](https://github.com/django-otp/django-otp) for multi-factor authentication. Under the hood, this package uses [py_webauth](https://github.com/duo-labs/py_webauthn/) to handle all cryptographic operations.
 
@@ -93,7 +95,7 @@ This package provides an implementation of [WebAuthn Passkeys](https://passkeys.
 
 ## Compatibility
 
-- Django >= 4.2
+- Django >= 5.2
 - Python >= 3.10
 - django-otp >= 1.4.0
 
@@ -113,7 +115,7 @@ For a complete list, see [caniuse.com/webauthn](https://caniuse.com/webauthn).
 - **Passkeys as a second factor.** Lets users just click yes on the browser prompt to verify their identity after they have entered their password.
 - **Passwordless login with Passkeys (optional).** Lets users verify their identity using a biometric sensor, security key, or other compatible device. Can be disabled if you prefer to use Passkeys as a second factor only.
 - **Batteries included.** comes with a default frontend JavaScript implementation that works out of the box and removes complexity for you.
-- **Flexible frontend.** you can style the fronted implementation to fit your brand. Or roll your own frontend implementation if you need something more custom.
+- **Flexible frontend.** you can style the frontend implementation to fit your brand. Or roll your own frontend implementation if you need something more custom.
 - **Compatible with strict [Content Security Policy (CSP)](https://content-security-policy.com/).** The frontend implementation does not rely on inline scripts and is compatible with strict CSP settings.
 
 ## Quick start guide - how to use Passkeys in your Django project

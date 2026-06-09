@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ha-mcp-dev
-Version: 7.6.0.dev663
+Version: 7.6.0.dev676
 Summary: Home Assistant MCP Server - Complete control of Home Assistant through MCP
 Author-email: Julien <github@qc-h.net>
 License: MIT
@@ -18,7 +18,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <3.14,>=3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: fastmcp==3.3.1
+Requires-Dist: fastmcp==3.4.2
 Requires-Dist: httpx[socks]==0.28.1
 Requires-Dist: pydantic==2.13.4
 Requires-Dist: python-dotenv==1.2.2

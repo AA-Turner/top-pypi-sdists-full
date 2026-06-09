@@ -5,13 +5,12 @@
 # See the file LICENSE for copying permission.
 import logging
 
-import slixmpp
 from slixmpp.stanza import Message
 from slixmpp.xmlstream.handler import Callback
 from slixmpp.xmlstream.matcher import StanzaPath
-from slixmpp.xmlstream import register_stanza_plugin, ElementBase, ET
+from slixmpp.xmlstream import register_stanza_plugin
 from slixmpp.plugins import BasePlugin
-from slixmpp.plugins.xep_0380 import stanza, Encryption
+from slixmpp.plugins.xep_0380 import Encryption
 
 
 log = logging.getLogger(__name__)

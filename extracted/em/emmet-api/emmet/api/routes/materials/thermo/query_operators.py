@@ -1,6 +1,14 @@
+from dataclasses import dataclass
 from fastapi import Query
+
 from emmet.api.query_operator import QueryOperator
+from emmet.api.query_operator.core import InQuery
+from emmet.api.query_operator.identifier import CompoundIDQuery
 from emmet.api.utils import STORE_PARAMS
+from emmet.core.thermo import validate_thermo_id
+from emmet.core.types.enums import ThermoType
+from emmet.core.types.typing import CompoundIDType
+from emmet.core.vasp.calc_types.enums import RunType
 
 
 class IsStableQuery(QueryOperator):
@@ -21,39 +29,35 @@ class IsStableQuery(QueryOperator):
 
         return {"criteria": crit}
 
-    def ensure_indexes(self):  # pragma: no cover
-        keys = self._keys_from_query()
-        return [(key, False) for key in keys]
 
-
-class MultiThermoIDQuery(QueryOperator):
+@dataclass
+class MultiThermoIDQuery(CompoundIDQuery):
     """
     Method to generate a query for different root-level thermo_id values
     """
 
-    def query(
-        self,
-        thermo_ids: str | None = Query(
-            None, description="Comma-separated list of thermo_id values to query on"
-        ),
-    ) -> STORE_PARAMS:
-        crit = {}  # type: dict
+    field_name: str = "thermo_id"
+    identifier_fields: tuple[str, ...] = ("material_id", "thermo_type")
 
-        if thermo_ids:
-            thermo_id_list = [thermo_id.strip() for thermo_id in thermo_ids.split(",")]
-
-            if len(thermo_id_list) == 1:
-                crit.update({"thermo_id": thermo_id_list[0]})
-            else:
-                crit.update({"thermo_id": {"$in": thermo_id_list}})
-
-        return {"criteria": crit}
+    @staticmethod
+    def validate_identifer(idx: str) -> CompoundIDType:
+        """Validate a thermo ID string."""
+        tid = validate_thermo_id(idx, as_components=True)
+        # TODO: temporary workaround because `thermo_type` is a union
+        # of RunType and ThermoType, and thermo entries in blue
+        # currently all have RunType.r2SCAN, not ThermoType.R2SCAN
+        if tid["suffix"][0] == ThermoType.R2SCAN:
+            tid["suffix"] = (RunType.r2SCAN,)
+        return tid
 
 
-class MultiThermoTypeQuery(QueryOperator):
+@dataclass
+class MultiThermoTypeQuery(InQuery):
     """
     Method to generate a query for different root-level thermo_type values
     """
+
+    field_name: str = "thermo_type"
 
     def query(
         self,
@@ -61,25 +65,16 @@ class MultiThermoTypeQuery(QueryOperator):
             None, description="Comma-separated list of thermo_type values to query on"
         ),
     ) -> STORE_PARAMS:
-        crit = {}  # type: dict
-
-        if thermo_types:
-            thermo_type_list = [
-                thermo_type.strip() for thermo_type in thermo_types.split(",")
-            ]
-
-            if len(thermo_type_list) == 1:
-                crit.update({"thermo_type": thermo_type_list[0]})
-            else:
-                crit.update({"thermo_type": {"$in": thermo_type_list}})
-
-        return {"criteria": crit}
+        return self._prepare_query(thermo_types)
 
 
-class MultiPhaseDiagramIDQuery(QueryOperator):
+@dataclass
+class MultiPhaseDiagramIDQuery(InQuery):
     """
     Method to generate a query for different root-level phase_diagram_id values
     """
+
+    field_name: str = "phase_diagram_id"
 
     def query(
         self,
@@ -88,17 +83,4 @@ class MultiPhaseDiagramIDQuery(QueryOperator):
             description="Comma-separated list of phase_diagram_id values to query on",
         ),
     ) -> STORE_PARAMS:
-        crit = {}  # type: dict
-
-        if phase_diagram_ids:
-            phase_diagram_id_list = [
-                phase_diagram_id.strip()
-                for phase_diagram_id in phase_diagram_ids.split(",")
-            ]
-
-            if len(phase_diagram_id_list) == 1:
-                crit.update({"phase_diagram_id": phase_diagram_id_list[0]})
-            else:
-                crit.update({"phase_diagram_id": {"$in": phase_diagram_id_list}})
-
-        return {"criteria": crit}
+        return self._prepare_query(phase_diagram_ids)

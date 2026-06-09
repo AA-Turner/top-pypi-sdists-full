@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2026-02-08 AT 18:23:02
+# AUTO GENERATED ON 2026-06-08 AT 11:28:09
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -20,8 +20,9 @@ def test_unit_cpuawkward_ListOffsetArray64_reduce_local_nextparents_64_1():
     length = 0
     offsets = [0]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
+    nextparents_length = 0
     funcC = getattr(lib, 'awkward_ListOffsetArray64_reduce_local_nextparents_64')
-    ret_pass = funcC(nextparents, offsets, length)
+    ret_pass = funcC(nextparents, offsets, length, nextparents_length)
     pytest_nextparents = []
     assert nextparents[:len(pytest_nextparents)] == pytest.approx(pytest_nextparents)
     assert not ret_pass.str
@@ -32,8 +33,9 @@ def test_unit_cpuawkward_ListOffsetArray64_reduce_local_nextparents_64_2():
     length = 1
     offsets = [0, 1]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
+    nextparents_length = 1
     funcC = getattr(lib, 'awkward_ListOffsetArray64_reduce_local_nextparents_64')
-    ret_pass = funcC(nextparents, offsets, length)
+    ret_pass = funcC(nextparents, offsets, length, nextparents_length)
     pytest_nextparents = [0]
     assert nextparents[:len(pytest_nextparents)] == pytest.approx(pytest_nextparents)
     assert not ret_pass.str
@@ -44,8 +46,9 @@ def test_unit_cpuawkward_ListOffsetArray64_reduce_local_nextparents_64_3():
     length = 18
     offsets = [0, 0, 1, 3, 3, 6, 8, 9, 9, 9, 10, 10, 12, 15, 15, 17, 18, 18, 18]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
+    nextparents_length = 18
     funcC = getattr(lib, 'awkward_ListOffsetArray64_reduce_local_nextparents_64')
-    ret_pass = funcC(nextparents, offsets, length)
+    ret_pass = funcC(nextparents, offsets, length, nextparents_length)
     pytest_nextparents = [1, 2, 2, 4, 4, 4, 5, 5, 6, 9, 11, 11, 12, 12, 12, 14, 14, 15]
     assert nextparents[:len(pytest_nextparents)] == pytest.approx(pytest_nextparents)
     assert not ret_pass.str
@@ -56,8 +59,9 @@ def test_unit_cpuawkward_ListOffsetArray64_reduce_local_nextparents_64_4():
     length = 4
     offsets = [0, 1, 3, 5, 5]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
+    nextparents_length = 5
     funcC = getattr(lib, 'awkward_ListOffsetArray64_reduce_local_nextparents_64')
-    ret_pass = funcC(nextparents, offsets, length)
+    ret_pass = funcC(nextparents, offsets, length, nextparents_length)
     pytest_nextparents = [0, 1, 1, 2, 2]
     assert nextparents[:len(pytest_nextparents)] == pytest.approx(pytest_nextparents)
     assert not ret_pass.str
@@ -68,8 +72,9 @@ def test_unit_cpuawkward_ListOffsetArray64_reduce_local_nextparents_64_5():
     length = 5
     offsets = [0, 1, 1, 3, 5, 7]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
+    nextparents_length = 7
     funcC = getattr(lib, 'awkward_ListOffsetArray64_reduce_local_nextparents_64')
-    ret_pass = funcC(nextparents, offsets, length)
+    ret_pass = funcC(nextparents, offsets, length, nextparents_length)
     pytest_nextparents = [0, 2, 2, 3, 3, 4, 4]
     assert nextparents[:len(pytest_nextparents)] == pytest.approx(pytest_nextparents)
     assert not ret_pass.str
@@ -80,8 +85,9 @@ def test_unit_cpuawkward_ListOffsetArray64_reduce_local_nextparents_64_6():
     length = 5
     offsets = [0, 0, 1, 1, 2, 2]
     offsets = (ctypes.c_int64*len(offsets))(*offsets)
+    nextparents_length = 2
     funcC = getattr(lib, 'awkward_ListOffsetArray64_reduce_local_nextparents_64')
-    ret_pass = funcC(nextparents, offsets, length)
+    ret_pass = funcC(nextparents, offsets, length, nextparents_length)
     pytest_nextparents = [1, 3]
     assert nextparents[:len(pytest_nextparents)] == pytest.approx(pytest_nextparents)
     assert not ret_pass.str

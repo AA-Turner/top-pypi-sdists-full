@@ -275,6 +275,7 @@ class Fathom(BaseSDK):
         cursor: Optional[str] = None,
         include_action_items: Optional[bool] = False,
         include_crm_matches: Optional[bool] = False,
+        include_highlights: Optional[bool] = False,
         include_summary: Optional[bool] = False,
         include_transcript: Optional[bool] = False,
         meeting_type: Optional[str] = None,
@@ -300,6 +301,7 @@ class Fathom(BaseSDK):
         :param cursor: Cursor for pagination.
         :param include_action_items: Include the action items for each meeting.
         :param include_crm_matches: Include CRM matches for each meeting. Only returns data from your or your team's linked CRM.
+        :param include_highlights: Include the highlights for each meeting.
         :param include_summary: Include the summary for each meeting. Unavailable for OAuth connected apps (use /recordings instead).
         :param include_transcript: Include the transcript for each meeting. Unavailable for OAuth connected apps (use /recordings instead).
         :param meeting_type: Filter by meeting type name.
@@ -343,6 +345,7 @@ class Fathom(BaseSDK):
             cursor=cursor,
             include_action_items=include_action_items,
             include_crm_matches=include_crm_matches,
+            include_highlights=include_highlights,
             include_summary=include_summary,
             include_transcript=include_transcript,
             meeting_type=meeting_type,
@@ -408,6 +411,7 @@ class Fathom(BaseSDK):
                 cursor=next_cursor,
                 include_action_items=include_action_items,
                 include_crm_matches=include_crm_matches,
+                include_highlights=include_highlights,
                 include_summary=include_summary,
                 include_transcript=include_transcript,
                 meeting_type=meeting_type,
@@ -442,6 +446,7 @@ class Fathom(BaseSDK):
         cursor: Optional[str] = None,
         include_action_items: Optional[bool] = False,
         include_crm_matches: Optional[bool] = False,
+        include_highlights: Optional[bool] = False,
         include_summary: Optional[bool] = False,
         include_transcript: Optional[bool] = False,
         meeting_type: Optional[str] = None,
@@ -467,6 +472,7 @@ class Fathom(BaseSDK):
         :param cursor: Cursor for pagination.
         :param include_action_items: Include the action items for each meeting.
         :param include_crm_matches: Include CRM matches for each meeting. Only returns data from your or your team's linked CRM.
+        :param include_highlights: Include the highlights for each meeting.
         :param include_summary: Include the summary for each meeting. Unavailable for OAuth connected apps (use /recordings instead).
         :param include_transcript: Include the transcript for each meeting. Unavailable for OAuth connected apps (use /recordings instead).
         :param meeting_type: Filter by meeting type name.
@@ -510,6 +516,7 @@ class Fathom(BaseSDK):
             cursor=cursor,
             include_action_items=include_action_items,
             include_crm_matches=include_crm_matches,
+            include_highlights=include_highlights,
             include_summary=include_summary,
             include_transcript=include_transcript,
             meeting_type=meeting_type,
@@ -575,6 +582,7 @@ class Fathom(BaseSDK):
                 cursor=next_cursor,
                 include_action_items=include_action_items,
                 include_crm_matches=include_crm_matches,
+                include_highlights=include_highlights,
                 include_summary=include_summary,
                 include_transcript=include_transcript,
                 meeting_type=meeting_type,

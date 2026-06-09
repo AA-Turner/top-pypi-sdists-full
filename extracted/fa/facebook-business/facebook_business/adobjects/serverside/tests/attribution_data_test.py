@@ -55,6 +55,8 @@ class AttributionDataTest(TestCase):
                 'inactivity_window_hours': 24,
                 'reattribution_window_hours': 48,
             },
+            'total_credit': 0.85,
+            'partner_client_id': 'partner_workspace_123',
         }
         attribution_data = AttributionData(
             scope=expected['scope'],
@@ -75,6 +77,8 @@ class AttributionDataTest(TestCase):
             linkage_key=expected['linkage_key'],
             touchpoint_id=expected['touchpoint_id'],
             attribution_setting=attribution_setting,
+            total_credit=expected['total_credit'],
+            partner_client_id=expected['partner_client_id'],
         )
 
         self.assertEqual(attribution_data.normalize(), expected)

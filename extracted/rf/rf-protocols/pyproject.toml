@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name         = "rf-protocols"
-version      = "4.0.1"
+version      = "4.1.0"
 license      = "MIT"
 description  = "Library to decode and encode radio frequency signals."
 readme       = "README.md"

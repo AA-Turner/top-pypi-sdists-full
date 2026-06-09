@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2016 Emmanuel Gil Peyrot <linkmauve@linkmauve.fr>
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.plugins.xep_0380.eme import XEP_0380
 
 
 register_plugin(XEP_0380)
+
+__all__ = ['Encryption', ' XEP_0380']

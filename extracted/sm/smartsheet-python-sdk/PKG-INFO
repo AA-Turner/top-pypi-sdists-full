@@ -1,8 +1,10 @@
 Metadata-Version: 2.4
 Name: smartsheet-python-sdk
-Version: 3.9.0
+Version: 4.0.0
 Summary: Library that uses Python to connect to Smartsheet services (using API 2.0).
 License-Expression: Apache-2.0
+License-File: LICENSE.md
+License-File: NOTICE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
@@ -17,39 +19,35 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Office/Business :: Financial :: Spreadsheet
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.7
-Description-Content-Type: text/markdown
-License-File: LICENSE.md
-License-File: NOTICE
+Requires-Dist: certifi
+Requires-Dist: python-dateutil
 Requires-Dist: requests
 Requires-Dist: requests-toolbelt
 Requires-Dist: six>=1.9
-Requires-Dist: certifi
-Requires-Dist: python-dateutil
-Provides-Extra: test
-Requires-Dist: coverage; extra == "test"
-Requires-Dist: coveralls; extra == "test"
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-rerunfailures; extra == "test"
-Requires-Dist: requests-toolbelt; extra == "test"
 Provides-Extra: develop
-Requires-Dist: coverage; extra == "develop"
-Requires-Dist: coveralls[yaml]; extra == "develop"
-Requires-Dist: pytest; extra == "develop"
-Requires-Dist: pytest-instafail; extra == "develop"
-Requires-Dist: pylint; extra == "develop"
+Requires-Dist: coverage; extra == 'develop'
+Requires-Dist: coveralls[yaml]; extra == 'develop'
+Requires-Dist: pylint; extra == 'develop'
+Requires-Dist: pytest; extra == 'develop'
+Requires-Dist: pytest-instafail; extra == 'develop'
 Provides-Extra: docs
-Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: sphinx_rtd_theme; extra == "docs"
-Requires-Dist: setuptools_scm; extra == "docs"
+Requires-Dist: setuptools-scm; extra == 'docs'
+Requires-Dist: sphinx; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme; extra == 'docs'
 Provides-Extra: packaging
-Requires-Dist: wheel; extra == "packaging"
-Requires-Dist: twine; extra == "packaging"
-Requires-Dist: gitchangelog; extra == "packaging"
-Requires-Dist: mako; extra == "packaging"
-Dynamic: license-file
+Requires-Dist: gitchangelog; extra == 'packaging'
+Requires-Dist: mako; extra == 'packaging'
+Requires-Dist: wheel; extra == 'packaging'
+Provides-Extra: test
+Requires-Dist: coverage; extra == 'test'
+Requires-Dist: coveralls; extra == 'test'
+Requires-Dist: pytest; extra == 'test'
+Requires-Dist: pytest-rerunfailures; extra == 'test'
+Requires-Dist: requests-toolbelt; extra == 'test'
+Description-Content-Type: text/markdown
 
 # Smartsheet Python SDK
 

@@ -4,7 +4,7 @@
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 from slixmpp import Iq
-from slixmpp.xmlstream import register_stanza_plugin, ElementBase, ET, JID
+from slixmpp.xmlstream import register_stanza_plugin, ElementBase, JID
 from slixmpp.plugins.xep_0004 import Form
 from slixmpp.plugins.xep_0060.stanza.base import OptionalSetting
 from slixmpp.plugins.xep_0060.stanza.pubsub import Affiliations, Affiliation

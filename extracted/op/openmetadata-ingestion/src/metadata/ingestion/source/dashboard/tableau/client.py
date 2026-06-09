@@ -11,6 +11,7 @@
 """
 Wrapper module of TableauServerConnection client
 """
+
 import math
 import traceback
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
@@ -108,7 +109,7 @@ class TableauClient:
 
     def get_tableau_owner(
         self, owner_id: Optional[str], include_owners: bool = True
-    ) -> Optional[TableauOwner]:
+    ) -> Optional[TableauOwner]:  # noqa: UP045
         """
         Get tableau owner with optional include_owners flag
         """
@@ -283,13 +284,11 @@ class TableauClient:
         """
         validation = validators.url(self.config.siteName)
         if validation:
-            raise ValueError(
-                f"""
+            raise ValueError(f"""
             The site url "{self.config.siteName}" is in incorrect format.
             If "https://xxx.tableau.com/#/site/MarketingTeam/home" represents the homepage url for your tableau site,
             the "MarketingTeam" from the url should be entered in the Site Name and Site Url fields.
-            """
-            )
+            """)
         return True
 
     def test_get_datamodels(self):

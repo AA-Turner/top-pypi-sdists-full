@@ -12,6 +12,8 @@ from typing import (  # noqa: I100, I201
     cast,
 )
 
+import sqlalchemy.exc
+
 import ormar  # noqa: I100, I202
 from ormar.exceptions import ModelPersistenceError, NoMatch, QueryDefinitionError
 
@@ -339,17 +341,20 @@ class QuerysetProxy(Generic[T]):
         """
         Gets the first row from the db ordered by primary key column ascending.
 
-        Actual call delegated to QuerySet.
+        Actual call delegated to :meth:`QuerySet.first`, which always issues
+        ``LIMIT 1`` and therefore never raises ``MultipleMatches``. Use
+        :meth:`get` instead if you want to assert a single match.
 
         Passing args and/or kwargs is a shortcut and equals to calling
-        `filter(*args, **kwargs).first()`.
+        ``filter(*args, **kwargs).first()``.
 
         List of related models is cleared before the call.
 
-        :param kwargs:
-        :type kwargs:
-        :return:
-        :rtype: _asyncio.Future
+        :raises NoMatch: if no rows match the criteria
+        :param kwargs: fields names and proper value types
+        :type kwargs: Any
+        :return: returned model
+        :rtype: Model
         """
         first = await self.queryset.first(*args, **kwargs)
         self._clean_items_on_load()
@@ -360,12 +365,11 @@ class QuerysetProxy(Generic[T]):
         """
         Gets the first row from the db ordered by primary key column ascending.
 
-        Actual call delegated to QuerySet.
+        Behaves like :meth:`first` but returns ``None`` instead of raising
+        ``NoMatch`` when no row matches.
 
         Passing args and/or kwargs is a shortcut and equals to calling
-        `filter(*args, **kwargs).first_or_none()`.
-
-        If no match is found None will be returned.
+        ``filter(*args, **kwargs).first_or_none()``.
 
         :param kwargs: fields names and proper value types
         :type kwargs: Any
@@ -382,13 +386,16 @@ class QuerysetProxy(Generic[T]):
         """
         Gets the last row from the db ordered by primary key column descending.
 
-        Actual call delegated to QuerySet.
+        Actual call delegated to :meth:`QuerySet.last`, which always issues
+        ``LIMIT 1`` and therefore never raises ``MultipleMatches``. Use
+        :meth:`get` instead if you want to assert a single match.
 
         Passing args and/or kwargs is a shortcut and equals to calling
-        `filter(*args, **kwargs).last()`.
+        ``filter(*args, **kwargs).last()``.
 
         List of related models is cleared before the call.
 
+        :raises NoMatch: if no rows match the criteria
         :param kwargs: fields names and proper value types
         :type kwargs: Any
         :return: returned model
@@ -403,12 +410,11 @@ class QuerysetProxy(Generic[T]):
         """
         Gets the last row from the db ordered by primary key column descending.
 
-        Actual call delegated to QuerySet.
+        Behaves like :meth:`last` but returns ``None`` instead of raising
+        ``NoMatch`` when no row matches.
 
         Passing args and/or kwargs is a shortcut and equals to calling
-        `filter(*args, **kwargs).last_or_none()`.
-
-        If no match is found None will be returned.
+        ``filter(*args, **kwargs).last_or_none()``.
 
         :param kwargs: fields names and proper value types
         :type kwargs: Any
@@ -423,19 +429,21 @@ class QuerysetProxy(Generic[T]):
 
     async def get_or_none(self, *args: Any, **kwargs: Any) -> Optional["T"]:
         """
-        Gets the first row from the db meeting the criteria set by kwargs.
+        Gets a single row from the db matching the criteria set by args/kwargs.
 
-        If no criteria set it will return the last row in db sorted by pk.
+        Behaves like :meth:`get` but returns ``None`` instead of raising
+        ``NoMatch`` when no row matches. ``MultipleMatches`` is still raised
+        when criteria are provided and more than one row matches.
 
         Passing args and/or kwargs is a shortcut and equals to calling
-        `filter(*args, **kwargs).get_or_none()`.
+        ``filter(*args, **kwargs).get_or_none()``.
 
-        If not match is found None will be returned.
-
+        :raises MultipleMatches: when criteria are set (via ``filter``/``exclude``
+            or args/kwargs) and more than one row matches them.
         :param kwargs: fields names and proper value types
         :type kwargs: Any
-        :return: returned model
-        :rtype: Model
+        :return: returned model or None
+        :rtype: Optional[Model]
         """
         try:
             get = await self.queryset.get(*args, **kwargs)
@@ -448,19 +456,23 @@ class QuerysetProxy(Generic[T]):
 
     async def get(self, *args: Any, **kwargs: Any) -> "T":
         """
-        Gets the first row from the db meeting the criteria set by kwargs.
-
-        If no criteria set it will return the last row in db sorted by pk.
+        Gets a single row from the db matching the criteria set by args/kwargs.
 
         Passing args and/or kwargs is a shortcut and equals to calling
-        `filter(*args, **kwargs).get()`.
+        ``filter(*args, **kwargs).get()``. Actual call is delegated to
+        :meth:`QuerySet.get`; see its docstring for the full contract.
 
-        Actual call delegated to QuerySet.
+        When criteria are set (here or via chained :meth:`filter`/:meth:`exclude`)
+        the query asserts that exactly one row matches: ``NoMatch`` is raised
+        when none match and ``MultipleMatches`` when more than one matches.
+        When no criteria are set, ``get()`` returns the last row of the table
+        ordered by primary key descending.
 
         List of related models is cleared before the call.
 
-        :raises NoMatch: if no rows are returned
-        :raises MultipleMatches: if more than 1 row is returned.
+        :raises NoMatch: if no rows match the criteria
+        :raises MultipleMatches: when criteria are set and more than one row
+            matches them.
         :param kwargs: fields names and proper value types
         :type kwargs: Any
         :return: returned model
@@ -590,6 +602,13 @@ class QuerysetProxy(Generic[T]):
         and if `NoMatch` exception is raised
         it creates a new one with given kwargs and _defaults.
 
+        If a concurrent caller wins the race and creates a matching row
+        between this call's ``get`` and ``create``, the ``create`` raises
+        ``sqlalchemy.exc.IntegrityError`` and ``get`` is retried once.
+        If the retry still finds no row, the original ``IntegrityError`` is
+        re-raised because the violation isn't a race but a legitimate
+        constraint conflict (e.g. a different unique key).
+
         :param kwargs: fields names and proper value types
         :type kwargs: Any
         :param _defaults: default values for creating object
@@ -600,12 +619,24 @@ class QuerysetProxy(Generic[T]):
         try:
             return await self.get(*args, **kwargs), False
         except NoMatch:
-            _defaults = _defaults or {}
+            pass
+
+        _defaults = _defaults or {}
+        try:
             return await self.create(**{**kwargs, **_defaults}), True
+        except sqlalchemy.exc.IntegrityError as integrity_error:
+            try:
+                return await self.get(*args, **kwargs), False
+            except NoMatch:
+                raise integrity_error from None
 
     async def update_or_create(self, **kwargs: Any) -> "T":
         """
         Updates the model, or in case there is no match in database creates a new one.
+
+        If a pk is supplied but no row exists with that pk, a new row is
+        created with the supplied pk and field values rather than raising
+        ``NoMatch``.
 
         Actual call delegated to QuerySet.
 
@@ -619,7 +650,10 @@ class QuerysetProxy(Generic[T]):
             kwargs[pk_name] = kwargs.pop("pk")
         if pk_name not in kwargs or kwargs.get(pk_name) is None:
             return await self.create(**kwargs)
-        model = await self.queryset.get(pk=kwargs[pk_name])
+        try:
+            model = await self.queryset.get(pk=kwargs[pk_name])
+        except NoMatch:
+            return await self.create(**kwargs)
         return await model.update(**kwargs)
 
     def filter(  # noqa: A003, A001

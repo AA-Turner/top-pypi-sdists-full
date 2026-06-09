@@ -1,7 +1,8 @@
 import pytensor.tensor as pt
-from pytensor.tensor.xlogx import xlogy0
+from pytensor.tensor.special import xlogy
 
 from pytensor_distributions.helper import cdf_bounds, discrete_entropy, sf_bounds
+from pytensor_distributions.lmoments import _lmoments
 from pytensor_distributions.optimization import find_ppf_discrete
 
 
@@ -31,6 +32,22 @@ def skewness(n, p):
 
 def kurtosis(n, p):
     return 6.0 / n + (p * p) / (n * (1 - p))
+
+
+def lmoment1(n, p):
+    return mean(n, p)
+
+
+def lmoment2(n, p):
+    return _lmoments(ppf, n, p, r=2)
+
+
+def lmoment3(n, p):
+    return _lmoments(ppf, n, p, r=3)
+
+
+def lmoment4(n, p):
+    return _lmoments(ppf, n, p, r=4)
 
 
 def entropy(n, p):
@@ -64,14 +81,14 @@ def isf(q, n, p):
 
 
 def rvs(n, p, size=None, random_state=None):
-    return pt.random.negative_binomial(n, p, rng=random_state, size=size)
+    return pt.random.negative_binomial(n, p, rng=random_state, size=size, return_next_rng=True)[1]
 
 
 def logpdf(x, n, p):
     return pt.switch(
         pt.lt(x, 0),
         -pt.inf,
-        pt.gammaln(x + n) - pt.gammaln(n) - pt.gammaln(x + 1) + xlogy0(n, p) + xlogy0(x, 1 - p),
+        pt.gammaln(x + n) - pt.gammaln(n) - pt.gammaln(x + 1) + xlogy(n, p) + xlogy(x, 1 - p),
     )
 
 

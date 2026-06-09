@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: sparklines
-Version: 0.7.0
+Version: 1.0.0
 Summary: Generate sparklines for numbers using Unicode characters only.
 Project-URL: Homepage, https://github.com/deeplook/sparklines
 Project-URL: Issues, https://github.com/deeplook/sparklines/issues
 Project-URL: CI, https://github.com/deeplook/sparklines/actions
-Project-URL: Changelog, https://github.com/deeplook/sparklines/releases
+Project-URL: Changelog, https://github.com/deeplook/sparklines/blob/main/CHANGELOG.md
 Project-URL: Repository, https://github.com/deeplook/sparklines.git
 Project-URL: Documentation, https://github.com/deeplook/sparklines
 Author-email: Dinu Gherman <gherman@darwin.in-berlin.de>
@@ -27,207 +27,188 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.9
 Requires-Dist: termcolor>=2.4.0
+Provides-Extra: dev
+Requires-Dist: mypy>=1.0; extra == 'dev'
+Requires-Dist: pre-commit>=3.0; extra == 'dev'
 Provides-Extra: test
+Requires-Dist: pytest-cov>=4.0.0; extra == 'test'
 Requires-Dist: pytest>=7.0.0; extra == 'test'
 Requires-Dist: tomli>=2.0.0; (python_version < '3.11') and extra == 'test'
-Description-Content-Type: text/x-rst
+Description-Content-Type: text/markdown
 
-Sparklines
-==========
+# Sparklines
 
-.. image:: https://img.shields.io/github/actions/workflow/status/deeplook/sparklines/lint-test.yml
-  :target: https://pypi.org/project/sparklines
+[![Build](https://img.shields.io/github/actions/workflow/status/deeplook/sparklines/lint-test.yml)](https://pypi.org/project/sparklines)
+[![Python versions](https://img.shields.io/pypi/pyversions/sparklines.svg)](https://pypi.org/project/sparklines)
+[![PyPI version](https://img.shields.io/pypi/v/sparklines.svg)](https://pypi.org/project/sparklines/)
+[![Downloads](https://static.pepy.tech/badge/sparklines/month)](https://pepy.tech/project/sparklines)
+[![Status](https://img.shields.io/pypi/status/sparklines.svg)](https://pypi.org/project/sparklines)
+[![Format](https://img.shields.io/pypi/format/sparklines.svg)](https://pypi.org/project/sparklines)
+[![License](https://img.shields.io/pypi/l/sparklines.svg)](https://pypi.org/project/sparklines)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/deeplook)
 
-.. image:: https://img.shields.io/pypi/pyversions/sparklines.svg
-  :target: https://pypi.org/project/sparklines
-  
-.. image:: https://img.shields.io/pypi/v/sparklines.svg
-  :target: https://pypi.org/project/sparklines/
+Sparklines brings Edward Tufte's [sparklines] to your terminal — compact Unicode bar charts like ▃▁▄▁▅█▂▅, right in your shell or Python code. Originally built for sanity-checking sensor data in IoT networks, it works anywhere you need a quick visual summary of a sequence of numbers.
 
-.. image:: https://static.pepy.tech/badge/sparklines/month
-  :target: https://pepy.tech/project/sparklines
+<p align="center">
+  <img src="https://raw.githubusercontent.com/deeplook/sparklines/main/example_sensors.png" width="100%" alt="example usecase with sensor values">
+  <br>
+  <em>Example usecase for such "sparklines" on the command-line,
+  showing IoT sensor values (generating code not included here).</em>
+</p>
 
-.. image:: https://img.shields.io/pypi/status/sparklines.svg
-  :target: https://pypi.org/project/sparklines
+Positive values work best, but negatives are fully supported: mixed data auto-splits into two rows, all-negative data renders as downward bars (see [Mixed and negative datasets] below). True line-style sparklines would require a dedicated font — out of scope here. We use "▁▂▃▄▅▆▇█" for values and a blank for missing ones.
 
-.. image:: https://img.shields.io/pypi/format/sparklines.svg
-  :target: https://pypi.org/project/sparklines
+## Use cases
 
-.. image:: https://img.shields.io/pypi/l/sparklines.svg
-  :target: https://pypi.org/project/sparklines
-  
-This Python package implements Edward Tufte's concept of sparklines_, but
-limited to text only e.g. like this: ▃▁▄▁▅█▂▅ (this I likely not displayed
-correctly in every browser). You can find more information about sparklines
-`on Wikipedia`_. This code was mainly developed for running simple
-plausibility tests in sensor networks as shown in fig. 1 below:
+**Finance** — stock price history, daily P&L (bipolar: gains above, losses below), trading volume spikes, bid-ask spread over a session.
 
-.. figure:: https://raw.githubusercontent.com/deeplook/sparklines/main/example_sensors.png
-   :width: 75%
-   :alt: example usecase with sensor values
-   :align: center
+**IoT** — temperature and humidity sensors, power consumption per circuit, air quality index, battery charge on remote devices.
 
-   Fig. 1: Example usecase for such "sparklines" on the command-line,
-   showing IoT sensor values (generating code not included here).
+**DevOps & SRE** — request rate and error rate per minute, CI build duration trend, queue depth, replica lag.
 
-Due to limitations of available Unicode characters this works best when all
-values are positive. And even then true sparklines that look more like lines
-and less like bars are a real challenge, because they would need multiple
-characters with a single horizontal line on different vertical positions. This
-would work only with a dedicated font, which is way beyond the scope of this
-tool and which would significantly complicate its usage. So we stick to these
-characters: "▁▂▃▄▅▆▇█", and use a blank for missing values.
+**Data Science & ML** — training loss and validation accuracy per epoch, gradient norms, data drift score, inference latency after a deployment.
 
-Sample output
--------------
+**Agentic computing** — token usage and cost per API call, context window fill level, cache hit rate, tool-call frequency per agent loop iteration.
 
-This is a recorded sample session illustrating how to use ``sparklines`` (as
-GitHub doesn't render embedded Asciinema_ recordings you'll see here an image
-pointing to the respective
-`asciicast <https://asciinema.org/a/5xwfvcrrk09fy3ml3a8n67hep>`_):
+**Health & Fitness** — heart rate during exercise, sleep quality over weeks, blood glucose across a day, daily caloric balance.
 
-.. image:: https://asciinema.org/a/5xwfvcrrk09fy3ml3a8n67hep.png
-   :target: https://asciinema.org/a/5xwfvcrrk09fy3ml3a8n67hep
+## Sample output
 
-Here is some example output on the command-line (please note that in some
-browsers the vertical alignment of these block characters might be displayed
-slightly wrong, the same effect can be seen for other repos referenced below):
+A recorded demo session — click the image to play it on [Asciinema]:
 
-Examples for the code below:
-
-.. code-block:: bash
-
-    $ sparklines 2 7 1 8 2 8 1 8
-    ▂▇▁█▂█▁█
-    $ echo 2 7 1 8 2 8 1 8 | sparklines
-    ▂▇▁█▂█▁█
-    $ sparklines < numbers.txt
-    ▂▇▁█▂█▁█
-    $ sparklines 0 2. 1e0
-    ▁█▅
+[![asciicast](https://asciinema.org/a/gXARhhEIskCsI4Xz.png)](https://asciinema.org/a/gXARhhEIskCsI4Xz)
 
 
-Installation
-------------
+## Installation
 
-**From PyPI (Recommended)**
+**From PyPI**
 
-You can install this package from the `Python Package Index`_ using pip:
+```bash
+pip install sparklines
+```
 
-.. code-block:: bash
+**On macOS with Homebrew**
 
-    pip install sparklines
+```bash
+brew tap deeplook/sparklines
+brew install sparklines
+```
+
+**With uv**
+
+```bash
+uvx sparklines 2 7 1 8 2 8 1 8
+```
+
+Or install it into your `uv` tool environment:
+
+```bash
+uv tool install sparklines
+```
 
 **From Source**
 
-To install from source, clone this repository and install it:
+```bash
+git clone https://github.com/deeplook/sparklines.git
+cd sparklines
+pip install .
+```
 
-.. code-block:: bash
+**Development**
 
-    git clone https://github.com/deeplook/sparklines.git
-    cd sparklines
-    pip install .
-
-**Development Installation**
-
-For development work, install in editable mode with development dependencies:
-
-.. code-block:: bash
-
-    git clone https://github.com/deeplook/sparklines.git
-    cd sparklines
-    pip install -e ".[dev]"
-
-After installing, you will have access system-wide (or in your virtual environment
-if you have used one) to the ``sparklines`` command-line tool, as well as the Python
-module for programmatic use.
+```bash
+git clone https://github.com/deeplook/sparklines.git
+cd sparklines
+pip install -e ".[dev]"
+pytest tests
+```
 
 
-Test
-----
+## Usage
 
-To run the test suite, download and unpack this repository or clone it,
-and run the command ``pytest tests`` in the unpacked archive in the downloaded
-repository root folder.
+### Python
 
+```python
+from sparklines import sparklines
 
-Usage
------
+for line in sparklines([1, 2, 3, 4, 5.0, None, 3, 2, 1]):
+    print(line)
+# ▁▃▅▆█ ▅▃▁
 
-Please note that the samples below might look a little funky (misaligned or 
-even colored) in some browsers, but it should be totally fine when you print
-this in your terminal, Python or IPython session or your Python IDE of choice.
-Figure 2 below might show better what you should expect than the copied sample
-code thereafter:
-
-.. figure:: https://raw.githubusercontent.com/deeplook/sparklines/main/example_python.png
-   :width: 65%
-   :alt: example interactive invocation
-   :align: center
-
-   Fig. 2: Example invocation from a Python and an IPython session.
+for line in sparklines([1, 2, 3, 4, 5.0, None, 3, 2, 1], num_lines=2):
+    print(line)
+#   ▁▅█ ▁
+# ▁▅███ █▅▁
+```
 
 
-Command-Line
-............
+### Mixed and negative datasets
 
-Here are two sample invocations from the command-line, copied into this README:
+Mixed positive/negative data is split automatically — no flags needed:
 
-.. code-block:: console
+```python
+from sparklines import sparklines
 
-    $ sparklines 1 2 3 4 5.0 null 3 2 1
-    ▁▃▅▆█ ▅▃▁
+data = [50, 30, 80, -20, -60, -10, 40, 10]
+for line in sparklines(data):
+    print(line)
+# ▅▄█   ▄▂
+#    ▔▀▔
+```
 
-    $ sparklines -n 2 1 2 3 4 5.0 null 3 2 1
-      ▁▅█ ▁  
-    ▁▅███ █▅▁
+All-negative data renders as inverted (downward) bars automatically.
+
+**`-n` / `--num-lines`**
+
+| Form | Behaviour |
+|------|-----------|
+| integer (default `1`) | total rows, split proportionally; shared scale |
+| `auto` | smallest row count for an exact proportional split |
+| `up:down` (e.g. `2:1`) | explicit per-side layout; independent scaling |
+
+```console
+$ sparklines -n auto 1 2 3 -1 -2 -3 0 4 5 6
+       ▃▆█
+▄▆█   ▁███
+   ▔▔▀
+$ sparklines -n 2:1  1 2 3 -1 -2 -3 0 4 5 6
+       ▃▆█
+▄▆█   ▁███
+   ▔▀█
+```
+
+**`--zero`**: `up` (default) places zeros on the positive baseline; `none` renders them as gaps.
+
+```console
+$ sparklines --zero up   0 1 2 -1 -2 0
+▁▄█  ▁
+   ▀█
+$ sparklines --zero none 0 1 2 -1 -2 0
+ ▄█
+   ▀█
+```
+
+Downward bars use ANSI reverse video for full 8-level resolution. Falls back to `▔▀█` when `NO_COLOR`, `ANSI_COLORS_DISABLED`, or `TERM=dumb` is set.
 
 
-Programmatic
-............
+## References
 
-And here are sample invocations from interactive Python sessions, copied into
-this README. The main function to use programmatically is 
-``sparklines.sparklines()``:
+Inspired by Zach Holman's [spark](https://github.com/holman/spark), with prior Python ports by Kenneth Reitz ([spark.py](https://raw.githubusercontent.com/kennethreitz/spark.py/master/spark.py)), RedKrieg ([pysparklines](https://github.com/RedKrieg/pysparklines)), and Roger Allen ([shorter spark.py](https://gist.githubusercontent.com/rogerallen/1368454/raw/b17e96b56ae881621a9f3b1508ca2e7fde3ec93e/spark.py)).
 
-.. code-block:: python
+This package adds:
 
-    In [1]: from sparklines import sparklines
+- multi-line rendering for higher resolution (-n)
+- gaps for missing values (None)
+- auto-split for mixed positive/negative data
+- inverted bars for all-negative data
+- proportional row allocation (-n auto)
+- explicit per-side layout (-n up:down)
+- zero handling (--zero up / --zero none)
+- colour emphasis via --emphasize
+- line wrapping via --wrap
 
-    In [2]: for line in sparklines([1, 2, 3, 4, 5.0, None, 3, 2, 1]):
-       ...:     print(line)
-       ...:     
-    ▁▃▅▆█ ▅▃▁
-
-    In [3]: for line in sparklines([1, 2, 3, 4, 5.0, None, 3, 2, 1], num_lines=2):
-        print(line)
-       ...:     
-      ▁▅█ ▁  
-    ▁▅███ █▅▁
-
-
-References
-----------
-
-This code was inspired by Zach Holman's `spark 
-<https://github.com/holman/spark>`_, converted to a Python module 
-by Kenneth Reitz as `spark.py 
-<https://raw.githubusercontent.com/kennethreitz/spark.py/master/spark.py>`_ 
-and by RegKrieg to a Python package named `pysparklines <https://github.com/RedKrieg/pysparklines>`_.
-And Roger Allen provides an even `shorter spark.py 
-<https://gist.githubusercontent.com/rogerallen/1368454/raw/b17e96b56ae881621a9f3b1508ca2e7fde3ec93e/spark.py>`_.
-
-But since it is so short and easy to code in Python we can add a few nice
-extra features I was missing, like:
-
-- increasing resolution with multiple output lines per sparkline
-- showing gaps in input numbers for missing data
-- issuing warnings for negative values (allowed, but misleading)
-- highlighting values exceeding some threshold with a different color
-- wrapping long sparklines at some max. length
-- (todo) adding separator characters like ``:`` at regular intervals
-
-.. _Asciinema: https://asciinema.org
-.. _Python Package Index: https://pypi.python.org/pypi/sparklines/
-.. _sparklines: http://www.edwardtufte.com/bboard/q-and-a-fetch-msg?msg_id=0001OR
-.. _on Wikipedia: https://en.wikipedia.org/wiki/Sparkline
+[Asciinema]: https://asciinema.org
+[Python Package Index]: https://pypi.python.org/pypi/sparklines/
+[uv]: https://docs.astral.sh/uv/
+[sparklines]: http://www.edwardtufte.com/bboard/q-and-a-fetch-msg?msg_id=0001OR
+[Mixed and negative datasets]: #mixed-and-negative-datasets

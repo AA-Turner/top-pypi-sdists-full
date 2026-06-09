@@ -242,6 +242,18 @@ def export_from_registries(
     """
     failed_protos: List[export_pb.FailedImport] = []
 
+    # This is a no-op UNLESS the project itself called `override_feature_tags`.
+    # When (and only when) the customer has opted in, apply their centrally-
+    # declared feature-tag overrides here, BEFORE validation and conversion;
+    # otherwise code-defined tags are left exactly as written. Because the
+    # registry is fully populated by this point, an opted-in project gets the
+    # authoritative last word on feature tags: every code-defined tag is wiped
+    # and only the declared ones are stamped on, regardless of which file defined
+    # the feature or what order it was imported.
+    from chalk.features.feature_tag_override import apply_feature_tag_overrides
+
+    apply_feature_tag_overrides(features_registry)
+
     # Validate registries BEFORE conversion to catch errors early
     # This ensures parity with GQL validation path
     from chalk.parsed.validation_from_registries import validate_all_from_registries

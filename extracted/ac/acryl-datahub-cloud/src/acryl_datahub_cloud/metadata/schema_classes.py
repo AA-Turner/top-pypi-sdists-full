@@ -4081,7 +4081,7 @@ class AssertionAnalyticsRunEventClass(_Aspect):
 
     ASPECT_NAME = 'assertionAnalyticsRunEvent'
     ASPECT_TYPE = 'timeseries'
-    ASPECT_INFO = {'schemaVersion': 4}
+    ASPECT_INFO = {'schemaVersion': 5}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.assertion.AssertionAnalyticsRunEvent")
 
     def __init__(self,
@@ -4798,7 +4798,7 @@ class AssertionInferenceDetailsClass(_Aspect):
 
 
     ASPECT_NAME = 'assertionInferenceDetails'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.assertion.AssertionInferenceDetails")
 
     def __init__(self,
@@ -4808,6 +4808,7 @@ class AssertionInferenceDetailsClass(_Aspect):
         parameters: Union[None, Dict[str, str]]=None,
         generatedAt: Union[None, int]=None,
         adjustmentSettings: Union[None, "AssertionAdjustmentSettingsClass"]=None,
+        boundsValueSpace: Union[None, Union[str, "BoundsValueSpaceClass"]]=None,
     ):
         super().__init__()
         
@@ -4817,6 +4818,7 @@ class AssertionInferenceDetailsClass(_Aspect):
         self.parameters = parameters
         self.generatedAt = generatedAt
         self.adjustmentSettings = adjustmentSettings
+        self.boundsValueSpace = boundsValueSpace
     
     def _restore_defaults(self) -> None:
         self.modelId = self.RECORD_SCHEMA.fields_dict["modelId"].default
@@ -4825,6 +4827,7 @@ class AssertionInferenceDetailsClass(_Aspect):
         self.parameters = self.RECORD_SCHEMA.fields_dict["parameters"].default
         self.generatedAt = self.RECORD_SCHEMA.fields_dict["generatedAt"].default
         self.adjustmentSettings = self.RECORD_SCHEMA.fields_dict["adjustmentSettings"].default
+        self.boundsValueSpace = self.RECORD_SCHEMA.fields_dict["boundsValueSpace"].default
     
     
     @property
@@ -4885,6 +4888,21 @@ class AssertionInferenceDetailsClass(_Aspect):
     @adjustmentSettings.setter
     def adjustmentSettings(self, value: Union[None, "AssertionAdjustmentSettingsClass"]) -> None:
         self._inner_dict['adjustmentSettings'] = value
+    
+    
+    @property
+    def boundsValueSpace(self) -> Union[None, Union[str, "BoundsValueSpaceClass"]]:
+        """Marks the value space of the persisted bounds on this assertion. When
+    DELTA, an eval-time transformer is expected to rewrite the bounds to
+    absolute by adding a historical cumulative anchor read from the metric
+    cube. Absent (treated as ABSOLUTE) preserves the legacy behavior where
+    the evaluator compares the observed value against the persisted bounds
+    directly."""
+        return self._inner_dict.get('boundsValueSpace')  # type: ignore
+    
+    @boundsValueSpace.setter
+    def boundsValueSpace(self, value: Union[None, Union[str, "BoundsValueSpaceClass"]]) -> None:
+        self._inner_dict['boundsValueSpace'] = value
     
     
 class AssertionInfoClass(_Aspect):
@@ -5603,7 +5621,7 @@ class AssertionRunEventClass(_Aspect):
 
     ASPECT_NAME = 'assertionRunEvent'
     ASPECT_TYPE = 'timeseries'
-    ASPECT_INFO = {'schemaVersion': 4}
+    ASPECT_INFO = {'schemaVersion': 5}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.assertion.AssertionRunEvent")
 
     def __init__(self,
@@ -6266,6 +6284,25 @@ class BatchSpecClass(DictWrapper):
     @limit.setter
     def limit(self, value: Union[None, int]) -> None:
         self._inner_dict['limit'] = value
+    
+    
+class BoundsValueSpaceClass(object):
+    """Whether persisted assertion bounds are absolute observed values or
+    per-interval deltas. Set on AssertionInferenceDetails when an inference
+    pipeline applied differencing during training and therefore predicted
+    bounds in delta-space."""
+    
+    ABSOLUTE = "ABSOLUTE"
+    """Bounds are absolute / point-in-time values. The evaluator compares them
+    directly against the observed metric. Default for assertions without an
+    inference pipeline and for inference pipelines that did not difference."""
+    
+    DELTA = "DELTA"
+    """Bounds are per-interval deltas predicted on a differenced series. The
+    eval-time transformer rewrites them to absolute (anchor + delta) using
+    a historical cumulative anchor read from the metric cube at the start
+    of the active embedded assertion's evaluation time window."""
+    
     
     
 class CustomAssertionInfoClass(DictWrapper):
@@ -36148,7 +36185,7 @@ class MonitorInfoClass(_Aspect):
 
 
     ASPECT_NAME = 'monitorInfo'
-    ASPECT_INFO = {'schemaVersion': 4}
+    ASPECT_INFO = {'schemaVersion': 5}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.monitor.MonitorInfo")
 
     def __init__(self,
@@ -48574,6 +48611,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.assertion.AssertionType': AssertionTypeClass,
     'com.linkedin.pegasus2avro.assertion.AssertionValueChangeType': AssertionValueChangeTypeClass,
     'com.linkedin.pegasus2avro.assertion.BatchSpec': BatchSpecClass,
+    'com.linkedin.pegasus2avro.assertion.BoundsValueSpace': BoundsValueSpaceClass,
     'com.linkedin.pegasus2avro.assertion.CustomAssertionInfo': CustomAssertionInfoClass,
     'com.linkedin.pegasus2avro.assertion.DatasetAssertionInfo': DatasetAssertionInfoClass,
     'com.linkedin.pegasus2avro.assertion.DatasetAssertionScope': DatasetAssertionScopeClass,
@@ -49498,6 +49536,7 @@ __SCHEMA_TYPES = {
     'AssertionType': AssertionTypeClass,
     'AssertionValueChangeType': AssertionValueChangeTypeClass,
     'BatchSpec': BatchSpecClass,
+    'BoundsValueSpace': BoundsValueSpaceClass,
     'CustomAssertionInfo': CustomAssertionInfoClass,
     'DatasetAssertionInfo': DatasetAssertionInfoClass,
     'DatasetAssertionScope': DatasetAssertionScopeClass,

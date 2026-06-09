@@ -40,6 +40,10 @@ if [ -z "$GCLOUD_BIN" ]; then
     echo "host_health_beacon: no gcloud found; aborting" >&2
     exit 1
 fi
+TIMEOUT_BIN=""
+for cand in /usr/bin/timeout /bin/timeout; do
+    if [ -x "$cand" ]; then TIMEOUT_BIN="$cand"; break; fi
+done
 
 reported_at=$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ)
 
@@ -223,6 +227,11 @@ cat > "$tmpfile" <<EOF
 }
 EOF
 
-"$GCLOUD_BIN" --quiet --project="$PROJECT" storage cp \
-    "$tmpfile" "gs://$BUCKET/host_health/${HOST_SLUG}.json" >/dev/null 2>&1
+if [ -n "$TIMEOUT_BIN" ]; then
+    "$TIMEOUT_BIN" 45s "$GCLOUD_BIN" --quiet --project="$PROJECT" storage cp \
+        "$tmpfile" "gs://$BUCKET/host_health/${HOST_SLUG}.json" >/dev/null 2>&1 || true
+else
+    "$GCLOUD_BIN" --quiet --project="$PROJECT" storage cp \
+        "$tmpfile" "gs://$BUCKET/host_health/${HOST_SLUG}.json" >/dev/null 2>&1 || true
+fi
 rm -f "$tmpfile"

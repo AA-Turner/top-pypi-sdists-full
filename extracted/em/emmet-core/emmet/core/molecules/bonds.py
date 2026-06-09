@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 from pydantic import Field
-from pymatgen.analysis.graphs import MoleculeGraph
-from pymatgen.core.structure import Molecule
+from emmet.core.io.pymatgen import MoleculeGraph, Molecule
 
 from emmet.core.molecules import MolPropertyOrigin
 from emmet.core.molecules.molecule_property import PropertyDoc
@@ -471,7 +470,7 @@ class MoleculeBondingDoc(PropertyDoc):
             bond_types=bond_types,
             bonds=bonds,
             bonds_nometal=bonds_nometal,
-            origins=[MolPropertyOrigin(name="bonding", task_id=task.task_id)],
+            origins=[MolPropertyOrigin(name="bonding", task_id=task.task_id)],  # type: ignore[call-arg]
             deprecated=deprecated,
             **kwargs,
         )

@@ -47,15 +47,12 @@ from bty import oras as _oras
 from bty.web import (
     _backup,
     _db,
-    _hash,
     _models,
     _release_mgr,
-    _security,
     _settings_store,
     _ui,
     _withcache,
 )
-from bty.web import _catalog as _web_catalog
 from bty.web._auth import SESSION_COOKIE, auth_enabled, require_auth
 from bty.web._events import (
     WORKER_STATE_CHANGED,
@@ -90,8 +87,8 @@ def create_app(
     state_path: Path,
     service_user: str,
     secret_key: str,
-    image_root: Path | None = None,
     boot_root: Path | None = None,
+    image_root: Path | None = None,
 ) -> FastAPI:
     """Build the FastAPI app. All config flows through this function.
 
@@ -113,7 +110,12 @@ def create_app(
     ``state_path.parent / "boot"`` (i.e. ``/var/lib/bty/boot`` in the
     default layout).
     """
-    resolved_image_root: Path = image_root or images.default_image_root()
+    # ``image_root`` is accepted for backwards compatibility with callers
+    # that still pass it (the test fixture is the main one); v0.40 took
+    # bty-web out of the bytes path entirely, so the value is no longer
+    # read anywhere. Slated for removal once the test fixture stops
+    # threading it through.
+    del image_root
     resolved_boot_root: Path = boot_root or (state_path.parent / "boot")
     # Scheduled + on-demand backups land under ``backups/`` next to
     # state.db so they survive the same migrate-the-state-dir flow as
@@ -132,24 +134,12 @@ def create_app(
 
     event_bus = MachineEventBus()
 
-    # Optional catalog file + DownloadManager. If no catalog is
-    # configured (operator hasn't authored one), the ``DownloadManager``
-    # simply isn't started and the ``/catalog/downloads/*`` +
-    # ``/catalog/hashes/*`` endpoints return 404. Operator-curated
-    # entries (``POST /catalog/entries``) work independently of the
-    # catalog. ``BTY_CATALOG_FILE`` overrides the default derived from
-    # ``BTY_STATE_DIR``.
-    #
-    # v0.31.0+: there is no separate ``BTY_CATALOG_CACHE_DIR`` --
-    # catalog-fetched files land under the image_root with URL-derived
-    # ``catalog-<ref:12>-<slug>.<ext>`` filenames (see
-    # :meth:`bty.catalog.CatalogEntry.local_filename`), differentiated
-    # from operator-typed images by the prefix.
-    #
-    # The catalog path is treated as the "always this file" location
-    # so the UI can write a fresh ``catalog.toml`` to it and reload
-    # in-process. When ``$BTY_CATALOG_FILE`` is unset and the default
-    # file doesn't exist yet, we still pin the default path so a
+    # Optional catalog file. ``BTY_CATALOG_FILE`` overrides the default
+    # derived from ``BTY_STATE_DIR``. The catalog path is treated as
+    # the "always this file" location so the UI can write a fresh
+    # ``catalog.toml`` to it and reload in-process. When
+    # ``$BTY_CATALOG_FILE`` is unset and the default file doesn't
+    # exist yet, we still pin the default path so a
     # ``/ui/catalog/upload`` upload knows where to land.
     manifest_path = _catalog.default_manifest_path()
     if manifest_path is None:
@@ -176,27 +166,11 @@ def create_app(
             # fresh catalog from the UI to recover.
             print(f"bty-web: catalog at {manifest_path}: {exc}", file=sys.stderr)
             catalog_state.catalog = None
-    download_manager = _web_catalog.DownloadManager()
-    hash_manager = _hash.HashManager()
     release_fetch_manager = _release_mgr.ReleaseFetchManager()
     backup_manager = _backup.BackupManager()
 
     @asynccontextmanager
     async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
-        # Storage-format check / write. On a fresh image_root the
-        # marker is created with the current ``STORAGE_FORMAT_VERSION``;
-        # on subsequent starts a mismatch raises StorageFormatMismatch
-        # (bty.catalog) with operator-actionable remediation.
-        # Independent of the bty package version: this number bumps
-        # ONLY when the on-disk layout / filename grammar changes in
-        # a way older bty-web can't read.
-        _catalog.check_or_write_storage_marker(resolved_image_root)
-        # Survey image_root for files that don't match any documented
-        # storage convention. Log a one-line warning per offender so
-        # an operator who dropped notes / random tools into the
-        # image_root sees the noise pointed at them. This is
-        # diagnostic only -- the offender doesn't break anything; the
-        # discovery + auto-import paths still ignore unknowns.
         import logging as _logging
 
         _lifespan_log = _logging.getLogger(__name__)
@@ -205,17 +179,6 @@ def create_app(
                 "BTY_ADMIN_PASSWORD is not set - the operator UI is OPEN "
                 "(unauthenticated). Set it to gate /ui."
             )
-        for fp in resolved_image_root.iterdir():
-            if not fp.is_file():
-                continue
-            if not _catalog.is_recognised_image_store_filename(fp.name):
-                _lifespan_log.warning(
-                    "image_root carries unrecognised file %s (not a "
-                    "catalog-<ref>-<slug>.<ext> cache file, not an image, "
-                    "not a sidecar / partial / storage marker); ignored by "
-                    "the discovery scan",
-                    fp.name,
-                )
         # The SSE event bus accepts publishes from worker threads -
         # capture the loop now so cross-thread publishes can hop in
         # via call_soon_threadsafe.
@@ -226,38 +189,12 @@ def create_app(
         # ``worker-state-changed`` SSE event so the Backups / Hashing
         # / Downloads / Netboot pages get push-driven refreshes
         # instead of waiting on their safety poll.
-        download_manager.set_state_listener(
-            lambda s: event_bus.publish(worker_event("download", s.name, s.status))
-        )
-        hash_manager.set_state_listener(
-            lambda s: event_bus.publish(worker_event("hash", s.name, s.status))
-        )
         release_fetch_manager.set_state_listener(
             lambda s: event_bus.publish(worker_event("release", s.tag, s.status))
         )
         backup_manager.set_state_listener(
             lambda s: event_bus.publish(worker_event("backup", s.backup_id, s.status))
         )
-        # The DownloadManager binds to whatever catalog source we have:
-        # ``catalog_state.catalog`` (parsed catalog.toml, optional) plus a
-        # DB lookup callback for entries that exist in
-        # ``catalog_entries`` but not in the manifest -- typically rows
-        # added by the operator via the "Add image from URL" form on
-        # /ui/downloads, which inserts to DB but doesn't touch
-        # catalog.toml. Without the DB fallback those entries appear on
-        # /ui/images but their per-row Fetch button 404s.
-        download_manager.start(
-            catalog_state.catalog,
-            resolved_image_root,
-            state_path=state_path,
-            db_entry_lookup=_lookup_db_catalog_entry,
-        )
-        # The hash manager always starts -- it operates on
-        # ``image_root``, which exists for every bty-web shape
-        # (container, host, dev). Default parallelism is 1
-        # so a Pi-class box doesn't get hammered if multiple big
-        # images need importing at once.
-        hash_manager.start(resolved_image_root, state_path=state_path)
         # Release-fetch manager: powers the trackable
         # /boot/releases endpoints (and the /ui/netboot page's
         # progress + cancel buttons). Default parallelism is 1
@@ -277,61 +214,12 @@ def create_app(
             state_path,
             resolved_backups_root,
         )
-        # Auto-import: ensure every dir-scan file under
-        # ``resolved_image_root`` has a catalog_entries row keyed by
-        # ``bty_image_ref = sha256("file://<rel-path>")``, then enqueue
-        # the HashManager for any without a known ``disk_image_sha``.
-        # The row exists immediately (so the operator can bind to it
-        # without waiting for hashing); the HashManager populates
-        # ``disk_image_sha`` in the background and the PXE flash path
-        # becomes viable once the hash lands.
-        #
-        # Idempotent: ``INSERT OR IGNORE`` skips rows whose src is
-        # already in the table (the operator may have curated the
-        # file via the UI; preserve their description, etc.).
-        # Operator-initiated work queues behind these jobs by FIFO
-        # order; parallelism cap (default 1) keeps a Pi responsive.
-        # Single ``list_images`` scan up front + thread it through
-        # the two consumers: auto-import to ``catalog_entries`` and
-        # auto-enqueue unhashed files for the HashManager. Previous
-        # versions called ``list_images`` twice in this block (once
-        # inside ``_auto_import_dir_scan_rows``, once just below for
-        # the hash enqueue), so a full filesystem scan ran twice on
-        # every bty-web startup -- 2x the inode reads on a Pi for
-        # no reason.
-        startup_images = images.list_images(resolved_image_root)
-        _auto_import_dir_scan_rows(startup_images)
-        # And the symmetric path for manifest entries: a catalog.toml
-        # that survived a restart (operator uploaded it, then bty-web
-        # restarted) needs its entries reflected in catalog_entries
-        # so the /ui/machines/{mac} dropdown shows them.
+        # Auto-import manifest entries: a catalog.toml that survived a
+        # restart (operator uploaded it, then bty-web restarted) needs
+        # its entries reflected in catalog_entries so the
+        # /ui/machines/{mac} dropdown shows them.
         if catalog_state.catalog is not None:
             _auto_import_manifest_rows(catalog_state.catalog)
-        for img in startup_images:
-            if img.sha256 is not None:
-                continue
-            # Skip catalog-fetched cache files: the DownloadManager
-            # computes the sha while bytes flow during fetch and
-            # writes it directly to ``catalog_entries.disk_image_sha``
-            # for the owning row (no .sha256 sidecar is written).
-            # Re-hashing them on every restart wastes I/O and (on a
-            # Pi-class box with multi-GiB images) blocks the operator
-            # binding flow behind the queue. The catalog row's sha is
-            # already authoritative -- ``GET /images/<sha>`` serves
-            # the file by cache-hit lookup regardless of whether the
-            # filesystem has a sidecar.
-            if _catalog.is_catalog_cache_filename(img.name):
-                continue
-            # ``FileNotFoundError`` -- file vanished between the
-            # ``list_images`` scan and the enqueue (harmless).
-            # ``ValueError`` -- the traversal guard in
-            # ``HashManager.enqueue`` rejects suspect basenames;
-            # ``list_images`` shouldn't surface any but a freshly-
-            # created file named ``..`` (impossible) or ``.``
-            # (likewise) would crash startup without this
-            # suppression.
-            with contextlib.suppress(FileNotFoundError, ValueError):
-                await hash_manager.enqueue(img.name)
         # Backup scheduler loop. Ticks every 60s; reads cadence +
         # last_run_at on every tick so a Settings change reflects
         # without restart. Stop signalled by ``backup_stop_event``,
@@ -357,10 +245,6 @@ def create_app(
             backup_stop_event.set()
             with contextlib.suppress(asyncio.CancelledError):
                 await backup_scheduler_task
-            # DownloadManager always starts (catalog-less instances
-            # still have a DB-driven download path), so always stop.
-            await download_manager.stop()
-            await hash_manager.stop()
             await release_fetch_manager.stop()
             await backup_manager.stop()
             # Wake every SSE subscribe() generator so the
@@ -369,89 +253,6 @@ def create_app(
             # hold the HTTP connection alive until uvicorn's 90s
             # graceful-shutdown timeout SIGKILLs the worker.
             await event_bus.close()
-
-    def _auto_import_dir_scan_rows(scanned: list[images.Image]) -> None:
-        """Insert a ``catalog_entries`` row for every dir-scan file
-        under ``resolved_image_root`` that doesn't already have one.
-
-        ``scanned`` is the result of ``images.list_images`` from the
-        lifespan; passed in (rather than recomputed here) so the
-        filesystem scan happens once per startup, not twice.
-
-        Src shape: ``file://<rel-path>`` (path relative to image
-        root; root-relocation invariant, so moving the image-store
-        disk between hosts does not change refs). Ref:
-        ``sha256(canonicalise_src(src))`` from
-        ``bty.catalog.image_ref_for_src``. ``disk_image_sha`` is
-        populated when the file has a ``.sha256`` sidecar already;
-        otherwise it stays NULL until the HashManager finishes the
-        background hash.
-
-        Idempotent via ``INSERT OR IGNORE``: operator-curated rows
-        from ``POST /catalog/entries`` (or the UI form) that target
-        the same src keep their descriptions / sha_url intact.
-        ``UPDATE`` on the disk_image_sha column for rows that newly
-        gained a sidecar between bty-web restarts -- without this,
-        a sidecar that landed while bty-web was down wouldn't make
-        the entry bindable.
-        """
-        now = _now_iso()
-        with _db.open_db(state_path) as conn:
-            for img in scanned:
-                try:
-                    rel = img.path.relative_to(resolved_image_root)
-                except ValueError:
-                    # Symlink that escaped the root, or an image_root
-                    # that got remounted mid-scan -- skip rather than
-                    # auto-import.
-                    continue
-                # v0.33.1: catalog-fetched cache files
-                # (``catalog-<ref:12>-<slug>.<ext>``) are owned by
-                # an existing catalog entry whose src is the
-                # upstream URL. Auto-importing them as separate
-                # entries (with src=``file://catalog-...``) creates
-                # a duplicate row on /ui/images alongside the real
-                # catalog entry, with the raw filename as its
-                # "name" -- the bug visible in the operator
-                # screenshot. Skip them; pass 2 of merge_with_catalog
-                # picks them up via its cache-hit lookup against the
-                # already-present catalog row.
-                if _catalog.is_catalog_cache_filename(img.path.name):
-                    continue
-                src = "file://" + rel.as_posix()
-                try:
-                    ref = _catalog.image_ref_for_src(src)
-                except ValueError:
-                    continue  # path can't be canonicalised; skip silently
-                conn.execute(
-                    "INSERT OR IGNORE INTO catalog_entries "
-                    "(bty_image_ref, src, disk_image_sha, name, sha_url, "
-                    "format, size_bytes, description, added_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        ref,
-                        src,
-                        img.sha256,
-                        img.name,
-                        None,
-                        img.format,
-                        img.size_bytes,
-                        None,
-                        now,
-                    ),
-                )
-                # If the file has a sidecar that landed since the row
-                # was last seen, propagate it. ``COALESCE`` keeps any
-                # existing value to avoid overwriting an operator-
-                # pinned ``disk_image_sha`` with a stale read.
-                if img.sha256 is not None:
-                    conn.execute(
-                        "UPDATE catalog_entries "
-                        "SET disk_image_sha = COALESCE(disk_image_sha, ?) "
-                        "WHERE bty_image_ref = ?",
-                        (img.sha256, ref),
-                    )
-            conn.commit()
 
     jinja = Environment(
         loader=FileSystemLoader(str(TEMPLATES_DIR)),
@@ -1255,20 +1056,24 @@ def create_app(
                 else:
                     url_name = image_name
                 image_name_encoded = urllib.parse.quote(url_name, safe="")
+                # ORAS catalog entries still flow through bty-web's /images
+                # proxy (oras blob fetch needs the bearer token bty-web
+                # holds; withcache speaks plain HTTP).
                 image_url = f"{base}/images/{ref}/{image_name_encoded}"
-                # Prefer a configured withcache as the source, but only for an
-                # https origin it already holds. Otherwise serve via /images
-                # exactly as before (which serves a local copy or streams the
-                # origin), so a cold/unset/unreachable withcache never breaks a
-                # flash. The is_cached HEAD also warms an auto-fetch withcache,
-                # so the next boot of this image flips to the cache. (oras refs
-                # need token-authenticated pre-seeding -- handled separately.)
                 src = _flash_src_for_ref(str(ref))
                 if src and src.startswith(("http://", "https://")):
+                    # HTTPS source: bty-web is out of the bytes path. Prefer a
+                    # configured withcache when it already holds the blob (the
+                    # is_cached HEAD also warms withcache's auto-fetch for the
+                    # next boot). Otherwise hand the live env the origin URL
+                    # directly -- withcache 404s on a miss anyway, so going
+                    # through it on cold cache would just fail.
                     with _db.open_db(state_path) as conn:
                         withcache_url = _settings_store.resolve_withcache_url(conn)
                     if withcache_url and _withcache.is_cached(withcache_url, src):
                         image_url = _withcache.blob_url(withcache_url, src)
+                    else:
+                        image_url = src
                 plan = {
                     "mode": "flash",
                     "image": image_url,
@@ -1724,31 +1529,17 @@ def create_app(
         return _serve_safe_file(resolved_boot_root, name)
 
     def _serve_image_by_key(key: str, request: Request) -> Response:
-        """Resolve ``key`` (filename OR 64-hex ID) to bytes.
+        """Stream-proxy an oras:// catalog entry by 64-hex ref / sha.
 
-        Resolution order:
-
-          1. Literal filename under ``image_root`` -- the bare
-             ``GET /images/<name>`` form for scripts / curl-based
-             operators.
-          2. 64-hex ID through :func:`_resolve_image_for_key` -> a local
-             file (image store, or an explicit-Download cache hit).
-          3. 64-hex ref/sha of a REMOTE catalog entry not cached locally
-             -> stream the source bytes straight through (no cache, no
-             buffer-then-serve): GET pipes the chunks, HEAD returns the
-             source's size. So a flashing client gets bytes immediately
-             and a large image never times out the probe.
-        """
-        try:
-            return _serve_safe_file(resolved_image_root, key)
-        except HTTPException:
-            pass
+        v0.40: bty-web is out of the bytes path for https sources (the
+        plan endpoint hands the live env the origin URL directly, or
+        a withcache URL when the cache is warm). The only thing
+        ``/images/{key}`` still does is proxy oras:// blobs, because
+        withcache speaks plain HTTP and can't resolve an OCI manifest
+        + inject the bearer token. Unknown / non-oras keys 404."""
         if images.is_sha256_hex(key.lower()):
-            resolved_path = _resolve_image_for_key(key)
-            if resolved_path is not None:
-                return FileResponse(resolved_path, media_type="application/octet-stream")
             src = _remote_src_for_key(key)
-            if src is not None:
+            if src is not None and src.startswith("oras://"):
                 return _stream_remote_image(src, request)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -1756,9 +1547,10 @@ def create_app(
         )
 
     def _remote_src_for_key(key: str) -> str | None:
-        """The remote (oras:// / http(s)://) src for a 64-hex key
-        (bty_image_ref or disk_image_sha), or ``None`` if there's no
-        catalog row or its src is local (file://)."""
+        """The oras:// src for a 64-hex key (bty_image_ref or
+        disk_image_sha), or ``None``. Non-oras srcs go through the
+        plan endpoint (origin URL or withcache rewrite); ``/images``
+        never serves them."""
         key_lower = key.lower()
         with _db.open_db(state_path) as conn:
             row = conn.execute(
@@ -1768,7 +1560,7 @@ def create_app(
         if row is None:
             return None
         src = str(row["src"])
-        return src if src.startswith(("oras://", "http://", "https://")) else None
+        return src if src.startswith("oras://") else None
 
     def _stream_remote_image(src: str, request: Request) -> Response:
         """Proxy a remote image straight through to the client, no cache.
@@ -1846,87 +1638,6 @@ def create_app(
                 (ref,),
             ).fetchone()
         return str(row["src"]) if row and row["src"] else None
-
-    def _resolve_image_for_key(key: str) -> Path | None:
-        """Resolve a 64-hex key (bty_image_ref or disk_image_sha) to a
-        local file path that already exists, or ``None``. Never fetches
-        here: returns an image-store file or an explicit-Download cache
-        hit if present; otherwise ``None`` and the serve path
-        stream-proxies the remote source instead.
-
-        Resolution order:
-
-        1. ``key`` as ``bty_image_ref``: look up catalog_entries.
-           - disk_image_sha known + cache file present -> cache path
-           - src is file:// + file exists -> local (HashManager will
-             populate disk_image_sha asynchronously)
-           - else (remote src, not yet cached locally): ``None`` -> the
-             serve path stream-proxies the source (no cache). An explicit
-             Download is what caches a remote image to disk.
-        2. ``key`` as raw ``disk_image_sha``: serves the sha-keyed
-           URLs that the ``GET /images`` listing emits for entries
-           whose content hash is known. Looks for the cache file
-           first, then falls back to the catalog_entries row's
-           ``file://`` src.
-        """
-        key_lower = key.lower()
-        # (1) ref lookup. Catalog-fetched files live at the URL-keyed
-        # ``catalog-<ref:12>-<slug>.<ext>`` filename under the
-        # image_root (v0.31.0+ -- no separate cache dir).
-        with _db.open_db(state_path) as conn:
-            row = conn.execute(
-                "SELECT bty_image_ref, src, name, format "
-                "FROM catalog_entries WHERE bty_image_ref = ?",
-                (key_lower,),
-            ).fetchone()
-        if row is not None:
-            local = resolved_image_root / _catalog.local_filename_for(
-                row["bty_image_ref"], row["name"], row["format"]
-            )
-            if local.is_file():
-                return local
-            src = str(row["src"])
-            if src.startswith("file://"):
-                rel = src[len("file://") :]
-                local = resolved_image_root / rel
-                if local.is_file():
-                    return local
-                return None
-            # Remote src (oras:// / http(s)://) with no local cache: NOT
-            # served. The transparent serve-time cache-through was
-            # dropped -- it download-then-served the whole image with no
-            # dedup, so a large oras image thrashed (concurrent fetches
-            # never completing) and the client's probe always timed out
-            # before the bytes were ready. Remote images are now brought
-            # local *deliberately* (the Downloads action, or dropping a
-            # file into the image store) before they're flashable; until
-            # then this resolves to a clean 404 the live env surfaces on
-            # tty1, instead of a multi-minute hang.
-            return None
-        # (2) sha lookup -- serves the sha-keyed URLs emitted by the
-        # ``GET /images`` listing for entries whose content hash is
-        # known. Resolve via the catalog_entries row to the URL-keyed
-        # local filename.
-        if images.is_sha256_hex(key_lower):
-            with _db.open_db(state_path) as conn:
-                row = conn.execute(
-                    "SELECT bty_image_ref, src, name, format FROM catalog_entries "
-                    "WHERE disk_image_sha = ?",
-                    (key_lower,),
-                ).fetchone()
-            if row is not None:
-                local = resolved_image_root / _catalog.local_filename_for(
-                    row["bty_image_ref"], row["name"], row["format"]
-                )
-                if local.is_file():
-                    return local
-                src = str(row["src"])
-                if src.startswith("file://"):
-                    rel = src[len("file://") :]
-                    local = resolved_image_root / rel
-                    if local.is_file():
-                        return local
-        return None
 
     @app.api_route(
         "/images/{key}",
@@ -2409,103 +2120,6 @@ def create_app(
         return PlainTextResponse(content=body, media_type="application/toml")
 
     @app.put(
-        "/images/{name}",
-        dependencies=[Depends(require_auth)],
-        include_in_schema=False,
-    )
-    async def upload_image(name: str, request: Request) -> dict[str, object]:
-        """Stream-upload an image into the image root.
-
-        Body is the raw image bytes (``Content-Type:
-        application/octet-stream``). Atomic via a ``.partial`` sibling
-        + rename. Returns the resolved path + bytes-written on
-        success; replaces an existing file with the same name.
-
-        Auto-enqueues a hash job after the write so the new image
-        appears in the unified ``/images`` listing on the next
-        request without waiting for a server restart. The
-        HashManager runs a single worker by default; the upload
-        returns immediately and the operator can watch progress
-        via ``/catalog/hashes``.
-
-        Failure path logs ``image.upload.failed`` so the audit log
-        is symmetric with the success path's ``image.uploaded``.
-        Operators scanning /ui/events see "this upload was tried
-        and rejected" with the underlying error.
-        """
-        try:
-            result = await _stream_upload(request, resolved_image_root, name)
-        except HTTPException as exc:
-            with _db.open_db(state_path) as conn:
-                _log_event(
-                    conn,
-                    kind="image.upload.failed",
-                    summary=f"image {name!r} upload failed: {exc.detail}",
-                    subject_kind="image",
-                    subject_id=name,
-                    actor="operator",
-                    source_ip=_client_ip(request),
-                    details={"status_code": exc.status_code, "error": str(exc.detail)},
-                )
-                conn.commit()
-            raise
-        except OSError as exc:
-            # Disk full / read-only filesystem / etc. ``_stream_upload``
-            # already cleaned up the .partial; we just record the
-            # failure and let it propagate to a 500 response.
-            with _db.open_db(state_path) as conn:
-                _log_event(
-                    conn,
-                    kind="image.upload.failed",
-                    summary=f"image {name!r} upload failed: {type(exc).__name__}: {exc}",
-                    subject_kind="image",
-                    subject_id=name,
-                    actor="operator",
-                    source_ip=_client_ip(request),
-                    details={"status_code": 500, "error": f"{type(exc).__name__}: {exc}"},
-                )
-                conn.commit()
-            raise
-        # Image catalog count changes; refresh the dashboard fragment.
-        publish_state_changed()
-        # Trigger an import for the just-uploaded file UNLESS it's
-        # itself a sidecar (operators occasionally upload the
-        # ``<file>.sha256`` after the image): hashing a sidecar
-        # would be nonsense + would write a ``.sha256.sha256``
-        # cousin. ``list_images`` already filters sidecars; the
-        # auto-import lifespan would have skipped this entry, so
-        # we mirror that guard here.
-        if not name.endswith(".sha256"):
-            # ``_stream_upload`` already raises on write failure, so
-            # FileNotFoundError shouldn't reach here -- suppressed
-            # defensively for robustness against a transient unlink.
-            with contextlib.suppress(FileNotFoundError):
-                await hash_manager.enqueue(name)
-            # Insert/refresh the ``catalog_entries`` row for this
-            # file so the operator can bind a machine by its
-            # ``bty_image_ref`` immediately, without waiting for a
-            # bty-web restart's lifespan sweep. Idempotent
-            # (``INSERT OR IGNORE`` + ``COALESCE`` UPDATE). The
-            # upload only added one file, so a fresh dir-scan is the
-            # honest input; calling the helper with the full
-            # ``list_images`` result keeps the function signature
-            # consistent with the startup caller.
-            _auto_import_dir_scan_rows(images.list_images(resolved_image_root))
-            with _db.open_db(state_path) as conn:
-                _log_event(
-                    conn,
-                    kind="image.uploaded",
-                    summary=f"image {name!r} uploaded ({result['size_bytes']} bytes)",
-                    subject_kind="image",
-                    subject_id=name,
-                    actor="operator",
-                    source_ip=_client_ip(request),
-                    details={"size_bytes": result["size_bytes"]},
-                )
-                conn.commit()
-        return result
-
-    @app.put(
         "/boot/{name}",
         dependencies=[Depends(require_auth)],
         include_in_schema=False,
@@ -2584,36 +2198,36 @@ def create_app(
         )
 
     def _list_unified_images() -> list[images.UnifiedImage]:
-        """Unified image listing: dir-scan files + operator-curated
-        ``catalog_entries`` rows + content-cache, folded through the
-        same ref-keyed + sha-keyed merge.
+        """Build the unified image listing from ``catalog_entries`` rows.
 
-        The ``catalog_entries`` DB table is the authoritative
-        catalog. ``catalog.toml`` is treated as an import seed
-        (``_auto_import_manifest_rows`` at startup, and again after
-        a UI upload / fetch-release reload), not a live overlay
-        whose deletions get re-injected -- so operator removals via
-        ``DELETE /catalog/entries`` stick across renders + restarts.
-        Re-importing the catalog is an explicit operator action
-        (``POST /catalog/import`` or the UI's catalog upload form).
-
-        Recomputed per call so an operator who drops new files into
-        BTY_IMAGE_ROOT (or whose catalog fetch just completed, or
-        who added a URL via the UI) sees the change on the next
-        page load without restarting bty-web.
+        v0.40: bty-web no longer owns image bytes; ``catalog_entries``
+        is the only source of truth. Each row produces one
+        :class:`UnifiedImage`. ``cached`` is always False -- bty-web
+        doesn't track withcache's contents here; the live env / wizard
+        flashes whichever URL the plan or catalog hands it.
         """
-        db_entries = _load_db_catalog_entries()
-        return images.merge_with_catalog(
-            resolved_image_root,
-            db_entries,
-        )
+        out: list[images.UnifiedImage] = []
+        for entry in _load_db_catalog_entries():
+            ref = _catalog.image_ref_for_src(entry.src)
+            source = images.ImageSource(kind="manifest", location=entry.src)
+            out.append(
+                images.UnifiedImage(
+                    ref=ref,
+                    sha256=entry.sha256,
+                    names=(entry.name,),
+                    format=entry.format,
+                    size_bytes=entry.size_bytes,
+                    sources=(source,),
+                    cached=False,
+                )
+            )
+        return out
 
     _ui.register_ui_routes(
         app,
         jinja=jinja,
         state_path=state_path,
         service_user=service_user,
-        image_root=resolved_image_root,
         boot_root=resolved_boot_root,
         backups_root=resolved_backups_root,
         publish_state_changed=publish_state_changed,
@@ -3145,7 +2759,7 @@ def create_app(
             conn.commit()
 
     async def _reload_catalog_from_disk() -> None:
-        """Re-read ``manifest_path`` and restart the DownloadManager.
+        """Re-read ``manifest_path`` and refresh the in-process catalog.
 
         Called after a manifest write (UI upload or release fetch).
         Raises :class:`_catalog.CatalogError` on parse failure -- the
@@ -3159,18 +2773,8 @@ def create_app(
         step. Idempotent (``INSERT OR IGNORE``).
         """
         new_catalog = _catalog.load(manifest_path)
-        # Tear the old manager down first so its in-flight downloads
-        # don't bleed into the new manager's queue with stale entry
-        # references. DownloadManager now always-starts so always-stop.
-        await download_manager.stop()
         catalog_state.catalog = new_catalog
         _auto_import_manifest_rows(new_catalog)
-        download_manager.start(
-            new_catalog,
-            resolved_image_root,
-            state_path=state_path,
-            db_entry_lookup=_lookup_db_catalog_entry,
-        )
         publish_state_changed()
 
     # URL for "Fetch from bty project release" -- mirrors the
@@ -3342,213 +2946,6 @@ def create_app(
         manifest_path.write_bytes(content)
         await _reload_catalog_from_disk()
         return RedirectResponse("/ui/images", status_code=status.HTTP_303_SEE_OTHER)
-
-    @app.get("/catalog/downloads")
-    async def list_downloads(_: str = Depends(require_auth)) -> dict[str, Any]:
-        # DownloadManager always starts now (catalog-less instances
-        # still have a DB-driven download path); "no catalog" is no
-        # longer a hard 404 here.  The ``catalog`` field stays in the
-        # response so the UI can distinguish manifest-backed setups
-        # from DB-only ones if it ever needs to.
-        states = await download_manager.list()
-        return {
-            "catalog": str(manifest_path) if catalog_state.catalog is not None else None,
-            "image_root": str(resolved_image_root),
-            "max_parallel": download_manager.max_parallel,
-            "downloads": [s.to_dict() for s in states],
-        }
-
-    @app.post("/catalog/downloads", status_code=status.HTTP_202_ACCEPTED)
-    async def enqueue_download(
-        body: _models.CatalogEnqueueRequest,
-        request: Request,
-        _: str = Depends(require_auth),
-    ) -> dict[str, Any]:
-        try:
-            state = await download_manager.enqueue(body.name)
-        except KeyError as exc:
-            # ``str(KeyError("msg"))`` is ``"'msg'"`` with literal
-            # single quotes (KeyError applies ``repr`` to its arg);
-            # surface the args[0] form so the 404 detail isn't
-            # wrapped in operator-confusing extra quotes.
-            msg = exc.args[0] if exc.args else f"no catalog entry named {body.name!r}"
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=msg,
-            ) from exc
-        # Lifecycle audit event: "operator clicked Fetch". Pairs with
-        # the worker-side ``catalog.fetch.started`` (when the worker
-        # actually picks the job up off the queue) and the eventual
-        # terminal ``catalog.cache.populated`` / ``catalog.fetch.failed``
-        # / ``catalog.fetch.cancelled``. Lets an operator see "yes the
-        # click registered" in /ui/events immediately, not in a minute
-        # when the worker either succeeds or fails.
-        with _db.open_db(state_path) as conn:
-            _log_event(
-                conn,
-                kind="catalog.fetch.requested",
-                summary=f"operator requested fetch of catalog entry {body.name!r}",
-                subject_kind="catalog",
-                subject_id=body.name,
-                actor="operator",
-                source_ip=_client_ip(request),
-                details={"name": body.name},
-            )
-            conn.commit()
-        return state.to_dict()
-
-    @app.delete("/catalog/downloads/{name}")
-    async def cancel_download(
-        name: str,
-        request: Request,
-        _: str = Depends(require_auth),
-    ) -> dict[str, Any]:
-        state = await download_manager.cancel(name)
-        if state is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"no active download named {name!r}",
-            )
-        # Lifecycle audit event: operator-initiated cancel. The
-        # worker writes its own ``catalog.fetch.cancelled`` when it
-        # observes the flag and unwinds; this handler-side event
-        # carries the source_ip + actor=operator so a /ui/events
-        # filter on actor=operator picks up the cancel intent.
-        # Without this row, the worker-side cancelled event lands
-        # with actor=system and the operator can't distinguish
-        # "I cancelled it" from "the system cancelled it"
-        # (e.g. shutdown drain).
-        with _db.open_db(state_path) as conn:
-            _log_event(
-                conn,
-                kind="catalog.fetch.cancelled",
-                summary=f"operator cancelled fetch of {name!r}",
-                subject_kind="catalog",
-                subject_id=name,
-                actor="operator",
-                source_ip=_client_ip(request),
-                details={"name": name, "source": "operator"},
-            )
-            conn.commit()
-        return state.to_dict()
-
-    @app.delete(
-        "/catalog/cache/{name}",
-        dependencies=[Depends(require_auth)],
-    )
-    def delete_catalog_cache(name: str, request: Request) -> dict[str, Any]:
-        """Delete the cached bytes for a named catalog entry; keep
-        the entry's metadata.
-
-        v0.31.0+: cached files live at
-        ``image_root / catalog-<ref:12>-<slug>.<ext>`` (URL-keyed name,
-        no separate cache dir). Unlinks the per-entry file by composing
-        its ``local_filename_for`` from the DB row's ``bty_image_ref +
-        name + format`` (or the parsed manifest entry's ``ref + name +
-        format`` if the manifest is the source of truth). Idempotent:
-        a missing file or unknown name both return ``{"deleted":
-        false}`` with a ``reason`` string. Metadata is preserved, so
-        the row keeps surfacing in ``/images`` as "available" (not
-        cached) and ``POST /catalog/downloads`` re-fetches on demand.
-
-        Used by the ``/ui/images`` bulk "Delete local copy" toolbar
-        action; per-name dispatch keeps the response surface symmetric
-        with the per-name ``POST /catalog/downloads`` enqueue path.
-        Path-separator characters or NUL in ``name`` are rejected at
-        the boundary, same rule as :class:`CatalogEnqueueRequest`.
-        """
-        try:
-            _security.validate_basename(name, label="name")
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(exc),
-            ) from exc
-        local_filename: str | None = None
-        sha: str | None = None
-        with _db.open_db(state_path) as conn:
-            row = conn.execute(
-                "SELECT bty_image_ref, name, format, disk_image_sha "
-                "FROM catalog_entries WHERE name = ?",
-                (name,),
-            ).fetchone()
-            if row:
-                local_filename = _catalog.local_filename_for(
-                    row["bty_image_ref"], row["name"], row["format"]
-                )
-                if row["disk_image_sha"]:
-                    sha = str(row["disk_image_sha"])
-        if local_filename is None and catalog_state.catalog is not None:
-            entry = catalog_state.catalog.by_name(name)
-            if entry is not None:
-                local_filename = entry.local_filename()
-                sha = entry.sha256
-        if local_filename is None:
-            return {"name": name, "deleted": False, "reason": "unknown catalog entry"}
-        cached_file = resolved_image_root / local_filename
-        if not cached_file.exists():
-            return {
-                "name": name,
-                "deleted": False,
-                "reason": "not cached",
-                "disk_image_sha": sha,
-                "local_filename": local_filename,
-            }
-        cached_file.unlink()
-        with _db.open_db(state_path) as conn:
-            _log_event(
-                conn,
-                kind="catalog.cache.deleted",
-                summary=f"deleted cached file for {name!r}",
-                subject_kind="catalog",
-                subject_id=name,
-                actor="operator",
-                source_ip=_client_ip(request),
-                details={"name": name, "disk_image_sha": sha},
-            )
-            conn.commit()
-        return {"name": name, "deleted": True, "disk_image_sha": sha}
-
-    # ---------- catalog hash manager --------------------------------------
-    # Hashing is independent of the manifest -- always available so
-    # an operator can compute SHA-256 sidecars for dir-scan files
-    # whether or not they author a catalog.toml.
-
-    @app.get("/catalog/hashes")
-    async def list_hashes(_: str = Depends(require_auth)) -> dict[str, Any]:
-        states = await hash_manager.list()
-        return {
-            "image_root": str(resolved_image_root),
-            "max_parallel": hash_manager.max_parallel,
-            "hashes": [s.to_dict() for s in states],
-        }
-
-    @app.post("/catalog/hashes", status_code=status.HTTP_202_ACCEPTED)
-    async def enqueue_hash(
-        body: _models.CatalogEnqueueRequest,
-        _: str = Depends(require_auth),
-    ) -> dict[str, Any]:
-        try:
-            state = await hash_manager.enqueue(body.name)
-        except FileNotFoundError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(exc),
-            ) from exc
-        return state.to_dict()
-
-    @app.delete("/catalog/hashes/{name}")
-    async def cancel_hash(
-        name: str,
-        _: str = Depends(require_auth),
-    ) -> dict[str, Any]:
-        state = await hash_manager.cancel(name)
-        if state is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"no active hash named {name!r}",
-            )
-        return state.to_dict()
 
     return app
 

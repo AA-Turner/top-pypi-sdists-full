@@ -1659,7 +1659,7 @@ class ToProtoConverter:
                     max_staleness_duration=timedelta_to_proto_duration(feature_set.__chalk_max_staleness__),
                     tags=feature_set.__chalk_tags__,
                     owner=feature_set.__chalk_owner__,
-                    doc=feature_set.__doc__,
+                    doc=feature_set.__chalk_description__ or feature_set.__doc__,
                     etl_offline_to_online=feature_set.__chalk_etl_offline_to_online__,
                     class_path=paths.get_classpath_or_name(feature_set),
                 )

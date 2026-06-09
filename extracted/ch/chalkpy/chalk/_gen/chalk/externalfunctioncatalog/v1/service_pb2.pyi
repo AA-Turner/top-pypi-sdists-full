@@ -1,5 +1,6 @@
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as _arrow_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
 from chalk._gen.chalk.runtime.v1 import remote_python_call_pb2 as _remote_python_call_pb2
 from chalk._gen.chalk.scalinggroup.v1 import service_pb2 as _service_pb2
 from google.protobuf import struct_pb2 as _struct_pb2

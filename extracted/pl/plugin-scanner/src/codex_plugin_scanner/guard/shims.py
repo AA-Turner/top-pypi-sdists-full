@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -560,6 +561,38 @@ def repair_package_shims(
     }
 
 
+def ensure_guard_shim_path_in_shell_profile(context: HarnessContext) -> dict[str, object]:
+    """Prepend the harness launcher shim dir in the user's normal shell profile."""
+
+    shim_dir = context.guard_home / "bin"
+    if os.name == "nt":
+        return {
+            "changed": False,
+            "profile_path": None,
+            "shim_dir": str(shim_dir),
+            "restart_shell_required": False,
+            "manual_path_required": True,
+        }
+    profile_path, export_line = _guard_shim_profile_target(context.home_dir, shim_dir)
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
+    existing = profile_path.read_text(encoding="utf-8") if profile_path.exists() else ""
+    if _profile_already_references_path(existing, shim_dir):
+        return {
+            "changed": False,
+            "profile_path": str(profile_path),
+            "shim_dir": str(shim_dir),
+            "restart_shell_required": True,
+        }
+    prefix = "" if existing == "" or existing.endswith("\n") else "\n"
+    profile_path.write_text(f"{existing}{prefix}{export_line}\n", encoding="utf-8")
+    return {
+        "changed": True,
+        "profile_path": str(profile_path),
+        "shim_dir": str(shim_dir),
+        "restart_shell_required": True,
+    }
+
+
 def ensure_package_shim_path_in_shell_profile(context: HarnessContext) -> dict[str, object]:
     """Prepend the package shim dir in the user's normal shell profile."""
 
@@ -582,6 +615,25 @@ def ensure_package_shim_path_in_shell_profile(context: HarnessContext) -> dict[s
         "shim_dir": str(shim_dir),
         "restart_shell_required": True,
     }
+
+
+def _guard_shim_profile_target(home_dir: Path, shim_dir: Path) -> tuple[Path, str]:
+    shell = Path(os.environ.get("SHELL", "")).name
+    marker = "# HOL Guard harness launchers"
+    if shell == "fish":
+        return (
+            home_dir / ".config" / "fish" / "config.fish",
+            f"{marker}\nfish_add_path --prepend {shim_dir}",
+        )
+    if shell == "bash":
+        return (
+            home_dir / ".bashrc",
+            f'{marker}\nexport PATH="{shim_dir}:$PATH"',
+        )
+    return (
+        home_dir / ".zshrc",
+        f'{marker}\nexport PATH="{shim_dir}:$PATH"',
+    )
 
 
 def _package_shim_profile_target(home_dir: Path, shim_dir: Path) -> tuple[Path, str]:
@@ -723,8 +775,95 @@ def _path_export_hints(shim_dir: Path) -> dict[str, str]:
     }
 
 
+def test_package_shim_intercepts(
+    context: HarnessContext,
+    *,
+    managers: tuple[str, ...] | None = None,
+    workspace_dir: Path | None = None,
+) -> dict[str, object]:
+    """Execute installed package-manager shims to prove intercept wiring is live."""
+
+    status = package_shim_status(context)
+    installed = {str(manager) for manager in status.get("installed_managers", []) if isinstance(manager, str)}
+    protected = {str(manager) for manager in status.get("protected_managers", []) if isinstance(manager, str)}
+    tested_managers = list(managers or tuple(sorted(installed)))
+    path_repair_required = [manager for manager in tested_managers if manager in installed and manager not in protected]
+    manager_results: list[dict[str, object]] = []
+    target_workspace = workspace_dir or context.workspace_dir or context.home_dir
+    shim_dir = context.guard_home / "package-shims" / "bin"
+    for manager in tested_managers:
+        if manager not in installed:
+            continue
+        if manager not in protected:
+            manager_results.append(
+                {
+                    "intercept_ran": False,
+                    "manager": manager,
+                    "skipped_reason": "path_inactive",
+                },
+            )
+            continue
+        command = _PACKAGE_SHIM_COMMANDS.get(manager)
+        if command is None:
+            manager_results.append(
+                {
+                    "intercept_ran": False,
+                    "manager": manager,
+                    "skipped_reason": "unsupported_manager",
+                },
+            )
+            continue
+        shim_path = shim_dir / command
+        if not shim_path.exists():
+            manager_results.append(
+                {
+                    "intercept_ran": False,
+                    "manager": manager,
+                    "skipped_reason": "shim_missing",
+                },
+            )
+            continue
+        try:
+            # codeql[py/path-injection] target_workspace is home_dir or a validated daemon workspace_dir.
+            result = subprocess.run(
+                [str(shim_path), "--version"],
+                capture_output=True,
+                check=False,
+                cwd=target_workspace,
+                text=True,
+                timeout=15,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            manager_results.append(
+                {
+                    "intercept_ran": False,
+                    "manager": manager,
+                    "skipped_reason": "probe_failed",
+                },
+            )
+            continue
+        manager_results.append(
+            {
+                "intercept_ran": True,
+                "manager": manager,
+                "shim_exit_code": result.returncode,
+            },
+        )
+    intercept_proved = any(bool(result.get("intercept_ran")) for result in manager_results)
+    return {
+        "blocked_execution": bool(tested_managers) and all(manager in protected for manager in tested_managers),
+        "intercept_proved": intercept_proved,
+        "manager_results": manager_results,
+        "missing_managers": [manager for manager in tested_managers if manager not in installed],
+        "package_shims": status,
+        "path_repair_required": path_repair_required,
+        "tested_managers": tested_managers,
+    }
+
+
 __all__ = [
     "activate_package_shims",
+    "ensure_guard_shim_path_in_shell_profile",
     "ensure_package_shim_path_in_shell_profile",
     "install_guard_shim",
     "install_package_shims",
@@ -732,5 +871,6 @@ __all__ = [
     "package_shim_status",
     "package_shim_supported_managers",
     "remove_guard_shim",
+    "test_package_shim_intercepts",
     "uninstall_package_shims",
 ]

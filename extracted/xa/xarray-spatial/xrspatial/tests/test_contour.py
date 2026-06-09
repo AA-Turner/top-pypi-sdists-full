@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import pytest
 import xarray as xr
@@ -31,6 +32,23 @@ def _make_peak():
         [0., 0., 0., 0., 0.],
     ], dtype=np.float64)
     return data
+
+
+def _segments_by_level(results, decimals=8):
+    """Decompose contour polylines into canonicalized segments per level.
+
+    Each segment is stored with its smaller endpoint first so the result is
+    direction-independent, and segments are sorted for stable comparison
+    across backends.
+    """
+    by_level = defaultdict(list)
+    for level, coords in results:
+        for i in range(len(coords) - 1):
+            p0 = (round(coords[i, 0], decimals), round(coords[i, 1], decimals))
+            p1 = (round(coords[i + 1, 0], decimals),
+                  round(coords[i + 1, 1], decimals))
+            by_level[level].append((min(p0, p1), max(p0, p1)))
+    return {lvl: sorted(segs) for lvl, segs in by_level.items()}
 
 
 # ---------------------------------------------------------------------------
@@ -119,6 +137,66 @@ class TestNaNHandling:
         agg = create_test_raster(data, backend='numpy')
         result = contours(agg, levels=[0.0])
         assert result == []
+
+    def test_all_nan_auto_levels_no_warning(self):
+        """All-NaN raster with auto levels must not emit RuntimeWarning (#2795)."""
+        data = np.full((4, 4), np.nan, dtype=np.float64)
+        agg = create_test_raster(data, backend='numpy')
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = contours(agg)
+            assert result == []
+            runtime_warnings = [x for x in w if issubclass(x.category, RuntimeWarning)]
+            assert len(runtime_warnings) == 0, (
+                f"RuntimeWarning emitted on all-NaN auto-level path: "
+                f"{[str(x.message) for x in runtime_warnings]}"
+            )
+
+    @dask_array_available
+    def test_all_nan_auto_levels_no_warning_dask(self):
+        """All-NaN dask raster with auto levels must not emit RuntimeWarning (#2795)."""
+        data = np.full((4, 4), np.nan, dtype=np.float64)
+        agg = create_test_raster(data, backend='dask+numpy', chunks=(2, 2))
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = contours(agg)
+            assert result == []
+            runtime_warnings = [x for x in w if issubclass(x.category, RuntimeWarning)]
+            assert len(runtime_warnings) == 0, (
+                f"RuntimeWarning emitted on all-NaN dask auto-level path: "
+                f"{[str(x.message) for x in runtime_warnings]}"
+            )
+
+    @cuda_and_cupy_available
+    def test_all_nan_auto_levels_no_warning_cupy(self):
+        """All-NaN cupy raster with auto levels must not emit RuntimeWarning (#2795)."""
+        data = np.full((4, 4), np.nan, dtype=np.float64)
+        agg = create_test_raster(data, backend='cupy')
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = contours(agg)
+            assert result == []
+            runtime_warnings = [x for x in w if issubclass(x.category, RuntimeWarning)]
+            assert len(runtime_warnings) == 0, (
+                f"RuntimeWarning emitted on all-NaN cupy auto-level path: "
+                f"{[str(x.message) for x in runtime_warnings]}"
+            )
+
+    @dask_array_available
+    @cuda_and_cupy_available
+    def test_all_nan_auto_levels_no_warning_dask_cupy(self):
+        """All-NaN dask+cupy raster with auto levels must not emit RuntimeWarning (#2795)."""
+        data = np.full((4, 4), np.nan, dtype=np.float64)
+        agg = create_test_raster(data, backend='dask+cupy', chunks=(2, 2))
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = contours(agg)
+            assert result == []
+            runtime_warnings = [x for x in w if issubclass(x.category, RuntimeWarning)]
+            assert len(runtime_warnings) == 0, (
+                f"RuntimeWarning emitted on all-NaN dask+cupy auto-level path: "
+                f"{[str(x.message) for x in runtime_warnings]}"
+            )
 
     def test_partial_nan(self):
         """Contours skip quads with NaN corners."""
@@ -361,6 +439,35 @@ class TestEdgeCases:
         with pytest.raises(ValueError, match="Invalid return_type"):
             contours(agg, levels=[0.5], return_type="bad")
 
+    @dask_array_available
+    def test_invalid_return_type_no_dask_compute(self, monkeypatch):
+        """An invalid return_type on a Dask input must raise before any
+        compute, nanmin/nanmax, or backend dispatch (#2788).
+        """
+        import dask
+        import dask.array as da
+
+        data = _make_ramp(ny=5, nx=6)
+        agg = create_test_raster(data, backend='dask+numpy', chunks=(3, 3))
+
+        # Wrap dask compute to detect if it is ever called.
+        compute_called = False
+        _original_compute = dask.compute
+
+        def spy_compute(*args, **kwargs):
+            nonlocal compute_called
+            compute_called = True
+            return _original_compute(*args, **kwargs)
+
+        monkeypatch.setattr(dask, 'compute', spy_compute)
+
+        with pytest.raises(ValueError, match="Invalid return_type"):
+            contours(agg, levels=[2.5], return_type="bogus")
+
+        assert not compute_called, (
+            "dask.compute was called before the invalid return_type raise"
+        )
+
     def test_valid_return_types_accepted(self):
         """The two valid return_type values still work."""
         data = _make_ramp(ny=5, nx=6)
@@ -497,6 +604,73 @@ class TestBackendEquivalence:
         for lvl in np_segs:
             assert np_segs[lvl] == dc_segs[lvl], (
                 f"Segment mismatch at level {lvl}")
+
+
+# ---------------------------------------------------------------------------
+# Integer dtype: NaN halo regression (issue #3020)
+# ---------------------------------------------------------------------------
+
+class TestIntegerDtypeCollar:
+    """boundary=np.nan can't fill an integer halo, so dask used to leave a
+    border collar that numpy never produced.  These guard the float cast in
+    _overlap_for_contours.
+    """
+
+    LEVELS = [5.0, 10.0, 15.0]
+    # Cover several integer widths/signedness; the int-min halo fill differs
+    # per dtype, so a phantom crossing would show up regardless.
+    INT_DTYPES = [np.int16, np.int32, np.int64, np.uint8]
+
+    def _int_ramp(self, dtype, ny=20, nx=20):
+        # Edge columns straddle the levels, so any phantom halo crossing
+        # shows up as a frame around the raster.
+        return np.tile(np.arange(nx), (ny, 1)).astype(dtype)
+
+    @dask_array_available
+    @pytest.mark.parametrize("dtype", INT_DTYPES)
+    def test_int_dask_equals_numpy(self, dtype):
+        data = self._int_ramp(dtype)
+        np_agg = create_test_raster(data, backend='numpy')
+        dk_agg = create_test_raster(data, backend='dask+numpy', chunks=(7, 7))
+
+        np_segs = _segments_by_level(contours(np_agg, levels=self.LEVELS))
+        dk_segs = _segments_by_level(contours(dk_agg, levels=self.LEVELS))
+
+        assert set(np_segs.keys()) == set(dk_segs.keys())
+        for lvl in np_segs:
+            assert np_segs[lvl] == dk_segs[lvl], (
+                f"Integer dask result diverges from numpy at level {lvl}")
+
+    @dask_array_available
+    def test_int_dask_no_border_collar(self):
+        # A vertical ramp at these levels is a set of straight vertical lines.
+        # A collar would push the bounding box out to the raster edges and
+        # inflate the total length.
+        pytest.importorskip("geopandas")
+        data = self._int_ramp(np.int32)
+        np_agg = create_test_raster(data, backend='numpy')
+        dk_agg = create_test_raster(data, backend='dask+numpy', chunks=(7, 7))
+
+        g_np = contours(np_agg, levels=self.LEVELS, return_type='geopandas')
+        g_dk = contours(dk_agg, levels=self.LEVELS, return_type='geopandas')
+
+        assert g_dk.length.sum() == pytest.approx(g_np.length.sum())
+        np.testing.assert_allclose(g_dk.total_bounds, g_np.total_bounds)
+
+    @dask_array_available
+    @cuda_and_cupy_available
+    def test_int_dask_cupy_equals_numpy(self):
+        data = self._int_ramp(np.int32)
+        np_agg = create_test_raster(data, backend='numpy')
+        dc_agg = create_test_raster(data, backend='dask+cupy', chunks=(7, 7))
+
+        np_segs = _segments_by_level(contours(np_agg, levels=self.LEVELS))
+        dc_segs = _segments_by_level(contours(dc_agg, levels=self.LEVELS))
+
+        assert set(np_segs.keys()) == set(dc_segs.keys())
+        for lvl in np_segs:
+            assert np_segs[lvl] == dc_segs[lvl], (
+                f"Integer dask+cupy result diverges from numpy at level {lvl}")
 
 
 # ---------------------------------------------------------------------------
@@ -1152,3 +1326,72 @@ class TestDeduplicateLines:
         results = [(1.0, fwd.copy()), (1.0, rev.copy())]
         deduped = _deduplicate_lines(results)
         assert len(deduped) == 1
+
+
+# ---------------------------------------------------------------------------
+# Cross-backend parity with NaN input (#3044)
+# ---------------------------------------------------------------------------
+
+class TestNaNBackendParity:
+    """A raster with NaN cells must trace identical segments on every backend.
+
+    The numpy backend skips quads with a non-finite corner in the interior;
+    the dask backend pads each chunk with a NaN halo and stitches across
+    chunk boundaries.  The existing backend-equivalence tests use a no-NaN
+    fixture, so nothing pins numpy/cupy/dask parity when NaN cells sit next
+    to a chunk edge.  This guards that path.
+    """
+
+    LEVELS = [2.5, 5.5, 8.5]
+
+    def _partial_nan_ramp(self, ny=10, nx=12):
+        # Left-to-right ramp so every level crosses, then punch a NaN edge
+        # row and an interior NaN cell.  The interior NaN lands inside a
+        # non-edge chunk so a halo crossing would diverge from numpy.
+        data = np.tile(np.arange(nx, dtype=np.float64), (ny, 1))
+        data[0, :] = np.nan      # NaN edge row
+        data[5, 6] = np.nan      # interior NaN cell
+        return data
+
+    @dask_array_available
+    def test_nan_dask_equals_numpy(self):
+        data = self._partial_nan_ramp()
+        np_agg = create_test_raster(data, backend='numpy')
+        dk_agg = create_test_raster(data, backend='dask+numpy', chunks=(4, 4))
+
+        np_segs = _segments_by_level(contours(np_agg, levels=self.LEVELS))
+        dk_segs = _segments_by_level(contours(dk_agg, levels=self.LEVELS))
+
+        assert set(np_segs.keys()) == set(dk_segs.keys())
+        for lvl in np_segs:
+            assert np_segs[lvl] == dk_segs[lvl], (
+                f"NaN-input dask result diverges from numpy at level {lvl}")
+
+    @cuda_and_cupy_available
+    def test_nan_cupy_equals_numpy(self):
+        data = self._partial_nan_ramp()
+        np_agg = create_test_raster(data, backend='numpy')
+        cp_agg = create_test_raster(data, backend='cupy')
+
+        np_segs = _segments_by_level(contours(np_agg, levels=self.LEVELS))
+        cp_segs = _segments_by_level(contours(cp_agg, levels=self.LEVELS))
+
+        assert set(np_segs.keys()) == set(cp_segs.keys())
+        for lvl in np_segs:
+            assert np_segs[lvl] == cp_segs[lvl], (
+                f"NaN-input cupy result diverges from numpy at level {lvl}")
+
+    @dask_array_available
+    @cuda_and_cupy_available
+    def test_nan_dask_cupy_equals_numpy(self):
+        data = self._partial_nan_ramp()
+        np_agg = create_test_raster(data, backend='numpy')
+        dc_agg = create_test_raster(data, backend='dask+cupy', chunks=(4, 4))
+
+        np_segs = _segments_by_level(contours(np_agg, levels=self.LEVELS))
+        dc_segs = _segments_by_level(contours(dc_agg, levels=self.LEVELS))
+
+        assert set(np_segs.keys()) == set(dc_segs.keys())
+        for lvl in np_segs:
+            assert np_segs[lvl] == dc_segs[lvl], (
+                f"NaN-input dask+cupy result diverges from numpy at level {lvl}")

@@ -11,3 +11,5 @@ from slixmpp.plugins.xep_0016.privacy import XEP_0016
 
 
 register_plugin(XEP_0016)
+
+__all__ = ['Privacy', 'XEP_0016', 'stanza']

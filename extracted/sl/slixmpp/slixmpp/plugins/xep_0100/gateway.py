@@ -1,10 +1,6 @@
-import asyncio
 import logging
-from functools import partial
 
 from slixmpp import Message, Iq, Presence, JID
-from slixmpp.xmlstream.handler import Callback
-from slixmpp.xmlstream.matcher import StanzaPath
 from slixmpp.plugins import BasePlugin
 
 

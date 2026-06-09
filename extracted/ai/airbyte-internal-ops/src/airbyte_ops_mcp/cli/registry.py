@@ -5,8 +5,6 @@ This module provides CLI wrappers for registry operations. The core logic
 lives in the `airbyte_ops_mcp.registry` capability module.
 
 Command groups:
-    airbyte-ops registry rc create - Create the release_candidate/ marker in GCS
-    airbyte-ops registry rc cleanup - Delete the release_candidate/ marker from GCS
     airbyte-ops registry connector list - List all connectors in registry
     airbyte-ops registry connector-version list - List versions for a connector
     airbyte-ops registry connector-version next - Compute next version tag (prerelease/RC)
@@ -120,7 +118,7 @@ registry_app.command(store_app)
 # Create the progressive-rollout sub-app under registry
 progressive_rollout_app = App(
     name="progressive-rollout",
-    help="Progressive rollout lifecycle operations (create/cleanup rollout marker in GCS).",
+    help="Progressive rollout lifecycle operations.",
 )
 registry_app.command(progressive_rollout_app)
 
@@ -251,119 +249,6 @@ def compute_next_version(
     print(tag)
 
 
-# =============================================================================
-# PROGRESSIVE ROLLOUT COMMANDS
-# =============================================================================
-
-
-@progressive_rollout_app.command(name="create")
-def progressive_rollout_create(
-    name: Annotated[
-        str,
-        Parameter(help="Connector technical name (e.g., source-github)."),
-    ],
-    store: Annotated[
-        str,
-        Parameter(
-            help="Store target (e.g. 'coral:dev', 'coral:prod').",
-        ),
-    ],
-    *,
-    repo_path: Annotated[
-        Path,
-        Parameter(help="Path to the Airbyte monorepo. Defaults to current directory."),
-    ] = Path.cwd(),
-    dry_run: Annotated[
-        bool,
-        Parameter(help="Show what would be done without making changes."),
-    ] = False,
-) -> None:
-    """Create the release_candidate/ metadata marker in GCS.
-
-    Copies the versioned metadata (e.g. `1.2.3-rc.1/metadata.yaml` or
-    `2.1.0/metadata.yaml`) to `release_candidate/metadata.yaml` so the
-    platform knows a progressive rollout is active for this connector.
-
-    The connector's metadata.yaml on disk must declare a version that
-    is valid for progressive rollout (i.e. not a -preview build) and the
-    versioned blob must already exist in GCS.
-
-    Uses `--store` to select the registry store and environment.
-
-    Requires `GCS_CREDENTIALS` environment variable to be set.
-    """
-    if not repo_path.exists():
-        exit_with_error(f"Repository path not found: {repo_path}")
-
-    registry = _resolve_store(store)
-
-    result = registry.progressive_rollout_create(
-        repo_path=repo_path,
-        connector_name=name,
-        dry_run=dry_run,
-    )
-
-    print_json(result.model_dump())
-
-    if result.status == "failure":
-        exit_with_error(result.message or "Operation failed", code=1)
-
-
-@progressive_rollout_app.command(name="cleanup")
-def progressive_rollout_cleanup(
-    name: Annotated[
-        str,
-        Parameter(help="Connector technical name (e.g., source-github)."),
-    ],
-    store: Annotated[
-        str,
-        Parameter(
-            help="Store target (e.g. 'coral:dev', 'coral:prod').",
-        ),
-    ],
-    *,
-    repo_path: Annotated[
-        Path,
-        Parameter(help="Path to the Airbyte monorepo. Defaults to current directory."),
-    ] = Path.cwd(),
-    dry_run: Annotated[
-        bool,
-        Parameter(help="Show what would be done without making changes."),
-    ] = False,
-) -> None:
-    """Delete the release_candidate/ metadata marker from GCS.
-
-    This command deletes *only* the `release_candidate/metadata.yaml` file
-    for the given connector.  The versioned directory (e.g. `1.2.3-rc.1/`)
-    is intentionally preserved as an audit trail of what was actually deployed
-    during the progressive rollout.
-
-    Both promote and rollback workflows call this same command -- the only
-    difference between the two is in the git-side steps (version bump vs.
-    not), which are handled by the `finalize_rollout` GitHub Actions
-    workflow.
-
-    Uses `--store` to select the registry store and environment.
-
-    Requires `GCS_CREDENTIALS` environment variable to be set.
-    """
-    if not repo_path.exists():
-        exit_with_error(f"Repository path not found: {repo_path}")
-
-    registry = _resolve_store(store)
-
-    result = registry.progressive_rollout_cleanup(
-        repo_path=repo_path,
-        connector_name=name,
-        dry_run=dry_run,
-    )
-
-    print_json(result.model_dump())
-
-    if result.status == "failure":
-        exit_with_error(result.message or "Operation failed", code=1)
-
-
 @progressive_rollout_app.command(name="status")
 def progressive_rollout_status(
     name: Annotated[
@@ -401,6 +286,47 @@ def progressive_rollout_status(
         exit_with_error(str(e))
 
     print_json(result.model_dump())
+
+
+@progressive_rollout_app.command(name="finalize-marker")
+def progressive_rollout_finalize_marker(
+    name: Annotated[
+        str,
+        Parameter(help="Connector technical name (e.g., source-github)."),
+    ],
+    store: Annotated[
+        str,
+        Parameter(help="Store target (e.g. 'coral:dev', 'coral:prod')."),
+    ],
+    outcome: Annotated[
+        Literal["promoted", "aborted"],
+        Parameter(help="Marker outcome used in the dated audit filename."),
+    ],
+    *,
+    version: Annotated[
+        str | None,
+        Parameter(
+            help="Version to finalize. If omitted, exactly one active marker must exist."
+        ),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        Parameter(help="Show what would be done without making changes."),
+    ] = False,
+) -> None:
+    """Rename an active `progressive-rollout.yml` marker to an audit marker."""
+    registry = _resolve_store(store)
+    result = registry.finalize_progressive_rollout_marker(
+        connector_name=name,
+        outcome=outcome,
+        version=version,
+        dry_run=dry_run,
+    )
+    print_json(result.to_dict())
+    if result.success:
+        print_success(result.message)
+    else:
+        exit_with_error(result.message, code=1)
 
 
 # =============================================================================
@@ -878,6 +804,10 @@ def yank_cmd(
         str,
         Parameter(help="Reason for yanking this version."),
     ] = "",
+    approval_url: Annotated[
+        str,
+        Parameter(help="Approval evidence URL to record in the yank marker."),
+    ] = "",
     dry_run: Annotated[
         bool,
         Parameter(help="Show what would be done without making changes."),
@@ -902,6 +832,7 @@ def yank_cmd(
         connector_name=name,
         version=version,
         reason=reason,
+        approval_url=approval_url,
         dry_run=dry_run,
     )
 
@@ -942,10 +873,10 @@ def unyank_cmd(
         Parameter(help="Show what would be done without making changes."),
     ] = False,
 ) -> None:
-    """Remove the yank marker from a connector version.
+    """Rename the active yank marker to a dated audit marker.
 
-    Deletes the version-yank.yml marker file from the version's directory in GCS,
-    making the version eligible again when determining the latest version.
+    Moves `version-yank.yml` to `version-unyanked-yyyymmdd.yml`, making the
+    version eligible again when determining the latest version.
 
     Requires GCS_CREDENTIALS environment variable to be set.
 

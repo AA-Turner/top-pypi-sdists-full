@@ -1,11 +1,12 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: model-bakery
-Version: 1.23.4
+Version: 1.23.5
 Summary: Smart object creation facility for Django.
 Keywords: django,factory,python,testing
 Author: berin, amureki
 Author-email: berin <bernardoxhc@gmail.com>, amureki <amureki@hey.com>
-License: Apache License 2.0
+License-Expression: Apache-2.0
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2

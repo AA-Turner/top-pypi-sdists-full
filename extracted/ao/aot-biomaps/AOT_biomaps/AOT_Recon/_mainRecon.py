@@ -2,6 +2,7 @@ from AOT_biomaps.Config import config
 from AOT_biomaps.AOT_Experiment.Tomography import Tomography
 from .ReconEnums import ReconType
 from .ReconTools import mse
+from skimage.metrics import structural_similarity as ssim
 
 import os
 import numpy as np
@@ -135,21 +136,20 @@ class Recon(ABC):
         Returns:
             mse: float or list of floats, Mean Squared Error of the reconstruction
         """
-                
         if self.reconPhantom is None or self.reconPhantom == []:
             raise ValueError("Reconstructed phantom is empty. Run reconstruction first.")
 
         if self.reconType in (ReconType.Analytic, ReconType.DeepLearning):
-            self.MSE = mse(self.experiment.OpticImage.phantom, self.reconPhantom)
+            self.MSE = mse(None, self.experiment.OpticImage.phantom, self.reconPhantom)
 
         elif self.reconType in (ReconType.Algebraic, ReconType.Bayesian, ReconType.Convex):
             self.MSE = []
             if withTumor:
                 for theta in self.reconPhantom:
-                    self.MSE.append(mse(self.experiment.OpticImage.phantom, theta))
+                    self.MSE.append(mse(None, self.experiment.OpticImage.phantom, theta))
             else:
                 for theta in self.reconLaser:
-                    self.MSE.append(mse(self.experiment.OpticImage.laser.intensity, theta))
+                    self.MSE.append(mse(None, self.experiment.OpticImage.laser.intensity, theta))
 
     def calculate_SSIM(self, withTumor=True, show_log=False):
         """
@@ -188,127 +188,113 @@ class Recon(ABC):
                 current_data_range = max(data_range, theta_max - theta_min)  # Use the larger range
                 self.SSIM.append(ssim(ref_img, theta, data_range=current_data_range))
 
-    def show(self, withTumor=True, savePath=None, scale='same', figsize=(8,4)):
+    def show(self, withTumor=True, savePath=None, scale='same', figsize=(8, 4)):
         """
-        Display the reconstructed images.
+        Display the reconstructed images with a properly positioned colorbar.
         Args:
             withTumor (bool): If True, displays reconPhantom. If False, displays reconLaser. Default is True.
             savePath (str): Path to save the figure. If None, the figure is not saved. Default is None.
             scale (str): Scale for the aspect ratio of the plots. Default is 'same'. Options are 'same' or 'auto'.
-        
+            figsize (tuple): Figure size (width, height). Default is (8, 4).
+
         Note:
             Requires matplotlib to be installed. If matplotlib is not available, this method will raise an ImportError.
         """
-        extent = [self.experiment.params.general['Xrange'][0]*1e3, self.experiment.params.general['Xrange'][1]*1e3, self.experiment.params.general['Zrange'][1]*1e3, self.experiment.params.general['Zrange'][0]*1e3]
+        extent = [
+            self.experiment.params.general['Xrange'][0] * 1e3,
+            self.experiment.params.general['Xrange'][1] * 1e3,
+            self.experiment.params.general['Zrange'][1] * 1e3,
+            self.experiment.params.general['Zrange'][0] * 1e3
+        ]
+
+        # Determine the image to display
         if withTumor:
             if self.reconPhantom is None:
                 raise ValueError("Reconstructed phantom with tumor is empty. Run reconstruction first.")
             if isinstance(self.reconPhantom, (list, tuple)) and len(self.reconPhantom) == 0:
                 raise ValueError("Reconstructed phantom with tumor is empty. Run reconstruction first.")
-            if isinstance(self.reconPhantom, list):
-                image = self.reconPhantom[-1]
-            else:
-                image = self.reconPhantom
-            if self.experiment.OpticImage is None:
-                fig, axs = plt.subplots(1, 1, figsize=(figsize[0]/2, figsize[1]))
-            else:
-                fig, axs = plt.subplots(1, 2, figsize=(figsize))
-                if scale == 'same':
-                    vmin = 0
-                    vmax = 1
-                elif scale == 'auto':
-                    vmin = np.min(self.experiment.OpticImage.phantom)
-                    vmax = np.max(self.experiment.OpticImage.phantom)
-                    
-                # Phantom original
-                im1 = axs[1].imshow(
-                    self.experiment.OpticImage.phantom,
-                    cmap='hot',
-                    vmin=vmin,
-                    vmax=vmax,
-                    extent=extent,
-                    aspect='equal'  
-                )
-                axs[1].set_title("Phantom with tumor")
-                axs[1].set_xlabel("x (mm)", fontsize=12)
-                axs[1].set_ylabel("z (mm)", fontsize=12)
-                axs[1].tick_params(axis='both', which='major', labelsize=8)
-            if scale == 'same':
-                vmin = 0
-                vmax = 1
-            elif scale == 'auto':
-                vmin = np.min(image)
-                vmax = np.max(image)
-            # Phantom reconstruit
-            im0 = axs[0].imshow(
-                image,
-                cmap='hot',
-                vmin=vmin,
-                vmax=vmax,
-                extent=extent,
-                aspect='equal'  
-            )
-            axs[0].set_title("Reconstructed phantom with tumor")
-            axs[0].set_xlabel("x (mm)", fontsize=12)
-            axs[0].set_ylabel("z (mm)", fontsize=12)
-            axs[0].tick_params(axis='both', which='major', labelsize=8)
-            axs[0].tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
+            image = self.reconPhantom[-1] if isinstance(self.reconPhantom, list) else self.reconPhantom
+            ground_truth = self.experiment.OpticImage.phantom if self.experiment.OpticImage else None
+            title_recon = "Reconstructed phantom with tumor"
+            title_gt = "Phantom with tumor"
         else:
             if self.reconLaser is None:
                 raise ValueError("Reconstructed laser without tumor is empty. Run reconstruction first.")
             if isinstance(self.reconLaser, (list, tuple)) and len(self.reconLaser) == 0:
                 raise ValueError("Reconstructed laser without tumor is empty. Run reconstruction first.")
-            if isinstance(self.reconLaser, list):
-                image = self.reconLaser[-1]
+            image = self.reconLaser[-1] if isinstance(self.reconLaser, list) else self.reconLaser
+            ground_truth = self.experiment.OpticImage.laser.intensity if self.experiment.OpticImage else None
+            title_recon = "Reconstructed laser without tumor"
+            title_gt = "Laser without tumor"
+
+        # Create figure and axes
+        if ground_truth is not None:
+            fig, axs = plt.subplots(1, 2, figsize=figsize)
+        else:
+            fig, axs = plt.subplots(1, 1, figsize=(figsize[0]/2, figsize[1]))
+            axs = [axs]  # Ensure axs is iterable
+
+        # Set vmin/vmax based on scale
+        if scale == 'same':
+            vmin, vmax = 0, 1
+        else:  # 'auto'
+            vmin, vmax = np.min(image), np.max(image)
+
+        # Plot reconstructed image
+        im0 = axs[0].imshow(
+            image,
+            cmap='hot',
+            vmin=vmin,
+            vmax=vmax,
+            extent=extent,
+            aspect='equal'
+        )
+        axs[0].set_title(title_recon)
+        axs[0].set_xlabel("x (mm)")
+        axs[0].set_ylabel("z (mm)")
+        axs[0].tick_params(axis='both', which='major')
+
+        # Plot ground truth if available
+        if ground_truth is not None:
+            if scale == 'same':
+                gt_vmin, gt_vmax = 0, 1
             else:
-                image = self.reconLaser
-            if self.experiment.OpticImage is None:
-                fig, axs = plt.subplots(1, 1, figsize=(10, 10))
-            else:
-                fig, axs = plt.subplots(1, 2, figsize=(20, 10))
-                # Laser original
-                im1 = axs[1].imshow(
-                    self.experiment.OpticImage.laser.intensity,
-                    cmap='hot',
-                    vmin=0,
-                    vmax=np.max(self.experiment.OpticImage.laser.intensity),
-                    extent=extent,
-                    aspect='equal'  
-                )
-                axs[1].set_title("Laser without tumor")
-                axs[1].set_xlabel("x (mm)", fontsize=12)
-                axs[1].set_ylabel("z (mm)", fontsize=12)
-                axs[1].tick_params(axis='both', which='major', labelsize=8)
-            # Laser reconstruit
-            im0 = axs[0].imshow(
-                image,
+                gt_vmin, gt_vmax = np.min(ground_truth), np.max(ground_truth)
+
+            im1 = axs[1].imshow(
+                ground_truth,
                 cmap='hot',
-                vmin=0,
-                vmax=np.max(self.experiment.OpticImage.laser.intensity),
+                vmin=gt_vmin,
+                vmax=gt_vmax,
                 extent=extent,
                 aspect='equal'
             )
-            axs[0].set_title("Reconstructed laser without tumor")
-            axs[0].set_xlabel("x (mm)", fontsize=12)
-            axs[0].set_ylabel("z (mm)", fontsize=12)
-            axs[0].tick_params(axis='both', which='major', labelsize=8)
-            axs[0].tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
+            axs[1].set_title(title_gt)
+            axs[1].set_xlabel("x (mm)")
+            axs[1].set_ylabel("z (mm)")
+            axs[1].tick_params(axis='both', which='major')
 
-        # Colorbar commune
-        fig.subplots_adjust(bottom=0.2)
-        cbar_ax = fig.add_axes([0.25, 0.08, 0.5, 0.03])
+        # Adjust layout to make space for the colorbar
+        plt.subplots_adjust(bottom=0.15, wspace=0.3)
+
+        # Calculate colorbar position dynamically based on figsize
+        # Colorbar width: 5% of figure width, height: 5% of figure height
+        cbar_width = 0.05 * figsize[0] / figsize[1]  # Relative to figure height
+        cbar_height = 0.05
+        cbar_x = 0.25  # Centered horizontally
+        cbar_y = -0.06 # Positioned at the bottom
+
+        # Add colorbar
+        cbar_ax = fig.add_axes([cbar_x, cbar_y, 0.5, cbar_height])
         cbar = fig.colorbar(im0, cax=cbar_ax, orientation='horizontal')
-        cbar.set_label('Normalized Intensity', fontsize=12)
+        cbar.set_label('Normalized Intensity')
         cbar.ax.tick_params(labelsize=8)
 
-        plt.subplots_adjust(wspace=0.3)
-
+        # Save figure if path is provided
         if savePath is not None:
             if not os.path.exists(savePath):
                 os.makedirs(savePath)
-            if withTumor:
-                plt.savefig(os.path.join(savePath, 'recon_with_tumor.png'), dpi=300, bbox_inches='tight')
-            else:
-                plt.savefig(os.path.join(savePath, 'recon_without_tumor.png'), dpi=300, bbox_inches='tight')
+            filename = 'recon_with_tumor.png' if withTumor else 'recon_without_tumor.png'
+            plt.savefig(os.path.join(savePath, filename), dpi=300, bbox_inches='tight')
 
         plt.show()

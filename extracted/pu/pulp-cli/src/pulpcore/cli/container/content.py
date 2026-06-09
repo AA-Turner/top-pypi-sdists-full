@@ -11,22 +11,21 @@ from pulp_glue.container.context import (
 )
 
 from pulp_cli.generic import (
-    PulpCLIContext,
     content_filter_options,
     href_option,
     label_command,
     list_command,
     option_group,
-    pass_pulp_context,
     pulp_group,
     pulp_option,
     show_command,
+    type_option,
 )
 
 _ = gettext.gettext
 
 
-def _content_callback(ctx: click.Context, value: t.Dict[str, t.Any]) -> None:
+def _content_callback(ctx: click.Context, value: dict[str, t.Any]) -> None:
     if value:
         entity_ctx = ctx.find_object(PulpContentContext)
         assert entity_ctx is not None
@@ -36,24 +35,16 @@ def _content_callback(ctx: click.Context, value: t.Dict[str, t.Any]) -> None:
 
 
 @pulp_group()
-@click.option(
-    "-t",
-    "--type",
-    "content_type",
-    type=click.Choice(["blob", "manifest", "tag"], case_sensitive=False),
+@type_option(
+    choices={
+        "blob": PulpContainerBlobContext,
+        "manifest": PulpContainerManifestContext,
+        "tag": PulpContainerTagContext,
+    },
     default="tag",
 )
-@pass_pulp_context
-@click.pass_context
-def content(ctx: click.Context, pulp_ctx: PulpCLIContext, /, content_type: str) -> None:
-    if content_type == "manifest":
-        ctx.obj = PulpContainerManifestContext(pulp_ctx)
-    elif content_type == "tag":
-        ctx.obj = PulpContainerTagContext(pulp_ctx)
-    elif content_type == "blob":
-        ctx.obj = PulpContainerBlobContext(pulp_ctx)
-    else:
-        raise NotImplementedError()
+def content() -> None:
+    pass
 
 
 list_options = [

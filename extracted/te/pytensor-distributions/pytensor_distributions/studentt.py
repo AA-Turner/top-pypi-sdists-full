@@ -3,6 +3,7 @@ from pytensor.tensor.math import betaincinv
 from pytensor.tensor.special import betaln
 
 from pytensor_distributions.helper import ppf_bounds_cont
+from pytensor_distributions.lmoments import _lmoments
 from pytensor_distributions.normal import cdf as normal_logcdf
 from pytensor_distributions.normal import entropy as normal_entropy
 from pytensor_distributions.normal import logcdf as normal_logpdf
@@ -52,6 +53,23 @@ def kurtosis(nu, mu, sigma):
     return result
 
 
+def lmoment1(nu, mu, sigma):
+    return mean(nu, mu, sigma)
+
+
+def lmoment2(nu, mu, sigma):
+    return pt.switch(pt.gt(nu, 1), _lmoments(ppf, nu, mu, sigma, r=2), pt.inf)
+
+
+def lmoment3(nu, mu, sigma):
+    shape = pt.broadcast_arrays(nu, mu, sigma)[0]
+    return pt.switch(pt.gt(nu, 1), pt.zeros_like(shape), pt.inf)
+
+
+def lmoment4(nu, mu, sigma):
+    return pt.switch(pt.gt(nu, 1), _lmoments(ppf, nu, mu, sigma, r=4), pt.inf)
+
+
 def entropy(nu, mu, sigma):
     # we use a normal approximation for large nu
     return pt.switch(
@@ -94,7 +112,7 @@ def sf(x, nu, mu, sigma):
 
 
 def rvs(nu, mu, sigma, size=None, random_state=None):
-    return pt.random.t(nu, mu, sigma, rng=random_state, size=size)
+    return pt.random.t(nu, mu, sigma, rng=random_state, size=size, return_next_rng=True)[1]
 
 
 def logcdf(x, nu, mu, sigma):

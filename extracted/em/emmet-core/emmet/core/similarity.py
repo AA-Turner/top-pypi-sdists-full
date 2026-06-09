@@ -9,11 +9,12 @@ from typing import TYPE_CHECKING
 import zlib
 
 import numpy as np
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, TypeAdapter
 
 from emmet.core.featurization import Featurizer, SiteStatsFingerprint
 from emmet.core.material_property import PropertyDoc
 from emmet.core.types.enums import ValueEnum
+from emmet.core.types.typing import MaterialIdentifierType
 
 try:
     import matgl
@@ -23,7 +24,7 @@ except ImportError:
 
 if TYPE_CHECKING:
 
-    from pymatgen.core import Structure
+    from emmet.core.io.pymatgen import Structure
 
 
 class SimilarityMethod(ValueEnum):
@@ -182,8 +183,8 @@ class SimilarityScorer:
         """
         raise NotImplementedError
 
+    @staticmethod
     def _post_process_distance(
-        self,
         distances: np.ndarray,
     ) -> np.ndarray:
         """Postprocess vector distances to yield consistent similarity scores.
@@ -235,8 +236,9 @@ class SimilarityScorer:
 
         return np.array(_feature_vectors)
 
+    @classmethod
     def _get_closest_vectors(
-        self, idx: int, v: np.ndarray, num: int
+        cls, idx: int, v: np.ndarray, num: int
     ) -> tuple[np.ndarray, np.ndarray]:
         """Return only a subset of vectors most similar to a specified vector.
 
@@ -253,7 +255,7 @@ class SimilarityScorer:
         subset_dist = dist[idxs]
         sorted_subset_idx = np.argsort(subset_dist)
 
-        return idxs[sorted_subset_idx], self._post_process_distance(
+        return idxs[sorted_subset_idx], cls._post_process_distance(
             subset_dist[sorted_subset_idx]
         )
 
@@ -318,7 +320,9 @@ class SimilarityScorer:
         nfv = feature_vectors.shape[0]
         with multiprocessing.Pool(num_procs) as pool:
             meta = pool.map(wrapped, range(nfv))
-        labels = labels or [str(idx) for idx in range(nfv)]
+        labels = labels or TypeAdapter(list[MaterialIdentifierType]).validate_python(
+            range(nfv)
+        )
         return {
             labels[idx]: {
                 "indices": [labels[idx] for idx in field[0]],
@@ -450,7 +454,8 @@ class CrystalNNSimilarity(SimilarityScorer):
         except Exception:
             return np.nan * np.ones(self.num_feature)
 
-    def _post_process_distance(self, distances: np.ndarray) -> np.ndarray:
+    @staticmethod
+    def _post_process_distance(distances: np.ndarray) -> np.ndarray:
         """Use exponential weighting of feature vector distances.
 
         Parameters
@@ -479,7 +484,35 @@ class M3GNetSimilarity(SimilarityScorer):
         if matgl is None:
             raise ValueError("`pip install matgl` to use these features.")
 
-        self.model = matgl.load_model(Path(model)).model
+        self._model_path = Path(model)
+        self._model = None
+
+    @staticmethod
+    def _load_model(model_path: str | Path):
+        return matgl.load_model(Path(model_path)).model
+
+    @property
+    def model(self):
+        """Return the matgl model."""
+        if self._model_path and self._model is None:
+            self._model = self._load_model(self._model_path)
+        return self._model
+
+    @staticmethod
+    def _model_readout_from_structure(
+        structure: Structure,
+        model,
+    ) -> np.ndarray:
+        """Featurize a structure using a given matgl model."""
+        try:
+            return (
+                model.predict_structure(structure, return_features=True)["readout"]
+                .detach()
+                .cpu()
+                .numpy()[0]
+            )
+        except Exception:
+            return np.nan * np.ones(128)
 
     def _featurize_structure(self, structure: Structure) -> np.ndarray:
         """Featurize a single structure using M3GNet-Eform.
@@ -492,8 +525,68 @@ class M3GNetSimilarity(SimilarityScorer):
         -----------
         np.ndarray
         """
-        results = self.model.predict_structure(structure, return_features=True)
-        return results["readout"].detach().cpu().numpy()[0]
+        return self._model_readout_from_structure(structure, self.model)
+
+    def _featurize_structures(
+        self,
+        structures: dict[int, Structure],
+        model_path: Path,
+        fvd: dict[int, np.ndarray],
+    ):
+        model = self._load_model(model_path)
+        new_fvs = {
+            idx: self._model_readout_from_structure(structure, model)
+            for idx, structure in structures.items()
+        }
+        fvd.update(new_fvs)
+
+    def featurize_structures(
+        self,
+        structures: list[Structure],
+        num_procs: int = 1,
+    ):
+        """Featurize structures using the user-defined _featurize_structure.
+
+        Rewritten because of pickling issues with torch objects.
+
+        Parameters
+        -----------
+        structures : list of Structure objects
+        num_procs : int = 1
+            Number of parallel processes to run in featurizing structures.
+
+        Returns
+        -----------
+        np.ndarray : the feature vectors of the input structures.
+        """
+        if num_procs > 1:
+            manager = multiprocessing.Manager()
+            fvd = manager.dict()
+            procs = []
+            num_batches = int(np.ceil(len(structures) / num_procs))
+            for i in range(num_procs):
+                idxs = (i * num_batches, min((i + 1) * num_batches, len(structures)))
+                proc = multiprocessing.Process(
+                    target=self._featurize_structures,
+                    args=(
+                        {idx: structures[idx] for idx in range(*idxs)},
+                        self._model_path,
+                        fvd,
+                    ),
+                )
+                proc.start()
+                procs.append(proc)
+
+            for proc in procs:
+                proc.join()
+
+            _feature_vectors = [fvd[idx] for idx in range(len(structures))]
+        else:
+            _feature_vectors = [
+                self._featurize_structure(structure) for structure in structures
+            ]
+
+        return np.array(_feature_vectors)
 
 
 class SimilarityEntry(BaseModel):
@@ -501,7 +594,7 @@ class SimilarityEntry(BaseModel):
     Find similar materials to a specified material based on crystal geometry.
     """
 
-    task_id: str | None = Field(
+    task_id: MaterialIdentifierType | None = Field(
         None,
         description="The Materials Project ID for the matched material. This comes in the form: mp-******.",
     )
@@ -534,7 +627,7 @@ class SimilarityDoc(PropertyDoc):
         description="List containing similar structure data for a given material.",
     )
 
-    material_id: str | None = Field(
+    material_id: MaterialIdentifierType | None = Field(
         None,
         description="The Materials Project ID for the material. This comes in the form: mp-******",
     )

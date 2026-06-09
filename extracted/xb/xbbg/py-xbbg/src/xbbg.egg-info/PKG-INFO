@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: xbbg
-Version: 1.2.6
+Version: 1.2.7
 Summary: Independent client for Bloomberg-connected data workflows
 Author-email: Alpha x1 <alpha.xone@outlook.com>
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://xbbg.org/
 Project-URL: Documentation, https://xbbg.org/
-Project-URL: Source, https://github.com/alpha-xone/xbbg
-Project-URL: Issues, https://github.com/alpha-xone/xbbg/issues
+Project-URL: Source, https://github.com/xbbg-org/xbbg
+Project-URL: Issues, https://github.com/xbbg-org/xbbg/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Financial and Insurance Industry
 Classifier: Intended Audience :: Science/Research
@@ -58,7 +58,7 @@ Dynamic: license-file
 [![Python versions](https://img.shields.io/pypi/pyversions/xbbg.svg)](https://pypi.org/project/xbbg/)
 [![Conda version](https://anaconda.org/conda-forge/xbbg/badges/version.svg)](https://anaconda.org/conda-forge/xbbg)
 [![Downloads](https://pepy.tech/badge/xbbg)](https://pepy.tech/project/xbbg)
-[![CI](https://github.com/alpha-xone/xbbg/actions/workflows/ci-rust.yml/badge.svg)](https://github.com/alpha-xone/xbbg/actions/workflows/ci-rust.yml)
+[![CI](https://github.com/xbbg-org/xbbg/actions/workflows/ci-rust.yml/badge.svg)](https://github.com/xbbg-org/xbbg/actions/workflows/ci-rust.yml)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/P34uMwgCjC)
 
 **Links:** [Documentation](https://xbbg.org/) · [Quickstart](#quickstart) · [Configuration](#configuration-and-engines) · [Examples notebook](py-xbbg/examples/xbbg_jupyter_examples.ipynb) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
@@ -68,10 +68,10 @@ Dynamic: license-file
 ---
 
 <!-- xbbg:latest-release-start -->
-Latest release: xbbg==1.2.6 (release: [notes](https://github.com/xbbg-org/xbbg/releases/tag/v1.2.6))
+Latest release: xbbg==1.2.7 (release: [notes](https://github.com/xbbg-org/xbbg/releases/tag/v1.2.7))
 <!-- xbbg:latest-release-end -->
 
-> This `main` branch is the Rust-powered v1 release. For the legacy pure-Python line, use [`release/0.x`](https://github.com/alpha-xone/xbbg/tree/release/0.x).
+> This `main` branch is the Rust-powered v1 release. For the legacy pure-Python line, use [`release/0.x`](https://github.com/xbbg-org/xbbg/tree/release/0.x).
 
 > **Important:** xbbg is an independent open-source project. It is not affiliated with, endorsed by, sponsored by, or approved by Bloomberg Finance L.P. or its affiliates. Bloomberg, Bloomberg Terminal, B-PIPE, BQL, and related names are trademarks or service marks of their respective owners. xbbg does not grant access to Bloomberg services, data, software, licenses, credentials, or entitlements; users must obtain and use those separately under their own Bloomberg agreements and applicable policies.
 
@@ -154,6 +154,7 @@ Requirements and notes:
 - You need an authorized Bloomberg environment: local Terminal/DAPI, SAPI/B-PIPE, or ZFP, depending on your setup.
 - If you build from source, stage the Bloomberg C++ SDK with `bash ./scripts/sdktool.sh` on macOS/Linux or `.\\scripts\\sdktool.ps1` on Windows PowerShell.
 - If you manage the SDK yourself, set `BLPAPI_ROOT` or use `xbbg.set_sdk_path(...)`.
+- On Windows Terminal installs, xbbg automatically probes DAPI runtime roots such as `C:\blp\DAPI` and `C:\Program Files (x86)\Bloomberg\Blp\DAPI` before requiring manual configuration.
 - Optional dataframe conversions are installed separately: `xbbg[pyarrow]`, `xbbg[pandas]`, `xbbg[polars]`, or `xbbg[duckdb]`.
 
 Verify the install:
@@ -496,8 +497,8 @@ Publishing is handled through GitHub Actions and PyPI Trusted Publishing.
 - JavaScript/Node bindings: [js-xbbg/README.md](js-xbbg/README.md)
 - LangChain/LangGraph tools: [js-xbbg-langgraph/README.md](js-xbbg-langgraph/README.md)
 - PyPI: [pypi.org/project/xbbg](https://pypi.org/project/xbbg/)
-- Source: [github.com/alpha-xone/xbbg](https://github.com/alpha-xone/xbbg)
-- Issues: [GitHub Issues](https://github.com/alpha-xone/xbbg/issues)
+- Source: [github.com/xbbg-org/xbbg](https://github.com/xbbg-org/xbbg)
+- Issues: [GitHub Issues](https://github.com/xbbg-org/xbbg/issues)
 - Discord: [Join the community](https://discord.gg/P34uMwgCjC)
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)

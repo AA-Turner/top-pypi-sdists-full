@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2011 Nathanael C. Fritz, Lance J.T. Stout
 # This file is part of Slixmpp.
@@ -11,3 +10,5 @@ from slixmpp.plugins.xep_0115.caps import XEP_0115
 
 
 register_plugin(XEP_0115)
+
+__all__ = ['Capabilities', 'StaticCaps', 'XEP_0115']

@@ -1479,7 +1479,18 @@ class CometExperiment(CommonExperiment):
 
     def _setup_std_logger(self) -> None:
         # Override default sys.stdout and feed to streamer.
-        self.logger = get_std_logger(self.auto_output_logging, self.streamer)
+        strip_inplace_updates = self.config.get_bool(
+            None, "comet.logging.console_strip_inplace_updates"
+        )
+        inplace_update_min_interval = self.config[
+            "comet.logging.console_inplace_update_min_interval"
+        ]
+        self.logger = get_std_logger(
+            self.auto_output_logging,
+            self.streamer,
+            strip_inplace_updates=strip_inplace_updates,
+            inplace_update_min_interval=inplace_update_min_interval,
+        )
         if self.logger is not None:
             self.logger.set_experiment(self)
 

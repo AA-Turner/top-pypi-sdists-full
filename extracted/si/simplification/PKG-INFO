@@ -1,9 +1,12 @@
 Metadata-Version: 2.4
 Name: simplification
-Version: 0.7.16
+Version: 1.0.0
 Summary: Fast linestring simplification using RDP or Visvalingam-Whyatt and a Rust binary
 Keywords: Geo,Polyline,Linestring,Ramer-Douglas-Peucker,Douglas-Peucker,Visvalingam-Whyatt
-Author-Email: =?utf-8?q?Stephan_H=C3=BCgel?= <urschrei@gmail.com>
+Author: Stephan Hügel
+Author-Email: Unknown <urschrei@gmail.com>
+Maintainer: Stephan Hügel
+Maintainer-Email: Unknown <urschrei@gmail.com>
 License-Expression: BlueOak-1.0.0
 License-File: LICENSE.md
 Classifier: Programming Language :: Python
@@ -19,8 +22,11 @@ Classifier: Intended Audience :: Education
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: GIS
+Project-URL: Homepage, https://github.com/urschrei/simplification
 Project-URL: Repository, https://github.com/urschrei/simplification
-Project-URL: Tracker, https://github.com/urschrei/simplification/issues
+Project-URL: Documentation, https://github.com/urschrei/simplification#readme
+Project-URL: Issues, https://github.com/urschrei/simplification/issues
+Project-URL: Download, https://github.com/urschrei/simplification/releases
 Requires-Python: >=3.10
 Requires-Dist: numpy>=2.0.0
 Description-Content-Type: text/markdown
@@ -50,6 +56,8 @@ Changes in `pyx` and `pxd` files, and the Rust library and header will bust the 
 
 ### Supported Python Versions
 Simplification supports all [_currently_ supported Python versions](https://devguide.python.org/versions/).
+
+Binary wheels target the CPython [Stable ABI](https://docs.python.org/3/c-api/stable.html) (`abi3`): a single `abi3` wheel per platform covers CPython 3.11 and later, while CPython 3.10 receives a standard version-specific wheel.
 
 ### Supported Platforms
 - Linux (`manylinux`-compatible) x86_64 and aarch64

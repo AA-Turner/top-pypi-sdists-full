@@ -9,11 +9,14 @@ from pycarlo.features.ingestion.etl import (
     ASSET_REF_ROLE_VALUES,
     ETL_RUN_STATUS_VALUES,
     ETL_RUN_TRIGGER_VALUES,
+    ETL_SCHEDULE_KIND_VALUES,
     AssetRef,
     EtlAsset,
     EtlError,
+    EtlGroup,
     EtlMetadataEvent,
     EtlRunEvent,
+    EtlTask,
     Owner,
     Schedule,
     build_etl_metadata_payload,
@@ -47,30 +50,38 @@ class TestSchedule(TestCase):
 
     def test_to_dict_full(self):
         s = Schedule(
-            kind="cron",
+            kind="event",
             cron_expression="0 * * * *",
             interval_seconds=3600,
             timezone="UTC",
             next_run_at="2026-05-15T11:00:00Z",
             paused=False,
-            event_trigger=None,
-            upstream_job_global_ids=["job-A", "job-B"],
+            event_trigger={"source": "s3", "bucket": "raw"},
+            upstream_job_source_ids=["job-A", "job-B"],
             raw={"vendor": "airflow"},
         )
         result = s.to_dict()
-        assert result["kind"] == "cron"
+        assert result["kind"] == "event"
         assert result["cron_expression"] == "0 * * * *"
         assert result["interval_seconds"] == 3600
         assert result["timezone"] == "UTC"
         assert result["next_run_at"] == "2026-05-15T11:00:00Z"
         assert result["paused"] is False
-        assert result["upstream_job_global_ids"] == ["job-A", "job-B"]
+        assert result["event_trigger"] == {"source": "s3", "bucket": "raw"}
+        assert result["upstream_job_source_ids"] == ["job-A", "job-B"]
         assert result["raw"] == {"vendor": "airflow"}
-        assert "event_trigger" not in result
 
     def test_to_dict_omits_empty_list(self):
-        s = Schedule(kind="cron", upstream_job_global_ids=[])
-        assert "upstream_job_global_ids" not in s.to_dict()
+        s = Schedule(kind="cron", upstream_job_source_ids=[])
+        assert "upstream_job_source_ids" not in s.to_dict()
+
+    def test_rejects_bad_kind(self):
+        with pytest.raises(ValueError, match="kind must be one of"):
+            Schedule(kind="weekly")
+
+    def test_all_allowed_kinds(self):
+        for k in ETL_SCHEDULE_KIND_VALUES:
+            Schedule(kind=k)
 
 
 class TestOwner(TestCase):
@@ -133,15 +144,6 @@ class TestAssetRef(TestCase):
             "fully_qualified_name": "db.s.t",
         }
 
-    def test_to_dict_with_metadata(self):
-        r = AssetRef(
-            asset_type="DATASET",
-            role="INPUT",
-            mcon="MCON::x",
-            metadata={"vendor": "snowflake"},
-        )
-        assert r.to_dict()["metadata"] == {"vendor": "snowflake"}
-
     def test_requires_mcon_or_fqn(self):
         with pytest.raises(ValueError, match="at least one of mcon"):
             AssetRef(asset_type="TABLE", role="INPUT")
@@ -169,7 +171,46 @@ class TestAssetRef(TestCase):
             AssetRef(asset_type="TABLE", role=r, mcon="x")
 
 
+class TestEtlGroup(TestCase):
+    def test_to_dict_minimal(self):
+        g = EtlGroup(source_id="dag1")
+        assert g.to_dict() == {"source_id": "dag1"}
+
+    def test_to_dict_full(self):
+        g = EtlGroup(
+            source_id="dag1",
+            name="Daily DAG",
+            group_type="DAG",
+            schedule=Schedule(kind="cron", cron_expression="0 0 * * *"),
+            attributes={"vendor": "airflow"},
+        )
+        result: dict[str, Any] = g.to_dict()
+        assert result["source_id"] == "dag1"
+        assert result["name"] == "Daily DAG"
+        assert result["group_type"] == "DAG"
+        assert result["schedule"]["cron_expression"] == "0 0 * * *"
+        assert result["attributes"] == {"vendor": "airflow"}
+
+    def test_round_trip(self):
+        g = EtlGroup(source_id="dag1", name="Daily DAG", group_type="DAG")
+        restored = EtlGroup.from_dict(g.to_dict())
+        assert restored == g
+
+
 class TestEtlAsset(TestCase):
+    def test_to_dict_omits_none_group(self):
+        a = EtlAsset(job_source_id="j", name="n")
+        assert "group" not in a.to_dict()
+
+    def test_round_trip_with_group(self):
+        a = EtlAsset(
+            job_source_id="dag1.task1",
+            name="Daily orders",
+            group=EtlGroup(source_id="dag1", name="Daily DAG", group_type="DAG"),
+        )
+        restored = EtlAsset.from_dict(a.to_dict())
+        assert restored.group == EtlGroup(source_id="dag1", name="Daily DAG", group_type="DAG")
+
     def test_to_dict_minimal(self):
         a = EtlAsset(job_source_id="j1", name="J1")
         assert a.to_dict() == {
@@ -181,7 +222,7 @@ class TestEtlAsset(TestCase):
         a = EtlAsset(
             job_source_id="dag1.task1",
             name="Daily orders",
-            group_source_id="dag1",
+            group=EtlGroup(source_id="dag1", name="Daily DAG", group_type="DAG"),
             description="loads orders",
             folder="prod/etl",
             is_paused=False,
@@ -193,7 +234,7 @@ class TestEtlAsset(TestCase):
         )
         result: dict[str, Any] = a.to_dict()
         assert result["job_source_id"] == "dag1.task1"
-        assert result["group_source_id"] == "dag1"
+        assert result["group"] == {"source_id": "dag1", "name": "Daily DAG", "group_type": "DAG"}
         assert result["folder"] == "prod/etl"
         assert result["is_paused"] is False
         assert result["schedule"]["cron_expression"] == "0 0 * * *"
@@ -204,7 +245,7 @@ class TestEtlAsset(TestCase):
     def test_round_trip_matches_wire_field_names(self):
         """Hand-rolled wire fixture for EtlAsset field names."""
         wire_fields = {
-            "group_source_id",
+            "group",
             "job_source_id",
             "name",
             "description",
@@ -221,7 +262,7 @@ class TestEtlAsset(TestCase):
         a = EtlAsset(
             job_source_id="j",
             name="n",
-            group_source_id="g",
+            group=EtlGroup(source_id="g", name="gn", group_type="DAG"),
             description="d",
             folder="f",
             is_paused=True,
@@ -236,9 +277,9 @@ class TestEtlAsset(TestCase):
             ],
         )
         produced = set(a.to_dict().keys())
-        assert (
-            produced == wire_fields
-        ), f"extra: {produced - wire_fields}, missing: {wire_fields - produced}"
+        assert produced == wire_fields, (
+            f"extra: {produced - wire_fields}, missing: {wire_fields - produced}"
+        )
 
     def test_to_dict_omits_empty_inputs_outputs(self):
         a = EtlAsset(job_source_id="j", name="n", inputs=[], outputs=[])
@@ -280,6 +321,137 @@ class TestEtlAsset(TestCase):
                 "fully_qualified_name": "analytics:prod.out_table",
             }
         ]
+
+
+class TestEtlTask(TestCase):
+    def test_to_dict_minimal(self):
+        t = EtlTask(task_source_id="t1", name="T1")
+        assert t.to_dict() == {"task_source_id": "t1", "name": "T1"}
+
+    def test_to_dict_full(self):
+        t = EtlTask(
+            task_source_id="dag1.task1",
+            name="Load orders",
+            task_type="PythonOperator",
+            description="loads orders",
+            attributes={"vendor": "airflow"},
+            inputs=[AssetRef(asset_type="TABLE", role="INPUT", fully_qualified_name="db:s.t_in")],
+            outputs=[
+                AssetRef(asset_type="TABLE", role="OUTPUT", fully_qualified_name="db:s.t_out")
+            ],
+            upstream_task_source_ids=["dag1.extract"],
+            triggered_job_source_ids=["dag2"],
+        )
+        result: dict[str, Any] = t.to_dict()
+        assert result["task_source_id"] == "dag1.task1"
+        assert result["name"] == "Load orders"
+        assert result["task_type"] == "PythonOperator"
+        assert result["description"] == "loads orders"
+        assert result["attributes"] == {"vendor": "airflow"}
+        assert result["inputs"][0]["fully_qualified_name"] == "db:s.t_in"
+        assert result["outputs"][0]["fully_qualified_name"] == "db:s.t_out"
+        assert result["upstream_task_source_ids"] == ["dag1.extract"]
+        assert result["triggered_job_source_ids"] == ["dag2"]
+
+    def test_round_trip_matches_wire_field_names(self):
+        wire_fields = {
+            "task_source_id",
+            "name",
+            "task_type",
+            "description",
+            "inputs",
+            "outputs",
+            "upstream_task_source_ids",
+            "triggered_job_source_ids",
+            "attributes",
+        }
+        t = EtlTask(
+            task_source_id="t",
+            name="n",
+            task_type="op",
+            description="d",
+            attributes={"a": 1},
+            inputs=[AssetRef(asset_type="TABLE", role="INPUT", fully_qualified_name="db:s.t_in")],
+            outputs=[
+                AssetRef(asset_type="TABLE", role="OUTPUT", fully_qualified_name="db:s.t_out")
+            ],
+            upstream_task_source_ids=["u1"],
+            triggered_job_source_ids=["j1"],
+        )
+        produced = set(t.to_dict().keys())
+        assert produced == wire_fields, (
+            f"extra: {produced - wire_fields}, missing: {wire_fields - produced}"
+        )
+
+    def test_to_dict_omits_empty_collections(self):
+        t = EtlTask(
+            task_source_id="t",
+            name="n",
+            inputs=[],
+            outputs=[],
+            upstream_task_source_ids=[],
+            triggered_job_source_ids=[],
+        )
+        result = t.to_dict()
+        assert "inputs" not in result
+        assert "outputs" not in result
+        assert "upstream_task_source_ids" not in result
+        assert "triggered_job_source_ids" not in result
+
+    def test_propagates_asset_ref_validation(self):
+        with pytest.raises(ValueError, match="at least one of mcon"):
+            EtlTask(
+                task_source_id="t",
+                name="n",
+                inputs=[AssetRef(asset_type="TABLE", role="INPUT")],
+            )
+
+
+class TestEtlAssetTasks(TestCase):
+    def test_to_dict_omits_empty_tasks(self):
+        a = EtlAsset(job_source_id="j", name="n", tasks=[])
+        assert "tasks" not in a.to_dict()
+
+    def test_to_dict_nests_tasks(self):
+        a = EtlAsset(
+            job_source_id="dag1",
+            name="DAG 1",
+            tasks=[
+                EtlTask(task_source_id="dag1.t1", name="Task 1"),
+                EtlTask(
+                    task_source_id="dag1.t2",
+                    name="Task 2",
+                    inputs=[
+                        AssetRef(asset_type="TABLE", role="INPUT", fully_qualified_name="db:s.in")
+                    ],
+                ),
+            ],
+        )
+        result: dict[str, Any] = a.to_dict()
+        assert len(result["tasks"]) == 2
+        assert result["tasks"][0] == {"task_source_id": "dag1.t1", "name": "Task 1"}
+        assert result["tasks"][1]["inputs"][0]["fully_qualified_name"] == "db:s.in"
+        json.dumps(result)  # must serialize cleanly end-to-end
+
+    def test_round_trip_with_tasks(self):
+        a = EtlAsset(
+            job_source_id="dag1",
+            name="DAG 1",
+            tasks=[EtlTask(task_source_id="dag1.t1", name="Task 1")],
+        )
+        restored = EtlAsset.from_dict(a.to_dict())
+        assert restored.tasks[0].task_source_id == "dag1.t1"
+        assert restored.tasks[0].name == "Task 1"
+
+    def test_metadata_payload_carries_tasks(self):
+        a = EtlAsset(
+            job_source_id="dag1",
+            name="DAG 1",
+            tasks=[EtlTask(task_source_id="dag1.t1", name="Task 1")],
+        )
+        payload = build_etl_metadata_payload(resource_uuid="r", resource_type="airflow", events=[a])
+        tasks = payload["events"][0]["etl_asset"]["tasks"]
+        assert tasks == [{"task_source_id": "dag1.t1", "name": "Task 1"}]
 
 
 class TestEtlMetadataEvent(TestCase):

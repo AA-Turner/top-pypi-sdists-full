@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 import gcsfs
@@ -30,6 +31,10 @@ from airbyte_ops_mcp.registry._resolve_gcs_paths import (
     versioned_blob_root,
 )
 from airbyte_ops_mcp.registry._sbom_generation import upload_sbom
+from airbyte_ops_mcp.registry.markers import (
+    PROGRESSIVE_ROLLOUT_MARKER_FILE,
+    is_registry_state_marker_file,
+)
 from airbyte_ops_mcp.registry.store import RegistryStore
 from airbyte_ops_mcp.registry.validate import (
     validate_metadata,
@@ -111,6 +116,30 @@ def _check_connector_name_matches_docker_repo(
     )
 
 
+def _metadata_enables_progressive_rollout(artifacts_dir: Path) -> bool:
+    metadata_file = artifacts_dir / "metadata.yaml"
+    if not metadata_file.is_file():
+        return False
+    raw_metadata = yaml.safe_load(metadata_file.read_text())
+    return bool(
+        (raw_metadata or {})
+        .get("data", {})
+        .get("releases", {})
+        .get("rolloutConfiguration", {})
+        .get("enableProgressiveRollout")
+    )
+
+
+def _progressive_rollout_marker_content() -> str:
+    return yaml.dump(
+        {
+            "progressive_rollout": True,
+            "created_at": datetime.now(tz=timezone.utc).isoformat(),
+        },
+        default_flow_style=False,
+    )
+
+
 def publish_version_artifacts(
     connector_name: str,
     version: str,
@@ -169,6 +198,7 @@ def publish_version_artifacts(
     versioned_dest = f"gcs://{bucket_name}/{blob_root}"
 
     target_label = f"{bucket_name}/{prefix}" if prefix else bucket_name
+    should_publish_rollout_marker = _metadata_enables_progressive_rollout(artifacts_dir)
     result = PublishArtifactsResult(
         connector_name=connector_name,
         version=version,
@@ -219,6 +249,7 @@ def publish_version_artifacts(
 
     sbom_file = artifacts_dir / SBOM_FILE_NAME
     has_sbom = sbom_file.is_file()
+    rollout_marker_path = f"{blob_root}/{PROGRESSIVE_ROLLOUT_MARKER_FILE}"
 
     if dry_run:
         for f in local_files:
@@ -247,6 +278,13 @@ def publish_version_artifacts(
                 SBOM_FILE_NAME,
                 bucket_name,
                 sbom_gcs_key,
+            )
+        if should_publish_rollout_marker:
+            result.files_uploaded.append(PROGRESSIVE_ROLLOUT_MARKER_FILE)
+            _log_progress(
+                "  [DRY RUN] would write active marker: gs://%s/%s",
+                bucket_name,
+                rollout_marker_path,
             )
         return result
 
@@ -279,6 +317,8 @@ def publish_version_artifacts(
                 remote_rel = remote_file[len(dest_path) + 1 :]
             else:
                 remote_rel = remote_file.split("/")[-1]
+            if is_registry_state_marker_file(Path(remote_rel).name):
+                continue
             if remote_rel not in local_rel_paths:
                 fs.rm(remote_file)
                 _log_progress("  Deleted stale remote file: %s", remote_rel)
@@ -286,6 +326,13 @@ def publish_version_artifacts(
         pass  # Destination doesn't exist yet, nothing to clean
 
     _log_progress("Uploaded %d files to %s", len(local_files), versioned_dest)
+
+    if should_publish_rollout_marker:
+        marker_remote = f"{bucket_name}/{rollout_marker_path}"
+        with fs.open(marker_remote, "w") as marker_file:
+            marker_file.write(_progressive_rollout_marker_content())
+        result.files_uploaded.append(PROGRESSIVE_ROLLOUT_MARKER_FILE)
+        _log_progress("Wrote active marker: gs://%s", marker_remote)
 
     # --- Dual-load dependencies.json to the connector_dependencies/ path ---
     if not has_deps:

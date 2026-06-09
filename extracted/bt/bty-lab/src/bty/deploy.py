@@ -83,6 +83,12 @@ services:
   withcache:
     image: ghcr.io/safl/withcache:latest
     restart: unless-stopped
+    # Hard-set the resolver so this works on stock Ubuntu hosts where
+    # systemd-resolved owns /etc/resolv.conf and aardvark-dns isn't
+    # installed. Override BTY_DNS in envvars to point at an internal
+    # resolver if the host is on a corporate LAN.
+    dns:
+      - ${{BTY_DNS:-1.1.1.1}}
     ports:
       - "3000:3000"
     environment:
@@ -93,6 +99,9 @@ services:
   bty-web:
     image: ghcr.io/safl/bty-web:{version}
     restart: unless-stopped
+    # See note on withcache.dns -- same reason.
+    dns:
+      - ${{BTY_DNS:-1.1.1.1}}
     ports:
       - "8080:8080"
     environment:
@@ -160,6 +169,13 @@ WITHCACHE_ADMIN_PASSWORD=change-me
 # Where state lives on the host. Default: ./data (relative to this
 # directory). Point at a bigger disk for larger fleets:
 # BTY_HOST_DATA_DIR={default_data_dir}
+
+# Resolver bty-web + withcache use for outbound DNS (GitHub release
+# artifacts, GHCR blob pulls). Default: 1.1.1.1, which sidesteps
+# stock-Ubuntu hosts where /etc/resolv.conf points at the
+# systemd-resolved stub (127.0.0.53) that containers can't reach.
+# Set to an internal resolver if the host is on a corporate LAN.
+# BTY_DNS=192.168.1.1
 
 # ==== ADVANCED ====
 
@@ -264,8 +280,8 @@ just `HOST_ADDR` + a password in `envvars`.
 
 ## Where the state lives
 
-- `data/bty/`       -- bty-web's `/var/lib/bty` (state.db, image cache,
-  backups). Bind-mounted into the container.
+- `data/bty/`       -- bty-web's `/var/lib/bty` (state.db, catalogs,
+  netboot artifacts, backups). Bind-mounted into the container.
 - `data/withcache/` -- withcache's `/data` (cached image blobs).
 
 Override the parent path with `BTY_HOST_DATA_DIR=<absolute-path>` in
@@ -303,6 +319,10 @@ Image=ghcr.io/safl/bty-web:{version}
 AutoUpdate=registry
 PublishPort=8080:8080
 Volume={data_dir_abs}/bty:/var/lib/bty:Z
+# Hard-set DNS so external lookups work on stock Ubuntu hosts where
+# systemd-resolved owns /etc/resolv.conf and aardvark-dns isn't
+# installed. Edit if the host needs an internal resolver.
+DNS=1.1.1.1
 Environment=BTY_WITHCACHE_URL=http://HOST_ADDR_HERE:3000
 
 [Service]
@@ -331,6 +351,8 @@ Image=ghcr.io/safl/withcache:latest
 AutoUpdate=registry
 PublishPort=3000:3000
 Volume={data_dir_abs}/withcache:/data:Z
+# See note on bty-web's DNS= -- same reason.
+DNS=1.1.1.1
 Environment=WITHCACHE_ADMIN_PASSWORD=change-me
 
 [Service]
@@ -499,6 +521,11 @@ BTY_SESSION_SECRET={session_secret}
 # directory). Point at a bigger disk for larger fleets:
 # BTY_HOST_DATA_DIR={data_dir_abs}
 
+# Resolver bty-web + withcache use for outbound DNS. Default: 1.1.1.1,
+# which sidesteps stock-Ubuntu hosts where /etc/resolv.conf points at
+# 127.0.0.53. Set to an internal resolver if needed.
+# BTY_DNS=192.168.1.1
+
 # ==== ADVANCED ====
 
 # Override which GitHub repo bty fetches netboot artifacts from.
@@ -658,6 +685,31 @@ def _chown_to_sudo_user(paths: list[Path]) -> tuple[str, int, int] | None:
         if p.exists():
             os.chown(p, pw.pw_uid, pw.pw_gid)
     return (sudo_user, pw.pw_uid, pw.pw_gid)
+
+
+def _prepare_data_dirs(data_dir_abs: Path) -> list[Path]:
+    """Pre-create the bind-mount targets that ``compose.yml`` mounts
+    into ``withcache`` (`/data`) and ``bty-web`` (`/var/lib/bty`), and
+    open them up so the containers can write regardless of what UID
+    their image's ``USER`` directive resolves to.
+
+    Why world-writable: withcache's image runs as ``app``, bty-web's
+    as ``bty``. Those UIDs vary across image rebuilds and don't match
+    the host operator's UID. ``chmod 0o777`` on these two appliance-
+    local state dirs avoids a per-image UID lookup AND respects the
+    image authors' choice to drop privileges inside the container.
+
+    The bty-tftp service has no volume mount (its NBPs are baked into
+    the image), so it's not part of this dance.
+
+    Returns the list of created paths for the ``_step`` log line."""
+    created: list[Path] = []
+    for sub in ("withcache", "bty"):
+        p = data_dir_abs / sub
+        p.mkdir(parents=True, exist_ok=True)
+        p.chmod(0o777)
+        created.append(p)
+    return created
 
 
 def _install_quadlets(dest: Path, *, force: bool) -> list[Path]:
@@ -879,9 +931,9 @@ def deploy_main(argv: list[str] | None = None, *, prog: str = "bty-lab deploy") 
 
     # Step total swings with mode + sudo presence. Counts: prereqs,
     # prereqs-OK, install-mode, emit-files, HOST_ADDR, passwords,
-    # envvars, [chown?], pull, start, [quadlets, daemon-reload,
-    # start-svcs]*root, deploy-complete.
-    total = 10 + (1 if will_chown else 0) + (3 if is_root else 0)
+    # envvars, [chown?], prep-data, pull, start, [quadlets,
+    # daemon-reload, start-svcs]*root, deploy-complete.
+    total = 11 + (1 if will_chown else 0) + (3 if is_root else 0)
     _steps_begin(total)
 
     _step("checking prereqs")
@@ -959,6 +1011,13 @@ def deploy_main(argv: list[str] | None = None, *, prog: str = "bty-lab deploy") 
     if chown_info is not None:
         user, _uid, _gid = chown_info
         _step("handed deploy dir to operator", detail=user)
+
+    # Pre-create + open up the volume-mount targets BEFORE compose up.
+    # Without this, withcache (USER app) and bty-web (USER bty) can't
+    # write under data/ on the rootful host bind-mount and crash on
+    # first start. See _prepare_data_dirs for the full why.
+    created = _prepare_data_dirs(data_dir_abs)
+    _step("prepared data dirs", detail=" ".join(str(p) for p in created))
 
     # Root mode pulls + starts with the TFTP profile so the bty-tftp
     # sidecar comes up alongside bty-web and withcache. Non-root mode
@@ -1095,9 +1154,10 @@ def upgrade_main(argv: list[str] | None = None, *, prog: str = "bty-lab upgrade"
     mode_label = "system install [root]" if is_root else "user install [non-root]"
 
     # Step total for upgrade. Counts: prereqs, prereqs-OK, install-mode,
-    # regen-files, envvars-preserved, pull, [quadlets, daemon-reload,
-    # restart-svcs]*quadlet OR [restart-stack]*compose, upgrade-complete.
-    total = 7 + (3 if quadlet_managed else 1)
+    # regen-files, envvars-preserved, prep-data, pull, [quadlets,
+    # daemon-reload, restart-svcs]*quadlet OR [restart-stack]*compose,
+    # upgrade-complete.
+    total = 8 + (3 if quadlet_managed else 1)
     _steps_begin(total)
 
     _step("checking prereqs")
@@ -1119,6 +1179,11 @@ def upgrade_main(argv: list[str] | None = None, *, prog: str = "bty-lab upgrade"
     for p in written:
         print(f"  {p.relative_to(dest.parent) if dest.parent != Path() else p}", file=sys.stderr)
     _step("envvars preserved", detail=str(envvars_path))
+
+    # Same data-dir prep as deploy_main -- idempotent, so re-running
+    # upgrade on an already-running stack is a no-op.
+    created = _prepare_data_dirs(data_dir_abs)
+    _step("prepared data dirs", detail=" ".join(str(p) for p in created))
 
     # Match the deploy-time profile choice: root pulls + restarts with
     # the TFTP sidecar, non-root skips it (UEFI HTTP-Boot only).

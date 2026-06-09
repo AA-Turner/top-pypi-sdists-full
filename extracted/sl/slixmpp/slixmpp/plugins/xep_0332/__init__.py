@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Implementation of HTTP over XMPP transport
 # http://xmpp.org/extensions/xep-0332.html
@@ -12,3 +11,5 @@ from slixmpp.plugins.xep_0332.http import XEP_0332
 
 
 register_plugin(XEP_0332)
+
+__all__ = ['XEP_0332', 'stanza']

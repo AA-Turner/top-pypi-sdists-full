@@ -44,6 +44,7 @@ from .....schema_classes import AssertionStdParametersClass
 from .....schema_classes import AssertionTypeClass
 from .....schema_classes import AssertionValueChangeTypeClass
 from .....schema_classes import BatchSpecClass
+from .....schema_classes import BoundsValueSpaceClass
 from .....schema_classes import CustomAssertionInfoClass
 from .....schema_classes import DatasetAssertionInfoClass
 from .....schema_classes import DatasetAssertionScopeClass
@@ -116,6 +117,7 @@ AssertionStdParameters = AssertionStdParametersClass
 AssertionType = AssertionTypeClass
 AssertionValueChangeType = AssertionValueChangeTypeClass
 BatchSpec = BatchSpecClass
+BoundsValueSpace = BoundsValueSpaceClass
 CustomAssertionInfo = CustomAssertionInfoClass
 DatasetAssertionInfo = DatasetAssertionInfoClass
 DatasetAssertionScope = DatasetAssertionScopeClass

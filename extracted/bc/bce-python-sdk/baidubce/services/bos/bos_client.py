@@ -17,6 +17,7 @@ This module provides a client class for BOS.
 import io
 import copy
 import http.client
+import math
 import os
 import json
 import logging
@@ -45,6 +46,7 @@ from baidubce.http import http_headers
 from baidubce.http import http_methods
 from baidubce.services import bos
 from baidubce.services.bos import bos_handler
+from baidubce.services.bos import common
 from baidubce.services.bos import storage_class
 from baidubce.utils import required
 from baidubce import compat
@@ -732,8 +734,10 @@ class BosClient(BceBaseClient):
             raise ValueError('generate url the key param error!')
 
         config = self._merge_config(config, bucket_name)
-        headers = headers or {}
-        params = params or {}
+        headers = dict(headers) if headers else {}
+        params = dict(params) if params else {}
+        params.pop(http_headers.AUTHORIZATION.lower(), None)
+        params.pop(http_headers.AUTHORIZATION, None)
 
         # specified  protocol in endpoint > protocal > default protocol in config
         if protocol is not None:
@@ -754,6 +758,9 @@ class BosClient(BceBaseClient):
         if endpoint_port != endpoint_protocol.default_port:
             full_host += b':' + compat.convert_to_bytes(endpoint_port)
         headers[http_headers.HOST] = full_host
+
+        if config.request_payer is True:
+            params[http_headers.BOS_REQUEST_PAYER] = common.REQUEST_PAYER_REQUESTER
 
         path = self._get_path(config, bucket_name, key)
         if httpmethod != http_methods.GET and httpmethod != http_methods.HEAD:
@@ -1623,6 +1630,7 @@ class BosClient(BceBaseClient):
         """
         source_key = compat.convert_to_bytes(source_key)
         target_key = compat.convert_to_bytes(target_key)
+        bos_handler.validate_object_key(source_key)
         headers = self._prepare_object_headers(
             content_type=content_type,
             user_metadata=user_metadata,
@@ -1942,6 +1950,7 @@ class BosClient(BceBaseClient):
         """
         source_key = compat.convert_to_bytes(source_key)
         target_key = compat.convert_to_bytes(target_key)
+        bos_handler.validate_object_key(source_key)
         headers = self._prepare_object_headers(
                          content_type=content_type,
                          user_metadata=user_metadata,
@@ -2219,7 +2228,7 @@ class BosClient(BceBaseClient):
             raise e
 
     @required(bucket_name=(bytes, str), key=(bytes, str), file_name=(bytes, str))
-    def put_super_object_from_file(self, bucket_name, key, file_name, chunk_size=5,
+    def put_super_object_from_file(self, bucket_name, key, file_name, chunk_size=None,
             thread_num=None,
             uploadTaskHandle=None,
             content_type=None,
@@ -2236,15 +2245,26 @@ class BosClient(BceBaseClient):
         """
         Multipart Upload file to bos
 
-        param chunk_size: part size , default part size is 5MB
+        param chunk_size: part size in MB, default will be auto-calculated based on file size.
+                          Minimum is 5MB, maximum is 5120MB (5GB). Maximum 10000 parts allowed.
+                          Maximum file size supported is 48.8TB.
         """
-        # check params
-        if chunk_size > 5 * 1024 or chunk_size <= 0:
-           raise BceClientError("chunk size is valid, it should be more than 0 and not nore than 5120!")
         left_size = os.path.getsize(file_name)
         # if file size more than 48.8TB, reject
         if left_size > 50000 * 1024 * 1024 * 1024:
            raise BceClientError("File size must not be more than 48.8TB!")
+
+        if chunk_size is None:
+            # auto-calculate chunk_size based on file size
+            # minimum chunk_size is 5MB, maximum parts is 10000
+            chunk_size = 5
+            min_chunk_size_mb = math.ceil(left_size / (10000 * 1024 * 1024))
+            if min_chunk_size_mb > chunk_size:
+                chunk_size = min_chunk_size_mb
+
+        # check params
+        if chunk_size > 5 * 1024 or chunk_size <= 0:
+           raise BceClientError("chunk size is invalid, it should be more than 0 and not more than 5120!")
         if thread_num is None or thread_num <= 1:
            thread_num = multiprocessing.cpu_count()
         part_size = chunk_size * 1024 * 1024
@@ -3342,6 +3362,8 @@ class BosClient(BceBaseClient):
             body=None, headers=None, params=None,
             config=None, body_parser=None):
         bos_handler.validate_bucket_name(bucket_name)
+        if key is not None:
+            bos_handler.validate_object_key(key)
         config = self._merge_config(config, bucket_name)
 
         path = BosClient._get_path(config, bucket_name, key)
@@ -3351,6 +3373,10 @@ class BosClient(BceBaseClient):
         if config.security_token is not None:
             headers = headers or {}
             headers[http_headers.STS_SECURITY_TOKEN] = config.security_token
+
+        if config.request_payer is True:
+            headers = headers or {}
+            headers[http_headers.BOS_REQUEST_PAYER] = common.REQUEST_PAYER_REQUESTER
 
         last_exception = None
         e = None

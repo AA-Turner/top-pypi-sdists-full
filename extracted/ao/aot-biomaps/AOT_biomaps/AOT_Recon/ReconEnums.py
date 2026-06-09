@@ -65,6 +65,11 @@ class OptimizerType(Enum):
     Requires manual relaxation parameter tuning.
     Compatible with: histogram data, emission and transmission.
     """
+    FISTA = 'FISTA'
+    """
+    Fast Iterative Shrinkage-Thresholding Algorithm (FISTA).
+    Accelerated proximal gradient method for convex optimization problems.
+    """
     MAPEM = 'MAPEM'
     """
     Maximum A Posteriori Expectation Maximization.
@@ -101,12 +106,6 @@ class OptimizerType(Enum):
     """
     Limited-memory BFGS.
     Quasi-Newton optimization algorithm with regularization support.
-    Compatible with: differentiable potential functions (QUADRATIC, HUBER, RELATIVE_DIFFERENCE).
-    """
-    PIGD = 'PIGD'
-    """
-    Penalized Iterative Gradient Descent (PIGD).
-    Gradient-based optimization algorithm for penalized ML reconstruction. 
     Compatible with: differentiable potential functions (QUADRATIC, HUBER, RELATIVE_DIFFERENCE).
     """
 

@@ -17,7 +17,7 @@ from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_do
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1d\x63halk/server/v1/manager.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto"B\n\x1dGetClusterEnvironmentsRequest\x12!\n\x0c\x63luster_name\x18\x01 \x01(\tR\x0b\x63lusterName"I\n\x1eGetClusterEnvironmentsResponse\x12\'\n\x0f\x65nvironment_ids\x18\x01 \x03(\tR\x0e\x65nvironmentIds2\x94\x01\n\x0eManagerService\x12\x81\x01\n\x16GetClusterEnvironments\x12..chalk.server.v1.GetClusterEnvironmentsRequest\x1a/.chalk.server.v1.GetClusterEnvironmentsResponse"\x06\x90\x02\x01\x80}\x02\x42\x95\x01\n\x13\x63om.chalk.server.v1B\x0cManagerProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1d\x63halk/server/v1/manager.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto"B\n\x1dGetClusterEnvironmentsRequest\x12!\n\x0c\x63luster_name\x18\x01 \x01(\tR\x0b\x63lusterName"I\n\x1eGetClusterEnvironmentsResponse\x12\'\n\x0f\x65nvironment_ids\x18\x01 \x03(\tR\x0e\x65nvironmentIds"\x9a\x01\n\x1fTelemetryTimescaleKubeSecretRef\x12%\n\x0e\x65nvironment_id\x18\x01 \x01(\tR\renvironmentId\x12(\n\x10kube_secret_name\x18\x02 \x01(\tR\x0ekubeSecretName\x12&\n\x0fkube_secret_key\x18\x03 \x01(\tR\rkubeSecretKey"\x88\x01\n+ListTelemetryTimescaleKubeSecretRefsRequest\x12!\n\x0c\x63luster_name\x18\x01 \x01(\tR\x0b\x63lusterName\x12\x36\n\x17telemetry_deployment_id\x18\x02 \x01(\tR\x15telemetryDeploymentId"\x81\x01\n,ListTelemetryTimescaleKubeSecretRefsResponse\x12Q\n\x0bsecret_refs\x18\x01 \x03(\x0b\x32\x30.chalk.server.v1.TelemetryTimescaleKubeSecretRefR\nsecretRefs2\xc2\x02\n\x0eManagerService\x12\x81\x01\n\x16GetClusterEnvironments\x12..chalk.server.v1.GetClusterEnvironmentsRequest\x1a/.chalk.server.v1.GetClusterEnvironmentsResponse"\x06\x90\x02\x01\x80}\x02\x12\xab\x01\n$ListTelemetryTimescaleKubeSecretRefs\x12<.chalk.server.v1.ListTelemetryTimescaleKubeSecretRefsRequest\x1a=.chalk.server.v1.ListTelemetryTimescaleKubeSecretRefsResponse"\x06\x90\x02\x01\x80}\x0b\x42\x95\x01\n\x13\x63om.chalk.server.v1B\x0cManagerProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -30,10 +30,20 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\n\023com.chalk.server.v1B\014ManagerProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
     _globals["_MANAGERSERVICE"].methods_by_name["GetClusterEnvironments"]._options = None
     _globals["_MANAGERSERVICE"].methods_by_name["GetClusterEnvironments"]._serialized_options = b"\220\002\001\200}\002"
+    _globals["_MANAGERSERVICE"].methods_by_name["ListTelemetryTimescaleKubeSecretRefs"]._options = None
+    _globals["_MANAGERSERVICE"].methods_by_name[
+        "ListTelemetryTimescaleKubeSecretRefs"
+    ]._serialized_options = b"\220\002\001\200}\013"
     _globals["_GETCLUSTERENVIRONMENTSREQUEST"]._serialized_start = 83
     _globals["_GETCLUSTERENVIRONMENTSREQUEST"]._serialized_end = 149
     _globals["_GETCLUSTERENVIRONMENTSRESPONSE"]._serialized_start = 151
     _globals["_GETCLUSTERENVIRONMENTSRESPONSE"]._serialized_end = 224
-    _globals["_MANAGERSERVICE"]._serialized_start = 227
-    _globals["_MANAGERSERVICE"]._serialized_end = 375
+    _globals["_TELEMETRYTIMESCALEKUBESECRETREF"]._serialized_start = 227
+    _globals["_TELEMETRYTIMESCALEKUBESECRETREF"]._serialized_end = 381
+    _globals["_LISTTELEMETRYTIMESCALEKUBESECRETREFSREQUEST"]._serialized_start = 384
+    _globals["_LISTTELEMETRYTIMESCALEKUBESECRETREFSREQUEST"]._serialized_end = 520
+    _globals["_LISTTELEMETRYTIMESCALEKUBESECRETREFSRESPONSE"]._serialized_start = 523
+    _globals["_LISTTELEMETRYTIMESCALEKUBESECRETREFSRESPONSE"]._serialized_end = 652
+    _globals["_MANAGERSERVICE"]._serialized_start = 655
+    _globals["_MANAGERSERVICE"]._serialized_end = 977
 # @@protoc_insertion_point(module_scope)

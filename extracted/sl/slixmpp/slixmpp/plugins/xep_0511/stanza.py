@@ -20,7 +20,6 @@ Usage:
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
 
-import xml.etree.ElementTree as ET
 
 from slixmpp.stanza.message import Message
 from slixmpp.xmlstream import ElementBase, register_stanza_plugin

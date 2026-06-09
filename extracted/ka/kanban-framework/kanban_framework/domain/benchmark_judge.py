@@ -59,19 +59,36 @@ def _collect_dimensions(report_dir: Path) -> dict:
     return dimensions
 
 
+_ACCEPTANCE_STOP_WORDS = {
+    "的", "了", "是", "在", "和", "与", "或", "不", "都", "也",
+    "the", "a", "an", "is", "are", "be", "to", "of", "in", "and", "or",
+}
+
+
 def _match_acceptance(acceptance: list[str], report_dir: Path) -> list[dict]:
-    """Check each acceptance criterion against available sub-agent reports."""
+    """Check each acceptance criterion against available sub-agent reports.
+
+    Uses keyword overlap: splits criterion into meaningful words, checks if
+    enough appear in reports. Handles mixed Chinese/English acceptance text.
+    """
+    import re
+
     results = []
     report_texts = _collect_report_texts(report_dir)
+    combined = " ".join(report_texts).lower()
 
     for criterion in acceptance:
-        matched = False
-        criterion_lower = criterion.lower()
-        for text in report_texts:
-            # Check if the criterion's key terms appear in any report
-            if criterion_lower[:40] in text.lower():
-                matched = True
-                break
+        # Split into words: Chinese chars individually, English/latin words as groups
+        words = re.findall(r'[一-鿿]|[a-zA-Z0-9]{2,}', criterion.lower())
+        keywords = [w for w in words if w not in _ACCEPTANCE_STOP_WORDS]
+
+        if not keywords:
+            # Fallback: original substring check
+            matched = criterion.lower()[:30] in combined
+        else:
+            hits = sum(1 for w in keywords if w in combined)
+            matched = (hits / len(keywords)) >= 0.5
+
         results.append({"criterion": criterion, "matched": matched})
 
     return results
@@ -91,13 +108,58 @@ def _collect_report_texts(report_dir: Path) -> list[str]:
         for f in d.glob("*_report.json"):
             try:
                 data = json.loads(f.read_text())
-                # Re-serialize with ensure_ascii=False so non-ASCII characters
-                # (e.g. Chinese) are preserved for substring matching
+                # Serialize back with ensure_ascii=False so Chinese chars are
+                # preserved as-is for keyword/acronym/pattern matching
                 texts.append(json.dumps(data, ensure_ascii=False))
             except Exception:
                 pass
 
     return texts
+
+
+def score_search_quality(query: str, expected_ids: list[str], biz_tag: str = "") -> dict | None:
+    """Measure KB search quality against expected results.
+
+    Runs hybrid search with the query text, compares returned IDs against
+    expected_knowledge entries. Returns precision/recall/relevance metrics.
+    """
+    if not expected_ids:
+        return None
+
+    try:
+        from kanban_framework.infra.filesystem import Filesystem as FS
+        from kanban_framework.domain.knowledge import KnowledgeManager
+        root = FS.find_project_root()
+        fs = FS(root=root)
+        km = KnowledgeManager(fs, read_only=True)
+
+        # Run hybrid search with query
+        results = km.search_hybrid(query[:120], limit=20, biz_context=biz_tag or None)
+
+        returned_ids = {r["id"] for r in results}
+        expected_set = set(expected_ids)
+
+        relevant = returned_ids & expected_set
+        precision = len(relevant) / len(returned_ids) if returned_ids else 0.0
+        recall = len(relevant) / len(expected_set) if expected_set else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+
+        # Average relevance of matched results
+        relevance_scores = [r.get("relevance", 0) for r in results if r["id"] in relevant]
+        relevance_avg = round(sum(relevance_scores) / len(relevance_scores), 3) if relevance_scores else 0.0
+
+        return {
+            "query": query[:80],
+            "expected": sorted(expected_set),
+            "returned": sorted(returned_ids)[:10],
+            "hits": sorted(relevant),
+            "precision": round(precision, 3),
+            "recall": round(recall, 3),
+            "f1": round(f1, 3),
+            "relevance_avg": relevance_avg,
+        }
+    except Exception:
+        return None
 
 
 def _compute_aggregate_score(dimensions: dict) -> float:

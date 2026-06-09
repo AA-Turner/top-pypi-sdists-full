@@ -1,10 +1,7 @@
 # -*- encoding:utf-8 -*-
 
 import unittest
-from slixmpp.exceptions import IqTimeout
 from slixmpp.test import SlixTest
-import time
-import threading
 
 
 class TestStreamRoster(SlixTest):

@@ -28,6 +28,7 @@ __all__ = (
     "CmafEncryptionMethodType",
     "ContainerTypeType",
     "CustomAdTypeType",
+    "DashAudioTimelinePatternType",
     "DashCompactnessType",
     "DashDrmSignalingType",
     "DashPeriodTriggerType",
@@ -70,6 +71,7 @@ ContainerTypeType = Literal["CMAF", "ISM", "TS"]
 CustomAdTypeType = Literal[
     "ALTERNATE_CONTENT_OPPORTUNITY", "CHAPTER", "NETWORK", "PROGRAM", "UNSCHEDULED_EVENT"
 ]
+DashAudioTimelinePatternType = Literal["NONE", "PATTERNED"]
 DashCompactnessType = Literal["NONE", "STANDARD"]
 DashDrmSignalingType = Literal["INDIVIDUAL", "REFERENCED"]
 DashPeriodTriggerType = Literal[
@@ -110,7 +112,9 @@ PresetSpeke20VideoType = Literal[
 ScteFilterType = Literal[
     "ALTERNATE_CONTENT_OPPORTUNITY",
     "BREAK",
+    "CALL_AD_SERVER",
     "CHAPTER",
+    "CONTENT_IDENTIFICATION",
     "DISTRIBUTOR_ADVERTISEMENT",
     "DISTRIBUTOR_AD_BLOCK",
     "DISTRIBUTOR_OVERLAY_PLACEMENT_OPPORTUNITY",

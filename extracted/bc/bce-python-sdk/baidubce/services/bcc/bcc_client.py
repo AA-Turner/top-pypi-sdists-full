@@ -1093,6 +1093,7 @@ class BccClient(bce_base_client.BceBaseClient):
 
     def list_instances(self, marker=None, max_keys=None, internal_ip=None, dedicated_host_id=None,
                        zone_name=None, instance_ids=None, instance_names=None, cds_ids=None, ehc_cluster_id=None,
+                       show_rdma_topo=None,
                        deployset_ids=None, security_group_ids=None, payment_timing=None, status=None, tags=None,
                        vpc_id=None, private_ips=None, ipv6_addresses=None, auto_renew=None, fuzzy_instance_name=None,
                        config=None):
@@ -1138,6 +1139,10 @@ class BccClient(bce_base_client.BceBaseClient):
         :param ehc_cluster_id:
             get instance list filtered by id of ehc cluster
         :type ehc_cluster_id: string
+
+        :param show_rdma_topo:
+            filter instance list with rdma topology info
+        :type show_rdma_topo: boolean
 
         :param deployset_ids:
             filter instance list with multiple deployset ids join by ','
@@ -1205,6 +1210,8 @@ class BccClient(bce_base_client.BceBaseClient):
             params['cdsIds'] = cds_ids
         if ehc_cluster_id is not None:
             params['ehcClusterId'] = ehc_cluster_id
+        if show_rdma_topo is not None:
+            params['showRdmaTopo'] = show_rdma_topo
         if deployset_ids is not None:
             params['deploySetIds'] = deployset_ids
         if security_group_ids is not None:
@@ -2059,7 +2066,7 @@ class BccClient(bce_base_client.BceBaseClient):
                                     description=None, renew_time_unit=None, renew_time=None,
                                     cluster_id=None, relation_tag=False,
                                     tags=None, auto_snapshot_policy=None,
-                                    client_token=None, config=None, charge_type=None):
+                                    client_token=None, config=None, charge_type=None, enable_delete_protection=None):
         """
         Create a volume with the specified options.
         You can use this method to create a new empty volume by specified options
@@ -2145,6 +2152,10 @@ class BccClient(bce_base_client.BceBaseClient):
               If the instance is post paid, create a post paid CDS
         :type charge_type: menu{'Prepaid', 'Postpaid'}
 
+        :param enable_delete_protection:
+            The optional parameter to specify whether to enable delete protection.
+        :type enable_delete_protection: boolean
+
         :return:
         :rtype baidubce.bce_response.BceResponse
         """
@@ -2189,6 +2200,8 @@ class BccClient(bce_base_client.BceBaseClient):
             body['instanceId'] = instance_id
         if charge_type is not None:
             body['chargeType'] = charge_type
+        if enable_delete_protection is not None:
+            body['enableDeleteProtection'] = enable_delete_protection
         return self._send_request(http_methods.POST, path, json.dumps(body),
                                   params=params, config=config)
 
@@ -4151,7 +4164,7 @@ class BccClient(bce_base_client.BceBaseClient):
                                 hosteye_type=None, res_group_id=None, enable_ht=None, data_partition_type=None,
                                 root_partition_type=None, file_systems=None, disable_root_disk_serial=None,
                                 internal_ips=None, network_purchase_type=None, is_keep_image_login=None,
-                                reserved_instance=None, is_eip_auto_related_delete=None):
+                                reserved_instance=None, is_eip_auto_related_delete=None, enable_delete_protection=None):
         """
         Create a bcc Instance with the specified options.
         You must fill the field of clientToken,which is especially for keeping idempotent.
@@ -4419,6 +4432,10 @@ class BccClient(bce_base_client.BceBaseClient):
             The default value is False.
         :type is_eip_auto_related_delete: boolean
 
+        :param enable_delete_protection:
+            The optional parameter to specify whether to enable delete protection.
+        :type enable_delete_protection: boolean
+
         :return:
         :rtype baidubce.bce_response.BceResponse
         """
@@ -4546,6 +4563,8 @@ class BccClient(bce_base_client.BceBaseClient):
             body['keepImageLogin'] = is_keep_image_login
         if reserved_instance is not None:
             body['reservedInstance'] = reserved_instance
+        if enable_delete_protection is not None:
+            body['enableDeleteProtection'] = enable_delete_protection
         return self._send_request(http_methods.POST, path, json.dumps(body),
                                   params=params, config=config)
 
@@ -7234,6 +7253,30 @@ class BccClient(bce_base_client.BceBaseClient):
         }
         return self._send_request(http_methods.POST, path, json.dumps(body),
                                   params=params, config=config)
+
+    def modify_volume_delete_protection(self, volume_ids, enable_delete_protection, client_token=None, config=None):
+        """
+        modify_volume_delete_protection
+
+        :param volume_ids:
+            A list of volume ids.
+        :type volume_ids: list<bcc_model.VolumeIdModel>
+
+        :param enable_delete_protection:
+            enable_delete_protection
+        :type enable_delete_protection: bool
+        """
+        path = b'/volume/modifyDeleteProtection'
+        params = {}
+        if client_token is None:
+            params['clientToken'] = generate_client_token()
+        else:
+            params['clientToken'] = client_token
+        body = {
+            'volumeIds': volume_ids,
+            'enableDeleteProtection': enable_delete_protection
+        }
+        return self._send_request(http_methods.POST, path, json.dumps(body), params=params, config=config)
 
     def create_snapshot_share(self, snapshot_id, account_ids, client_token=None, config=None):
         """

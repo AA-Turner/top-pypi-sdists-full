@@ -38,6 +38,27 @@ def kurtosis(mu, sigma):
     return pt.full_like(shape, 0.0)
 
 
+def lmoment1(mu, sigma):
+    return mean(mu, sigma)
+
+
+def lmoment2(mu, sigma):
+    shape = pt.broadcast_arrays(mu, sigma)[0]
+    # sigma * sqrt(pi)
+    return pt.full_like(shape, sigma * 0.5641895835477563)
+
+
+def lmoment3(mu, sigma):
+    shape = pt.broadcast_arrays(mu, sigma)[0]
+    return pt.zeros_like(shape)
+
+
+def lmoment4(mu, sigma):
+    shape = pt.broadcast_arrays(mu, sigma)[0]
+    # \frac{30}{\pi} \arcsin(\frac{1}{2}) - \frac{9}{\sqrt{\pi}}$
+    return pt.full_like(shape, 0.122601719540890947)
+
+
 def entropy(mu, sigma):
     shape = pt.broadcast_arrays(mu, sigma)[0]
     return pt.full_like(shape, 0.5 * (pt.log(2 * pt.pi * pt.e * sigma**2)))
@@ -64,7 +85,7 @@ def sf(x, mu, sigma):
 
 
 def rvs(mu, sigma, size=None, random_state=None):
-    return pt.random.normal(mu, sigma, rng=random_state, size=size)
+    return pt.random.normal(mu, sigma, rng=random_state, size=size, return_next_rng=True)[1]
 
 
 def logcdf(x, mu, sigma):

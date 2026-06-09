@@ -11,33 +11,42 @@ from typing import List, Optional
 
 
 class RecordingSpawner:
-    """Captures spawn argv and hands back a scripted pid each call."""
+    """Captures the surface launch (argv + name + durable log_path) and returns a
+    scripted daemon cmux workspace ref."""
 
-    def __init__(self, pid: int = 4242) -> None:
+    def __init__(self, daemon_workspace: str = "workspace:42") -> None:
         self.calls: List[List[str]] = []
-        self._pid = pid
+        self.names: List[str] = []
+        self.log_paths: List[Optional[str]] = []
+        self._daemon_workspace = daemon_workspace
 
-    def spawn(self, argv: List[str]) -> int:
+    def spawn(
+        self, argv: List[str], *, name: str, log_path: Optional[str] = None
+    ) -> str:
         self.calls.append(list(argv))
-        return self._pid
+        self.names.append(name)
+        self.log_paths.append(log_path)
+        return self._daemon_workspace
 
 
 class FakeLiveness:
-    """Liveness probe with an explicit live-pid set."""
+    """Liveness probe with an explicit set of live daemon workspace refs."""
 
     def __init__(self, alive: Optional[set] = None) -> None:
         self.alive = set(alive or ())
 
-    def is_alive(self, pid: int) -> bool:
-        return pid in self.alive
+    def is_alive(self, daemon_workspace: str) -> bool:
+        return daemon_workspace in self.alive
 
 
-class RecordingSignaller:
+class RecordingCloser:
+    """Records the daemon workspace refs asked to close (cmux close-workspace)."""
+
     def __init__(self) -> None:
-        self.calls: List[tuple] = []
+        self.calls: List[str] = []
 
-    def signal(self, pid: int, sig: int) -> None:
-        self.calls.append((pid, sig))
+    def close(self, daemon_workspace: str) -> None:
+        self.calls.append(daemon_workspace)
 
 
 class StubGate:

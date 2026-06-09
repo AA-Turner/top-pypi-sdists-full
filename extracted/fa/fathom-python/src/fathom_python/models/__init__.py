@@ -36,6 +36,7 @@ if TYPE_CHECKING:
         GetRecordingTranscriptResponseBodyTypedDict,
         GetRecordingTranscriptResponseTypedDict,
     )
+    from .highlight import Highlight, HighlightTypedDict
     from .invitee import Invitee, InviteeTypedDict
     from .listmeetingsop import (
         ListMeetingsCalendarInviteesDomainsType,
@@ -120,6 +121,8 @@ __all__ = [
     "GetRecordingTranscriptResponseBody",
     "GetRecordingTranscriptResponseBodyTypedDict",
     "GetRecordingTranscriptResponseTypedDict",
+    "Highlight",
+    "HighlightTypedDict",
     "Invitee",
     "InviteeTypedDict",
     "ListMeetingTypesRequest",
@@ -203,6 +206,8 @@ _dynamic_imports: dict[str, str] = {
     "GetRecordingTranscriptResponseBody": ".getrecordingtranscriptop",
     "GetRecordingTranscriptResponseBodyTypedDict": ".getrecordingtranscriptop",
     "GetRecordingTranscriptResponseTypedDict": ".getrecordingtranscriptop",
+    "Highlight": ".highlight",
+    "HighlightTypedDict": ".highlight",
     "Invitee": ".invitee",
     "InviteeTypedDict": ".invitee",
     "ListMeetingsCalendarInviteesDomainsType": ".listmeetingsop",

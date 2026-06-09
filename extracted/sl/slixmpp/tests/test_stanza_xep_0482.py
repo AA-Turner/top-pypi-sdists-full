@@ -4,7 +4,6 @@ from slixmpp.jid import JID
 from slixmpp.test import SlixTest
 from slixmpp.plugins.xep_0482 import stanza
 from slixmpp.plugins.xep_0482.stanza import External, Jingle
-from slixmpp.xmlstream import register_stanza_plugin
 
 
 class TestCallInviteStanza(SlixTest):

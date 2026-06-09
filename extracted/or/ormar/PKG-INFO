@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ormar
-Version: 0.25.0
+Version: 0.26.0
 Summary: An async ORM with fastapi in mind and pydantic validation.
 License: MIT
 License-File: LICENSE.md
@@ -26,7 +26,6 @@ Provides-Extra: aiopg
 Provides-Extra: all
 Provides-Extra: crypto
 Provides-Extra: mysql
-Provides-Extra: orjson
 Provides-Extra: postgres
 Provides-Extra: postgresql
 Provides-Extra: sqlite
@@ -38,10 +37,10 @@ Requires-Dist: aiosqlite (>=0.19,<0.23) ; extra == "sqlite" or extra == "all"
 Requires-Dist: asyncpg (>=0.28,<0.32) ; extra == "postgresql" or extra == "postgres" or extra == "all"
 Requires-Dist: cryptography (>=44.0.1,<49.0.0) ; extra == "crypto" or extra == "all"
 Requires-Dist: mysqlclient (>=2.1.0,<3.0.0) ; extra == "all"
-Requires-Dist: orjson (>=3.6.4) ; extra == "orjson" or extra == "all"
-Requires-Dist: ormar-utils (>=0.1.1)
+Requires-Dist: orjson (>=3.6.4)
+Requires-Dist: ormar-utils (>=0.2.0)
 Requires-Dist: psycopg2-binary (>=2.9.1,<3.0.0) ; extra == "postgresql" or extra == "postgres" or extra == "aiopg" or extra == "all"
-Requires-Dist: pydantic (>=2.11.9,<3.0.0)
+Requires-Dist: pydantic (>=2.11.9,<2.14)
 Project-URL: Documentation, https://ormar-orm.github.io/ormar/
 Project-URL: Homepage, https://github.com/ormar-orm/ormar
 Project-URL: Repository, https://github.com/ormar-orm/ormar

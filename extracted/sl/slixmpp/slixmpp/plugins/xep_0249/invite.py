@@ -5,7 +5,6 @@
 # See the file LICENSE for copying permission.
 import logging
 
-import slixmpp
 from slixmpp import Message, JID
 from slixmpp.plugins import BasePlugin
 from slixmpp.xmlstream import register_stanza_plugin

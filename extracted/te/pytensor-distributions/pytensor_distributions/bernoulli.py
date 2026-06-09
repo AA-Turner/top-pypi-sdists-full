@@ -1,5 +1,5 @@
 import pytensor.tensor as pt
-from pytensor.tensor.xlogx import xlogx
+from pytensor.tensor.special import xlogy
 
 from pytensor_distributions.helper import cdf_bounds, ppf_bounds_disc
 
@@ -33,13 +33,29 @@ def kurtosis(p):
     return (1 - 6 * p * (1 - p)) / (p * (1 - p))
 
 
+def lmoment1(p):
+    return mean(p)
+
+
+def lmoment2(p):
+    return p * (1 - p)
+
+
+def lmoment3(p):
+    return 1 - 2 * p
+
+
+def lmoment4(p):
+    return 1 - 5 * p * (1 - p)
+
+
 def entropy(p):
     q = 1 - p
-    return -xlogx(p) - xlogx(q)
+    return -xlogy(p, p) - xlogy(q, q)
 
 
 def rvs(p, size=None, random_state=None):
-    return pt.random.binomial(1, p, size=size, rng=random_state)
+    return pt.random.binomial(1, p, size=size, rng=random_state, return_next_rng=True)[1]
 
 
 def cdf(x, p):

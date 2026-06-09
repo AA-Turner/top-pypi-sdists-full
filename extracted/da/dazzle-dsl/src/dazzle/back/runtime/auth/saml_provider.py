@@ -12,14 +12,19 @@ and comment-truncation are the library's concern, not hand-rolled here.
 
 python3-saml needs the native ``libxmlsec1`` and lives in the ``[saml]`` extra; it is
 imported lazily inside ``_build_auth`` so the rest of the framework is unaffected until a
-SAML connection is actually exercised. Replay protection: ``initiate`` stashes the
-AuthnRequest id in the session and ``callback`` passes it to ``process_response`` so an
-unsolicited/replayed Response is rejected (InResponseTo).
+SAML connection is actually exercised. Replay protection: SP-initiated flows stash the
+AuthnRequest id in the session and ``callback`` passes it to ``process_response``, which
+enforces the InResponseTo↔request-id match (one-time, since the id is popped). The opt-in
+IdP-initiated path (``allow_idp_initiated``) has no such binding, so it enforces one-time
+assertion consumption instead (the ``saml_consumed_assertions`` cache). There is NO library
+"reject unsolicited" setting — python3-saml only checks InResponseTo when given a request id.
 """
 
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from dazzle.back.runtime.auth.connections import (
@@ -33,8 +38,19 @@ _logger = logging.getLogger(__name__)
 
 # One stable ACS (Assertion Consumer Service) URL per app — registered with the IdP.
 _ACS_PATH = "/auth/saml/acs"
+# One stable SLS (Single Logout Service) URL per app — for IdP-initiated SLO (#1342 A).
+_SLS_PATH = "/auth/saml/sls"
 # Session key carrying the AuthnRequest id across the IdP round-trip (InResponseTo).
 _SESSION_REQUEST_ID = "saml_request_id"
+
+
+@dataclass(frozen=True)
+class SamlLogout:
+    """Outcome of processing an IdP ``LogoutRequest`` at the SLS (#1342 A)."""
+
+    name_id: str | None  # subject NameID (email, lowercased) — trustworthy only post-validation
+    redirect_url: str | None  # LogoutResponse redirect back to the IdP, or None
+
 
 _NAMEID_EMAIL = "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
 _BINDING_POST = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
@@ -104,17 +120,17 @@ class NativeSAMLProvider:
                 "wantAssertionsSigned": True,
                 "wantNameId": True,
                 "requestedAuthnContext": False,
-                # Reject a Response that omits InResponseTo (an unsolicited / IdP-initiated
-                # response) — we only accept SP-initiated flows we started, so a replayed
-                # or attacker-crafted unsolicited assertion can't be consumed.
-                "rejectUnsolicitedResponsesWithInResponseTo": True,
             },
         }
+        # Replay protection is NOT a python3-saml setting (the library only enforces the
+        # InResponseTo↔request_id match when we pass a non-None request_id — response.py).
+        # So the SP side owns it: SP-initiated flows pin InResponseTo to the one-time
+        # session-stashed AuthnRequest id (callback), and the opt-in IdP-initiated path
+        # enforces one-time assertion consumption (the saml_consumed_assertions cache).
         # SP-signed AuthnRequests (#1342, feature C): when this connection has a stored SP
         # keypair + the sign_requests flag, give python3-saml the key/cert and ask it to
         # sign the AuthnRequest. This is ADDITIVE — the assertion-signature requirement
-        # (wantAssertionsSigned) and unsolicited-response rejection above are unchanged, so
-        # the Response signature remains the trust anchor.
+        # (wantAssertionsSigned) is unchanged, so the Response signature remains the trust anchor.
         sp_cert = cfg.get("sp_cert")
         sp_key = (connection.secrets or {}).get("sp_private_key")
         if cfg.get("sign_requests") and sp_cert and sp_key:
@@ -125,6 +141,15 @@ class NativeSAMLProvider:
                 "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"
             )
             settings["security"]["digestAlgorithm"] = "http://www.w3.org/2001/04/xmlenc#sha256"
+        # Encrypted assertions (#1342, feature B): when enabled + keypair present, require
+        # the assertion to be encrypted and give python3-saml the key to decrypt it. Shares
+        # the keypair the sign_requests block may already have installed (set idempotently).
+        # A plaintext assertion is then rejected — strict by design (operator enables the
+        # IdP-side encryption first; the CLI warns).
+        if cfg.get("encrypt_assertions") and sp_cert and sp_key:
+            settings["sp"]["x509cert"] = sp_cert
+            settings["sp"]["privateKey"] = sp_key
+            settings["security"]["wantAssertionsEncrypted"] = True
         return settings
 
     def _request_data(
@@ -165,20 +190,36 @@ class NativeSAMLProvider:
             "sp": {
                 "entityId": entity,
                 "assertionConsumerService": {"url": acs, "binding": _BINDING_POST},
+                # Advertise the SLS so an importing IdP knows where to send LogoutRequests
+                # (IdP-initiated SLO, #1342 A). App-level + single-stable-URL, like the ACS.
+                "singleLogoutService": {
+                    "url": self._sls_url(request),
+                    "binding": _BINDING_REDIRECT,
+                },
                 "NameIDFormat": _NAMEID_EMAIL,
             },
         }
         if connection is not None:
             cfg = connection.config or {}
             sp_key = (connection.secrets or {}).get("sp_private_key")
-            if cfg.get("sign_requests") and cfg.get("sp_cert") and sp_key:
-                # python3-saml requires BOTH cert + key in the settings to validate an
-                # authnRequestsSigned SP — but the generated metadata XML carries only the
-                # public cert (a signing KeyDescriptor); the private key never appears in
-                # the output. The route loads the connection with secrets decrypted.
+            wants_key = cfg.get("sign_requests") or cfg.get("encrypt_assertions")
+            if wants_key and cfg.get("sp_cert") and sp_key:
+                # python3-saml requires BOTH cert + key in the settings; the generated
+                # metadata XML carries only the public cert (never the private key).
                 settings["sp"]["x509cert"] = cfg["sp_cert"]
                 settings["sp"]["privateKey"] = sp_key
-                settings["security"] = {"authnRequestsSigned": True}
+                security: dict[str, Any] = {}
+                # authnRequestsSigned drives the AuthnRequestsSigned metadata attr + signing
+                # KeyDescriptor; only when signing is actually on.
+                if cfg.get("sign_requests"):
+                    security["authnRequestsSigned"] = True
+                # get_sp_metadata adds the use="encryption" KeyDescriptor ONLY when
+                # wantAssertionsEncrypted (or wantNameIdEncrypted) is set — the cert alone
+                # is not enough — so set it to advertise the SP encryption cert to the IdP.
+                if cfg.get("encrypt_assertions"):
+                    security["wantAssertionsEncrypted"] = True
+                if security:
+                    settings["security"] = security
         return settings
 
     def _build_sp_settings(self, settings: dict[str, Any]) -> Any:
@@ -243,19 +284,28 @@ class NativeSAMLProvider:
         request_id = (
             request.session.pop(_SESSION_REQUEST_ID, None) if hasattr(request, "session") else None
         )
-        if not request_id:
-            # No stashed AuthnRequest id → this is an unsolicited / replayed / lost-session
-            # response. Passing request_id=None would make python3-saml SKIP the
-            # InResponseTo check (not enforce it), so we refuse SP-side: only a flow we
-            # started (with its id in the session) is accepted.
+        allow_idp_initiated = (
+            str((connection.config or {}).get("allow_idp_initiated", "")).lower() == "true"
+        )
+        if not request_id and not allow_idp_initiated:
+            # No stashed AuthnRequest id and this connection has NOT opted into IdP-initiated →
+            # unsolicited / replayed / lost-session response. Passing request_id=None would make
+            # python3-saml SKIP the InResponseTo check, so we refuse: only a flow we started
+            # (its id in the session) is accepted.
             raise ConnectionError(
                 f"SAML connection {connection.id!r}: no AuthnRequest id in session — "
                 "only SP-initiated flows are accepted (unsolicited/replayed responses refused)"
             )
+        idp_initiated = not request_id  # implies allow_idp_initiated (guarded above)
 
-        # request_id pins InResponseTo. Library validation failures are recorded in
-        # get_errors(); malformed input (bad base64/XML) can RAISE — normalize either to
-        # a clean refusal so a bad response never yields an identity or a 500 stack trace.
+        # request_id pins InResponseTo (None on the opted-in IdP-initiated path). python3-saml
+        # only enforces the InResponseTo↔request_id match when request_id is non-None, so on the
+        # IdP-initiated path that binding is intentionally absent — signature/audience/recipient/
+        # conditions are STILL enforced, and replay is closed by one-time assertion consumption
+        # below (NOT by any library "reject unsolicited" setting — that isn't a real python3-saml
+        # option). Library validation failures are recorded in get_errors(); malformed input (bad
+        # base64/XML) can RAISE — normalize either to a clean refusal so a bad response never
+        # yields an identity or a 500 stack trace.
         try:
             auth.process_response(request_id=request_id)
             errors = auth.get_errors()
@@ -271,6 +321,12 @@ class NativeSAMLProvider:
                 f"SAML connection {connection.id!r}: response validation failed ({errors})"
             )
 
+        if idp_initiated:
+            # The IdP-initiated path lacks the one-time session request-id replay defense, so
+            # enforce one-time assertion consumption instead. The assertion's other guarantees
+            # (signature/audience/conditions) were validated by process_response above.
+            self._enforce_idp_initiated_replay(connection, request, auth)
+
         attributes = auth.get_attributes() or {}
         email = self._extract_email(connection, auth, attributes)
         if not email:
@@ -281,6 +337,35 @@ class NativeSAMLProvider:
         return AssertedIdentity(
             email=email, attributes=attributes, groups=groups, claims_source="saml_assertion"
         )
+
+    def _enforce_idp_initiated_replay(
+        self, connection: ConnectionRecord, request: Any, auth: Any
+    ) -> None:
+        """One-time-use guard for an IdP-initiated assertion: reject if its id was already consumed
+        within its validity window (replay). Refuses if the assertion carries no id (can't protect)."""
+        assertion_id = auth.get_last_assertion_id()
+        if not assertion_id:
+            raise ConnectionError(
+                f"SAML connection {connection.id!r}: IdP-initiated assertion had no id — "
+                "cannot replay-protect, refusing"
+            )
+        # The assertion's NotOnOrAfter bounds the replay window; fall back to a short window if the
+        # IdP omitted it (process_response already validated conditions, so this is belt-and-braces).
+        expires_at = (
+            auth.get_last_assertion_not_on_or_after()
+            or (datetime.now(UTC) + timedelta(minutes=10)).isoformat()
+        )
+        store = request.app.state.auth_store
+        if not store.record_consumed_assertion(
+            str(assertion_id),
+            connection_id=connection.id,
+            tenant_id=connection.tenant_id,
+            expires_at=str(expires_at),
+        ):
+            raise ConnectionError(
+                f"SAML connection {connection.id!r}: SAML assertion already consumed "
+                "(IdP-initiated replay refused)"
+            )
 
     def _extract_email(
         self, connection: ConnectionRecord, auth: Any, attributes: dict[str, Any]
@@ -295,11 +380,111 @@ class NativeSAMLProvider:
     def _extract_groups(
         self, connection: ConnectionRecord, attributes: dict[str, Any]
     ) -> list[str]:
+        # Group overage (#1342 schools-gap): when a user is in too many groups (Entra caps the
+        # SAML groups claim at 150) the IdP OMITS the groups and emits a `…groups.link` overage
+        # indicator pointing at Graph instead. The member then arrives with no groups → no
+        # group-derived roles, silently. Log loudly rather than under-grant without a signal.
+        if any(str(k).lower().endswith("groups.link") for k in attributes):
+            _logger.warning(  # nosemgrep
+                "SAML connection %s: group overage — the IdP truncated the groups claim "
+                "(too many groups); this member's group-derived roles may be incomplete. Use "
+                "IdP app-role assignment or reduce the group count for this app.",
+                connection.id,
+            )
         attr = (connection.config or {}).get("groups_attribute") or _DEFAULT_GROUPS_ATTR
         raw = attributes.get(attr) or []
         if isinstance(raw, (list, tuple)):
             return [str(g).strip() for g in raw if g is not None and str(g).strip()]
         return [str(raw).strip()] if str(raw).strip() else []
+
+    # ---- Single Logout (IdP-initiated, #1342 feature A) ----
+
+    def _sls_url(self, request: Any) -> str:
+        return f"{str(request.base_url).rstrip('/')}{_SLS_PATH}"
+
+    def _slo_settings(self, connection: ConnectionRecord, request: Any) -> dict[str, Any]:
+        """Settings for processing an IdP ``LogoutRequest``: the standard SP/IdP blocks plus
+        the SLS endpoints and ``wantMessagesSigned`` (reject an unsigned/forged
+        LogoutRequest — the load-bearing anti-forgery control; python3-saml validates the
+        signature against ``idp.x509cert``). Signs the LogoutResponse when this connection
+        has request-signing enabled (reuses feature C's SP keypair)."""
+        settings = self._settings(connection, request)
+        cfg = connection.config or {}
+        settings["sp"]["singleLogoutService"] = {
+            "url": self._sls_url(request),
+            "binding": _BINDING_REDIRECT,
+        }
+        if cfg.get("idp_slo_url"):
+            settings["idp"]["singleLogoutService"] = {
+                "url": cfg["idp_slo_url"],
+                "binding": _BINDING_REDIRECT,
+            }
+        settings["security"]["wantMessagesSigned"] = True
+        sp_cert = cfg.get("sp_cert")
+        sp_key = (connection.secrets or {}).get("sp_private_key")
+        if cfg.get("sign_requests") and sp_cert and sp_key:
+            settings["sp"]["x509cert"] = sp_cert
+            settings["sp"]["privateKey"] = sp_key
+            settings["security"]["logoutRequestSigned"] = True
+            settings["security"]["logoutResponseSigned"] = True
+        return settings
+
+    def _logout_request_nameid(self, saml_request: str) -> str | None:
+        """Extract the subject NameID from a Redirect-binding ``LogoutRequest``. Isolated as
+        a seam (like ``_build_auth``) so tests can fake it without real signed XML. ONLY the
+        caller's post-validation use makes this trustworthy — never act on it before
+        ``process_slo`` reports no errors."""
+        if not saml_request:
+            return None
+        from onelogin.saml2.logout_request import OneLogin_Saml2_Logout_Request
+        from onelogin.saml2.utils import OneLogin_Saml2_Utils
+
+        xml = OneLogin_Saml2_Utils.decode_base64_and_inflate(saml_request)
+        nameid: str | None = OneLogin_Saml2_Logout_Request.get_nameid(xml)
+        return nameid
+
+    def process_logout(self, connection: ConnectionRecord, request: Any) -> SamlLogout:
+        """Validate an IdP ``LogoutRequest`` (signature, via ``process_slo``) and return the
+        subject NameID + the LogoutResponse redirect. Raises ``ConnectionError`` on ANY
+        validation error — fail-closed; the caller must not touch a session in that case."""
+        settings = self._slo_settings(connection, request)
+        request_data = self._request_data(request)
+        auth = self._build_auth(request_data, settings)
+        try:
+            redirect_url = auth.process_slo(keep_local_session=True)
+            errors = auth.get_errors()
+        except ConnectionError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — any library failure ⇒ refuse, never act
+            raise ConnectionError(
+                f"SAML connection {connection.id!r}: logout validation failed ({exc})"
+            ) from exc
+        if errors:
+            raise ConnectionError(
+                f"SAML connection {connection.id!r}: logout validation failed ({errors})"
+            )
+        # The NameID is trustworthy ONLY now — after process_slo verified the signature.
+        saml_request = (request_data.get("get_data") or {}).get("SAMLRequest", "")
+        name_id = self._logout_request_nameid(saml_request)
+        return SamlLogout(
+            name_id=(name_id or "").strip().lower() or None, redirect_url=redirect_url
+        )
+
+    def _post_logout_url(self, request: Any) -> str:
+        return f"{str(request.base_url).rstrip('/')}/"
+
+    def initiate_logout(self, connection: ConnectionRecord, request: Any, *, name_id: str) -> str:
+        """Build an SP-initiated ``LogoutRequest`` and return the redirect to the IdP SLO
+        (#1342 SP-SLO). Signs the request when request-signing is on (reuses ``_slo_settings``
+        / feature C's keypair). Raises ``ConnectionError`` when the connection has no
+        ``idp_slo_url`` — the caller falls back to plain local logout."""
+        if not (connection.config or {}).get("idp_slo_url"):
+            raise ConnectionError(
+                f"SAML connection {connection.id!r}: no idp_slo_url — cannot SP-initiate logout"
+            )
+        settings = self._slo_settings(connection, request)
+        auth = self._build_auth(self._request_data(request), settings)
+        return str(auth.logout(name_id=name_id, return_to=self._post_logout_url(request)))
 
 
 def register_native_saml() -> None:

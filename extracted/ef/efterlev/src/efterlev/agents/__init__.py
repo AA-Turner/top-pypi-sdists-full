@@ -31,6 +31,7 @@ from efterlev.agents.gap import (
     GapReport,
     KsiClassification,
     UnmappedFinding,
+    detector_covered_ksis,
     in_scope_evidence,
 )
 from efterlev.agents.remediation import (
@@ -57,6 +58,7 @@ __all__ = [
     "RemediationProposal",
     "UnmappedFinding",
     "count_duplicate_classification_runs",
+    "detector_covered_ksis",
     "format_evidence_for_prompt",
     "format_source_files_for_prompt",
     "in_scope_evidence",

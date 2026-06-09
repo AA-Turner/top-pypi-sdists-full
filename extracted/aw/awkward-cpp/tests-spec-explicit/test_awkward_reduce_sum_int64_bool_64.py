@@ -8,8 +8,9 @@ def test_awkward_reduce_sum_int64_bool_64_1():
 	lenparents = 0
 	outlength = 0
 	parents = []
+	offsets = []
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = []
 	assert toptr == pytest_toptr
 
@@ -20,8 +21,9 @@ def test_awkward_reduce_sum_int64_bool_64_2():
 	lenparents = 1
 	outlength = 1
 	parents = [0]
+	offsets = [0, 1]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [0]
 	assert toptr == pytest_toptr
 
@@ -32,8 +34,9 @@ def test_awkward_reduce_sum_int64_bool_64_3():
 	lenparents = 15
 	outlength = 10
 	parents = [0, 5, 5, 1, 6, 6, 2, 7, 7, 3, 8, 8, 4, 9, 9]
+	offsets = [0, 1, 2, 3, 4, 5, 7, 9, 11, 13, 15]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [0, 1, 1, 1, 1, 2, 2, 2, 2, 2]
 	assert toptr == pytest_toptr
 
@@ -44,8 +47,9 @@ def test_awkward_reduce_sum_int64_bool_64_4():
 	lenparents = 9
 	outlength = 6
 	parents = [0, 0, 0, 2, 2, 3, 4, 4, 5]
+	offsets = [0, 3, 3, 5, 6, 8, 9]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [3, 0, 2, 1, 2, 1]
 	assert toptr == pytest_toptr
 
@@ -56,8 +60,9 @@ def test_awkward_reduce_sum_int64_bool_64_5():
 	lenparents = 6
 	outlength = 4
 	parents = [0, 0, 0, 2, 2, 3]
+	offsets = [0, 3, 3, 5, 6]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 0, 1, 0]
 	assert toptr == pytest_toptr
 
@@ -68,8 +73,9 @@ def test_awkward_reduce_sum_int64_bool_64_6():
 	lenparents = 15
 	outlength = 3
 	parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]
+	offsets = [0, 5, 10, 15]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [4, 5, 5]
 	assert toptr == pytest_toptr
 
@@ -80,8 +86,9 @@ def test_awkward_reduce_sum_int64_bool_64_7():
 	lenparents = 30
 	outlength = 6
 	parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5]
+	offsets = [0, 5, 10, 15, 20, 25, 30]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [4, 5, 5, 5, 5, 5]
 	assert toptr == pytest_toptr
 
@@ -92,8 +99,9 @@ def test_awkward_reduce_sum_int64_bool_64_8():
 	lenparents = 6
 	outlength = 4
 	parents = [0, 0, 1, 3, 3, 3]
+	offsets = [0, 2, 3, 3, 6]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 1, 0, 3]
 	assert toptr == pytest_toptr
 
@@ -104,8 +112,9 @@ def test_awkward_reduce_sum_int64_bool_64_9():
 	lenparents = 20
 	outlength = 10
 	parents = [0, 0, 0, 5, 5, 1, 1, 6, 6, 2, 2, 7, 7, 3, 8, 8, 4, 4, 4, 9]
+	offsets = [0, 3, 5, 7, 8, 11, 13, 15, 17, 19, 20]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [2, 2, 2, 1, 3, 2, 2, 2, 2, 1]
 	assert toptr == pytest_toptr
 
@@ -116,8 +125,9 @@ def test_awkward_reduce_sum_int64_bool_64_10():
 	lenparents = 15
 	outlength = 15
 	parents = [0, 5, 10, 1, 6, 11, 2, 7, 12, 3, 8, 13, 4, 9, 14]
+	offsets = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 	assert toptr == pytest_toptr
 
@@ -128,8 +138,9 @@ def test_awkward_reduce_sum_int64_bool_64_11():
 	lenparents = 20
 	outlength = 15
 	parents = [0, 0, 5, 10, 10, 1, 1, 11, 11, 2, 2, 12, 12, 3, 8, 13, 4, 9, 14, 14]
+	offsets = [0, 2, 4, 6, 7, 8, 9, 9, 9, 10, 11, 13, 15, 17, 18, 20]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 2, 2, 1, 1, 1, 0, 0, 1, 1, 2, 2, 2, 1, 2]
 	assert toptr == pytest_toptr
 
@@ -140,8 +151,9 @@ def test_awkward_reduce_sum_int64_bool_64_12():
 	lenparents = 30
 	outlength = 15
 	parents = [0, 0, 5, 5, 10, 10, 1, 1, 6, 6, 11, 11, 2, 2, 7, 7, 12, 12, 3, 3, 8, 8, 13, 13, 4, 4, 9, 9, 14, 14]
+	offsets = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
 	assert toptr == pytest_toptr
 
@@ -152,8 +164,9 @@ def test_awkward_reduce_sum_int64_bool_64_13():
 	lenparents = 30
 	outlength = 10
 	parents = [0, 0, 0, 5, 5, 5, 1, 1, 1, 6, 6, 6, 2, 2, 2, 7, 7, 7, 3, 3, 3, 8, 8, 8, 4, 4, 4, 9, 9, 9]
+	offsets = [0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [2, 3, 3, 3, 3, 3, 3, 3, 3, 3]
 	assert toptr == pytest_toptr
 
@@ -164,8 +177,9 @@ def test_awkward_reduce_sum_int64_bool_64_14():
 	lenparents = 12
 	outlength = 3
 	parents = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2]
+	offsets = [0, 4, 8, 12]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [4, 4, 0]
 	assert toptr == pytest_toptr
 
@@ -176,8 +190,9 @@ def test_awkward_reduce_sum_int64_bool_64_15():
 	lenparents = 10
 	outlength = 2
 	parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
+	offsets = [0, 5, 10]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [5, 5]
 	assert toptr == pytest_toptr
 
@@ -188,8 +203,9 @@ def test_awkward_reduce_sum_int64_bool_64_16():
 	lenparents = 6
 	outlength = 1
 	parents = [0, 0, 0, 0, 0, 0]
+	offsets = [0, 6]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [6]
 	assert toptr == pytest_toptr
 
@@ -200,8 +216,9 @@ def test_awkward_reduce_sum_int64_bool_64_17():
 	lenparents = 9
 	outlength = 8
 	parents = [0, 0, 0, 6, 6, 1, 1, 7, 2]
+	offsets = [0, 3, 5, 6, 6, 6, 6, 8, 9]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [3, 2, 1, 0, 0, 0, 2, 1]
 	assert toptr == pytest_toptr
 
@@ -212,8 +229,9 @@ def test_awkward_reduce_sum_int64_bool_64_18():
 	lenparents = 12
 	outlength = 4
 	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3]
+	offsets = [0, 3, 6, 9, 12]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [2, 2, 2, 2]
 	assert toptr == pytest_toptr
 
@@ -224,8 +242,9 @@ def test_awkward_reduce_sum_int64_bool_64_19():
 	lenparents = 6
 	outlength = 4
 	parents = [0, 0, 0, 2, 2, 3]
+	offsets = [0, 3, 3, 5, 6]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [2, 0, 2, 1]
 	assert toptr == pytest_toptr
 
@@ -236,8 +255,9 @@ def test_awkward_reduce_sum_int64_bool_64_20():
 	lenparents = 6
 	outlength = 4
 	parents = [0, 0, 1, 1, 1, 3]
+	offsets = [0, 2, 5, 5, 6]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 3, 0, 1]
 	assert toptr == pytest_toptr
 
@@ -248,8 +268,9 @@ def test_awkward_reduce_sum_int64_bool_64_21():
 	lenparents = 10
 	outlength = 2
 	parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
+	offsets = [0, 5, 10]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [5, 5]
 	assert toptr == pytest_toptr
 
@@ -260,8 +281,9 @@ def test_awkward_reduce_sum_int64_bool_64_22():
 	lenparents = 10
 	outlength = 2
 	parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
+	offsets = [0, 5, 10]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [5, 5]
 	assert toptr == pytest_toptr
 
@@ -272,8 +294,9 @@ def test_awkward_reduce_sum_int64_bool_64_23():
 	lenparents = 15
 	outlength = 10
 	parents = [0, 0, 5, 1, 1, 6, 2, 2, 7, 3, 3, 8, 4, 4, 9]
+	offsets = [0, 2, 4, 6, 8, 10, 11, 12, 13, 14, 15]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [1, 2, 2, 2, 2, 1, 1, 1, 1, 1]
 	assert toptr == pytest_toptr
 
@@ -284,8 +307,9 @@ def test_awkward_reduce_sum_int64_bool_64_24():
 	lenparents = 15
 	outlength = 5
 	parents = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4]
+	offsets = [0, 3, 6, 9, 12, 15]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [3, 3, 3, 3, 3]
 	assert toptr == pytest_toptr
 
@@ -296,8 +320,9 @@ def test_awkward_reduce_sum_int64_bool_64_25():
 	lenparents = 3
 	outlength = 1
 	parents = [0, 0, 0]
+	offsets = [0, 3]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [3]
 	assert toptr == pytest_toptr
 
@@ -308,8 +333,9 @@ def test_awkward_reduce_sum_int64_bool_64_26():
 	lenparents = 20
 	outlength = 6
 	parents = [0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 5, 5, 5, 5, 5]
+	offsets = [0, 4, 7, 11, 15, 15, 20]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [3, 3, 4, 4, 0, 5]
 	assert toptr == pytest_toptr
 
@@ -320,8 +346,9 @@ def test_awkward_reduce_sum_int64_bool_64_27():
 	lenparents = 5
 	outlength = 3
 	parents = [0, 0, 0, 2, 2]
+	offsets = [0, 3, 3, 5]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [3, 0, 2]
 	assert toptr == pytest_toptr
 
@@ -332,8 +359,9 @@ def test_awkward_reduce_sum_int64_bool_64_28():
 	lenparents = 15
 	outlength = 3
 	parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]
+	offsets = [0, 5, 10, 15]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [5, 5, 5]
 	assert toptr == pytest_toptr
 
@@ -344,8 +372,9 @@ def test_awkward_reduce_sum_int64_bool_64_29():
 	lenparents = 10
 	outlength = 2
 	parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
+	offsets = [0, 5, 10]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [4, 4]
 	assert toptr == pytest_toptr
 
@@ -356,8 +385,9 @@ def test_awkward_reduce_sum_int64_bool_64_30():
 	lenparents = 10
 	outlength = 2
 	parents = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1]
+	offsets = [0, 5, 10]
 	funcPy = getattr(kernels, 'awkward_reduce_sum_int64_bool_64')
-	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents)
+	funcPy(toptr = toptr,fromptr = fromptr,lenparents = lenparents,outlength = outlength,parents = parents,offsets = offsets)
 	pytest_toptr = [4, 4]
 	assert toptr == pytest_toptr
 

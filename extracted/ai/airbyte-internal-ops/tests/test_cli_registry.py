@@ -8,26 +8,30 @@ import json
 import os
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
 import pytest
+import yaml
 
-from airbyte_ops_mcp.registry import (
-    ConnectorMetadata,
-    ConnectorPublishResult,
-    is_valid_for_progressive_rollout,
-    strip_rc_suffix,
-)
+from airbyte_ops_mcp.registry import ConnectorMetadata
 from airbyte_ops_mcp.registry._gcs_helpers import get_gcs_credentials_token
 from airbyte_ops_mcp.registry.compile import (
     _apply_overrides_to_latest_entry,
     _apply_release_candidates_to_entries,
     _build_composite_registry_json,
+    _build_version_index,
     _cleanup_disabled_registry_entries,
+    _compute_release_candidates,
 )
 from airbyte_ops_mcp.registry.generate import (
     _apply_overrides_from_registry,
     is_registry_enabled,
+)
+from airbyte_ops_mcp.registry.markers import (
+    inactive_progressive_rollout_marker_file,
+    is_registry_state_marker_file,
+    unyanked_marker_file,
 )
 from airbyte_ops_mcp.registry.metrics import (
     apply_metrics_to_registry_entries,
@@ -40,35 +44,43 @@ from airbyte_ops_mcp.registry.store import RegistryStore
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
-    "version,expected",
+    "filename,expected",
     [
-        pytest.param("1.2.3-rc.1", True, id="rc_version"),
-        pytest.param("1.2.3-rc.10", True, id="rc_version_double_digit"),
-        pytest.param("0.0.1-rc.1", True, id="rc_version_zero"),
-        pytest.param("1.2.3", True, id="stable_ga_version"),
-        pytest.param("1.2.3-preview.abc123", False, id="preview_version_rejected"),
-        pytest.param("1.2.3-alpha.1", True, id="alpha_version"),
-        pytest.param("1.2.3-beta.1", True, id="beta_version"),
+        pytest.param("version-yank.yml", True, id="active-yank"),
+        pytest.param("version-unyanked-20260522.yml", True, id="inactive-yank"),
+        pytest.param("progressive-rollout.yml", True, id="active-rollout"),
+        pytest.param(
+            "progressive-rollout-promoted-20260522.yml",
+            True,
+            id="promoted-rollout",
+        ),
+        pytest.param(
+            "progressive-rollout-aborted-20260522.yml",
+            True,
+            id="aborted-rollout",
+        ),
+        pytest.param("version=1.2.3", True, id="version-marker"),
+        pytest.param("metadata.yaml", False, id="metadata"),
     ],
 )
-def test_is_valid_for_progressive_rollout(version: str, expected: bool) -> None:
-    """Test version validation for progressive rollout."""
-    assert is_valid_for_progressive_rollout(version) == expected
+def test_is_registry_state_marker_file(filename: str, expected: bool) -> None:
+    """Registry marker filename detection covers active and audit markers."""
+    assert is_registry_state_marker_file(filename) is expected
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize(
-    "version,expected",
-    [
-        pytest.param("1.2.3-rc.1", "1.2.3", id="rc_version"),
-        pytest.param("1.2.3-rc.10", "1.2.3", id="rc_version_double_digit"),
-        pytest.param("0.0.1-rc.1", "0.0.1", id="rc_version_zero"),
-        pytest.param("1.2.3", "1.2.3", id="stable_version_unchanged"),
-    ],
-)
-def test_strip_rc_suffix(version: str, expected: str) -> None:
-    """Test stripping release candidate suffix from version."""
-    assert strip_rc_suffix(version) == expected
+def test_marker_audit_file_names() -> None:
+    """Audit marker filenames use yyyymmdd date suffixes."""
+    marker_day = date(2026, 5, 22)
+    assert unyanked_marker_file(marker_day) == "version-unyanked-20260522.yml"
+    assert (
+        inactive_progressive_rollout_marker_file("promoted", marker_day)
+        == "progressive-rollout-promoted-20260522.yml"
+    )
+    assert (
+        inactive_progressive_rollout_marker_file("aborted", marker_day)
+        == "progressive-rollout-aborted-20260522.yml"
+    )
 
 
 @pytest.mark.unit
@@ -86,27 +98,6 @@ def test_connector_metadata_model() -> None:
     assert metadata.docker_image_tag == "1.2.3-rc.1"
     assert metadata.support_level == "certified"
     assert metadata.definition_id == "abc123"
-
-
-@pytest.mark.unit
-def test_connector_publish_result_model() -> None:
-    """Test ConnectorPublishResult Pydantic model."""
-    result = ConnectorPublishResult(
-        connector="source-github",
-        version="1.2.3",
-        action="progressive-rollout-cleanup",
-        status="success",
-        docker_image="airbyte/source-github:1.2.3",
-        registry_updated=True,
-        message="Cleaned up release candidate",
-    )
-    assert result.connector == "source-github"
-    assert result.version == "1.2.3"
-    assert result.action == "progressive-rollout-cleanup"
-    assert result.status == "success"
-    assert result.docker_image == "airbyte/source-github:1.2.3"
-    assert result.registry_updated is True
-    assert result.message == "Cleaned up release candidate"
 
 
 def run_cli(
@@ -172,27 +163,10 @@ def test_registry_progressive_rollout_help() -> None:
     """Test registry progressive-rollout sub-app help output."""
     result = run_cli("registry", "progressive-rollout", "--help")
     assert result.returncode == 0
-    assert "create" in result.stdout
-    assert "cleanup" in result.stdout
     assert "status" in result.stdout
-
-
-@pytest.mark.unit
-def test_registry_progressive_rollout_cleanup_help() -> None:
-    """Test registry progressive-rollout cleanup help output."""
-    result = run_cli("registry", "progressive-rollout", "cleanup", "--help")
-    assert result.returncode == 0
-    assert "name" in result.stdout.lower()
-    assert "dry-run" in result.stdout
-
-
-@pytest.mark.unit
-def test_registry_progressive_rollout_create_help() -> None:
-    """Test registry progressive-rollout create help output."""
-    result = run_cli("registry", "progressive-rollout", "create", "--help")
-    assert result.returncode == 0
-    assert "name" in result.stdout.lower()
-    assert "dry-run" in result.stdout
+    assert "finalize-marker" in result.stdout
+    assert "create" not in result.stdout
+    assert "cleanup" not in result.stdout
 
 
 @pytest.mark.unit
@@ -207,187 +181,12 @@ def test_registry_progressive_rollout_status_help() -> None:
 
 
 @pytest.mark.unit
-def test_registry_progressive_rollout_cleanup_missing_required_options() -> None:
-    """Test that missing required options causes an error."""
-    result = run_cli("registry", "progressive-rollout", "cleanup")
-    assert result.returncode != 0
-
-
-@pytest.mark.unit
-def test_registry_progressive_rollout_create_missing_required_options() -> None:
-    """Test that missing required options causes an error."""
-    result = run_cli("registry", "progressive-rollout", "create")
-    assert result.returncode != 0
-
-
-@pytest.mark.unit
-def test_registry_progressive_rollout_cleanup_dry_run(tmp_path: Path) -> None:
-    """Test progressive-rollout cleanup with dry-run."""
-    connector_dir = tmp_path / "airbyte-integrations" / "connectors" / "source-test"
-    connector_dir.mkdir(parents=True)
-    (connector_dir / "metadata.yaml").write_text(
-        "data:\n  dockerRepository: airbyte/source-test\n  dockerImageTag: 1.0.0-rc.1\n"
-    )
-    result = run_cli(
-        "registry",
-        "progressive-rollout",
-        "cleanup",
-        "--store",
-        "coral:dev",
-        "--name",
-        "source-test",
-        "--repo-path",
-        str(tmp_path),
-        "--dry-run",
-        cwd=tmp_path,
-    )
+def test_registry_progressive_rollout_finalize_marker_help() -> None:
+    """Test registry progressive-rollout finalize-marker help output."""
+    result = run_cli("registry", "progressive-rollout", "finalize-marker", "--help")
     assert result.returncode == 0
-    assert "dry-run" in result.stdout
-    assert "source-test" in result.stdout
-    assert "1.0.0" in result.stdout
-
-
-@pytest.mark.unit
-def test_registry_progressive_rollout_create_dry_run(tmp_path: Path) -> None:
-    """Test progressive-rollout create with dry-run."""
-    connector_dir = tmp_path / "airbyte-integrations" / "connectors" / "source-test"
-    connector_dir.mkdir(parents=True)
-    (connector_dir / "metadata.yaml").write_text(
-        "data:\n  dockerRepository: airbyte/source-test\n  dockerImageTag: 1.0.0-rc.1\n"
-    )
-    result = run_cli(
-        "registry",
-        "progressive-rollout",
-        "create",
-        "--store",
-        "coral:dev",
-        "--name",
-        "source-test",
-        "--repo-path",
-        str(tmp_path),
-        "--dry-run",
-        cwd=tmp_path,
-    )
-    assert result.returncode == 0
-    assert "dry-run" in result.stdout
-    assert "source-test" in result.stdout
-    assert "1.0.0" in result.stdout
-
-
-@pytest.mark.unit
-def test_registry_progressive_rollout_cleanup_non_rc_version(
-    tmp_path: Path,
-) -> None:
-    """Test progressive-rollout cleanup works even for non-RC on-disk version.
-
-    In the promote workflow the on-disk metadata.yaml is bumped to GA
-    before cleanup runs, so cleanup must NOT gate on the version format.
-    """
-    connector_dir = tmp_path / "airbyte-integrations" / "connectors" / "source-test"
-    connector_dir.mkdir(parents=True)
-    (connector_dir / "metadata.yaml").write_text(
-        "data:\n  dockerRepository: airbyte/source-test\n  dockerImageTag: 1.0.0\n"
-    )
-    result = run_cli(
-        "registry",
-        "progressive-rollout",
-        "cleanup",
-        "--store",
-        "coral:dev",
-        "--name",
-        "source-test",
-        "--repo-path",
-        str(tmp_path),
-        "--dry-run",
-        cwd=tmp_path,
-    )
-    # Should succeed even though on-disk version is GA — cleanup does not
-    # gate on version format because the promote workflow bumps
-    # the version before calling cleanup.
-    assert result.returncode == 0
-    assert "dry-run" in result.stdout
-
-
-@pytest.mark.unit
-def test_registry_progressive_rollout_create_ga_version(
-    tmp_path: Path,
-) -> None:
-    """Test progressive-rollout create succeeds for GA version.
-
-    GA versions are now valid for progressive rollout — no `-rc` suffix
-    or `enableProgressiveRollout` metadata flag is required at this layer.
-    """
-    connector_dir = tmp_path / "airbyte-integrations" / "connectors" / "source-test"
-    connector_dir.mkdir(parents=True)
-    (connector_dir / "metadata.yaml").write_text(
-        "data:\n  dockerRepository: airbyte/source-test\n  dockerImageTag: 1.0.0\n"
-    )
-    result = run_cli(
-        "registry",
-        "progressive-rollout",
-        "create",
-        "--store",
-        "coral:dev",
-        "--name",
-        "source-test",
-        "--repo-path",
-        str(tmp_path),
-        "--dry-run",
-        cwd=tmp_path,
-    )
-    assert result.returncode == 0
-    assert "dry-run" in result.stdout
-    assert "source-test" in result.stdout
-
-
-@pytest.mark.unit
-def test_registry_progressive_rollout_create_preview_version_rejected(
-    tmp_path: Path,
-) -> None:
-    """Test progressive-rollout create rejects preview versions."""
-    connector_dir = tmp_path / "airbyte-integrations" / "connectors" / "source-test"
-    connector_dir.mkdir(parents=True)
-    (connector_dir / "metadata.yaml").write_text(
-        "data:\n  dockerRepository: airbyte/source-test\n  dockerImageTag: 1.0.0-preview.abc123\n"
-    )
-    result = run_cli(
-        "registry",
-        "progressive-rollout",
-        "create",
-        "--store",
-        "coral:dev",
-        "--name",
-        "source-test",
-        "--repo-path",
-        str(tmp_path),
-        cwd=tmp_path,
-    )
-    assert result.returncode == 1
-    assert "failure" in result.stdout
-    assert "not valid for progressive rollout" in result.stdout
-
-
-@pytest.mark.unit
-def test_registry_progressive_rollout_cleanup_connector_not_found(
-    tmp_path: Path,
-) -> None:
-    """Test error when connector directory doesn't exist."""
-    connectors_dir = tmp_path / "airbyte-integrations" / "connectors"
-    connectors_dir.mkdir(parents=True)
-    result = run_cli(
-        "registry",
-        "progressive-rollout",
-        "cleanup",
-        "--store",
-        "coral:dev",
-        "--name",
-        "source-nonexistent",
-        "--repo-path",
-        str(tmp_path),
-        cwd=tmp_path,
-    )
-    assert result.returncode != 0
-    assert "not found" in result.stdout.lower() or "not found" in result.stderr.lower()
+    assert "outcome" in result.stdout
+    assert "version" in result.stdout
 
 
 @pytest.mark.unit
@@ -438,9 +237,9 @@ def test_yank_connector_version_response_model() -> None:
 
     response = YankConnectorVersionResponse(
         message="Yank workflow triggered for source-faker@1.2.3 on coral:dev.",
-        workflow_url="https://github.com/airbytehq/airbyte-ops-mcp/actions/workflows/registry-yank.yml",
+        workflow_url="https://github.com/airbytehq/airbyte/actions/workflows/version-yank-command.yml",
         github_run_id=12345,
-        github_run_url="https://github.com/airbytehq/airbyte-ops-mcp/actions/runs/12345",
+        github_run_url="https://github.com/airbytehq/airbyte/actions/runs/12345",
     )
     assert response.message.startswith("Yank workflow triggered")
     assert response.github_run_id == 12345
@@ -634,7 +433,7 @@ def test_apply_release_candidates_to_entries(
     rc_entries: dict,
     expected_rc_key: str | None,
 ) -> None:
-    """Test _apply_release_candidates_to_entries injects RC info correctly."""
+    """Test `_apply_release_candidates_to_entries` injects candidates correctly."""
     result = _apply_release_candidates_to_entries(entries, rc_entries)
     assert len(result) == len(entries)
     entry = result[0]
@@ -645,6 +444,132 @@ def test_apply_release_candidates_to_entries(
     else:
         rc_section = entry.get("releases", {}).get("releaseCandidates")
         assert rc_section is None or len(rc_section) == 0
+
+
+def _metadata_yaml(*, version: str, progressive_rollout: bool | None = None) -> str:
+    metadata_data: dict[str, str | dict[str, dict[str, bool]]] = {
+        "dockerImageTag": version,
+    }
+    if progressive_rollout is not None:
+        metadata_data["releases"] = {
+            "rolloutConfiguration": {
+                "enableProgressiveRollout": progressive_rollout,
+            }
+        }
+    return yaml.dump({"data": metadata_data})
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "connector_versions,yanked,progressive_rollouts,expected",
+    [
+        pytest.param(
+            {"source-test": ["1.0.0", "1.1.0-rc.1", "1.1.0-rc.2"]},
+            set(),
+            {("source-test", "1.1.0-rc.1"), ("source-test", "1.1.0-rc.2")},
+            {"source-test": "1.1.0-rc.2"},
+            id="selects_highest_enabled_rc_ahead_of_ga",
+        ),
+        pytest.param(
+            {"source-test": ["1.0.0", "1.1.0-rc.1", "1.1.0-rc.2"]},
+            set(),
+            {("source-test", "1.1.0-rc.1")},
+            {"source-test": "1.1.0-rc.1"},
+            id="skips_disabled_highest_rc",
+        ),
+        pytest.param(
+            {"source-test": ["1.0.0", "1.1.0-rc.1"]},
+            set(),
+            set(),
+            {},
+            id="skips_missing_progressive_rollout_config",
+        ),
+        pytest.param(
+            {"source-test": ["1.0.0", "1.1.0-rc.1", "1.1.0-rc.2"]},
+            {("source-test", "1.1.0-rc.2")},
+            {("source-test", "1.1.0-rc.1"), ("source-test", "1.1.0-rc.2")},
+            {"source-test": "1.1.0-rc.1"},
+            id="skips_yanked_rc",
+        ),
+        pytest.param(
+            {"source-test": ["1.0.0", "1.1.0", "1.1.0-rc.1"]},
+            set(),
+            {("source-test", "1.1.0-rc.1")},
+            {},
+            id="skips_rc_not_ahead_of_latest_ga",
+        ),
+        pytest.param(
+            {"source-test": ["1.0.0", "1.1.0", "1.1.0-rc.1"]},
+            {("source-test", "1.1.0")},
+            {("source-test", "1.1.0-rc.1")},
+            {"source-test": "1.1.0-rc.1"},
+            id="yanked_ga_does_not_block_rc",
+        ),
+        pytest.param(
+            {"source-test": ["1.0.0", "1.1.0", "1.1.1-rc.1"]},
+            set(),
+            {("source-test", "1.1.0"), ("source-test", "1.1.1-rc.1")},
+            {"source-test": "1.1.0"},
+            id="prefers_enabled_ga_over_rc",
+        ),
+        pytest.param(
+            {"source-test": ["1.0.0", "1.1.0"]},
+            set(),
+            {("source-test", "1.1.0")},
+            {"source-test": "1.1.0"},
+            id="selects_enabled_ga_ahead_of_non_rollout_ga",
+        ),
+        pytest.param(
+            {"source-test": ["1.0.0", "1.1.0-alpha.1", "1.1.0-rc.1"]},
+            set(),
+            {("source-test", "1.1.0-alpha.1"), ("source-test", "1.1.0-rc.1")},
+            {"source-test": "1.1.0-rc.1"},
+            id="skips_non_rc_prerelease",
+        ),
+    ],
+)
+def test_compute_release_candidates(
+    connector_versions: dict[str, list[str]],
+    yanked: set[tuple[str, str]],
+    progressive_rollouts: set[tuple[str, str]],
+    expected: dict[str, str],
+) -> None:
+    """Release candidates are derived from versioned marker files."""
+    assert (
+        _compute_release_candidates(
+            connector_versions=connector_versions,
+            yanked=yanked,
+            progressive_rollouts=progressive_rollouts,
+        )
+        == expected
+    )
+
+
+@pytest.mark.unit
+def test_build_version_index_marks_ga_rollout_candidate_in_legacy_fields() -> None:
+    """GA rollout candidates are exposed through legacy candidate fields."""
+    store = RegistryStore.parse("coral:dev/test")
+    fs = InMemoryRegistryFileSystem(
+        {
+            f"{store.bucket_root}/metadata/airbyte/source-test/1.0.0/metadata.yaml": yaml.dump(
+                {"data": {"definitionId": "abc"}}
+            )
+        }
+    )
+
+    index = _build_version_index(
+        fs,
+        store=store,
+        connector="source-test",
+        versions=["1.0.0", "1.1.0"],
+        yanked=set(),
+        latest_version="1.0.0",
+        rc_version="1.1.0",
+    )
+
+    assert index["release_candidate"] == "1.1.0"
+    assert index["versions"][0]["version"] == "1.1.0"
+    assert index["versions"][0]["is_release_candidate"] is True
 
 
 @pytest.mark.unit

@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Implementation of xeps for Internet of Things
 # http://wiki.xmpp.org/web/Tech_pages/IoT_systems
@@ -12,4 +11,6 @@ from slixmpp.plugins.xep_0325 import stanza
 
 register_plugin(XEP_0325)
 
-xep_0325=XEP_0325
+xep_0325 = XEP_0325
+
+__all__ = ['xep_0325', 'XEP_0325', 'stanza']

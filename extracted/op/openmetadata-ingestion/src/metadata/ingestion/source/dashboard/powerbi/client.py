@@ -11,6 +11,7 @@
 """
 REST Auth & Client for PowerBi
 """
+
 import json
 import math
 import traceback
@@ -26,7 +27,8 @@ from metadata.generated.schema.entity.services.connections.dashboard.powerBIConn
 )
 from metadata.generated.schema.type.filterPattern import FilterPattern
 from metadata.ingestion.api.steps import InvalidSourceException
-from metadata.ingestion.ometa.client import REST, ClientConfig
+from metadata.ingestion.connections.source_api_client import TrackedREST
+from metadata.ingestion.ometa.client import ClientConfig
 from metadata.ingestion.source.dashboard.powerbi.file_client import PowerBiFileClient
 from metadata.ingestion.source.dashboard.powerbi.models import (
     DashboardsResponse,
@@ -59,6 +61,8 @@ GETGROUPS_DEFAULT_PARAMS = {"$top": "1", "$skip": "0"}
 API_RESPONSE_MESSAGE_KEY = "message"
 AUTH_TOKEN_MAX_RETRIES = 5
 AUTH_TOKEN_RETRY_WAIT = 120
+
+
 # Similar inner methods with mode client. That's fine.
 # pylint: disable=duplicate-code
 class PowerBiApiClient:
@@ -66,7 +70,7 @@ class PowerBiApiClient:
     REST Auth & Client for PowerBi
     """
 
-    client: REST
+    client: TrackedREST
 
     def __init__(self, config: PowerBIConnection):
         self.config = config
@@ -88,7 +92,7 @@ class PowerBiApiClient:
             retry=100,
             retry_wait=30,
         )
-        self.client = REST(client_config)
+        self.client = TrackedREST(client_config, source_name="powerbi")
 
     def get_auth_token(self) -> Tuple[str, str]:
         """
@@ -132,8 +136,7 @@ class PowerBiApiClient:
                     sleep(AUTH_TOKEN_RETRY_WAIT)
                 else:
                     logger.warning(
-                        "Could not generate new token after maximum retries, "
-                        "Please check provided configs"
+                        "Could not generate new token after maximum retries, Please check provided configs"
                     )
         return None
 
@@ -158,8 +161,7 @@ class PowerBiApiClient:
                     sleep(AUTH_TOKEN_RETRY_WAIT)
                 else:
                     logger.warning(
-                        "Could not get token from cache after maximum retries, "
-                        "Please check provided configs"
+                        "Could not get token from cache after maximum retries, Please check provided configs"
                     )
         return None
 
@@ -368,7 +370,6 @@ class PowerBiApiClient:
         Create a complete filter query for workspaces from filter_pattern
         """
         try:
-
             validate_regex(filter_pattern.includes)
             validate_regex(filter_pattern.excludes)
             project_to_include = filter_pattern.includes
@@ -437,8 +438,7 @@ class PowerBiApiClient:
                 logger.warning("Error fetching workspaces between results: (0, 1)")
                 if response and response.get(API_RESPONSE_MESSAGE_KEY):
                     logger.warning(
-                        "Error message from API response: "
-                        f"{str(response.get(API_RESPONSE_MESSAGE_KEY))}"
+                        f"Error message from API response: {str(response.get(API_RESPONSE_MESSAGE_KEY))}"
                     )
                 failed_indexes.append(params_data)
                 count = 0
@@ -481,8 +481,7 @@ class PowerBiApiClient:
                     )
                     if response and response.get(API_RESPONSE_MESSAGE_KEY):
                         logger.warning(
-                            "Error message from API response: "
-                            f"{str(response.get(API_RESPONSE_MESSAGE_KEY))}"
+                            f"Error message from API response: {str(response.get(API_RESPONSE_MESSAGE_KEY))}"
                         )
                     failed_indexes.append(params_data)
                     continue
@@ -512,13 +511,11 @@ class PowerBiApiClient:
                         or len(response) != len(GroupsResponse.__annotations__)
                     ):
                         logger.warning(
-                            f"Workspaces between results {str(index_range)} "
-                            "could not be fetched on multiple attempts"
+                            f"Workspaces between results {str(index_range)} could not be fetched on multiple attempts"
                         )
                         if response and response.get(API_RESPONSE_MESSAGE_KEY):
                             logger.warning(
-                                "Error message from API response: "
-                                f"{str(response.get(API_RESPONSE_MESSAGE_KEY))}"
+                                f"Error message from API response: {str(response.get(API_RESPONSE_MESSAGE_KEY))}"
                             )
                         continue
                     try:
@@ -584,7 +581,7 @@ class PowerBiApiClient:
 
         return None
 
-    def fetch_workspace_scan_result(self, scan_id: str) -> Optional[Workspaces]:  # noqa: UP045
+    def fetch_workspace_scan_result(self, scan_id: str) -> Optional[Workspaces]:
         """Get Workspace scan result by id method.
 
         Parse each workspace individually so a single malformed workspace
@@ -596,11 +593,15 @@ class PowerBiApiClient:
                 f"Calling the API({str(self.client._base_url)}/myorg/admin/workspaces/scanResult/{scan_id})"  # pylint: disable=protected-access
                 " to get workspace scan result"
             )
-            response_data = self.client.get(f"/myorg/admin/workspaces/scanResult/{scan_id}")
+            response_data = self.client.get(
+                f"/myorg/admin/workspaces/scanResult/{scan_id}"
+            )
             if not response_data:
                 return None
-            parsed_workspaces: List[Group] = []  # noqa: UP006
-            for raw_ws in response_data.get("workspaces", []) or []:  # pyright: ignore[reportAttributeAccessIssue]
+            parsed_workspaces: List[Group] = []
+            for raw_ws in (
+                response_data.get("workspaces", []) or []
+            ):  # pyright: ignore[reportAttributeAccessIssue]
                 if isinstance(raw_ws, dict) and raw_ws.get("id") is not None:
                     try:
                         parsed_workspaces.append(Group(**raw_ws))

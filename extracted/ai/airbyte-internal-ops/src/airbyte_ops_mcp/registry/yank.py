@@ -16,14 +16,13 @@ from typing import Any
 
 import yaml
 
-from airbyte_ops_mcp.registry._constants import (
-    METADATA_FOLDER,
-)
+from airbyte_ops_mcp.registry._constants import METADATA_FOLDER
 from airbyte_ops_mcp.registry._gcs_helpers import get_gcs_storage_client
+from airbyte_ops_mcp.registry.markers import YANK_MARKER_FILE, unyanked_marker_file
 
 logger = logging.getLogger(__name__)
 
-YANK_FILE_NAME = "version-yank.yml"
+YANK_FILE_NAME = YANK_MARKER_FILE
 
 
 @dataclass
@@ -66,6 +65,7 @@ def yank_connector_version(
     version: str,
     bucket_name: str,
     reason: str = "",
+    approval_url: str = "",
     dry_run: bool = False,
 ) -> YankResult:
     """Mark a connector version as yanked by writing a version-yank.yml marker.
@@ -78,6 +78,7 @@ def yank_connector_version(
         version: The version to yank (e.g., "1.2.3").
         bucket_name: The GCS bucket name.
         reason: Optional reason for yanking the version.
+        approval_url: Optional approval evidence URL to record in the marker.
         dry_run: If True, report what would be done without writing.
 
     Returns:
@@ -137,6 +138,8 @@ def yank_connector_version(
     }
     if reason:
         yank_content["reason"] = reason
+    if approval_url:
+        yank_content["approval_url"] = approval_url
 
     yank_yaml = yaml.dump(yank_content, default_flow_style=False)
     yank_blob.upload_from_string(yank_yaml, content_type="application/x-yaml")
@@ -159,16 +162,18 @@ def unyank_connector_version(
     bucket_name: str,
     dry_run: bool = False,
 ) -> YankResult:
-    """Remove the yank marker from a connector version.
+    """Rename the active yank marker to an unyanked audit marker.
 
-    Deletes the version-yank.yml file at:
+    Moves the active version-yank.yml marker at:
         metadata/airbyte/{connector_name}/{version}/version-yank.yml
+    to:
+        metadata/airbyte/{connector_name}/{version}/version-unyanked-yyyymmdd.yml
 
     Args:
         connector_name: The connector name (e.g., "source-faker").
         version: The version to unyank (e.g., "1.2.3").
         bucket_name: The GCS bucket name.
-        dry_run: If True, report what would be done without deleting.
+        dry_run: If True, report what would be done without writing.
 
     Returns:
         YankResult with details of the operation.
@@ -202,7 +207,11 @@ def unyank_connector_version(
             dry_run=True,
         )
 
-    # Delete the yank marker
+    unyanked_path = _get_yank_blob_path(connector_name, version).replace(
+        YANK_FILE_NAME,
+        unyanked_marker_file(),
+    )
+    bucket.copy_blob(yank_blob, bucket, new_name=unyanked_path)
     yank_blob.delete()
 
     logger.info("Unyanked %s version %s in %s", connector_name, version, bucket_name)

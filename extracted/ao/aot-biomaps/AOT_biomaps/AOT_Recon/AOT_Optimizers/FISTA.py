@@ -2,18 +2,18 @@
 FISTA.py
 
 Fast Iterative Shrinkage-Thresholding Algorithm (Accelerated PGD).
-The absolute State-of-the-Art for Regularized Least Squares (Gaussian noise) with positivity constraints.
-
 Uses unified SMatrix interface and ReconTools functions.
 Single unified function that works with any SMatrix type (CSR, SELL, DENSE) and any device (CPU, GPU).
+
+Supports potential functions: QUADRATIC, HUBER, RELATIVE_DIFFERENCE
 """
 
 import numpy as np
 from tqdm import trange
 from typing import Optional, Union, Tuple
 
-from AOT_biomaps.AOT_Recon.ReconTools import get_array_module, forward_projection, backward_projection, get_potential_function, check_stopping_criterion, calculate_step_size
-from AOT_biomaps.AOT_Recon.ReconEnums import PotentialType, PotentialShapeType, StopCriterionType
+from AOT_biomaps.AOT_Recon.ReconTools import get_array_module, forward_projection, backward_projection, get_potential_function, check_stopping_criterion, calculate_step_size, build_preconditioner
+from AOT_biomaps.AOT_Recon.ReconEnums import PotentialType, PotentialShapeType, StopCriterionType, PreconditionerType
 from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_SELL import SMatrix_SELL
 from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_CSR import SMatrix_CSR
 from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_DENSE import SMatrix_DENSE
@@ -22,29 +22,29 @@ from AOT_biomaps.AOT_Recon.AOT_SMatrix.SMatrix_DENSE import SMatrix_DENSE
 try:
     import cupy as cp
     CUPY_AVAILABLE = True
+except ImportError:
+    CUPY_AVAILABLE = False
 
-    # =====================================================================
-    # HIGH-PRECISION FUSED KERNEL FOR FISTA (Zero-Allocation)
-    # =====================================================================
+    import cupy as cp
+    CUPY_AVAILABLE = True
+
+# =====================================================================
+# CuPy Kernels definition for fusion of operations (Zero-Allocation)
+# =====================================================================
+if CUPY_AVAILABLE:
     fista_update_kernel = cp.ElementwiseKernel(
         'float32 x_old, float32 z_in, float32 grad, float32 alpha, float32 momentum',
         'float32 x_new, float32 z_out',
         '''
-        // 1. Standard PGD Step from the extrapolation point (z)
         double step = (double)z_in - (double)alpha * (double)grad;
         
-        // 2. Proximal operator: Positivity constraint (Clamp)
         double x_val = step > 0.0 ? step : 0.0;
         x_new = (float)x_val;
         
-        // 3. Nesterov Acceleration (Momentum)
         z_out = (float)(x_val + (double)momentum * (x_val - (double)x_old));
         ''',
         'fista_update_kernel'
     )
-except ImportError:
-    CUPY_AVAILABLE = False
-
 
 def FISTA(
     SMatrix: Union['SMatrix_DENSE', 'SMatrix_CSR', 'SMatrix_SELL'],
@@ -58,6 +58,7 @@ def FISTA(
     potential_type: PotentialType = PotentialType.QUADRATIC,
     potential_shape: PotentialShapeType = PotentialShapeType.CROSS,
     potential_radius: int = 2,
+    preconditioner_type: PreconditionerType = PreconditionerType.DIAGONAL,
     stop_criterion: StopCriterionType = StopCriterionType.MAX_ITERATIONS,
     stop_threshold: float = 100.0,
     stop_window_size: int = 5,
@@ -68,6 +69,58 @@ def FISTA(
     show_logs: bool = True,
     show_criterion: bool = True,
 ) -> Tuple[Union[np.ndarray, list], Optional[list], Optional[list]]:
+    """
+    Fast Iterative Shrinkage-Thresholding Algorithm (FISTA) for least squares reconstruction with potential regularization.
+    
+    Uses ReconTools functions for all matrix operations, so it works with
+    any SMatrix type (CSR, SELL, DENSE) and any device (CPU, GPU).
+
+    Supports potential functions:
+        - NONE: No regularization
+        - QUADRATIC: 0.5 * β * (u-v)^2
+        - HUBER: β * (0.5 * (u-v)^2 if |u-v| <= δ else δ * (|u-v| - 0.5 * δ))
+        - RELATIVE_DIFFERENCE: β * (u-v)^2 / (v + ε)
+
+    Supports stopping criteria:
+        - MAX_ITERATIONS: Stop after a fixed number of iterations
+        - RELATIVE_CHANGE: Stop when relative change in lambda is below threshold
+        - COST_FUNCTION: Stop when cost function value changes by less than threshold
+        - MSE: Stop when mean squared error with respect to ground truth is below threshold (requires ground truth) ONLY FOR SIMULATED DATA 
+        - GRADIENT_NORM: Stop when norm of the update step is below threshold
+    
+    Supports preconditioning:
+        - DIAGONAL: Diagonal preconditioning using A^T * 1 (RECOMMENDED FOR FISTA)
+        - NONE: No preconditioning (may lead to slower convergence)
+    
+    Args:
+        SMatrix: SMatrix instance (already allocated)
+        y: Measurement data (shape: (T, N))
+        numIterations: Number of iterations
+        alpha: Step size for gradient update (float or "auto" for backtracking line search)
+        beta: Regularization parameter (weight for potential)
+        delta: Huber threshold (only used if potential_type is HUBER)
+        eta: Parameter for automatic step size calculation (only used if alpha is "auto")
+        numIterations_stepCalculation: Number of iterations for step size calculation (only used if alpha is "auto")
+        potential_type: Type of potential function to use
+        potential_shape: Neighborhood shape (PotentialShapeType enum)
+        potential_radius: Neighborhood radius in pixels
+        preconditioner_type: Type of preconditioner to use (PreconditionerType enum)  
+        stop_criterion: Criterion for stopping the iterations (StopCriterionType enum)
+        stop_threshold: Threshold value for the stopping criterion (for MAX_iterations, this is ignored)
+        stop_window_size: Window size (used to avoid early stop due to oscillations)
+        isSavingEachIteration: If True, saves intermediate results
+        isCostFunction: If True, computes and saves cost function history
+        withTumor: Boolean for description only
+        max_saves: Maximum number of intermediate saves
+        show_logs: If True, shows progress bar
+        show_criterion: If True, shows stopping criterion evolution in progress bar  
+                
+    Returns:
+        tuple: (reconstructed_image, saved_indices, cost_history)
+        - reconstructed_image: Final or list of images (Z, X)
+        - saved_indices: List of saved iteration indices (None if not saving)
+        - cost_history: List of cost function values (None if not requested)
+    """
     
     xp = get_array_module(SMatrix)
     is_gpu = (xp.__name__ == 'cupy')
@@ -86,29 +139,23 @@ def FISTA(
     
     residual_buffer = xp.empty_like(y_flat)
 
-    # For FISTA (Least Squares), alpha is strictly 1/L. 
-    # The power method (calculate_step_size) is perfect here.
     if alpha == "auto":
         eta_val = eta if eta is not None else 1.0
-        
-        # 1. On calcule le pas "de base" lié uniquement à la matrice système A
         alpha_data = calculate_step_size(SMatrix, eta_val, numIterations_stepCalculation, show_logs=False)
-        
-        # 2. On retrouve la constante de Lipschitz de la fidélité des données (L_A)
         L_A = eta_val / alpha_data
-        
-        # 3. On calcule la constante de Lipschitz de la régularisation spatiale
-        # Pour le gradient discret en 2D (voisinage en croix), L = 8. 
-        # On ajoute le rayon pour garantir la stabilité sur les grands voisinages.
         L_prior = 8.0 * beta * (potential_radius ** 2) if potential_type != PotentialType.NONE else 0.0
-        
-        # 4. On calcule le pas global strict pour empêcher l'explosion
         alpha_val = eta_val / (L_A + L_prior)
-        
-        if show_logs:
-            print(f"[FISTA Step Size] L_A: {L_A:.2e} | L_prior: {L_prior:.2e} | Alpha sécurisé: {alpha_val:.5e}")
     else:
         alpha_val = alpha
+
+    if preconditioner_type != PreconditionerType.NONE:
+        if show_logs: print(f"[FISTA] Calcul du préconditionneur : {preconditioner_type.name}...")
+        preconditioner = build_preconditioner(SMatrix, preconditioner_type)
+        preconditioner /= xp.max(preconditioner)
+        alpha_vec = alpha_val / (preconditioner + 1e-8)
+        alpha_vec = alpha_vec.astype(xp.float32)
+    else:
+        alpha_vec = xp.full(ZX, alpha_val, dtype=xp.float32)
 
     save_indices = np.unique(np.append(np.arange(0, numIterations, max(1, numIterations // max_saves)), numIterations - 1)).tolist()
 
@@ -117,82 +164,49 @@ def FISTA(
     cost_history = [] if isCostFunction else None
     window_history = []
 
-    description = f"AOT-BioMaps -- FISTA ({SMatrix.matrix_type.name}) with {potential_type.name} β={beta} ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR"
+    prec_str = "Precond" if preconditioner_type != PreconditionerType.NONE else "NoPrecond"
+    description = f"AOT-BioMaps -- FISTA-{prec_str} ({SMatrix.matrix_type.name}) with {potential_type.name} β={beta} ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR"
     iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
 
     for it in iterator:
         x_old = x_flat.copy() if stop_criterion != StopCriterionType.MAX_ITERATIONS or is_gpu else x_flat.copy()
-        
-        # 1. Forward Projection from the extrapolated point Z
         q_flat = forward_projection(SMatrix, z_flat)
-        
-        # 2. Least Squares Residual (Az - y)
-        if is_gpu:
-            cp.subtract(q_flat, y_flat, out=residual_buffer)
-        else:
-            np.subtract(q_flat, y_flat, out=residual_buffer)
+        xp.subtract(q_flat, y_flat, out=residual_buffer)
 
-        # 3. Dynamic Potential Gradient evaluated at Z
-        grad_U, _, U_value = get_potential_function(
-            potential_type, SMatrix, z_flat, beta=beta, delta=delta, 
-            shape=potential_shape, radius=potential_radius, 
-            compute_grad=True, compute_hess=False, compute_energy=isCostFunction,
-            use_surrogate_hessian=False
-        )
+        grad_U, _, _ = get_potential_function(potential_type, SMatrix, z_flat, beta=beta, delta=delta, shape=potential_shape, radius=potential_radius, compute_grad=True, compute_hess=False, compute_energy=isCostFunction, use_surrogate_hessian=False)
   
-        # 4. Global Gradient of Least Squares Fidelity
         grad_fidelity = backward_projection(SMatrix, residual_buffer)
         total_grad = grad_fidelity + grad_U
 
-        # 5. Momentum Update (Nesterov)
+        # Momentum Update (Nesterov)
         t_next = (1.0 + np.sqrt(1.0 + 4.0 * t * t)) / 2.0
         momentum = (t - 1.0) / t_next
 
-        # 6. FISTA Update (Gradient step + Clamp + Extrapolation)
+        # FISTA Update (Gradient step + Clamp + Extrapolation)
         if is_gpu:
-            # Shielded outputs to prevent TypeMismatch
-            fista_update_kernel(
-                x_old, 
-                z_flat, 
-                total_grad.astype(xp.float32, copy=False), 
-                float(alpha_val), 
-                float(momentum), 
-                x_flat, 
-                z_flat
-            )
+            fista_update_kernel(x_old, z_flat, total_grad.astype(xp.float32, copy=False), alpha_vec, float(momentum), x_flat, z_flat)
         else:
-            # Fallback CPU
-            x_flat = z_flat - float(alpha_val) * total_grad
+            x_flat = z_flat - alpha_vec * total_grad
             np.maximum(x_flat, 0.0, out=x_flat)
             z_flat = x_flat + float(momentum) * (x_flat - x_old)
             
         t = t_next
 
-
         if isCostFunction:
-            # On calcule le coût exact sur l'image réelle x_flat à chaque itération
             Ax = forward_projection(SMatrix, x_flat)
-            _, _, U_x = get_potential_function(
-                potential_type, SMatrix, x_flat, beta=beta, delta=delta, 
-                shape=potential_shape, radius=potential_radius, 
-                compute_grad=False, compute_hess=False, compute_energy=True, use_surrogate_hessian=False
-            )
+            _, _, U_x = get_potential_function(potential_type, SMatrix, x_flat, beta=beta, delta=delta, shape=potential_shape, radius=potential_radius, compute_grad=False, compute_hess=False, compute_energy=True, use_surrogate_hessian=False)
             ls_cost = 0.5 * float(xp.vdot(Ax - y_flat, Ax - y_flat))
             cost_history.append(ls_cost + U_x)
 
-        # 8. Stopping Criterion
         if stop_criterion != StopCriterionType.MAX_ITERATIONS:
             ground_truth = SMatrix.experiment.OpticImage.phantom if withTumor else SMatrix.experiment.OpticImage.laser.intensity
             gradient_for_stop = total_grad if stop_criterion == StopCriterionType.GRADIENT_NORM else None
-            isStop, val = check_stopping_criterion(
-                SMatrix, x_flat, x_old, stop_criterion, stop_threshold, 
-                window_size=stop_window_size, history=cost_history, 
-                ground_truth=ground_truth, gradient=gradient_for_stop, window_history=window_history
-            )
+            isStop, val = check_stopping_criterion(SMatrix, x_flat, x_old, stop_criterion, stop_threshold, window_size=stop_window_size, history=cost_history, ground_truth=ground_truth, gradient=gradient_for_stop, window_history=window_history)
             if show_logs and show_criterion:
                 iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
             if isStop:
                 if show_logs: print(f"\n[Stopping] Criterion {stop_criterion.name} reached at iteration {it}.")
+                cost_history.pop() if isCostFunction else None
                 break
             
         if isSavingEachIteration and it in save_indices:

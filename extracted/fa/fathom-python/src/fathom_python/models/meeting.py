@@ -4,6 +4,7 @@ from __future__ import annotations
 from .actionitem import ActionItem, ActionItemTypedDict
 from .crmmatches import CRMMatches, CRMMatchesTypedDict
 from .fathomuser import FathomUser, FathomUserTypedDict
+from .highlight import Highlight, HighlightTypedDict
 from .invitee import Invitee, InviteeTypedDict
 from .meetingsummary import MeetingSummary, MeetingSummaryTypedDict
 from .transcriptitem import TranscriptItem, TranscriptItemTypedDict
@@ -48,6 +49,7 @@ class MeetingTypedDict(TypedDict):
     transcript: NotRequired[Nullable[List[TranscriptItemTypedDict]]]
     default_summary: NotRequired[Nullable[MeetingSummaryTypedDict]]
     action_items: NotRequired[Nullable[List[ActionItemTypedDict]]]
+    highlights: NotRequired[Nullable[List[HighlightTypedDict]]]
     crm_matches: NotRequired[Nullable[CRMMatchesTypedDict]]
     r"""CRM data linked to the meeting. Only returns data from your or your team's linked CRM.
     If no CRM is connected for the workspace, the `error` field will be populated.
@@ -95,6 +97,8 @@ class Meeting(BaseModel):
 
     action_items: OptionalNullable[List[ActionItem]] = UNSET
 
+    highlights: OptionalNullable[List[Highlight]] = UNSET
+
     crm_matches: OptionalNullable[CRMMatches] = UNSET
     r"""CRM data linked to the meeting. Only returns data from your or your team's linked CRM.
     If no CRM is connected for the workspace, the `error` field will be populated.
@@ -107,6 +111,7 @@ class Meeting(BaseModel):
             "transcript",
             "default_summary",
             "action_items",
+            "highlights",
             "crm_matches",
         ]
         nullable_fields = [
@@ -115,6 +120,7 @@ class Meeting(BaseModel):
             "transcript",
             "default_summary",
             "action_items",
+            "highlights",
             "crm_matches",
         ]
         null_default_fields = []

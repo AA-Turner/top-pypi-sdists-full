@@ -11,3 +11,5 @@ from slixmpp.plugins.xep_0004.dataforms import XEP_0004
 
 
 register_plugin(XEP_0004)
+
+__all__ = ['XEP_0004', 'Form', 'FormField', 'FieldOption']

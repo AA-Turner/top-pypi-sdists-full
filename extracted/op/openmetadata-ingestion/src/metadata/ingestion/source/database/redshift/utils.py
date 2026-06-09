@@ -13,7 +13,6 @@ Redshift SQLAlchemy util methods
 """
 import re
 from collections import defaultdict
-from typing import Any
 
 import sqlalchemy as sa
 from packaging.version import Version
@@ -34,7 +33,6 @@ from metadata.ingestion.source.database.redshift.queries import (
     REDSHIFT_GET_SCHEMA_COLUMN_INFO,
     REDSHIFT_TABLE_COMMENTS,
 )
-from metadata.utils.execution_time_tracker import calculate_execution_time
 from metadata.utils.logger import ingestion_logger
 from metadata.utils.sqlalchemy_utils import get_table_comment_wrapper
 
@@ -56,7 +54,7 @@ def _redshift_initialize(self, connection):
     PostgreSQL-specific queries that Redshift doesn't support
     (e.g., SHOW standard_conforming_strings).
     """
-    from sqlalchemy.engine.default import DefaultDialect  # noqa: PLC0415
+    from sqlalchemy.engine.default import DefaultDialect
 
     DefaultDialect.initialize(self, connection)
     self._backslash_escapes = False
@@ -66,7 +64,7 @@ def _redshift_initialize(self, connection):
     self._has_native_hstore = False
 
 
-def _load_domains(self, connection, schema: str | None = None, **kw: Any) -> dict:
+def _load_domains(self, connection, **kw):
     """
     Override to return empty dict since Redshift does not support user-created
     domains and pg_catalog.pg_collation does not exist in Redshift, causing a
@@ -85,15 +83,7 @@ def get_temp_table_names(self, connection, schema=None, **kw):
     return []
 
 
-def get_multi_columns(
-    self,
-    connection,
-    schema: str | None = None,
-    filter_names: Any | None = None,
-    scope: Any | None = None,
-    kind: Any | None = None,
-    **kw: Any,
-):
+def get_multi_columns(self, connection, **kw):
     """
     Override PGDialect's get_multi_columns to avoid querying
     pg_attribute.attcollation which does not exist in Redshift.
@@ -104,8 +94,6 @@ def get_multi_columns(
 
 
 # pylint: disable=protected-access
-@calculate_execution_time()
-@reflection.cache
 def get_columns(self, connection, table_name, schema=None, **kw):
     """
     Return information about columns in `table_name`.
@@ -115,6 +103,10 @@ def get_columns(self, connection, table_name, schema=None, **kw):
 
     overriding the default dialect method to include the
     distkey and sortkey info
+
+    Note: @reflection.cache removed to avoid unbounded memory growth
+    across schemas (issue #20649). The underlying
+    _get_schema_column_info already caches per-schema.
     """
     cols = self._get_redshift_columns(connection, table_name, schema, **kw)
     if not self._domains:
@@ -141,7 +133,6 @@ def get_columns(self, connection, table_name, schema=None, **kw):
     return columns
 
 
-@calculate_execution_time()
 def _get_column_info(self, *args, **kwargs):
     """
     Get column info
@@ -174,32 +165,33 @@ def _get_column_info(self, *args, **kwargs):
     return column_info
 
 
-@calculate_execution_time()
-@reflection.cache
 def _get_schema_column_info(
     self, connection, schema=None, **kw
 ):  # pylint: disable=unused-argument
     """
     Get schema column info
 
-    Args:
-        connection:
-        schema:
-        **kw:
-    Returns:
-
-    This method is responsible for fetching all the column details like
-    name, type, constraints, distkey and sortkey etc.
+    Uses a custom single-schema cache instead of @reflection.cache
+    to prevent unbounded memory growth across schemas (issue #20649).
+    Only the most recently requested schema's data is retained.
     """
+    # Single-schema cache: invalidate when schema changes
+    cached = getattr(self, "_schema_col_cache", None)
+    if cached is not None and cached[0] == schema:
+        return cached[1]
+
     schema_clause = f"AND schema = '{schema if schema else ''}'"
     all_columns = defaultdict(list)
     result = connection.execute(
-        REDSHIFT_GET_SCHEMA_COLUMN_INFO.format(schema_clause=schema_clause)
+        sa.text(REDSHIFT_GET_SCHEMA_COLUMN_INFO.format(schema_clause=schema_clause))
     )
     for col in result:
         key = RelationKey(col.table_name, col.schema, connection)
         all_columns[key].append(col)
-    return dict(all_columns)
+    result.close()
+    data = dict(all_columns)
+    self._schema_col_cache = (schema, data)
+    return data
 
 
 def _handle_array_type(attype):
@@ -232,9 +224,11 @@ def _get_kwargs_for_time_type(kwargs, charlen, attype):
 def _get_args_and_kwargs(charlen, attype, format_type):
     kwargs = {}
     args = _init_args(format_type)
-    if attype == "numeric" and charlen:
-        prec, scale = charlen.split(",")
-        args = (int(prec), int(scale))
+    if attype == "numeric":
+        if charlen:
+            args = tuple(int(p) for p in charlen.split(","))
+        else:
+            args = tuple(int(p) for p in args)
 
     elif attype == "double precision":
         args = (53,)
@@ -246,6 +240,7 @@ def _get_args_and_kwargs(charlen, attype, format_type):
         "time without time zone",
         "time",
     }:
+        args = ()
         kwargs = _get_kwargs_for_time_type(kwargs, charlen, attype)
 
     elif attype == "bit varying":
@@ -254,6 +249,7 @@ def _get_args_and_kwargs(charlen, attype, format_type):
             args = (int(charlen),)
 
     elif attype.startswith("interval"):
+        args = ()
         field_match = re.match(r"interval (.+)", attype, re.I)
         if charlen:
             kwargs["precision"] = int(charlen)
@@ -332,7 +328,6 @@ def _get_charlen(format_type):
     return charlen
 
 
-@calculate_execution_time()
 @reflection.cache
 def _get_pg_column_info(  # pylint: disable=too-many-locals,too-many-arguments, unused-argument
     self,
@@ -416,7 +411,6 @@ def _get_pg_column_info(  # pylint: disable=too-many-locals,too-many-arguments, 
     return column_info
 
 
-@calculate_execution_time()
 @reflection.cache
 def get_table_comment(
     self, connection, table_name, schema=None, **kw  # pylint: disable=unused-argument
@@ -430,22 +424,30 @@ def get_table_comment(
     )
 
 
-@calculate_execution_time()
-@reflection.cache
 def _get_all_relation_info(self, connection, **kw):  # pylint: disable=unused-argument
+    """
+    Get all relation info for a schema.
+
+    Uses a custom single-schema cache instead of @reflection.cache
+    to prevent unbounded memory growth across schemas (issue #20649).
+    Only the most recently requested schema's data is retained.
+    The ``table_name`` kwarg is not used for filtering since the
+    cache is keyed by schema only.
+    """
     # pylint: disable=consider-using-f-string
     schema = kw.get("schema", None)
-    schema_clause = "AND schema = '{schema}'".format(schema=schema) if schema else ""
 
-    table_name = kw.get("table_name", None)
-    table_clause = (
-        "AND relname = '{table}'".format(table=table_name) if table_name else ""
-    )
+    # Single-schema cache: invalidate when schema changes
+    cached = getattr(self, "_relation_info_cache", None)
+    if cached is not None and cached[0] == schema:
+        return cached[1]
+
+    schema_clause = "AND schema = '{schema}'".format(schema=schema) if schema else ""
 
     result = connection.execute(
         sa.text(
             REDSHIFT_GET_ALL_RELATIONS.format(
-                schema_clause=schema_clause, table_clause=table_clause, limit_clause=""
+                schema_clause=schema_clause, table_clause="", limit_clause=""
             )
         )
     )
@@ -453,6 +455,8 @@ def _get_all_relation_info(self, connection, **kw):  # pylint: disable=unused-ar
     for rel in result:
         key = RelationKey(rel.relname, rel.schema, connection)
         relations[key] = rel
+    result.close()
+    self._relation_info_cache = (schema, relations)
     return relations
 
 

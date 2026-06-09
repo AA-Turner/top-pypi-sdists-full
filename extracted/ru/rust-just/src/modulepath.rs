@@ -7,18 +7,24 @@ pub(crate) struct Modulepath {
 }
 
 impl Modulepath {
-  pub(crate) fn join(&self, name: &str) -> String {
-    if self.components.is_empty() {
-      name.into()
-    } else if self.spaced {
-      format!("{self} {name}")
-    } else {
-      format!("{self}::{name}")
+  pub(crate) fn join(&self, name: &str) -> Self {
+    Self {
+      components: self
+        .components
+        .iter()
+        .cloned()
+        .chain(iter::once(name.into()))
+        .collect(),
+      spaced: self.spaced,
     }
   }
 
   pub(crate) fn starts_with(&self, other: &Modulepath) -> bool {
     self.components.starts_with(&other.components)
+  }
+
+  pub(crate) fn from_argument(argument: &str) -> Result<Self, ()> {
+    Self::try_from([argument.strip_suffix("::").unwrap_or(argument)].as_slice())
   }
 }
 

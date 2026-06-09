@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-storage-file-datalake
-Version: 12.24.0
+Version: 12.25.0
 Summary: Microsoft Azure File DataLake Storage Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -22,7 +22,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: azure-core>=1.37.0
-Requires-Dist: azure-storage-blob>=12.29.0
+Requires-Dist: azure-storage-blob>=12.30.0
 Requires-Dist: typing-extensions>=4.6.0
 Requires-Dist: isodate>=0.6.1
 Provides-Extra: aio

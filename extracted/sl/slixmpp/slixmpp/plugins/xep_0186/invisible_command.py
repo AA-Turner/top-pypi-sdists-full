@@ -8,7 +8,7 @@ import logging
 from slixmpp import Iq
 from slixmpp.plugins import BasePlugin
 from slixmpp.xmlstream import register_stanza_plugin
-from slixmpp.plugins.xep_0186 import stanza, Visible, Invisible
+from slixmpp.plugins.xep_0186 import Visible, Invisible
 
 
 log = logging.getLogger(__name__)

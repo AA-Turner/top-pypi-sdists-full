@@ -10,13 +10,9 @@ from typing import (
     Literal,
 )
 
-import slixmpp
-from slixmpp import Message
 from slixmpp.jid import JID
 from slixmpp.plugins import BasePlugin
 from slixmpp.xmlstream import register_stanza_plugin
-from slixmpp.xmlstream.handler import Callback
-from slixmpp.xmlstream.matcher import StanzaPath
 from slixmpp.plugins.xep_0377 import stanza
 from slixmpp.plugins.xep_0191 import BlockItem
 
