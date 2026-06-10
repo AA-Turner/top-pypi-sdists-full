@@ -6,6 +6,7 @@ from arraylake.cli.auth import auth
 from arraylake.cli.compute import app as compute_app
 from arraylake.cli.config import app as config_app
 from arraylake.cli.repo import app as repo_app
+from arraylake.cli.skills import app as skills_app
 from arraylake.cli.utils import rich_console
 from arraylake.diagnostics import get_diagnostics
 
@@ -44,3 +45,4 @@ app.add_typer(auth, name="auth")
 app.add_typer(repo_app, name="repo")
 app.add_typer(config_app, name="config")
 app.add_typer(compute_app, name="compute")
+app.add_typer(skills_app, name="skills")

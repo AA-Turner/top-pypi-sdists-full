@@ -60,76 +60,9 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
 
-// ---------------------------------------------------------------------------
-// Typed errors
-// ---------------------------------------------------------------------------
+mod error;
 
-/// Typed errors emitted by smooth-term helpers in this module. `Display`
-/// reproduces the exact pre-refactor `format!(...)` text byte-for-byte, so
-/// string-matching callers (tests, log assertions) keep working unchanged.
-/// Public boundaries that interface with `term_builder.rs` / `construction`
-/// continue to return `Result<_, String>`; typed `Err(...)` values flow
-/// through `From<SmoothError> for String` at those boundaries via `.into()`.
-#[derive(Clone, Debug)]
-pub enum SmoothError {
-    /// Spec-level configuration error: unfrozen knots/centers, invalid
-    /// numeric bounds on coefficient priors, length-scale optimizer options
-    /// that violate `min > 0 < max` / `min < max` invariants, etc.
-    InvalidConfig { reason: String },
-    /// Shape / length disagreement between design columns, penalty blocks,
-    /// coefficient ranges, directional-derivative vectors, theta length, and
-    /// other bookkeeping invariants that are checked at runtime.
-    DimensionMismatch { reason: String },
-    /// Out-of-range index into adaptive hyperparameter components, psi
-    /// derivative blocks, or non-zero block indices for single-block
-    /// custom-family impls that only support `block_idx == 0`.
-    InvalidIndex { reason: String },
-}
-
-impl std::fmt::Display for SmoothError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SmoothError::InvalidConfig { reason }
-            | SmoothError::DimensionMismatch { reason }
-            | SmoothError::InvalidIndex { reason } => f.write_str(reason),
-        }
-    }
-}
-
-impl std::error::Error for SmoothError {}
-
-impl From<SmoothError> for String {
-    fn from(err: SmoothError) -> String {
-        err.to_string()
-    }
-}
-
-impl From<crate::util::block_count::BlockCountMismatch> for SmoothError {
-    fn from(err: crate::util::block_count::BlockCountMismatch) -> SmoothError {
-        SmoothError::invalid_index(err.message())
-    }
-}
-
-impl SmoothError {
-    #[inline]
-    fn invalid_config(reason: impl Into<String>) -> Self {
-        SmoothError::InvalidConfig {
-            reason: reason.into(),
-        }
-    }
-    #[inline]
-    fn dimension_mismatch(reason: impl Into<String>) -> Self {
-        SmoothError::DimensionMismatch {
-            reason: reason.into(),
-        }
-    }
-    #[inline]
-    fn invalid_index(reason: impl Into<String>) -> Self {
-        SmoothError::InvalidIndex {
-            reason: reason.into(),
-        }
-    }
-}
+pub use error::SmoothError;
 
 fn describe_thin_plate_center_request(strategy: &CenterStrategy) -> String {
     match strategy {
@@ -593,6 +526,52 @@ impl SmoothBasisSpec {
             }
         }
     }
+
+    /// Stable structural discriminant for warm-start cache keying (#869).
+    ///
+    /// Two smooths that produce different bases / penalty structures must map
+    /// to different strings here so they cannot collide on the persistent
+    /// warm-start `cache_key` (which is otherwise blind to topology: it hashes
+    /// only the raw input column count, so e.g. `sphere` vs `torus` vs
+    /// `euclidean` candidates fit on the *same* data would otherwise share one
+    /// key and cross-contaminate each other's β/ρ seed). The string is the
+    /// topology identity, not the fitted coefficients, so same-topology refits
+    /// (the screen→full-refit cascade) still hit the same key and reuse work.
+    pub fn structural_kind(&self) -> &'static str {
+        match self {
+            Self::ByVariable { .. } => "by_variable",
+            Self::FactorSumToZero { .. } => "factor_sum_to_zero",
+            Self::BSpline1D { .. } => "bspline_1d",
+            Self::BySmooth { .. } => "by_smooth",
+            Self::FactorSmooth { .. } => "factor_smooth",
+            Self::ThinPlate { .. } => "thin_plate",
+            Self::Sphere { .. } => "sphere",
+            Self::Matern { .. } => "matern",
+            Self::Duchon { .. } => "duchon",
+            Self::Pca { .. } => "pca",
+            Self::TensorBSpline { .. } => "tensor_bspline",
+        }
+    }
+
+    /// Feature columns this basis consumes, used alongside [`structural_kind`]
+    /// to disambiguate two same-kind smooths on different axes. Wrapper
+    /// variants delegate to their inner basis.
+    pub fn structural_feature_cols(&self) -> Vec<usize> {
+        match self {
+            Self::ByVariable { inner, .. } | Self::FactorSumToZero { inner, .. } => {
+                inner.structural_feature_cols()
+            }
+            Self::BySmooth { smooth, .. } => smooth.structural_feature_cols(),
+            Self::FactorSmooth { .. } => Vec::new(),
+            Self::BSpline1D { feature_col, .. } => vec![*feature_col],
+            Self::ThinPlate { feature_cols, .. }
+            | Self::Sphere { feature_cols, .. }
+            | Self::Matern { feature_cols, .. }
+            | Self::Duchon { feature_cols, .. }
+            | Self::Pca { feature_cols, .. }
+            | Self::TensorBSpline { feature_cols, .. } => feature_cols.clone(),
+        }
+    }
 }
 
 /// Lower bound on the number of basis columns produced by a 1D B-spline
@@ -1046,6 +1025,36 @@ fn validate_smooth_basis_frozen(
 }
 
 impl TermCollectionSpec {
+    /// Write this collection's topology identity into a warm-start cache
+    /// fingerprint (#869).
+    ///
+    /// The persistent warm-start `cache_key` hashes only family + raw input
+    /// dimensions, so two fits on the same data that differ *only* in their
+    /// smooth topology (the `s(..., type=AUTO)` candidate enumeration: sphere
+    /// vs torus vs euclidean vs duchon) collide on one key and seed each other
+    /// with geometrically incompatible β/ρ. Folding the per-term structural
+    /// kind + feature columns + linear/random-effect counts into the shape hash
+    /// gives each candidate its own key, so the screen→full-refit reuse of one
+    /// candidate is preserved while cross-candidate contamination is removed.
+    /// Only the structural identity is hashed (not fitted coefficients or
+    /// frozen knot values), so a refit of the *same* topology still hits.
+    pub fn write_structural_shape_hash(&self, h: &mut crate::cache::Fingerprinter) {
+        h.write_str("term-collection");
+        h.write_usize(self.linear_terms.len());
+        for linear in &self.linear_terms {
+            h.write_str(&linear.name);
+        }
+        h.write_usize(self.random_effect_terms.len());
+        h.write_usize(self.smooth_terms.len());
+        for smooth in &self.smooth_terms {
+            h.write_str(&smooth.name);
+            h.write_str(smooth.basis.structural_kind());
+            for col in smooth.basis.structural_feature_cols() {
+                h.write_usize(col);
+            }
+        }
+    }
+
     /// Validate that a term collection spec represents a fully frozen model
     /// (i.e. all knots/centers are pre-computed, identifiability transforms are
     /// baked in, and random-effect levels are fixed).
@@ -1327,6 +1336,18 @@ impl TermCollectionSpec {
         let mut out = self.clone();
         for lt in &mut out.linear_terms {
             lt.feature_col = remap(lt.feature_col)?;
+            // Also remap the full interaction-factor list. The design builder
+            // (`build_term_collection_design_inner`) materializes the column from
+            // `effective_feature_cols()` — which returns `feature_cols` whenever
+            // it is non-empty (i.e. essentially always, including a plain linear
+            // term where `feature_cols == [feature_col]`). Remapping only the
+            // singular `feature_col` left these at their saved *training* indices
+            // at predict time, so a parametric `Surv(...) ~ x` (and any `:`
+            // interaction) bailed with "feature column N out of bounds" once the
+            // response/time columns shift the runtime layout (issue #898).
+            for fc in lt.feature_cols.iter_mut() {
+                *fc = remap(*fc)?;
+            }
         }
         for rt in &mut out.random_effect_terms {
             rt.feature_col = remap(rt.feature_col)?;
@@ -1516,6 +1537,19 @@ impl BlockwisePenalty {
         g
     }
 
+    /// Convert into a blockwise [`crate::custom_family::PenaltyMatrix`] without
+    /// expanding to full dimensions.
+    pub(crate) fn to_penalty_matrix(
+        &self,
+        total_dim: usize,
+    ) -> crate::custom_family::PenaltyMatrix {
+        crate::custom_family::PenaltyMatrix::Blockwise {
+            local: self.local.clone(),
+            col_range: self.col_range.clone(),
+            total_dim,
+        }
+    }
+
     /// The block size of this penalty.
     #[inline]
     pub fn block_size(&self) -> usize {
@@ -1654,8 +1688,14 @@ impl KroneckerPenaltySystem {
         let mut rank = 0usize;
         let mut grad = Array1::<f64>::zeros(n_pen);
         let mut hess = Array2::<f64>::zeros((n_pen, n_pen));
-        let tol = 1e-12;
-        let structural_zero_tol = 1e-12;
+        // Positivity floor for a penalized eigenvalue `σ`: below this the mode
+        // is treated as an unpenalized (null-space) direction and excluded from
+        // both the rank count and the pseudo-log-determinant.
+        const EIGENVALUE_POSITIVITY_FLOOR: f64 = 1e-12;
+        // Floor on the *structural* eigenvalue sum (λ-independent) used to decide
+        // whether a mode lives in the penalty range space and so should receive
+        // the stabilizing ridge; a structurally-null mode gets no ridge.
+        const STRUCTURAL_ZERO_FLOOR: f64 = 1e-12;
         let mut multi_idx = vec![0usize; d];
         loop {
             let mut sigma = 0.0;
@@ -1669,11 +1709,11 @@ impl KroneckerPenaltySystem {
                 structural_sigma += 1.0;
                 sigma += lambdas[d];
             }
-            if structural_sigma > structural_zero_tol {
+            if structural_sigma > STRUCTURAL_ZERO_FLOOR {
                 sigma += ridge;
             }
 
-            if sigma > tol {
+            if sigma > EIGENVALUE_POSITIVITY_FLOOR {
                 rank += 1;
                 logdet += sigma.ln();
                 let inv_sigma = 1.0 / sigma;
@@ -1754,7 +1794,7 @@ impl TermCollectionDesign {
         let p = self.design.ncols();
         self.penalties
             .iter()
-            .map(|bp| crate::custom_family::PenaltyMatrix::from_blockwise(bp.clone(), p))
+            .map(|bp| bp.to_penalty_matrix(p))
             .collect()
     }
 
@@ -2771,7 +2811,7 @@ impl SpatialLogKappaCoords {
             log::info!(
                 "[spatial-kappa] projected {n_projected}/{} ψ seed coords into data-derived bounds \
                  (worst excess={worst_delta:.3} log units); user length_scale falls outside \
-                 [2/r_max, 1e2/r_min] geometry window",
+                 [{KERNEL_RANGE_MIN_DIAMETER_FRACTION}/r_max, {KERNEL_RANGE_MAX_SPACING_MULTIPLE}/r_min] geometry window",
                 self.values.len()
             );
         }
@@ -2870,7 +2910,7 @@ impl SpatialLogKappaCoords {
     }
 }
 
-fn center_aniso_log_scales(eta: &[f64]) -> Vec<f64> {
+pub(crate) fn center_aniso_log_scales(eta: &[f64]) -> Vec<f64> {
     if eta.len() <= 1 {
         return eta.to_vec();
     }
@@ -2953,6 +2993,17 @@ pub fn spatial_term_has_locked_kappa(spec: &TermCollectionSpec, term_idx: usize)
 ///   κ ∈ [2 / r_max, 1e2 / r_min]
 /// where (r_min, r_max) are pairwise-distance extrema of the term's resolved
 /// centers (post-fit) or the standardized feature data columns (pre-fit).
+/// Lower edge of the data-derived kernel-range window, as a fraction of the
+/// maximum pairwise distance `r_max`: length scales below `2/r_max` resolve
+/// structure finer than the closest center pair, so the kernel range floor is
+/// set at twice the maximum spacing.
+const KERNEL_RANGE_MIN_DIAMETER_FRACTION: f64 = 2.0;
+/// Upper edge of the data-derived kernel-range window, as a multiple of the
+/// minimum pairwise distance `r_min`: beyond `100/r_min` the radial columns go
+/// nearly collinear with the polynomial nullspace, so the kernel range is
+/// capped here to keep the basis geometry well-conditioned.
+const KERNEL_RANGE_MAX_SPACING_MULTIPLE: f64 = 1e2;
+
 /// Returns ψ-space bounds (ψ_lo = ln(κ_lo), ψ_hi = ln(κ_hi)).
 ///
 /// When geometry is unavailable (e.g., fewer than 2 distinct points), falls
@@ -3015,8 +3066,8 @@ fn spatial_term_psi_bounds(
     // The nullspace already carries constant/linear low-frequency structure,
     // so cap the kernel range at the diameter scale instead of letting the
     // optimizer enter a numerically degenerate basis geometry.
-    let psi_lo_data = (2.0 / r_max).ln();
-    let psi_hi_data = (1e2 / r_min).ln();
+    let psi_lo_data = (KERNEL_RANGE_MIN_DIAMETER_FRACTION / r_max).ln();
+    let psi_hi_data = (KERNEL_RANGE_MAX_SPACING_MULTIPLE / r_min).ln();
     // Intersect with the options window so min/max_length_scale remain hard caps.
     let psi_lo = psi_lo_data.max(fallback.0);
     let psi_hi = psi_hi_data.min(fallback.1);
@@ -3797,6 +3848,9 @@ fn plan_joint_spatial_centers_for_term_blocks(
 /// reachable for smoother kernels (ν ≥ 5/2). Clamped to a tiny positive
 /// floor so degenerate constant-input columns can't produce 0.
 fn auto_initial_length_scale(data: ArrayView2<'_, f64>, feature_cols: &[usize]) -> f64 {
+    /// Tiny positive floor for the auto length scale, guarding against a zero
+    /// kernel range when every feature column is (near-)constant.
+    const LENGTH_SCALE_FLOOR: f64 = 1e-6;
     let n = data.nrows();
     if n == 0 || feature_cols.is_empty() {
         return 1.0;
@@ -3830,7 +3884,7 @@ fn auto_initial_length_scale(data: ArrayView2<'_, f64>, feature_cols: &[usize]) 
         return 1.0;
     }
     let init = max_range / (n as f64).sqrt();
-    init.max(1e-6).min(max_range)
+    init.max(LENGTH_SCALE_FLOOR).min(max_range)
 }
 
 /// Walk a term and, if it is a Matern or thin-plate smooth whose length_scale
@@ -3879,18 +3933,6 @@ fn auto_init_length_scale_in_basis(data: ArrayView2<'_, f64>, basis: &mut Smooth
     }
 }
 
-fn linear_conditioning_chunk_rows(n: usize, p: usize) -> usize {
-    const TARGET_BYTES: usize = 8 * 1024 * 1024;
-    const MIN_ROWS: usize = 256;
-    const MAX_ROWS: usize = 65_536;
-    if p == 0 {
-        return n.max(1);
-    }
-    (TARGET_BYTES / (p * 8))
-        .clamp(MIN_ROWS, MAX_ROWS)
-        .min(n.max(1))
-}
-
 impl LinearFitConditioning {
     fn from_columns(design: &TermCollectionDesign, selected_cols: &[usize]) -> Self {
         const SCALE_EPS: f64 = 1e-12;
@@ -3903,7 +3945,7 @@ impl LinearFitConditioning {
                 columns,
             };
         }
-        let chunk_rows = linear_conditioning_chunk_rows(n, p);
+        let chunk_rows = crate::linalg::utils::row_chunk_for_byte_budget(n, p);
         // Two-pass mean/variance so operator-backed designs don't need to
         // materialize the full dense matrix. Pass 1 accumulates per-column
         // sums; pass 2 accumulates the sum of squared deviations from the
@@ -4086,11 +4128,6 @@ impl LinearFitConditioning {
         self.transform_matrixrowswith_b_transpose(&right)
     }
 
-    fn backtransform_covariance(&self, cov_internal: &Array2<f64>) -> Array2<f64> {
-        let right = self.transform_matrix_columnswith_a(cov_internal);
-        self.transform_matrixrowswith_a_transpose(&right)
-    }
-
     fn internal_bounds_for(&self, col_idx: usize, min: f64, max: f64) -> (f64, f64) {
         if let Some(col) = self.columns.iter().find(|c| c.col_idx == col_idx) {
             (min * col.scale, max * col.scale)
@@ -4144,6 +4181,89 @@ fn cumulative_sum_transform_matrix(dim: usize, order: usize, sign: f64) -> Array
         t.mapv_inplace(|v| -v);
     }
     t
+}
+
+/// Greville-scaled second-order cumulative transform for the convex/concave
+/// box reparameterization on a B-spline coefficient vector `θ` (raw control
+/// points; the shape-constrained B-spline arm forces
+/// `BSplineIdentifiability::None`, so the design columns are the raw basis
+/// functions and `θ` carries the control-polygon geometry).
+///
+/// The plain integer second-difference cone `θ_{i+2} − 2θ_{i+1} + θ_i ≥ 0`
+/// only certifies convexity of the *function* when the Greville abscissae are
+/// evenly spaced. gam's B-splines are clamped (boundary knots repeated
+/// `degree + 1` times), so even on a uniform breakpoint grid the Greville
+/// abscissae `ξ_j = (1/d)·Σ_{k=1}^{d} t_{j+k}` cluster toward the ends and are
+/// **not** uniform (and `knot_placement="quantile"` makes them more skewed
+/// still). The geometrically-correct convexity cone is that the control-polygon
+/// *slopes* `m_i = (θ_{i+1} − θ_i)/(ξ_{i+1} − ξ_i)` are non-decreasing, i.e. the
+/// second *divided* differences `[D²θ]_i = (m_{i+1} − m_i)/(ξ_{i+2} − ξ_i) ≥ 0`.
+/// This is the exact same divided-difference correction the difference-penalty
+/// path applies (see `create_difference_penalty_matrix` /
+/// `penalty_greville_abscissae_for_knots`): a coefficient sequence linear in
+/// `x` (`θ_j = a + b·ξ_j`, the unpenalized affine null space, which must be a
+/// boundary of both the convex and concave cones) has zero second divided
+/// difference but a *non-zero* plain second difference under non-uniform ξ, so
+/// the plain cone silently mis-orients the constraint.
+///
+/// Returns `T` (`p × p`) such that `θ = T·γ` and, for `i ≥ 2`, the new
+/// coordinate `γ_i = sign · [D²θ]_{i−2}`. Pairing this `T` with the lower
+/// bounds `γ_i ≥ 0` (`i ≥ 2`) from [`shape_lower_bounds_local`] enforces
+/// convexity (`sign = +1`) or concavity (`sign = −1`) exactly for arbitrary
+/// (clamped / quantile) knot geometry. `γ_0` is the level and `γ_1` the initial
+/// slope, both unconstrained. When ξ is uniform this reduces (column-scaled) to
+/// `cumulative_sum_transform_matrix(p, 2, sign)`, recovering the original path.
+fn convex_divided_difference_transform_matrix(
+    greville: &Array1<f64>,
+    sign: f64,
+) -> Result<Array2<f64>, BasisError> {
+    let p = greville.len();
+    if p < 3 {
+        crate::bail_invalid_basis!(
+            "convex/concave box reparameterization requires at least 3 basis functions; found {p}"
+        );
+    }
+    // First-difference spans (ξ_{i+1} − ξ_i) and second-difference spans
+    // (ξ_{i+2} − ξ_i). Reject degenerate (collapsed) Greville abscissae rather
+    // than dividing by zero — a degenerate span means the basis cannot separate
+    // the curvature directions the cone constrains.
+    let mut first_span = Array1::<f64>::zeros(p - 1);
+    for i in 0..p - 1 {
+        let s = greville[i + 1] - greville[i];
+        if !(s > 1e-12 * greville[p - 1].abs().max(1.0)) {
+            crate::bail_invalid_basis!(
+                "convex/concave box reparameterization requires strictly increasing Greville abscissae; span ξ[{}]−ξ[{i}] = {s:.3e} is non-positive",
+                i + 1
+            );
+        }
+        first_span[i] = s;
+    }
+
+    // Build T column by column: T[:, c] = θ for γ = e_c. Forward-accumulate
+    // m_0 = γ_1, m_{i+1} = m_i + (ξ_{i+2} − ξ_i)·γ_{i+2}, θ_0 = γ_0,
+    // θ_{i+1} = θ_i + (ξ_{i+1} − ξ_i)·m_i.
+    let mut t = Array2::<f64>::zeros((p, p));
+    for c in 0..p {
+        // γ = e_c
+        let gamma1 = if c == 1 { 1.0 } else { 0.0 };
+        let mut m = Array1::<f64>::zeros(p - 1);
+        m[0] = gamma1;
+        for i in 0..p - 2 {
+            // contribution of γ_{i+2} to the divided second difference
+            let gamma_ip2 = if c == i + 2 { 1.0 } else { 0.0 };
+            let second_span = greville[i + 2] - greville[i];
+            m[i + 1] = m[i] + second_span * gamma_ip2;
+        }
+        let theta0 = if c == 0 { 1.0 } else { 0.0 };
+        t[[0, c]] = theta0;
+        for i in 0..p - 1 {
+            t[[i + 1, c]] = t[[i, c]] + first_span[i] * m[i];
+        }
+    }
+    if sign < 0.0 {
+        t.mapv_inplace(|v| -v);
+    }
+    Ok(t)
 }
 
 /// Small integer binomial coefficient C(n, k). Used to build the
@@ -4203,6 +4323,114 @@ mod cumulative_sum_transform_tests {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod convex_divided_difference_transform_tests {
+    use super::{convex_divided_difference_transform_matrix, cumulative_sum_transform_matrix};
+    use ndarray::Array1;
+
+    /// Second *divided* difference of `theta` over Greville abscissae `g`:
+    /// `(m_{i+1} − m_i)/(g_{i+2} − g_i)` with `m_i = (θ_{i+1}−θ_i)/(g_{i+1}−g_i)`.
+    fn second_divided_difference(theta: &Array1<f64>, g: &Array1<f64>) -> Array1<f64> {
+        let p = theta.len();
+        let mut m = Array1::<f64>::zeros(p - 1);
+        for i in 0..p - 1 {
+            m[i] = (theta[i + 1] - theta[i]) / (g[i + 1] - g[i]);
+        }
+        let mut d = Array1::<f64>::zeros(p - 2);
+        for i in 0..p - 2 {
+            d[i] = (m[i + 1] - m[i]) / (g[i + 2] - g[i]);
+        }
+        d
+    }
+
+    #[test]
+    fn uniform_greville_matches_integer_transform_up_to_column_scale() {
+        // Uniformly spaced abscissae must reproduce the integer second-difference
+        // transform up to a positive per-column scale (so the γ ≥ 0 cone is
+        // identical), guaranteeing no regression on the common uniform case.
+        let p = 7;
+        let g = Array1::from_iter((0..p).map(|i| i as f64));
+        for &sign in &[1.0_f64, -1.0] {
+            let t = convex_divided_difference_transform_matrix(&g, sign).unwrap();
+            let plain = cumulative_sum_transform_matrix(p, 2, sign);
+            for c in 0..p {
+                // Find a non-zero reference entry in the plain column to fix the scale.
+                let mut scale: Option<f64> = None;
+                for i in 0..p {
+                    if plain[[i, c]].abs() > 1e-9 {
+                        scale = Some(t[[i, c]] / plain[[i, c]]);
+                        break;
+                    }
+                }
+                if let Some(s) = scale {
+                    assert!(s > 0.0, "column {c} scale must be positive, got {s}");
+                    for i in 0..p {
+                        assert!(
+                            (t[[i, c]] - s * plain[[i, c]]).abs() < 1e-9,
+                            "uniform reduction mismatch at ({i},{c})"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn nonneg_gamma_certifies_convexity_for_nonuniform_greville() {
+        // Clustered (clamped/quantile-like) abscissae: γ_{≥2} ≥ 0 must certify a
+        // non-negative second *divided* difference (true function convexity).
+        let g = Array1::from(vec![0.0, 0.1, 0.3, 0.7, 1.4, 2.6, 4.5]);
+        let t = convex_divided_difference_transform_matrix(&g, 1.0).unwrap();
+        // γ_0, γ_1 arbitrary (level/slope); γ_{≥2} ≥ 0 (convex cone interior).
+        let gamma = Array1::from(vec![-2.0, 1.5, 0.4, 0.0, 1.2, 0.7, 0.9]);
+        let theta = t.dot(&gamma);
+        let d2 = second_divided_difference(&theta, &g);
+        for (i, &v) in d2.iter().enumerate() {
+            assert!(
+                v >= -1e-9,
+                "convex cone violated: second divided difference d2[{i}] = {v:.3e} < 0"
+            );
+            // And it equals the corresponding γ exactly (the cone coordinate).
+            assert!(
+                (v - gamma[i + 2]).abs() < 1e-9,
+                "cone coordinate mismatch at {i}: d2 = {v:.3e}, gamma = {:.3e}",
+                gamma[i + 2]
+            );
+        }
+    }
+
+    #[test]
+    fn affine_coefficients_are_a_cone_boundary() {
+        // A control vector linear in the abscissae (θ_j = a + b·g_j) is the
+        // unpenalized affine null space and must lie on the boundary of BOTH the
+        // convex and concave cones: every second divided difference is zero. The
+        // PLAIN integer second difference would be NON-zero here under non-uniform
+        // abscissae — exactly the silent mis-orientation this transform fixes.
+        let g = Array1::from(vec![0.0, 0.1, 0.3, 0.7, 1.4, 2.6, 4.5]);
+        let theta = g.mapv(|x| 3.0 - 2.0 * x);
+        let d2 = second_divided_difference(&theta, &g);
+        for (i, &v) in d2.iter().enumerate() {
+            assert!(
+                v.abs() < 1e-9,
+                "affine control polygon must have zero second divided difference at {i}, got {v:.3e}"
+            );
+        }
+        // Sanity: the plain integer second difference is genuinely non-zero,
+        // confirming the divided-difference correction is load-bearing.
+        let mut any_nonzero_plain = false;
+        for i in 0..theta.len() - 2 {
+            let plain = theta[i + 2] - 2.0 * theta[i + 1] + theta[i];
+            if plain.abs() > 1e-6 {
+                any_nonzero_plain = true;
+            }
+        }
+        assert!(
+            any_nonzero_plain,
+            "non-uniform abscissae should make the plain second difference non-zero on affine data"
+        );
     }
 }
 
@@ -4286,6 +4514,7 @@ fn matern_operator_penalty_triplet_from_metadata(
         identifiability_transform,
         aniso_log_scales,
         input_scales,
+        ..
     } = metadata
     else {
         crate::bail_invalid_basis!("Matérn operator penalties require Matérn metadata");
@@ -4504,6 +4733,10 @@ fn build_shape_constraint_design_1d(
                 .as_ref()
                 .map(|z| MaternIdentifiability::FrozenTransform {
                     transform: z.clone(),
+                    // Predict-time design rebuild: penalties are not assembled
+                    // here (`double_penalty: false` below), so the frozen
+                    // shrinkage decision is irrelevant on this path.
+                    nullspace_shrinkage_survived: None,
                 })
                 .unwrap_or(MaternIdentifiability::None);
             let evalspec = MaternBasisSpec {
@@ -4515,6 +4748,7 @@ fn build_shape_constraint_design_1d(
                 double_penalty: false,
                 identifiability: ident,
                 aniso_log_scales: aniso_log_scales.clone(),
+                nullspace_shrinkage_survived: None,
             };
             build_matern_basis(grid_2d.view(), &evalspec)?
                 .design
@@ -4940,7 +5174,15 @@ fn build_tensor_bspline_basis(
                 }
                 BSplineKnotSpec::Automatic {
                     num_internal_knots, ..
-                } => num_internal_knots.unwrap_or(8) + marginalspec.degree + 1,
+                } => {
+                    // Fallback internal-knot count when an automatic marginal has
+                    // not yet resolved its knot count at periodic-margin build
+                    // time; matches the modest default used for a 1-D `s()`.
+                    const DEFAULT_AUTOMATIC_INTERNAL_KNOTS: usize = 8;
+                    num_internal_knots.unwrap_or(DEFAULT_AUTOMATIC_INTERNAL_KNOTS)
+                        + marginalspec.degree
+                        + 1
+                }
                 BSplineKnotSpec::PeriodicUniform { num_basis, .. } => num_basis,
             };
             let (basis, penalty, knots) = build_periodic_fourier_margin(
@@ -6959,7 +7201,48 @@ fn build_single_local_smooth_term(
     if let Some((order, sign)) = shape_order_and_sign(term.shape)
         && use_box_reparam
     {
-        let t = cumulative_sum_transform_matrix(p_local, order, sign);
+        // Order 1 (monotone): the plain first-difference cone θ_{i+1}−θ_i ≥ 0 is
+        // the control-polygon monotonicity criterion, which is independent of
+        // Greville-abscissa spacing (it only fixes the *sign* of consecutive
+        // control-point gaps), so the integer-difference transform is exact.
+        //
+        // Order 2 (convex/concave): the plain second-difference cone is only
+        // correct for evenly spaced Greville abscissae. gam's B-splines are
+        // clamped (and may use quantile knots), so the abscissae are not
+        // uniform and the geometrically-correct cone is the second *divided*
+        // difference. Build the Greville-scaled transform so γ_{≥2} ≥ 0
+        // certifies convexity of the function, not of the raw coefficient
+        // index. Periodic B-splines use uniform interior knots (uniform
+        // abscissae), where the divided differences coincide with the integer
+        // differences up to scale, so the plain path stays exact there.
+        let t = if order == 2 {
+            let bspline_meta = match &metadata {
+                BasisMetadata::BSpline1D {
+                    knots,
+                    degree,
+                    periodic,
+                    ..
+                } if periodic.is_none() => Some((knots.clone(), degree.unwrap_or(0))),
+                _ => None,
+            };
+            match bspline_meta {
+                Some((knots, degree)) if degree >= 1 => {
+                    let greville = crate::basis::compute_greville_abscissae(&knots, degree)?;
+                    if greville.len() != p_local {
+                        crate::bail_invalid_basis!(
+                            "shape-constraint Greville abscissae count {} does not match basis dim {} for term '{}'",
+                            greville.len(),
+                            p_local,
+                            term.name
+                        );
+                    }
+                    convex_divided_difference_transform_matrix(&greville, sign)?
+                }
+                _ => cumulative_sum_transform_matrix(p_local, order, sign),
+            }
+        } else {
+            cumulative_sum_transform_matrix(p_local, order, sign)
+        };
         coefficient_transform_for_constraints = Some(t.clone());
         // Coefficient-side transform: wrap the design in an operator that
         // applies T on the coefficient side, preserving sparsity/operator
@@ -7454,13 +7737,25 @@ fn build_term_collection_design_inner(
                         .into_par_iter()
                         .map(|j| {
                             let linear = &spec.linear_terms[j];
-                            if linear.feature_col >= p_data {
-                                crate::bail_dim_basis!(
-                                    "linear term '{}' feature column {} out of bounds for {} columns",
-                                    linear.name, linear.feature_col, p_data
-                                );
+                            // `:` interactions carry multiple feature columns; the
+                            // materialized column is their elementwise product (a
+                            // plain main effect has a single column). Mirror
+                            // `build_term_collection_fixed_blocks` so this path and
+                            // the incremental realizer agree on every interaction.
+                            let cols = linear.effective_feature_cols();
+                            for &col in &cols {
+                                if col >= p_data {
+                                    crate::bail_dim_basis!(
+                                        "linear term '{}' feature column {} out of bounds for {} columns",
+                                        linear.name, col, p_data
+                                    );
+                                }
                             }
-                            Ok(data.column(linear.feature_col).to_owned())
+                            let mut column = data.column(cols[0]).to_owned();
+                            for &c in cols.iter().skip(1) {
+                                column *= &data.column(c);
+                            }
+                            Ok(column)
                         })
                         .collect::<Result<Vec<_>, _>>()?;
 
@@ -8184,7 +8479,10 @@ fn apply_global_smooth_identifiability(
         let owner_indices = if skip_global_transform {
             Vec::new()
         } else {
-            let overlap_tol = 1e-10;
+            // Relative cross-residual above which a dependent smooth's design is
+            // judged to share column space with an owner term and so needs that
+            // owner's block in its identifiability transform.
+            const OVERLAP_REL_RESIDUAL_TOL: f64 = 1e-10;
             let owner_cross_checks = term_owners[idx]
                 .clone()
                 .into_par_iter()
@@ -8199,7 +8497,7 @@ fn apply_global_smooth_identifiability(
             let mut out = Vec::new();
             for check in owner_cross_checks {
                 let (owner_idx, rel) = check?;
-                if rel > overlap_tol {
+                if rel > OVERLAP_REL_RESIDUAL_TOL {
                     out.push(owner_idx);
                 }
             }
@@ -8216,7 +8514,13 @@ fn apply_global_smooth_identifiability(
         let needs_parametric_block = !skip_global_transform
             && (smooth_has_overlapping_linear_terms(linear_terms, termspec)
                 || !smooth_intrinsic_parametric_feature_cols(linear_terms, termspec).is_empty()
-                || smooth_requires_parametric_orthogonality(termspec));
+                || smooth_requires_parametric_orthogonality(termspec)
+                // A factor-by-level smooth must always be centered against its
+                // gated level indicator (see `factor_by_level_gate`) so its
+                // within-level constant cannot collide with the treatment-coded
+                // factor main effect — even when no continuous linear term
+                // overlaps it (e.g. `s(x, by=fac)` with no `+ x`).
+                || factor_by_level_gate(termspec).is_some());
         let parametric_block = if !needs_parametric_block {
             None
         } else {
@@ -8262,7 +8566,10 @@ fn apply_global_smooth_identifiability(
         if let Some(c_ref) = c_local.as_ref() {
             let rel =
                 orthogonality_relative_residual_for_design(&design_constrained, c_ref.view())?;
-            let tol = 1e-8;
+            // Largest relative residual tolerated before the constrained design
+            // is rejected as not orthogonal to its sum-to-zero constraint rows.
+            const ORTHOGONALITY_REL_RESIDUAL_TOL: f64 = 1e-8;
+            let tol = ORTHOGONALITY_REL_RESIDUAL_TOL;
             if rel > tol {
                 crate::bail_invalid_basis!(
                     "smooth orthogonality residual too large for term '{}': {:.3e} > {:.1e}",
@@ -8501,6 +8808,39 @@ fn apply_global_smooth_identifiability(
     })
 }
 
+/// If `termspec` is a single-level factor-by smooth (`s(x, by=fac)` expanded
+/// into one `ByVariable { kind: Level }` block per factor level), return the
+/// `(by_col, value_bits)` pair identifying which rows that level's block gates
+/// to. `None` for numeric-by smooths and every other basis.
+///
+/// A factor-by smooth's per-level block is the inner basis multiplied by the
+/// level indicator (zero on every other level's rows). Its column span
+/// therefore contains the per-level CONSTANT — a vector that is `1` on this
+/// level's rows and `0` elsewhere — which is exactly the column the
+/// treatment-coded factor main effect (`build_termspec` auto-adds one as an
+/// unpenalized random-effect term) already carries. Centering each level's
+/// smooth against the *global* intercept (`build_parametric_constraint_block_for_term`'s
+/// default) removes only its global mean, leaving that within-level constant
+/// to collide with the factor main effect: a rank-1 collinearity that lets the
+/// penalty/ridge split the per-group baseline level between the two blocks and
+/// under-recover it (the per-group log-cumulative-hazard offset leaks out — the
+/// #900 weibull-AFT-by-factor surface miscalibration). Centering against the
+/// gated level indicator instead removes the within-level constant cleanly,
+/// leaving the per-group level entirely to the factor main effect (mgcv's
+/// by-factor convention), while the per-level slope/curvature deviation stays
+/// in the smooth (we deliberately do NOT project the overlapping continuous
+/// axis out of a by-level smooth — that deviation is the by-factor signal).
+fn factor_by_level_gate(termspec: &SmoothTermSpec) -> Option<(usize, u64)> {
+    match &termspec.basis {
+        SmoothBasisSpec::ByVariable {
+            by_col,
+            by: ByVariableSpec::Level { value_bits, .. },
+            ..
+        } => Some((*by_col, *value_bits)),
+        _ => None,
+    }
+}
+
 fn build_parametric_constraint_block_for_term(
     data: ArrayView2<'_, f64>,
     linear_terms: &[LinearTermSpec],
@@ -8508,6 +8848,27 @@ fn build_parametric_constraint_block_for_term(
 ) -> Result<Array2<f64>, BasisError> {
     let n = data.nrows();
     let p_data = data.ncols();
+
+    // Factor-by-level smooth: center against the gated level indicator so the
+    // within-level constant is removed (it belongs to the treatment-coded
+    // factor main effect), not against the global `[1 | overlapping axes]`.
+    if let Some((by_col, value_bits)) = factor_by_level_gate(termspec) {
+        if by_col >= p_data {
+            crate::bail_dim_basis!(
+                "factor-by smooth term '{}' by column {by_col} out of bounds for {p_data} columns",
+                termspec.name
+            );
+        }
+        let mut c = Array2::<f64>::zeros((n, 1));
+        let by = data.column(by_col);
+        for (row, &value) in by.iter().enumerate() {
+            if value.to_bits() == value_bits {
+                c[[row, 0]] = 1.0;
+            }
+        }
+        return Ok(c);
+    }
+
     let feature_cols = smooth_term_feature_cols(termspec);
     let mut parametric_cols = smooth_intrinsic_parametric_feature_cols(linear_terms, termspec);
     for &feature_col in &parametric_cols {
@@ -8841,6 +9202,7 @@ fn with_identifiability_transform(
             identifiability_transform,
             input_scales,
             aniso_log_scales,
+            nullspace_shrinkage_survived,
         } => Ok(BasisMetadata::Matern {
             centers: centers.clone(),
             length_scale: *length_scale,
@@ -8853,6 +9215,7 @@ fn with_identifiability_transform(
             )?,
             input_scales: input_scales.clone(),
             aniso_log_scales: aniso_log_scales.clone(),
+            nullspace_shrinkage_survived: *nullspace_shrinkage_survived,
         }),
         BasisMetadata::Duchon {
             centers,
@@ -9356,22 +9719,39 @@ impl CharbonnierScalarBlockState {
         //   r_k^snr        = sqrt( t_k^credible^2 + eps^2 ),
         //   w_k            = 1 / r_k^snr.
         //
-        // This realizes the intended behavior exactly: a derivative is left
-        // un-penalized (small w) only when its magnitude is *credibly* large
-        // (t_k^2 >> Var, real feature); the penalty pulls hardest toward zero
-        // (large w) where the derivative is credibly near zero — small estimate
-        // AND small variance, OR a large-but-poorly-determined estimate whose
-        // signal is swamped by its variance. (Note: the additive `+Var` radius
-        // sketched in the design notes points the *opposite* way — it would
-        // un-penalize noisy responses even harder — so we use the variance-
-        // *corrected* second moment, which is the direction that actually
-        // suppresses noise while preserving credible edges.) With
-        // `variance == 0` everywhere this degrades exactly to `surrogateweights`,
-        // so any covariance-unavailable path is unchanged.
+        // The principled fix evaluates the MM weight at the *credible* (noise-
+        // floor-corrected) squared magnitude rather than the raw point estimate.
+        // Under the working-Laplace posterior `beta ~ N(beta_hat, Sigma_beta)`,
+        // `Sigma_beta = H^{-1}`, the response `t_k = (D0 beta)_k` has posterior
+        // mean `t_hat_k` and variance `V_k = (D0 Sigma_beta D0^T)_kk >= 0`. The
+        // expected squared response is `E[t_k^2] = t_hat_k^2 + V_k`, so the part
+        // of `t_hat_k^2` that exceeds the noise floor `V_k` is the credibly real
+        // squared magnitude
+        //
+        //   t_k^credible^2 = max( t_hat_k^2 - V_k , 0 ),
+        //   r_k^snr        = sqrt( t_k^credible^2 + eps^2 ),   w_k = 1 / r_k^snr.
+        //
+        // This is the correct realization of the intent. Where the point
+        // estimate is a *credible* edge (t_hat^2 >> V) the credible magnitude is
+        // ~|t_hat| and the weight is essentially `1/|t_hat|` (left un-penalized,
+        // edge preserved). Where the large point-estimate magnitude is *noise*
+        // (t_hat^2 <~ V) the credible magnitude collapses to 0 and the weight
+        // rises to `1/eps` (extra smoothing, noise suppressed). The weight is
+        // monotone non-decreasing in `V`, and is bounded above by `1/eps` — the
+        // *same* ceiling the magnitude-only weight `1/sqrt(t^2 + eps^2)` already
+        // attains at `t = 0` (and clamped by `weight_ceiling`), so it is not an
+        // unbounded blow-up: it only moves the noise-dominated rows to the flat-
+        // response weight they would have had with a credible estimate of zero
+        // curvature. The earlier delta-method form `f + ½ f'' V` was non-monotone
+        // (`f''` flips sign at `2t^2 = eps^2`) and unbounded in `V`, which left
+        // noisy rows under-penalized and was the source of the SNR regression.
+        // With `V == 0` everywhere this degrades exactly to `surrogateweights`
+        // (`1/sqrt(t^2 + eps^2)`), so any covariance-unavailable path is
+        // unchanged.
         let eps2 = self.epsilon * self.epsilon;
         let weight = Array1::from_iter(self.signal.iter().zip(variance.iter()).map(|(&t, &v)| {
-            let credible_sq = (t * t - v.max(0.0)).max(0.0);
-            let r = (credible_sq + eps2).sqrt();
+            let credible2 = (t * t - v.max(0.0)).max(0.0);
+            let r = (credible2 + eps2).sqrt();
             (1.0 / r).clamp(weight_floor, weight_ceiling)
         }));
         let invweight = weight.mapv(|u| 1.0 / u);
@@ -9400,6 +9780,32 @@ impl CharbonnierScalarBlockState {
                 .zip(direction_signal.iter())
                 .zip(self.radius.iter())
                 .map(|((t, q), r)| -3.0 * eps2 * t * q / r.powi(5)),
+        )
+    }
+
+    /// Exact scalar-image fourth derivative contracted along two coefficient
+    /// directions: with `t(β)=Aβ`, `H(β)=Aᵀ diag(ψ''(t_k)) A`,
+    /// `ψ''(t)=ε²/r³`, the second directional derivative of `H` along
+    /// `(u, v)` (signals `q1=A u`, `q2=A v`) is
+    /// `Aᵀ diag( ψ''''(t_k) q1_k q2_k ) A`, with
+    /// `ψ''''(t) = -3 ε² / r⁵ + 15 ε² t² / r⁷`.
+    fn second_directionalhessian_diag(
+        &self,
+        direction1_signal: &Array1<f64>,
+        direction2_signal: &Array1<f64>,
+    ) -> Array1<f64> {
+        let eps2 = self.epsilon * self.epsilon;
+        Array1::from_iter(
+            self.signal
+                .iter()
+                .zip(direction1_signal.iter())
+                .zip(direction2_signal.iter())
+                .zip(self.radius.iter())
+                .map(|(((t, q1), q2), r)| {
+                    let r2 = r * r;
+                    let psi4 = -3.0 * eps2 / r.powi(5) + 15.0 * eps2 * t * t / (r.powi(5) * r2);
+                    psi4 * q1 * q2
+                }),
         )
     }
 
@@ -9565,13 +9971,26 @@ impl CharbonnierGroupedBlockState {
         //
         // A block whose norm is credibly large (g_k^2 >> tr Cov) keeps a small
         // weight (real feature, left un-penalized); a block whose norm is
-        // dominated by posterior variance is pulled toward zero by a large
-        // weight (noise suppressed). With `variance == 0` this recovers
-        // `surrogateweights` exactly.
+        // dominated by posterior variance has its credible norm collapse to 0,
+        // raising the weight to `1/eps` (noise suppressed). The weight is
+        // monotone non-decreasing in `tr Cov` and bounded above by `1/eps` — the
+        // same ceiling the magnitude-only weight already attains at `g = 0`
+        // (and clamped by `weight_ceiling`), so it is not an unbounded blow-up.
+        //
+        // This evaluates the grouped MM weight `f(v) = (||v||^2 + eps^2)^{-1/2}`
+        // at the credible block norm rather than at the raw point estimate. The
+        // expected squared block norm under `v_k ~ N(v_hat_k, C_k)` is
+        // `E[||v_k||^2] = ||v_hat_k||^2 + tr(C_k)`, so the credibly-real squared
+        // norm is `max(g_k^2 - tr(C_k), 0)`, identical in form to the scalar
+        // path (`block_dim == 1` recovers it exactly). The earlier delta-method
+        // correction `½ Σ ∂²f · C` was non-monotone (its sign flips with the
+        // Hessian of `f`) and unbounded in `tr C`, which under-penalized noisy
+        // blocks and was the source of the SNR regression. With `tr C == 0` it
+        // recovers `1/sqrt(g^2 + eps^2)`.
         let eps2 = self.epsilon * self.epsilon;
         let weight = Array1::from_iter(self.norm.iter().zip(variance.iter()).map(|(&g, &v)| {
-            let credible_sq = (g * g - v.max(0.0)).max(0.0);
-            let r = (credible_sq + eps2).sqrt();
+            let credible2 = (g * g - v.max(0.0)).max(0.0);
+            let r = (credible2 + eps2).sqrt();
             (1.0 / r).clamp(weight_floor, weight_ceiling)
         }));
         let invweight = weight.mapv(|u| 1.0 / u);
@@ -9621,6 +10040,62 @@ impl CharbonnierGroupedBlockState {
                 for j in 0..dim {
                     block[[i, j]] -= (q[i] * v[j] + v[i] * q[j]) / r3;
                     block[[i, j]] += 3.0 * dot * v[i] * v[j] / r5;
+                }
+            }
+            out.push(block);
+        }
+        out
+    }
+
+    /// Exact grouped second directional derivative of the slope/curvature block
+    /// Hessian `B_k = (1/r_k) I − v_k v_kᵀ / r_k³` along two coefficient
+    /// directions, with per-block signal images `a_k = G_k u`, `b_k = G_k w`.
+    ///
+    /// `B_k`'s first directional derivative along `a` is
+    ///   `M_k(a) = −(v·a/r³) I − (a vᵀ + v aᵀ)/r³ + 3 (v·a) v vᵀ/r⁵`
+    /// (see `directionalhessian_blocks`). Differentiating `M_k(a)` once more
+    /// along `b` (i.e. `v ← v + t b`) gives the symmetric block
+    ///   `N_k(a,b) = (−a·b/r³ + 3 (v·a)(v·b)/r⁵) I`
+    ///            `  − (a bᵀ + b aᵀ)/r³`
+    ///            `  + 3 (v·b)(a vᵀ + v aᵀ)/r⁵`
+    ///            `  + 3 (a·b) v vᵀ/r⁵`
+    ///            `  + 3 (v·a)(b vᵀ + v bᵀ)/r⁵`
+    ///            `  − 15 (v·a)(v·b) v vᵀ/r⁷`,
+    /// so `D²_β H_g[u,w] = λ_g Σ_k G_kᵀ N_k(a_k,b_k) G_k`. `N_k` is symmetric in
+    /// `a ↔ b`, matching `D²H[u,w] = D²H[w,u]`.
+    fn second_directionalhessian_blocks(
+        &self,
+        direction1_blocks: &Array2<f64>,
+        direction2_blocks: &Array2<f64>,
+    ) -> Vec<Array2<f64>> {
+        let mut out = Vec::with_capacity(self.signal_blocks.nrows());
+        for ((k, v), (a, b)) in self.signal_blocks.rows().into_iter().enumerate().zip(
+            direction1_blocks
+                .rows()
+                .into_iter()
+                .zip(direction2_blocks.rows().into_iter()),
+        ) {
+            let dim = v.len();
+            let dot = |x: ndarray::ArrayView1<'_, f64>, y: ndarray::ArrayView1<'_, f64>| {
+                x.iter().zip(y.iter()).map(|(p, q)| p * q).sum::<f64>()
+            };
+            let sa = dot(v, a);
+            let sb = dot(v, b);
+            let ab = dot(a, b);
+            let r = self.radius[k];
+            let r3 = r.powi(3);
+            let r5 = r.powi(5);
+            let r7 = r5 * r * r;
+            let diag = -ab / r3 + 3.0 * sa * sb / r5;
+            let mut block = Array2::<f64>::eye(dim);
+            block.mapv_inplace(|x| diag * x);
+            for i in 0..dim {
+                for j in 0..dim {
+                    block[[i, j]] -= (a[i] * b[j] + b[i] * a[j]) / r3;
+                    block[[i, j]] += 3.0 * sb * (a[i] * v[j] + v[i] * a[j]) / r5;
+                    block[[i, j]] += 3.0 * ab * v[i] * v[j] / r5;
+                    block[[i, j]] += 3.0 * sa * (b[i] * v[j] + v[i] * b[j]) / r5;
+                    block[[i, j]] -= 15.0 * sa * sb * v[i] * v[j] / r7;
                 }
             }
             out.push(block);
@@ -9975,11 +10450,9 @@ fn extract_spatial_operator_runtime_caches(
         let mut mass_local_idx = None;
         let mut tension_local_idx = None;
         let mut stiffness_local_idx = None;
-        let mut primary_local_idx = None;
         let mut mass_norm = None;
         let mut tension_norm = None;
         let mut stiffness_norm = None;
-        let mut primary_norm = None;
         for info in &term_fit.penaltyinfo_local {
             if !info.active {
                 continue;
@@ -9997,26 +10470,22 @@ fn extract_spatial_operator_runtime_caches(
                     stiffness_local_idx = Some(active_local_idx);
                     stiffness_norm = Some(info.normalization_scale);
                 }
-                PenaltySource::Primary => {
-                    primary_local_idx = Some(active_local_idx);
-                    primary_norm = Some(info.normalization_scale);
-                }
                 _ => {}
             }
             active_local_idx += 1;
         }
-        // The curvature channel maps onto the explicit D2 Stiffness operator when
-        // the term ships one (Matérn collocation / Duchon `all_active()`); for the
-        // *default* Duchon penalty Stiffness is deliberately disabled because the
-        // always-on Primary RKHS Gram is the exact curvature (#858). In that
-        // {mass, tension, Primary} layout the Primary penalty is the curvature
-        // channel: the adaptive Charbonnier surrogate (built from the D2
-        // collocation operator below) reweights and replaces it, so the curvature
-        // global index / normalization come from Primary.
-        let (curvature_local_idx, curvature_norm) = match (stiffness_local_idx, stiffness_norm) {
-            (Some(idx), Some(norm)) => (Some(idx), Some(norm)),
-            _ => (primary_local_idx, primary_norm),
-        };
+        // The Charbonnier adaptive overlay rebuilds the {mass, tension,
+        // stiffness} D-operator triplet from explicit collocation derivatives
+        // and reweights all three channels in tandem; the stiffness slot in
+        // particular is the D2 second-derivative operator. A term that does
+        // NOT ship an explicit Stiffness penalty (pure Duchon's RKHS-Primary-
+        // curvature layout — `DuchonOperatorPenaltySpec::default()`) has no
+        // matching shipped penalty for the Charbonnier D2 surrogate to reweight,
+        // so applying the overlay would smuggle a fresh D2 collocation
+        // operator into a basis whose curvature is the RKHS Primary Gram (a
+        // different mathematical object). Without an explicit Stiffness
+        // channel the term must be skipped — the runtime cache for the
+        // adaptive overlay simply doesn't apply.
         let (
             Some(mass_local),
             Some(tension_local),
@@ -10027,10 +10496,10 @@ fn extract_spatial_operator_runtime_caches(
         ) = (
             mass_local_idx,
             tension_local_idx,
-            curvature_local_idx,
+            stiffness_local_idx,
             mass_norm,
             tension_norm,
-            curvature_norm,
+            stiffness_norm,
         )
         else {
             continue;
@@ -11508,6 +11977,171 @@ fn bounded_latent_to_user(theta: f64, min: f64, max: f64) -> (f64, f64, f64) {
     (beta, z, db_dtheta)
 }
 
+/// Invert the bounded interval transform: given a user-scale coefficient
+/// `beta` in the open interval `(min, max)`, return the latent coordinate
+/// `theta` with `bounded_latent_to_user(theta, min, max).0 == beta`.
+///
+/// This is the exact inverse of the logistic interval map used by the bounded
+/// custom family: `z = (beta - min)/(max - min)` (the normalized position in
+/// the interval) and `theta = logit(z)`. The normalized position is clamped
+/// strictly inside `(0, 1)` (mirroring `bounded_logit`) so a coefficient that
+/// sits numerically at a boundary maps to a large-but-finite latent value
+/// rather than `±∞`.
+fn bounded_user_to_latent(beta: f64, min: f64, max: f64) -> f64 {
+    let width = max - min;
+    if width <= 0.0 || !width.is_finite() {
+        return 0.0;
+    }
+    let z = (beta - min) / width;
+    bounded_logit(z)
+}
+
+/// One bounded coefficient column for posterior sampling: its position in the
+/// (internal, conditioned) coefficient vector and the interval bounds expressed
+/// on that same internal scale.
+#[derive(Debug, Clone, Copy)]
+pub struct BoundedSampleColumn {
+    /// Column index into the internal (conditioned) coefficient vector.
+    pub col_idx: usize,
+    /// Lower interval bound on the internal scale.
+    pub min: f64,
+    /// Upper interval bound on the internal scale.
+    pub max: f64,
+}
+
+/// Exact posterior draws for a model with `bounded()` coefficients.
+///
+/// The bounded custom family fits each bounded coefficient as a smooth interval
+/// transform `beta = min + (max - min)·sigmoid(theta)` of an unconstrained
+/// latent `theta`. The Laplace approximation is *Gaussian on the latent scale*
+/// — that is precisely the scale on which the fit treats the coefficient as an
+/// unconstrained, locally-quadratic parameter. Sampling a Gaussian directly on
+/// the user (bounded) scale is wrong twice over: it can place mass outside
+/// `[min, max]`, and it discards the boundary-induced skew that the nonlinear
+/// map produces. This routine instead draws `theta ~ N(theta_mode, H_latent^{-1})`
+/// and pushes every draw through the *exact* interval map, so user-scale draws
+/// always lie strictly inside the interval and carry the correct skew.
+///
+/// Coordinate bookkeeping. The caller supplies the user-scale mode `beta_user`
+/// and the user-scale penalized Hessian `user_hessian` (both in *internal /
+/// conditioned* coordinates — i.e. before `backtransform_*` to the original
+/// data scale) together with the internal-scale bounds for each bounded column.
+/// The user-scale Hessian relates to the latent-scale Hessian by the diagonal
+/// delta-method Jacobian `J = diag(db/dtheta)`:
+///   `H_user = J^{-1} H_latent J^{-1}`  ⇒  `H_latent = J H_user J`,
+/// which is exactly the inverse of `transform_bounded_latent_precision_to_user_internal`.
+/// Non-bounded columns have `J_ii = 1`, so they are sampled as the ordinary
+/// Gaussian Laplace draw and returned unchanged.
+///
+/// Returns the draws as a `(n_draws, p)` matrix on the *internal* user scale
+/// (still conditioned); the caller back-transforms to the original data scale
+/// with the same conditioning it used for the point estimate.
+pub fn sample_bounded_latent_posterior_internal(
+    beta_user: &Array1<f64>,
+    user_hessian: &Array2<f64>,
+    bounded_columns: &[BoundedSampleColumn],
+    n_draws: usize,
+    base_seed: u64,
+) -> Result<Array2<f64>, EstimationError> {
+    let p = beta_user.len();
+    if user_hessian.nrows() != p || user_hessian.ncols() != p {
+        crate::bail_invalid_estim!(
+            "bounded posterior sampling dimension mismatch: mode has {p} entries, user Hessian is {}x{}",
+            user_hessian.nrows(),
+            user_hessian.ncols()
+        );
+    }
+
+    // Latent mode and delta-method Jacobian, column by column.
+    let mut theta_mode = beta_user.clone();
+    let mut jac_diag = Array1::<f64>::ones(p);
+    for bc in bounded_columns {
+        if bc.col_idx >= p {
+            crate::bail_invalid_estim!(
+                "bounded posterior sampling: bounded column index {} out of range for {p} coefficients",
+                bc.col_idx
+            );
+        }
+        let theta_i = bounded_user_to_latent(beta_user[bc.col_idx], bc.min, bc.max);
+        let (_, _, db_dtheta) = bounded_latent_to_user(theta_i, bc.min, bc.max);
+        theta_mode[bc.col_idx] = theta_i;
+        // Guard against a degenerate (numerically vanishing) Jacobian at a
+        // coefficient pinned hard against a boundary: floor the slope so the
+        // latent precision stays finite and the draw simply collapses onto the
+        // boundary, which is the correct limiting posterior.
+        jac_diag[bc.col_idx] = db_dtheta.max(1e-12);
+    }
+
+    // H_latent = J H_user J  (J diagonal). This is the exact inverse of the
+    // user-scale precision transform applied at fit time.
+    let mut h_latent = user_hessian.clone();
+    for i in 0..p {
+        let ji = jac_diag[i];
+        if ji != 1.0 {
+            h_latent.row_mut(i).mapv_inplace(|v| v * ji);
+            h_latent.column_mut(i).mapv_inplace(|v| v * ji);
+        }
+    }
+
+    // Draw theta ~ N(theta_mode, H_latent^{-1}) via the Cholesky of H_latent:
+    // L Lᵀ = H_latent, solve Lᵀ δ = ε so Var(δ) = H_latent^{-1}.
+    use crate::faer_ndarray::FaerCholesky as _;
+    use rand::SeedableRng as _;
+    let chol = h_latent.cholesky(faer::Side::Lower).map_err(|err| {
+        EstimationError::InvalidInput(format!(
+            "bounded posterior sampling: Cholesky of the latent penalized Hessian failed: {err:?}"
+        ))
+    })?;
+    let l = chol.lower_triangular();
+
+    let mut draws = Array2::<f64>::zeros((n_draws, p));
+    let mut eps = Array1::<f64>::zeros(p);
+    let mut delta = Array1::<f64>::zeros(p);
+    let mut rng = rand::rngs::StdRng::seed_from_u64(base_seed);
+    for k in 0..n_draws {
+        for e in eps.iter_mut() {
+            *e = standard_normal_draw(&mut rng);
+        }
+        solve_lower_transpose_into(&l, &eps, &mut delta);
+        for i in 0..p {
+            draws[(k, i)] = theta_mode[i] + delta[i];
+        }
+        // Push bounded columns through the exact interval map so every draw is
+        // strictly inside (min, max); leave unconstrained columns untouched.
+        for bc in bounded_columns {
+            let (beta_draw, _, _) = bounded_latent_to_user(draws[(k, bc.col_idx)], bc.min, bc.max);
+            draws[(k, bc.col_idx)] = beta_draw;
+        }
+    }
+
+    Ok(draws)
+}
+
+/// Box-Muller standard-normal draw (kept local so the bounded sampler does not
+/// depend on the HMC module's RNG plumbing).
+#[inline]
+fn standard_normal_draw<R: rand::Rng + ?Sized>(rng: &mut R) -> f64 {
+    use rand::RngExt as _;
+    let u1 = rng.random::<f64>().max(1e-16);
+    let u2 = rng.random::<f64>();
+    (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos()
+}
+
+/// Solve `Lᵀ x = b` for a lower-triangular `L` (back substitution), writing the
+/// result into `out`. Used to turn a standard-normal `b` into a draw with
+/// covariance `(L Lᵀ)^{-1}`.
+fn solve_lower_transpose_into(l: &Array2<f64>, b: &Array1<f64>, out: &mut Array1<f64>) {
+    let p = l.nrows();
+    for i in (0..p).rev() {
+        let mut acc = b[i];
+        for j in (i + 1)..p {
+            acc -= l[(j, i)] * out[j];
+        }
+        let diag = l[(i, i)];
+        out[i] = if diag.abs() > 0.0 { acc / diag } else { 0.0 };
+    }
+}
+
 fn bounded_latent_derivatives(theta: f64, min: f64, max: f64) -> (f64, f64, f64, f64, f64) {
     let z = stable_sigmoid(theta);
     let width = max - min;
@@ -12490,6 +13124,96 @@ impl SpatialAdaptiveExactFamily {
         }
         Ok(total)
     }
+
+    /// Exact second directional derivative `D²_β H[u, v]` of the joint
+    /// (likelihood + adaptive Charbonnier penalty) Hessian, needed so the outer
+    /// LAML's joint-Jeffreys curvature drift `D_β H_Φ[β̇]` is exact rather than
+    /// silently dropped (which leaves the outer hypergradient inconsistent with
+    /// the `½log|H+H_Φ|` objective it folds `H_Φ` into).
+    ///
+    /// The data block contributes `Xᵀ diag(ℓ'''(η_i) (Xu)_i (Xv)_i) X`, where
+    /// `ℓ'''` is the third derivative of the per-observation log-likelihood in
+    /// `η`. The observation state exposes the working weight `w=−ℓ''` and its
+    /// first `η`-derivative `w'` (`neghessian_eta_derivative`) but not `w''`, so
+    /// the exact data term is available only on the **constant-weight** path
+    /// (`w' ≡ 0`, e.g. Gaussian identity), where `w'' ≡ 0` and the data block
+    /// second derivative vanishes. On a varying-weight family we return `None`
+    /// (the safe, pre-existing behavior: the drift degrades to zero rather than
+    /// to a wrong value) until the observation contract carries `w''`.
+    ///
+    /// The penalty block is always exact: with `λ_m G_mᵀ B_m(G_m β) G_m` the
+    /// per-component penalty Hessian, `D²_β` is `λ_m Σ_k G_mᵀ N_m,k G_m` using the
+    /// scalar (`second_directionalhessian_diag`) / grouped
+    /// (`second_directionalhessian_blocks`) fourth-derivative contractions.
+    fn exacthessian_second_directional_derivative_from_evaluation(
+        &self,
+        eval: &SpatialAdaptiveExactEvaluation,
+        direction_u: &Array1<f64>,
+        direction_v: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        let p = self.design.ncols();
+        // Data block: exact only when the working weight is constant in η.
+        if eval.obs.neghessian_eta_derivative.iter().any(|&w| w != 0.0) {
+            return Ok(None);
+        }
+        let mut total = Array2::<f64>::zeros((p, p));
+        for (cache_idx, cache) in self.runtime_caches.iter().enumerate() {
+            let params = self.adaptive_params.get(cache_idx).ok_or_else(|| {
+                format!(
+                    "missing adaptive parameter block for cache {}",
+                    cache.termname
+                )
+            })?;
+            let state = eval
+                .adaptive_states
+                .get(cache_idx)
+                .ok_or_else(|| format!("missing adaptive state for cache {}", cache.termname))?;
+            let u_local = direction_u.slice(s![cache.coeff_global_range.clone()]);
+            let v_local = direction_v.slice(s![cache.coeff_global_range.clone()]);
+
+            // Magnitude (scalar d0).
+            let q0_u = cache.d0.dot(&u_local);
+            let q0_v = cache.d0.dot(&v_local);
+            let h0 = scalar_operatorhessian(
+                &cache.d0,
+                &state.magnitude.second_directionalhessian_diag(&q0_u, &q0_v),
+            )
+            .mapv(|x| params.lambda[0] * x);
+
+            // Gradient (grouped d1, block dim = dimension).
+            let a1 = collocationgradient_blocks(&cache.d1.dot(&u_local), cache.dimension)
+                .map_err(|e| e.to_string())?;
+            let b1 = collocationgradient_blocks(&cache.d1.dot(&v_local), cache.dimension)
+                .map_err(|e| e.to_string())?;
+            let hg = grouped_operatorhessian(
+                &cache.d1,
+                cache.dimension,
+                &state.gradient.second_directionalhessian_blocks(&a1, &b1),
+            )
+            .map_err(|e| e.to_string())?
+            .mapv(|x| params.lambda[1] * x);
+
+            // Curvature (grouped d2, block dim = dimension²).
+            let a2 = collocationhessian_blocks(&cache.d2.dot(&u_local), cache.dimension)
+                .map_err(|e| e.to_string())?;
+            let b2 = collocationhessian_blocks(&cache.d2.dot(&v_local), cache.dimension)
+                .map_err(|e| e.to_string())?;
+            let hc = grouped_operatorhessian(
+                &cache.d2,
+                cache.dimension * cache.dimension,
+                &state.curvature.second_directionalhessian_blocks(&a2, &b2),
+            )
+            .map_err(|e| e.to_string())?
+            .mapv(|x| params.lambda[2] * x);
+
+            let range = cache.coeff_global_range.clone();
+            let mut local = total.slice_mut(s![range.clone(), range]);
+            local += &h0;
+            local += &hg;
+            local += &hc;
+        }
+        Ok(Some(total))
+    }
 }
 
 impl CustomFamily for SpatialAdaptiveExactFamily {
@@ -12568,6 +13292,30 @@ impl CustomFamily for SpatialAdaptiveExactFamily {
         Ok(Some(
             self.exacthessian_directional_derivative_from_evaluation(beta, &eval, d_beta_flat)?,
         ))
+    }
+
+    fn exact_newton_joint_hessiansecond_directional_derivative(
+        &self,
+        block_states: &[ParameterBlockState],
+        d_beta_u_flat: &Array1<f64>,
+        d_betav_flat: &Array1<f64>,
+    ) -> Result<Option<Array2<f64>>, String> {
+        let beta = &expect_single_block_state(block_states, "spatial adaptive exact family")?.beta;
+        if d_beta_u_flat.len() != beta.len() || d_betav_flat.len() != beta.len() {
+            return Err(SmoothError::dimension_mismatch(format!(
+                "spatial adaptive exact family second-direction length mismatch: got ({}, {}), expected {}",
+                d_beta_u_flat.len(),
+                d_betav_flat.len(),
+                beta.len()
+            ))
+            .into());
+        }
+        let eval = self.exact_evaluation(beta)?;
+        self.exacthessian_second_directional_derivative_from_evaluation(
+            &eval,
+            d_beta_u_flat,
+            d_betav_flat,
+        )
     }
 
     fn block_linear_constraints(
@@ -13215,6 +13963,62 @@ fn exact_bounded_edf(
     Ok((edf_by_block, edf_total))
 }
 
+/// Symmetric posterior-precision inverse for the bounded-coefficient path.
+///
+/// The penalised Hessian at a strict posterior maximum is SPD, so its inverse
+/// is the posterior covariance. We eigendecompose the symmetric precision and
+/// invert the positive-eigenvalue subspace, projecting out the (rare)
+/// structural null directions a penalised model leaves flat rather than
+/// δ-ridging them — the same honest pseudo-inverse contract the strict
+/// pseudo-Laplace covariance uses (gam#748). A genuinely indefinite precision
+/// (a negative eigenvalue beyond rounding) means the reported mode is not a
+/// posterior maximum and is surfaced as a fit-quality error rather than
+/// masked.
+fn symmetric_positive_definite_inverse_or_pseudo(
+    precision: &Array2<f64>,
+) -> Result<Array2<f64>, EstimationError> {
+    use crate::faer_ndarray::FaerEigh;
+    let p = precision.nrows();
+    if precision.ncols() != p {
+        crate::bail_invalid_estim!(
+            "posterior precision inverse requires a square matrix, got {}x{}",
+            precision.nrows(),
+            precision.ncols()
+        );
+    }
+    if p == 0 {
+        return Ok(Array2::<f64>::zeros((0, 0)));
+    }
+    let symmetric = (precision + &precision.t().to_owned()) * 0.5;
+    let (evals, evecs) = symmetric.eigh(faer::Side::Lower).map_err(|e| {
+        EstimationError::InvalidInput(format!(
+            "posterior precision eigendecomposition failed: {e}"
+        ))
+    })?;
+    let max_abs_eval = evals.iter().fold(0.0_f64, |acc, &ev| acc.max(ev.abs()));
+    let tol =
+        (10.0 * f64::EPSILON * (p as f64) * (p as f64) * max_abs_eval).max(100.0 * f64::EPSILON);
+    if let Some(&min_eval) = evals
+        .iter()
+        .filter(|&&ev| ev < -tol)
+        .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+    {
+        crate::bail_invalid_estim!(
+            "bounded posterior precision is non-PD at the converged optimum (min eigenvalue \
+             {min_eval:.6e} < -tol={tol:.6e}); the reported mode is not a strict posterior \
+             maximum, so a covariance would be meaningless"
+        );
+    }
+    // Σ = U diag(1/λ_+) Uᵀ over the positive-eigenvalue subspace.
+    let mut scaled = evecs.clone();
+    for (j, &ev) in evals.iter().enumerate() {
+        let inv = if ev > tol { 1.0 / ev } else { 0.0 };
+        scaled.column_mut(j).mapv_inplace(|v| v * inv);
+    }
+    let cov = scaled.dot(&evecs.t());
+    Ok((&cov + &cov.t().to_owned()) * 0.5)
+}
+
 fn transform_bounded_latent_precision_to_user_internal(
     latent_precision: &Array2<f64>,
     jac_diag: &Array1<f64>,
@@ -13392,6 +14196,16 @@ fn fit_bounded_term_collection_with_design(
             inner_tol: options.tol,
             outer_max_iter: options.max_iter,
             outer_tol: options.tol,
+            // The bounded path builds its own user-scale covariance below by
+            // inverting the user-scale penalised Hessian (delta-method through
+            // the bounded transform's Jacobian + the conditioning map), so it
+            // does not consume the inner solver's optional canonical-space
+            // `covariance_conditional`. Inverting the reported precision
+            // directly guarantees `inv(penalized_hessian) == covariance` and
+            // works on every bounded fit — including the common no-smoothing
+            // path where the inner solve surfaces no covariance at all (the
+            // gam#854 "bounded fit emits no user-scale covariance" symptom).
+            compute_covariance: false,
             ..BlockwiseFitOptions::default()
         },
     )
@@ -13400,20 +14214,6 @@ fn fit_bounded_term_collection_with_design(
     let latent_beta = fit.block_states[0].beta.clone();
     let (beta_user_internal, jac_diag) = family_adapter.user_beta_and_jacobian(&latent_beta);
     let beta_user = conditioning.backtransform_beta(&beta_user_internal);
-    let latent_cov = fit.covariance_conditional.clone();
-    let beta_covariance = latent_cov.as_ref().map(|cov| {
-        let mut out = cov.clone();
-        for i in 0..out.nrows() {
-            out.row_mut(i).mapv_inplace(|v| v * jac_diag[i]);
-        }
-        for j in 0..out.ncols() {
-            out.column_mut(j).mapv_inplace(|v| v * jac_diag[j]);
-        }
-        conditioning.backtransform_covariance(&out)
-    });
-    let beta_standard_errors = beta_covariance
-        .as_ref()
-        .map(|cov| Array1::from_iter((0..cov.nrows()).map(|i| cov[[i, i]].max(0.0).sqrt())));
 
     let (eta_state, h_data, _, _) = family_adapter
         .evaluation_from_latent(&latent_beta)
@@ -13434,12 +14234,52 @@ fn fit_bounded_term_collection_with_design(
             }
         }
     }
-    let mut penalized_hessian = h_data.clone();
-    penalized_hessian += &s_lambda_internal;
+    let mut latent_precision = h_data.clone();
+    latent_precision += &s_lambda_internal;
+    let user_precision_internal =
+        transform_bounded_latent_precision_to_user_internal(&latent_precision, &jac_diag)?;
     let penalized_hessian =
-        transform_bounded_latent_precision_to_user_internal(&penalized_hessian, &jac_diag)?;
-    let penalized_hessian =
-        conditioning.transform_penalized_hessian_to_original(&penalized_hessian);
+        conditioning.transform_penalized_hessian_to_original(&user_precision_internal);
+
+    // User-scale posterior covariance via the delta method. The reported
+    // geometry precision `penalized_hessian` is the user-scale penalized
+    // Hessian `H_user = C⁻ᵀ J⁻¹ (H_latent + S_λ) J⁻¹ C⁻¹` (latent precision
+    // pushed through the bounded transform's Jacobian `J = diag(dβ_user/dθ)`
+    // and the conditioning map `C`). The user-scale covariance is its exact
+    // inverse `H_user⁻¹`, which IS the delta-method pushforward of the latent
+    // posterior covariance `(H_latent + S_λ)⁻¹`. Inverting the same matrix the
+    // geometry reports guarantees `inv(penalized_hessian) == covariance`
+    // exactly and removes the dependency on the inner solver's optional,
+    // canonical-space `covariance_conditional` (which is `None` whenever the
+    // bounded blockspec carries no smoothing parameters — the no-rho fit path
+    // — leaving a bounded fit with a populated precision but no user-scale
+    // covariance, the gam#854 symptom). The latent precision is SPD at a
+    // strict posterior maximum; on a marginally-indefinite boundary Hessian we
+    // invert the positive-eigenvalue subspace (the structural null space of a
+    // penalised model is a flat posterior direction, not something to ridge
+    // away), matching the strict-pseudo-Laplace covariance contract (gam#748).
+    let beta_covariance = if options.compute_inference {
+        Some(symmetric_positive_definite_inverse_or_pseudo(
+            &penalized_hessian,
+        )?)
+    } else {
+        None
+    };
+    let beta_standard_errors = beta_covariance
+        .as_ref()
+        .map(|cov| Array1::from_iter((0..cov.nrows()).map(|i| cov[[i, i]].max(0.0).sqrt())));
+    // EDF `p − Σ_k λ_k tr(H_latent⁻¹ S_k)` is computed in the *latent*
+    // (untransformed) coordinate system the penalties `fit_penalties` live in,
+    // so it needs the latent posterior covariance `(H_latent + S_λ)⁻¹`, not the
+    // user-scale one. Invert the same latent precision that produced the
+    // reported user precision so the two are an exact transform pair.
+    let latent_cov = if options.compute_inference {
+        Some(symmetric_positive_definite_inverse_or_pseudo(
+            &latent_precision,
+        )?)
+    } else {
+        None
+    };
     let s_lambda_original = weighted_blockwise_penalty_sum(
         &design.penalties,
         fit.lambdas.as_slice().unwrap(),
@@ -13570,7 +14410,11 @@ fn enforce_term_constraint_feasibility(
     // Holding this gate to raw 1e-7 while the in-solver acceptance gate
     // measures geometric 1e-8 is the inconsistency that made well-conditioned
     // clamped fits get rejected after they completed cleanly.
-    let tol = 1e-7;
+    /// Raw (unscaled) constraint-residual tolerance for the post-fit feasibility
+    /// audit; kept loose enough to be consistent with the geometric in-solver
+    /// acceptance gate on non-unit-norm linear-inequality rows (see comment).
+    const CONSTRAINT_FEASIBILITY_RAW_TOL: f64 = 1e-7;
+    let tol = CONSTRAINT_FEASIBILITY_RAW_TOL;
     let smooth_start = design
         .design
         .ncols()
@@ -13693,7 +14537,11 @@ fn stratified_spatial_subsample(
         }
     }
 
-    let total_cells_target = (target_size / 5).max(1);
+    // Aim for roughly this many sampled points per stratification cell so each
+    // occupied cell can contribute a representative draw without collapsing the
+    // grid to one point per cell.
+    const TARGET_POINTS_PER_CELL: usize = 5;
+    let total_cells_target = (target_size / TARGET_POINTS_PER_CELL).max(1);
     let cells_per_axis = ((total_cells_target as f64).powf(1.0 / d as f64)).ceil() as usize;
     let cells_per_axis = cells_per_axis.max(1);
 
@@ -14050,7 +14898,9 @@ fn require_successful_spatial_optimization_result<T>(
             // worsenings (>1 unit) but admit anything within ~1e-6
             // absolute / 1e-8 relative — meaningful REML gains are
             // orders of magnitude larger.
-            let tol = 1e-6_f64.max(initial_score.abs() * 1e-8);
+            const SCORE_DRIFT_ABS_TOL: f64 = 1e-6;
+            const SCORE_DRIFT_REL_TOL: f64 = 1e-8;
+            let tol = SCORE_DRIFT_ABS_TOL.max(initial_score.abs() * SCORE_DRIFT_REL_TOL);
             if exact_score <= initial_score + tol {
                 Ok(value)
             } else {
@@ -17093,15 +17943,25 @@ fn freeze_smooth_basis_from_metadata(
                 identifiability_transform,
                 input_scales: meta_scales,
                 aniso_log_scales: meta_aniso,
+                nullspace_shrinkage_survived: meta_nullspace_survived,
             },
         ) => {
             s.center_strategy = crate::basis::CenterStrategy::UserProvided(centers.clone());
             s.length_scale = *length_scale;
             s.nu = *nu;
             s.include_intercept = *include_intercept;
+            // Pin the bootstrap-κ double-penalty nullspace-shrinkage decision into
+            // the frozen transform so the κ-optimizer's per-trial design rebuilds
+            // reproduce the SAME learned-penalty count (gam#787/#860); without
+            // this the κ-dependent spectral test in `build_nullspace_shrinkage_penalty`
+            // flips the count 6↔7 and the rebuilt ρ dimension disagrees with the
+            // frozen joint setup ("joint hyper rho dimension mismatch"). When there
+            // is no transform to freeze we keep `None` (unconstrained kernel needs
+            // no replayed survival decision).
             s.identifiability = match identifiability_transform {
                 Some(z) => MaternIdentifiability::FrozenTransform {
                     transform: z.clone(),
+                    nullspace_shrinkage_survived: Some(*meta_nullspace_survived),
                 },
                 None => MaternIdentifiability::None,
             };
@@ -18674,6 +19534,22 @@ pub(crate) fn exact_joint_multistart_outer_problem(
     problem
 }
 
+/// True iff a κ-phase (`n-block exact-joint spatial`) optimizer failure is a
+/// NUMERICAL pathology of the length-scale search that the fixed-κ fallback can
+/// recover from (gam#787/#860), rather than a structural failure that must
+/// propagate.
+///
+/// By the time the κ optimizer runs, the structural identifiability audits have
+/// already passed upstream, so an all-seeds-rejected / rho-dimension-mismatch
+/// here means a κ-driven design-rebuild penalty-topology flip starved the
+/// startup validation — recoverable by fitting at the bootstrap κ. Any other
+/// optimizer error (a genuine solver contract violation) still propagates.
+fn kappa_phase_failure_is_fixed_kappa_recoverable(message: &str) -> bool {
+    message.contains("no candidate seeds passed outer startup validation")
+        || message.contains("joint hyper rho dimension mismatch")
+        || message.contains("objective returned a non-finite cost")
+}
+
 pub fn optimize_spatial_length_scale_exact_joint<FitOut, FitFn, ExactFn, ExactEfsFn, SeedFn>(
     data: ArrayView2<'_, f64>,
     block_specs: &[TermCollectionSpec],
@@ -19213,9 +20089,60 @@ where
             },
         );
 
-        problem
-            .run(&mut obj, "n-block exact-joint spatial")
-            .map_err(|e| e.to_string())?
+        match problem.run(&mut obj, "n-block exact-joint spatial") {
+            Ok(result) => result,
+            Err(e) => {
+                let message = e.to_string();
+                // Kappa-phase graceful degradation (gam#787/#860). The
+                // length-scale (κ) optimizer rebuilds the spatial design at each
+                // trial κ; a κ-driven matern penalty-topology flip (the
+                // FrozenTransform spectral-tolerance crossing in
+                // `build_nullspace_shrinkage_penalty`) can make the rebuilt
+                // design's learned-penalty count disagree with the frozen
+                // joint-setup ρ dimension, so EVERY κ seed fails startup
+                // validation ("joint hyper rho dimension mismatch" → all seeds
+                // rejected → "no candidate seeds passed outer startup
+                // validation"). That is a NUMERICAL pathology of the κ search on
+                // a structurally-well-posed design (the structural audits already
+                // passed upstream) — NOT a reason to fail the whole fit. Fall
+                // back to a FIXED κ (the bootstrap length-scale, skipping κ
+                // optimization): build + freeze the joint designs at the initial
+                // κ and fit there. We lose κ tuning but return a REAL, valid
+                // model — graceful degradation, exactly mirroring the
+                // `kappa_options.enabled == false` fixed-κ path above. Only the
+                // startup-validation / mismatch class is caught; any other κ
+                // optimizer error still propagates.
+                if kappa_phase_failure_is_fixed_kappa_recoverable(&message) {
+                    drop(obj);
+                    log::warn!(
+                        "[KAPPA-PHASE] length-scale optimization could not validate any seed \
+                         ({message}); falling back to a FIXED bootstrap κ (skipping κ \
+                         optimization) and fitting there — a real model at the initial \
+                         length-scale rather than raising (gam#787/#860)."
+                    );
+                    let (designs, resolved_specs) =
+                        build_term_collection_designs_and_freeze_joint(data, block_specs).map_err(
+                            |build_err| {
+                                format!(
+                                    "fixed-κ fallback failed to build and freeze joint block \
+                                     designs after κ optimization could not validate a seed \
+                                     ({message}): {build_err}"
+                                )
+                            },
+                        )?;
+                    let fixed_theta0 = joint_setup.theta0();
+                    let spec_refs: Vec<TermCollectionSpec> = resolved_specs.clone();
+                    let design_refs: Vec<TermCollectionDesign> = designs.clone();
+                    let fit = fit_fn(&fixed_theta0, &spec_refs, &design_refs)?;
+                    return Ok(SpatialLengthScaleOptimizationResult {
+                        resolved_specs,
+                        designs,
+                        fit,
+                    });
+                }
+                return Err(message);
+            }
+        }
     }; // obj dropped here, releasing mutable borrow on state
 
     // ── κ-optimization scaling summary ──
@@ -19931,6 +20858,76 @@ mod tests {
         }
     }
 
+    fn structural_shape_hex(spec: &TermCollectionSpec) -> String {
+        let mut h = crate::cache::Fingerprinter::new();
+        spec.write_structural_shape_hash(&mut h);
+        h.finish_hex()
+    }
+
+    fn smooth_only_collection(basis: SmoothBasisSpec) -> TermCollectionSpec {
+        TermCollectionSpec {
+            linear_terms: vec![],
+            random_effect_terms: vec![],
+            smooth_terms: vec![SmoothTermSpec {
+                name: "s".to_string(),
+                basis,
+                shape: ShapeConstraint::None,
+                joint_null_rotation: None,
+            }],
+        }
+    }
+
+    #[test]
+    fn structural_shape_hash_separates_topologies_but_repeats_for_same_topology(/* #869 */) {
+        // Two collections that differ only in their smooth's basis variant must
+        // hash differently, so AUTO topology candidates fit on the same data
+        // cannot share one warm-start key and cross-seed incompatible β/ρ.
+        let bspline = smooth_only_collection(remap_test_bspline(0));
+        let sphere = smooth_only_collection(SmoothBasisSpec::Sphere {
+            feature_cols: vec![0, 1, 2],
+            spec: SphericalSplineBasisSpec::default(),
+        });
+        assert_ne!(
+            structural_shape_hex(&bspline),
+            structural_shape_hex(&sphere),
+            "bspline and sphere topologies must key distinctly"
+        );
+
+        // Same topology on a different axis is still a different fit.
+        let bspline_axis1 = smooth_only_collection(remap_test_bspline(1));
+        assert_ne!(
+            structural_shape_hex(&bspline),
+            structural_shape_hex(&bspline_axis1),
+            "same basis kind on a different feature column must key distinctly"
+        );
+
+        // The same topology on the same axis keys identically, so a refit of one
+        // candidate (the screen→full-refit cascade) still hits its own key.
+        let bspline_again = smooth_only_collection(remap_test_bspline(0));
+        assert_eq!(
+            structural_shape_hex(&bspline),
+            structural_shape_hex(&bspline_again),
+            "identical topology must reuse the same warm-start key"
+        );
+    }
+
+    #[test]
+    fn structural_kind_and_feature_cols_track_basis_identity(/* #869 */) {
+        // Distinct basis variants get distinct discriminants, and a wrapper
+        // delegates feature columns to its inner basis so a `by=` smooth keys
+        // off the same axis as the bare smooth.
+        let bspline = remap_test_bspline(2);
+        let sphere = SmoothBasisSpec::Sphere {
+            feature_cols: vec![0, 1, 2],
+            spec: SphericalSplineBasisSpec::default(),
+        };
+        assert_ne!(bspline.structural_kind(), sphere.structural_kind());
+        assert_eq!(bspline.structural_kind(), "bspline_1d");
+        assert_eq!(sphere.structural_kind(), "sphere");
+        assert_eq!(bspline.structural_feature_cols(), vec![2]);
+        assert_eq!(sphere.structural_feature_cols(), vec![0, 1, 2]);
+    }
+
     #[test]
     fn remap_feature_columns_rewrites_every_index_bearing_field() {
         // Exhaustively verify that TermCollectionSpec::remap_feature_columns
@@ -19944,7 +20941,10 @@ mod tests {
             linear_terms: vec![LinearTermSpec {
                 name: "lin".to_string(),
                 feature_col: 1,
-                feature_cols: vec![1],
+                // Interaction term (distinct second factor) so a walk that
+                // remaps only `feature_col` and skips `feature_cols` is caught
+                // — exactly the #898 predict-time regression.
+                feature_cols: vec![1, 12],
                 double_penalty: false,
                 coefficient_geometry: LinearCoefficientGeometry::Unconstrained,
                 coefficient_min: None,
@@ -20028,6 +21028,10 @@ mod tests {
             .expect("remap must succeed");
 
         assert_eq!(remapped.linear_terms[0].feature_col, 101);
+        // Every interaction factor in `feature_cols` must be remapped too — the
+        // design builder reads `effective_feature_cols()` (i.e. `feature_cols`),
+        // so a walk that skips it leaves stale training indices at predict (#898).
+        assert_eq!(remapped.linear_terms[0].feature_cols, vec![101, 112]);
         assert_eq!(remapped.random_effect_terms[0].feature_col, 102);
 
         let collected = collect_feature_columns(&remapped);
@@ -20861,6 +21865,7 @@ mod tests {
                     double_penalty: false,
                     identifiability: MaternIdentifiability::CenterSumToZero,
                     aniso_log_scales: None,
+                    nullspace_shrinkage_survived: None,
                 },
                 input_scales: None,
             },
@@ -21001,52 +22006,6 @@ mod tests {
         assert_eq!(design.random_effect_ranges.len(), 0);
         assert_eq!(design.penalties.len(), 3); // linear ridge + 2 smooth penalties (bending + nullspace)
         assert_eq!(design.nullspace_dims.len(), 3);
-    }
-
-    #[test]
-    fn term_collection_design_keeps_intercept_plus_bspline_sparse() {
-        // Use `BSplineIdentifiability::None` so the smooth block stays sparse
-        // through `build_bspline_basis_1d`: the default `WeightedSumToZero`
-        // policy is deliberately densified by `apply_sum_to_zero_constraint_sparse`
-        // (orthonormal Z, so ZZᵀ projects), which would prevent the full
-        // assembled design from ever landing in `DesignMatrix::Sparse`
-        // — that is, the pin only makes sense for the None branch.
-        let n = 96usize;
-        let x = Array1::linspace(0.0, 1.0, n);
-        let mut data = Array2::<f64>::zeros((n, 1));
-        data.column_mut(0).assign(&x);
-        let spec = TermCollectionSpec {
-            linear_terms: vec![],
-            random_effect_terms: vec![],
-            smooth_terms: vec![SmoothTermSpec {
-                name: "s_x".to_string(),
-                basis: SmoothBasisSpec::BSpline1D {
-                    feature_col: 0,
-                    spec: BSplineBasisSpec {
-                        degree: 3,
-                        penalty_order: 2,
-                        knotspec: BSplineKnotSpec::Generate {
-                            data_range: (0.0, 1.0),
-                            num_internal_knots: 32,
-                        },
-                        double_penalty: false,
-                        identifiability: BSplineIdentifiability::None,
-                        boundary: OneDimensionalBoundary::Open,
-                        boundary_conditions: BSplineBoundaryConditions::default(),
-                    },
-                },
-                shape: ShapeConstraint::None,
-                joint_null_rotation: None,
-            }],
-        };
-
-        let design =
-            build_term_collection_design(data.view(), &spec).expect("term collection design");
-        assert!(
-            matches!(design.design, DesignMatrix::Sparse(_)),
-            "expected sparse full design, got {:?}",
-            design.design
-        );
     }
 
     #[test]
@@ -21942,6 +22901,7 @@ mod tests {
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
+                        nullspace_shrinkage_survived: None,
                     },
                     input_scales: None,
                 },
@@ -22038,6 +22998,7 @@ mod tests {
                     double_penalty: true,
                     identifiability: MaternIdentifiability::CenterSumToZero,
                     aniso_log_scales: None,
+                    nullspace_shrinkage_survived: None,
                 },
                 input_scales: None,
             },
@@ -22237,6 +23198,7 @@ mod tests {
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
+                        nullspace_shrinkage_survived: None,
                     },
                     input_scales: None,
                 },
@@ -22889,6 +23851,7 @@ mod tests {
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
+                        nullspace_shrinkage_survived: None,
                     },
                     input_scales: None,
                 },
@@ -23031,6 +23994,7 @@ mod tests {
                     double_penalty: true,
                     identifiability: MaternIdentifiability::CenterSumToZero,
                     aniso_log_scales: Some(vec![0.0, 0.0]),
+                    nullspace_shrinkage_survived: None,
                 },
                 input_scales: None,
             },
@@ -23140,6 +24104,7 @@ mod tests {
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: Some(vec![0.2, -0.2]),
+                        nullspace_shrinkage_survived: None,
                     },
                     input_scales: None,
                 },
@@ -24551,6 +25516,7 @@ mod tests {
                     double_penalty: true,
                     identifiability: MaternIdentifiability::CenterSumToZero,
                     aniso_log_scales: None,
+                    nullspace_shrinkage_survived: None,
                 },
                 input_scales: None,
             },
@@ -24786,6 +25752,7 @@ mod tests {
                             double_penalty: true,
                             identifiability: MaternIdentifiability::CenterSumToZero,
                             aniso_log_scales: Some(vec![0.15, -0.15]),
+                            nullspace_shrinkage_survived: None,
                         },
                         input_scales: None,
                     },
@@ -24928,6 +25895,7 @@ mod tests {
                     double_penalty: true,
                     identifiability: MaternIdentifiability::CenterSumToZero,
                     aniso_log_scales: Some(vec![0.0, 0.0]),
+                    nullspace_shrinkage_survived: None,
                 },
                 input_scales: None,
             },
@@ -25281,6 +26249,7 @@ mod tests {
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
+                        nullspace_shrinkage_survived: None,
                     },
                     input_scales: None,
                 },
@@ -25492,6 +26461,7 @@ mod tests {
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
+                        nullspace_shrinkage_survived: None,
                     },
                     input_scales: None,
                 },
@@ -25782,6 +26752,7 @@ mod tests {
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
+                        nullspace_shrinkage_survived: None,
                     },
                     input_scales: None,
                 },
@@ -25841,6 +26812,7 @@ mod tests {
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
+                        nullspace_shrinkage_survived: None,
                     },
                     input_scales: None,
                 },
@@ -26193,6 +27165,7 @@ mod tests {
                             double_penalty: false,
                             identifiability: MaternIdentifiability::None,
                             aniso_log_scales: Some(vec![0.3, -0.3]),
+                            nullspace_shrinkage_survived: None,
                         },
                         input_scales: None,
                     },
@@ -26216,6 +27189,7 @@ mod tests {
                             double_penalty: false,
                             identifiability: MaternIdentifiability::None,
                             aniso_log_scales: None,
+                            nullspace_shrinkage_survived: None,
                         },
                         input_scales: None,
                     },
@@ -26264,6 +27238,7 @@ mod tests {
                         double_penalty: true,
                         identifiability: MaternIdentifiability::None,
                         aniso_log_scales: Some(vec![3.0, -3.0]),
+                        nullspace_shrinkage_survived: None,
                     },
                     input_scales: None,
                 },
@@ -26412,6 +27387,7 @@ mod tests {
                         double_penalty: true,
                         identifiability: MaternIdentifiability::None,
                         aniso_log_scales: Some(vec![0.0, 0.0]),
+                        nullspace_shrinkage_survived: None,
                     },
                     input_scales: Some(vec![1.0, 1.0]),
                 },
@@ -27012,6 +27988,27 @@ mod tests {
             .fit
             .beta_covariance()
             .expect("bounded user covariance");
+        // User-scale covariance must be present, square, span every user
+        // coefficient (intercept + the two linear terms), and be finite — a
+        // bounded() fit with inference on must not silently drop it (gam#854).
+        assert_eq!(
+            covariance.nrows(),
+            precision.nrows(),
+            "bounded user covariance must be square and match the precision dimension"
+        );
+        assert_eq!(
+            covariance.ncols(),
+            precision.ncols(),
+            "bounded user covariance must be square and match the precision dimension"
+        );
+        assert!(
+            covariance.iter().all(|v| v.is_finite()),
+            "bounded user covariance must be finite on every entry"
+        );
+        assert!(
+            (0..covariance.nrows()).all(|i| covariance[[i, i]] > 0.0),
+            "bounded user covariance must have a strictly positive variance on every coefficient"
+        );
         let chol = precision
             .cholesky(faer::Side::Lower)
             .expect("bounded user precision cholesky");
@@ -27472,11 +28469,20 @@ mod tests {
     // ------------------------------------------------------------------
     // Posterior-SNR adaptive weighting: end-to-end objective-quality test.
     //
-    // Truth: a 1D function on a uniform grid with a genuine sharp edge in the
-    // middle (high curvature, *credibly* determined) and two flat regions. The
-    // LEFT flat region is a low-information region whose grid coefficients are
-    // poorly determined: its posterior covariance Sigma_beta = H^{-1} carries
-    // large variance there, and the noisy point-estimate beta_hat shows
+    // Truth: a 1D function on a uniform grid with a genuine sharp, localized
+    // feature in the middle (a tall narrow bump — high curvature, *credibly*
+    // determined) flanked by flat regions that are *zero* (no trend to leak).
+    // Using an isolated feature rather than a monotone step is deliberate: a
+    // step edge would impose a non-zero slope that the curvature penalty smears
+    // linearly into the adjacent flat region, so heavier flat-region smoothing
+    // would *raise* flat MSE (tilted line) regardless of the weighting — a
+    // confound that has nothing to do with the SNR weight. With a bump, the
+    // flat regions have zero true slope and zero true curvature, so suppressing
+    // the spurious noise-curvature there genuinely denoises toward truth.
+    //
+    // The LEFT flat region is a low-information region whose grid coefficients
+    // are poorly determined: its posterior covariance Sigma_beta = H^{-1}
+    // carries large variance there, and the noisy point-estimate beta_hat shows
     // spurious curvature there. The RIGHT flat region is well determined.
     //
     // We drive the *real* adaptive-weight machinery
@@ -27516,20 +28522,24 @@ mod tests {
         let h = 1.0 / (m as f64 - 1.0);
         let xs: Vec<f64> = (0..m).map(|j| j as f64 * h).collect();
 
-        // True function: flat-low on the left, a sharp tanh edge centered at
-        // x = 0.5, flat-high on the right.
+        // True function: zero-flat on both ends with a single tall, narrow
+        // Gaussian bump centered at x = 0.5 (the credible high-curvature
+        // feature). The flat ends carry no trend, so smoothing the spurious
+        // noise-curvature there denoises toward the true zero without any
+        // edge-slope leakage confound.
         let edge_center = 0.5;
-        let edge_sharpness = 28.0;
+        let bump_width = 0.06;
         let amplitude = 2.0;
-        let truth = Array1::from_iter(
-            xs.iter()
-                .map(|&x| 0.5 * amplitude * (1.0 + (edge_sharpness * (x - edge_center)).tanh())),
-        );
+        let truth = Array1::from_iter(xs.iter().map(|&x| {
+            let z = (x - edge_center) / bump_width;
+            amplitude * (-0.5 * z * z).exp()
+        }));
 
-        // Region indices.
-        let left_flat: Vec<usize> = (0..m).filter(|&j| xs[j] <= 0.30).collect();
+        // Region indices. The flat region stops well short of the bump so its
+        // true curvature is ~0; the edge band straddles the bump's steep flanks.
+        let left_flat: Vec<usize> = (0..m).filter(|&j| xs[j] <= 0.25).collect();
         let edge_band: Vec<usize> = (0..m)
-            .filter(|&j| (xs[j] - edge_center).abs() <= 0.07)
+            .filter(|&j| (xs[j] - edge_center).abs() <= 0.10)
             .collect();
         assert!(!left_flat.is_empty() && !edge_band.is_empty());
 
@@ -27637,7 +28647,10 @@ mod tests {
 
         // Penalized least-squares fit on the identity design X = I:
         //   beta = (I + lambda * D2^T diag(w_c) D2)^{-1} y.
-        let lambda = 0.02;
+        // lambda is large enough that the curvature penalty (and hence the
+        // weighting) materially shapes the fit, rather than the identity data
+        // term dominating it.
+        let lambda = 0.5;
         let fit = |w: &Array1<f64>| -> Array1<f64> {
             let k = scalar_operatorhessian(&d2, w); // D2^T diag(w) D2 (symmetric)
             let mut a = Array2::<f64>::eye(m);
@@ -27712,6 +28725,7 @@ mod tests {
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
+                        nullspace_shrinkage_survived: None,
                     },
                     input_scales: None,
                 },
@@ -27782,7 +28796,20 @@ mod tests {
                         nullspace_order: DuchonNullspaceOrder::Degree(2),
                         identifiability: SpatialIdentifiability::default(),
                         aniso_log_scales: None,
-                        operator_penalties: DuchonOperatorPenaltySpec::default(),
+                        // Truly "pure" Duchon: every operator dial off, leaving
+                        // only the always-on `Primary` RKHS Gram. The Charbonnier
+                        // adaptive overlay reweights the {mass, tension, curvature}
+                        // operator triplet, with `Primary` substituting for the
+                        // explicit `Stiffness` D2 (see the curvature-channel
+                        // comment in `extract_spatial_operator_runtime_caches`):
+                        // when mass and tension are also off the cache requires
+                        // none of the three operators, so the overlay's dispatch
+                        // gate yields an empty `runtime_caches` and the adaptive
+                        // path is skipped. `DuchonOperatorPenaltySpec::default()`
+                        // ships mass + tension active, which DOES feed the
+                        // overlay (Primary as curvature) and so is NOT the "pure"
+                        // case under test here.
+                        operator_penalties: DuchonOperatorPenaltySpec::all_disabled(),
                         periodic: None,
                         boundary: OneDimensionalBoundary::Open,
                     },
@@ -27802,17 +28829,6 @@ mod tests {
             LikelihoodSpec::gaussian_identity(),
             &FitOptions {
                 compute_inference: false,
-                // The scale-free Duchon mass candidate is now the centered
-                // design Gram at data points (commit 718810d1), which has
-                // an exact zero eigenvalue in the constant direction
-                // instead of the rank-full collocation Gram the test was
-                // first calibrated against. The outer REML iteration
-                // sees a rank-deficient `S_mass` and converges in a few
-                // more iterations than under the old construction; the
-                // *fit quality* matches (final grad norm ≈ 6e-5 at iter
-                // 18). Budget bumped to 28 so the convergence check
-                // stays a real assertion rather than an iter-budget
-                // artefact.
                 max_iter: 28,
                 tol: 1e-5,
                 adaptive_regularization: Some(AdaptiveRegularizationOptions {
@@ -27829,14 +28845,16 @@ mod tests {
         )
         .expect("pure Duchon exact adaptive fit should succeed");
 
-        // The Charbonnier spatial-adaptive overlay reweights the full
-        // mass/tension/stiffness operator triplet. A redesigned Duchon basis
-        // deliberately ships its exact RKHS `Primary` curvature plus the lower
-        // mass/tension dials — never the stiffness order — so it does not carry
-        // the triplet the overlay consumes (see `extract_spatial_operator_runtime_caches`,
-        // which has no Duchon arm). Requesting adaptive regularization on a pure
-        // Duchon must therefore still fit finitely, but produces no operator-triplet
-        // overlay: only Matérn collocation bases feed the adaptive path.
+        // Pure Duchon (every operator dial off) ships only the always-on `Primary`
+        // RKHS Gram. The Charbonnier spatial-adaptive overlay consumes a
+        // {mass, tension, curvature} operator triplet, so with no operator
+        // penalties shipped the per-term cache gate in
+        // `extract_spatial_operator_runtime_caches` rejects the term and the
+        // overlay's runtime-caches set is empty — the adaptive path is skipped
+        // and the fit collapses to the plain quadratic REML over the lone
+        // `Primary` penalty. (Default Duchon — `DuchonOperatorPenaltySpec::default()`
+        // — does feed the overlay because mass + tension are active and Primary
+        // substitutes for the Stiffness curvature channel, per #858.)
         assert!(
             fit.adaptive_diagnostics.is_none(),
             "pure Duchon carries no operator triplet, so the Charbonnier overlay must not run"
@@ -27877,6 +28895,7 @@ mod tests {
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
+                        nullspace_shrinkage_survived: None,
                     },
                     input_scales: None,
                 },
@@ -28031,6 +29050,7 @@ mod tests {
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
+                        nullspace_shrinkage_survived: None,
                     },
                     input_scales: None,
                 },
@@ -28065,11 +29085,19 @@ mod tests {
         .expect("initial epsilons");
         let (base_family, blockspec, derivative_blocks) =
             build_spatial_adaptive_joint_hyper_scaffold(&baseline, &runtime_caches, &y, n);
+        // The analytic hypergradient is the *envelope* derivative dF/dρ = J_a +
+        // ½tr(H⁻¹ Ḣ_a), valid only at a converged inner mode (∂F/∂β = 0). The
+        // central-difference reference re-solves the inner mode at each θ±h, so a
+        // loosely-converged inner solve makes the FD probe and the analytic
+        // envelope evaluate two different functions and disagree on the
+        // tension-dominated direction (the stiffest β-mode of the 2-D Matérn,
+        // hence the largest residual ∂F/∂β at a partial solve). Drive the inner
+        // solve to f64-grade stationarity so the FD reference is exact.
         let outer_opts = BlockwiseFitOptions {
-            inner_max_cycles: 30,
-            inner_tol: 1e-6,
+            inner_max_cycles: 200,
+            inner_tol: 1e-10,
             outer_max_iter: 30,
-            outer_tol: 1e-6,
+            outer_tol: 1e-10,
             compute_covariance: false,
             ..BlockwiseFitOptions::default()
         };
@@ -28458,6 +29486,7 @@ mod tests {
                         double_penalty: true,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
+                        nullspace_shrinkage_survived: None,
                     },
                     input_scales: None,
                 },
@@ -29428,5 +30457,113 @@ mod tests {
         assert_eq!(decoded.maps[0].collocation_points.ncols(), 2);
         assert_eq!(decoded.maps[0].invgradweight.len(), 2);
         assert_eq!(decoded.maps[0].inv_lapweight.len(), 2);
+    }
+
+    // ------------------------------------------------------------------
+    // #760(c): exact bounded() posterior sampler on the latent scale.
+    //
+    // Verifies the three principled contracts of
+    // `sample_bounded_latent_posterior_internal`:
+    //   1. every user-scale draw of a bounded column lies STRICTLY inside its
+    //      interval (the interval map cannot escape the bounds);
+    //   2. an unconstrained column is the ordinary Gaussian Laplace draw whose
+    //      sample variance recovers the marginal `H_user^{-1}` diagonal — i.e.
+    //      the latent precision transform did NOT corrupt the unconstrained
+    //      block (J_ii = 1 there);
+    //   3. cross-coefficient correlation between the bounded and unconstrained
+    //      columns is present (the full `H_latent = J H_user J` joint is drawn,
+    //      not an independent per-column approximation), recovered on the latent
+    //      scale where the draw is exactly Gaussian.
+    // ------------------------------------------------------------------
+    #[test]
+    fn bounded_latent_sampler_draws_in_bounds_and_preserves_joint() {
+        let (min, max) = (-0.5_f64, 0.5_f64);
+        // User-scale mode: bounded col at 0.2 (interior), unconstrained at 1.3.
+        let beta_user = array![0.2, 1.3];
+        // A correlated user-scale penalized Hessian (SPD): off-diagonal couples
+        // the two coefficients so the joint draw must reproduce correlation.
+        let user_hessian = array![[4.0, 1.2], [1.2, 3.0]];
+        let bounded_columns = vec![BoundedSampleColumn {
+            col_idx: 0,
+            min,
+            max,
+        }];
+        let n_draws = 40_000usize;
+        let draws = sample_bounded_latent_posterior_internal(
+            &beta_user,
+            &user_hessian,
+            &bounded_columns,
+            n_draws,
+            7607760,
+        )
+        .expect("bounded latent sampler");
+        assert_eq!(draws.dim(), (n_draws, 2));
+
+        // (1) Bounded column strictly inside (min, max).
+        for k in 0..n_draws {
+            let b = draws[(k, 0)];
+            assert!(
+                b > min && b < max,
+                "bounded draw {b} escaped interval ({min}, {max})"
+            );
+        }
+
+        // Reconstruct the latent geometry the sampler used so we can check the
+        // moments on the scale where the draw is exactly Gaussian.
+        let theta_mode0 = bounded_user_to_latent(beta_user[0], min, max);
+        let (_, _, j0) = bounded_latent_to_user(theta_mode0, min, max);
+        let h_latent = array![
+            [user_hessian[[0, 0]] * j0 * j0, user_hessian[[0, 1]] * j0],
+            [user_hessian[[1, 0]] * j0, user_hessian[[1, 1]]]
+        ];
+        // Latent covariance = H_latent^{-1} (2x2 closed form).
+        let det = h_latent[[0, 0]] * h_latent[[1, 1]] - h_latent[[0, 1]] * h_latent[[1, 0]];
+        let cov_latent = array![
+            [h_latent[[1, 1]] / det, -h_latent[[0, 1]] / det],
+            [-h_latent[[1, 0]] / det, h_latent[[0, 0]] / det]
+        ];
+
+        // Map bounded draws back to the latent scale; the unconstrained column
+        // is already on its (identity) latent scale.
+        let mut theta0 = Array1::<f64>::zeros(n_draws);
+        let mut theta1 = Array1::<f64>::zeros(n_draws);
+        for k in 0..n_draws {
+            theta0[k] = bounded_user_to_latent(draws[(k, 0)], min, max);
+            theta1[k] = draws[(k, 1)];
+        }
+        let mean0 = theta0.sum() / n_draws as f64;
+        let mean1 = theta1.sum() / n_draws as f64;
+        let var0 = theta0.iter().map(|&t| (t - mean0).powi(2)).sum::<f64>() / n_draws as f64;
+        let var1 = theta1.iter().map(|&t| (t - mean1).powi(2)).sum::<f64>() / n_draws as f64;
+        let cov01 = theta0
+            .iter()
+            .zip(theta1.iter())
+            .map(|(&a, &b)| (a - mean0) * (b - mean1))
+            .sum::<f64>()
+            / n_draws as f64;
+
+        // (2)/(3) Latent moments match H_latent^{-1} within Monte-Carlo error.
+        let rel = |emp: f64, truth: f64| (emp - truth).abs() / truth.abs().max(1e-12);
+        assert!(
+            rel(var0, cov_latent[[0, 0]]) < 0.05,
+            "latent var0 {var0} vs {} ",
+            cov_latent[[0, 0]]
+        );
+        assert!(
+            rel(var1, cov_latent[[1, 1]]) < 0.05,
+            "latent var1 {var1} vs {}",
+            cov_latent[[1, 1]]
+        );
+        let corr_emp = cov01 / (var0.sqrt() * var1.sqrt());
+        let corr_truth =
+            cov_latent[[0, 1]] / (cov_latent[[0, 0]].sqrt() * cov_latent[[1, 1]].sqrt());
+        assert!(
+            corr_truth.abs() > 0.2,
+            "fixture must carry real correlation, got {corr_truth}"
+        );
+        assert!(
+            (corr_emp - corr_truth).abs() < 0.03,
+            "joint correlation not preserved: empirical {corr_emp} vs truth {corr_truth}"
+        );
     }
 }

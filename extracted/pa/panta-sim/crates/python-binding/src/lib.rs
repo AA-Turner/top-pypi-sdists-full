@@ -400,6 +400,19 @@ impl PyCircuit {
         qsim_transpiler::is_cx_basis(&self.inner)
     }
 
+    /// 회로를 IBM basis (`rz` + `sx` + `x` + CX) 로 변환한 새 회로.
+    /// CX-basis 분해 후 모든 1q 게이트를 ZYZ→{rz,sx,x} 로 rebase 한다.
+    fn transpile_ibm_basis(&self) -> PyResult<PyCircuit> {
+        let circ = qsim_transpiler::transpile_to_ibm_basis(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("{e}")))?;
+        Ok(PyCircuit { inner: circ })
+    }
+
+    /// 회로가 IBM basis (rz/sx/x 1q + CX 2q) 인지 검사한다.
+    fn is_zsx_basis(&self) -> bool {
+        qsim_transpiler::is_zsx_basis(&self.inner)
+    }
+
     /// 회로의 누적된 글로벌 phase (라디안).
     #[getter]
     fn global_phase(&self) -> f64 {

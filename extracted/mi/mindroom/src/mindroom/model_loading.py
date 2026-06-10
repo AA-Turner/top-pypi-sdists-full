@@ -11,6 +11,7 @@ from agno.models.cerebras import Cerebras
 from agno.models.deepseek import DeepSeek
 from agno.models.google import Gemini
 from agno.models.groq import Groq
+from agno.models.llama_cpp import LlamaCpp
 from agno.models.ollama import Ollama
 from agno.models.openai import OpenAIChat
 from agno.models.openrouter import OpenRouter
@@ -44,6 +45,10 @@ logger = get_logger(__name__)
 __all__ = ["get_model_instance"]
 
 _BEDROCK_CLAUDE_PROVIDER = "bedrock_claude"
+# The anthropic SDK rejects non-streaming requests whose max_tokens project past
+# 10 minutes unless the client has an explicit timeout; 3600s is the SDK's own
+# ceiling for non-streaming operations.
+_CLAUDE_REQUEST_TIMEOUT_SECONDS = 3600.0
 
 
 def _canonical_provider(provider: str) -> str:
@@ -156,7 +161,8 @@ def _create_model_for_provider(  # noqa: C901, PLR0912, PLR0915
     canonical_provider = _canonical_provider(provider)
 
     if (
-        canonical_provider not in {"ollama", "vertexai_claude", "codex", "openai_codex", _BEDROCK_CLAUDE_PROVIDER}
+        canonical_provider
+        not in {"ollama", "llama_cpp", "vertexai_claude", "codex", "openai_codex", _BEDROCK_CLAUDE_PROVIDER}
         and "api_key" not in extra_kwargs
     ):
         api_key = get_api_key_for_provider(canonical_provider, runtime_paths=runtime_paths)
@@ -190,6 +196,7 @@ def _create_model_for_provider(  # noqa: C901, PLR0912, PLR0915
     if canonical_provider in {"anthropic", "vertexai_claude", _BEDROCK_CLAUDE_PROVIDER}:
         extra_kwargs.setdefault("cache_system_prompt", True)
         extra_kwargs.setdefault("extended_cache_time", True)
+        extra_kwargs.setdefault("timeout", _CLAUDE_REQUEST_TIMEOUT_SECONDS)
 
     if canonical_provider == "ollama":
         host = model_config.host or get_ollama_host(runtime_paths=runtime_paths) or OLLAMA_HOST_DEFAULT
@@ -232,6 +239,7 @@ def _create_model_for_provider(  # noqa: C901, PLR0912, PLR0915
         "gemini": Gemini,
         "google": Gemini,
         "vertexai_claude": MindroomVertexAIClaude,
+        "llama_cpp": LlamaCpp,
         "cerebras": Cerebras,
         "groq": Groq,
         "deepseek": DeepSeek,

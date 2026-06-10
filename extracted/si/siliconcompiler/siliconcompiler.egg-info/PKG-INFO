@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: siliconcompiler
-Version: 0.37.11
+Version: 0.37.12
 Summary: A compiler framework that automates translation from source code to silicon.
 Author: Zero ASIC
 License-Expression: Apache-2.0
@@ -44,7 +44,7 @@ Requires-Dist: fasteners>=0.20
 Requires-Dist: pandas>=1.1.5
 Requires-Dist: psutil>=5.8.0
 Requires-Dist: Jinja2>=2.11.3
-Requires-Dist: pyslang==10.0.0
+Requires-Dist: pyslang==11.0.0
 Requires-Dist: importlib_metadata; python_version < "3.10"
 Requires-Dist: streamlit==1.54.0; python_version > "3.9"
 Requires-Dist: streamlit_agraph==0.0.45; python_version > "3.9"
@@ -58,7 +58,7 @@ Requires-Dist: pytest-xdist==3.8.0; extra == "test"
 Requires-Dist: pytest-timeout==2.4.0; extra == "test"
 Requires-Dist: pytest-asyncio==1.2.0; extra == "test"
 Requires-Dist: pytest-cov==7.1.0; extra == "test"
-Requires-Dist: responses==0.26.0; extra == "test"
+Requires-Dist: responses==0.26.1; extra == "test"
 Requires-Dist: PyVirtualDisplay==3.0; extra == "test"
 Provides-Extra: lint
 Requires-Dist: flake8==7.3.0; extra == "lint"

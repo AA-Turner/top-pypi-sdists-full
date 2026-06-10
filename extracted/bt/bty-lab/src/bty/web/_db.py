@@ -61,10 +61,27 @@ def row_value(row: sqlite3.Row, key: str, default: Any = None) -> Any:
 
 
 def default_state_path() -> Path:
-    """Resolve ``state.db`` location from ``$BTY_STATE_DIR`` or the default."""
-    env = os.environ.get("BTY_STATE_DIR")
-    base = Path(env) if env else DEFAULT_STATE_DIR
-    return base / "state.db"
+    """Resolve ``state.db`` location from the active config
+    (``cfg.paths.state_dir`` -- ``[paths] state_dir`` in bty.toml or
+    ``BTY_PATHS_STATE_DIR`` env override; default
+    :data:`DEFAULT_STATE_DIR`).
+
+    Pre-bty.web-init callers (the rare paths that need a state path
+    BEFORE main() has installed the active config) fall back to the
+    env-var override or the built-in default. This keeps existing
+    test scaffolds + the inventory-export CLI working without
+    needing to first set up an active config."""
+    try:
+        from bty.web._config import cfg as _cfg
+
+        return _cfg().state_db
+    except RuntimeError:
+        # No active config yet (very early startup, or a CLI subcommand
+        # that bypasses the FastAPI app). Fall back to the env var
+        # alone so the pre-v0.42 contract still works for those.
+        env = os.environ.get("BTY_PATHS_STATE_DIR") or os.environ.get("BTY_STATE_DIR")
+        base = Path(env) if env else DEFAULT_STATE_DIR
+        return base / "state.db"
 
 
 SCHEMA = """
@@ -134,11 +151,11 @@ CREATE TABLE IF NOT EXISTS machines (
 -- whose content happens to match end up as distinct entries with
 -- potentially-equal ``disk_image_sha``.
 --
--- ``disk_image_sha`` is the OBSERVED content hash. Populated:
---   - on first cache via fetch-to-cache (remote);
---   - on hash-by-HashManager for local file://;
---   - if pre-pinned in the source TOML manifest (import flow).
--- May stay NULL for an entry that has never been hashed/fetched.
+-- ``disk_image_sha`` is the OBSERVED content hash. Populated only
+-- when the catalog source declares it (TOML manifest's ``sha256``,
+-- the operator-supplied ``sha_url`` adjacent to an https entry, or
+-- the digest baked into an oras blob layer). May stay NULL for any
+-- entry whose publisher did not pin a sha.
 CREATE TABLE IF NOT EXISTS catalog_entries (
     bty_image_ref  TEXT PRIMARY KEY,
     src            TEXT NOT NULL UNIQUE,

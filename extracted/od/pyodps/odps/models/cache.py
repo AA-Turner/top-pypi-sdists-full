@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 1999-2025 Alibaba Group Holding Ltd.
+# Copyright 1999-2026 Alibaba Group Holding Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,15 +16,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
 import inspect
+import threading
 import weakref
 
-from ..compat import six
 
-
-class ObjectCache(object):
+class ObjectCache:
     def __init__(self):
         self._caches = weakref.WeakValueDictionary()
+        self._caches_lock = threading.RLock()
 
     @staticmethod
     def _get_cache_class(cls):
@@ -36,7 +37,8 @@ class ObjectCache(object):
     def _fetch(self, cache_key):
         client, parent, _, _ = cache_key
         if parent is None:
-            return self._caches.get(cache_key)
+            with self._caches_lock:
+                return self._caches.get(cache_key)
 
         ancestor = getattr(parent, "_parent")
         parent_cls = self._get_cache_class(type(parent))
@@ -47,7 +49,8 @@ class ObjectCache(object):
         parent_cache_key = client, ancestor, parent_cls, name
 
         if self._fetch(parent_cache_key):
-            return self._caches.get(cache_key)
+            with self._caches_lock:
+                return self._caches.get(cache_key)
 
     def _get_cache(self, cls, **kw):
         kwargs = dict(kw)
@@ -64,7 +67,7 @@ class ObjectCache(object):
                 if not frozenset(kwargs).issubset(obj.__slots__):
                     obj = None
                 else:
-                    for k, v in six.iteritems(kwargs):
+                    for k, v in kwargs.items():
                         setattr(obj, k, v)
             if obj is not None:
                 return cache_key, obj
@@ -80,9 +83,11 @@ class ObjectCache(object):
         obj = func(cls, **kwargs)
 
         if not hasattr(cls, "_filter_cache"):
-            self._caches[cache_key] = obj
+            with self._caches_lock:
+                self._caches[cache_key] = obj
         elif cls._filter_cache(func, **obj.extract(**kwargs)):
-            self._caches[cache_key] = obj
+            with self._caches_lock:
+                self._caches[cache_key] = obj
         return obj
 
     def cache_container(self, func, cls, **kwargs):
@@ -97,7 +102,8 @@ class ObjectCache(object):
                 return obj
 
         obj = func(cls, **kwargs)
-        self._caches[cache_key] = obj
+        with self._caches_lock:
+            self._caches[cache_key] = obj
         return obj
 
     def del_item_cache(self, obj, item):
@@ -115,27 +121,34 @@ class ObjectCache(object):
         if name is not None:
             clz = self._get_cache_class(type(item))
             cache_key = client, parent, clz, name
-            if cache_key in self._caches:
-                # make sure original object will be reloaded
-                obj = self._caches[cache_key]
-                if isinstance(obj, XMLLazyLoad):
-                    obj.reset()
+            with self._caches_lock:
+                if cache_key in self._caches:
+                    # make sure original object will be reloaded
+                    obj = self._caches[cache_key]
+                    if isinstance(obj, XMLLazyLoad):
+                        obj.reset()
 
-                del self._caches[cache_key]
+                    del self._caches[cache_key]
 
 
 _object_cache = ObjectCache()
+_cls_bases_cache_lock = threading.RLock()
 _cls_bases_cache = dict()
 
 
 def cache(func):
-    @six.wraps(func)
+    @functools.wraps(func)
     def inner(cls, **kwargs):
         try:
             bases_set = _cls_bases_cache[cls]
         except KeyError:
-            bases_set = set(base.__name__ for base in inspect.getmro(cls))
-            _cls_bases_cache[cls] = bases_set
+            with _cls_bases_cache_lock:
+                # Double-check after acquiring lock
+                try:
+                    bases_set = _cls_bases_cache[cls]
+                except KeyError:
+                    bases_set = set(base.__name__ for base in inspect.getmro(cls))
+                    _cls_bases_cache[cls] = bases_set
 
         if "XMLLazyLoad" in bases_set:
             return _object_cache.cache_lazyload(func, cls, **kwargs)
@@ -148,7 +161,7 @@ def cache(func):
 
 
 def del_cache(func):
-    @six.wraps(func)
+    @functools.wraps(func)
     def inner(obj, item):
         if func.__name__ == "__delitem__":
             _object_cache.del_item_cache(obj, item)

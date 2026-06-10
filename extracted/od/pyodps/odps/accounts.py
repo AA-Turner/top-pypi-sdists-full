@@ -18,18 +18,21 @@ import base64
 import calendar
 import hashlib
 import hmac
+import http.server
 import json
 import logging
 import os
+import socketserver
 import threading
 import time
 from collections import OrderedDict
 from datetime import datetime
+from urllib.parse import parse_qs, parse_qsl, unquote, urlparse
 
 import requests
 
 from . import options, utils
-from .compat import cgi, datetime_utcnow, parse_qsl, six, unquote, urlparse
+from .compat import cgi, datetime_utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +48,7 @@ def _get_v4_signature_prefix():
     return DEFAULT_SIGNATURE_PREFIX
 
 
-class BaseAccount(object):
+class BaseAccount:
     def _build_canonical_str(self, url_components, req):
         # Build signing string
         lines = [req.method]
@@ -62,11 +65,11 @@ class BaseAccount(object):
             convert = lambda kv: kv if kv[1] != "" else (kv[0],)
             params_str = "&".join(["=".join(convert(kv)) for kv in params_list])
 
-            canonical_resource = "%s?%s" % (canonical_resource, params_str)
+            canonical_resource = f"{canonical_resource}?{params_str}"
 
         headers = req.headers
         logger.debug("headers before signing: %s", headers)
-        for k, v in six.iteritems(headers):
+        for k, v in headers.items():
             k = k.lower()
             if k in ("content-type", "content-md5") or k.startswith("x-odps"):
                 headers_to_sign[k] = v
@@ -79,7 +82,7 @@ class BaseAccount(object):
             headers["Date"] = req_date
             date_str = req_date
         headers_to_sign["date"] = date_str
-        for param_key, param_value in six.iteritems(params):
+        for param_key, param_value in params.items():
             if param_key.startswith("x-odps-"):
                 headers_to_sign[param_key] = param_value
 
@@ -87,9 +90,9 @@ class BaseAccount(object):
             [(k, headers_to_sign[k]) for k in sorted(headers_to_sign)]
         )
         logger.debug("headers to sign: %s", headers_to_sign)
-        for k, v in six.iteritems(headers_to_sign):
+        for k, v in headers_to_sign.items():
             if k.startswith("x-odps-"):
-                lines.append("%s:%s" % (k, v))
+                lines.append(f"{k}:{v}")
             else:
                 lines.append(v)
 
@@ -108,27 +111,42 @@ class CloudAccount(BaseAccount):
     def __init__(self, access_id, secret_access_key):
         self.access_id = access_id
         self.secret_access_key = secret_access_key
+        self._signature_lock = threading.RLock()
         self._last_signature_date = None
         self._last_signature_key = None
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state["_signature_lock"] = None
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._signature_lock = threading.RLock()
+
     def _get_v4_signature_key(self, date_str, region_name):
-        if date_str == self._last_signature_date:
+        with self._signature_lock:
+            if date_str == self._last_signature_date:
+                return self._last_signature_key
+
+            sig_prefix = _get_v4_signature_prefix()
+
+            k_secret = utils.to_binary(
+                sig_prefix + utils.to_str(self.secret_access_key)
+            )
+            k_date = hmac.new(
+                k_secret, utils.to_binary(date_str), hashlib.sha256
+            ).digest()
+            k_region = hmac.new(
+                k_date, utils.to_binary(region_name), hashlib.sha256
+            ).digest()
+            k_service = hmac.new(k_region, b"odps", hashlib.sha256).digest()
+
+            self._last_signature_date = date_str
+            self._last_signature_key = hmac.new(
+                k_service, utils.to_binary(sig_prefix + "_request"), hashlib.sha256
+            ).digest()
             return self._last_signature_key
-
-        sig_prefix = _get_v4_signature_prefix()
-
-        k_secret = utils.to_binary(sig_prefix + utils.to_str(self.secret_access_key))
-        k_date = hmac.new(k_secret, utils.to_binary(date_str), hashlib.sha256).digest()
-        k_region = hmac.new(
-            k_date, utils.to_binary(region_name), hashlib.sha256
-        ).digest()
-        k_service = hmac.new(k_region, b"odps", hashlib.sha256).digest()
-
-        self._last_signature_date = date_str
-        self._last_signature_key = hmac.new(
-            k_service, utils.to_binary(sig_prefix + "_request"), hashlib.sha256
-        ).digest()
-        return self._last_signature_key
 
     def calc_auth_str(self, canonical_str, region_name=None):
         if region_name is None:
@@ -140,13 +158,13 @@ class CloudAccount(BaseAccount):
                     hashlib.sha1,
                 ).digest()
             )
-            return "ODPS %s:%s" % (self.access_id, utils.to_str(signature))
+            return f"ODPS {self.access_id}:{utils.to_str(signature)}"
         else:
             # use v4 sign
             sig_prefix = _get_v4_signature_prefix()
             date_str = datetime.strftime(datetime_utcnow(), "%Y%m%d")
             credential = "/".join(
-                [self.access_id, date_str, region_name, "odps/%s_request" % sig_prefix]
+                [self.access_id, date_str, region_name, f"odps/{sig_prefix}_request"]
             )
             sign_key = self._get_v4_signature_key(date_str, region_name)
             signature = base64.b64encode(
@@ -154,7 +172,7 @@ class CloudAccount(BaseAccount):
                     sign_key, utils.to_binary(canonical_str), hashlib.sha1
                 ).digest()
             )
-            return "ODPS %s:%s" % (credential, utils.to_str(signature))
+            return f"ODPS {credential}:{utils.to_str(signature)}"
 
     def sign_request(self, req, endpoint, region_name=None):
         url = req.url[len(endpoint) :]
@@ -194,8 +212,8 @@ class AppAccount(BaseAccount):
         logger.debug("headers after app signing: %r", req.headers)
 
 
-class SignServer(object):
-    class SignServerHandler(six.moves.BaseHTTPServer.BaseHTTPRequestHandler):
+class SignServer:
+    class SignServerHandler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
             self.send_header("Content-type", "text/plain")
@@ -216,9 +234,7 @@ class SignServer(object):
                 postvars = cgi.parse_multipart(self.rfile, pdict)
             elif ctype == "application/x-www-form-urlencoded":
                 length = int(self.headers.get("content-length"))
-                postvars = six.moves.urllib.parse.parse_qs(
-                    self.rfile.read(length), keep_blank_values=1
-                )
+                postvars = parse_qs(self.rfile.read(length), keep_blank_values=1)
             else:
                 self.send_response(400)
                 self.end_headers()
@@ -265,14 +281,12 @@ class SignServer(object):
         def log_message(self, *args):
             return
 
-    class SignServerCore(
-        six.moves.socketserver.ThreadingMixIn, six.moves.BaseHTTPServer.HTTPServer
-    ):
+    class SignServerCore(socketserver.ThreadingMixIn, http.server.HTTPServer):
         def __init__(self, *args, **kwargs):
             self._accounts = kwargs.pop("accounts", {})
             self._token = kwargs.pop("token", None)
             self._ready = False
-            six.moves.BaseHTTPServer.HTTPServer.__init__(self, *args, **kwargs)
+            http.server.HTTPServer.__init__(self, *args, **kwargs)
             self._ready = True
 
         def stop(self):
@@ -333,6 +347,18 @@ class SignServerAccount(BaseAccount):
         self.sign_endpoint = sign_endpoint or (server, port)
         self.token = token
 
+    def __getstate__(self):
+        return {
+            "access_id": self.access_id,
+            "sign_endpoint": self.sign_endpoint,
+            "token": self.token,
+        }
+
+    def __setstate__(self, state):
+        self.access_id = state["access_id"]
+        self.sign_endpoint = state["sign_endpoint"]
+        self.token = state["token"]
+
     @property
     def session(self):
         if not hasattr(type(self)._session_local, "_session"):
@@ -380,14 +406,15 @@ class SignServerAccount(BaseAccount):
                 err_msg = repr(resp_err)
 
             raise SignServerError(
-                "Sign server returned error code: %d\n%s" % (resp.status_code, err_msg),
+                f"Sign server returned error code: {resp.status_code}\n{err_msg}",
                 resp.status_code,
                 resp_err,
             )
 
 
-class TempAccountMixin(object):
+class TempAccountMixin:
     def __init__(self, expired_hours=DEFAULT_TEMP_ACCOUNT_HOURS):
+        self._refresh_lock = threading.RLock()
         self._last_refresh_time = time.time()
         if expired_hours is not None:
             self._expire_seconds = expired_hours * 3600
@@ -395,6 +422,22 @@ class TempAccountMixin(object):
         else:
             self._expire_time = self._expire_seconds = None
         self.reload()
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove unpicklable locks
+        for lock_attr in ["_refresh_lock", "_signature_lock"]:
+            if lock_attr in state:
+                state[lock_attr] = None
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        # Restore locks
+        if not hasattr(self, "_refresh_lock") or self._refresh_lock is None:
+            self._refresh_lock = threading.RLock()
+        if hasattr(self, "_signature_lock") and self._signature_lock is None:
+            self._signature_lock = threading.RLock()
 
     def _is_account_valid(self):
         raise NotImplementedError
@@ -413,8 +456,13 @@ class TempAccountMixin(object):
         return False
 
     def reload(self, force=False):
+        if not force and not self._need_update():
+            return
         t = time.time()
-        if force or self._need_update():
+        with self._refresh_lock:
+            # Double-check after acquiring lock
+            if not force and not self._need_update():
+                return
             self._last_refresh_time = t
             default_expire = t + (
                 self._expire_seconds or 3600 * DEFAULT_TEMP_ACCOUNT_HOURS
@@ -562,7 +610,6 @@ class BearerTokenAccount(TempAccountMixin, BaseAccount):
 class CredentialProviderAccount(StsAccount):
     def __init__(self, credential_provider):
         self.provider = credential_provider
-        self._lock = threading.Lock()
         super(CredentialProviderAccount, self).__init__(None, None, None)
 
     def __reduce__(self):
@@ -578,7 +625,7 @@ class CredentialProviderAccount(StsAccount):
         secret_access_key = credential.get_access_key_secret()
         sts_token = credential.get_security_token()
 
-        with self._lock:
+        with self._refresh_lock:
             if self.access_id and access_id == self.access_id:
                 return
 
@@ -592,7 +639,7 @@ class CredentialProviderAccount(StsAccount):
     def sign_request(self, req, endpoint, region_name=None):
         utils.call_with_retry(self._refresh_credential)
 
-        with self._lock:
+        with self._refresh_lock:
             # need to lock to make sure keys are consistent
             return super(CredentialProviderAccount, self).sign_request(
                 req, endpoint, region_name=region_name

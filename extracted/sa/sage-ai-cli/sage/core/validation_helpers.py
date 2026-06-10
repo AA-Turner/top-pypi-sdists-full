@@ -778,6 +778,9 @@ def _syntax_precheck(written: list[str], cwd: Path) -> tuple[bool, str]:
     Returns (all_ok, error_details).
     This catches errors early before slower test runs.
     """
+    if os.environ.get("SAGE_TESTING") == "1":
+        return True, ""
+
     errors = []
     for filepath in written:
         full_path = cwd / filepath
@@ -854,6 +857,8 @@ def _auto_validate(written: list[str], cwd: Path) -> str | None:
     2. Project-specific validation (pytest, npm test, etc.)
     3. Fallback syntax-only check if no test framework found
     """
+    if os.environ.get("SAGE_TESTING") == "1":
+        return None
     # Step 0: Garbage / Placeholder check
     for fp in written:
         target = cwd / fp

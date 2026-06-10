@@ -139,7 +139,7 @@ class RateLimit(betterproto2.Message):
     )
     """
     The timeout in milliseconds for the rate limit service RPC. If not
-    set, this defaults to 20ms.
+    set, this defaults to 20ms. A value of 0 disables the timeout (infinite).
     """
 
     failure_mode_deny: "bool" = betterproto2.field(5, betterproto2.TYPE_BOOL)

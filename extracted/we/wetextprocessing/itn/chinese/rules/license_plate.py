@@ -12,30 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from tn.processor import Processor
-from tn.utils import get_abs_path
-
 from pynini import string_file
 from pynini.lib.pynutil import insert
+
+from tn.processor import Processor
+from tn.utils import get_abs_path
 
 
 class LicensePlate(Processor):
 
     def __init__(self):
-        super().__init__(name='licenseplate')
+        super().__init__(name="licenseplate")
         self.build_tagger()
         self.build_verbalizer()
 
     def build_tagger(self):
-        digit = string_file(
-            get_abs_path('../itn/chinese/data/number/digit.tsv'))  # 1 ~ 9
-        zero = string_file(
-            get_abs_path('../itn/chinese/data/number/zero.tsv'))  # 0
+        digit = string_file(get_abs_path("../itn/chinese/data/number/digit.tsv"))  # 1 ~ 9
+        zero = string_file(get_abs_path("../itn/chinese/data/number/zero.tsv"))  # 0
         digits = zero | digit
-        province = string_file(
-            get_abs_path(
-                '../itn/chinese/data/license_plate/province.tsv'))  # 皖
-        license_plate = province + self.ALPHA + (self.ALPHA | digits)**5
-        license_plate |= province + self.ALPHA + (self.ALPHA | digits)**6
+        province = string_file(get_abs_path("../itn/chinese/data/license_plate/province.tsv"))  # 皖
+        license_plate = province + self.ALPHA + (self.ALPHA | digits) ** 5
+        license_plate |= province + self.ALPHA + (self.ALPHA | digits) ** 6
         tagger = insert('value: "') + license_plate + insert('"')
         self.tagger = self.add_tokens(tagger)

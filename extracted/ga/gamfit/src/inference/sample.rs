@@ -23,7 +23,7 @@ use crate::families::survival_predict::{
     resolve_saved_survival_time_columns, resolve_termspec_for_prediction,
     saved_baseline_timewiggle_components, saved_survival_runtime_baseline_config,
 };
-use crate::gamlss::{
+use crate::families::wiggle::{
     append_selected_wiggle_penalty_orders, buildwiggle_block_input_from_knots,
     split_wiggle_penalty_orders,
 };
@@ -37,7 +37,9 @@ use crate::inference::model::{
     FittedModel as SavedModel, PredictModelClass, load_survival_time_basis_config_from_model,
 };
 use crate::linalg::triangular::back_substitution_lower_transpose_guarded_into;
-use crate::smooth::{build_term_collection_design, weighted_blockwise_penalty_sum};
+use crate::smooth::{
+    LinearCoefficientGeometry, build_term_collection_design, weighted_blockwise_penalty_sum,
+};
 use crate::survival::{MonotonicityPenalty, PenaltyBlock, PenaltyBlocks, SurvivalSpec};
 use crate::survival_construction::{
     SurvivalLikelihoodMode, add_survival_time_derivative_guard_offset, build_survival_time_basis,
@@ -212,6 +214,12 @@ mod tests {
 fn likelihood_spec_for_saved_model(model: &SavedModel) -> Result<LikelihoodSpec, String> {
     Ok(model.likelihood())
 }
+
+/// Default smoothing strength `λ` applied to a reconstructed penalty block when
+/// the saved model carries no fitted `smooth_lambda`. A mild penalty: enough to
+/// regularize the reconstructed-for-prediction design without materially
+/// reshaping the saved fit. Fitted lambdas, when present, always override this.
+const DEFAULT_RECONSTRUCTED_SMOOTH_LAMBDA: f64 = 1e-2;
 
 #[inline]
 const fn splitmix64(x: u64) -> u64 {
@@ -447,6 +455,51 @@ fn sample_standard(
         col_map,
         "resolved_termspec",
     )?;
+    // Bounded() coefficients are not sampled by the exact GLM-NUTS path. That
+    // path runs the Hamiltonian over the *raw* linear design with the saved
+    // user-scale mode, treating every coefficient as an unconstrained,
+    // Gaussian-penalized parameter. Bounded terms are fit through a custom
+    // family that drives eta via an interval transform `beta = min + (max-min)·
+    // sigmoid(theta)` of an unconstrained latent `theta`. The posterior is
+    // Gaussian on that *latent* scale (which is exactly where the fit treats the
+    // coefficient as a locally-quadratic, unconstrained parameter), so the
+    // correct draws are `theta ~ N(theta_mode, H_latent^{-1})` pushed forward
+    // through the interval map — never a Gaussian on the user scale, which can
+    // place mass outside [min,max] and discards the boundary-induced skew. The
+    // saved fit exports the user-scale mode and user-scale penalized Hessian;
+    // `sample_bounded_latent_posterior_internal` reconstructs the latent
+    // geometry via the exact inverse delta-method (`H_latent = J H_user J`) and
+    // returns user-scale draws that always lie strictly inside the interval.
+    let has_bounded = spec.linear_terms.iter().any(|term| {
+        matches!(
+            term.coefficient_geometry,
+            LinearCoefficientGeometry::Bounded { .. }
+        )
+    });
+    if has_bounded {
+        // Mirror the fit-time layout: linear coefficient `j` lives at column
+        // `intercept_range.end + j` of the model's coefficient vector. Bounds
+        // are on the original (user/data) scale, which is also the scale the
+        // saved beta and penalized Hessian live on.
+        let design = build_term_collection_design(data, &spec)
+            .map_err(|e| format!("failed to build term collection design: {e}"))?;
+        let bounded_columns: Vec<crate::smooth::BoundedSampleColumn> = spec
+            .linear_terms
+            .iter()
+            .enumerate()
+            .filter_map(|(j, term)| match term.coefficient_geometry {
+                LinearCoefficientGeometry::Bounded { min, max, .. } => {
+                    Some(crate::smooth::BoundedSampleColumn {
+                        col_idx: design.intercept_range.end + j,
+                        min,
+                        max,
+                    })
+                }
+                LinearCoefficientGeometry::Unconstrained => None,
+            })
+            .collect();
+        return sample_standard_bounded(model, cfg, &bounded_columns);
+    }
     let design = build_term_collection_design(data, &spec)
         .map_err(|e| format!("failed to build term collection design: {e}"))?;
     let weights = Array1::ones(data.nrows());
@@ -470,6 +523,18 @@ fn sample_standard(
     let penalty =
         weighted_blockwise_penalty_sum(&design.penalties, fit.lambdas.as_slice().unwrap(), p);
 
+    // Re-apply the offset the model was fit with so the posterior targets the
+    // same η = Xβ + offset as the fit and predict paths. The diagnostic loader
+    // keeps the saved offset column in the frame; dropping the offset silently
+    // sampled the wrong target for any `--offset-column` GLM (#882).
+    let offset_vec: Option<Array1<f64>> = match model.offset_column.as_deref() {
+        Some(name) => {
+            let idx = resolve_role_col(col_map, name, "offset")?;
+            Some(data.column(idx).to_owned())
+        }
+        None => None,
+    };
+
     run_nuts_sampling_flattened_family(
         likelihood,
         FamilyNutsInputs::Glm(GlmFlatInputs {
@@ -485,10 +550,66 @@ fn sample_standard(
             // a no-op.
             dispersion: fit.dispersion().unwrap_or_default(),
             firth_bias_reduction: false,
+            offset: offset_vec.as_ref().map(|o| o.view()),
         }),
         cfg,
     )
     .map_err(|e| format!("NUTS sampling failed: {e}"))
+}
+
+/// Exact posterior draws for a standard GLM with `bounded()` coefficients.
+///
+/// The bounded coefficients are sampled on their natural latent (logit) scale —
+/// where the Laplace approximation is Gaussian — and every draw is pushed
+/// through the exact interval map so user-scale draws always lie strictly inside
+/// `[min, max]` and carry the boundary-induced skew. Non-bounded coefficients
+/// are drawn as the ordinary Gaussian Laplace component of the same joint
+/// posterior, so cross-coefficient correlations with the bounded columns are
+/// preserved (the latent precision is the full `H_latent = J H_user J`).
+fn sample_standard_bounded(
+    model: &SavedModel,
+    cfg: &NutsConfig,
+    bounded_columns: &[crate::smooth::BoundedSampleColumn],
+) -> Result<NutsResult, String> {
+    validate_nuts_config(cfg).map_err(String::from)?;
+    let fit = fit_result_from_saved_model_for_prediction(model)?;
+    let mode = fit.beta.clone();
+    let p = mode.len();
+    if p == 0 {
+        return Err(
+            "standard bounded-coefficient posterior: cannot sample from an empty coefficient vector"
+                .to_string(),
+        );
+    }
+    // The bounded fit exports the user-scale penalized Hessian; the latent
+    // sampler reconstructs the latent precision from it via the exact inverse
+    // delta-method. (`explicit_fit_hessian_for_whitening` returns this same
+    // user-scale penalized Hessian for a saved standard fit.)
+    let user_hessian =
+        explicit_fit_hessian_for_whitening(&fit, p, "saved standard bounded-coefficient model")?;
+    let n_total = cfg.n_samples.saturating_mul(cfg.n_chains);
+    let samples = crate::smooth::sample_bounded_latent_posterior_internal(
+        &mode,
+        user_hessian,
+        bounded_columns,
+        n_total,
+        chain_stream_seed(cfg.seed, 0, 0xB0DD_ED5E_ED90_1A7Cu64),
+    )
+    .map_err(|e| format!("standard bounded-coefficient posterior sampling failed: {e}"))?;
+
+    let posterior_mean = samples
+        .mean_axis(ndarray::Axis(0))
+        .unwrap_or_else(|| Array1::<f64>::zeros(p));
+    let posterior_std = samples.std_axis(ndarray::Axis(0), 1.0);
+
+    Ok(NutsResult {
+        samples,
+        posterior_mean,
+        posterior_std,
+        rhat: 1.0,
+        ess: n_total as f64,
+        converged: true,
+    })
 }
 
 fn sample_standard_link_wiggle(
@@ -741,7 +862,7 @@ fn sample_survival(
             &time_anchor_row,
         )?;
     }
-    let baseline_cfg = saved_survival_runtime_baseline_config(model, saved_likelihood_mode)?;
+    let baseline_cfg = saved_survival_runtime_baseline_config(model)?;
     let (mut eta_offset_entry, mut eta_offset_exit, mut derivative_offset_exit) =
         build_survival_time_offsets_for_likelihood(
             &age_entry,
@@ -815,7 +936,9 @@ fn sample_survival(
         if s.nrows() == p_time && s.ncols() == p_time {
             penalty_blocks.push(PenaltyBlock {
                 matrix: s.clone(),
-                lambda: time_build.smooth_lambda.unwrap_or(1e-2),
+                lambda: time_build
+                    .smooth_lambda
+                    .unwrap_or(DEFAULT_RECONSTRUCTED_SMOOTH_LAMBDA),
                 range: 0..p_time,
                 nullspace_dim: time_build.nullspace_dims.get(idx).copied().unwrap_or(0),
             });
@@ -859,7 +982,9 @@ fn sample_survival(
             if s.nrows() == exit_w.ncols() && s.ncols() == exit_w.ncols() {
                 penalty_blocks.push(PenaltyBlock {
                     matrix: s.clone(),
-                    lambda: time_build.smooth_lambda.unwrap_or(1e-2),
+                    lambda: time_build
+                        .smooth_lambda
+                        .unwrap_or(DEFAULT_RECONSTRUCTED_SMOOTH_LAMBDA),
                     range: start..end,
                     nullspace_dim: block.nullspace_dims.get(widx).copied().unwrap_or(0),
                 });

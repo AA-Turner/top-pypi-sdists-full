@@ -36,6 +36,7 @@ from .paginator import (
     ListMetricsPaginator,
 )
 from .type_defs import (
+    AssociateDatasetKmsKeyInputTypeDef,
     DeleteAlarmMuteRuleInputTypeDef,
     DeleteAlarmsInputTypeDef,
     DeleteAnomalyDetectorInputTypeDef,
@@ -58,6 +59,7 @@ from .type_defs import (
     DisableAlarmActionsInputTypeDef,
     DisableInsightRulesInputTypeDef,
     DisableInsightRulesOutputTypeDef,
+    DisassociateDatasetKmsKeyInputTypeDef,
     EmptyResponseMetadataTypeDef,
     EnableAlarmActionsInputTypeDef,
     EnableInsightRulesInputTypeDef,
@@ -66,6 +68,8 @@ from .type_defs import (
     GetAlarmMuteRuleOutputTypeDef,
     GetDashboardInputTypeDef,
     GetDashboardOutputTypeDef,
+    GetDatasetInputTypeDef,
+    GetDatasetOutputTypeDef,
     GetInsightRuleReportInputTypeDef,
     GetInsightRuleReportOutputTypeDef,
     GetMetricDataInputTypeDef,
@@ -129,6 +133,9 @@ class Exceptions(BaseClientExceptions):
     InvalidNextToken: type[BotocoreClientError]
     InvalidParameterCombinationException: type[BotocoreClientError]
     InvalidParameterValueException: type[BotocoreClientError]
+    KmsAccessDeniedException: type[BotocoreClientError]
+    KmsKeyDisabledException: type[BotocoreClientError]
+    KmsKeyNotFoundException: type[BotocoreClientError]
     LimitExceededException: type[BotocoreClientError]
     LimitExceededFault: type[BotocoreClientError]
     MissingRequiredParameterException: type[BotocoreClientError]
@@ -169,6 +176,17 @@ class CloudWatchClient(BaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/generate_presigned_url.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#generate_presigned_url)
+        """
+
+    def associate_dataset_kms_key(
+        self, **kwargs: Unpack[AssociateDatasetKmsKeyInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Associates an Amazon Web Services Key Management Service (Amazon Web Services
+        KMS) customer managed key with the specified dataset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/associate_dataset_kms_key.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#associate_dataset_kms_key)
         """
 
     def delete_alarm_mute_rule(
@@ -310,6 +328,17 @@ class CloudWatchClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#disable_insight_rules)
         """
 
+    def disassociate_dataset_kms_key(
+        self, **kwargs: Unpack[DisassociateDatasetKmsKeyInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes the customer managed Amazon Web Services Key Management Service (Amazon
+        Web Services KMS) key association from the specified dataset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/disassociate_dataset_kms_key.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#disassociate_dataset_kms_key)
+        """
+
     def enable_alarm_actions(
         self, **kwargs: Unpack[EnableAlarmActionsInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -348,6 +377,14 @@ class CloudWatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_dashboard.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#get_dashboard)
+        """
+
+    def get_dataset(self, **kwargs: Unpack[GetDatasetInputTypeDef]) -> GetDatasetOutputTypeDef:
+        """
+        Returns information about the specified dataset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_dataset.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudwatch/client/#get_dataset)
         """
 
     def get_insight_rule_report(

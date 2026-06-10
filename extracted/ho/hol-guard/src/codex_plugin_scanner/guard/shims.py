@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -12,6 +13,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .launcher import merge_guard_launcher_env
+from .package_shim_status import enrich_package_shim_status_payload
+from .shim_probe import (
+    SHIM_PROBE_ENV_VALUE,
+    SHIM_PROBE_ENV_VAR,
+    package_shim_probe_args,
+    parse_protect_json_stdout,
+    protect_evaluator_evidence,
+)
 
 if TYPE_CHECKING:
     from .adapters.base import HarnessContext
@@ -25,7 +34,9 @@ _PACKAGE_SHIM_COMMANDS = {
     "gradle": "gradle",
     "mvn": "mvn",
     "npm": "npm",
+    "npx": "npx",
     "pip": "pip",
+    "pip3": "pip3",
     "pipenv": "pipenv",
     "pipx": "pipx",
     "pnpm": "pnpm",
@@ -304,6 +315,8 @@ def install_package_shims(
     )
     tracked_managers = tuple(dict.fromkeys([*existing_managers, *normalized_managers]))
     existing_hashes: dict[str, str] = existing_manifest.get("content_hashes", {})
+    existing_last_tests = existing_manifest.get("last_test_at", {})
+    last_test_at = dict(existing_last_tests) if isinstance(existing_last_tests, dict) else {}
     installed: list[str] = []
     content_hashes: dict[str, str] = dict(existing_hashes)
     for manager in normalized_managers:
@@ -319,9 +332,10 @@ def install_package_shims(
     manifest_payload = {
         "content_hashes": content_hashes,
         "installed_managers": list(tracked_managers),
+        "last_test_at": last_test_at,
         "shim_dir": str(shim_dir),
     }
-    _package_shim_manifest_path(context).write_text(json.dumps(manifest_payload, sort_keys=True), encoding="utf-8")
+    _write_package_shim_manifest(context, manifest_payload)
     program_name = _command_program_name()
     shell_hints = _path_export_hints(shim_dir)
     path_repair_required = [
@@ -374,6 +388,10 @@ def package_shim_status(context: HarnessContext) -> dict[str, object]:
         for manager in manifest.get("installed_managers", [])
         if isinstance(manager, str) and manager in _PACKAGE_SHIM_COMMANDS
     ]
+    last_test_at = manifest.get("last_test_at", {})
+    normalized_last_tests = last_test_at if isinstance(last_test_at, dict) else {}
+    detected_managers, undetected_managers = _detect_system_package_managers(context)
+    detected_set = set(detected_managers)
     shim_dir = context.guard_home / "package-shims" / "bin"
     stored_hashes: dict[str, str] = manifest.get("content_hashes", {})
     active_managers: list[str] = []
@@ -404,6 +422,7 @@ def package_shim_status(context: HarnessContext) -> dict[str, object]:
         manager_details.append(
             {
                 "integrity": integrity,
+                "last_test_at": normalized_last_tests.get(manager),
                 "manager": manager,
                 "path_active": bool(path_status.get("shim_precedes_real")),
                 "path_index": path_status.get("shim_path_index"),
@@ -412,6 +431,7 @@ def package_shim_status(context: HarnessContext) -> dict[str, object]:
                 "real_binary_path": path_status.get("real_binary_path"),
                 "real_binary_path_index": path_status.get("real_binary_path_index"),
                 "shim_path": str(shim_path),
+                "system_binary_detected": manager in detected_set,
             }
         )
         if exists and bool(path_status.get("shim_precedes_real")):
@@ -429,23 +449,30 @@ def package_shim_status(context: HarnessContext) -> dict[str, object]:
         path_contains_shim_dir=path_contains_shim_dir,
         shell_profile_configured=bool(profile_status["shell_profile_configured"]),
     )
-    return {
-        "active_managers": active_managers,
-        "installed_managers": installed_managers,
-        "protected_managers": protected_managers,
-        "path_active": bool(installed_managers) and len(protected_managers) == len(installed_managers),
-        "path_contains_shim_dir": path_contains_shim_dir,
-        "path_status": activation_path_status,
-        "bypasses": bypasses,
-        "manager_details": manager_details,
-        "manifest_path": str(_package_shim_manifest_path(context)),
-        "missing_managers": missing_managers,
-        "restart_shell_required": activation_path_status == "restart_required",
-        "shell_profile_configured": bool(profile_status["shell_profile_configured"]),
-        "shell_profile_path": profile_status["shell_profile_path"],
-        "shell_hints": _path_export_hints(shim_dir),
-        "shim_dir": str(shim_dir),
-    }
+    return enrich_package_shim_status_payload(
+        {
+            "active_managers": active_managers,
+            "detected_managers": detected_managers,
+            "installed_managers": installed_managers,
+            "last_test_at": normalized_last_tests,
+            "protected_managers": protected_managers,
+            "path_active": bool(installed_managers) and len(protected_managers) == len(installed_managers),
+            "path_contains_shim_dir": path_contains_shim_dir,
+            "path_status": activation_path_status,
+            "bypasses": bypasses,
+            "manager_details": manager_details,
+            "manifest_path": str(_package_shim_manifest_path(context)),
+            "missing_managers": missing_managers,
+            "restart_shell_required": activation_path_status == "restart_required",
+            "shell_profile_configured": bool(profile_status["shell_profile_configured"]),
+            "shell_profile_path": profile_status["shell_profile_path"],
+            "shell_hints": _path_export_hints(shim_dir),
+            "shim_dir": str(shim_dir),
+            "supported_managers": list(package_shim_supported_managers()),
+            "undetected_managers": undetected_managers,
+        },
+        manifest,
+    )
 
 
 def package_shim_cloud_coverage(
@@ -494,16 +521,20 @@ def uninstall_package_shims(
             for manager, hash_value in (manifest_hashes.items() if isinstance(manifest_hashes, dict) else ())
             if manager in remaining and isinstance(hash_value, str)
         }
-        manifest_path.write_text(
-            json.dumps(
-                {
-                    "content_hashes": content_hashes,
-                    "installed_managers": remaining,
-                    "shim_dir": str(shim_dir),
-                },
-                sort_keys=True,
-            ),
-            encoding="utf-8",
+        manifest_last_tests = manifest.get("last_test_at", {})
+        last_test_at = {
+            manager: timestamp
+            for manager, timestamp in (manifest_last_tests.items() if isinstance(manifest_last_tests, dict) else ())
+            if manager in remaining and isinstance(timestamp, str)
+        }
+        _write_package_shim_manifest(
+            context,
+            {
+                "content_hashes": content_hashes,
+                "installed_managers": remaining,
+                "last_test_at": last_test_at,
+                "shim_dir": str(shim_dir),
+            },
         )
     elif manifest_path.exists():
         manifest_path.unlink()
@@ -706,6 +737,8 @@ def _build_package_manager_python_shim(context: HarnessContext, command: str) ->
             "    sys.stderr.write(guard_process.stderr)",
             "if guard_process.returncode != 0:",
             "    raise SystemExit(guard_process.returncode)",
+            f"if os.environ.get({SHIM_PROBE_ENV_VAR!r}) == {SHIM_PROBE_ENV_VALUE!r}:",
+            "    raise SystemExit(0)",
             "path_entries = [entry for entry in os.environ.get('PATH', '').split(os.pathsep) if entry]",
             "shim_dir_abs = os.path.abspath(shim_dir)",
             "filtered_entries = [entry for entry in path_entries if os.path.abspath(entry) != shim_dir_abs]",
@@ -741,6 +774,32 @@ def _package_shim_manifest_path(context: HarnessContext) -> Path:
     return context.guard_home / "package-shims" / _PACKAGE_SHIM_MANIFEST
 
 
+def _filtered_manager_path(context: HarnessContext) -> str:
+    shim_dir = context.guard_home / "package-shims" / "bin"
+    shim_dir_abs = os.path.abspath(os.path.expanduser(str(shim_dir)))
+    path_entries = [entry for entry in os.environ.get("PATH", "").split(os.pathsep) if entry]
+    filtered_entries = [entry for entry in path_entries if os.path.abspath(os.path.expanduser(entry)) != shim_dir_abs]
+    return os.pathsep.join(filtered_entries)
+
+
+def _detect_system_package_managers(context: HarnessContext) -> tuple[list[str], list[str]]:
+    """Return supported managers with and without a real binary on PATH."""
+
+    filtered_path = _filtered_manager_path(context)
+    if filtered_path == "":
+        return [], list(package_shim_supported_managers())
+    detected: list[str] = []
+    undetected: list[str] = []
+    for manager in package_shim_supported_managers():
+        command = _PACKAGE_SHIM_COMMANDS[manager]
+        resolved = shutil.which(command, path=filtered_path)
+        if resolved is not None:
+            detected.append(manager)
+        else:
+            undetected.append(manager)
+    return detected, undetected
+
+
 def _load_package_shim_manifest(context: HarnessContext) -> dict[str, object]:
     manifest_path = _package_shim_manifest_path(context)
     if not manifest_path.exists():
@@ -750,6 +809,28 @@ def _load_package_shim_manifest(context: HarnessContext) -> dict[str, object]:
     except (json.JSONDecodeError, OSError):
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _write_package_shim_manifest(context: HarnessContext, payload: dict[str, object]) -> None:
+    _package_shim_manifest_path(context).write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+
+
+def _record_package_shim_test_results(
+    context: HarnessContext,
+    manager_results: list[dict[str, object]],
+    *,
+    tested_at: str | None = None,
+) -> None:
+    manifest = _load_package_shim_manifest(context)
+    last_test_at = manifest.get("last_test_at")
+    normalized_last_tests = dict(last_test_at) if isinstance(last_test_at, dict) else {}
+    timestamp = tested_at or datetime.now(timezone.utc).isoformat()
+    for result in manager_results:
+        manager = result.get("manager")
+        if isinstance(manager, str):
+            normalized_last_tests[manager] = timestamp
+    manifest["last_test_at"] = normalized_last_tests
+    _write_package_shim_manifest(context, manifest)
 
 
 def _command_program_name() -> str:
@@ -775,7 +856,7 @@ def _path_export_hints(shim_dir: Path) -> dict[str, str]:
     }
 
 
-def test_package_shim_intercepts(
+def probe_package_shim_intercepts(
     context: HarnessContext,
     *,
     managers: tuple[str, ...] | None = None,
@@ -789,14 +870,32 @@ def test_package_shim_intercepts(
     tested_managers = list(managers or tuple(sorted(installed)))
     path_repair_required = [manager for manager in tested_managers if manager in installed and manager not in protected]
     manager_results: list[dict[str, object]] = []
+    manager_details = status.get("manager_details", [])
+    detail_by_manager = {
+        str(item.get("manager")): item
+        for item in manager_details
+        if isinstance(item, dict) and isinstance(item.get("manager"), str)
+    }
     target_workspace = workspace_dir or context.workspace_dir or context.home_dir
     shim_dir = context.guard_home / "package-shims" / "bin"
     for manager in tested_managers:
         if manager not in installed:
             continue
+        manager_detail = detail_by_manager.get(manager)
+        if manager_detail is not None and manager_detail.get("integrity") == "tampered":
+            manager_results.append(
+                {
+                    "evaluator_invoked": False,
+                    "intercept_ran": False,
+                    "manager": manager,
+                    "skipped_reason": "shim_tampered",
+                },
+            )
+            continue
         if manager not in protected:
             manager_results.append(
                 {
+                    "evaluator_invoked": False,
                     "intercept_ran": False,
                     "manager": manager,
                     "skipped_reason": "path_inactive",
@@ -807,6 +906,7 @@ def test_package_shim_intercepts(
         if command is None:
             manager_results.append(
                 {
+                    "evaluator_invoked": False,
                     "intercept_ran": False,
                     "manager": manager,
                     "skipped_reason": "unsupported_manager",
@@ -817,39 +917,53 @@ def test_package_shim_intercepts(
         if not shim_path.exists():
             manager_results.append(
                 {
+                    "evaluator_invoked": False,
                     "intercept_ran": False,
                     "manager": manager,
                     "skipped_reason": "shim_missing",
                 },
             )
             continue
+        probe_args = package_shim_probe_args(manager)
+        probe_env = dict(os.environ)
+        probe_env[SHIM_PROBE_ENV_VAR] = SHIM_PROBE_ENV_VALUE
         try:
             # codeql[py/path-injection] target_workspace is home_dir or a validated daemon workspace_dir.
             result = subprocess.run(
-                [str(shim_path), "--version"],
+                [str(shim_path), *probe_args],
                 capture_output=True,
                 check=False,
                 cwd=target_workspace,
+                env=probe_env,
                 text=True,
                 timeout=15,
             )
         except (subprocess.TimeoutExpired, OSError):
             manager_results.append(
                 {
+                    "evaluator_invoked": False,
                     "intercept_ran": False,
                     "manager": manager,
                     "skipped_reason": "probe_failed",
                 },
             )
             continue
+        protect_payload = parse_protect_json_stdout(result.stdout)
+        evaluator_evidence = protect_evaluator_evidence(protect_payload)
         manager_results.append(
             {
-                "intercept_ran": True,
+                "evaluator_invoked": evaluator_evidence["evaluator_invoked"],
+                "evidence_ids": evaluator_evidence["evidence_ids"],
+                "intercept_ran": bool(evaluator_evidence["evaluator_invoked"]),
                 "manager": manager,
+                "protect_decision": evaluator_evidence["protect_decision"],
+                "probe_args": list(probe_args),
                 "shim_exit_code": result.returncode,
             },
         )
-    intercept_proved = any(bool(result.get("intercept_ran")) for result in manager_results)
+    intercept_proved = any(bool(result.get("evaluator_invoked")) for result in manager_results)
+    if manager_results:
+        _record_package_shim_test_results(context, manager_results)
     return {
         "blocked_execution": bool(tested_managers) and all(manager in protected for manager in tested_managers),
         "intercept_proved": intercept_proved,
@@ -870,7 +984,7 @@ __all__ = [
     "package_shim_cloud_coverage",
     "package_shim_status",
     "package_shim_supported_managers",
+    "probe_package_shim_intercepts",
     "remove_guard_shim",
-    "test_package_shim_intercepts",
     "uninstall_package_shims",
 ]

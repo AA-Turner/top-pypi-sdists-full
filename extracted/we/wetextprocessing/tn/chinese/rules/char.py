@@ -12,15 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from tn.processor import Processor
-
 from pynini.lib.pynutil import insert
+
+from tn.processor import Processor
 
 
 class Char(Processor):
 
     def __init__(self):
-        super().__init__(name='char')
+        super().__init__(name="char")
         self.build_tagger()
         self.build_verbalizer()
 

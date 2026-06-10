@@ -130,7 +130,7 @@ pub enum SwitchLabel {
     Default,
 }
 
-/// def 파라미터 종류 (v0.6.9, v0.7.3 QubitArray 추가).
+/// def 파라미터 종류 (v0.6.9, v0.7.3 QubitArray, v1.3.2 Bit/BitArray 추가).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DefParamKind {
     /// int / float / angle / uint — gate angle 표현식에 쓰이는 스칼라 (f64).
@@ -140,6 +140,12 @@ pub enum DefParamKind {
     /// qubit[N] — qubit 배열 (레지스터).  호출 시 레지스터/슬라이스 전달,
     /// body 에서 `name[i]` 인덱싱 (v0.7.3).
     QubitArray,
+    /// bit (단일) — classical bit I/O.  호출자 creg bit 를 by-reference 로
+    /// 전달하며, body 의 `measure q -> name` 이 그 cbit 에 기록한다 (v1.3.2).
+    Bit,
+    /// bit[N] — bit 배열.  호출자 creg(슬라이스)를 전달, body 에서 `name[i]`
+    /// 또는 `measure qreg -> name` 으로 기록 (v1.3.2).
+    BitArray,
 }
 
 /// def 파라미터 (`int[32] a`, `qubit q`, `qubit[2] q` 등).
@@ -152,11 +158,13 @@ pub struct DefParam {
     pub size: Option<usize>,
 }
 
-/// def 호출 인자 — classical 표현식 또는 qubit 참조.
+/// def 호출 인자 — classical 표현식 / qubit 참조 / bit(creg) 참조.
 #[derive(Debug, Clone)]
 pub enum DefArg {
     Classical(Expr),
     Qubit(QArg),
+    /// bit / bit[N] 파라미터에 전달되는 호출자 creg 참조 (by-reference 출력, v1.3.2).
+    Cbit(CArg),
 }
 
 /// `def name(params) { body }` 서브루틴 정의 (v0.6.9, v0.7.3 body = Vec<Stmt>).

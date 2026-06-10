@@ -14,11 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from odps.models import Table
 
 
-class MockProject(object):
+class MockProject:
     def __init__(self):
         self.name = 'mocked_project'
 

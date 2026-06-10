@@ -262,7 +262,7 @@ class Constant(betterproto2.Message):
 
     Named 'Constant' here for backwards compatibility.
 
-    This is similar as the primitives supported in the well-known type
+    This is similar to the primitives supported in the well-known type
     `google.protobuf.Value`, but richer so it can represent CEL's full range of
     primitives.
 
@@ -338,7 +338,7 @@ class Constant(betterproto2.Message):
     """
     protobuf.Duration value.
 
-    Deprecated: duration is no longer considered a builtin cel type.
+    Deprecated: duration is no longer considered a builtin CEL type.
     """
 
     timestamp_value: "datetime.datetime | None" = betterproto2.field(
@@ -351,7 +351,7 @@ class Constant(betterproto2.Message):
     """
     protobuf.Timestamp value.
 
-    Deprecated: timestamp is no longer considered a builtin cel type.
+    Deprecated: timestamp is no longer considered a builtin CEL type.
     """
 
     def __post_init__(self) -> None:
@@ -436,6 +436,23 @@ class DeclFunctionDecl(betterproto2.Message):
     Required. List of function overloads, must contain at least one overload.
     """
 
+    doc: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        2, betterproto2.TYPE_STRING
+    )
+    """
+    Documentation string for the function that indicates the general purpose
+    of the function and its behavior.
+
+    Documentation strings for the function should be general purpose with
+    specific examples provided in the overload doc string.
+
+    Examples:
+
+        The 'in' operator tests whether an item exists in a collection.
+
+        The 'substring' function returns a substring of a target string.
+    """
+
 
 default_message_pool.register_message(
     "google.api.expr.v1alpha1", "Decl.FunctionDecl", DeclFunctionDecl
@@ -517,7 +534,23 @@ class DeclFunctionDeclOverload(betterproto2.Message):
         6, betterproto2.TYPE_STRING
     )
     """
-    Documentation string for the overload.
+    Examples for the overload and its expected return value, separated by
+    newlines.
+
+    Prefer using CEL literals in examples as they are easily consumed by
+    humans and simple to validate with machines. The example should contain
+    an expression with a literal return value in comments inline. If the
+    expression example is too complex or would need an example for a
+    variable that cannot be expressed in CEL, document the input and return
+    in a comment preceding the example.
+
+    Examples:
+
+        1 in [1, 2, 3] // true
+        'key' in {'key1: 1, 'key2': 2} // false
+        // Test whether one or more keys exist within a map.
+        // returns true if list_of_keys contains 'key2' or 'key3'
+        list_of_keys.exists(key, key in {'key3': 1, 'key2': 2})
     """
 
 
@@ -573,12 +606,12 @@ class Expr(betterproto2.Message):
     Expressions are abstractly represented as a collection of identifiers,
     select statements, function calls, literals, and comprehensions. All
     operators with the exception of the '.' operator are modelled as function
-    calls. This makes it easy to represent new operators into the existing AST.
+    calls. This makes it easy to represent new operators in the existing AST.
 
     All references within expressions must resolve to a
     [Decl][google.api.expr.v1alpha1.Decl] provided at type-check for an
     expression to be valid. A reference may either be a bare identifier `name` or
-    a qualified identifier `google.api.name`. References may either refer to a
+    a qualified identifier `google.api.name`. References may refer to either a
     value or a function declaration.
 
     For example, the expression `google.api.name.startsWith('expr')` references
@@ -596,7 +629,7 @@ class Expr(betterproto2.Message):
     """
     Required. An id assigned to this node by the parser which is unique in a
     given expression tree. This is used to associate type information and other
-    attributes to a node in the parse tree.
+    attributes with a node in the parse tree.
     """
 
     const_expr: "Constant | None" = betterproto2.field(
@@ -668,7 +701,7 @@ class ExprCall(betterproto2.Message):
         1, betterproto2.TYPE_MESSAGE, optional=True
     )
     """
-    The target of an method call-style expression. For example, `x` in
+    The target of a method call-style expression. For example, `x` in
     `x.f()`.
     """
 
@@ -714,7 +747,7 @@ class ExprComprehension(betterproto2.Message):
 
     The `has(m.x)` macro tests whether the property `x` is present in struct
     `m`. The semantics of this macro depend on the type of `m`. For proto2
-    messages `has(m.x)` is defined as 'defined, but not set`. For proto3, the
+    messages `has(m.x)` is defined as 'defined, but not set'. For proto3, the
     macro tests whether the property is set to its default. For map and struct
     types, the macro tests whether the property `x` is defined on `m`.
 
@@ -734,7 +767,7 @@ class ExprComprehension(betterproto2.Message):
 
     Comprehensions for the optional V2 macros which support map-to-map
     translation differ slightly from the standard environment macros in that
-    they expose both the key or index in addition to the value for each list
+    they expose the key or index in addition to the value for each list
     or map entry:
 
     ```
@@ -754,17 +787,16 @@ class ExprComprehension(betterproto2.Message):
     )
     """
     The name of the first iteration variable.
-    When the iter_range is a list, this variable is the list element.
-    When the iter_range is a map, this variable is the map entry key.
+    For the single iteration variable macros, when iter_range is a list, this
+    variable is the list element and when the iter_range is a map, this
+    variable is the map key.
     """
 
     iter_var2: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
         8, betterproto2.TYPE_STRING
     )
     """
-    The name of the second iteration variable, empty if not set.
-    When the iter_range is a list, this variable is the integer index.
-    When the iter_range is a map, this variable is the map entry value.
+    The name of the second iteration variable; empty if not set.
     This field is only set for comprehension v2 macros.
     """
 
@@ -828,7 +860,7 @@ class ExprCreateList(betterproto2.Message):
     """
     A list creation expression.
 
-    Lists may either be homogenous, e.g. `[1, 2, 3]`, or heterogeneous, e.g.
+    Lists may either be homogeneous, e.g. `[1, 2, 3]`, or heterogeneous, e.g.
     `dyn([1, 'hello', 2.0])`
     """
 
@@ -871,7 +903,7 @@ class ExprCreateStruct(betterproto2.Message):
         1, betterproto2.TYPE_STRING
     )
     """
-    The type name of the message to be created, empty when creating map
+    The type name of the message to be created; empty when creating map
     literals.
     """
 
@@ -903,7 +935,7 @@ class ExprCreateStructEntry(betterproto2.Message):
     """
     Required. An id assigned to this node by the parser which is unique
     in a given expression tree. This is used to associate type
-    information and other attributes to the node.
+    information and other attributes with the node.
     """
 
     field_key: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)] | None" = betterproto2.field(
@@ -1111,7 +1143,7 @@ class SourceInfo(betterproto2.Message):
 
     The line number of a given position is the index `i` where for a given
     `id` the `line_offsets[i] < id_positions[id] < line_offsets[i+1]`. The
-    column may be derivd from `id_positions[id] - line_offsets[i]`.
+    column may be derived from `id_positions[id] - line_offsets[i]`.
     """
 
     positions: "dict[int, int]" = betterproto2.field(
@@ -1183,7 +1215,7 @@ class SourceInfoExtension(betterproto2.Message):
     If set, the listed components must understand the extension for the
     expression to evaluate correctly.
 
-    This field has set semantics, repeated values should be deduplicated.
+    This field has set semantics; repeated values should be deduplicated.
     """
 
     version: "SourceInfoExtensionVersion | None" = betterproto2.field(
@@ -1240,7 +1272,7 @@ class SourcePosition(betterproto2.Message):
         1, betterproto2.TYPE_STRING
     )
     """
-    The soucre location name (e.g. file name).
+    The source location name (e.g. file name).
     """
 
     offset: "typing.Annotated[int, pydantic.Field(ge=-2**31, le=2**31 - 1)]" = (

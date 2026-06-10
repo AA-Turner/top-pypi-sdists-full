@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=48", "wheel", "setuptools_scm[toml]>=6.3.1"]
+requires = ["setuptools>=77", "setuptools_scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
@@ -9,11 +9,9 @@ write_to = "dvc_gs/_dvc_gs_version.py"
 name = "dvc-gs"
 description = "gs plugin for dvc"
 readme = "README.rst"
-keywords = [
-    "dvc",
-    "gs",
-]
-license = { text = "Apache License 2.0" }
+keywords = ["dvc", "gs"]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 maintainers = [{ name = "Iterative", email = "support@dvc.org" }]
 authors = [{ name = "Iterative", email = "support@dvc.org" }]
 requires-python = ">=3.9"
@@ -25,24 +23,18 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dynamic = ["version"]
-dependencies = [
-    "dvc",
-    "gcsfs>=2022.11.0",
-]
+dependencies = ["dvc", "gcsfs>=2022.11.0"]
 
 [project.optional-dependencies]
-dev = [
-    "dvc-gs[tests]",
-    "mypy==1.16.0",
-]
+dev = ["dvc-gs[tests]", "mypy==1.19.1"]
 tests = [
     "dvc[testing]",
     "pytest>=7,<9",
     "pytest-cov>=4.1.0",
     "pytest-xdist>=3.2",
-    "pytest-servers[gcs]>=0.4.0",
     "google-cloud-storage>=2.7.0",
 ]
 
@@ -79,14 +71,14 @@ show-fixes = true
 
 [tool.ruff.lint]
 ignore = [
-    "N818", "S101", "ISC001", "PT004", "PT007", "RET502", "RET503", "SIM105", "SIM108", "SIM117",
-    "TRY003", "TRY300", "PLR2004", "PLW2901", "LOG007",
+    "N818", "S101", "ISC001", "PT007", "RET502", "RET503", "SIM105", "SIM108", "SIM117",
+    "TRY003", "TRY300", "PLC0415", "PLR2004", "PLW2901", "LOG007",
 ]
 select = [
     "F", "E", "W", "C90", "I", "N", "UP", "YTT", "ASYNC", "S", "BLE", "B", "A", "C4", "T10",
     "EXE", "ISC", "ICN", "G", "INP", "PIE", "T20", "PYI", "PT", "Q", "RSE", "RET",
     "SLOT", "SIM", "TID", "TCH", "ARG", "PGH", "PLC", "PLE", "PLR", "PLW", "TRY",
-    "FLY", "PERF101", "LOG", "RUF", "RUF022", "RUF023", "RUF024", "RUF025", "RUF026",
+    "FLY", "PERF101", "LOG", "RUF", "RUF022", "RUF023", "RUF024", "RUF026",
 ]
 preview = true
 explicit-preview-rules = true

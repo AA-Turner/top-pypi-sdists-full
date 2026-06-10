@@ -32,7 +32,20 @@ def _serve_app(
     name: typing.Optional[str] = None,
     _watcher: typing.Optional[collections.abc.AsyncGenerator[set[str], None]] = None,
     environment_name: typing.Optional[str] = None,
-) -> typing.AsyncContextManager[modal.app._App]: ...
+) -> typing.AsyncContextManager[modal.app._App]:
+    """Deploy an App in serve mode with file watching and live reload.
+
+    Yields the same ``App`` instance after deployment. While the context is active, changes under
+    watched mounts trigger a reload (see ``modal serve``).
+
+    Args:
+        app: The App to deploy.
+        import_ref: Import path used to reload the module when files change.
+        environment_name: Workspace environment; defaults to ``config["environment"]``.
+        _watcher: For tests only. Supplies a custom async generator of changed file paths instead of
+            the default filesystem watcher.
+    """
+    ...
 
 class __serve_app_spec(typing_extensions.Protocol):
     def __call__(
@@ -44,7 +57,21 @@ class __serve_app_spec(typing_extensions.Protocol):
         name: typing.Optional[str] = None,
         _watcher: typing.Optional[typing.Generator[set[str], None, None]] = None,
         environment_name: typing.Optional[str] = None,
-    ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[modal.app.App]: ...
+    ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[modal.app.App]:
+        """Deploy an App in serve mode with file watching and live reload.
+
+        Yields the same ``App`` instance after deployment. While the context is active, changes under
+        watched mounts trigger a reload (see ``modal serve``).
+
+        Args:
+            app: The App to deploy.
+            import_ref: Import path used to reload the module when files change.
+            environment_name: Workspace environment; defaults to ``config["environment"]``.
+            _watcher: For tests only. Supplies a custom async generator of changed file paths instead of
+                the default filesystem watcher.
+        """
+        ...
+
     def aio(
         self,
         /,
@@ -54,6 +81,19 @@ class __serve_app_spec(typing_extensions.Protocol):
         name: typing.Optional[str] = None,
         _watcher: typing.Optional[collections.abc.AsyncGenerator[set[str], None]] = None,
         environment_name: typing.Optional[str] = None,
-    ) -> typing.AsyncContextManager[modal.app.App]: ...
+    ) -> typing.AsyncContextManager[modal.app.App]:
+        """Deploy an App in serve mode with file watching and live reload.
+
+        Yields the same ``App`` instance after deployment. While the context is active, changes under
+        watched mounts trigger a reload (see ``modal serve``).
+
+        Args:
+            app: The App to deploy.
+            import_ref: Import path used to reload the module when files change.
+            environment_name: Workspace environment; defaults to ``config["environment"]``.
+            _watcher: For tests only. Supplies a custom async generator of changed file paths instead of
+                the default filesystem watcher.
+        """
+        ...
 
 serve_app: __serve_app_spec

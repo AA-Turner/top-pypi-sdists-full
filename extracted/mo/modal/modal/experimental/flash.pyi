@@ -14,6 +14,7 @@ class _FlashManager:
         startup_timeout: int = 30,
         exit_grace_period: int = 0,
         h2_enabled: bool = False,
+        is_server: bool = False,
     ):
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
@@ -22,6 +23,8 @@ class _FlashManager:
         self, process: typing.Optional[subprocess.Popen], timeout: float = 0.5
     ) -> tuple[bool, typing.Optional[Exception]]: ...
     async def _start(self): ...
+    async def _start_server_tunnel(self) -> None: ...
+    async def _start_flash_registration(self, host: str, port: int) -> None: ...
     async def _deregister(self): ...
     async def _drain_container(self):
         """Background task that checks if we've encountered too many failures and drains the container if so."""
@@ -43,6 +46,7 @@ class FlashManager:
         startup_timeout: int = 30,
         exit_grace_period: int = 0,
         h2_enabled: bool = False,
+        is_server: bool = False,
     ): ...
 
     class __is_port_connection_healthy_spec(typing_extensions.Protocol):
@@ -60,6 +64,18 @@ class FlashManager:
         async def aio(self, /): ...
 
     _start: ___start_spec
+
+    class ___start_server_tunnel_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> None: ...
+        async def aio(self, /) -> None: ...
+
+    _start_server_tunnel: ___start_server_tunnel_spec
+
+    class ___start_flash_registration_spec(typing_extensions.Protocol):
+        def __call__(self, /, host: str, port: int) -> None: ...
+        async def aio(self, /, host: str, port: int) -> None: ...
+
+    _start_flash_registration: ___start_flash_registration_spec
 
     class ___deregister_spec(typing_extensions.Protocol):
         def __call__(self, /): ...
@@ -114,6 +130,7 @@ class __flash_forward_spec(typing_extensions.Protocol):
         startup_timeout: int = 30,
         exit_grace_period: int = 0,
         h2_enabled: bool = False,
+        is_server: bool = False,
     ) -> FlashManager:
         """Forward a port to the Modal Flash service, exposing that port as a stable endpoint.
         This is a highly experimental method that can break or be removed at any time without warning.
@@ -130,6 +147,7 @@ class __flash_forward_spec(typing_extensions.Protocol):
         startup_timeout: int = 30,
         exit_grace_period: int = 0,
         h2_enabled: bool = False,
+        is_server: bool = False,
     ) -> FlashManager:
         """Forward a port to the Modal Flash service, exposing that port as a stable endpoint.
         This is a highly experimental method that can break or be removed at any time without warning.
@@ -450,7 +468,7 @@ class _FlashContainerEntry:
 
     flash_manager: typing.Optional[FlashManager]
 
-    def __init__(self, http_config: modal_proto.api_pb2.HTTPConfig):
+    def __init__(self, http_config: modal_proto.api_pb2.HTTPConfig, is_server: bool = False):
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 

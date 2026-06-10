@@ -722,3 +722,8 @@ class WorkflowSchedulePauseRequest(BaseModel):
         default=None,
         description="Optional note recorded in Temporal when pausing or resuming a schedule",
     )
+
+
+class NameListResponse(BaseModel):
+    names: list[str] = Field(description="List of distinct names")
+    next_cursor: CoercedStr | None = Field(default=None, description="Cursor for the next page of results")

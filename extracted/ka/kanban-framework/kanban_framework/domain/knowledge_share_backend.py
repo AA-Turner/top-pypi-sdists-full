@@ -30,7 +30,7 @@ class ShareBackend:
         except Exception:
             self._share_conn = None
 
-    def _search_share(self, keyword, limit=20, *, biz_context=None):
+    def _search_share(self, keyword, limit=20, *, biz_context=None, status="active"):
         if not hasattr(self, '_share_conn') or self._share_conn is None:
             return []
         fts_query = keyword
@@ -91,8 +91,8 @@ class ShareBackend:
             except Exception:
                 return []
 
-    def search(self, keyword, limit=20, *, biz_context=None):
-        return self._search_share(keyword, limit=limit, biz_context=biz_context)
+    def search(self, keyword, limit=20, *, biz_context=None, status="active"):
+        return self._search_share(keyword, limit=limit, biz_context=biz_context, status=status)
 
     def search_semantic(self, query, limit=20, *, biz_context=None):
         return self._search_share(query, limit=limit, biz_context=biz_context)

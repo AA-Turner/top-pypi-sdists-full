@@ -49,7 +49,6 @@ default_message_pool.register_message(
 class ExtensionConfigDiscoveryServiceSyncStub:
     """
     [#protodoc-title: Extension config discovery service (ECDS)]
-
     A service that supports dynamic configuration updates for a specific filter.
     Currently, ECDS is supported for network filters, HTTP filters, UDP session filters, and listener filters.
     Please check :ref:`Extension Config Discovery Service (ECDS) API <config_overview_extension_discovery>`.
@@ -111,7 +110,6 @@ class ExtensionConfigDiscoveryServiceSyncStub:
 class ExtensionConfigDiscoveryServiceAsyncStub(betterproto2_grpclib.ServiceStub):
     """
     [#protodoc-title: Extension config discovery service (ECDS)]
-
     A service that supports dynamic configuration updates for a specific filter.
     Currently, ECDS is supported for network filters, HTTP filters, UDP session filters, and listener filters.
     Please check :ref:`Extension Config Discovery Service (ECDS) API <config_overview_extension_discovery>`.
@@ -201,7 +199,6 @@ from ...discovery import v3 as __discovery__v3__
 class ExtensionConfigDiscoveryServiceBase(betterproto2_grpclib.ServiceBase):
     """
     [#protodoc-title: Extension config discovery service (ECDS)]
-
     A service that supports dynamic configuration updates for a specific filter.
     Currently, ECDS is supported for network filters, HTTP filters, UDP session filters, and listener filters.
     Please check :ref:`Extension Config Discovery Service (ECDS) API <config_overview_extension_discovery>`.

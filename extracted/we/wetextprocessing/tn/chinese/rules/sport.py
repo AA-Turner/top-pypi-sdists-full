@@ -12,31 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pynini import string_file
+from pynini.lib.pynutil import delete, insert
+
 from tn.chinese.rules.cardinal import Cardinal
 from tn.processor import Processor
 from tn.utils import get_abs_path
 
-from pynini import string_file
-from pynini.lib.pynutil import delete, insert
-
 
 class Sport(Processor):
 
-    def __init__(self):
-        super().__init__(name='sport')
+    def __init__(self, cardinal=None):
+        super().__init__(name="sport")
+        self.cardinal = cardinal or Cardinal()
         self.build_tagger()
         self.build_verbalizer()
 
     def build_tagger(self):
-        country = string_file(get_abs_path('chinese/data/sport/country.tsv'))
-        club = string_file(get_abs_path('chinese/data/sport/club.tsv'))
-        rmsign = delete('/') | delete('-') | delete(':')
-        rmspace = delete(' ').ques
+        country = string_file(get_abs_path("chinese/data/sport/country.tsv"))
+        club = string_file(get_abs_path("chinese/data/sport/club.tsv"))
+        rmsign = delete("/") | delete("-") | delete(":")
+        rmspace = delete(" ").ques
 
-        number = Cardinal().number
-        score = rmspace + number + rmsign + insert('比') + number + rmspace
-        tagger = (insert('team: "') + (country | club) + insert('" score: "') +
-                  score + insert('"'))
+        number = self.cardinal.number
+        score = rmspace + number + rmsign + insert("比") + number + rmspace
+        tagger = insert('team: "') + (country | club) + insert('" score: "') + score + insert('"')
         self.tagger = self.add_tokens(tagger)
 
     def build_verbalizer(self):

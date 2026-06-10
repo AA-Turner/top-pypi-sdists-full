@@ -48,31 +48,29 @@ classifiers = [
   "Framework :: Robot Framework :: Tool",
 ]
 requires-python = ">=3.10"
-dependencies = ["robotcode-core", "robotcode-plugin", "robotcode-robot"]
+dependencies = ["robotcode-core==2.6.0", "robotcode-plugin==2.6.0", "robotcode-robot==2.6.0"]
 dynamic = ["version"]
 
 [project.optional-dependencies]
-debugger = ["robotcode-debugger==2.5.1"]
-languageserver = ["robotcode-language-server==2.5.1"]
-runner = ["robotcode-runner==2.5.1"]
-analyze = ["robotcode-analyze==2.5.1"]
+debugger = ["robotcode-debugger==2.6.0"]
+languageserver = ["robotcode-language-server==2.6.0"]
+runner = ["robotcode-runner==2.6.0"]
+analyze = ["robotcode-analyze==2.6.0"]
 yaml = ["PyYAML>=5.4"]
 lint = ["robotframework-robocop>=2.0.0"]
 rest = ["docutils"]
-repl = ["robotcode-repl==2.5.1"]
-replserver = ["robotcode-repl-server==2.5.1"]
-colored = ["rich"]
+repl = ["robotcode-repl==2.6.0"]
+replserver = ["robotcode-repl-server==2.6.0"]
 all = [
-  "robotcode-debugger",
-  "robotcode-language-server",
-  "robotcode-runner",
-  "robotcode-analyze",
-  "robotcode-repl",
-  "robotcode-repl-server",
+  "robotcode-debugger==2.6.0",
+  "robotcode-language-server==2.6.0",
+  "robotcode-runner[html]==2.6.0",
+  "robotcode-analyze==2.6.0",
+  "robotcode-repl==2.6.0",
+  "robotcode-repl-server==2.6.0",
   "PyYAML>=5.4",
   "robotframework-robocop>=6.0.0",
-  "docutils",
-  "rich",
+  "docutils"
 ]
 
 [dependency-groups]
@@ -85,7 +83,7 @@ repl = ["robotcode-repl"]
 yaml = ["PyYAML>=5.4"]
 lint = ["robotframework-robocop>=6.0.0"]
 rest = ["docutils"]
-colored = ["rich"]
+html = ["html-to-markdown>=2.0"]
 all = [
   { "include-group" = "debugger" },
   { "include-group" = "languageserver" },
@@ -96,7 +94,7 @@ all = [
   { "include-group" = "yaml" },
   { "include-group" = "lint" },
   { "include-group" = "rest" },
-  { "include-group" = "colored" },
+  { "include-group" = "html" },
 ]
 
 [project.urls]
@@ -110,6 +108,22 @@ Source = "https://github.com/robotcodedev/robotcode"
 [project.scripts]
 robotcode = "robotcode.cli.__main__:main"
 
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+robotcode = { workspace = true }
+robotcode-core = { workspace = true }
+robotcode-jsonrpc2 = { workspace = true }
+robotcode-modifiers = { workspace = true }
+robotcode-plugin = { workspace = true }
+robotcode-robot = { workspace = true }
+robotcode-debugger = { workspace = true }
+robotcode-language-server = { workspace = true }
+robotcode-runner = { workspace = true }
+robotcode-analyze = { workspace = true }
+robotcode-repl = { workspace = true }
+robotcode-repl-server = { workspace = true }
 
 [tool.semantic_release]
 version_variable = [
@@ -146,8 +160,8 @@ build_command = "pip install hatch && hatch build"
 minversion = "6.0"
 addopts = "-ra -vv -rf --ignore=bundled --ignore=.hatch"
 filterwarnings = [
-    "ignore:.*Using or importing the ABCs from 'collections' instead of from 'collections.abc'.*:DeprecationWarning",
-    "ignore:cannot collect test class 'TestCaseDefinition'.*:pytest.PytestCollectionWarning",
+  "ignore:.*Using or importing the ABCs from 'collections' instead of from 'collections.abc'.*:DeprecationWarning",
+  "ignore:cannot collect test class 'TestCaseDefinition'.*:pytest.PytestCollectionWarning",
 ]
 testpaths = ["tests"]
 junit_suite_name = "robotcode"
@@ -218,10 +232,14 @@ select = [
   #"TRY",
   "RUF",
   # "TID"
+  # "PLC0415", # TODO enable this
 ]
 
 [tool.ruff.lint.per-file-ignores]
 #"__init__.py" = ["F401"]
+# `field` is a local wrapper around dataclasses.field — see the long note
+# under tool.ruff.lint.flake8-bugbear.extend-immutable-calls below.
+"packages/robot/src/robotcode/robot/config/model.py" = ["RUF009"]
 
 [tool.ruff.lint.isort]
 detect-same-package = true
@@ -230,6 +248,14 @@ known-first-party = ["robotcode"]
 [tool.ruff.lint.flake8-pytest-style]
 fixture-parentheses = false
 mark-parentheses = false
+
+[tool.ruff.lint.flake8-bugbear]
+# Our local `field()` wrapper around `dataclasses.field` is safe to use as a
+# dataclass default — extend the allowlist so RUF009/B008 don't flag it
+# at call sites that import the wrapper. The defining module itself
+# (model.py) needs an additional per-file ignore (see above) because ruff
+# resolves the local name independently.
+extend-immutable-calls = ["robotcode.robot.config.model.field"]
 
 
 [tool.mypy]
@@ -277,7 +303,7 @@ mypy_path = [
 
 
 [[tool.mypy.overrides]]
-module = ["robot.*", "robotremoteserver.*", "debugpy.*", "robocop.*", "pluggy"]
+module = ["robot.*", "robotremoteserver.*", "debugpy.*", "robocop.*", "pluggy", "html_to_markdown"]
 ignore_missing_imports = true
 no_implicit_reexport = false
 
@@ -307,6 +333,8 @@ exclude = [
   "**/__pycache__",
   "bundled/libs",
   "intellij-client/build",
+  "**/.*",
+  ".venv",
 ]
 typeCheckingMode = "off"
 pythonVersion = "3.10"

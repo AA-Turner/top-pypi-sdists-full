@@ -11,6 +11,7 @@
 # under the License.
 
 from collections.abc import Callable, Generator, Iterable
+import json
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -22,6 +23,7 @@ import warnings
 
 from openstack._utils import renamed_param
 from openstack import exceptions
+from openstack.identity.v3 import project as _project
 from openstack import proxy
 from openstack import resource
 from openstack.shared_file_system.v2 import (
@@ -29,7 +31,9 @@ from openstack.shared_file_system.v2 import (
 )
 from openstack.shared_file_system.v2 import limit as _limit
 from openstack.shared_file_system.v2 import quota_class_set as _quota_class_set
+from openstack.shared_file_system.v2 import quota_set as _quota_set
 from openstack.shared_file_system.v2 import resource_locks as _resource_locks
+from openstack.shared_file_system.v2 import service as _service
 from openstack.shared_file_system.v2 import share as _share
 from openstack.shared_file_system.v2 import share_group as _share_group
 from openstack.shared_file_system.v2 import (
@@ -46,11 +50,13 @@ from openstack.shared_file_system.v2 import share_network as _share_network
 from openstack.shared_file_system.v2 import (
     share_network_subnet as _share_network_subnet,
 )
+from openstack.shared_file_system.v2 import share_replica as _share_replica
 from openstack.shared_file_system.v2 import share_snapshot as _share_snapshot
 from openstack.shared_file_system.v2 import (
     share_snapshot_instance as _share_snapshot_instance,
 )
 from openstack.shared_file_system.v2 import share_transfer as _share_transfer
+from openstack.shared_file_system.v2 import share_type as _share_type
 from openstack.shared_file_system.v2 import storage_pool as _storage_pool
 from openstack.shared_file_system.v2 import user_message as _user_message
 from openstack import warnings as os_warnings
@@ -64,23 +70,123 @@ class Proxy(proxy.Proxy):
 
     _resource_registry = {
         "availability_zone": _availability_zone.AvailabilityZone,
-        "share_snapshot": _share_snapshot.ShareSnapshot,
-        "storage_pool": _storage_pool.StoragePool,
-        "user_message": _user_message.UserMessage,
         "limit": _limit.Limit,
+        "quota_class_set": _quota_class_set.QuotaClassSet,
+        "quota_set": _quota_set.QuotaSet,
+        "resource_locks": _resource_locks.ResourceLock,
+        "service": _service.Service,
         "share": _share.Share,
-        "share_network": _share_network.ShareNetwork,
-        "share_network_subnet": _share_network_subnet.ShareNetworkSubnet,
-        "share_snapshot_instance": _share_snapshot_instance.ShareSnapshotInstance,  # noqa: E501
-        "share_instance": _share_instance.ShareInstance,
-        "share_export_locations": _share_export_locations.ShareExportLocation,
         "share_access_rule": _share_access_rule.ShareAccessRule,
+        "share_export_location": _share_export_locations.ShareExportLocation,
         "share_group": _share_group.ShareGroup,
         "share_group_snapshot": _share_group_snapshot.ShareGroupSnapshot,
-        "resource_locks": _resource_locks.ResourceLock,
-        "quota_class_set": _quota_class_set.QuotaClassSet,
+        "share_instance": _share_instance.ShareInstance,
+        "share_network": _share_network.ShareNetwork,
+        "share_network_subnet": _share_network_subnet.ShareNetworkSubnet,
+        "share_replica": _share_replica.ShareReplica,
+        "share_snapshot": _share_snapshot.ShareSnapshot,
+        "share_snapshot_instance": _share_snapshot_instance.ShareSnapshotInstance,  # noqa: E501
         "share_transfer": _share_transfer.ShareTransfer,
+        "share_type": _share_type.ShareType,
+        "storage_pool": _storage_pool.StoragePool,
+        "user_message": _user_message.UserMessage,
     }
+
+    # ========= Access Rules ==========
+
+    def access_rules(
+        self,
+        share: str | _share.Share,
+        **query: Any,
+    ) -> Generator[_share_access_rule.ShareAccessRule, None, None]:
+        """Lists the access rules on a share.
+
+        :returns: A generator of the share access rules.
+        """
+        share = self._get_resource(_share.Share, share)
+        return self._list(
+            _share_access_rule.ShareAccessRule, share_id=share.id, **query
+        )
+
+    @renamed_param('access_id', 'access')
+    def get_access_rule(
+        self, access_rule: str | _share_access_rule.ShareAccessRule
+    ) -> _share_access_rule.ShareAccessRule:
+        """List details of an access rule.
+
+        :param access_rule: The value can be the ID of an access rule or a
+            :class:`~openstack.shared_file_system.v2.share_access_rule.ShareAccessRule`
+            instance.
+        :returns: Details of the identified access rule.
+        """
+        return self._get(_share_access_rule.ShareAccessRule, access_rule)
+
+    @renamed_param('share_id', 'share')
+    def create_access_rule(
+        self, share: str | _share.Share, **attrs: Any
+    ) -> _share_access_rule.ShareAccessRule:
+        """Creates an access rule from attributes
+
+        :param share: The ID of the share
+        :param attrs: Attributes which will be used to create
+            a :class:`~openstack.shared_file_system.v2.
+            share_access_rules.ShareAccessRules`, comprised of the
+            properties on the ShareAccessRules class.
+        :returns: Details of the new access rule
+        """
+        # TODO(stephenfin): This should be handled via ShareAccessRule.create
+        share_id = resource.Resource._get_id(share)
+        base_path = f"/shares/{share_id}/action"
+        return self._create(
+            _share_access_rule.ShareAccessRule, base_path=base_path, **attrs
+        )
+
+    # TODO(stephenfin): This method should return None
+    @renamed_param('access_id', 'access')
+    @renamed_param('share_id', 'share')
+    def delete_access_rule(
+        self,
+        access_rule: str | _share_access_rule.ShareAccessRule,
+        share: str | _share.Share,
+        ignore_missing: bool = True,
+        *,
+        unrestrict: bool = False,
+    ) -> 'requests.Response | None':
+        """Deletes an access rule
+
+        :param access_rule: The value can be either the ID of an access rule
+            or a
+            :class:`~openstack.shared_file_system.v2.share_access_rule.ShareAccessRule`
+            instance.
+        :param share: The ID of the share.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the access rule does not exist. When set to ``True``, no
+            exception will be set when attempting to delete a nonexistent
+            access rule.
+        :param unrestrict: If Manila must attempt removing locks while
+            deleting.
+
+        :returns: ``requests.models.Response`` HTTP response from internal
+            requests client
+        """
+        share_id = resource.Resource._get_id(share)
+        res = self._get_resource(
+            _share_access_rule.ShareAccessRule,
+            access_rule,
+            share_id=share_id,
+        )
+        try:
+            return res.delete(  # type: ignore[no-any-return]
+                self,
+                unrestrict=unrestrict,
+            )
+        except exceptions.NotFoundException:
+            if ignore_missing:
+                return None
+            raise
+
+    # ========= Availability Zones ==========
 
     def availability_zones(
         self,
@@ -90,6 +196,196 @@ class Proxy(proxy.Proxy):
         :returns: A generator of availability zone resources
         """
         return self._list(_availability_zone.AvailabilityZone)
+
+    # ========= Export Locations ==========
+
+    @renamed_param('share_id', 'share')
+    def export_locations(
+        self,
+        share: str | _share.Share,
+    ) -> Generator[_share_export_locations.ShareExportLocation, None, None]:
+        """List all export locations with details
+
+        :param share: The ID of the share to list export locations from
+        :returns: List of export locations
+        """
+        share_id = resource.Resource._get_id(share)
+        return self._list(
+            _share_export_locations.ShareExportLocation, share_id=share_id
+        )
+
+    @renamed_param('share_id', 'share')
+    def get_export_location(
+        self,
+        export_location: str | _share_export_locations.ShareExportLocation,
+        share: str | _share.Share,
+    ) -> _share_export_locations.ShareExportLocation:
+        """List details of export location
+
+        :param export_location: The export location resource to get
+        :param share: The ID of the share to get export locations from
+        :returns: Details of identified export location
+        """
+        export_location_id = resource.Resource._get_id(export_location)
+        share_id = resource.Resource._get_id(share)
+        return self._get(
+            _share_export_locations.ShareExportLocation,
+            export_location_id,
+            share_id=share_id,
+        )
+
+    # ========= Limits ==========
+
+    def limits(self, **query: Any) -> Generator[_limit.Limit, None, None]:
+        """Lists all share limits.
+
+        :param query: Optional query parameters to be sent to limit
+            the share limits being returned.
+
+        :returns: A generator of manila share limits resources
+        """
+        return self._list(_limit.Limit, **query)
+
+    # ========= Quota Class Sets ==========
+
+    @renamed_param('quota_class_name', 'quota_class_set')
+    def get_quota_class_set(
+        self, quota_class_set: str | _quota_class_set.QuotaClassSet
+    ) -> _quota_class_set.QuotaClassSet:
+        """Get quota class set.
+
+        :param quota_class_set: The name of the quota class or a
+            :class:`~openstack.shared_file_system.v2.quota_class_set.QuotaClassSet`
+            instance.
+        :returns: A :class:`~openstack.shared_file_system.v2
+            .quota_class_set.QuotaClassSet`
+        """
+        return self._get(_quota_class_set.QuotaClassSet, quota_class_set)
+
+    @renamed_param('quota_class_name', 'quota_class_set')
+    def update_quota_class_set(
+        self,
+        quota_class_set: str | _quota_class_set.QuotaClassSet,
+        **attrs: Any,
+    ) -> _quota_class_set.QuotaClassSet:
+        """Update quota class set.
+
+        :param quota_class_set: The name of the quota class
+        :param attrs: The attributes to update on the quota class set
+        :returns: the updated quota class set
+        """
+        return self._update(
+            _quota_class_set.QuotaClassSet, quota_class_set, **attrs
+        )
+
+    # ========= Quota Sets ==========
+
+    def get_quota_set(
+        self, project: str | _project.Project, **query: Any
+    ) -> _quota_set.QuotaSet:
+        """Retrieves a specific metadata item for the Quota Set.
+
+        :returns: A
+            :class:`~openstack.shared_file_system.v2.quota_sets.QuotaSets`
+        """
+        project_id = resource.Resource._get_id(project)
+        res = self._get_resource(
+            _quota_set.QuotaSet, None, project_id=project_id
+        )
+        return res.fetch(self)
+
+    def update_quota_set(
+        self, project: str | _project.Project, **attrs: Any
+    ) -> _quota_set.QuotaSet:
+        """Updates details of a quota set.
+
+        :param project: ID or instance of
+            :class:`~openstack.identity.v3.project.Project` of the project for
+            which the quota should be updated.
+        :param attrs: The attributes to update on the quota set.
+
+        :returns: The updated quota set
+        """
+        project_id = resource.Resource._get_id(project)
+        return self._update(
+            _quota_set.QuotaSet, None, project_id=project_id, **attrs
+        )
+
+    def revert_quota_set(
+        self,
+        project: str | _project.Project,
+    ) -> None:
+        """Reset quota set for a project
+
+        :param project: ID or instance of
+            :class:`~openstack.identity.v3.project.Project` of the project for
+            which the quota should be reset.
+
+        :returns: ``None``
+        """
+        project_id = resource.Resource._get_id(project)
+        self._delete(_quota_set.QuotaSet, None, project_id=project_id)
+
+    # ========= Services ==========
+
+    def services(
+        self, **query: Any
+    ) -> Generator[_service.Service, None, None]:
+        """Lists all services
+
+        :param query: Optional query parameters to be sent to limit the
+            services being returned. Available parameters include:
+
+            * host: The service host name.
+            * binary: The service binary name.
+            * zone: The availability zone.
+            * state: The current state of the service.A valid value is
+                up or down.
+            * status: The service status, which is enabled or disabled.
+
+        :returns: A generator of manila service resources.
+        """
+        return self._list(_service.Service, **query)
+
+    def disable_service(
+        self,
+        service: str | _service.Service,
+        host: str,
+        binary: str,
+    ) -> _service.Service:
+        """Disable a service
+
+        :param service: Either the ID of a service or a
+            :class:`~openstack.shared_file_system.v2.service.Service` instance.
+        :param host: The host where service runs.
+        :param binary: The name of service.
+        :returns: Updated service instance
+        """
+        service = self._get_resource(_service.Service, service)
+        service.host = host
+        service.binary = binary
+        return service.disable(self)
+
+    def enable_service(
+        self,
+        service: str | _service.Service,
+        host: str,
+        binary: str,
+    ) -> _service.Service:
+        """Enable a service
+
+        :param service: Either the ID of a service or a
+            :class:`~openstack.shared_file_system.v2.service.Service` instance.
+        :param host: The host where service runs.
+        :param binary: The name of service.
+        :returns: Updated service instance
+        """
+        service = self._get_resource(_service.Service, service)
+        service.host = host
+        service.binary = binary
+        return service.enable(self)
+
+    # ========= Shares ==========
 
     def shares(
         self,
@@ -194,7 +490,11 @@ class Proxy(proxy.Proxy):
         return self._get(_share.Share, share)
 
     def delete_share(
-        self, share: str | _share.Share, ignore_missing: bool = True
+        self,
+        share: str | _share.Share,
+        ignore_missing: bool = True,
+        *,
+        force: bool = False,
     ) -> None:
         """Deletes a single share
 
@@ -204,9 +504,21 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.exceptions.NotFoundException` will be raised
             when the share does not exist. When set to ``True``, no exception
             will be set when attempting to delete a nonexistent share.
+        :param force: When set to ``True``, the share deletion will be
+            forced immediately.
 
         :returns: ``None``
         """
+        if force:
+            res = self._get_resource(_share.Share, share)
+            try:
+                res.force_delete(self)
+            except exceptions.ResourceNotFound:
+                if ignore_missing:
+                    return None
+                raise
+            return
+
         self._delete(_share.Share, share, ignore_missing=ignore_missing)
 
     @renamed_param('share_id', 'share')
@@ -234,7 +546,11 @@ class Proxy(proxy.Proxy):
 
     @renamed_param('snapshot_id', 'snapshot')
     @renamed_param('share_id', 'share')
-    def revert_share_to_snapshot(self, share, snapshot):
+    def revert_share_to_snapshot(
+        self,
+        share: str | _share.Share,
+        snapshot: str | _share_snapshot.ShareSnapshot,
+    ) -> None:
         """Reverts a share to the specified snapshot, which must be
             the most recent one known to manila.
 
@@ -246,7 +562,13 @@ class Proxy(proxy.Proxy):
         snapshot_id = resource.Resource._get_id(snapshot)
         res.revert_to_snapshot(self, snapshot_id)
 
-    def manage_share(self, protocol, export_path, service_host, **params):
+    def manage_share(
+        self,
+        protocol: str,
+        export_path: str,
+        service_host: str,
+        **params: Any,
+    ) -> _share.Share:
         """Manage a share.
 
         :param protocol: The shared file systems protocol of this share.
@@ -267,14 +589,13 @@ class Proxy(proxy.Proxy):
 
         :returns: The share that was managed.
         """
-
         share = _share.Share()
         return share.manage(
             self, protocol, export_path, service_host, **params
         )
 
     @renamed_param('share_id', 'share')
-    def unmanage_share(self, share):
+    def unmanage_share(self, share: str | _share.Share) -> None:
         """Unmanage the share with the given share ID.
 
         :param share: The ID of the share to unmanage.
@@ -285,8 +606,13 @@ class Proxy(proxy.Proxy):
 
     @renamed_param('share_id', 'share')
     def resize_share(
-        self, share, new_size, no_shrink=False, no_extend=False, force=False
-    ):
+        self,
+        share: str | _share.Share,
+        new_size: int,
+        no_shrink: bool = False,
+        no_extend: bool = False,
+        force: bool = False,
+    ) -> None:
         """Resizes a share, extending/shrinking the share as needed.
 
         :param share: The ID of the share to resize
@@ -313,6 +639,194 @@ class Proxy(proxy.Proxy):
             res.extend_share(self, new_size, force)
         elif new_size < res.size and no_shrink is not True:
             res.shrink_share(self, new_size)
+
+    def soft_delete_share(self, share: str | _share.Share) -> None:
+        """Soft delete a share.
+
+        :param share: The value can be either the ID of a share or a
+            :class:`~openstack.shared_file_system.v2.share.Share` instance.
+        :returns: ``None``
+        """
+        res = self._get(_share.Share, share)
+        res.soft_delete(self)
+
+    def restore_share(self, share: str | _share.Share) -> None:
+        """Restore the share with the given share ID.
+
+        :param share: The value can be either the ID of a share or a
+            :class:`~openstack.shared_file_system.v2.share.Share` instance.
+        :returns: ``None``
+        """
+        res = self._get(_share.Share, share)
+        res.restore(self)
+
+    def reset_share_status(
+        self, share: str | _share.Share, status: str
+    ) -> None:
+        """Resets a share to the specified status
+
+        :param share: The ID of the share or the share object to reset
+        :param status: The status of the share to reset to. Possible values
+            include: available, error, and invalid.
+
+        :returns: None
+        """
+        share = self._get_resource(_share.Share, share)
+        share.reset_status(self, status)
+
+    def fetch_share_metadata(self, share: str | _share.Share) -> _share.Share:
+        """Lists all metadata for a share.
+
+        :param share: The value can be the ID of a share or a
+            :class:`~openstack.shared_file_system.v2.share.Share` instance.
+
+        :returns: A :class:`~openstack.shared_file_system.v2.share.Share`
+            with the share's metadata.
+        """
+        res = self._get_resource(_share.Share, share)
+        return res.fetch_metadata(self)
+
+    # TODO(stephenfin): Remove in 5.0
+    @renamed_param('share_id', 'share')
+    def get_share_metadata(self, share: str | _share.Share) -> _share.Share:
+        """Lists all metadata for a share.
+
+        .. deprecated:: 4.14.0
+            Use :meth:`fetch_share_metadata` instead.
+        """
+        warnings.warn(
+            "The 'get_share_metadata' method is deprecated; use "
+            "'fetch_share_metadata' instead.",
+            os_warnings.RemovedInSDK50Warning,
+        )
+        return self.fetch_share_metadata(share)
+
+    def fetch_share_metadata_item(
+        self, share: str | _share.Share, key: str
+    ) -> _share.Share:
+        """Retrieves a specific metadata item from a share by its key.
+
+        :param share: The value can be the ID of a share or a
+            :class:`~openstack.shared_file_system.v2.share.Share` instance.
+        :param key: The key of the share metadata
+
+        :returns: A :class:`~openstack.shared_file_system.v2.share.Share`
+            with the share's metadata.
+        """
+        res = self._get_resource(_share.Share, share)
+        return res.get_metadata_item(self, key)
+
+    # TODO(stephenfin): Remove in 5.0
+    @renamed_param('share_id', 'share')
+    def get_share_metadata_item(
+        self, share: str | _share.Share, key: str
+    ) -> _share.Share:
+        """Retrieves a specific metadata item from a share by its key.
+
+        .. deprecated:: 4.14.0
+            Use :meth:`fetch_share_metadata_item` instead.
+        """
+        warnings.warn(
+            "The 'get_share_metadata_item' method is deprecated; use "
+            "'fetch_share_metadata_item' instead.",
+            os_warnings.RemovedInSDK50Warning,
+        )
+        return self.fetch_share_metadata_item(share, key)
+
+    def set_share_metadata(
+        self,
+        share: str | _share.Share,
+        *,
+        replace: bool = False,
+        **metadata: Any,
+    ) -> _share.Share:
+        """Updates metadata of given share.
+
+        :param share: The ID of the share
+        :param replace: Boolean for whether the preexisting metadata
+            should be replaced
+        :param metadata: The metadata to be created
+
+        :returns: A :class:`~openstack.shared_file_system.v2.share.Share`
+            with the share's updated metadata.
+        """
+        res = self._get_resource(_share.Share, share)
+        return res.set_metadata(self, metadata=metadata, replace=replace)
+
+    @renamed_param('share_id', 'share')
+    def create_share_metadata(
+        self, share: str | _share.Share, **metadata: Any
+    ) -> _share.Share:
+        """Creates share metadata as key-value pairs.
+
+        .. deprecated:: 4.14.0
+            Use :meth:`set_share_metadata` instead.
+        """
+        warnings.warn(
+            "The 'create_share_metadata' method is deprecated; use "
+            "'set_share_metadata' instead.",
+            os_warnings.RemovedInSDK50Warning,
+        )
+        return self.set_share_metadata(share, **metadata)
+
+    @renamed_param('share_id', 'share')
+    def update_share_metadata(
+        self,
+        share: str | _share.Share,
+        metadata: dict[str, Any],
+        replace: bool = False,
+    ) -> _share.Share:
+        """Updates metadata of given share.
+
+        .. deprecated:: 4.14.0
+            Use :meth:`set_share_metadata` instead.
+        """
+        warnings.warn(
+            "The 'update_share_metadata' method is deprecated; use "
+            "'set_share_metadata' instead.",
+            os_warnings.RemovedInSDK50Warning,
+        )
+        return self.set_share_metadata(share, replace=replace, **metadata)
+
+    @renamed_param('share_id', 'share')
+    def delete_share_metadata(
+        self,
+        share: str | _share.Share,
+        keys: Iterable[str],
+        ignore_missing: bool = True,
+    ) -> None:
+        """Deletes metadata for a share.
+
+        :param share: The value can be either the ID of a share or a
+            :class:`~openstack.shared_file_system.v2.share.Share` instance.
+        :param keys: The list of share metadata keys to be deleted.
+        :param ignore_missing: When set to ``True``, missing keys will be
+            logged but not cause a failure. When set to ``False``, missing keys
+            will be included in the failure list.
+
+        :returns: None
+        """
+        res = self._get_resource(_share.Share, share)
+        keys_failed_to_delete = []
+        for key in keys:
+            try:
+                res.delete_metadata_item(self, key)
+            except exceptions.NotFoundException:
+                if not ignore_missing:
+                    self._connection.log.info("Key %s not found.", key)
+                    keys_failed_to_delete.append(key)
+            except exceptions.ForbiddenException:
+                self._connection.log.info("Key %s cannot be deleted.", key)
+                keys_failed_to_delete.append(key)
+            except exceptions.SDKException:
+                self._connection.log.info("Failed to delete key %s.", key)
+                keys_failed_to_delete.append(key)
+        if keys_failed_to_delete:
+            raise exceptions.SDKException(
+                f"Some keys failed to be deleted {keys_failed_to_delete}"
+            )
+
+    # ========= Share Groups ==========
 
     def share_groups(
         self,
@@ -446,188 +960,331 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def storage_pools(
+    # ========= Share Group Snapshots ==========
+
+    def share_group_snapshots(
         self,
         details: bool = True,
         **query: Any,
-    ) -> Generator[_storage_pool.StoragePool, None, None]:
-        """Lists all back-end storage pools with details
+    ) -> Generator[_share_group_snapshot.ShareGroupSnapshot, None, None]:
+        """Lists all share group snapshots.
 
-        :param query: Optional query parameters to be sent to limit
-            the storage pools being returned. Available parameters include:
+        :param query: Optional query parameters to be sent
+            to limit the share group snapshots being returned.
+            Available parameters include:
 
-            * pool_name: The pool name for the back end.
-            * host_name: The host name for the back end.
-            * backend_name: The name of the back end.
-            * capabilities: The capabilities for the storage back end.
-            * share_type: The share type name or UUID.
-        :returns: A generator of manila storage pool resources
+            * project_id: The ID of the project that owns the resource.
+            * name: The user defined name of the resource to filter resources.
+            * description: The user defined description text that can be used
+              to filter resources.
+            * status: Filters by a share status
+            * share_group_id: The UUID of a share group to filter resource.
+            * limit: The maximum number of share group snapshot members
+              to return.
+            * offset: The offset to define start point of share or
+              share group listing.
+            * sort_key: The key to sort a list of shares.
+            * sort_dir: The direction to sort a list of shares. A valid
+              value is asc, or desc.
+
+        :returns: Details of share group snapshots resources
         """
-        base_path = '/scheduler-stats/pools/detail' if details else None
+        base_path = '/share-group-snapshots/detail' if details else None
         return self._list(
-            _storage_pool.StoragePool, base_path=base_path, **query
+            _share_group_snapshot.ShareGroupSnapshot,
+            base_path=base_path,
+            **query,
         )
 
-    def user_messages(
+    @renamed_param('group_snapshot_id', 'group_snapshot')
+    def share_group_snapshot_members(
+        self, group_snapshot: str | _share_group_snapshot.ShareGroupSnapshot
+    ) -> Any:
+        """Lists all share group snapshots members.
+
+        :param group_snapshot: The ID of the group snapshot to get
+        :returns: List of the share group snapshot members, which are
+            share snapshots.
+        """
+        res = self._get(
+            _share_group_snapshot.ShareGroupSnapshot,
+            group_snapshot,
+        )
+        response = res.get_members(self)
+        return response
+
+    @renamed_param('group_snapshot_id', 'group_snapshot')
+    def get_share_group_snapshot(
         self,
-        **query: Any,
-    ) -> Generator[_user_message.UserMessage, None, None]:
-        """List shared file system user messages
+        group_snapshot: str | _share_group_snapshot.ShareGroupSnapshot,
+    ) -> _share_group_snapshot.ShareGroupSnapshot:
+        """Show share group snapshot details
 
-        :param query: Optional query parameters to be sent to limit
-            the messages being returned. Available parameters include:
-
-            * action_id: The ID of the action during which the message
-              was created.
-            * detail_id: The ID of the message detail.
-            * limit: The maximum number of shares to return.
-            * message_level: The message level.
-            * offset: The offset to define start point of share or share
-              group listing.
-            * sort_key: The key to sort a list of messages.
-            * sort_dir: The direction to sort a list of shares.
-            * project_id: The ID of the project for which the message
-              was created.
-            * request_id: The ID of the request during which the message
-              was created.
-            * resource_id: The UUID of the resource for which the message
-              was created.
-            * resource_type: The type of the resource for which the message
-              was created.
-
-        :returns: A generator of user message resources
-        """
-        return self._list(_user_message.UserMessage, **query)
-
-    @renamed_param('message_id', 'message')
-    def get_user_message(
-        self, message: str | _user_message.UserMessage
-    ) -> _user_message.UserMessage:
-        """List details of a single user message
-
-        :param message: The value can be the ID of a user message or a
-            :class:`~openstack.shared_file_system.v2.user_message.UserMessage`
+        :param group_snapshot: The value can be the ID of a share group
+            snapshot or a
+            :class:`~openstack.shared_file_system.v2.share_group_snapshot.ShareGroupSnapshot`
             instance.
-        :returns: Details of the identified user message
+        :returns: Details of the group snapshot
         """
-        return self._get(_user_message.UserMessage, message)
-
-    # TODO(stephenfin): This method should return None
-    @renamed_param('message_id', 'message')
-    def delete_user_message(
-        self,
-        message: str | _user_message.UserMessage,
-        ignore_missing: bool = True,
-    ) -> _user_message.UserMessage | None:
-        """Deletes a single user message
-
-        :param message: The value can be either the ID of a user message or a
-            :class:`~openstack.shared_file_system.v2.user_message.UserMessage`
-            instance.
-        :param ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be raised
-            when the user message does not exist. When set to ``True``, no
-            exception will be set when attempting to delete a nonexistent user
-            message.
-
-        :returns: The deleted user message.
-        """
-        return self._delete(
-            _user_message.UserMessage,
-            message,
-            ignore_missing=ignore_missing,
+        return self._get(
+            _share_group_snapshot.ShareGroupSnapshot, group_snapshot
         )
 
-    def limits(self, **query: Any) -> Generator[_limit.Limit, None, None]:
-        """Lists all share limits.
+    @renamed_param('share_group_id', 'share_group')
+    def create_share_group_snapshot(
+        self, share_group: str | _share_group.ShareGroup, **attrs: Any
+    ) -> _share_group_snapshot.ShareGroupSnapshot:
+        """Creates a point-in-time snapshot copy of a share group.
 
-        :param query: Optional query parameters to be sent to limit
-            the share limits being returned.
-
-        :returns: A generator of manila share limits resources
+        :param share_group: ID of the share group to have the snapshot
+            taken.
+        :param attrs: Attributes which will be used to create
+            a :class:`~openstack.shared_file_system.v2.
+            share_group_snapshots.ShareGroupSnapshots`,
+        :returns: Details of the new snapshot
         """
-        return self._list(_limit.Limit, **query)
-
-    def share_snapshots(
-        self,
-        details: bool = True,
-        **query: Any,
-    ) -> Generator[_share_snapshot.ShareSnapshot, None, None]:
-        """Lists all share snapshots with details.
-
-        :param query: Optional query parameters to be sent to limit
-            the snapshots being returned.  Available parameters include:
-
-            * project_id: The ID of the user or service making the API request.
-
-        :returns: A generator of manila share snapshot resources
-        """
-        base_path = '/snapshots/detail' if details else None
-        return self._list(
-            _share_snapshot.ShareSnapshot, base_path=base_path, **query
+        share_group_id = resource.Resource._get_id(share_group)
+        return self._create(
+            _share_group_snapshot.ShareGroupSnapshot,
+            share_group_id=share_group_id,
+            **attrs,
         )
 
-    @renamed_param('snapshot_id', 'snapshot')
-    def get_share_snapshot(
-        self, snapshot: str | _share_snapshot.ShareSnapshot
-    ) -> _share_snapshot.ShareSnapshot:
-        """Lists details of a single share snapshot
-
-        :param snapshot: The value can be the ID of a share snapshot or a
-            :class:`~openstack.shared_file_system.v2.share_snapshot.ShareSnapshot`
-            instance.
-        :returns: Details of the identified share snapshot
-        """
-        return self._get(_share_snapshot.ShareSnapshot, snapshot)
-
-    def create_share_snapshot(
-        self, **attrs: Any
-    ) -> _share_snapshot.ShareSnapshot:
-        """Creates a share snapshot from attributes
-
-        :returns: Details of the new share snapshot
-        """
-        return self._create(_share_snapshot.ShareSnapshot, **attrs)
-
-    @renamed_param('snapshot_id', 'snapshot')
-    def update_share_snapshot(
-        self, snapshot: str | _share_snapshot.ShareSnapshot, **attrs: Any
-    ) -> _share_snapshot.ShareSnapshot:
-        """Updates details of a single share.
-
-        :param snapshot: The ID of the snapshot to update
-        :param attrs: The attributes to update on the snapshot
-        :returns: the updated share snapshot
-        """
-        return self._update(_share_snapshot.ShareSnapshot, snapshot, **attrs)
-
-    @renamed_param('snapshot_id', 'snapshot')
-    def delete_share_snapshot(
+    @renamed_param('group_snapshot_id', 'group_snapshot')
+    def reset_share_group_snapshot_status(
         self,
-        snapshot: str | _share_snapshot.ShareSnapshot,
+        group_snapshot: str | _share_group_snapshot.ShareGroupSnapshot,
+        status: str,
+    ) -> None:
+        """Reset share group snapshot state.
+
+        :param group_snapshot: The ID of the share group snapshot to reset
+        :param status: The state of the share group snapshot to be set, A
+            valid value is "creating", "error", "available", "deleting",
+            "error_deleting".
+        """
+        res = self._get(
+            _share_group_snapshot.ShareGroupSnapshot, group_snapshot
+        )
+        res.reset_status(self, status)
+
+    @renamed_param('group_snapshot_id', 'group_snapshot')
+    def update_share_group_snapshot(
+        self,
+        group_snapshot: str | _share_group_snapshot.ShareGroupSnapshot,
+        **attrs: Any,
+    ) -> _share_group_snapshot.ShareGroupSnapshot:
+        """Updates a share group snapshot.
+
+        :param group_snapshot: The ID of the share group snapshot to update
+        :param attrs: The attributes to update on the share group snapshot
+        :returns: the updated share group snapshot
+        """
+        return self._update(
+            _share_group_snapshot.ShareGroupSnapshot,
+            group_snapshot,
+            **attrs,
+        )
+
+    @renamed_param('group_snapshot_id', 'group_snapshot')
+    def delete_share_group_snapshot(
+        self,
+        group_snapshot: str | _share_group_snapshot.ShareGroupSnapshot,
         ignore_missing: bool = True,
     ) -> None:
-        """Deletes a single share snapshot
+        """Deletes a share group snapshot.
 
-        :param snapshot: The value can be either the ID of a share snapshot or
-            a
-            :class:`~openstack.shared_file_system.v2.share_snapshot.ShareSnapshot`
+        :param group_snapshot: The value can be either the ID of a share group
+            snapshot or a
+            :class:`~openstack.shared_file_system.v2.share_group_snapshot.ShareGroupSnapshot`
             instance.
         :param ignore_missing: When set to ``False``
             :class:`~openstack.exceptions.NotFoundException` will be raised
-            when the share snapshot does not exist. When set to ``True``, no
-            exception will be set when attempting to delete a nonexistent share
-            snapshot.
+            when the share group snapshot does not exist. When set to ``True``,
+            no exception will be set when attempting to delete a nonexistent
+            share group snapshot.
 
         :returns: ``None``
         """
         self._delete(
-            _share_snapshot.ShareSnapshot,
-            snapshot,
+            _share_group_snapshot.ShareGroupSnapshot,
+            group_snapshot,
             ignore_missing=ignore_missing,
         )
 
-    # ========= Network Subnets ==========
+    # ========= Share Instances ==========
+
+    def share_instances(
+        self,
+        **query: Any,
+    ) -> Generator[_share_instance.ShareInstance, None, None]:
+        """Lists all share instances.
+
+        :param query: Optional query parameters to be sent to limit
+            the share instances being returned. Available parameters include:
+
+            * export_location_id: The export location UUID that can be used
+              to filter share instances.
+            * export_location_path: The export location path that can be used
+              to filter share instances.
+
+        :returns: Details of share instances resources
+        """
+        return self._list(_share_instance.ShareInstance, **query)
+
+    @renamed_param('share_instance_id', 'share_instance')
+    def get_share_instance(
+        self, share_instance: str | _share_instance.ShareInstance
+    ) -> _share_instance.ShareInstance:
+        """Shows details for a single share instance
+
+        :param share_instance: The value can be the UUID of a share instance
+            or a
+            :class:`~openstack.shared_file_system.v2.share_instance.ShareInstance`
+            instance.
+
+        :returns: Details of the identified share instance
+        """
+        return self._get(_share_instance.ShareInstance, share_instance)
+
+    @renamed_param('share_instance_id', 'share_instance')
+    def reset_share_instance_status(
+        self,
+        share_instance: str | _share_instance.ShareInstance,
+        status: str,
+    ) -> None:
+        """Explicitly updates the state of a share instance.
+
+        :param share_instance: The UUID of the share instance to reset.
+        :param status: The share or share instance status to be set.
+
+        :returns: ``None``
+        """
+        res = self._get_resource(_share_instance.ShareInstance, share_instance)
+        res.reset_status(self, status)
+
+    @renamed_param('share_instance_id', 'share_instance')
+    def delete_share_instance(
+        self,
+        share_instance: str | _share_instance.ShareInstance,
+        ignore_missing: bool = True,
+    ) -> None:
+        """Force-deletes a share instance
+
+        :param share_instance: The value can be either the ID of a share
+            instance or a
+            :class:`~openstack.shared_file_system.v2.share_instance.ShareInstance`
+            instance.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the share instance does not exist. When set to ``True``, no
+            exception will be set when attempting to delete a nonexistent share
+            instance.
+
+        :returns: ``None``
+        """
+        res = self._get_resource(_share_instance.ShareInstance, share_instance)
+        try:
+            res.force_delete(self)
+        except exceptions.NotFoundException:
+            if not ignore_missing:
+                raise
+
+    # ========= Share Networks ==========
+
+    def share_networks(
+        self,
+        details: bool = True,
+        **query: Any,
+    ) -> Generator[_share_network.ShareNetwork, None, None]:
+        """Lists all share networks with details.
+
+        :param query: Optional query parameters to be sent to limit the
+            resources being returned. Available parameters include:
+
+            * name~: The user defined name of the resource to filter resources
+              by.
+            * project_id: The ID of the user or service making the request.
+            * description~: The description pattern that can be used to filter
+              shares, share snapshots, share networks or share groups.
+            * all_projects: (Admin only). Defines whether to list the requested
+              resources for all projects.
+
+        :returns: Details of shares networks
+        """
+        base_path = '/share-networks/detail' if details else None
+        return self._list(
+            _share_network.ShareNetwork, base_path=base_path, **query
+        )
+
+    @renamed_param('share_network_id', 'share_network')
+    def get_share_network(
+        self, share_network: str | _share_network.ShareNetwork
+    ) -> _share_network.ShareNetwork:
+        """Lists details of a single share network
+
+        :param share_network: The value can be the ID of a share network or a
+            :class:`~openstack.shared_file_system.v2.share_network.ShareNetwork`
+            instance.
+        :returns: Details of the identified share network
+        """
+        return self._get(_share_network.ShareNetwork, share_network)
+
+    @renamed_param('share_network_id', 'share_network')
+    def delete_share_network(
+        self,
+        share_network: str | _share_network.ShareNetwork,
+        ignore_missing: bool = True,
+    ) -> None:
+        """Deletes a single share network
+
+        :param share_network: The value can be either the ID of a share network
+            or a
+            :class:`~openstack.shared_file_system.v2.share_network.ShareNetwork`
+            instance.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the share network does not exist. When set to ``True``, no
+            exception will be set when attempting to delete a nonexistent share
+            network.
+
+        :returns: ``None``
+        """
+        self._delete(
+            _share_network.ShareNetwork,
+            share_network,
+            ignore_missing=ignore_missing,
+        )
+
+    @renamed_param('share_network_id', 'share_network')
+    def update_share_network(
+        self, share_network: str | _share_network.ShareNetwork, **attrs: Any
+    ) -> _share_network.ShareNetwork:
+        """Updates details of a single share network.
+
+        :param share_network: The ID of the share network to update
+        :param attrs: The attributes to update on the share network
+        :returns: the updated share network
+        """
+        return self._update(
+            _share_network.ShareNetwork, share_network, **attrs
+        )
+
+    def create_share_network(
+        self, **attrs: Any
+    ) -> _share_network.ShareNetwork:
+        """Creates a share network from attributes
+
+        :returns: Details of the new share network
+        :param attrs: Attributes which will be used to create
+            a :class:`~openstack.shared_file_system.v2.
+            share_network.ShareNetwork`,comprised of the properties
+            on the ShareNetwork class.
+        """
+        return self._create(_share_network.ShareNetwork, **attrs)
+
+    # ========= Share Network Subnets ==========
+
     @renamed_param('share_network_id', 'share_network')
     def share_network_subnets(
         self,
@@ -722,6 +1379,483 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
+    def fetch_share_network_subnet_metadata(
+        self,
+        share_network: str | _share_network.ShareNetwork,
+        share_network_subnet: str | _share_network_subnet.ShareNetworkSubnet,
+    ) -> _share_network_subnet.ShareNetworkSubnet:
+        """Lists all metadata of a given share network subnet.
+
+        :param share_network: The value can be the ID of a share network or a
+            :class:`~openstack.shared_file_system.v2.share_network.ShareNetwork`
+            instance.
+        :param share_network_subnet: The value can be the ID of a share network
+            subnet or a
+            :class:`~openstack.shared_file_system.v2.share_network_subnet.ShareNetworkSubnet`
+            instance.
+        :returns: Details of the identified share network subnet, including its
+            metadata.
+        """
+        share_network_id = resource.Resource._get_id(share_network)
+        share_network_subnet_id = resource.Resource._get_id(
+            share_network_subnet
+        )
+        res = self._get_resource(
+            _share_network_subnet.ShareNetworkSubnet,
+            share_network_subnet_id,
+            share_network_id=share_network_id,
+        )
+        return res.fetch_metadata(self)
+
+    def fetch_share_network_subnet_metadata_item(
+        self,
+        share_network: str | _share_network.ShareNetwork,
+        share_network_subnet: str | _share_network_subnet.ShareNetworkSubnet,
+        key: str,
+    ) -> _share_network_subnet.ShareNetworkSubnet:
+        """Retrieve specific subnet metadata item by key.
+
+        :param share_network: The value can be the ID of a share network or a
+            :class:`~openstack.shared_file_system.v2.share_network.ShareNetwork`
+            instance.
+        :param share_network_subnet: The value can be the ID of a share network
+            subnet or a
+            :class:`~openstack.shared_file_system.v2.share_network_subnet.ShareNetworkSubnet`
+            instance.
+        :param key: The key of the Share Network Subnet Metadata.
+        :returns: A single metadata key and value pair.
+        """
+        share_network_id = resource.Resource._get_id(share_network)
+        share_network_subnet_id = resource.Resource._get_id(
+            share_network_subnet
+        )
+        res = self._get_resource(
+            _share_network_subnet.ShareNetworkSubnet,
+            share_network_subnet_id,
+            share_network_id=share_network_id,
+        )
+        return res.get_metadata_item(self, key)
+
+    def set_share_network_subnet_metadata(
+        self,
+        share_network: str | _share_network.ShareNetwork,
+        share_network_subnet: str | _share_network_subnet.ShareNetworkSubnet,
+        *,
+        replace: bool = False,
+        **metadata: Any,
+    ) -> _share_network_subnet.ShareNetworkSubnet:
+        """Updates metadata of given share network subnet.
+
+        :param share_network: The value can be the ID of a share network or a
+            :class:`~openstack.shared_file_system.v2.share_network.ShareNetwork`
+            instance.
+        :param share_network_subnet: The value can be the ID of a share network
+            subnet or a
+            :class:`~openstack.shared_file_system.v2.share_network_subnet.ShareNetworkSubnet`
+            instance.
+        :param metadata: The metadata to be created.
+        :returns: Details of the identified share network subnet.
+        """
+        share_network_id = resource.Resource._get_id(share_network)
+        share_network_subnet_id = resource.Resource._get_id(
+            share_network_subnet
+        )
+        res = self._get_resource(
+            _share_network_subnet.ShareNetworkSubnet,
+            share_network_subnet_id,
+            share_network_id=share_network_id,
+        )
+        return res.set_metadata(self, metadata=metadata, replace=replace)
+
+    def delete_share_network_subnet_metadata(
+        self,
+        share_network: str | _share_network.ShareNetwork,
+        share_network_subnet: str | _share_network_subnet.ShareNetworkSubnet,
+        keys: Iterable[str],
+        ignore_missing: bool = True,
+    ) -> None:
+        """Deletes one or more subnet metadata items identified by their keys.
+
+        :param share_network: The value can be the ID of a share network or a
+            :class:`~openstack.shared_file_system.v2.share_network.ShareNetwork`
+            instance.
+        :param share_network_subnet: The value can be the ID of a share network
+            subnet or a
+            :class:`~openstack.shared_file_system.v2.share_network_subnet.ShareNetworkSubnet`
+            instance.
+        :param keys: The keys of the metadata items to be deleted.
+        :returns: ``None``
+        """
+        share_network_id = resource.Resource._get_id(share_network)
+        share_network_subnet_id = resource.Resource._get_id(
+            share_network_subnet
+        )
+        res = self._get_resource(
+            _share_network_subnet.ShareNetworkSubnet,
+            share_network_subnet_id,
+            share_network_id=share_network_id,
+        )
+        if keys is not None:
+            for key in set(keys):
+                res.delete_metadata_item(self, key)
+        else:
+            res.delete_metadata(self)
+
+    # ========= Share Replicas ==========
+
+    def create_share_replica(
+        self, share: str | _share.Share, **attrs: Any
+    ) -> _share_replica.ShareReplica:
+        """Creates a share replica from attributes
+
+        :param share: Id of the share for which share replica is to be
+            created
+        :param attrs: Optional attributes which will be used to create.
+            Available parameters include:
+
+            * availability_zone: Availability zone in which replica should
+              be created.
+
+        :returns: Details of the new share replica
+        """
+        share_id = resource.Resource._get_id(share)
+        return self._create(
+            _share_replica.ShareReplica, share_id=share_id, **attrs
+        )
+
+    def share_replicas(
+        self, **attrs: Any
+    ) -> Generator[_share_replica.ShareReplica, None, None]:
+        """List all share replicas with all details
+
+        :param attrs: Optional parameters to limit the share replicas being
+            returned. Available parameters include:
+
+            * share_id: id of the share for which share replicas are wanted
+            * columns: list of columns to be displayed in the returned list
+
+        :returns: A generator of share replicas
+        """
+        return self._list(_share_replica.ShareReplica, **attrs)
+
+    def get_share_replica(
+        self, share_replica: str | _share_replica.ShareReplica
+    ) -> _share_replica.ShareReplica:
+        """List details of a single share replica
+
+        :param share_replica: Id of the share replica
+
+        :returns: Details of the identified share replica
+        """
+        return self._get(_share_replica.ShareReplica, share_replica)
+
+    def delete_share_replica(
+        self,
+        share_replica: str | _share_replica.ShareReplica,
+        ignore_missing: bool = True,
+        force: bool = False,
+    ) -> _share_replica.ShareReplica | None:
+        """Delete a share replica
+
+        :param share_replica: Id of the share replica
+
+        :returns: Result of delete on share replica
+        """
+        if force:
+            share_replica = self._get_resource(
+                _share_replica.ShareReplica, share_replica
+            )
+            share_replica.force_delete(self, ignore_missing=ignore_missing)
+            return None
+
+        return self._delete(
+            _share_replica.ShareReplica,
+            share_replica,
+            ignore_missing=ignore_missing,
+        )
+
+    def reset_share_replica_status(
+        self, share_replica: str | _share_replica.ShareReplica, status: str
+    ) -> None:
+        """Reset status of the share replica
+
+        :param share_replica: Id of the share replica
+        :param status: set the status to the share replica. Possible values
+            include: available, error, creating, deleting, or error_deleting.
+
+        :returns: None
+        """
+        share_replica = self._get_resource(
+            _share_replica.ShareReplica, share_replica
+        )
+        share_replica.reset_status(self, status)
+
+    def reset_share_replica_state(
+        self,
+        share_replica: str | _share_replica.ShareReplica,
+        replica_state: str,
+    ) -> None:
+        """Reset replica_state of the share replica
+
+        :param share_replica: Id of the share replica
+        :param replica_state: The replica state of a share replica. Possible
+            values include: active, in_sync, out_of_sync, and error.
+
+        :returns: None
+        """
+        share_replica = self._get_resource(
+            _share_replica.ShareReplica, share_replica
+        )
+        share_replica.reset_replica_state(self, replica_state)
+
+    def promote_share_replica(
+        self, share_replica: str | _share_replica.ShareReplica
+    ) -> None:
+        """Promote share replica
+
+        :param share_replica: Id of the share replica
+        :returns: None
+        """
+        share_replica = self._get_resource(
+            _share_replica.ShareReplica, share_replica
+        )
+        share_replica.promote(self)
+
+    def resync_share_replica(
+        self, share_replica: str | _share_replica.ShareReplica
+    ) -> None:
+        """Resync share replica
+
+        :param share_replica: Id of the share replica
+        :returns: None
+        """
+        share_replica = self._get_resource(
+            _share_replica.ShareReplica, share_replica
+        )
+        share_replica.resync(self)
+
+    # ========= Share Snapshots ==========
+
+    def share_snapshots(
+        self,
+        details: bool = True,
+        **query: Any,
+    ) -> Generator[_share_snapshot.ShareSnapshot, None, None]:
+        """Lists all share snapshots with details.
+
+        :param query: Optional query parameters to be sent to limit
+            the snapshots being returned.  Available parameters include:
+
+            * project_id: The ID of the user or service making the API request.
+
+        :returns: A generator of manila share snapshot resources
+        """
+        base_path = '/snapshots/detail' if details else None
+        return self._list(
+            _share_snapshot.ShareSnapshot, base_path=base_path, **query
+        )
+
+    @renamed_param('snapshot_id', 'snapshot')
+    def get_share_snapshot(
+        self, snapshot: str | _share_snapshot.ShareSnapshot
+    ) -> _share_snapshot.ShareSnapshot:
+        """Lists details of a single share snapshot
+
+        :param snapshot: The value can be the ID of a share snapshot or a
+            :class:`~openstack.shared_file_system.v2.share_snapshot.ShareSnapshot`
+            instance.
+        :returns: Details of the identified share snapshot
+        """
+        return self._get(_share_snapshot.ShareSnapshot, snapshot)
+
+    def create_share_snapshot(
+        self, **attrs: Any
+    ) -> _share_snapshot.ShareSnapshot:
+        """Creates a share snapshot from attributes
+
+        :returns: Details of the new share snapshot
+        """
+        return self._create(_share_snapshot.ShareSnapshot, **attrs)
+
+    @renamed_param('snapshot_id', 'snapshot')
+    def update_share_snapshot(
+        self, snapshot: str | _share_snapshot.ShareSnapshot, **attrs: Any
+    ) -> _share_snapshot.ShareSnapshot:
+        """Updates details of a single share.
+
+        :param snapshot: The ID of the snapshot to update
+        :param attrs: The attributes to update on the snapshot
+        :returns: the updated share snapshot
+        """
+        return self._update(_share_snapshot.ShareSnapshot, snapshot, **attrs)
+
+    @renamed_param('snapshot_id', 'snapshot')
+    def delete_share_snapshot(
+        self,
+        snapshot: str | _share_snapshot.ShareSnapshot,
+        ignore_missing: bool = True,
+        *,
+        force: bool = False,
+    ) -> None:
+        """Deletes a single share snapshot
+
+        :param snapshot: The value can be either the ID of a share snapshot or
+            a
+            :class:`~openstack.shared_file_system.v2.share_snapshot.ShareSnapshot`
+            instance.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the share snapshot does not exist. When set to ``True``, no
+            exception will be set when attempting to delete a nonexistent share
+            snapshot.
+        :param force: When set to ``True``, the share snapshot deletion will be
+            forced immediately.
+
+        :returns: ``None``
+        """
+        if force:
+            res = self._get_resource(_share_snapshot.ShareSnapshot, snapshot)
+            try:
+                res.force_delete(self)
+            except exceptions.ResourceNotFound:
+                if ignore_missing:
+                    return None
+                raise
+            return
+
+        self._delete(
+            _share_snapshot.ShareSnapshot,
+            snapshot,
+            ignore_missing=ignore_missing,
+        )
+
+    def reset_share_snapshot_status(
+        self, snapshot: str | _share_snapshot.ShareSnapshot, status: str
+    ) -> None:
+        """Reset status of share snapshot
+
+        :param snapshot: The ID of the snapshot or the snapshot object to reset
+        :param status: The status of the snapshot to reset to.
+        :return: None
+        """
+        snapshot = self._get_resource(_share_snapshot.ShareSnapshot, snapshot)
+        snapshot.reset_status(self, status)
+
+    def manage_share_snapshot(
+        self,
+        share: str | _share.Share,
+        provider_location: str,
+        **params: Any,
+    ) -> _share_snapshot.ShareSnapshot:
+        """Manage a share snapshot.
+
+        :param share: The ID of the share that has snapshot which
+            should be managed.
+        :param provider_location: Provider location of the snapshot on the
+            backend.
+        :param params: Optional parameters to be sent. Available
+            parameters include:
+
+            * name: The user defined name of the resource.
+            * display_name: The user defined name of the resource. This field
+              sets the name parameter.
+            * description: The user defined description of the resource.
+            * display_description: The user defined description of the
+              resource. This field sets the description parameter.
+            * driver_options: A set of one or more key and value pairs, as a
+              dictionary of strings, that describe driver options.
+
+        :returns: The share snapshot that was managed.
+        """
+        share_id = resource.Resource._get_id(share)
+        share_snapshot = _share_snapshot.ShareSnapshot()
+        return share_snapshot.manage(
+            self, share_id, provider_location, **params
+        )
+
+    def unmanage_share_snapshot(
+        self, snapshot: str | _share_snapshot.ShareSnapshot
+    ) -> None:
+        """Unmanage the share snapshot with the given snapshot ID.
+
+        :param snapshot: The ID of the share snapshot to unmanage.
+        :returns: ``None``
+        """
+        res = self._get_resource(_share_snapshot.ShareSnapshot, snapshot)
+        res.unmanage(self)
+
+    def fetch_share_snapshot_metadata(
+        self,
+        snapshot: str | _share_snapshot.ShareSnapshot,
+    ) -> _share_snapshot.ShareSnapshot:
+        """Lists all metadata for a given snapshot.
+
+        :param snapshot: The value can be the ID of a share snapshot or a
+            :class:`~openstack.shared_file_system.v2.share_snapshot.ShareSnapshot`
+            instance.
+        :returns: One or more metadata key and value pairs as a dictionary
+            of strings.
+        """
+        snapshot = self._get_resource(_share_snapshot.ShareSnapshot, snapshot)
+        return snapshot.fetch_metadata(self)
+
+    def fetch_share_snapshot_metadata_item(
+        self,
+        snapshot: str | _share_snapshot.ShareSnapshot,
+        key: str,
+    ) -> _share_snapshot.ShareSnapshot:
+        """Retrieves a specific metadata item from a snapshot's metadata
+            by its key.
+
+        :param snapshot: The value can be the ID of a share snapshot or a
+            :class:`~openstack.shared_file_system.v2.share_snapshot.ShareSnapshot`
+            instance.
+        :param key: The key of the snapshot metadata.
+        :returns: A single metadata key and value pair.
+        """
+        snapshot = self._get_resource(_share_snapshot.ShareSnapshot, snapshot)
+        return snapshot.get_metadata_item(self, key)
+
+    def set_share_snapshot_metadata(
+        self,
+        snapshot: str | _share_snapshot.ShareSnapshot,
+        *,
+        replace: bool = False,
+        **metadata: Any,
+    ) -> _share_snapshot.ShareSnapshot:
+        """Updates metadata of given share snapshot.
+
+        :param snapshot: The value can be the ID of a share snapshot or a
+            :class:`~openstack.shared_file_system.v2.share_snapshot.ShareSnapshot`
+            instance.
+        :param replace: Boolean for whether the preexisting metadata
+            should be replaced
+        :param metadata: The metadata to be created.
+        :returns: One or more metadata key and value pairs as a dictionary
+            of strings.
+        """
+        snapshot = self._get_resource(_share_snapshot.ShareSnapshot, snapshot)
+        return snapshot.set_metadata(self, metadata=metadata, replace=replace)
+
+    def delete_share_snapshot_metadata(
+        self,
+        snapshot: str | _share_snapshot.ShareSnapshot,
+        keys: Iterable[str],
+    ) -> None:
+        """Deletes metadata for a snapshot,
+
+        :param snapshot: The value can be the ID of a share snapshot or a
+            :class:`~openstack.shared_file_system.v2.share_snapshot.ShareSnapshot`
+            instance.
+        :param keys: The keys of the metadata items to be deleted.
+        :returns: ``None``
+        """
+        snapshot = self._get_resource(_share_snapshot.ShareSnapshot, snapshot)
+        for key in keys:
+            snapshot.delete_metadata_item(self, key)
+
+    # ========= Share Snapshot Instances ==========
+
     def share_snapshot_instances(
         self,
         details: bool = True,
@@ -769,588 +1903,7 @@ class Proxy(proxy.Proxy):
             share_snapshot_instance,
         )
 
-    def share_networks(
-        self,
-        details: bool = True,
-        **query: Any,
-    ) -> Generator[_share_network.ShareNetwork, None, None]:
-        """Lists all share networks with details.
-
-        :param query: Optional query parameters to be sent to limit the
-            resources being returned. Available parameters include:
-
-            * name~: The user defined name of the resource to filter resources
-              by.
-            * project_id: The ID of the user or service making the request.
-            * description~: The description pattern that can be used to filter
-              shares, share snapshots, share networks or share groups.
-            * all_projects: (Admin only). Defines whether to list the requested
-              resources for all projects.
-
-        :returns: Details of shares networks
-        """
-        base_path = '/share-networks/detail' if details else None
-        return self._list(
-            _share_network.ShareNetwork, base_path=base_path, **query
-        )
-
-    @renamed_param('share_network_id', 'share_network')
-    def get_share_network(
-        self, share_network: str | _share_network.ShareNetwork
-    ) -> _share_network.ShareNetwork:
-        """Lists details of a single share network
-
-        :param share_network: The value can be the ID of a share network or a
-            :class:`~openstack.shared_file_system.v2.share_network.ShareNetwork`
-            instance.
-        :returns: Details of the identified share network
-        """
-        return self._get(_share_network.ShareNetwork, share_network)
-
-    @renamed_param('share_network_id', 'share_network')
-    def delete_share_network(
-        self,
-        share_network: str | _share_network.ShareNetwork,
-        ignore_missing: bool = True,
-    ) -> None:
-        """Deletes a single share network
-
-        :param share_network: The value can be either the ID of a share network
-            or a
-            :class:`~openstack.shared_file_system.v2.share_network.ShareNetwork`
-            instance.
-        :param ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be raised
-            when the share network does not exist. When set to ``True``, no
-            exception will be set when attempting to delete a nonexistent share
-            network.
-
-        :returns: ``None``
-        """
-        self._delete(
-            _share_network.ShareNetwork,
-            share_network,
-            ignore_missing=ignore_missing,
-        )
-
-    @renamed_param('share_network_id', 'share_network')
-    def update_share_network(
-        self, share_network: str | _share_network.ShareNetwork, **attrs: Any
-    ) -> _share_network.ShareNetwork:
-        """Updates details of a single share network.
-
-        :param share_network: The ID of the share network to update
-        :param attrs: The attributes to update on the share network
-        :returns: the updated share network
-        """
-        return self._update(
-            _share_network.ShareNetwork, share_network, **attrs
-        )
-
-    def create_share_network(
-        self, **attrs: Any
-    ) -> _share_network.ShareNetwork:
-        """Creates a share network from attributes
-
-        :returns: Details of the new share network
-        :param attrs: Attributes which will be used to create
-            a :class:`~openstack.shared_file_system.v2.
-            share_network.ShareNetwork`,comprised of the properties
-            on the ShareNetwork class.
-        """
-        return self._create(_share_network.ShareNetwork, **attrs)
-
-    def share_instances(
-        self,
-        **query: Any,
-    ) -> Generator[_share_instance.ShareInstance, None, None]:
-        """Lists all share instances.
-
-        :param query: Optional query parameters to be sent to limit
-            the share instances being returned. Available parameters include:
-
-            * export_location_id: The export location UUID that can be used
-              to filter share instances.
-            * export_location_path: The export location path that can be used
-              to filter share instances.
-
-        :returns: Details of share instances resources
-        """
-        return self._list(_share_instance.ShareInstance, **query)
-
-    @renamed_param('share_instance_id', 'share_instance')
-    def get_share_instance(
-        self, share_instance: str | _share_instance.ShareInstance
-    ) -> _share_instance.ShareInstance:
-        """Shows details for a single share instance
-
-        :param share_instance: The value can be the UUID of a share instance
-            or a
-            :class:`~openstack.shared_file_system.v2.share_instance.ShareInstance`
-            instance.
-
-        :returns: Details of the identified share instance
-        """
-        return self._get(_share_instance.ShareInstance, share_instance)
-
-    @renamed_param('share_instance_id', 'share_instance')
-    def reset_share_instance_status(self, share_instance, status):
-        """Explicitly updates the state of a share instance.
-
-        :param share_instance: The UUID of the share instance to reset.
-        :param status: The share or share instance status to be set.
-
-        :returns: ``None``
-        """
-        res = self._get_resource(_share_instance.ShareInstance, share_instance)
-        res.reset_status(self, status)
-
-    @renamed_param('share_instance_id', 'share_instance')
-    def delete_share_instance(
-        self,
-        share_instance: str | _share_instance.ShareInstance,
-        ignore_missing: bool = True,
-    ) -> None:
-        """Force-deletes a share instance
-
-        :param share_instance: The value can be either the ID of a share
-            instance or a
-            :class:`~openstack.shared_file_system.v2.share_instance.ShareInstance`
-            instance.
-        :param ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be raised
-            when the share instance does not exist. When set to ``True``, no
-            exception will be set when attempting to delete a nonexistent share
-            instance.
-
-        :returns: ``None``
-        """
-        res = self._get_resource(_share_instance.ShareInstance, share_instance)
-        try:
-            res.force_delete(self)
-        except exceptions.NotFoundException:
-            if not ignore_missing:
-                raise
-
-    @renamed_param('share_id', 'share')
-    def export_locations(
-        self,
-        share: str | _share.Share,
-    ) -> Generator[_share_export_locations.ShareExportLocation, None, None]:
-        """List all export locations with details
-
-        :param share: The ID of the share to list export locations from
-        :returns: List of export locations
-        """
-        share_id = resource.Resource._get_id(share)
-        return self._list(
-            _share_export_locations.ShareExportLocation, share_id=share_id
-        )
-
-    @renamed_param('share_id', 'share')
-    def get_export_location(
-        self,
-        export_location: str | _share_export_locations.ShareExportLocation,
-        share: str | _share.Share,
-    ) -> _share_export_locations.ShareExportLocation:
-        """List details of export location
-
-        :param export_location: The export location resource to get
-        :param share: The ID of the share to get export locations from
-        :returns: Details of identified export location
-        """
-        export_location_id = resource.Resource._get_id(export_location)
-        share_id = resource.Resource._get_id(share)
-        return self._get(
-            _share_export_locations.ShareExportLocation,
-            export_location_id,
-            share_id=share_id,
-        )
-
-    def access_rules(
-        self,
-        share: str | _share.Share,
-        **query: Any,
-    ) -> Generator[_share_access_rule.ShareAccessRule, None, None]:
-        """Lists the access rules on a share.
-
-        :returns: A generator of the share access rules.
-        """
-        share = self._get_resource(_share.Share, share)
-        return self._list(
-            _share_access_rule.ShareAccessRule, share_id=share.id, **query
-        )
-
-    @renamed_param('access_id', 'access')
-    def get_access_rule(
-        self, access_rule: str | _share_access_rule.ShareAccessRule
-    ) -> _share_access_rule.ShareAccessRule:
-        """List details of an access rule.
-
-        :param access_rule: The value can be the ID of an access rule or a
-            :class:`~openstack.shared_file_system.v2.share_access_rule.ShareAccessRule`
-            instance.
-        :returns: Details of the identified access rule.
-        """
-        return self._get(_share_access_rule.ShareAccessRule, access_rule)
-
-    @renamed_param('share_id', 'share')
-    def create_access_rule(
-        self, share: str | _share.Share, **attrs: Any
-    ) -> _share_access_rule.ShareAccessRule:
-        """Creates an access rule from attributes
-
-        :param share: The ID of the share
-        :param attrs: Attributes which will be used to create
-            a :class:`~openstack.shared_file_system.v2.
-            share_access_rules.ShareAccessRules`, comprised of the
-            properties on the ShareAccessRules class.
-        :returns: Details of the new access rule
-        """
-        # TODO(stephenfin): This should be handled via ShareAccessRule.create
-        share_id = resource.Resource._get_id(share)
-        base_path = f"/shares/{share_id}/action"
-        return self._create(
-            _share_access_rule.ShareAccessRule, base_path=base_path, **attrs
-        )
-
-    # TODO(stephenfin): This method should return None
-    @renamed_param('access_id', 'access')
-    @renamed_param('share_id', 'share')
-    def delete_access_rule(
-        self,
-        access_rule: str | _share_access_rule.ShareAccessRule,
-        share: str | _share.Share,
-        ignore_missing: bool = True,
-        *,
-        unrestrict: bool = False,
-    ) -> 'requests.Response | None':
-        """Deletes an access rule
-
-        :param access_rule: The value can be either the ID of an access rule
-            or a
-            :class:`~openstack.shared_file_system.v2.share_access_rule.ShareAccessRule`
-            instance.
-        :param share: The ID of the share.
-        :param ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be raised
-            when the access rule does not exist. When set to ``True``, no
-            exception will be set when attempting to delete a nonexistent
-            access rule.
-        :param unrestrict: If Manila must attempt removing locks while
-            deleting.
-
-        :returns: ``requests.models.Response`` HTTP response from internal
-            requests client
-        """
-        share_id = resource.Resource._get_id(share)
-        res = self._get_resource(
-            _share_access_rule.ShareAccessRule,
-            access_rule,
-            share_id=share_id,
-        )
-        try:
-            return res.delete(
-                self,
-                unrestrict=unrestrict,
-            )
-        except exceptions.NotFoundException:
-            if ignore_missing:
-                return None
-            raise
-
-    def share_group_snapshots(
-        self,
-        details: bool = True,
-        **query: Any,
-    ) -> Generator[_share_group_snapshot.ShareGroupSnapshot, None, None]:
-        """Lists all share group snapshots.
-
-        :param query: Optional query parameters to be sent
-            to limit the share group snapshots being returned.
-            Available parameters include:
-
-            * project_id: The ID of the project that owns the resource.
-            * name: The user defined name of the resource to filter resources.
-            * description: The user defined description text that can be used
-              to filter resources.
-            * status: Filters by a share status
-            * share_group_id: The UUID of a share group to filter resource.
-            * limit: The maximum number of share group snapshot members
-              to return.
-            * offset: The offset to define start point of share or
-              share group listing.
-            * sort_key: The key to sort a list of shares.
-            * sort_dir: The direction to sort a list of shares. A valid
-              value is asc, or desc.
-
-        :returns: Details of share group snapshots resources
-        """
-        base_path = '/share-group-snapshots/detail' if details else None
-        return self._list(
-            _share_group_snapshot.ShareGroupSnapshot,
-            base_path=base_path,
-            **query,
-        )
-
-    @renamed_param('group_snapshot_id', 'group_snapshot')
-    def share_group_snapshot_members(self, group_snapshot):
-        """Lists all share group snapshots members.
-
-        :param group_snapshot: The ID of the group snapshot to get
-        :returns: List of the share group snapshot members, which are
-            share snapshots.
-        """
-        res = self._get(
-            _share_group_snapshot.ShareGroupSnapshot,
-            group_snapshot,
-        )
-        response = res.get_members(self)
-        return response
-
-    @renamed_param('group_snapshot_id', 'group_snapshot')
-    def get_share_group_snapshot(
-        self,
-        group_snapshot: str | _share_group_snapshot.ShareGroupSnapshot,
-    ) -> _share_group_snapshot.ShareGroupSnapshot:
-        """Show share group snapshot details
-
-        :param group_snapshot: The value can be the ID of a share group
-            snapshot or a
-            :class:`~openstack.shared_file_system.v2.share_group_snapshot.ShareGroupSnapshot`
-            instance.
-        :returns: Details of the group snapshot
-        """
-        return self._get(
-            _share_group_snapshot.ShareGroupSnapshot, group_snapshot
-        )
-
-    @renamed_param('share_group_id', 'share_group')
-    def create_share_group_snapshot(
-        self, share_group: str | _share_group.ShareGroup, **attrs: Any
-    ) -> _share_group_snapshot.ShareGroupSnapshot:
-        """Creates a point-in-time snapshot copy of a share group.
-
-        :param share_group: ID of the share group to have the snapshot
-            taken.
-        :param attrs: Attributes which will be used to create
-            a :class:`~openstack.shared_file_system.v2.
-            share_group_snapshots.ShareGroupSnapshots`,
-        :returns: Details of the new snapshot
-        """
-        share_group_id = resource.Resource._get_id(share_group)
-        return self._create(
-            _share_group_snapshot.ShareGroupSnapshot,
-            share_group_id=share_group_id,
-            **attrs,
-        )
-
-    @renamed_param('group_snapshot_id', 'group_snapshot')
-    def reset_share_group_snapshot_status(self, group_snapshot, status):
-        """Reset share group snapshot state.
-
-        :param group_snapshot: The ID of the share group snapshot to reset
-        :param status: The state of the share group snapshot to be set, A
-            valid value is "creating", "error", "available", "deleting",
-            "error_deleting".
-        """
-        res = self._get(
-            _share_group_snapshot.ShareGroupSnapshot, group_snapshot
-        )
-        res.reset_status(self, status)
-
-    @renamed_param('group_snapshot_id', 'group_snapshot')
-    def update_share_group_snapshot(
-        self,
-        group_snapshot: str | _share_group_snapshot.ShareGroupSnapshot,
-        **attrs: Any,
-    ) -> _share_group_snapshot.ShareGroupSnapshot:
-        """Updates a share group snapshot.
-
-        :param group_snapshot: The ID of the share group snapshot to update
-        :param attrs: The attributes to update on the share group snapshot
-        :returns: the updated share group snapshot
-        """
-        return self._update(
-            _share_group_snapshot.ShareGroupSnapshot,
-            group_snapshot,
-            **attrs,
-        )
-
-    @renamed_param('group_snapshot_id', 'group_snapshot')
-    def delete_share_group_snapshot(
-        self,
-        group_snapshot: str | _share_group_snapshot.ShareGroupSnapshot,
-        ignore_missing: bool = True,
-    ) -> None:
-        """Deletes a share group snapshot.
-
-        :param group_snapshot: The value can be either the ID of a share group
-            snapshot or a
-            :class:`~openstack.shared_file_system.v2.share_group_snapshot.ShareGroupSnapshot`
-            instance.
-        :param ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be raised
-            when the share group snapshot does not exist. When set to ``True``,
-            no exception will be set when attempting to delete a nonexistent
-            share group snapshot.
-
-        :returns: ``None``
-        """
-        self._delete(
-            _share_group_snapshot.ShareGroupSnapshot,
-            group_snapshot,
-            ignore_missing=ignore_missing,
-        )
-
-    # ========= Share Metadata ==========
-
-    def fetch_share_metadata(self, share: str | _share.Share) -> _share.Share:
-        """Lists all metadata for a share.
-
-        :param share: The value can be the ID of a share or a
-            :class:`~openstack.shared_file_system.v2.share.Share` instance.
-
-        :returns: A :class:`~openstack.shared_file_system.v2.share.Share`
-            with the share's metadata.
-        """
-        res = self._get_resource(_share.Share, share)
-        return res.fetch_metadata(self)
-
-    # TODO(stephenfin): Remove in 5.0
-    @renamed_param('share_id', 'share')
-    def get_share_metadata(self, share: str | _share.Share) -> _share.Share:
-        """Lists all metadata for a share.
-
-        .. deprecated:: 4.14.0
-            Use :meth:`fetch_share_metadata` instead.
-        """
-        warnings.warn(
-            "The 'get_share_metadata' method is deprecated; use "
-            "'fetch_share_metadata' instead.",
-            os_warnings.RemovedInSDK50Warning,
-        )
-        return self.fetch_share_metadata(share)
-
-    def fetch_share_metadata_item(
-        self, share: str | _share.Share, key: str
-    ) -> _share.Share:
-        """Retrieves a specific metadata item from a share by its key.
-
-        :param share: The value can be the ID of a share or a
-            :class:`~openstack.shared_file_system.v2.share.Share` instance.
-        :param key: The key of the share metadata
-
-        :returns: A :class:`~openstack.shared_file_system.v2.share.Share`
-            with the share's metadata.
-        """
-        res = self._get_resource(_share.Share, share)
-        return res.get_metadata_item(self, key)
-
-    # TODO(stephenfin): Remove in 5.0
-    @renamed_param('share_id', 'share')
-    def get_share_metadata_item(
-        self, share: str | _share.Share, key: str
-    ) -> _share.Share:
-        """Retrieves a specific metadata item from a share by its key.
-
-        .. deprecated:: 4.14.0
-            Use :meth:`fetch_share_metadata_item` instead.
-        """
-        warnings.warn(
-            "The 'get_share_metadata_item' method is deprecated; use "
-            "'fetch_share_metadata_item' instead.",
-            os_warnings.RemovedInSDK50Warning,
-        )
-        return self.fetch_share_metadata_item(share, key)
-
-    def set_share_metadata(
-        self,
-        share: str | _share.Share,
-        *,
-        replace: bool = False,
-        **metadata: Any,
-    ) -> _share.Share:
-        """Updates metadata of given share.
-
-        :param share: The ID of the share
-        :param replace: Boolean for whether the preexisting metadata
-            should be replaced
-        :param metadata: The metadata to be created
-
-        :returns: A :class:`~openstack.shared_file_system.v2.share.Share`
-            with the share's updated metadata.
-        """
-        res = self._get_resource(_share.Share, share)
-        return res.set_metadata(self, metadata=metadata, replace=replace)
-
-    @renamed_param('share_id', 'share')
-    def create_share_metadata(
-        self, share: str | _share.Share, **metadata: Any
-    ) -> _share.Share:
-        """Creates share metadata as key-value pairs.
-
-        .. deprecated:: 4.14.0
-            Use :meth:`set_share_metadata` instead.
-        """
-        warnings.warn(
-            "The 'create_share_metadata' method is deprecated; use "
-            "'set_share_metadata' instead.",
-            os_warnings.RemovedInSDK50Warning,
-        )
-        return self.set_share_metadata(share, **metadata)
-
-    @renamed_param('share_id', 'share')
-    def update_share_metadata(self, share, metadata, replace=False):
-        """Updates metadata of given share.
-
-        .. deprecated:: 4.14.0
-            Use :meth:`set_share_metadata` instead.
-        """
-        warnings.warn(
-            "The 'update_share_metadata' method is deprecated; use "
-            "'set_share_metadata' instead.",
-            os_warnings.RemovedInSDK50Warning,
-        )
-        return self.set_share_metadata(share, replace=replace, **metadata)
-
-    @renamed_param('share_id', 'share')
-    def delete_share_metadata(
-        self,
-        share: str | _share.Share,
-        keys: Iterable[str],
-        ignore_missing: bool = True,
-    ) -> None:
-        """Deletes metadata for a share.
-
-        :param share: The value can be either the ID of a share or a
-            :class:`~openstack.shared_file_system.v2.share.Share` instance.
-        :param keys: The list of share metadata keys to be deleted.
-        :param ignore_missing: When set to ``True``, missing keys will be
-            logged but not cause a failure. When set to ``False``, missing keys
-            will be included in the failure list.
-
-        :returns: None
-        """
-        res = self._get_resource(_share.Share, share)
-        keys_failed_to_delete = []
-        for key in keys:
-            try:
-                res.delete_metadata_item(self, key)
-            except exceptions.NotFoundException:
-                if not ignore_missing:
-                    self._connection.log.info("Key %s not found.", key)
-                    keys_failed_to_delete.append(key)
-            except exceptions.ForbiddenException:
-                self._connection.log.info("Key %s cannot be deleted.", key)
-                keys_failed_to_delete.append(key)
-            except exceptions.SDKException:
-                self._connection.log.info("Failed to delete key %s.", key)
-                keys_failed_to_delete.append(key)
-        if keys_failed_to_delete:
-            raise exceptions.SDKException(
-                f"Some keys failed to be deleted {keys_failed_to_delete}"
-            )
+    # ========= Resource Locks ==========
 
     def resource_locks(
         self,
@@ -1481,36 +2034,7 @@ class Proxy(proxy.Proxy):
             attrs.pop('resource_type')
         return self._create(_resource_locks.ResourceLock, **attrs)
 
-    @renamed_param('quota_class_name', 'quota_class_set')
-    def get_quota_class_set(
-        self, quota_class_set: str | _quota_class_set.QuotaClassSet
-    ) -> _quota_class_set.QuotaClassSet:
-        """Get quota class set.
-
-        :param quota_class_set: The name of the quota class or a
-            :class:`~openstack.shared_file_system.v2.quota_class_set.QuotaClassSet`
-            instance.
-        :returns: A :class:`~openstack.shared_file_system.v2
-            .quota_class_set.QuotaClassSet`
-        """
-        return self._get(_quota_class_set.QuotaClassSet, quota_class_set)
-
-    @renamed_param('quota_class_name', 'quota_class_set')
-    def update_quota_class_set(
-        self,
-        quota_class_set: str | _quota_class_set.QuotaClassSet,
-        **attrs: Any,
-    ) -> _quota_class_set.QuotaClassSet:
-        """Update quota class set.
-
-        :param quota_class_set: The name of the quota class
-        :param attrs: The attributes to update on the quota class set
-        :returns: the updated quota class set
-        """
-
-        return self._update(
-            _quota_class_set.QuotaClassSet, quota_class_set, **attrs
-        )
+    # ========= Share Transfers ==========
 
     def create_share_transfer(
         self, **attrs: Any
@@ -1526,8 +2050,6 @@ class Proxy(proxy.Proxy):
 
 
         :returns: `ShareTransfer` object
-        :rtype: :class:`~openstack.shared_file_system.v2.
-            share_transfer.ShareTransfer`
         """
         return self._create(_share_transfer.ShareTransfer, **attrs)
 
@@ -1639,6 +2161,209 @@ class Proxy(proxy.Proxy):
         self._delete(
             _share_transfer.ShareTransfer,
             share_transfer,
+            ignore_missing=ignore_missing,
+        )
+
+    # ========= Share Types ==========
+
+    def share_types(
+        self, **query: Any
+    ) -> Generator[_share_type.ShareType, None, None]:
+        """List shared file system share types
+
+        :param query: Optional query parameters to be sent to limit the share
+            types being returned. Available parameters include:
+
+            * extra_specs: The extra specifications as a set of one or more
+              key-value pairs.
+            * is_public: A boolean query parameter that, when set to true,
+              allows retrieving public resources that belong to all projects.
+
+        :returns: A generator of share type resources
+        """
+        if 'extra_specs' in query:
+            query['extra_specs'] = json.dumps(query['extra_specs'])
+
+        return self._list(_share_type.ShareType, **query)
+
+    def get_share_type(
+        self, share_type: str | _share_type.ShareType
+    ) -> _share_type.ShareType:
+        """List details of a single share type
+
+        :param share_type: The ID of the share type
+        :returns: Details of identified share type
+        """
+        return self._get(_share_type.ShareType, share_type)
+
+    def create_share_type(
+        self, name: str, **attrs: Any
+    ) -> _share_type.ShareType:
+        """Creates a share from attributes
+
+        :returns: Details of the new share type
+        :param name: Name of the new share type
+        :param attrs: Attributes which will be used to create a
+            :class:`~openstack.shared_file_system.v2.share_type.ShareType`,
+            comprised of the properties on the ShareType class. Currently
+            "description" and "extra_specs" are allowed attributes.
+        """
+        return self._create(_share_type.ShareType, name=name, **attrs)
+
+    def delete_share_type(
+        self,
+        share_type: str | _share_type.ShareType,
+        ignore_missing: bool = True,
+    ) -> None:
+        """Deletes a single share type
+
+        :param share_type: The ID of the share type
+        :returns: None
+        """
+        self._delete(
+            _share_type.ShareType, share_type, ignore_missing=ignore_missing
+        )
+
+    def update_share_type(
+        self, share_type: str | _share_type.ShareType, **attrs: Any
+    ) -> _share_type.ShareType:
+        """Updates details of a single share type
+
+        :param share_type: The ID of the share type to update.
+        :param attrs: The attributes to update on the share type
+        :returns: Updated details of the identified share type
+        """
+        return self._update(_share_type.ShareType, share_type, **attrs)
+
+    def update_share_type_extra_specs(
+        self, share_type: str | _share_type.ShareType, **attrs: Any
+    ) -> _share_type.ShareType:
+        """Update the extra_specs for a type.
+
+        :param share_type: The ID of the share type.
+        :param extra_specs: The extra specs to update on the share type.
+        :returns: The updated share type.
+        """
+        res = self._get_resource(_share_type.ShareType, share_type)
+        return res.set_extra_specs(self, **attrs)
+
+    def delete_share_type_extra_spec_property(
+        self,
+        share_type: str | _share_type.ShareType,
+        prop: str,
+        ignore_missing: bool = False,
+    ) -> None:
+        """Delete the extra_specs for a share type
+
+        :param share_type_id: The ID of the share type.
+        :param prop: The extra spec to delete
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the flavor or extra spec does not exist. When set to ``True``,
+            no exception will be set when attempting to delete a nonexistent
+            flavor extra spec.
+        :returns: None
+        """
+        res = self._get_resource(_share_type.ShareType, share_type)
+        try:
+            res.delete_extra_specs_property(self, prop)
+        except exceptions.NotFoundException:
+            if not ignore_missing:
+                raise
+
+    # ========= Storage Pools ==========
+
+    def storage_pools(
+        self,
+        details: bool = True,
+        **query: Any,
+    ) -> Generator[_storage_pool.StoragePool, None, None]:
+        """Lists all back-end storage pools with details
+
+        :param query: Optional query parameters to be sent to limit
+            the storage pools being returned. Available parameters include:
+
+            * pool_name: The pool name for the back end.
+            * host_name: The host name for the back end.
+            * backend_name: The name of the back end.
+            * capabilities: The capabilities for the storage back end.
+            * share_type: The share type name or UUID.
+        :returns: A generator of manila storage pool resources
+        """
+        base_path = '/scheduler-stats/pools/detail' if details else None
+        return self._list(
+            _storage_pool.StoragePool, base_path=base_path, **query
+        )
+
+    # ========= User Messages ==========
+
+    def user_messages(
+        self,
+        **query: Any,
+    ) -> Generator[_user_message.UserMessage, None, None]:
+        """List shared file system user messages
+
+        :param query: Optional query parameters to be sent to limit
+            the messages being returned. Available parameters include:
+
+            * action_id: The ID of the action during which the message
+              was created.
+            * detail_id: The ID of the message detail.
+            * limit: The maximum number of shares to return.
+            * message_level: The message level.
+            * offset: The offset to define start point of share or share
+              group listing.
+            * sort_key: The key to sort a list of messages.
+            * sort_dir: The direction to sort a list of shares.
+            * project_id: The ID of the project for which the message
+              was created.
+            * request_id: The ID of the request during which the message
+              was created.
+            * resource_id: The UUID of the resource for which the message
+              was created.
+            * resource_type: The type of the resource for which the message
+              was created.
+
+        :returns: A generator of user message resources
+        """
+        return self._list(_user_message.UserMessage, **query)
+
+    @renamed_param('message_id', 'message')
+    def get_user_message(
+        self, message: str | _user_message.UserMessage
+    ) -> _user_message.UserMessage:
+        """List details of a single user message
+
+        :param message: The value can be the ID of a user message or a
+            :class:`~openstack.shared_file_system.v2.user_message.UserMessage`
+            instance.
+        :returns: Details of the identified user message
+        """
+        return self._get(_user_message.UserMessage, message)
+
+    # TODO(stephenfin): This method should return None
+    @renamed_param('message_id', 'message')
+    def delete_user_message(
+        self,
+        message: str | _user_message.UserMessage,
+        ignore_missing: bool = True,
+    ) -> _user_message.UserMessage | None:
+        """Deletes a single user message
+
+        :param message: The value can be either the ID of a user message or a
+            :class:`~openstack.shared_file_system.v2.user_message.UserMessage`
+            instance.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the user message does not exist. When set to ``True``, no
+            exception will be set when attempting to delete a nonexistent user
+            message.
+
+        :returns: The deleted user message.
+        """
+        return self._delete(
+            _user_message.UserMessage,
+            message,
             ignore_missing=ignore_missing,
         )
 

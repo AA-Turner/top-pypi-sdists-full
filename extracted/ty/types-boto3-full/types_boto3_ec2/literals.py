@@ -605,6 +605,7 @@ __all__ = (
     "SummaryStatusType",
     "SupportedAdditionalProcessorFeatureType",
     "SystemStatusOkWaiterName",
+    "TaggableResourceTypeType",
     "TargetCapacityUnitTypeType",
     "TargetStorageTierType",
     "TelemetryStatusType",
@@ -3292,6 +3293,7 @@ SubnetStateType = Literal[
 SummaryStatusType = Literal["impaired", "initializing", "insufficient-data", "not-applicable", "ok"]
 SupportedAdditionalProcessorFeatureType = Literal["amd-sev-snp", "nested-virtualization"]
 SystemStatusOkWaiterName = Literal["system_status_ok"]
+TaggableResourceTypeType = Literal["auto-scaling-group", "instance", "network-interface"]
 TargetCapacityUnitTypeType = Literal["memory-mib", "units", "vcpu"]
 TargetStorageTierType = Literal["archive"]
 TelemetryStatusType = Literal["DOWN", "UP"]

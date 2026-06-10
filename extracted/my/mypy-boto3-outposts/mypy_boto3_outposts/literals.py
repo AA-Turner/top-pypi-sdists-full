@@ -33,8 +33,10 @@ __all__ = (
     "CatalogItemClassType",
     "CatalogItemStatusType",
     "ComputeAssetStateType",
+    "CurrencyCodeType",
     "DecommissionRequestStatusType",
     "FiberOpticCableTypeType",
+    "FormFactorType",
     "GetOutpostBillingInformationPaginatorName",
     "GetOutpostInstanceTypesPaginatorName",
     "GetOutpostSupportedInstanceTypesPaginatorName",
@@ -44,13 +46,18 @@ __all__ = (
     "ListBlockingInstancesForCapacityTaskPaginatorName",
     "ListCapacityTasksPaginatorName",
     "ListCatalogItemsPaginatorName",
+    "ListOrderableInstanceTypesPaginatorName",
     "ListOrdersPaginatorName",
     "ListOutpostsPaginatorName",
+    "ListQuotesPaginatorName",
     "ListSitesPaginatorName",
     "MaximumSupportedWeightLbsType",
     "OpticalStandardType",
     "OrderStatusType",
     "OrderTypeType",
+    "OrderingRequirementStatusType",
+    "OrderingRequirementTypeType",
+    "OutpostGenerationType",
     "OutpostsServiceName",
     "PaginatorName",
     "PaymentOptionType",
@@ -60,7 +67,13 @@ __all__ = (
     "PowerFeedDropType",
     "PowerPhaseType",
     "PricingResultType",
+    "QuoteCapacityTypeType",
+    "QuoteConstraintTypeType",
     "QuotePricingTypeType",
+    "QuoteRackUseTypeType",
+    "QuoteSpecificationTypeType",
+    "QuoteStatusType",
+    "RackUnitHeightType",
     "RegionName",
     "ResourceServiceName",
     "ServiceName",
@@ -107,8 +120,10 @@ CapacityTaskStatusType = Literal[
 CatalogItemClassType = Literal["RACK", "SERVER"]
 CatalogItemStatusType = Literal["AVAILABLE", "DISCONTINUED"]
 ComputeAssetStateType = Literal["ACTIVE", "INSTALLING", "ISOLATED", "RETIRING"]
+CurrencyCodeType = Literal["USD"]
 DecommissionRequestStatusType = Literal["BLOCKED", "REQUESTED", "SKIPPED"]
 FiberOpticCableTypeType = Literal["MULTI_MODE", "SINGLE_MODE"]
+FormFactorType = Literal["RACK", "SERVER"]
 GetOutpostBillingInformationPaginatorName = Literal["get_outpost_billing_information"]
 GetOutpostInstanceTypesPaginatorName = Literal["get_outpost_instance_types"]
 GetOutpostSupportedInstanceTypesPaginatorName = Literal["get_outpost_supported_instance_types"]
@@ -130,8 +145,10 @@ ListBlockingInstancesForCapacityTaskPaginatorName = Literal[
 ]
 ListCapacityTasksPaginatorName = Literal["list_capacity_tasks"]
 ListCatalogItemsPaginatorName = Literal["list_catalog_items"]
+ListOrderableInstanceTypesPaginatorName = Literal["list_orderable_instance_types"]
 ListOrdersPaginatorName = Literal["list_orders"]
 ListOutpostsPaginatorName = Literal["list_outposts"]
+ListQuotesPaginatorName = Literal["list_quotes"]
 ListSitesPaginatorName = Literal["list_sites"]
 MaximumSupportedWeightLbsType = Literal[
     "MAX_1400_LBS", "MAX_1600_LBS", "MAX_1800_LBS", "MAX_2000_LBS", "NO_LIMIT"
@@ -165,6 +182,27 @@ OrderStatusType = Literal[
     "RECEIVED",
 ]
 OrderTypeType = Literal["OUTPOST", "REPLACEMENT"]
+OrderingRequirementStatusType = Literal["EXEMPT", "FAIL", "PASS"]
+OrderingRequirementTypeType = Literal[
+    "COUNTRY_CODE_MISMATCH_CHECK_ERROR",
+    "ENTERPRISE_SUPPORT_ERROR",
+    "MAXIMUM_ALLOWED_ORDERS_CHECK_ERROR",
+    "OPERATING_ADDRESS_EXISTENCE_CHECK_ERROR",
+    "OUTPOST_ACTIVE_CHECK_ERROR",
+    "OUTPOST_GENERATION_MISMATCH_ERROR",
+    "OUTPOST_ID_MISSING_ON_QUOTE_ERROR",
+    "OUTPOST_NOT_FOUND_ERROR",
+    "OUTPOST_RENEWAL_REQUIRED_ERROR",
+    "OUTPOST_STATE_CHANGED_ERROR",
+    "RACK_PHYSICAL_PROPERTIES_CHECK_ERROR",
+    "SHIPPING_ADDRESS_EXISTENCE_CHECK_ERROR",
+    "SHIPPING_ADDRESS_MISSING_CONTACT_INFO_ERROR",
+    "SHIPPING_ADDRESS_MISSING_CONTACT_NAME_ERROR",
+    "SHIPPING_ADDRESS_MISSING_CONTACT_NUMBER_ERROR",
+    "UNSUPPORTED",
+    "VALID_ZIP_CODE_CHECK_ERROR",
+]
+OutpostGenerationType = Literal["GENERATION_1", "GENERATION_2"]
 PaymentOptionType = Literal["ALL_UPFRONT", "NO_UPFRONT", "PARTIAL_UPFRONT"]
 PaymentTermType = Literal["FIVE_YEARS", "ONE_YEAR", "THREE_YEARS"]
 PowerConnectorType = Literal["AH530P7W", "AH532P6W", "CS8365C", "IEC309", "L6_30P"]
@@ -172,7 +210,13 @@ PowerDrawKvaType = Literal["POWER_10_KVA", "POWER_15_KVA", "POWER_30_KVA", "POWE
 PowerFeedDropType = Literal["ABOVE_RACK", "BELOW_RACK"]
 PowerPhaseType = Literal["SINGLE_PHASE", "THREE_PHASE"]
 PricingResultType = Literal["PRICED", "UNABLE_TO_PRICE"]
+QuoteCapacityTypeType = Literal["EBS", "EC2", "S3"]
+QuoteConstraintTypeType = Literal["RACK_MAXIMUM", "RACK_MAX_POWER_KVA", "RACK_MAX_WEIGHT_LBS"]
 QuotePricingTypeType = Literal["SUBSCRIPTION"]
+QuoteRackUseTypeType = Literal["COMPUTE", "NETWORKING"]
+QuoteSpecificationTypeType = Literal["EXISTING_RACK", "NEW_RACK", "SERVER", "UPDATED_RACK"]
+QuoteStatusType = Literal["CREATED", "EXPIRED", "ORDER_SUBMITTED"]
+RackUnitHeightType = Literal["HEIGHT_1U", "HEIGHT_2U", "HEIGHT_42U"]
 ShipmentCarrierType = Literal["DBS", "DHL", "EXPEDITORS", "FEDEX", "UPS"]
 SubscriptionStatusType = Literal["ACTIVE", "CANCELLED", "INACTIVE", "PENDING"]
 SubscriptionTypeType = Literal["CAPACITY_INCREASE", "ORIGINAL", "RENEWAL"]
@@ -517,6 +561,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -544,6 +589,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -630,8 +676,10 @@ PaginatorName = Literal[
     "list_blocking_instances_for_capacity_task",
     "list_capacity_tasks",
     "list_catalog_items",
+    "list_orderable_instance_types",
     "list_orders",
     "list_outposts",
+    "list_quotes",
     "list_sites",
 ]
 RegionName = Literal[

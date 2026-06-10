@@ -21,7 +21,7 @@ def read_instructions(agency: "Agency", path: str) -> None:
     """
     Reads shared instructions from a specified file and stores them in the agency.
     """
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         agency.shared_instructions = f.read()
 
 
@@ -79,8 +79,14 @@ def build_fastapi_agencies(agency: "Agency") -> dict[str, Callable[..., "Agency"
     def agency_factory(*, load_threads_callback=None, save_threads_callback=None, **_: Any) -> "Agency":
         flows: list[Any] = []
         for sender, receiver in agency._derived_communication_flows:
-            tool_cls = agency._communication_tool_classes.get((sender.name, receiver.name))
-            flows.append((sender, receiver, tool_cls) if tool_cls else (sender, receiver))
+            pair_key = (sender.name, receiver.name)
+            tool_cls = agency._communication_tool_classes.get(pair_key)
+            if pair_key in agency._default_communication_tool_pairs:
+                flows.append((sender, receiver))
+            if tool_cls:
+                flows.append((sender, receiver, tool_cls))
+            elif pair_key not in agency._default_communication_tool_pairs:
+                flows.append((sender, receiver))
 
         return agency_cls(
             *agency.entry_points,

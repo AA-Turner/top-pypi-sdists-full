@@ -14,7 +14,8 @@ from __future__ import annotations
 import json
 import math
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from statistics import NormalDist
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol, TypeAlias, cast
 
@@ -27,7 +28,7 @@ from ._compare import (
     _tierney_kadane_normalizer_from_null_dim,
     compare_models,
 )
-from ._tables import table_columns
+from ._tables import PreNormalizedTable, normalize_table, table_columns
 from .smooth import (
     BSpline,
     Duchon,
@@ -62,6 +63,12 @@ class _TopologyRustModule(Protocol):
 
     def rank_topology_candidates(self, evidence_json: str) -> str: ...
 
+    def stacking_weights_from_log_density(
+        self,
+        names: list[str],
+        log_density_rows: list[list[float]],
+    ) -> str: ...
+
 
 BasisSpec: TypeAlias = Smooth
 ScoreKind: TypeAlias = Literal["reml", "laml", "bic", "tk"]
@@ -73,6 +80,22 @@ TopologyScoreScale: TypeAlias = Literal["per_effective_dim", "per_observation"]
 TopologyAutoSelectorRank: TypeAlias = tuple[str, float, float, float, int, Any]
 _TOPOLOGY_SCREEN_OUTER_MAX_ITER = 4
 _TOPOLOGY_SCREEN_SURVIVORS = 2
+
+# Escalating cheap-cap cascade for candidate enumeration (#781). A single fixed
+# screening cap silently drops every candidate when none converges inside it,
+# forcing the caller into the empty-screen error even though a slightly larger
+# budget would have admitted survivors. Mirror the seed-screening contract in
+# `solver::outer_strategy` (`SEED_SCREENING_CASCADE_MULTIPLIERS = [1, 4, 16]`
+# then uncapped): run every candidate at the cheapest cap, and escalate to the
+# next cap ONLY when the whole stage rejected everything as non-finite. The
+# first stage that admits at least one finite-scored candidate wins, so the
+# common case still pays a single cheap pass over all candidates. `None`
+# denotes the uncapped final stage (no `outer_max_iter` override).
+_TOPOLOGY_SCREEN_CAP_MULTIPLIERS: tuple[int, ...] = (1, 4, 16)
+_TOPOLOGY_SCREEN_CASCADE_CAPS: tuple[int | None, ...] = (
+    *(_TOPOLOGY_SCREEN_OUTER_MAX_ITER * m for m in _TOPOLOGY_SCREEN_CAP_MULTIPLIERS),
+    None,
+)
 
 _DEFAULT_TOPOLOGY_NAMES: tuple[TopologyName, ...] = (
     "euclidean",
@@ -103,6 +126,54 @@ def _fit_kwargs_with_outer_max_iter(fit_kwargs: Mapping[str, Any], cap: int) -> 
 
 def _survivor_count(n_candidates: int) -> int:
     return min(n_candidates, _TOPOLOGY_SCREEN_SURVIVORS)
+
+
+def _screen_kwargs_for_cap(
+    fit_kwargs: Mapping[str, Any], cap: int | None
+) -> dict[str, Any]:
+    """Fit kwargs for one cascade stage: cap the outer iterations, or run
+    uncapped when ``cap`` is ``None`` (the final escalation stage)."""
+    if cap is None:
+        return dict(fit_kwargs)
+    return _fit_kwargs_with_outer_max_iter(fit_kwargs, cap)
+
+
+def _screen_candidates_with_budget_cascade(
+    candidates: Sequence[_Candidate],
+    fit_kwargs: Mapping[str, Any],
+    score_one: "Callable[[_Candidate, Mapping[str, Any]], float]",
+) -> tuple[list[tuple[float, int, _Candidate]], dict[str, str]]:
+    """Run candidate screening through the escalating cheap-cap cascade (#781).
+
+    ``score_one`` fits ``candidate`` under the stage's capped ``fit_kwargs`` and
+    returns a finite lower-is-better comparison score, or raises to reject the
+    candidate at this cap. The cascade evaluates every candidate at the cheapest
+    cap and escalates to the next cap only when the entire stage rejected every
+    candidate as non-finite/errored — matching ``rank_indices_with_budget_cascade``
+    in ``solver::priority_selection``, which breaks the moment a stage admits a
+    finite survivor. Returns ``(screened, errors)`` where ``screened`` is the
+    ``(score, original_index, candidate)`` list from the first non-empty stage
+    and ``errors`` carries the most recent rejection reason per candidate name.
+    """
+    errors: dict[str, str] = {}
+    for cap in _TOPOLOGY_SCREEN_CASCADE_CAPS:
+        stage_kwargs = _screen_kwargs_for_cap(fit_kwargs, cap)
+        screened: list[tuple[float, int, _Candidate]] = []
+        stage_errors: dict[str, str] = {}
+        for idx, candidate in enumerate(candidates):
+            try:
+                score = score_one(candidate, stage_kwargs)
+            except Exception as exc:
+                stage_errors[candidate.name] = str(exc)
+                continue
+            if not math.isfinite(score):
+                stage_errors[candidate.name] = f"non-finite screening score {score!r}"
+                continue
+            screened.append((score, idx, candidate))
+        if screened:
+            return screened, stage_errors
+        errors = stage_errors
+    return [], errors
 
 
 @dataclass(frozen=True, slots=True)
@@ -209,13 +280,28 @@ def select_topology(
     normalized = _normalize_candidates(candidates, feature_dim=feature_dim)
     _find_auto_smooth_call(formula)
 
-    screen_kwargs = _fit_kwargs_with_outer_max_iter(
-        fit_kwargs,
-        _TOPOLOGY_SCREEN_OUTER_MAX_ITER,
-    )
-    screened: list[tuple[float, int, _Candidate]] = []
-    screen_errors: dict[str, str] = {}
-    for idx, candidate in enumerate(normalized):
+    # Hoist topology-independent shared work above the AUTO candidate loop
+    # (#869). Two computations are invariant to the candidate topology and to
+    # the budget-cascade cap, yet were recomputed for every (candidate, stage)
+    # pair plus each survivor refit:
+    #
+    #   1. Table ingestion. ``gamfit.fit`` re-runs ``normalize_table(data)`` —
+    #      an O(n_rows * n_cols) cell-stringification — on every call. The same
+    #      table is fit up to (#cascade_stages * #candidates + #survivors)
+    #      times, so normalize it once here and pass a ``PreNormalizedTable``
+    #      that ``fit`` returns verbatim instead of re-coercing.
+    #   2. Candidate formula surgery. ``_formula_for_candidate`` depends only on
+    #      ``(formula, candidate)``, not on the cap or the eventual winner, so
+    #      build each candidate's formula once and reuse it across every
+    #      screening stage and the survivor refit.
+    headers, rows, table_kind = normalize_table(data)
+    shared_table = PreNormalizedTable(headers, rows, table_kind)
+    candidate_formulas: dict[int, str] = {}
+
+    def _candidate_formula_cached(candidate: _Candidate) -> str:
+        cached = candidate_formulas.get(id(candidate))
+        if cached is not None:
+            return cached
         candidate_formula = _formula_for_candidate(
             formula,
             candidate,
@@ -223,18 +309,26 @@ def select_topology(
         )
         if candidate_formula is None:  # defensive; strict_dimension=True raises.
             raise ValueError(f"candidate {candidate.name!r} is not constructible")
-        try:
-            model = fit(data, candidate_formula, **screen_kwargs)
-            reml_score = _extract_reml_score_raw(model)
-            if not math.isfinite(reml_score):
-                raise ValueError(f"degenerate REML score {reml_score!r}")
-            basis_size = _basis_size(model)
-            null_dim = _fitted_or_candidate_null_dim(model, candidate, basis_size)
-            raw_score = _score_for_kind(model, score_kind, n_obs, basis_size, null_dim)
-            screen_score = _scale_score(raw_score, score_scale_kind, n_obs, _effective_dim(model))
-            screened.append((_comparison_score(screen_score, score_kind), idx, candidate))
-        except Exception as exc:
-            screen_errors[candidate.name] = str(exc)
+        candidate_formulas[id(candidate)] = candidate_formula
+        return candidate_formula
+
+    def _screen_score(candidate: _Candidate, stage_kwargs: Mapping[str, Any]) -> float:
+        candidate_formula = _candidate_formula_cached(candidate)
+        model = fit(shared_table, candidate_formula, **stage_kwargs)
+        reml_score = _extract_reml_score_raw(model)
+        if not math.isfinite(reml_score):
+            raise ValueError(f"degenerate REML score {reml_score!r}")
+        basis_size = _basis_size(model)
+        null_dim = _fitted_or_candidate_null_dim(model, candidate, basis_size)
+        raw_score = _score_for_kind(model, score_kind, n_obs, basis_size, null_dim)
+        screen_score = _scale_score(raw_score, score_scale_kind, n_obs, _effective_dim(model))
+        return _comparison_score(screen_score, score_kind)
+
+    screened, screen_errors = _screen_candidates_with_budget_cascade(
+        normalized,
+        fit_kwargs,
+        _screen_score,
+    )
 
     if not screened:
         detail = "; ".join(f"{name}: {err}" for name, err in screen_errors.items())
@@ -250,14 +344,8 @@ def select_topology(
     names: list[str] = []
     fit_list: list[Any] = []
     for candidate in survivors:
-        candidate_formula = _formula_for_candidate(
-            formula,
-            candidate,
-            strict_dimension=True,
-        )
-        if candidate_formula is None:
-            raise ValueError(f"candidate {candidate.name!r} is not constructible")
-        model = fit(data, candidate_formula, **fit_kwargs)
+        candidate_formula = _candidate_formula_cached(candidate)
+        model = fit(shared_table, candidate_formula, **fit_kwargs)
         reml_score = _extract_reml_score_raw(model)
         if not math.isfinite(reml_score):
             raise ValueError(
@@ -333,6 +421,198 @@ def select_topology(
         warnings=warnings_out,
         fits=fits if return_fits else None,
     )
+
+
+# Coverage level whose Gaussian observation band is inverted to recover each
+# candidate's per-point predictive standard deviation. 0.95 keeps the band wide
+# enough that support clamping is rare while staying away from the extreme tails
+# where the symmetric-Gaussian band approximation is weakest.
+_STACK_INTERVAL_LEVEL = 0.95
+
+
+@dataclass(frozen=True, slots=True)
+class TopologyStack:
+    """Stacked predictive mixture over retained topology candidate fits (#768).
+
+    Built by :func:`stack_topologies` from the candidate fits that
+    :func:`select_topology` retains and a held-out labeled fold. The mixture
+    weights are the simplex maximiser of the held-out mean logarithmic score of
+    the stacked predictive density (Yao, Vehtari, Simpson & Gelman 2018) — the
+    principled alternative to winner-take-all selection. Calling :meth:`predict`
+    returns the stacked response-scale predictive mean ``Σ_k w_k μ_k(x)`` at new
+    rows.
+
+    Attributes
+    ----------
+    weights:
+        Stacking weight per candidate name; sums to one. Candidates the held-out
+        fold could not score receive zero weight.
+    mean_log_score:
+        Achieved held-out mean log-score at ``weights`` (higher is better).
+    names:
+        Candidate names in a deterministic order.
+    """
+
+    weights: dict[str, float]
+    mean_log_score: float
+    names: tuple[str, ...]
+    _fits: Mapping[str, Any]
+
+    def predict(self, data: Any, **predict_kwargs: Any) -> "list[float]":
+        """Stacked response-scale predictive mean at the rows of ``data``.
+
+        Each retained candidate predicts the response-scale mean over ``data``;
+        the per-candidate means are combined with the stacking weights. Extra
+        keyword arguments are forwarded to each candidate's ``predict``.
+        """
+        cand_means: dict[str, list[float]] = {}
+        n_rows: int | None = None
+        for name in self.names:
+            weight = self.weights.get(name, 0.0)
+            if weight == 0.0:
+                continue
+            means = _predict_response_mean(self._fits[name], data, **predict_kwargs)
+            if n_rows is None:
+                n_rows = len(means)
+            elif len(means) != n_rows:
+                raise ValueError(
+                    "TopologyStack candidates disagree on prediction row count"
+                )
+            cand_means[name] = means
+        if n_rows is None:
+            raise ValueError("TopologyStack has no positively-weighted candidate")
+        out = [0.0] * n_rows
+        for name, means in cand_means.items():
+            weight = self.weights[name]
+            for i, value in enumerate(means):
+                out[i] += weight * value
+        return out
+
+
+def stack_topologies(
+    fits: Mapping[str, Any],
+    holdout: Any,
+    response: str,
+    *,
+    interval_level: float = _STACK_INTERVAL_LEVEL,
+) -> TopologyStack:
+    """Stack retained topology candidate fits into a predictive mixture (#768).
+
+    Parameters
+    ----------
+    fits:
+        Retained candidate fits keyed by name — e.g. the ``fits`` mapping from
+        :func:`select_topology` called with ``return_fits=True``.
+    holdout:
+        A labeled held-out fold (independent of the fits' training data) in any
+        format accepted by :func:`gamfit.fit`. Must carry the ``response``
+        column alongside every predictor each candidate references. The
+        per-candidate held-out log-predictive densities of this fold's
+        responses define the stacking objective.
+    response:
+        Name of the response column in ``holdout``.
+    interval_level:
+        Coverage of the predictive band inverted to recover each candidate's
+        per-point predictive standard deviation.
+
+    Returns
+    -------
+    TopologyStack
+        Stacking weights, achieved held-out mean log-score, and a stacked
+        :meth:`~TopologyStack.predict`.
+
+    Notes
+    -----
+    The held-out predictive density is Gaussian in the candidate's response-scale
+    predictive moments: mean ``μ_k(x)`` and total predictive standard deviation
+    ``σ_k(x)`` recovered from the family-correct observation interval the Rust
+    predictor emits (``Var(μ̂) + Var(Y|μ)``). This keeps every family-specific
+    variance in the Rust core; only the generic log-score weight solve and
+    mixture run in Python (the solve itself is the Rust
+    ``stacking_weights_from_log_density`` binding). Rows whose recovered σ is
+    non-positive (e.g. fully clamped against the response support) carry no
+    Gaussian density and are dropped from that candidate's column.
+    """
+    if not fits:
+        raise ValueError("stack_topologies requires at least one candidate fit")
+    if not (0.0 < interval_level < 1.0):
+        raise ValueError("interval_level must lie in (0, 1)")
+    names = tuple(fits.keys())
+    columns, _kind = table_columns(holdout)
+    if response not in columns:
+        raise ValueError(f"response column {response!r} not found in holdout fold")
+    try:
+        y = [float(value) for value in columns[response]]
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"holdout response column {response!r} is not numeric"
+        ) from exc
+    if not y:
+        raise ValueError("stack_topologies holdout fold cannot be empty")
+
+    z = NormalDist().inv_cdf(0.5 + 0.5 * interval_level)
+    # log_density_rows[i][k] = log p_k(y_i | x_i) on the held-out fold.
+    log_density_rows: list[list[float]] = [
+        [float("-inf")] * len(names) for _ in range(len(y))
+    ]
+    for k, name in enumerate(names):
+        means, sds = _holdout_predictive_moments(fits[name], holdout, interval_level, z)
+        if len(means) != len(y) or len(sds) != len(y):
+            raise ValueError(
+                f"candidate {name!r} predicted {len(means)} rows for a "
+                f"{len(y)}-row holdout fold"
+            )
+        for i, (mean, sd) in enumerate(zip(means, sds)):
+            if sd > 0.0 and math.isfinite(mean) and math.isfinite(sd):
+                log_density_rows[i][k] = _gaussian_logpdf(y[i], mean, sd)
+
+    raw = _topology_rust().stacking_weights_from_log_density(
+        list(names), log_density_rows
+    )
+    parsed = json.loads(raw)
+    weights = {name: float(parsed["weights"].get(name, 0.0)) for name in names}
+    return TopologyStack(
+        weights=weights,
+        mean_log_score=float(parsed["mean_log_score"]),
+        names=names,
+        _fits=dict(fits),
+    )
+
+
+def _gaussian_logpdf(y: float, mean: float, sd: float) -> float:
+    z = (y - mean) / sd
+    return -0.5 * math.log(2.0 * math.pi) - math.log(sd) - 0.5 * z * z
+
+
+def _holdout_predictive_moments(
+    model: Any,
+    holdout: Any,
+    interval_level: float,
+    z: float,
+) -> tuple[list[float], list[float]]:
+    """Per-point response-scale predictive mean and total predictive std on the
+    held-out fold, both sourced from the Rust predictor's family-correct
+    observation interval ``μ ± z·σ`` with ``σ² = Var(μ̂) + Var(Y|μ)``."""
+    prediction = model.predict(
+        holdout,
+        interval=interval_level,
+        observation_interval=True,
+        return_type="dict",
+    )
+    means = [float(value) for value in prediction["mean"]]
+    lower = [float(value) for value in prediction["observation_lower"]]
+    upper = [float(value) for value in prediction["observation_upper"]]
+    sds = [(hi - lo) / (2.0 * z) for lo, hi in zip(lower, upper)]
+    return means, sds
+
+
+def _predict_response_mean(model: Any, data: Any, **predict_kwargs: Any) -> list[float]:
+    prediction = model.predict(data, return_type="dict", **predict_kwargs)
+    if isinstance(prediction, Mapping) and "mean" in prediction:
+        return [float(value) for value in prediction["mean"]]
+    # Families whose predict() returns a bare response vector (e.g. probabilities)
+    # rather than the linear-predictor/mean table.
+    return [float(value) for value in prediction]
 
 
 def _normalize_candidates(
@@ -746,7 +1026,7 @@ def _coefficients_metadata(fit_obj: Any) -> Any | None:
 def _comparison_score(score: float, score_kind: ScoreKind) -> float:
     # `compare_models` sorts its `reml_score` column ascending (lower is the
     # better model; see `gamfit._reml_common.compare_models` /
-    # `solver::reml_compare`, issue #396). Every score kind handled here —
+    # `solver::evidence`, issue #396). Every score kind handled here —
     # REML, LAML, TK, and BIC (deviance + log(n)*k) — is a minimised
     # lower-is-better cost, so all pass through with the SAME orientation.
     # Negating BIC inverted the comparison and selected the WORST topology.
@@ -1085,42 +1365,61 @@ class TopologyAutoSelector:
         auto = _maybe_auto_smooth(formula)
         normalized = _normalize_selector_candidates(self.candidates, latent.d)
 
-        screen_kwargs = _fit_kwargs_with_outer_max_iter(
+        # Hoist topology-independent shared work above the candidate loop
+        # (#869): the table ingestion (normalize_table) and the per-candidate
+        # AUTO-formula surgery (_candidate_formula) and per-candidate latent
+        # projection (_latent_for_topology) are invariant to the budget cap, so
+        # the budget cascade and the survivor refit would otherwise recompute
+        # them on every pass. Normalize the table once and cache each
+        # candidate's (formula, latent) pair keyed by candidate identity.
+        headers, rows, table_kind = normalize_table(data)
+        shared_table = PreNormalizedTable(headers, rows, table_kind)
+        candidate_inputs: dict[int, tuple[str, Any]] = {}
+
+        def _candidate_inputs_cached(candidate: _Candidate) -> tuple[str, Any]:
+            cached = candidate_inputs.get(id(candidate))
+            if cached is not None:
+                return cached
+            built = (
+                _candidate_formula(formula, auto, candidate),
+                _latent_for_topology(latent, candidate.name),
+            )
+            candidate_inputs[id(candidate)] = built
+            return built
+
+        def _screen_score(
+            candidate: _Candidate, stage_kwargs: Mapping[str, Any]
+        ) -> float:
+            candidate_formula, candidate_latent = _candidate_inputs_cached(candidate)
+            model = fit(
+                shared_table,
+                candidate_formula,
+                latents={latent_name: candidate_latent},
+                penalties=penalties,
+                **stage_kwargs,
+            )
+            raw_reml = _extract_reml_score_raw(model)
+            effective_dim = _effective_dim(model)
+            null_dim = _extract_null_dim(model)
+            if null_dim is None:
+                raise ValueError(
+                    "TopologyAutoSelector requires TK null-dimension metadata; "
+                    "fit summary is missing null_dim"
+                )
+            return _tk_score_from_parts(
+                float(raw_reml),
+                float(null_dim),
+                _extract_null_hessian_logdet(model),
+                float(effective_dim),
+                int(n_obs),
+                self.score_scale,
+            )
+
+        screened, screen_errors = _screen_candidates_with_budget_cascade(
+            normalized,
             fit_kwargs,
-            _TOPOLOGY_SCREEN_OUTER_MAX_ITER,
+            _screen_score,
         )
-        screened: list[tuple[float, int, _Candidate]] = []
-        screen_errors: dict[str, str] = {}
-        for idx, candidate in enumerate(normalized):
-            try:
-                candidate_formula = _candidate_formula(formula, auto, candidate)
-                candidate_latent = _latent_for_topology(latent, candidate.name)
-                model = fit(
-                    data,
-                    candidate_formula,
-                    latents={latent_name: candidate_latent},
-                    penalties=penalties,
-                    **screen_kwargs,
-                )
-                raw_reml = _extract_reml_score_raw(model)
-                effective_dim = _effective_dim(model)
-                null_dim = _extract_null_dim(model)
-                if null_dim is None:
-                    raise ValueError(
-                        "TopologyAutoSelector requires TK null-dimension metadata; "
-                        "fit summary is missing null_dim"
-                    )
-                tk_score = _tk_score_from_parts(
-                    float(raw_reml),
-                    float(null_dim),
-                    _extract_null_hessian_logdet(model),
-                    float(effective_dim),
-                    int(n_obs),
-                    self.score_scale,
-                )
-                screened.append((tk_score, idx, candidate))
-            except Exception as exc:
-                screen_errors[candidate.name] = str(exc)
 
         if not screened:
             detail = "; ".join(f"{name}: {err}" for name, err in screen_errors.items())
@@ -1139,10 +1438,9 @@ class TopologyAutoSelector:
 
         for candidate in survivors:
             try:
-                candidate_formula = _candidate_formula(formula, auto, candidate)
-                candidate_latent = _latent_for_topology(latent, candidate.name)
+                candidate_formula, candidate_latent = _candidate_inputs_cached(candidate)
                 model = fit(
-                    data,
+                    shared_table,
                     candidate_formula,
                     latents={latent_name: candidate_latent},
                     penalties=penalties,

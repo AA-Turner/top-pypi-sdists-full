@@ -411,8 +411,7 @@ class TestGetModel:
         result = model_loader.get_model(vllm_config, rng, mesh)
 
         mock_get_flax.assert_not_called()
-        mock_get_vllm.assert_called_once_with(vllm_config, rng, mesh, False,
-                                              None)
+        mock_get_vllm.assert_called_once_with(vllm_config, rng, mesh, False)
         assert result == "vllm_model_sentinel"
 
     @patch.dict(os.environ, {"MODEL_IMPL_TYPE": "flax_nnx"}, clear=True)
@@ -442,8 +441,7 @@ class TestGetModel:
         result = model_loader.get_model(vllm_config, rng, mesh)
 
         mock_get_flax.assert_not_called()
-        mock_get_vllm.assert_called_once_with(vllm_config, rng, mesh, False,
-                                              None)
+        mock_get_vllm.assert_called_once_with(vllm_config, rng, mesh, False)
         assert result == "vllm_model_sentinel"
 
     @patch.dict(os.environ, {"MODEL_IMPL_TYPE": "flax_nnx"}, clear=True)
@@ -464,8 +462,7 @@ class TestGetModel:
 
         # Check that both were called
         mock_get_flax.assert_called_once_with(vllm_config, rng, mesh, False)
-        mock_get_vllm.assert_called_once_with(vllm_config, rng, mesh, False,
-                                              None)
+        mock_get_vllm.assert_called_once_with(vllm_config, rng, mesh, False)
         assert result == "vllm_fallback_sentinel"
 
     @patch.dict(os.environ, {"MODEL_IMPL_TYPE": "flax_nnx"}, clear=True)
@@ -537,6 +534,5 @@ class TestGetModel:
         result = model_loader.get_model(vllm_config, rng, mesh)
 
         mock_get_flax.assert_not_called()
-        mock_get_vllm.assert_called_once_with(vllm_config, rng, mesh, False,
-                                              None)
+        mock_get_vllm.assert_called_once_with(vllm_config, rng, mesh, False)
         assert result == "vllm_model_sentinel"

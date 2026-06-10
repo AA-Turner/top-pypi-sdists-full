@@ -106,16 +106,109 @@ def _infer_biz_tag(title: str, desc: str = "", src_dir: str | None = None) -> st
     return max(scores, key=scores.get)
 
 
+# Words to exclude when extracting signals from suitability descriptions
+_STOP_SIGNALS = {"的", "了", "是", "和", "与", "或", "及", "等", "建议", "模式",
+                 "小型", "中型", "大型", "适合", "适用", "用于", "使用", "需要",
+                 "the", "a", "an", "is", "are", "for", "and", "or", "in", "to"}
+
 # Keywords that signal "lightweight is fine"
 _LIGHT_SIGNALS = [
     "脚本", "script", "工具函数", "utility", "单文件", "single file",
     "文档", "doc", "调整", "tweak", "换", "改一下",
     "优化", "optimize", "性能", "performance",
-    "新增", "add", "功能", "feature",
+    "add", "feature",
     "修复", "fix", "补丁", "patch", "配置", "config",
     "格式化", "format", "注释", "comment",
     "小改",
 ]
+
+
+def _recommend_mode_by_suitability(text: str, score: float, has_heavy: bool) -> tuple[str, str]:
+    """Recommend mode based on workflow suitability configs, falling back to legacy signals.
+
+    Scans .kanban/workflows/ and package workflows/ for mode definitions.
+    Each mode can define a 'suitability' field with signals and complexity range.
+    """
+    from pathlib import Path
+
+    # Collect modes with suitability configs
+    modes_with_suitability: list[dict] = []
+
+    # Scan project-level workflows
+    try:
+        from kanban_framework.infra.filesystem import Filesystem
+        wf_dir = Filesystem.find_project_root() / ".kanban" / "workflows"
+        if wf_dir.is_dir():
+            import json
+            for wf_file in wf_dir.glob("*.json"):
+                try:
+                    data = json.loads(wf_file.read_text(encoding="utf-8"))
+                    if data.get("suitability") and data.get("phases"):
+                        modes_with_suitability.append({
+                            "name": data.get("name", wf_file.stem),
+                            "suitability": data["suitability"],
+                            "source": "project",
+                        })
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # Scan package-level workflows
+    try:
+        pkg_dir = Path(__file__).resolve().parent.parent / "workflows"
+        if pkg_dir.is_dir():
+            import json
+            for wf_file in pkg_dir.glob("*.json"):
+                name = wf_file.stem
+                if any(m["name"] == name for m in modes_with_suitability):
+                    continue  # project overrides package
+                try:
+                    data = json.loads(wf_file.read_text(encoding="utf-8"))
+                    if data.get("suitability") and data.get("phases"):
+                        modes_with_suitability.append({
+                            "name": name,
+                            "suitability": data["suitability"],
+                            "source": "package",
+                        })
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # Score each mode against task text
+    best_mode = Consts.DEFAULT_MODE
+    best_score = -1
+    best_desc = ""
+
+    for m in modes_with_suitability:
+        suitability = m["suitability"]
+        max_cx = suitability.get("max_complexity", 1.0)
+        desc = suitability.get("description", m["name"])
+
+        # Mode score: match suitability description keywords against task text
+        # Uses both explicit 'signals' (if present) + natural language description
+        signals = list(suitability.get("signals", []))
+        # Also extract meaningful words from description as implicit signals
+        import re
+        desc_words = re.findall(r'[一-鿿]+|[a-zA-Z]{2,}', desc)
+        for w in desc_words:
+            if len(w) >= 2 and w not in _STOP_SIGNALS:
+                signals.append(w)
+
+        match_count = sum(1 for kw in set(signals) if kw in text)
+        if match_count > best_score and score <= max_cx:
+            best_score = match_count
+            best_mode = m["name"]
+            best_desc = desc
+
+    if best_score > 0:
+        return best_mode, f"匹配「{best_desc}」→ 建议 {best_mode} 模式"
+    if has_heavy:
+        return "lightweight", "检测到重度信号 → 建议 lightweight 模式（含完整评审和质量门）"
+    if score < 0.35:
+        return "quick", "检测到简单/轻量信号 → 建议 quick 模式（KB+plan+人工审核，3次LLM）"
+    return "lightweight", f"标准复杂度 → 默认 lightweight 模式"
 
 
 def assess_task(title: str, description: str) -> dict:
@@ -138,33 +231,20 @@ def assess_task(title: str, description: str) -> dict:
     # Compute complexity score (0-1)
     score = 0.5  # baseline
     if quick:
-        score -= 0.3
+        score -= 0.4
     if light:
-        score -= 0.1
+        score -= 0.2
     if heavy:
-        score += 0.3
+        score += 0.4
     if short_desc:
         score -= 0.1
     elif desc_len > 100:
         score += 0.1
     score = max(0.0, min(1.0, score))
 
-    # Map score to mode
-    default_mode = Consts.DEFAULT_MODE
-    if score < 0.35 and (quick or (light and score < 0.2)):
-        mode = "quick"
-        reason = f"检测到简单信号: {', '.join((quick or light)[:3])} → 建议 quick 模式，直接执行"
-        _is_quick = True
-    elif heavy:
-        mode = default_mode
-        reason = f"检测到重度信号: {', '.join(heavy[:3])} → 建议 {default_mode} 模式，含完整评审"
-    elif light or score < 0.6:
-        mode = default_mode
-        reason = f"检测到轻量信号: {', '.join(light[:3])} → 建议 {default_mode} 模式，快速迭代"
-    else:
-        mode = default_mode
-        reason = f"无明显重度信号 → 默认 {default_mode} 模式"
-    _is_quick = locals().get('_is_quick', False)
+    # Map score to mode — prefer workflow suitability config, fall back to signals
+    mode, reason = _recommend_mode_by_suitability(text, score, bool(heavy))
+    _is_quick = mode == "quick"
 
     risk_factors = []
     if any(kw in text for kw in ["数据库", "database", "data migration"]):

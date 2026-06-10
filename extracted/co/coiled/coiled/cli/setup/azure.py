@@ -388,15 +388,15 @@ def setup_with_service_principal(
             json.dump(log_role_def(sub_id), f)
 
         az_cli_wrapper(
-            f"az role definition create --role-definition @{role_def_path}",
-            command_if_exists=f"az role definition update --role-definition @{role_def_path}"
+            f"az role definition create --role-definition '@{role_def_path}'",
+            command_if_exists=f"az role definition update --role-definition '@{role_def_path}'"
             if update_role_definitions
             else None,
         )
         print(f"  [bright_black]Creating/updating role definition {LOG_ROLE_NAME}...")
         az_cli_wrapper(
-            f"az role definition create --role-definition @{log_role_def_path}",
-            command_if_exists=f"az role definition update --role-definition @{log_role_def_path}"
+            f"az role definition create --role-definition '@{log_role_def_path}'",
+            command_if_exists=f"az role definition update --role-definition '@{log_role_def_path}'"
             if update_role_definitions
             else None,
         )
@@ -473,7 +473,7 @@ def submit_azure_credentials(coiled_account, sub_id, rg_name, region, creds_to_s
 
 
 def strip_output(output: str) -> str:
-    return output.strip(' \n"')
+    return output.strip(' \r\n"')
 
 
 def get_cli_path() -> str | None:

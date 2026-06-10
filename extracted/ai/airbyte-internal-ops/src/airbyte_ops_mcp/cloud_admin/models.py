@@ -279,6 +279,44 @@ class OrganizationAgenticFlagBatchUpdateResult(BaseModel):
     )
 
 
+class OrbSubscriptionInfo(BaseModel):
+    """Summary of an Orb billing subscription for an organization."""
+
+    subscription_id: str = Field(description="The Orb subscription ID")
+    status: str = Field(description="Subscription status (e.g. `active`, `ended`)")
+    plan_name: str | None = Field(
+        default=None,
+        description="Display name of the Orb plan (e.g. `Airbyte Partner`)",
+    )
+    plan_id: str | None = Field(
+        default=None,
+        description="Orb internal plan ID",
+    )
+    external_plan_id: str | None = Field(
+        default=None,
+        description="External plan ID configured in Orb",
+    )
+    start_date: str | None = Field(
+        default=None,
+        description="ISO 8601 date when the subscription started",
+    )
+    end_date: str | None = Field(
+        default=None,
+        description="ISO 8601 date when the subscription ends (if applicable)",
+    )
+    orb_customer_id: str | None = Field(
+        default=None,
+        description="Orb internal customer ID",
+    )
+
+    def __str__(self) -> str:
+        """Return a human-readable summary."""
+        plan_label = (
+            self.plan_name or self.external_plan_id or self.plan_id or "unknown"
+        )
+        return f"{self.status} | plan={plan_label}"
+
+
 class OrganizationPaymentConfigInfo(BaseModel):
     """Current payment configuration for an organization.
 
@@ -313,6 +351,10 @@ class OrganizationPaymentConfigInfo(BaseModel):
         default=None,
         description="Warning message if the organization is a sensitive customer tier",
     )
+    orb_subscription: OrbSubscriptionInfo | None = Field(
+        default=None,
+        description="Current Orb billing subscription info (if `ORB_API_KEY` is configured)",
+    )
 
     def __str__(self) -> str:
         """Return a human-readable summary."""
@@ -325,6 +367,8 @@ class OrganizationPaymentConfigInfo(BaseModel):
             parts.append(f"grace_period_ends={self.grace_period_end_at}")
         if self.customer_tier:
             parts.append(f"tier={self.customer_tier}")
+        if self.orb_subscription:
+            parts.append(f"orb_plan={self.orb_subscription}")
         return " | ".join(parts)
 
 
@@ -342,6 +386,10 @@ class OrganizationPaymentConfigUpdateResult(BaseModel):
         default=None,
         description="The grace period end datetime after the update (if applicable)",
     )
+    permanent_waiver_type: str | None = Field(
+        default=None,
+        description="Permanent billing waiver after the update: `free`, `internal`, or `None`",
+    )
     customer_tier: str | None = Field(
         default=None,
         description="Customer tier of the organization (TIER_0, TIER_1, TIER_2)",
@@ -349,6 +397,16 @@ class OrganizationPaymentConfigUpdateResult(BaseModel):
     tier_warning: str | None = Field(
         default=None,
         description="Warning message if the organization is a sensitive customer tier",
+    )
+    orb_plan_change: str | None = Field(
+        default=None,
+        description="Result of the Orb plan change (e.g. `Changed to Airbyte Partner`), "
+        "or `None` if no Orb plan change was attempted",
+    )
+    entitlement_plan_change: str | None = Field(
+        default=None,
+        description="Result of the Stigg entitlement plan change "
+        "(e.g. `Changed to PARTNER`), or `None` if not attempted",
     )
 
     def __str__(self) -> str:

@@ -373,6 +373,7 @@ class RequestClassifierV2:
     ]
 
     IMPLEMENTATION_PATTERNS: ClassVar[list[str]] = [
+        r"\b(fix|implement|add|create|build|write|develop|make|code|generate|translate)\b(?!.*\b(list|roadmap|plan)\b)",
         r"\b(implement|add|create|build|write|develop|make|generate|setup|set\s+up|code)\s+(?:a\s+|the\s+|new\s+)?(?:\w+\s+)*(?:feature|function|class|module|component|api|endpoint|service|test|model|handler|controller|view|schema|platform|app|application|website|site|dashboard|database|system|project|repo|repository|engine|script|config|manifest|game|file|files|code|program|tool|utility|backend|frontend)\b",
         r"\bcode\s+(?:a\s+|the\s+)?(?:solution|feature|fix)\b",
         r"\b(refactor|restructure|reorganize|rewrite)\s+\w+\b",
@@ -466,11 +467,11 @@ class RequestClassifierV2:
         # Explicit implementation override check on cleaned request
         request_lower = cleaned_request.lower()
         is_explicit_impl = (
-            re.search(r"\b(build|implement|create|write|develop|make|generate|setup|set\s+up|code|add|fix|refactor)\s+(?:this|it|them|the|an?|our)\b", request_lower) is not None
-            or re.search(r"\b(build|implement|create|develop|write|make|generate|setup|set\s+up|code|add|fix|refactor)\s+(?:\w+\s+)*(?:platform|app|application|website|site|dashboard|database|system|project|repo|repository|engine|script|config|manifest|game|file|files|code|program|tool|utility|backend|frontend|service|api|endpoint|test|tests)\b", request_lower) is not None
+            re.search(r"\b(build|implement|create|write|develop|make|generate|translate|setup|set\s+up|code|add|fix|refactor)\s+(?:this|it|them|the|an?|our)\b", request_lower) is not None
+            or re.search(r"\b(build|implement|create|develop|write|make|generate|translate|setup|set\s+up|code|add|fix|refactor)\s+(?:\w+\s+)*(?:platform|app|application|website|site|dashboard|database|db|system|project|repo|repository|engine|script|config|manifest|game|file|files|code|program|tool|utility|backend|frontend|service|api|endpoint|test|tests|image|video|audio|document|animation|3d_model|map|diagram)\b", request_lower) is not None
             or re.search(r"\bin\s+it'?s\s+entiret(y|ies)\b", request_lower) is not None
             or re.search(r"\b(make|build|create|implement)\s+(?:the\s+)?actual\s+\w+", request_lower) is not None
-            or request_lower.strip().startswith(("make ", "fix ", "implement ", "add ", "create ", "build ", "write ", "update ", "modify "))
+            or request_lower.strip().startswith(("make ", "fix ", "implement ", "add ", "create ", "build ", "write ", "update ", "modify ", "translate ", "generate "))
         )
 
         if is_explicit_impl and not has_negation:

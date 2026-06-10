@@ -30,7 +30,7 @@ class CustomTag(betterproto2.Message):
     [#protodoc-title: Custom Tag]
 
     Describes custom tags for the active span.
-    [#next-free-field: 6]
+    [#next-free-field: 7]
 
     Oneofs:
         - type: Used to specify what kind of custom tag.
@@ -69,6 +69,17 @@ class CustomTag(betterproto2.Message):
     )
     """
     A custom tag to obtain tag value from the metadata.
+    """
+
+    value: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)] | None" = betterproto2.field(
+        6, betterproto2.TYPE_STRING, optional=True, group="type"
+    )
+    """
+    Custom tag value.
+
+    The same :ref:`format specifier <config_access_log_format>` as used for
+    :ref:`HTTP access logging <config_access_log>` applies here, however
+    unknown specifier values are replaced with the empty string instead of ``-``.
     """
 
     @model_validator(mode="after")

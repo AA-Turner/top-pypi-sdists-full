@@ -3,15 +3,13 @@ import importlib
 import inspect
 import os
 import signal
-import sys
 import typing
 from abc import ABCMeta, abstractmethod
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
-from typing import Any, Callable, Generator, Optional, Sequence
+from typing import Any, Callable, ContextManager, Generator, Sequence
 
 import modal._object
-import modal._runtime.container_io_manager
 import modal.cls
 import modal.server
 from modal import Function
@@ -37,6 +35,8 @@ from modal_proto import api_pb2
 if typing.TYPE_CHECKING:
     import modal._functions
     import modal._partial_function
+    import modal._runtime.container_io_manager
+    import modal._runtime.task_lifecycle_manager
     import modal.app
     from modal._runtime.asgi import LifespanManager
 
@@ -47,16 +47,16 @@ class FinalizedFunction:
     is_async: bool
     is_generator: bool
     supported_output_formats: Sequence["api_pb2.DataFormat.ValueType"]
-    lifespan_manager: Optional["LifespanManager"] = None
+    lifespan_manager: "LifespanManager | None" = None
 
 
 def call_lifecycle_functions(
     event_loop: UserCodeEventLoop,
-    container_io_manager: Any,
+    task_lifecycle_manager: "modal._runtime.task_lifecycle_manager.TaskLifecycleManager",
     funcs: Sequence[Callable[..., Any]],
 ) -> None:
     """Call function(s), can be sync or async, but any return values are ignored."""
-    with container_io_manager.handle_user_exception():
+    with task_lifecycle_manager.handle_task_lifecycle_exception():
         for func in funcs:
             # We are deprecating parametrized exit methods but want to gracefully handle old code.
             args = (None, None, None) if callable_has_non_self_params(func) else ()
@@ -68,7 +68,7 @@ def call_lifecycle_functions(
 @contextmanager
 def lifecycle_asgi(
     event_loop: UserCodeEventLoop,
-    container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager",
+    task_lifecycle_manager: "modal._runtime.task_lifecycle_manager.TaskLifecycleManager",
     finalized_functions: dict[str, FinalizedFunction],
 ) -> Generator[None, None, None]:
     lifespan_background_tasks = []
@@ -78,7 +78,7 @@ def lifecycle_asgi(
                 lifespan_background_tasks.append(
                     event_loop.create_task(finalized_function.lifespan_manager.background_task())
                 )
-                with container_io_manager.handle_user_exception():
+                with task_lifecycle_manager.handle_task_lifecycle_exception():
                     event_loop.run(finalized_function.lifespan_manager.lifespan_startup())
         yield
     finally:
@@ -86,7 +86,7 @@ def lifecycle_asgi(
             # run lifespan shutdown for asgi apps
             for finalized_function in finalized_functions.values():
                 if finalized_function.lifespan_manager:
-                    with container_io_manager.handle_user_exception():
+                    with task_lifecycle_manager.handle_task_lifecycle_exception():
                         event_loop.run(finalized_function.lifespan_manager.lifespan_shutdown())
         finally:
             # no need to keep the lifespan asgi call around - we send it no more messages
@@ -107,9 +107,12 @@ def try_enable_signals(int_handler, usr1_handler):
 
 
 def volume_commit(
-    container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager", function_def: api_pb2.Function
+    task_lifecycle_manager: "modal._runtime.task_lifecycle_manager.TaskLifecycleManager",
+    function_def: api_pb2.Function,
 ):
-    container_io_manager.volume_commit([v.volume_id for v in function_def.volume_mounts if v.allow_background_commits])
+    task_lifecycle_manager.volume_commit(
+        [v.volume_id for v in function_def.volume_mounts if v.allow_background_commits],
+    )
 
 
 class Service(metaclass=ABCMeta):
@@ -122,19 +125,21 @@ class Service(metaclass=ABCMeta):
 
     user_cls_instance: Any
     app: "modal.app._App"
-    service_deps: Optional[Sequence["modal._object._Object"]]
+    service_deps: Sequence["modal._object._Object"] | None
     function_def: api_pb2.Function
 
     @abstractmethod
     def get_finalized_functions(
-        self, fun_def: api_pb2.Function, container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager"
+        self,
+        fun_def: api_pb2.Function,
+        container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager",
     ) -> dict[str, "FinalizedFunction"]: ...
 
     @contextmanager
     def lifecycle_presnapshot(
         self,
         event_loop: UserCodeEventLoop,
-        container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager",
+        task_lifecycle_manager: "modal._runtime.task_lifecycle_manager.TaskLifecycleManager",
     ) -> Generator[None, None, None]:
         # Default no-op implementation for services without pre-snapshot lifecycle handling
         yield
@@ -143,55 +148,92 @@ class Service(metaclass=ABCMeta):
     def lifecycle_postsnapshot(
         self,
         event_loop: UserCodeEventLoop,
-        container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager",
+        task_lifecycle_manager: "modal._runtime.task_lifecycle_manager.TaskLifecycleManager",
     ) -> Generator[None, None, None]:
         # Default no-op implementation for services without post-snapshot lifecycle handling
         yield
 
     @contextmanager
-    def execution_context(
+    def lifecycle_context(
+        self,
+        event_loop: UserCodeEventLoop,
+        task_lifecycle_manager: "modal._runtime.task_lifecycle_manager.TaskLifecycleManager",
+        snapshot_context_manager: ContextManager[None] = nullcontext(),
+        after_snapshot: Callable[[], None] | None = None,
+        disable_signals_on_exit: bool = True,
+    ) -> Generator[None, None, None]:
+        """
+        Manages the lifecycle of the user code:
+        1. Runs pre-snapshot 'enter' methods
+        2. Calls maybe_snapshot(function_def, snapshot_context_manager, task_lifecycle_manager)
+        3. Creates breakpoint wrapper
+        4. Runs post-snapshot 'enter' methods
+        5. Yield finalized_functions for execution
+        6. Handles cleanup (lifespan shutdown, 'exit' methods)
+        7. Disable signals
+        8. Volume commit
+        """
+        int_handler, usr1_handler = None, None
+        try:
+            # 1. Pre-snapshot Enter
+            with self.lifecycle_presnapshot(event_loop, task_lifecycle_manager):
+                # 2. Snapshot -- If this container is being used to create a checkpoint, checkpoint the container after
+                # global imports and initialization. Checkpointed containers run from this point onwards.
+                maybe_snapshot(self.function_def, snapshot_context_manager, task_lifecycle_manager)
+                # 3. After snapshot functionality like create_breakpoint_wrapper(container_io_manager)
+                if after_snapshot:
+                    after_snapshot()
+                # 4. Post-snapshot Enter
+                with self.lifecycle_postsnapshot(event_loop, task_lifecycle_manager):
+                    # 5. Yield
+                    try:
+                        yield
+                    finally:
+                        if disable_signals_on_exit:
+                            # 7. Disable signals
+                            int_handler, usr1_handler = disable_signals()
+        finally:
+            # 8. Volume commit - runs OUTSIDE all lifecycle managers so exit handlers
+            # have a chance to write to disk before we commit volumes
+            try:
+                volume_commit(task_lifecycle_manager, self.function_def)
+            finally:
+                try_enable_signals(int_handler, usr1_handler)
+
+    @contextmanager
+    def function_execution_context(
         self,
         event_loop: UserCodeEventLoop,
         container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager",
     ) -> Generator[dict[str, "FinalizedFunction"], None, None]:
         """
-        Manages the lifecycle of the user code:
-        1. Runs pre-snapshot 'enter' methods
-        2. Calls maybe_snapshot(container_io_manager, function_def)
-        3. Creates breakpoint wrapper
-        4. Runs post-snapshot 'enter' methods
-        5. Initializes finalized functions (and ASGI/WSGI lifespan)
-        6. Yield finalized_functions for execution
-        7. Handles cleanup (lifespan shutdown, 'exit' methods)
+        Handles the execution of user code for functions:
+        1. Initializes finalized functions (and ASGI/WSGI lifespan)
+        2. Starts ASGI/WSGI lifespans
+
         """
+        task_lifecycle_manager = container_io_manager.get_task_lifecycle_manager()
         int_handler, usr1_handler = None, None
         try:
-            # 1. Pre-snapshot Enter
-            with self.lifecycle_presnapshot(event_loop, container_io_manager):
-                # 2. Snapshot -- If this container is being used to create a checkpoint, checkpoint the container after
-                # global imports and initialization. Checkpointed containers run from this point onwards.
-                maybe_snapshot(container_io_manager, self.function_def)
-                # 3. Breakpoint wrapper
-                create_breakpoint_wrapper(container_io_manager)
-                # 4. Post-snapshot Enter
-                with self.lifecycle_postsnapshot(event_loop, container_io_manager):
-                    # Get Functions
-                    with container_io_manager.handle_user_exception():
-                        finalized_functions = self.get_finalized_functions(self.function_def, container_io_manager)
-                    # 5. Start ASGI lifespan
-                    with lifecycle_asgi(event_loop, container_io_manager, finalized_functions):
-                        # 6. Yield Finalized Functions
-                        try:
-                            yield finalized_functions
-                        finally:
-                            int_handler, usr1_handler = disable_signals()
+            with self.lifecycle_context(
+                event_loop=event_loop,
+                task_lifecycle_manager=task_lifecycle_manager,
+                snapshot_context_manager=container_io_manager.snapshot_context_manager(),
+                after_snapshot=container_io_manager._install_breakpoint_hook,
+                disable_signals_on_exit=False,
+            ):
+                # Get Functions
+                with task_lifecycle_manager.handle_task_lifecycle_exception():
+                    finalized_functions = self.get_finalized_functions(self.function_def, container_io_manager)
+                # 1. Start ASGI lifespan
+                with lifecycle_asgi(event_loop, task_lifecycle_manager, finalized_functions):
+                    # 2. Yield Finalized Functions
+                    try:
+                        yield finalized_functions
+                    finally:
+                        int_handler, usr1_handler = disable_signals()
         finally:
-            # 9. Volume commit - runs OUTSIDE all lifecycle managers so exit handlers
-            # have a chance to write to disk before we commit volumes
-            try:
-                volume_commit(container_io_manager, self.function_def)
-            finally:
-                try_enable_signals(int_handler, usr1_handler)
+            try_enable_signals(int_handler, usr1_handler)
 
 
 def construct_webhook_callable(
@@ -235,40 +277,28 @@ def construct_webhook_callable(
 
 
 def maybe_snapshot(
-    container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager", function_def: api_pb2.Function
+    function_def: api_pb2.Function,
+    snapshot_context_manager: ContextManager[None],
+    task_lifecycle_manager: "modal._runtime.task_lifecycle_manager.TaskLifecycleManager",
 ):
     if function_def.is_checkpointing_function and os.environ.get("MODAL_ENABLE_SNAP_RESTORE") == "1":
-        container_io_manager.memory_snapshot()
-
-
-def create_breakpoint_wrapper(container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager"):
-    # Install hooks for interactive functions.
-    def breakpoint_wrapper():
-        # note: it would be nice to not have breakpoint_wrapper() included in the backtrace
-        container_io_manager.interact(from_breakpoint=True)
-        import pdb  # noqa: T100
-
-        current_frame = inspect.currentframe()
-        if current_frame is not None:
-            frame = current_frame.f_back
-            pdb.Pdb().set_trace(frame)
-        else:
-            raise RuntimeError("No current frame found")
-
-    sys.breakpointhook = breakpoint_wrapper
+        with snapshot_context_manager:
+            task_lifecycle_manager.memory_snapshot()
 
 
 @dataclass
 class ImportedFunction(Service):
     app: modal.app._App
-    service_deps: Optional[Sequence["modal._object._Object"]]
+    service_deps: Sequence["modal._object._Object"] | None
     user_cls_instance = None
     function_def: api_pb2.Function
 
     _user_defined_callable: Callable[..., Any]
 
     def get_finalized_functions(
-        self, fun_def: api_pb2.Function, container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager"
+        self,
+        fun_def: api_pb2.Function,
+        container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager",
     ) -> dict[str, "FinalizedFunction"]:
         # Check this property before we turn it into a method (overriden by webhooks)
         is_async = get_is_async(self._user_defined_callable)
@@ -320,29 +350,29 @@ class _LifecycleManager:
     def lifecycle_presnapshot(
         self,
         event_loop: UserCodeEventLoop,
-        container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager",
+        task_lifecycle_manager: "modal._runtime.task_lifecycle_manager.TaskLifecycleManager",
     ):
         # Identify all "enter" methods that need to run before we snapshot.
         if not self.function_def.is_auto_snapshot:
             pre_snapshot_methods = _find_callables_for_obj(
                 self.user_cls_instance, _PartialFunctionFlags.ENTER_PRE_SNAPSHOT
             )
-            call_lifecycle_functions(event_loop, container_io_manager, list(pre_snapshot_methods.values()))
+            call_lifecycle_functions(event_loop, task_lifecycle_manager, list(pre_snapshot_methods.values()))
         yield
 
     @contextmanager
     def lifecycle_postsnapshot(
         self,
         event_loop: UserCodeEventLoop,
-        container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager",
+        task_lifecycle_manager: "modal._runtime.task_lifecycle_manager.TaskLifecycleManager",
     ):
         # Identify the "enter" methods to run after resuming from a snapshot.
-        flash_entry = _FlashContainerEntry(self.function_def.http_config)
+        flash_entry = _FlashContainerEntry(self.function_def.http_config, is_server=self.function_def.is_server)
         if not self.function_def.is_auto_snapshot:
             post_snapshot_methods = _find_callables_for_obj(
                 self.user_cls_instance, _PartialFunctionFlags.ENTER_POST_SNAPSHOT
             )
-            call_lifecycle_functions(event_loop, container_io_manager, list(post_snapshot_methods.values()))
+            call_lifecycle_functions(event_loop, task_lifecycle_manager, list(post_snapshot_methods.values()))
             flash_entry.enter()
         try:
             yield
@@ -350,7 +380,7 @@ class _LifecycleManager:
             if not self.function_def.is_auto_snapshot:
                 flash_entry.stop()
                 exit_methods = _find_callables_for_obj(self.user_cls_instance, _PartialFunctionFlags.EXIT)
-                call_lifecycle_functions(event_loop, container_io_manager, list(exit_methods.values()))
+                call_lifecycle_functions(event_loop, task_lifecycle_manager, list(exit_methods.values()))
                 flash_entry.close()
 
 
@@ -358,13 +388,15 @@ class _LifecycleManager:
 class ImportedClass(_LifecycleManager, Service):
     user_cls_instance: Any
     app: "modal.app._App"
-    service_deps: Optional[Sequence["modal._object._Object"]]
+    service_deps: Sequence["modal._object._Object"] | None
 
     _partial_functions: dict[str, "modal._partial_function._PartialFunction"]
     function_def: api_pb2.Function
 
     def get_finalized_functions(
-        self, fun_def: api_pb2.Function, container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager"
+        self,
+        fun_def: api_pb2.Function,
+        container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager",
     ) -> dict[str, "FinalizedFunction"]:
         finalized_functions = {}
         for method_name, _partial in self._partial_functions.items():
@@ -410,11 +442,13 @@ class ImportedClass(_LifecycleManager, Service):
 class ImportedServer(_LifecycleManager, Service):
     user_cls_instance: Any
     app: "modal.app._App"
-    service_deps: Optional[Sequence["modal._object._Object"]]
+    service_deps: Sequence["modal._object._Object"] | None
     function_def: api_pb2.Function
 
     def get_finalized_functions(
-        self, fun_def: api_pb2.Function, container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager"
+        self,
+        fun_def: api_pb2.Function,
+        container_io_manager: "modal._runtime.container_io_manager.ContainerIOManager",
     ) -> dict[str, "FinalizedFunction"]:
         return {}
 
@@ -438,7 +472,7 @@ def get_user_class_instance(_cls: modal.cls._Cls, args: tuple[Any, ...], kwargs:
 
 def import_single_function_service(
     function_def: api_pb2.Function,
-    ser_fun: Optional[Callable[..., Any]],
+    ser_fun: Callable[..., Any] | None,
 ) -> Service:
     """Imports a function dynamically, and locates the app.
 
@@ -463,7 +497,7 @@ def import_single_function_service(
     the import) runs on the right thread.
     """
     user_defined_callable: Callable
-    service_deps: Optional[Sequence["modal._object._Object"]] = None
+    service_deps: Sequence["modal._object._Object"] | None = None
     active_app: modal.app._App
 
     if ser_fun is not None:
@@ -507,8 +541,8 @@ def import_single_function_service(
 
 def _get_cls_or_user_cls(
     function_def: api_pb2.Function,
-    ser_user_cls: Optional[type],
-) -> typing.Union[type, modal.cls.Cls, modal.server.Server]:
+    ser_user_cls: type | None,
+) -> type | modal.cls.Cls | modal.server.Server:
     if function_def.definition_type == api_pb2.Function.DEFINITION_TYPE_SERIALIZED:
         assert ser_user_cls is not None
         cls_or_user_cls = ser_user_cls
@@ -537,8 +571,8 @@ def import_class_service(
     function_def: api_pb2.Function,
     service_function_hydration_data: api_pb2.Object,
     class_id: str,
-    client: "modal.client.Client",
-    ser_user_cls: Optional[type],
+    _client: "modal.client._Client",
+    ser_user_cls: type | None,
     cls_args,
     cls_kwargs,
 ) -> Service:
@@ -547,12 +581,12 @@ def import_class_service(
 
     See import_function.
     """
-    active_app: Optional["modal.app._App"]
-    service_deps: Optional[Sequence["modal._object._Object"]]
-    cls_or_user_cls: typing.Union[type, modal.cls.Cls]
+    active_app: "modal.app._App | None"
+    service_deps: Sequence["modal._object._Object"] | None
+    cls_or_user_cls: type | modal.cls.Cls
 
     cls_or_user_cls = typing.cast(
-        typing.Union[type, modal.cls.Cls],
+        type | modal.cls.Cls,
         _get_cls_or_user_cls(function_def, ser_user_cls),
     )
 
@@ -565,7 +599,6 @@ def import_class_service(
         # Undecorated user class (serialized or local scope-decoration).
         service_deps = None  # we can't infer service deps for now
         active_app = get_active_app_fallback(function_def)
-        _client = typing.cast("modal.client._Client", synchronizer._translate_in(client))
         _service_function: modal._functions._Function[Any, Any, Any] = modal._functions._Function._new_hydrated(
             service_function_hydration_data.object_id,
             _client,
@@ -593,20 +626,20 @@ def import_class_service(
 def import_server_service(
     function_def: api_pb2.Function,
     service_function_hydration_data: api_pb2.Object,
-    client: "modal.client.Client",
-    ser_user_cls: Optional[type],
+    _client: "modal.client._Client",
+    ser_user_cls: type | None,
 ) -> Service:
     """
     This imports a class as a server to server HTTP requests.
 
     See import_function.
     """
-    active_app: Optional["modal.app._App"]
-    service_deps: Optional[Sequence["modal._object._Object"]]
-    cls_or_user_cls: typing.Union[type, modal.server.Server]
+    active_app: "modal.app._App | None"
+    service_deps: Sequence["modal._object._Object"] | None
+    cls_or_user_cls: type | modal.server.Server
 
     cls_or_user_cls = typing.cast(
-        typing.Union[type, modal.server.Server],
+        type | modal.server.Server,
         _get_cls_or_user_cls(function_def, ser_user_cls),
     )
 
@@ -620,7 +653,6 @@ def import_server_service(
         # Undecorated user class (serialized or local scope-decoration).
         service_deps = None  # we can't infer service deps for now
         active_app = get_active_app_fallback(function_def)
-        _client = typing.cast("modal.client._Client", synchronizer._translate_in(client))
         _service_function: modal._functions._Function[Any, Any, Any] = modal._functions._Function._new_hydrated(
             service_function_hydration_data.object_id,
             _client,
@@ -645,7 +677,7 @@ def get_active_app_fallback(function_def: api_pb2.Function) -> _App:
     # 1) not serialized, and
     # 2) isn't a FunctionHandle - i.e, not decorated at definition time
     # Look at all instantiated apps - if there is only one with the indicated name, use that one
-    app_name: Optional[str] = function_def.app_name or None  # coalesce protobuf field to None
+    app_name: str | None = function_def.app_name or None  # coalesce protobuf field to None
     matching_apps = _App._all_apps.get(app_name, [])
     if len(matching_apps) == 1:
         active_app: _App = matching_apps[0]

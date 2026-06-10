@@ -1,19 +1,30 @@
 Metadata-Version: 2.4
 Name: langchain-groq
-Version: 1.1.2
+Version: 1.1.3
 Summary: An integration package connecting Groq and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/groq
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_groq/
-Project-URL: Source, https://github.com/langchain-ai/langchain/tree/master/libs/partners/groq
+Project-URL: Repository, https://github.com/langchain-ai/langchain
+Project-URL: Issues, https://github.com/langchain-ai/langchain/issues
 Project-URL: Changelog, https://github.com/langchain-ai/langchain/releases?q=%22langchain-groq%22
-Project-URL: Twitter, https://x.com/LangChain
+Project-URL: Twitter, https://x.com/langchain_oss
 Project-URL: Slack, https://www.langchain.com/join-community
 Project-URL: Reddit, https://www.reddit.com/r/LangChain/
 License: MIT
 License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0.0,>=3.10.0
 Requires-Dist: groq<1.0.0,>=0.30.0
-Requires-Dist: langchain-core<2.0.0,>=1.2.8
+Requires-Dist: langchain-core<2.0.0,>=1.4.0
 Description-Content-Type: text/markdown
 
 # langchain-groq
@@ -21,7 +32,7 @@ Description-Content-Type: text/markdown
 [![PyPI - Version](https://img.shields.io/pypi/v/langchain-groq?label=%20)](https://pypi.org/project/langchain-groq/#history)
 [![PyPI - License](https://img.shields.io/pypi/l/langchain-groq)](https://opensource.org/licenses/MIT)
 [![PyPI - Downloads](https://img.shields.io/pepy/dt/langchain-groq)](https://pypistats.org/packages/langchain-groq)
-[![Twitter](https://img.shields.io/twitter/url/https/twitter.com/langchain.svg?style=social&label=Follow%20%40LangChain)](https://x.com/langchain)
+[![Twitter](https://img.shields.io/twitter/url/https/twitter.com/langchain_oss.svg?style=social&label=Follow%20%40LangChain)](https://x.com/langchain_oss)
 
 Looking for the JS/TS version? Check out [LangChain.js](https://github.com/langchain-ai/langchainjs).
 

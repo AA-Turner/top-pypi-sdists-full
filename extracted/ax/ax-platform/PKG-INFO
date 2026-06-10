@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ax-platform
-Version: 1.3.0
+Version: 1.3.1
 Summary: Adaptive Experimentation
 Author: Meta Platforms, Inc.
 License-Expression: MIT
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: botorch[pymoo]<0.18.1dev9999,>=0.18.0
+Requires-Dist: botorch[pymoo]<0.18.2dev9999,>=0.18.1
 Requires-Dist: jinja2
 Requires-Dist: pandas
 Requires-Dist: scipy
@@ -40,13 +40,15 @@ Provides-Extra: mysql
 Requires-Dist: SQLAlchemy==1.4.17; extra == "mysql"
 Provides-Extra: notebook
 Requires-Dist: jupyter; extra == "notebook"
+Provides-Extra: fully-bayesian
+Requires-Dist: botorch[fully_bayesian]; extra == "fully-bayesian"
 Provides-Extra: unittest-minimal
 Requires-Dist: tensorboard>=2.18.0; extra == "unittest-minimal"
 Requires-Dist: torchx>=0.2.0; extra == "unittest-minimal"
 Requires-Dist: pyarrow; extra == "unittest-minimal"
 Requires-Dist: xgboost>=3.0.2; extra == "unittest-minimal"
 Provides-Extra: unittest
-Requires-Dist: ax-platform[dev,mysql,notebook,unittest_minimal]; extra == "unittest"
+Requires-Dist: ax-platform[dev,fully_bayesian,mysql,notebook,unittest_minimal]; extra == "unittest"
 Provides-Extra: tutorial
 Requires-Dist: ax-platform[unittest]; extra == "tutorial"
 Requires-Dist: matplotlib; extra == "tutorial"
@@ -171,6 +173,14 @@ pip install "ax-platform[notebook]"
 Extras for using Ax with MySQL storage (`mysql`), for running Ax's tutorial's
 locally (`tutorials`), and for installing all dependencies necessary for
 developing Ax (`dev`) are also available.
+
+To use fully Bayesian (SAAS) models -- e.g. `SAASBO` / `SAAS_MTGP`, or the API's
+`method="quality"` generation strategy -- install the `fully_bayesian` extra,
+which pulls in the optional JAX / NumPyro backend:
+
+```shell
+pip install "ax-platform[fully_bayesian]"
+```
 
 ## Install Ax from source
 

@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from typing import IO, Any
 
@@ -74,7 +75,6 @@ class SerialQuirk(str, enum.Enum):
     NO_BUFFER_CONTROL = "no-buffer-control"
     NO_PAUSE_WRITING_CALLBACKS = "no-pause-writing-callbacks"
     NO_EXCLUSIVITY = "no-exclusivity"
-    NO_UNPLUG = "no-unplug"
 
 
 SERIAL_PAIR_DEFAULT_QUIRKS: dict[SerialBackend, frozenset[SerialQuirk]] = {
@@ -115,7 +115,6 @@ SERIAL_PAIR_DEFAULT_QUIRKS: dict[SerialBackend, frozenset[SerialQuirk]] = {
             SerialQuirk.NO_DTR_DSR,
             SerialQuirk.NO_RTS_CTS,
             SerialQuirk.NO_EXCLUSIVITY,
-            SerialQuirk.NO_UNPLUG,
         }
     ),
     SerialBackend.RFC2217: frozenset(
@@ -130,11 +129,7 @@ SERIAL_PAIR_DEFAULT_QUIRKS: dict[SerialBackend, frozenset[SerialQuirk]] = {
     ),
     SerialBackend.SER2NET: frozenset({}),
     SerialBackend.HUB4COM: frozenset({}),
-    SerialBackend.ADAPTER: frozenset(
-        {
-            SerialQuirk.NO_UNPLUG,
-        }
-    ),
+    SerialBackend.ADAPTER: frozenset(),
     SerialBackend.PYODIDE: frozenset(
         {
             # Web Serial reports *input* signals only; output signals (RTS/DTR/BRK)
@@ -148,7 +143,6 @@ SERIAL_PAIR_DEFAULT_QUIRKS: dict[SerialBackend, frozenset[SerialQuirk]] = {
             SerialQuirk.NO_BUFFER_CONTROL,
             SerialQuirk.NO_WRITE_LIMITS,
             SerialQuirk.NO_EXCLUSIVITY,
-            SerialQuirk.NO_UNPLUG,
         }
     ),
 }
@@ -202,8 +196,9 @@ class SerialPair(UnresolvedSerialPair):
 
     uri_scheme: str
 
-    unplug_left: Callable[[], None] | None = None
-    unplug_right: Callable[[], None] | None = None
+    # Drop the left connection; None when the backend can't produce that flavor.
+    unplug_left_graceful: Callable[[], None] | None = None
+    unplug_left_abrupt: Callable[[], None] | None = None
 
 
 def _snapshot_fds() -> set[int]:
@@ -224,7 +219,6 @@ def _snapshot_fds() -> set[int]:
 def check_fd_leaks() -> Iterator[None]:
     """Fail if any file descriptor is opened in this block without being closed."""
     before = _snapshot_fds()
-
     try:
         yield
     finally:
@@ -321,7 +315,10 @@ def create_adapter_pair(left: str, right: str) -> Iterator[tuple[str, str]]:
                                         f.fd,
                                         proc.info["cmdline"],
                                     )
-                        except (psutil.NoSuchProcess, psutil.AccessDenied):  # noqa: PERF203
+                        except (  # noqa: PERF203
+                            psutil.NoSuchProcess,
+                            psutil.AccessDenied,
+                        ):
                             pass
 
                     # Check our own process
@@ -384,7 +381,7 @@ def create_esphome_pair(
 
 @contextlib.contextmanager
 def create_socat_pair() -> Iterator[
-    tuple[str, str, Callable[[], None], Callable[[], None]]
+    tuple[str, str, Callable[[], None] | None, Callable[[], None] | None]
 ]:
     """Create a bridged pair of virtual PTYs using two socat processes.
 
@@ -440,11 +437,13 @@ def create_socat_pair() -> Iterator[
             proc.wait()
 
         try:
+            # Killing socat tears down the PTY; the client read hangs up with
+            # EIO, an inherently abrupt disconnect. There is no clean-FIN form.
             yield (
                 left_tty,
                 right_tty,
+                None,
                 lambda: _kill(left_proc),
-                lambda: _kill(right_proc),
             )
         finally:
             for proc in (left_proc, right_proc):
@@ -510,7 +509,7 @@ async def async_create_socat_pair() -> AsyncIterator[tuple[str, str]]:
 @contextlib.contextmanager
 def create_ser2net_pair(
     left_adapter: str, right_adapter: str
-) -> Iterator[tuple[str, str, Callable[[], None], Callable[[], None]]]:
+) -> Iterator[tuple[str, str, Callable[[], None] | None, Callable[[], None] | None]]:
     """Create a pair of independent RFC2217 sockets using ser2net."""
 
     # fmt: off
@@ -554,12 +553,13 @@ def create_ser2net_pair(
 
         left, right = _get_listening_ports(proc.pid)
 
-        # ser2net serves both adapters from one process
+        # ser2net serves both adapters from one process. Killing it closes the
+        # client socket with a graceful FIN; there is no abrupt-reset form.
         yield (
             f"rfc2217://127.0.0.1:{left}",
             f"rfc2217://127.0.0.1:{right}",
             _kill,
-            _kill,
+            None,
         )
     finally:
         if proc.returncode is None:
@@ -593,6 +593,7 @@ def create_hub4com_pair(
     ]
 
     procs = []
+    drain_threads: list[threading.Thread] = []
 
     try:
         for adapter in (left_adapter, right_adapter):
@@ -618,6 +619,16 @@ def create_hub4com_pair(
                 name="hub4com",
             )
 
+        # Drain hub4com's stdout/stderr. Otherwise the OS pipe buffers fill after a
+        # handful of sessions and hub4com blocks.
+        for proc in procs:
+            for stream in (proc.stdout, proc.stderr):
+                t = threading.Thread(
+                    target=lambda s=stream: list(iter(s.readline, b"")),
+                )
+                t.start()
+                drain_threads.append(t)
+
         left, right = [_get_listening_ports(proc.pid)[0] for proc in procs]
 
         yield (
@@ -629,6 +640,9 @@ def create_hub4com_pair(
             if proc.returncode is None:
                 proc.terminate()
                 proc.wait()
+
+        for t in drain_threads:
+            t.join()
 
 
 @contextlib.asynccontextmanager

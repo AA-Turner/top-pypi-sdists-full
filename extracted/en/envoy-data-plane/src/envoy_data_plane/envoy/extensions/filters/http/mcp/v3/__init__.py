@@ -5,17 +5,74 @@
 
 __all__ = (
     "Mcp",
+    "McpBaggagePropagationConfig",
     "McpOverride",
+    "McpRequestStorageMode",
+    "McpTraceContextPropagationConfig",
+    "McpTrafficMode",
+    "ParserConfig",
+    "ParserConfigAttributeExtractionRule",
+    "ParserConfigMethodConfig",
 )
 
+import typing
 
 import betterproto2
+import pydantic
 from pydantic.dataclasses import dataclass
 
 from .......message_pool import default_message_pool
 
 _COMPILER_VERSION = "0.9.0"
 betterproto2.check_compiler_version(_COMPILER_VERSION)
+
+
+class McpRequestStorageMode(betterproto2.Enum):
+    """
+    Where to store parsed MCP request attributes.
+    """
+
+    MODE_UNSPECIFIED = 0
+    """
+    Unspecified. Uses default behavior (same as DYNAMIC_METADATA).
+    """
+
+    DYNAMIC_METADATA = 1
+    """
+    Store request attributes in dynamic metadata only.
+    This is the default behavior.
+    """
+
+    FILTER_STATE = 2
+    """
+    Store request attributes in filter state only.
+    """
+
+    DYNAMIC_METADATA_AND_FILTER_STATE = 3
+    """
+    Store request attributes in both dynamic metadata and filter state.
+    """
+
+
+class McpTrafficMode(betterproto2.Enum):
+    """
+    Traffic handling mode for non-MCP traffic.
+    """
+
+    PASS_THROUGH = 0
+    """
+    Proxies the HTTP request and response without MCP spec check.
+    This is the default mode.
+    """
+
+    REJECT_NO_MCP = 1
+    """
+    Reject requests that are not following MCP spec.
+    Valid MCP requests are:
+    - POST requests with JSON-RPC 2.0 messages
+    - GET requests for SSE streams (with Accept: text/event-stream)
+    - DELETE requests for session termination (with MCP-Session-Id header)
+    """
 
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
@@ -25,10 +82,85 @@ class Mcp(betterproto2.Message):
     MCP filter :ref:`configuration overview <config_http_filters_mcp>`.
     [#extension: envoy.filters.http.mcp]
 
-    TODO: Add configuration fields
+    This filter will inspect and get attributes from MCP traffic.
+    [#next-free-field: 8]
     """
 
-    pass
+    traffic_mode: "McpTrafficMode" = betterproto2.field(
+        1, betterproto2.TYPE_ENUM, default_factory=lambda: McpTrafficMode(0)
+    )
+    """
+    Configures how the filter handles non-MCP traffic.
+    """
+
+    clear_route_cache: "bool" = betterproto2.field(2, betterproto2.TYPE_BOOL)
+    """
+    When set to true, the filter will clear the route cache after setting dynamic metadata.
+    This allows the route to be re-selected based on the MCP metadata (e.g., method, params).
+    Defaults to false.
+    """
+
+    max_request_body_size: "int | None" = betterproto2.field(
+        3,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ______google__protobuf__.UInt32Value,
+        optional=True,
+    )
+    """
+    Maximum size of the request body to buffer for JSON-RPC validation.
+    If the request body exceeds this size, the request is rejected with ``413 Payload Too Large``.
+    This limit applies to both ``REJECT_NO_MCP`` and ``PASS_THROUGH`` modes to prevent unbounded buffering.
+
+    It defaults to 8KB (8192 bytes) and the maximum allowed value is 10MB (10485760 bytes).
+
+    Setting it to 0 would disable the limit. It is not recommended to do so in production.
+    """
+
+    parser_config: "ParserConfig | None" = betterproto2.field(
+        4, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Parser configuration, this provide the attribute extraction override.
+    """
+
+    request_storage_mode: "McpRequestStorageMode" = betterproto2.field(
+        5, betterproto2.TYPE_ENUM, default_factory=lambda: McpRequestStorageMode(0)
+    )
+    """
+    Where to store parsed MCP request attributes.
+    Controls whether attributes are written to dynamic metadata, filter state, or both.
+    Default is DYNAMIC_METADATA when unspecified.
+    """
+
+    propagate_trace_context: "McpTraceContextPropagationConfig | None" = (
+        betterproto2.field(6, betterproto2.TYPE_MESSAGE, optional=True)
+    )
+    """
+    If set, extract and validate W3C trace context from the MCP request body
+    (params._meta.traceparent & params._meta.tracestate) and propagate it in HTTP headers
+    ``traceparent`` and ``tracestate`` (respectively).
+
+    The traceparent and tracestate fields are validated and propagated according to the spec at
+    ``https://www.w3.org/TR/trace-context/``.
+
+    If unset (default), do not extract or inject trace context.
+    """
+
+    propagate_baggage: "McpBaggagePropagationConfig | None" = betterproto2.field(
+        7, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    If set, extract and validate W3C baggage from the MCP request body (params._meta.baggage) and
+    copy it to the HTTP header ``baggage``.
+
+    The baggage field is validated according to the spec at ``https://www.w3.org/TR/baggage/``.
+
+    Note that this is independent of ``propagate_trace_context``.
+    Also note that if this is set, the downstream request's baggage header will be overwritten if
+    the MCP request body contains a valid baggage field.
+
+    If unset (default), do not extract or inject baggage.
+    """
 
 
 default_message_pool.register_message(
@@ -37,16 +169,151 @@ default_message_pool.register_message(
 
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class McpBaggagePropagationConfig(betterproto2.Message):
+    pass
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.mcp.v3",
+    "Mcp.BaggagePropagationConfig",
+    McpBaggagePropagationConfig,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class McpTraceContextPropagationConfig(betterproto2.Message):
+    pass
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.mcp.v3",
+    "Mcp.TraceContextPropagationConfig",
+    McpTraceContextPropagationConfig,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class McpOverride(betterproto2.Message):
     """
-    McpOverride for MCP filter
-
-    TODO: Add configuration fields
+    Per-route override configuration for MCP filter
     """
 
-    pass
+    traffic_mode: "McpTrafficMode" = betterproto2.field(
+        1, betterproto2.TYPE_ENUM, default_factory=lambda: McpTrafficMode(0)
+    )
+    """
+    Optional per-route traffic mode override
+    """
+
+    max_request_body_size: "int | None" = betterproto2.field(
+        2,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ______google__protobuf__.UInt32Value,
+        optional=True,
+    )
+    """
+    Optional per-route max request body size override.
+    When set, this overrides the global max_request_body_size for this route.
+    It defaults to 8KB (8192 bytes) and the maximum allowed value is 10MB (10485760 bytes).
+    """
 
 
 default_message_pool.register_message(
     "envoy.extensions.filters.http.mcp.v3", "McpOverride", McpOverride
 )
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class ParserConfig(betterproto2.Message):
+    """
+    Parser configuration with method-specific rules.
+    This configuration allows overriding the default attribute extraction behavior for specific MCP methods.
+    """
+
+    methods: "list[ParserConfigMethodConfig]" = betterproto2.field(
+        1, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+    """
+    List of rules for classification and extraction.
+    Rules are evaluated in order; the first match wins.
+    If no rule matches, extraction defaults are used and group falls back to built-in classification.
+    Built-in groups: lifecycle, tool, resource, prompt, notification, logging, sampling, completion, unknown.
+    """
+
+    group_metadata_key: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        2, betterproto2.TYPE_STRING
+    )
+    """
+    The dynamic metadata key where the group name will be stored.
+    If empty, group classification is disabled.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.mcp.v3", "ParserConfig", ParserConfig
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class ParserConfigAttributeExtractionRule(betterproto2.Message):
+    """
+    A single attribute extraction rule.
+    """
+
+    path: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        1, betterproto2.TYPE_STRING
+    )
+    """
+    JSON path to extract (e.g., "params.name", "params.uri").
+    The path is a dot-separated string representing the location of the field in the JSON payload.
+    For example, "params.name" extracts the "name" field from the "params" object.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.mcp.v3",
+    "ParserConfig.AttributeExtractionRule",
+    ParserConfigAttributeExtractionRule,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class ParserConfigMethodConfig(betterproto2.Message):
+    """
+    Configuration for a specific MCP method.
+    """
+
+    method: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        1, betterproto2.TYPE_STRING
+    )
+    """
+    Method name (e.g., "tools/call", "resources/read", "initialize").
+    This matches the "method" field in the JSON-RPC request.
+    """
+
+    group: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        2, betterproto2.TYPE_STRING
+    )
+    """
+    The group/category name to assign to this method (e.g., "tool", "lifecycle").
+    This will be emitted to dynamic metadata under the key specified by group_metadata_key.
+    If empty, the built-in group classification is used.
+    """
+
+    extraction_rules: "list[ParserConfigAttributeExtractionRule]" = betterproto2.field(
+        3, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+    """
+    Attributes to extract for this method.
+    If empty, only default attributes (jsonrpc, method) are extracted.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.mcp.v3",
+    "ParserConfig.MethodConfig",
+    ParserConfigMethodConfig,
+)
+
+
+from .......google import protobuf as ______google__protobuf__

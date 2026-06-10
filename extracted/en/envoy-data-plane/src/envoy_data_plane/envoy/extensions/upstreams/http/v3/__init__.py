@@ -69,7 +69,7 @@ class HttpProtocolOptions(betterproto2.Message):
                 http2_protocol_options:
                   max_concurrent_streams: 100
            .... [further cluster config]
-    [#next-free-field: 9]
+    [#next-free-field: 12]
 
     Oneofs:
         - upstream_protocol_options: This controls the actual protocol to be used upstream.
@@ -153,6 +153,52 @@ class HttpProtocolOptions(betterproto2.Message):
     )
     """
     Defines http specific outlier detection parameters.
+    """
+
+    request_mirror_policies: "list[____config__route__v3__.RouteActionRequestMirrorPolicy]" = betterproto2.field(
+        9, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+    """
+    Specifies a list of HTTP-level mirroring policies for requests routed to this cluster.
+    Cluster-level policies override route-level policies when they both are configured.
+
+    .. note::
+
+      Mirroring will not be triggered if the :ref:`primary cluster
+      <envoy_v3_api_field_config.route.v3.RouteAction.cluster>` does not exist.
+    """
+
+    hash_policy: "list[____config__route__v3__.RouteActionHashPolicy]" = (
+        betterproto2.field(10, betterproto2.TYPE_MESSAGE, repeated=True)
+    )
+    """
+    Specifies a list of hash policies for consistent hashing load balancing (e.g., Ring Hash or
+    Maglev) for requests routed to this cluster. When configured, cluster-level policies override
+    route-level policies. When not configured, route-level policies (if any) will be used.
+
+    This enables consistent routing to the same upstream host for all requests to a cluster,
+    which is particularly useful for stateful services like caching, session management, or
+    sticky routing requirements.
+
+    .. note::
+
+      Hash policies are only effective when the cluster is configured with a hash-based load
+      balancing policy (e.g., :ref:`RING_HASH <envoy_v3_api_enum_value_config.cluster.v3.Cluster.LbPolicy.RING_HASH>`
+      or :ref:`MAGLEV <envoy_v3_api_enum_value_config.cluster.v3.Cluster.LbPolicy.MAGLEV>`).
+    """
+
+    retry_policy: "____config__route__v3__.RetryPolicy | None" = betterproto2.field(
+        11, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Specifies the retry policy for requests routed to this cluster. When configured,
+    cluster-level retry policy overrides route-level retry policy. When not configured,
+    route-level retry policy (if any) will be used.
+
+    .. note::
+
+      Cluster-level retry policy will override route-level retry policy entirely. Policies are
+      not merged.
     """
 
     @model_validator(mode="after")
@@ -323,6 +369,7 @@ default_message_pool.register_message(
 
 from .....config.common.matcher import v3 as ____config__common__matcher__v3__
 from .....config.core import v3 as ____config__core__v3__
+from .....config.route import v3 as ____config__route__v3__
 from ....filters.network.http_connection_manager import (
     v3 as ___filters__network__http_connection_manager__v3__,
 )

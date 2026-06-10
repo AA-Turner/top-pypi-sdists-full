@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 1999-2024 Alibaba Group Holding Ltd.
+# Copyright 1999-2026 Alibaba Group Holding Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 # limitations under the License.
 
 
-class ProtoWireConstants(object):
+class ProtoWireConstants:
     TUNNEL_META_COUNT = 33554430
     TUNNEL_META_CHECKSUM = 33554431
     TUNNEL_END_RECORD = 33553408

@@ -347,18 +347,27 @@ class HyV3Template(Template):
         if self.reasoning_effort is None:
             self.reasoning_effort = 'high' if self.enable_thinking else 'no_think'
         self.enable_thinking = self.reasoning_effort != 'no_think'
-        self.chat_template_kwargs = {'reasoning_effort': self.reasoning_effort}
+        self.chat_template_kwargs['reasoning_effort'] = self.reasoning_effort
+
+    def _get_enable_thinking(self, inputs=None):
+        reasoning_effort = None if inputs is None else inputs.chat_template_kwargs.get('reasoning_effort')
+        if reasoning_effort is not None:
+            return reasoning_effort != 'no_think'
+        return super()._get_enable_thinking(inputs)
 
     def _get_system(self, inputs):
         system = super()._get_system(inputs)
+        reasoning_effort = inputs.chat_template_kwargs.get('reasoning_effort')
+        if reasoning_effort is None:
+            reasoning_effort = self.reasoning_effort
         if inputs.tools:
             # For tool calls, append reasoning_mode after </tool_calls> in the tool instruction
             system = system.replace(
                 'you should print </tool_calls>',
-                f'you should print </tool_calls><｜reasoning_mode｜>reasoning_effort:{self.reasoning_effort}')
+                f'you should print </tool_calls><｜reasoning_mode｜>reasoning_effort:{reasoning_effort}')
         else:
             # For non-tool calls, append reasoning_mode to the system/prefix area
-            mode_str = f'<｜reasoning_mode｜>reasoning_effort:{self.reasoning_effort}'
+            mode_str = f'<｜reasoning_mode｜>reasoning_effort:{reasoning_effort}'
             system = (system or '') + mode_str
         return system
 
@@ -484,8 +493,6 @@ class YoutuLLMTemplate(Template):
                     break
 
     def _remove_history_thinking(self, inputs) -> None:
-        if self.is_training and self.loss_scale.base_strategy != 'last_round':
-            return
         messages = inputs.messages
         first_tool_index = len(messages)
         for i, message in enumerate(messages):

@@ -1,10 +1,13 @@
 """Static checks for shipped macOS LaunchAgent / LaunchDaemon plists.
 
-Both gated plists must short-circuit silently on scan-only fleets (no
-MDM-pushed EnrollmentKey) so they don't spam `log stream`. Implementation:
-``/bin/sh -c '...defaults read ... || exit 0; exec /usr/local/bin/aiwatch
-"$@"' -- <args>`` so ``defaults read`` failure cleanly exits 0 (no
-``KeepAlive`` retry on the bootstrap daemon).
+Both gated plists must short-circuit silently on unconfigured fleets so they
+don't spam `log stream`. Implementation: ``/bin/sh -c '...defaults read ...
+|| exit 0; exec /usr/local/bin/aiwatch "$@"' -- <args>`` so ``defaults read``
+failure cleanly exits 0 (no ``KeepAlive`` retry on the bootstrap daemon).
+
+The gate key differs per plist: the bootstrap daemon gates on ``OrgApiKey``
+(the single AI Watch key — hooks authenticate with it directly), while the
+legacy enroll agent still gates on ``EnrollmentKey``.
 
 The bootstrap daemon additionally has ``KeepAlive(SuccessfulExit=false)`` +
 ``ThrottleInterval=60`` for the bounded install-window fast-retry; see
@@ -23,10 +26,12 @@ _PACKAGING_MACOS = Path(__file__).parent.parent / "packaging" / "macos"
 _BOOTSTRAP_PLIST = "com.runlayer.aiwatch.bootstrap.plist"
 _ENROLL_PLIST = "com.runlayer.aiwatch.enroll.plist"
 
-_GATED_PLISTS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    (_ENROLL_PLIST, ("enroll",)),
+# (plist, gate key, expected aiwatch args)
+_GATED_PLISTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    (_ENROLL_PLIST, "EnrollmentKey", ("enroll",)),
     (
         _BOOTSTRAP_PLIST,
+        "OrgApiKey",
         ("setup", "hooks", "install", "--mdm"),
     ),
 )
@@ -37,9 +42,11 @@ def _load_plist(name: str) -> dict:
         return plistlib.load(f)
 
 
-@pytest.mark.parametrize(("plist_name", "expected_aiwatch_args"), _GATED_PLISTS)
-def test_plist_gates_on_enrollment_key(
-    plist_name: str, expected_aiwatch_args: tuple[str, ...]
+@pytest.mark.parametrize(
+    ("plist_name", "gate_key", "expected_aiwatch_args"), _GATED_PLISTS
+)
+def test_plist_gates_on_managed_key(
+    plist_name: str, gate_key: str, expected_aiwatch_args: tuple[str, ...]
 ) -> None:
     data = _load_plist(plist_name)
 
@@ -51,10 +58,10 @@ def test_plist_gates_on_enrollment_key(
     gate = args[2]
     assert "/usr/bin/defaults read" in gate
     assert '"/Library/Managed Preferences/com.runlayer.aiwatch"' in gate
-    assert "EnrollmentKey" in gate
+    assert gate_key in gate
     assert "|| exit 0" in gate, (
         "gate must exit 0 (not propagate `defaults read` failure) so the "
-        "bootstrap daemon's KeepAlive doesn't loop on scan-only fleets"
+        "bootstrap daemon's KeepAlive doesn't loop on unconfigured fleets"
     )
     assert "exec /usr/local/bin/aiwatch" in gate
     assert '"$@"' in gate, "gate must forward trailing args to aiwatch"
@@ -63,9 +70,9 @@ def test_plist_gates_on_enrollment_key(
     assert tuple(args[4:]) == expected_aiwatch_args
 
 
-@pytest.mark.parametrize(("plist_name", "_args"), _GATED_PLISTS)
+@pytest.mark.parametrize(("plist_name", "_gate_key", "_args"), _GATED_PLISTS)
 def test_plist_keeps_run_at_load_and_hourly_reassert(
-    plist_name: str, _args: tuple[str, ...]
+    plist_name: str, _gate_key: str, _args: tuple[str, ...]
 ) -> None:
     """Gate must not regress the existing scheduling contract."""
     data = _load_plist(plist_name)

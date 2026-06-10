@@ -96,7 +96,8 @@ import os
 import re
 import typing
 import warnings
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 from google.protobuf.empty_pb2 import Empty
 
@@ -121,7 +122,7 @@ def _is_remote() -> bool:
     return os.environ.get("MODAL_IS_REMOTE") == "1"
 
 
-def _agent_environment() -> Optional[str]:
+def _agent_environment() -> str | None:
     """Detect if the current process is running inside an AI agent harness.
 
     Returns the agent name if detected, or None otherwise.
@@ -186,7 +187,11 @@ async def _lookup_workspace(server_url: str, token_id: str, token_secret: str) -
 
 
 def config_profiles():
-    """List the available modal profiles in the .modal.toml file."""
+    """List the available Modal profiles in the ``.modal.toml`` file.
+
+    Returns:
+        Profile section names present in the configuration file.
+    """
     return _user_config.keys()
 
 
@@ -199,7 +204,11 @@ def _config_active_profile() -> str:
 
 
 def config_set_active_profile(profile: str) -> None:
-    """Set the user's active modal profile by writing it to the `.modal.toml` file."""
+    """Set the user's active Modal profile by writing it to the ``.modal.toml`` file.
+
+    Args:
+        profile: Name of an existing profile section to mark as active.
+    """
     if profile not in _user_config:
         raise NotFoundError(f"No profile named '{profile}' found in {user_config_path}")
 
@@ -303,12 +312,21 @@ class Config:
         pass
 
     def get(self, key, profile=None, use_env=True):
-        """Looks up a configuration value.
+        """Look up a configuration value.
 
-        Will check (in decreasing order of priority):
-        1. Any environment variable of the form MODAL_FOO_BAR (when use_env is True)
-        2. Settings in the user's .toml configuration file
-        3. The default value of the setting
+        Resolution order (highest priority first):
+
+        1. Environment variable ``MODAL_<KEY>`` (underscore-separated, uppercased), when ``use_env`` is True.
+        2. The named profile in ``.modal.toml``.
+        3. The built-in default for that setting.
+
+        Args:
+            key: Setting name (for example ``"loglevel"`` or ``"server_url"``); see the ``modal.config`` module docs.
+            profile: Profile section to read from the TOML file; defaults to the active profile.
+            use_env: When False, skip environment variables and read only from the file or defaults.
+
+        Returns:
+            The transformed configuration value (type depends on the setting).
         """
         if profile is None:
             profile = _profile
@@ -362,8 +380,8 @@ configure_logger(logger, config["loglevel"], config["log_format"])
 
 def _store_user_config(
     new_settings: dict[str, Any],
-    profile: Optional[str] = None,
-    active_profile: Optional[str] = None,
+    profile: str | None = None,
+    active_profile: str | None = None,
 ):
     """Internal method, used by the CLI to set tokens."""
     if profile is None:

@@ -22,10 +22,12 @@ from openai.types.responses import (
     ResponseFunctionWebSearch,
 )
 
+from agency_swarm.agent.codex_model_input import with_codex_model_input_role_rewrite
 from agency_swarm.agent.context_types import AgentRuntimeState
 from agency_swarm.context import MasterContext
 from agency_swarm.messages import MessageFormatter
 from agency_swarm.tools.mcp_manager import default_mcp_manager
+from agency_swarm.tools.send_message import Handoff
 
 from .execution_guardrails import append_guardrail_feedback, extract_guardrail_texts
 
@@ -42,6 +44,14 @@ Streaming helpers moved to execution_streaming.py.
 
 
 TRACE_REGEX = re.compile(r"^trace_[a-f0-9]{32}$")
+
+
+def _handoff_identity(handoff: Any) -> tuple[Any, Any, Any]:
+    return (
+        getattr(handoff, "agent_name", None),
+        getattr(handoff, "tool_name", None),
+        getattr(handoff, "_agency_swarm_tool_class", Handoff),
+    )
 
 
 async def perform_single_run(
@@ -73,7 +83,7 @@ async def perform_single_run(
             input=history_for_runner,
             context=master_context_for_run,
             hooks=hooks_override,
-            run_config=run_config_override or RunConfig(),
+            run_config=with_codex_model_input_role_rewrite(run_config_override or RunConfig()),
             max_turns=kwargs.get("max_turns", 1000000),
         )
     return result
@@ -381,8 +391,8 @@ def setup_execution(
         agent._handoffs_restore = original_handoffs  # type: ignore[attr-defined]
 
     if runtime_state and getattr(runtime_state, "handoffs", None):
-        existing = {getattr(h, "agent_name", None) for h in original_handoffs}
-        additional = [h for h in runtime_state.handoffs if getattr(h, "agent_name", None) not in existing]
+        existing = {_handoff_identity(h) for h in original_handoffs}
+        additional = [h for h in runtime_state.handoffs if _handoff_identity(h) not in existing]
         agent.handoffs = original_handoffs + additional
 
     # Log the conversation context

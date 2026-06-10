@@ -1,20 +1,27 @@
 [project]
 name = "lean-lsp-mcp"
-version = "0.26.2"
+version = "0.27.0"
 description = "Lean Theorem Prover MCP"
 authors = [{ name = "Oliver Dressler", email = "hey@oli.show" }]
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
-dependencies = ["leanclient==0.10.0", "mcp[cli]==1.27.0", "orjson>=3.11.1", "certifi>=2024.0.0"]
+dependencies = ["leanclient==0.11.0", "mcp[cli]==1.27.2", "orjson>=3.11.1", "certifi>=2024.0.0"]
 
 [project.urls]
 Repository = "https://github.com/oOo0oOo/lean-lsp-mcp"
 
 [project.optional-dependencies]
 yaml = ["PyYAML>=6.0"]
-lint = ["ruff>=0.2.0"]
-dev = ["ruff>=0.2.0", "pytest>=8.3", "anyio>=4.12.1", "pytest-asyncio>=0.23", "pytest-timeout>=2.3"]
+lint = ["ruff>=0.2.0", "ty>=0.0.46"]
+dev = ["ruff>=0.2.0", "ty>=0.0.46", "pytest>=8.3", "anyio>=4.12.1", "pytest-asyncio>=0.23", "pytest-timeout>=2.3"]
+
+[tool.ty.environment]
+python-version = "3.10"
+
+[tool.ty.src]
+# The MCP server package; tests are mock-heavy and intentionally not type-checked.
+include = ["src"]
 
 [tool.ruff]
 exclude = [
@@ -27,8 +34,10 @@ asyncio_mode = "auto"
 markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
 
 [tool.setuptools]
-packages = ["lean_lsp_mcp"]
 package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [build-system]
 requires = ["setuptools>=61.0"]

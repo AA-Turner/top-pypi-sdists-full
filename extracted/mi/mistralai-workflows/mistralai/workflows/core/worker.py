@@ -410,6 +410,55 @@ def _create_temporal_workers(
     return workers
 
 
+_GRAPH_PAYLOAD_VERSION = 3
+
+
+async def _upload_workflow_graphs(
+    refs: list[WorkflowRegistrationRef],
+    classes: list[ClassType],
+    client: PrivateWorkerClient,
+) -> None:
+    # Deferred import: _graph pulls in ast/inspect/textwrap at module level, adding startup
+    # cost to every worker process even when graph upload is disabled. Keep it lazy here.
+    from mistralai.workflows.core._graph import build_graph
+
+    base_url = client.sdk_configuration.server_url.rstrip("/")
+    http_client = client.sdk_configuration.async_client
+    if http_client is None:
+        logger.warning("Worker HTTP client unavailable, skipping graph upload")
+        return
+
+    async def _upload_one(ref: WorkflowRegistrationRef, cls: ClassType) -> None:
+        graph_data = None
+        error: str | None = None
+        try:
+            graph_data = await asyncio.to_thread(build_graph, cls)
+        except Exception as exc:
+            error = str(exc) or type(exc).__name__
+            logger.warning(
+                "Failed to build workflow graph", workflow=cls.__name__, **extract_error_context(exc), exc_info=exc
+            )
+
+        payload = {
+            "workflow_registration_id": str(ref.workflow_registration_id),
+            "version": _GRAPH_PAYLOAD_VERSION,
+            "graph_data": graph_data,
+            "error": error,
+        }
+
+        try:
+            url = f"{base_url}/v1/workflows/{ref.workflow_id}/graphs"
+            request = http_client.build_request("POST", url, json=payload)
+            response = await http_client.send(request)
+            response.raise_for_status()
+        except Exception as exc:
+            logger.warning(
+                "Failed to upload workflow graph", workflow=cls.__name__, **extract_error_context(exc), exc_info=exc
+            )
+
+    await asyncio.gather(*[_upload_one(ref, cls) for ref, cls in zip(refs, classes)])
+
+
 async def _run_worker(workflows: List[ClassType]) -> None:
     try:
         config.validate_for_worker_startup()
@@ -524,6 +573,22 @@ async def _run_worker(workflows: List[ClassType]) -> None:
                 "Some workflows are already registered by another worker. "
                 "Please use a custom task queue or set `ALLOW_MULTIPLE_WORKERS` to True"
             )
+        if config.worker.upload_graph:
+            # Refs are returned in submission order; ParallelExecutionWorkflow
+            # is always appended last, so [:len(workflows)] excludes it.
+            refs = response.workflow_registration_refs
+            if len(refs) >= len(workflows):
+                await _upload_workflow_graphs(
+                    refs=refs[: len(workflows)],
+                    classes=workflows,
+                    client=worker_client,
+                )
+            else:
+                logger.warning(
+                    "Fewer registration refs than workflows; skipping graph upload",
+                    expected=len(workflows),
+                    got=len(refs),
+                )
         async with (
             worker_client,
             asyncio.TaskGroup() as tg,

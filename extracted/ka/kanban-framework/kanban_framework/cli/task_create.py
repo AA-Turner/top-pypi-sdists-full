@@ -146,8 +146,8 @@ def cmd_create(args: list[str]) -> dict:
     _log = logging.getLogger("kanban")
     _log.info("create: task=%s mode=%s", task.id, task_mode)
 
-    if task_mode == "quick":
-        qr = ai.get("quick_requires") or {}
+    qr = ai.get("quick_requires") or {}
+    if qr:
         scope_note = (
             f"\n\n[Quick Scope] change_type={qr.get('change_type') or 'fix'}, "
             f"expected_lines≤{qr.get('expected_lines', 10)}"

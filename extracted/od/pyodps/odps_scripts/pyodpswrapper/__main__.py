@@ -35,16 +35,30 @@ from .compat import patch_compat
 from .diagnose import diagnose_exit_code
 from .envs import *
 from .headers import config_with_headers, use_spawn_method
-from .mars_support import create_mars_cluster, create_sign_server
 from .resource import run_load_resource_command
 from .runner import run_code
 from .utils import import_all_sub_modules, is_limit_exceeded, kill_process_tree
+
+try:
+    from .mars_support import create_mars_cluster, create_sign_server
+
+    _mars_support_available = True
+except ImportError:
+    _mars_support_available = False
+    create_mars_cluster = None
+
+    def create_sign_server(*args, **kwargs):
+        from odps.accounts import SignServer
+
+        return SignServer(*args, **kwargs)
+
 
 logger = logging.getLogger("odps.pyodpswrapper")
 
 DEFAULT_SHARED_MEM_LIMIT = "8g"
 
 _ak_encrypt_key = None
+_ak_encrypt_key_lock = threading.RLock()
 
 
 def _decrypt_ak(key):
@@ -53,7 +67,9 @@ def _decrypt_ak(key):
     global _ak_encrypt_key
 
     if _ak_encrypt_key is None:
-        _ak_encrypt_key = os.environ.pop(ACCESS_KEY_ENCRYPT_KEY, None)
+        with _ak_encrypt_key_lock:
+            if _ak_encrypt_key is None:
+                _ak_encrypt_key = os.environ.pop(ACCESS_KEY_ENCRYPT_KEY, None)
     k = des(_ak_encrypt_key, ECB, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
     return k.decrypt(binascii.a2b_hex(key))
 
@@ -86,7 +102,10 @@ def call_in_process(args, odps):
         mem_limit = DEFAULT_SHARED_MEM_LIMIT
 
     if mem_limit:
-        print("Execution memory is limited to %s" % mem_limit)
+        print(f"Execution memory is limited to {mem_limit}")
+
+    # Use threading.Event for thread-safe signaling
+    _shutdown_event = threading.Event()
 
     try:
         os.environ[PICKLE_ACCOUNT] = "true"
@@ -105,14 +124,8 @@ def call_in_process(args, odps):
         paths = None
 
         def handle_kill(signum, frame):
-            print("Try to terminate process")
-            if p.is_alive():
-                kill_process_tree(p.pid, signum)
-            p.join(10)  # wait 10 secs
-            if p.is_alive():
-                print("Try to force to terminate process")
-                kill_process_tree(p.pid, 9)  # kill -9
-            print("Kill done")
+            # Signal handler: just set the event to minimize work in signal context
+            _shutdown_event.set()
 
         # set signals
         signal.signal(signal.SIGTERM, handle_kill)
@@ -120,10 +133,21 @@ def call_in_process(args, odps):
 
         try:
             p_conn.send(1)  # send to make the process run
-            while p.is_alive():
+            # Use event-based signaling instead of direct process operations in signal handler
+            while p.is_alive() and not _shutdown_event.is_set():
                 p.join(1)
                 if mem_limit and is_limit_exceeded(mem_limit):
                     kill_process_tree(p.pid, signal.SIGKILL)
+
+            # Handle shutdown if event was set
+            if _shutdown_event.is_set() and p.is_alive():
+                print("Try to terminate process")
+                kill_process_tree(p.pid, signal.SIGTERM)
+                p.join(10)  # wait 10 secs
+                if p.is_alive():
+                    print("Try to force to terminate process")
+                    kill_process_tree(p.pid, 9)  # kill -9
+                print("Kill done")
 
             res = p_conn.poll()
             if not res:
@@ -136,7 +160,7 @@ def call_in_process(args, odps):
                 if paths:
                     for path in paths:
                         subprocess.call(
-                            r"find %s -depth -type d -print -exec rmdir {} \;" % path,
+                            f"find {path} -depth -type d -print -exec rmdir {{}} \\;",
                             shell=True,
                             stdout=subprocess.PIPE,
                         )
@@ -238,6 +262,9 @@ def wrapper_main(args, args_loader=None):
         if args.args:
             exec_args.extend(["--args"] + args.args)
 
+        # Note: os.environ modifications below are process-wide state changes
+        # performed before os.execve. This is intentional as os.execve replaces
+        # the entire process and is not concurrent execution.
         os.environ[CONFIG_FILE] = path
         os.environ["biz_id"] = args.biz_id or get_biz_id(project.rstrip("_dev"))
         os.execve(
@@ -252,7 +279,7 @@ def wrapper_main(args, args_loader=None):
                 # set d2 label to user agent, this has to be performed before creation of ODPS entrance
                 ua_parts = [
                     options.user_agent_pattern,
-                    "Python%d-DW" % sys.version_info[0],
+                    f"Python{sys.version_info[0]}-DW",
                 ]
                 if "SKYNET_ID" in os.environ:
                     ua_parts.append("SKYNET-ID-" + os.environ["SKYNET_ID"])
@@ -280,9 +307,10 @@ def wrapper_main(args, args_loader=None):
                         access_id, sign_server.server.server_address, token=server_token
                     )
                     odps = ODPS(None, None, *odps_args[2:], account=account, **odps_kw)
-                    odps.create_mars_cluster = types.MethodType(
-                        create_mars_cluster, odps
-                    )
+                    if _mars_support_available and create_mars_cluster is not None:
+                        odps.create_mars_cluster = types.MethodType(
+                            create_mars_cluster, odps
+                        )
                 else:
                     if "sts_token" not in odps_kw:
                         odps = ODPS(*odps_args, **odps_kw)
@@ -314,8 +342,7 @@ def wrapper_main(args, args_loader=None):
             args.biz_id = os.environ.pop("biz_id", None)
             pyver_str = "%s.%s" % tuple(sys.version_info[:2])
             print(
-                "Executing user script with PyODPS %s(W) under Python %s"
-                % (pyodps_version, pyver_str)
+                f"Executing user script with PyODPS {pyodps_version}(W) under Python {pyver_str}"
             )
             return_code = call_in_process(args, odps)
         if sign_server:

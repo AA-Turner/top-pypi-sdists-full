@@ -2,7 +2,6 @@ import sys
 import unittest
 
 import torch
-from packaging.version import Version
 
 from safetensors import safe_open
 from safetensors.torch import load, load_file, save, save_file
@@ -102,27 +101,68 @@ class TorchTestCase(unittest.TestCase):
             b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\xbf\x00\x00\x80?",
         )
 
-    def test_odd_dtype_fp8(self):
-        if torch.__version__ < "2.1":
-            return  # torch.float8 requires 2.1
+    def test_odd_dtype_fp8_e4m3fn(self):
+        if not hasattr(torch, "float8_e4m3fn"):
+            return  # torch.float8_e4m3fn requires 2.1
 
-        data = {
-            "test1": torch.tensor([-0.5], dtype=torch.float8_e4m3fn),
-            "test2": torch.tensor([-0.5], dtype=torch.float8_e5m2),
-        }
-        local = "./tests/data/out_safe_pt_mmap_small.safetensors"
+        data = {"test": torch.tensor([-0.5], dtype=torch.float8_e4m3fn)}
+        local = "./tests/data/out_safe_pt_mmap_small_e4m3fn.safetensors"
 
         save_file(data, local)
         reloaded = load_file(local)
-        # note: PyTorch doesn't implement torch.equal for float8 so we just compare the single element
-        self.assertEqual(reloaded["test1"].dtype, torch.float8_e4m3fn)
-        self.assertEqual(reloaded["test1"].item(), -0.5)
-        self.assertEqual(reloaded["test2"].dtype, torch.float8_e5m2)
-        self.assertEqual(reloaded["test2"].item(), -0.5)
+        self.assertEqual(reloaded["test"].dtype, torch.float8_e4m3fn)
+        self.assertEqual(reloaded["test"].item(), -0.5)
+
+    def test_odd_dtype_fp8_e5m2(self):
+        if not hasattr(torch, "float8_e5m2"):
+            return  # torch.float8_e5m2 requires 2.1
+
+        data = {"test": torch.tensor([-0.5], dtype=torch.float8_e5m2)}
+        local = "./tests/data/out_safe_pt_mmap_small_e5m2.safetensors"
+
+        save_file(data, local)
+        reloaded = load_file(local)
+        self.assertEqual(reloaded["test"].dtype, torch.float8_e5m2)
+        self.assertEqual(reloaded["test"].item(), -0.5)
+
+    def test_odd_dtype_fp8_e8m0(self):
+        if not hasattr(torch, "float8_e8m0fnu"):
+            return  # torch.float8_e8m0fnu requires 2.8
+
+        # E8M0 only represents positive powers of 2, so pick one that casts without loss.
+        data = {"test": torch.tensor([0.5], dtype=torch.float8_e8m0fnu)}
+        local = "./tests/data/out_safe_pt_mmap_small_e8m0.safetensors"
+
+        save_file(data, local)
+        reloaded = load_file(local)
+        self.assertEqual(reloaded["test"].dtype, torch.float8_e8m0fnu)
+        self.assertEqual(reloaded["test"].item(), 0.5)
+
+    def test_odd_dtype_fp8_fnuz(self):
+        if not hasattr(torch, "float8_e4m3fnuz"):
+            return  # fnuz dtypes not available in this torch version
+        if sys.byteorder == "big":
+            # FNUZ is an AMD FP8 format; AMD hardware is little-endian only, so FNUZ
+            # on big-endian is never a real deployment target. We only reach this path
+            # via the s390x CI job, whose PyTorch conda build lacks FNUZ kernel dispatch.
+            return
+
+        data = {
+            "test1": torch.tensor([0.5], dtype=torch.float8_e4m3fnuz),
+            "test2": torch.tensor([0.5], dtype=torch.float8_e5m2fnuz),
+        }
+        local = "./tests/data/out_safe_pt_mmap_small_fnuz.safetensors"
+
+        save_file(data, local)
+        reloaded = load_file(local)
+        self.assertEqual(reloaded["test1"].dtype, torch.float8_e4m3fnuz)
+        self.assertEqual(reloaded["test1"].item(), 0.5)
+        self.assertEqual(reloaded["test2"].dtype, torch.float8_e5m2fnuz)
+        self.assertEqual(reloaded["test2"].item(), 0.5)
 
     def test_odd_dtype_fp4(self):
-        if Version(torch.__version__) < Version("2.8"):
-            return  # torch.float4 requires 2.8
+        if not hasattr(torch, "float4_e2m1fn_x2"):
+            return  # torch.float4_e2m1fn_x2 requires 2.8
 
         test1 = torch.tensor([0.0], dtype=torch.float8_e8m0fnu)
         test2 = torch.empty(2, 2, device="cpu", dtype=torch.float4_e2m1fn_x2)
@@ -196,6 +236,25 @@ class TorchTestCase(unittest.TestCase):
         reloaded = load(binary)
         self.assertTrue(torch.equal(data["test"], reloaded["test"]))
 
+    @unittest.skipIf(
+        not (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()),
+        "MPS is not available",
+    )
+    def test_mps_with_device_index(self):
+        # Regression: load_file(..., device="mps:0") used to error out with
+        # "device mps:0 is invalid" because the Rust device parser only
+        # accepted bare "mps". torch itself accepts "mps:0" (via
+        # torch.device("mps:0")), so safetensors should too
+        data = {"test": torch.arange(4, dtype=torch.float32).view(2, 2)}
+        local = "./tests/data/out_safe_pt_mmap_small_mps_idx.safetensors"
+        save_file(data, local)
+        reloaded = load_file(local, device="mps:0")
+        self.assertEqual(reloaded["test"].device.type, "mps")
+        self.assertTrue(torch.equal(data["test"].to("mps"), reloaded["test"]))
+
+        with self.assertRaises(Exception):
+            load_file(local, device="mps:1")
+
     @unittest.skipIf(not torch.cuda.is_available(), "Cuda is not available")
     def test_gpu(self):
         data = {
@@ -219,6 +278,88 @@ class TorchTestCase(unittest.TestCase):
             reloaded = load_file(local, device="cuda:0")
             assert reloaded["test"].device == torch.device("cuda:0")
             self.assertTrue(torch.equal(torch.arange(4).view((2, 2)), reloaded["test"]))
+
+    @unittest.skipIf(
+        not (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()),
+        "MPS is not available",
+    )
+    def test_mps(self):
+        data = {
+            "test1": torch.arange(16, dtype=torch.float32).reshape(4, 4),
+            "test2": torch.arange(8, dtype=torch.float16).reshape(2, 4),
+            "test3": torch.tensor([True, False, True, False]),
+            "empty": torch.empty((0, 4), dtype=torch.float32),
+        }
+        local = "./tests/data/out_safe_pt_mmap_small_mps.safetensors"
+        save_file(data, local)
+
+        reloaded = load_file(local, device="mps")
+        for k, v in data.items():
+            self.assertEqual(reloaded[k].device.type, "mps")
+            self.assertTrue(torch.equal(v.to("mps"), reloaded[k]))
+
+    @unittest.skipIf(
+        not (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()),
+        "MPS is not available",
+    )
+    @unittest.skipIf(
+        not hasattr(torch, "float4_e2m1fn_x2"), "float4_e2m1fn_x2 requires torch 2.8"
+    )
+    def test_mps_fp4(self):
+        # Packed dtype: safetensors records the logical element count, torch
+        # stores it at half the last-dim length. The MPS loader must halve the
+        # last dim before calling torch.empty; otherwise the resulting tensor
+        # is 2x the correct storage and only half the bytes get filled.
+        data = {
+            "packed": torch.empty(2, 4, device="cpu", dtype=torch.float4_e2m1fn_x2),
+        }
+        local = "./tests/data/out_safe_pt_mmap_small_mps_fp4.safetensors"
+        save_file(data, local)
+        reloaded = load_file(local, device="mps")
+        self.assertEqual(reloaded["packed"].dtype, torch.float4_e2m1fn_x2)
+        self.assertEqual(reloaded["packed"].device.type, "mps")
+        self.assertEqual(tuple(reloaded["packed"].shape), (2, 4))
+
+    @unittest.skipIf(
+        not (hasattr(torch.backends, "mps") and torch.backends.mps.is_available()),
+        "MPS is not available",
+    )
+    def test_mps_slice(self):
+        # Exercises the slice_mps fast path: contiguous (leading-dim slab) and
+        # strided (column) slices must match the CPU reference, on both the
+        # mmap and pread backends.
+        data = {
+            "emb": torch.arange(32 * 16, dtype=torch.float32).reshape(32, 16),
+            "vec": torch.arange(10, dtype=torch.float32),
+        }
+        local = "./tests/data/out_safe_pt_mmap_small_mps_slice.safetensors"
+        save_file(data, local)
+
+        for backend in ("mmap", "pread"):
+            with safe_open(local, framework="pt", device="mps", backend=backend) as f:
+                # contiguous leading-dim slab
+                contiguous = f.get_slice("emb")[8:20, :]
+                self.assertEqual(contiguous.device.type, "mps")
+                self.assertTrue(
+                    torch.equal(contiguous.cpu(), data["emb"][8:20, :]),
+                    f"contiguous slice mismatch ({backend})",
+                )
+                # strided column slice (multi-segment fill)
+                strided = f.get_slice("emb")[:, 4:12]
+                self.assertTrue(
+                    torch.equal(strided.cpu(), data["emb"][:, 4:12]),
+                    f"strided slice mismatch ({backend})",
+                )
+                # 1-D slice
+                vec = f.get_slice("vec")[2:7]
+                self.assertTrue(
+                    torch.equal(vec.cpu(), data["vec"][2:7]),
+                    f"1d slice mismatch ({backend})",
+                )
+                # single get_tensor on MPS
+                whole = f.get_tensor("emb")
+                self.assertEqual(whole.device.type, "mps")
+                self.assertTrue(torch.equal(whole.cpu(), data["emb"]))
 
     @unittest.skipIf(not npu_present, "Npu is not available")
     def test_npu(self):

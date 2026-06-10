@@ -14,6 +14,10 @@ from .adapters import (
 from .circuit import QuantumCircuit
 from . import benchmarks
 from .benchmarks import linear_xeb, random_circuit, xeb_ideal, xeb_noisy
+from .pauli_propagation import (
+    pauli_propagation_expectation,
+    pauli_propagation_expectation_mc,
+)
 from . import distributed
 from .distributed import (
     MpiReducer,
@@ -63,7 +67,7 @@ from .variational import (
 )
 from .visualize import histogram_text, plot_bloch, plot_histogram
 
-__version__ = "0.8.22"
+__version__ = "1.4.0"
 __all__ = [
     "QuantumCircuit",
     "SimulationResult",
@@ -124,6 +128,8 @@ __all__ = [
     "linear_xeb",
     "xeb_ideal",
     "xeb_noisy",
+    "pauli_propagation_expectation",
+    "pauli_propagation_expectation_mc",
     "distributed",
     "distributed_amplitude",
     "simulate_cluster_amplitude",

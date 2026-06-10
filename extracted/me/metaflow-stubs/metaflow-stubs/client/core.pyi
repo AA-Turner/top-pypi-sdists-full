@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.32                                                                                #
-# Generated on 2026-06-03T21:26:43.527840                                                            #
+# MF version: 2.19.33                                                                                #
+# Generated on 2026-06-09T19:39:31.588973                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,10 +9,10 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.client.core
+    import metaflow.events
     import typing
     import tempfile
-    import metaflow.events
+    import metaflow.client.core
     import datetime
     import tarfile
 

@@ -1,11 +1,18 @@
 import os
 import sys
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import paddle
 
-from safetensors import numpy, deserialize, safe_open, serialize, serialize_file
+from safetensors import (
+    TensorSpec,
+    numpy,
+    deserialize,
+    safe_open,
+    serialize,
+    serialize_file,
+)
 
 
 def save(
@@ -35,7 +42,8 @@ def save(
     byte_data = save(tensors)
     ```
     """
-    serialized = serialize(_flatten(tensors), metadata=metadata)
+    keep_references_alive = []
+    serialized = serialize(_flatten(tensors, keep_references_alive), metadata=metadata)
     result = bytes(serialized)
     return result
 
@@ -71,7 +79,10 @@ def save_file(
     save_file(tensors, "model.safetensors")
     ```
     """
-    serialize_file(_flatten(tensors), filename, metadata=metadata)
+    keep_references_alive = []
+    serialize_file(
+        _flatten(tensors, keep_references_alive), filename, metadata=metadata
+    )
 
 
 def load(data: bytes, device: str = "cpu") -> Dict[str, paddle.Tensor]:
@@ -106,7 +117,7 @@ def load(data: bytes, device: str = "cpu") -> Dict[str, paddle.Tensor]:
 
 
 def load_file(
-    filename: Union[str, os.PathLike], device="cpu"
+    filename: Union[str, os.PathLike], device="cpu", *, backend: str = "mmap"
 ) -> Dict[str, paddle.Tensor]:
     """
     Loads a safetensors file into paddle format.
@@ -117,6 +128,9 @@ def load_file(
         device (`Union[Dict[str, any], str]`, *optional*, defaults to `cpu`):
             The device where the tensors need to be located after load.
             available options are all regular paddle device locations
+        backend (`str`, *optional*, defaults to `"mmap"`):
+            Storage backend used to serve tensor bytes. `"mmap"` (default)
+            and `"pread"` uses `pread(2)` to read tensor bytes.
 
     Returns:
         `Dict[str, paddle.Tensor]`: dictionary that contains name as key, value as `paddle.Tensor`
@@ -130,15 +144,13 @@ def load_file(
     loaded = load_file(file_path)
     ```
     """
-    result = {}
     if paddle.__version__ >= "3.2.0":
-        with safe_open(filename, framework="paddle", device=device) as f:
-            for k in f.offset_keys():
-                result[k] = f.get_tensor(k)
-    else:
-        flat = numpy.load_file(filename)
-        result = _np2paddle(flat, device)
-    return result
+        with safe_open(
+            filename, framework="paddle", device=device, backend=backend
+        ) as f:
+            return f.get_tensors()
+    flat = numpy.load_file(filename, backend=backend)
+    return _np2paddle(flat, device)
 
 
 def _np2paddle(
@@ -233,7 +245,7 @@ def _view2paddle(safeview, device) -> Dict[str, paddle.Tensor]:
     return result
 
 
-def _tobytes(tensor: paddle.Tensor, name: str) -> bytes:
+def _to_ndarray(tensor: paddle.Tensor, name: str):
     if not tensor.is_contiguous():
         raise ValueError(
             f"You are trying to save a non contiguous tensor: `{name}` which is not allowed. It either means you"
@@ -247,8 +259,6 @@ def _tobytes(tensor: paddle.Tensor, name: str) -> bytes:
 
     import ctypes
 
-    import numpy as np
-
     # When shape is empty (scalar), np.prod returns a float
     # we need a int for the following calculations
     length = int(np.prod(tensor.shape).item())
@@ -258,17 +268,21 @@ def _tobytes(tensor: paddle.Tensor, name: str) -> bytes:
 
     ptr = tensor.data_ptr()
     if ptr == 0:
-        return b""
+        return np.empty(
+            0
+        ), 0  # XXX: bogus value we don't really care if we return a tensor here
     newptr = ctypes.cast(ptr, ctypes.POINTER(ctypes.c_ubyte))
     data = np.ctypeslib.as_array(newptr, (total_bytes,))  # no internal copy
     if sys.byteorder == "big":
         npdtype = NPDTYPES[tensor.dtype]
         # Not in place as that would potentially modify a live running model
         data = data.view(npdtype).byteswap(inplace=False)
-    return data.tobytes()
+    return data, tensor
 
 
-def _flatten(tensors: Dict[str, paddle.Tensor]) -> Dict[str, Dict[str, Any]]:
+def _flatten(
+    tensors: Dict[str, paddle.Tensor], keep_alive_buffer: List
+) -> Dict[str, Dict[str, Any]]:
     if not isinstance(tensors, dict):
         raise ValueError(
             f"Expected a dict of [str, paddle.Tensor] but received {type(tensors)}"
@@ -280,11 +294,14 @@ def _flatten(tensors: Dict[str, paddle.Tensor]) -> Dict[str, Dict[str, Any]]:
                 f"Key `{k}` is invalid, expected paddle.Tensor but received {type(v)}"
             )
 
-    return {
-        k: {
-            "dtype": str(v.dtype).split(".")[-1],
-            "shape": v.shape,
-            "data": _tobytes(v, k),
-        }
-        for k, v in tensors.items()
-    }
+    flattened = {}
+    for k, v in tensors.items():
+        arr, tensor_ref = _to_ndarray(v, k)
+        keep_alive_buffer.append((arr, tensor_ref))
+        flattened[k] = TensorSpec(
+            dtype=str(v.dtype).split(".")[-1],
+            shape=v.shape,
+            data_ptr=arr.ctypes.data,
+            data_len=arr.nbytes,
+        )
+    return flattened

@@ -149,7 +149,10 @@ qwen3_reranker_system = (
 
 register_template(
     Qwen3MixedTemplateMeta(
-        LLMTemplateType.qwen3_reranker, default_system=qwen3_reranker_system, template_cls=Qwen3RerankerTemplate))
+        LLMTemplateType.qwen3_reranker,
+        default_system=qwen3_reranker_system,
+        template_cls=Qwen3RerankerTemplate,
+        agent_template=None))
 
 register_template(Qwen2_5MathTemplateMeta(LLMTemplateType.qwen2_5_math))
 
@@ -217,7 +220,7 @@ class QwenVLTemplate(Template):
         return [f'<box>{self._get_bbox_str(bbox)}</box>']
 
 
-register_template(QwenTemplateMeta(MLLMTemplateType.qwen_vl, template_cls=QwenVLTemplate))
+register_template(QwenTemplateMeta(MLLMTemplateType.qwen_vl, template_cls=QwenVLTemplate, agent_template=None))
 
 
 class QwenAudioTemplate(Template):
@@ -251,7 +254,7 @@ class QwenAudioTemplate(Template):
         return res
 
 
-register_template(QwenTemplateMeta(MLLMTemplateType.qwen_audio, template_cls=QwenAudioTemplate))
+register_template(QwenTemplateMeta(MLLMTemplateType.qwen_audio, template_cls=QwenAudioTemplate, agent_template=None))
 
 
 class Qwen2AudioTemplate(Template):
@@ -270,10 +273,13 @@ class Qwen2AudioTemplate(Template):
 
     def _encode(self, inputs: StdTemplateInputs) -> Dict[str, Any]:
         encoded = super()._encode(inputs)
+        sampling_rate = inputs.chat_template_kwargs.get('sampling_rate')
+        if sampling_rate is None:
+            sampling_rate = self.sampling_rate
         if inputs.audios:
-            audios = load_batch(inputs.audios, load_func=partial(load_audio, sampling_rate=self.sampling_rate))
+            audios = load_batch(inputs.audios, load_func=partial(load_audio, sampling_rate=sampling_rate))
             audio_inputs = self.processor.feature_extractor(
-                audios, sampling_rate=self.sampling_rate, return_attention_mask=True, return_tensors='pt')
+                audios, sampling_rate=sampling_rate, return_attention_mask=True, return_tensors='pt')
             audio_inputs['feature_attention_mask'] = audio_inputs.pop('attention_mask')
             encoded.update(audio_inputs)
         return encoded
@@ -312,6 +318,9 @@ class Qwen2VLTemplate(Template):
     def requires_mm_token_type_ids(self):
         return self.transformers_5_3 and self._requires_mm_token_type_ids
 
+    def _get_max_pixels(self, inputs=None):
+        return self.max_pixels
+
     def replace_tag(self, media_type: Literal['image', 'video', 'audio'], index: int,
                     inputs: StdTemplateInputs) -> List[Context]:
         from qwen_vl_utils import fetch_image, fetch_video
@@ -322,7 +331,7 @@ class Qwen2VLTemplate(Template):
             # ref: https://github.com/modelscope/ms-swift/issues/8445
             inputs.mm_processor_kwargs['do_resize'] = False
         if media_type == 'image':
-            inputs.images[index] = fetch_image({'image': inputs.images[index]}, **kwargs)
+            inputs.images[index] = fetch_image({'image': inputs.images[index], **inputs.chat_template_kwargs}, **kwargs)
             if self.mode == 'lmdeploy':
                 return ['<|vision_start|>', [-100], '<|vision_end|>']
             else:
@@ -331,7 +340,7 @@ class Qwen2VLTemplate(Template):
             if self.version == 'v3':
                 kwargs['return_video_metadata'] = True
             video = inputs.videos[index]
-            video_inputs = {'video': video}
+            video_inputs = {'video': video, **inputs.chat_template_kwargs}
             if isinstance(video, list):  # image list
                 from qwen_vl_utils import vision_process
                 video_inputs['sample_fps'] = vision_process.FPS
@@ -696,25 +705,28 @@ class Qwen2_5OmniTemplate(Qwen2_5VLTemplate):
                     inputs: StdTemplateInputs) -> List[Context]:
         from qwen_omni_utils import fetch_image, fetch_video
         kwargs = {'image_patch_size': self.processor.image_processor.patch_size} if self.version == 'omni_v3' else {}
+        sampling_rate = inputs.chat_template_kwargs.get('sampling_rate')
+        if sampling_rate is None:
+            sampling_rate = self.sampling_rate
         if self.mode == 'vllm':
             # https://github.com/modelscope/ms-swift/issues/8445
             inputs.mm_processor_kwargs['do_resize'] = False
         if media_type == 'image':
-            inputs.images[index] = fetch_image({'image': inputs.images[index]}, **kwargs)
+            inputs.images[index] = fetch_image({'image': inputs.images[index], **inputs.chat_template_kwargs}, **kwargs)
             if self.version == 'omni_v2_5':
                 return ['<|vision_bos|><|IMAGE|><|vision_eos|>']
             elif self.version == 'omni_v3':
                 return ['<|vision_start|><|image_pad|><|vision_end|>']
         elif media_type == 'audio':
             if self.mode != 'vllm':
-                inputs.audios[index] = load_audio(inputs.audios[index], self.sampling_rate)
+                inputs.audios[index] = load_audio(inputs.audios[index], sampling_rate)
             if self.version == 'omni_v2_5':
                 return ['<|audio_bos|><|AUDIO|><|audio_eos|>']
             elif self.version == 'omni_v3':
                 return ['<|audio_start|><|audio_pad|><|audio_end|>']
         elif media_type == 'video':
             video = inputs.videos[index]
-            video_inputs = {'video': video}
+            video_inputs = {'video': video, **inputs.chat_template_kwargs}
             if isinstance(video, list):  # image list
                 from qwen_omni_utils import vision_process
                 video_inputs['sample_fps'] = vision_process.FPS
@@ -1014,11 +1026,14 @@ class Qwen3ASRTemplate(Template):
 
     def _encode(self, inputs: StdTemplateInputs) -> Dict[str, Any]:
         encoded = super()._encode(inputs)
+        sampling_rate = inputs.chat_template_kwargs.get('sampling_rate')
+        if sampling_rate is None:
+            sampling_rate = self.sampling_rate
         if inputs.audios:
-            audios = load_batch(inputs.audios, load_func=partial(load_audio, sampling_rate=self.sampling_rate))
+            audios = load_batch(inputs.audios, load_func=partial(load_audio, sampling_rate=sampling_rate))
             audio_inputs = self.processor.feature_extractor(
                 audios,
-                sampling_rate=self.sampling_rate,
+                sampling_rate=sampling_rate,
                 return_attention_mask=True,
                 return_tensors='pt',
                 padding=True,
@@ -1158,6 +1173,7 @@ register_template(
         MLLMTemplateType.ovis1_6_llama3,
         default_system='You are a helpful and honest multimodal assistant.',
         template_cls=Ovis1_6Template,
+        agent_template=None,
     ))
 
 

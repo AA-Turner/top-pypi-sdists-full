@@ -19,12 +19,11 @@ use crate::families::survival_construction::{
     add_survival_time_derivative_guard_offset, build_survival_time_basis,
     build_survival_time_offsets_for_likelihood, build_survival_timewiggle_derivative_design,
     center_survival_time_designs_at_anchor, evaluate_survival_time_basis_row,
-    normalize_survival_time_pair, parse_survival_baseline_config, parse_survival_likelihood_mode,
+    normalize_survival_time_pair, parse_survival_likelihood_mode,
     require_structural_survival_time_basis, resolved_survival_time_basis_config_from_build,
     survival_derivative_guard_for_likelihood, survival_likelihood_modename,
 };
-use crate::families::survival_location_scale::residual_distribution_inverse_link;
-use crate::gamlss::buildwiggle_block_input_from_knots;
+use crate::families::wiggle::buildwiggle_block_input_from_knots;
 use crate::inference::model::{
     FittedFamily, FittedModel as SavedModel, SavedBaselineTimeWiggleRuntime,
     load_survival_time_basis_config_from_model, survival_baseline_config_from_model,
@@ -363,12 +362,31 @@ pub fn predict_survival(
         time_build.keep_cols.as_ref(),
         time_build.smooth_lambda,
     )?;
+    // Single-cause Weibull without a learned baseline timewiggle carries its
+    // ENTIRE log-cumulative-hazard baseline in the fitted `[1, log t]` linear
+    // time-basis coefficients, not in a parametric offset. The fit centers that
+    // basis at the survival time anchor (`center_survival_time_designs_at_anchor`
+    // in the workflow), which zeroes the constant column so `beta[0]` is
+    // unidentified and the fitted baseline is exactly
+    // `beta[1] * (log t - log anchor)`. The model still SAVES a `Weibull`
+    // baseline target (recovered scale/shape) for CIF/reporting, but that
+    // metadata must NOT re-enter prediction as a parametric offset: doing so
+    // double-counts the baseline (offset + beta) and, combined with predicting
+    // against the UN-centered basis, collapses the survival surface to the
+    // degenerate `S(t) == 1` (issue #897). Mirror the fit here: center the basis
+    // at the anchor and carry a zero baseline offset, so predict reproduces the
+    // fitted `beta[1] * (log t - log anchor)`. Weibull-WITH-timewiggle is a
+    // different regime (the parametric offset is the baseline and beta carries
+    // only the wiggle deviation), so it is excluded.
+    let weibull_baseline_in_beta =
+        saved_likelihood_mode == SurvivalLikelihoodMode::Weibull && !model.has_baseline_time_wiggle();
     let mut time_anchor: Option<f64> = None;
     let mut time_anchor_row_cached: Option<Array1<f64>> = None;
     if matches!(
         saved_likelihood_mode,
         SurvivalLikelihoodMode::LocationScale | SurvivalLikelihoodMode::MarginalSlope
-    ) {
+    ) || weibull_baseline_in_beta
+    {
         let anchor = model
             .survival_time_anchor
             .ok_or_else(|| "saved survival model missing survival_time_anchor".to_string())?;
@@ -385,7 +403,7 @@ pub fn predict_survival(
     {
         require_structural_survival_time_basis(&time_build.basisname, "saved survival sampling")?;
     }
-    let baseline_cfg = saved_survival_runtime_baseline_config(model, saved_likelihood_mode)?;
+    let baseline_cfg = saved_survival_runtime_baseline_config(model)?;
 
     // Resolve the time-grid: either the explicit grid (same for every
     // row) or per-row exit times (one column per row).
@@ -501,13 +519,25 @@ pub fn predict_survival(
                     )?;
                 }
                 let (mut r_eta_entry, mut r_eta_exit, mut r_deriv_exit) =
-                    build_survival_time_offsets_for_likelihood(
-                        &single_entry,
-                        &single_exit,
-                        &baseline_cfg,
-                        saved_likelihood_mode,
-                        None,
-                    )?;
+                    if weibull_baseline_in_beta {
+                        // The fitted Weibull baseline lives in the (anchor-centered)
+                        // linear time-basis coefficients; the saved `Weibull`
+                        // baseline target is reporting metadata only. Carry a zero
+                        // parametric offset so it is not double-counted (issue #897).
+                        (
+                            Array1::<f64>::zeros(1),
+                            Array1::<f64>::zeros(1),
+                            Array1::<f64>::zeros(1),
+                        )
+                    } else {
+                        build_survival_time_offsets_for_likelihood(
+                            &single_entry,
+                            &single_exit,
+                            &baseline_cfg,
+                            saved_likelihood_mode,
+                            None,
+                        )?
+                    };
                 if saved_likelihood_mode == SurvivalLikelihoodMode::MarginalSlope {
                     add_survival_time_derivative_guard_offset(
                         &single_entry,
@@ -734,6 +764,31 @@ pub fn predict_competing_risks_survival(
 
     let time_cfg = load_survival_time_basis_config_from_model(model)?;
     let time_build = build_survival_time_basis(&age_entry, &age_exit, time_cfg.clone(), None)?;
+    let resolved_time_cfg = resolved_survival_time_basis_config_from_build(
+        &time_build.basisname,
+        time_build.degree,
+        time_build.knots.as_ref(),
+        time_build.keep_cols.as_ref(),
+        time_build.smooth_lambda,
+    )?;
+    // See the single-cause `predict_survival` note: per-cause Weibull baselines
+    // (no learned timewiggle) live in the anchor-centered linear time-basis
+    // coefficients, so prediction must center the basis at the saved anchor and
+    // carry a zero parametric baseline offset rather than re-adding the saved
+    // (reporting-only) `Weibull` target as an offset (issues #897 / #689 / #690).
+    // The ambient `time_build` is consumed only for the structural-basis check;
+    // the per-(cause, row) loop rebuilds and centers its own `row_time`, so the
+    // anchor row is all that needs threading through.
+    let weibull_baseline_in_beta =
+        saved_likelihood_mode == SurvivalLikelihoodMode::Weibull && !model.has_baseline_time_wiggle();
+    let cr_time_anchor_row: Option<Array1<f64>> = if weibull_baseline_in_beta {
+        let anchor = model
+            .survival_time_anchor
+            .ok_or_else(|| "saved survival model missing survival_time_anchor".to_string())?;
+        Some(evaluate_survival_time_basis_row(anchor, &resolved_time_cfg)?)
+    } else {
+        None
+    };
     if saved_likelihood_mode != SurvivalLikelihoodMode::Weibull && !model.has_baseline_time_wiggle()
     {
         require_structural_survival_time_basis(
@@ -741,7 +796,7 @@ pub fn predict_competing_risks_survival(
             "saved competing-risks survival prediction",
         )?;
     }
-    let baseline_cfg = saved_survival_runtime_baseline_config(model, saved_likelihood_mode)?;
+    let baseline_cfg = saved_survival_runtime_baseline_config(model)?;
 
     let per_row_eval = time_grid.is_none();
     let eval_times: Vec<f64> = match time_grid {
@@ -804,22 +859,34 @@ pub fn predict_competing_risks_survival(
                 let t_entry = age_entry[i].min(t_query);
                 let single_entry = Array1::from_elem(1, t_entry);
                 let single_exit = Array1::from_elem(1, t_query);
-                let row_time =
+                let mut row_time =
                     build_survival_time_basis(&single_entry, &single_exit, time_cfg.clone(), None)?;
-                let (_, r_eta_exit, r_deriv_exit) = build_survival_time_offsets_for_likelihood(
-                    &single_entry,
-                    &single_exit,
-                    &baseline_cfg,
-                    saved_likelihood_mode,
-                    None,
-                )?;
+                if let Some(anchor_row) = cr_time_anchor_row.as_ref() {
+                    center_survival_time_designs_at_anchor(
+                        &mut row_time.x_entry_time,
+                        &mut row_time.x_exit_time,
+                        anchor_row,
+                    )?;
+                }
+                let (r_eta_exit, r_deriv_exit) = if weibull_baseline_in_beta {
+                    (0.0, 0.0)
+                } else {
+                    let (_, eta_exit, deriv_exit) = build_survival_time_offsets_for_likelihood(
+                        &single_entry,
+                        &single_exit,
+                        &baseline_cfg,
+                        saved_likelihood_mode,
+                        None,
+                    )?;
+                    (eta_exit[0], deriv_exit[0])
+                };
                 evaluate_rp_row_with_beta(
                     &block.beta,
                     timewiggle,
                     &row_time,
                     &cov_rows[i],
-                    r_eta_exit[0],
-                    r_deriv_exit[0],
+                    r_eta_exit,
+                    r_deriv_exit,
                     primary_offset[i],
                 )
             };
@@ -1512,7 +1579,28 @@ fn predict_survival_location_scale_batch(
     let t_cols = if per_row_eval { 1 } else { eval_times.len() };
     let eval_width = if per_row_eval { 1 } else { t_cols + 1 };
     let saved_likelihood_mode = SurvivalLikelihoodMode::LocationScale;
-    let baseline_cfg = saved_survival_runtime_baseline_config(model, saved_likelihood_mode)?;
+    let baseline_cfg = saved_survival_runtime_baseline_config(model)?;
+    let saved_fit = saved_survival_location_scale_fit_result(model)?;
+    // Reduced parametric-AFT regime (issue #892): the fit removed the time warp
+    // entirely (`h ≡ 0`, zero free time columns) and carried the σ-scaled `log t`
+    // baseline as a per-row LOCATION shift `η_t → η_t − log t`, so the
+    // standardized residual is `u = inv_sigma·(log t − η_t) = (log t − μ)/σ` and
+    // σ is identified through the event Jacobian's `−log σ` term (the
+    // survreg / lifelines / flexsurv AFT gauge). The saved model therefore carries
+    // a time-warp β that is identically ZERO: the reduced time block has zero free
+    // columns (`z` is p×0) and a zero affine lift (`affine_shift = 0_p`), so the
+    // finalized `beta_time = z·β_reduced + affine_shift` is an all-zero length-`p`
+    // vector (exact zeros — no arithmetic noise — or empty when p==0). A genuine
+    // flexible location-scale fit always retains a non-zero unpenalized monotone
+    // log-t trend in its warp (its affine null space is never shrunk away), so an
+    // all-zero `beta_time` uniquely identifies the reduced regime. Predict must
+    // MIRROR the `−log t` location shift instead of reconstructing a warp from the
+    // zero `beta_time`; otherwise `S(t|x)` carries no `log t` dependence and is
+    // wrong for every saved reduced-AFT model. Detected from the saved payload
+    // alone (zero time-warp β + no learned baseline timewiggle), so no new
+    // persisted flag is needed. (`iter().all` is `true` on an empty β too.)
+    let reduced_parametric_aft = !model.has_baseline_time_wiggle()
+        && saved_fit.beta_time().iter().all(|&b| b == 0.0);
     let time_cfg = load_survival_time_basis_config_from_model(model)?;
     let mut time_build = build_survival_time_basis(age_entry, age_exit, time_cfg.clone(), None)?;
     let resolved_time_cfg = resolved_survival_time_basis_config_from_build(
@@ -1531,7 +1619,10 @@ fn predict_survival_location_scale_batch(
         &mut time_build.x_exit_time,
         &time_anchor_row,
     )?;
-    if !model.has_baseline_time_wiggle() {
+    // The reduced-AFT regime has no structural time warp (the monotone baseline
+    // rides the location channel), so the structural-basis requirement does not
+    // apply to it.
+    if !model.has_baseline_time_wiggle() && !reduced_parametric_aft {
         require_structural_survival_time_basis(&time_build.basisname, "saved survival sampling")?;
     }
     let saved_inverse_link = resolve_survival_inverse_link_from_saved(model)?;
@@ -1587,8 +1678,21 @@ fn predict_survival_location_scale_batch(
         &mut eta_offset_exit,
         &mut derivative_offset_exit,
     )?;
+    if reduced_parametric_aft {
+        // The warp is removed in this regime (`h ≡ 0`); the σ-scaled log-t baseline
+        // rides the location channel via the `−log t` threshold shift applied
+        // below. The saved `beta_time` is an all-zero length-`p` vector (the
+        // reduced time block has zero free columns and a zero affine lift), so the
+        // time-warp contribution `x_exit_time · beta_time` is identically zero for
+        // ANY design — we therefore KEEP the full-width centered basis (so the
+        // hazard's `beta.len() == x_exit_time.ncols()` check holds and the
+        // scale-deviation primary keeps its full column count to match the saved
+        // transform) and only zero the value OFFSET so `h_base = 0`. The derivative
+        // is handled separately from `inv_sigma / t` in the hazard computation, so
+        // the entry/derivative designs and offsets are left as built.
+        eta_offset_exit = Array1::<f64>::zeros(eval_exit.len());
+    }
 
-    let saved_fit = saved_survival_location_scale_fit_result(model)?;
     let saved_timewiggle_runtime = model.saved_baseline_time_wiggle()?;
 
     // Build threshold + log-sigma designs from the frozen saved specs. Re-using
@@ -1658,6 +1762,10 @@ fn predict_survival_location_scale_batch(
         "survival location-scale prediction log-sigma design",
     )?;
 
+    // Scale-deviation primary mirrors the fit's full location design: `x_time_exit`
+    // carries the full centered basis (plus any timewiggle columns) in every regime
+    // — including the reduced parametric-AFT regime, where the basis is retained at
+    // full width with an all-zero `beta_time` — matching the fit's `time_design_exit`.
     let time_design = DesignMatrix::from(x_time_exit.clone());
     let survival_primary_design =
         DesignMatrix::hstack(vec![time_design, threshold_matrix.clone()])?;
@@ -1686,6 +1794,23 @@ fn predict_survival_location_scale_batch(
             Array1::from_shape_fn(total_rows, |k| values[k / eval_width])
         }
     };
+    // Threshold (location) offset. In the reduced parametric-AFT regime the
+    // σ-scaled `log t` baseline rides the location channel: shift the effective
+    // location `η_t → η_t − log t` per query time so the predicted standardized
+    // residual reproduces `u = inv_sigma·(log t − η_t) = (log t − μ)/σ`, exactly
+    // as the fit's `LocationLogTimeOffset` does. `eval_exit` already carries the
+    // per-(row, time) query exit times in the same flattened layout as the
+    // expanded offsets; `−log t` uses the same `SURVIVAL_TIME_FLOOR` floor as the
+    // fit's `checked_log_survival_times` (issue #892).
+    let eta_threshold_offset = {
+        let mut offset = expand_vector(primary_offset);
+        if reduced_parametric_aft {
+            for (slot, &t) in offset.iter_mut().zip(eval_exit.iter()) {
+                *slot -= t.max(crate::families::survival_construction::SURVIVAL_TIME_FLOOR).ln();
+            }
+        }
+        offset
+    };
     // Build the SurvivalLocationScalePredictInput once, with replicated /
     // expanded designs and offsets, regardless of `per_row_eval`.  This
     // unifies the mean-only and uncertainty paths and lets the
@@ -1697,7 +1822,7 @@ fn predict_survival_location_scale_batch(
         time_wiggle_degree,
         time_wiggle_ncols,
         x_threshold: threshold_matrix,
-        eta_threshold_offset: expand_vector(primary_offset),
+        eta_threshold_offset,
         x_log_sigma: prepared_sigma_design,
         eta_log_sigma_offset: expand_vector(noise_offset),
         x_link_wiggle: None,
@@ -1754,7 +1879,19 @@ fn predict_survival_location_scale_batch(
         let eta_ls_subject = prepared_sigma_design_view(&pred_input)
             .matrixvectormultiply(&beta_log_sigma)
             + &pred_input.eta_log_sigma_offset;
-        let eta_t = expand_vector(&eta_t_subject);
+        // This explicit-grid branch rebuilds the per-(row, time) location predictor
+        // from the per-subject `eta_t_subject` directly (bypassing
+        // `pred_input.eta_threshold_offset`), so it must apply the reduced-AFT
+        // `−log t` location shift here too — otherwise the grid path would predict a
+        // `log t`-flat surface even though the per-row path is shifted (issue #892).
+        let mut eta_t = expand_vector(&eta_t_subject);
+        if reduced_parametric_aft {
+            for (slot, &t) in eta_t.iter_mut().zip(eval_exit.iter()) {
+                *slot -= t
+                    .max(crate::families::survival_construction::SURVIVAL_TIME_FLOOR)
+                    .ln();
+            }
+        }
         let pred = predict_survival_location_scale_from_linear_components(
             &pred_input.x_time_exit,
             &eta_offset_exit,
@@ -1772,19 +1909,40 @@ fn predict_survival_location_scale_batch(
         (pred.eta, pred.survival_prob, None, None)
     };
 
-    let x_time_derivative = time_build
-        .x_derivative_time
-        .try_to_dense_by_chunks("survival location-scale prediction time-derivative design")?;
-    let eta_derivative_full = location_scale_eta_derivative_components(
-        &x_time_derivative,
-        &derivative_offset_exit,
-        &pred_input.x_time_exit,
-        &pred_input.eta_time_offset_exit,
-        time_wiggle_knots.as_ref(),
-        time_wiggle_degree,
-        time_wiggle_ncols,
-        &saved_fit,
-    )?;
+    let eta_derivative_full = if reduced_parametric_aft {
+        // Reduced-AFT regime: the warp is `h ≡ 0` and the location carries the
+        // `−log t` shift, so the standardized-residual time derivative is
+        // `du/dt = d/dt[inv_sigma·(log t − μ)] = inv_sigma / t` (the fit's
+        // `qdot = inv_sigma/t`). The time-warp design contributes nothing, so
+        // reconstruct `eta_derivative` directly from `inv_sigma` and the query
+        // times rather than from the (empty) time-derivative design (issue #892).
+        use crate::families::sigma_link::exp_sigma_inverse_from_eta_scalar;
+        let beta_log_sigma = saved_fit.beta_log_sigma();
+        let eta_ls = prepared_sigma_design_view(&pred_input)
+            .matrixvectormultiply(&beta_log_sigma)
+            + &pred_input.eta_log_sigma_offset;
+        let mut deriv = Array1::<f64>::zeros(eval_exit.len());
+        for (k, slot) in deriv.iter_mut().enumerate() {
+            let inv_sigma = exp_sigma_inverse_from_eta_scalar(eta_ls[k]);
+            let t = eval_exit[k].max(crate::families::survival_construction::SURVIVAL_TIME_FLOOR);
+            *slot = inv_sigma / t;
+        }
+        deriv
+    } else {
+        let x_time_derivative = time_build
+            .x_derivative_time
+            .try_to_dense_by_chunks("survival location-scale prediction time-derivative design")?;
+        location_scale_eta_derivative_components(
+            &x_time_derivative,
+            &derivative_offset_exit,
+            &pred_input.x_time_exit,
+            &pred_input.eta_time_offset_exit,
+            time_wiggle_knots.as_ref(),
+            time_wiggle_degree,
+            time_wiggle_ncols,
+            &saved_fit,
+        )?
+    };
     let hazard_full = location_scale_hazard_from_eta_derivative(
         &eta_full,
         &eta_derivative_full,
@@ -1907,7 +2065,7 @@ fn location_scale_eta_derivative_components(
         } else {
             eta_time_offset_exit.clone()
         };
-        let basis_d1 = crate::families::gamlss::monotone_wiggle_basis_with_derivative_order(
+        let basis_d1 = crate::families::wiggle::monotone_wiggle_basis_with_derivative_order(
             h_base.view(),
             knots,
             degree,
@@ -2046,16 +2204,10 @@ pub fn require_saved_survival_likelihood_mode(
     parse_survival_likelihood_mode(raw).map_err(SurvivalPredictError::from)
 }
 
-/// Baseline config with a linear fallback for plain Weibull models that
-/// don't carry an explicit timewiggle.
+/// Baseline config persisted by the saved survival model.
 pub fn saved_survival_runtime_baseline_config(
     model: &SavedModel,
-    likelihood_mode: SurvivalLikelihoodMode,
 ) -> Result<SurvivalBaselineConfig, SurvivalPredictError> {
-    if likelihood_mode == SurvivalLikelihoodMode::Weibull && !model.has_baseline_time_wiggle() {
-        return parse_survival_baseline_config("linear", None, None, None, None)
-            .map_err(SurvivalPredictError::from);
-    }
     survival_baseline_config_from_model(model).map_err(SurvivalPredictError::from)
 }
 
@@ -2156,17 +2308,8 @@ pub fn resolve_survival_inverse_link_from_saved(
     if let Some(link) = model.link.as_ref() {
         return Ok(link.clone());
     }
-    // With the typed `survival_distribution: Option<ResidualDistribution>`
-    // schema, the only legacy-fallback path remaining is reconstructing the
-    // standard residual-distribution inverse link from the typed enum when an
-    // older payload did not set `model.link`. Stateful links (Sas /
-    // BetaLogistic / Mixture / LatentCLogLog) were always written via
-    // `payload.link` and have no `ResidualDistribution` representation.
-    if let Some(dist) = model.survival_distribution {
-        return Ok(residual_distribution_inverse_link(dist));
-    }
     Err(SurvivalPredictError::MissingFitMetadata {
-        reason: "saved survival model is missing link/distribution metadata".to_string(),
+        reason: "saved survival model is missing link metadata; refit".to_string(),
     })
 }
 

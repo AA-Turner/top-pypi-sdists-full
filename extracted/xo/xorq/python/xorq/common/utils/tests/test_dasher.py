@@ -26,10 +26,14 @@ from __future__ import annotations
 import functools
 import operator
 import pickle
+import types
 
+import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pytest
+import toolz
+from xorq_dasher import fqn
 
 import xorq.api as xo
 import xorq.common.utils.dasher as dasher
@@ -38,6 +42,7 @@ import xorq.expr.relations as rel
 from xorq.caching import ParquetCache
 from xorq.common.utils import graph_utils
 from xorq.common.utils.dasher import (
+    _EXTRA_RULES,
     HASHER,
     _canonicalize_catalog_path,
     _extract_datafusion_plan_paths,
@@ -47,9 +52,11 @@ from xorq.common.utils.dasher import (
     tokenize,
 )
 from xorq.common.utils.dasher._gap_rules import (
+    normalize_ibis_schema,
     normalize_methodcaller,
     normalize_pandas_dataframe,
     normalize_pandas_series,
+    normalize_slice,
 )
 from xorq.common.utils.dasher._opaque import (
     _normalize_computed_kwargs_expr,
@@ -57,8 +64,12 @@ from xorq.common.utils.dasher._opaque import (
 )
 from xorq.common.utils.defer_utils import normalize_read_path_stat
 from xorq.common.utils.tests._test_helpers import BombHasher, MockOp, Probe
+from xorq.common.utils.toolz_utils import curry as xo_curry
 from xorq.expr.udf import agg, make_pandas_expr_udf
 from xorq.vendor.ibis.expr.operations.generic import Cast
+from xorq.vendor.ibis.expr.operations.relations import DatabaseTable, Schema
+from xorq.vendor.ibis.expr.operations.udf import ScalarUDF
+from xorq.vendor.ibis.expr.types import Expr
 
 
 # --- file-change invalidation ---------------------------------------------
@@ -255,6 +266,51 @@ def test_expr_with_named_param_tokenizes_without_raising():
     # The token doesn't need a specific value; it must just compute.
     tok = tokenize(expr)
     assert isinstance(tok, str) and len(tok) > 0
+
+
+def test_bare_param_as_project_value_tokenizes():
+    """Regression (#2037): a NamedScalarParameter as a direct Project column
+    value must not be wrapped in Alias — Project forbids Alias values."""
+    expr = xo.memtable({"_": [0]}).select(
+        year_months=xo.param("year_months", "string", default="2025_11,2025_12")
+    )
+    tok = tokenize(expr)
+    assert isinstance(tok, str) and len(tok) > 0
+
+
+def test_two_params_same_dtype_produce_distinct_tokens():
+    """Two NamedScalarParameters of the same dtype in one expression must not
+    collapse to the same placeholder — their tokens must differ."""
+    t = xo.memtable({"_": [0]})
+    p1 = xo.param("start", "int64")
+    p2 = xo.param("end", "int64")
+
+    tok_both = tokenize(t.select(a=p1, b=p2))
+    tok_same = tokenize(t.select(a=p1, b=p1))
+    assert tok_both != tok_same
+
+
+def test_two_params_same_dtype_swapped_positions_produce_distinct_tokens():
+    """Swapping two same-dtype params across select positions must produce
+    a different token, even though the SQL after NULL substitution is identical."""
+    t = xo.memtable({"_": [0]})
+    p1 = xo.param("start", "int64")
+    p2 = xo.param("end", "int64")
+
+    tok_ab = tokenize(t.select(a=p1, b=p2))
+    tok_ba = tokenize(t.select(a=p2, b=p1))
+    assert tok_ab != tok_ba
+
+
+def test_two_params_same_dtype_in_filter_produce_distinct_tokens():
+    """Same-dtype params used in filter position must also be distinguishable."""
+    t = xo.memtable({"x": [1, 2, 3]})
+    p1 = xo.param("lo", "int64")
+    p2 = xo.param("hi", "int64")
+
+    tok_two = tokenize(t.filter(t.x > p1).filter(t.x < p2))
+    tok_one = tokenize(t.filter(t.x > p1).filter(t.x < p1))
+    assert tok_two != tok_one
 
 
 # --- _stat_or_canonical: catalog-extract path canonicalization ------------
@@ -577,6 +633,49 @@ def test_normalize_pandas_series_different_data_different_hash():
     assert normalize_pandas_series(s1) != normalize_pandas_series(s2)
 
 
+def test_normalize_slice_full():
+    assert normalize_slice(slice(1, 10, 2)) == ("slice", 1, 10, 2)
+
+
+def test_normalize_slice_stop_only():
+    assert normalize_slice(slice(5)) == ("slice", None, 5, None)
+
+
+def test_normalize_slice_all_none():
+    assert normalize_slice(slice(None)) == ("slice", None, None, None)
+
+
+def test_normalize_slice_negative_indices():
+    assert normalize_slice(slice(-3, -1)) == ("slice", -3, -1, None)
+
+
+def test_normalize_ibis_schema_empty():
+    assert normalize_ibis_schema(xo.schema({})) == ("ibis.Schema", ())
+
+
+def test_normalize_ibis_schema_simple():
+    result = normalize_ibis_schema(xo.schema({"a": "int64", "b": "string"}))
+    assert result == ("ibis.Schema", (("a", "int64"), ("b", "string")))
+
+
+def test_normalize_ibis_schema_preserves_column_order():
+    result = normalize_ibis_schema(xo.schema({"z": "float64", "a": "int64"}))
+    assert [name for name, _ in result[1]] == ["z", "a"]
+
+
+def test_normalize_ibis_schema_complex_types_not_collapsed():
+    # pandas to_pandas() collapses both to dtype('O'), but str(dtype) preserves info
+    result_decimal = normalize_ibis_schema(xo.schema({"x": dt.Decimal(12, 3)}))
+    result_array = normalize_ibis_schema(xo.schema({"x": dt.Array(dt.int64)}))
+    assert result_decimal != result_array
+
+
+def test_normalize_ibis_schema_decimal_precision_distinguishes():
+    result_a = normalize_ibis_schema(xo.schema({"x": dt.Decimal(10, 2)}))
+    result_b = normalize_ibis_schema(xo.schema({"x": dt.Decimal(12, 3)}))
+    assert result_a != result_b
+
+
 def test_normalize_pandas_dataframe_returns_pa_table():
     """normalize_pandas_dataframe returns a raw pa.Table for dasher's
     normalize_pyarrow_table rule to hash."""
@@ -858,3 +957,37 @@ def test_expr_metadata_zero_slot_scalar():
     assert meta["slots"] == []
     assert isinstance(meta["structural_hash"], str)
     assert compute_expr_token(meta["structural_hash"], ()) == token
+
+
+def test_extra_rules_fqn_strings():
+    """Guard against class relocations silently breaking hardcoded FQN strings."""
+    expected = {
+        "functools._lru_cache_wrapper": functools._lru_cache_wrapper,
+        "functools.partial": functools.partial,
+        "builtins.builtin_function_or_method": types.BuiltinFunctionType,
+        "builtins.slice": slice,
+        "builtins.property": property,
+        "toolz.functoolz.Compose": toolz.functoolz.Compose,
+        "toolz.functoolz.curry": toolz.curry,
+        "toolz.functoolz.excepts": toolz.functoolz.excepts,
+        "operator.methodcaller": operator.methodcaller,
+        "xorq.vendor.ibis.expr.operations.relations.DatabaseTable": DatabaseTable,
+        "xorq.expr.relations.Read": rel.Read,
+        "xorq.vendor.ibis.expr.types.core.Expr": Expr,
+        "xorq.vendor.ibis.expr.schema.Schema": Schema,
+        "xorq.vendor.ibis.expr.operations.udf.ScalarUDF": ScalarUDF,
+        "numpy.dtype": np.dtype,
+        "pandas.core.series.Series": pd.Series,
+        "pandas.core.frame.DataFrame": pd.DataFrame,
+        "xorq.common.utils.toolz_utils.curry": xo_curry,
+    }
+    for literal, cls in expected.items():
+        assert fqn(cls) == literal, (
+            f"FQN drift: {cls!r} moved from {literal!r} to {fqn(cls)!r}; "
+            f"update the string in _EXTRA_RULES"
+        )
+
+    production_fqns = {fqn_str for fqn_str, _ in _EXTRA_RULES}
+    assert production_fqns == set(expected), (
+        f"test/production mismatch: {production_fqns.symmetric_difference(set(expected))}"
+    )

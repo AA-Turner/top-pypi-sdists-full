@@ -653,14 +653,19 @@ export type PackageFirewallEntitlement = {
 export type PackageShimEntry = {
   active: boolean;
   activation_state: "protected" | "restart_required" | "repair_required" | "uninstalled";
+  detected: boolean;
   installed: boolean;
   integrity: string;
+  last_intercept_proof_at: string | null;
   manager: string;
+  path_broken: boolean;
   path_index: number | null;
+  path_summary: string | null;
   real_binary_found: boolean;
   real_binary_path: string | null;
   real_binary_path_index: number | null;
   shim_path: string | null;
+  tested: boolean;
 };
 
 export type PackageFirewallReceipt = {
@@ -693,6 +698,8 @@ export type PackageFirewallStatusResponse = {
   operation: string;
   status: string;
   supported_managers: string[];
+  detected_managers: string[];
+  last_audit_proof_at: string | null;
   protection: PackageManagerProtection | null;
   package_shims: PackageShimEntry[];
   entitlement: PackageFirewallEntitlement;
@@ -708,6 +715,55 @@ export type PackageFirewallActionResponse = {
   result_detail: Record<string, unknown>;
   receipt: PackageFirewallReceipt | null;
   entitlement: PackageFirewallEntitlement;
+};
+
+export type SupplyChainAuditDecision = "allow" | "monitor" | "warn" | "ask" | "block";
+
+export type SupplyChainAuditSeverity = "critical" | "high" | "medium" | "low" | "unknown";
+
+export type SupplyChainAuditFindingReason = {
+  code: string;
+  message: string;
+  severity: SupplyChainAuditSeverity;
+};
+
+export type SupplyChainAuditFinding = {
+  id: string;
+  packageName: string;
+  ecosystem: string;
+  namespace: string | null;
+  decision: SupplyChainAuditDecision;
+  severity: SupplyChainAuditSeverity;
+  reasons: SupplyChainAuditFindingReason[];
+  advisoryAliases: string[];
+  status: string | null;
+};
+
+export type SupplyChainAuditInventory = {
+  totalPackages: number;
+  directPackageCount: number;
+  transitivePackageCount: number;
+  sbomPackageCount: number;
+};
+
+export type SupplyChainAuditSnapshot = {
+  generatedAt: string;
+  source: string | null;
+  decision: SupplyChainAuditDecision;
+  inventory: SupplyChainAuditInventory;
+  findings: SupplyChainAuditFinding[];
+  manifestPaths: string[];
+  lockfilePaths: string[];
+  receiptId: string | null;
+};
+
+export type PackageWorkbenchSortKey = "severity" | "package" | "ecosystem" | "decision";
+
+export type PackageWorkbenchFilters = {
+  ecosystem: string;
+  decision: SupplyChainAuditDecision | "all";
+  severity: SupplyChainAuditSeverity | "all";
+  search: string;
 };
 
 export type GuardUpdateVersionCheck = {

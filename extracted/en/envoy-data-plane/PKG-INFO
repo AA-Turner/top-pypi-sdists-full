@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: envoy_data_plane
-Version: 2.0.0
+Version: 2.1.0
 Summary: Python dataclasses for the Envoy Data-Plane-API
 Author-email: Vasili Syrakis <cetanu@gmail.com>
 License-Expression: MIT

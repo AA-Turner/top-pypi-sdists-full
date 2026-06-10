@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hindsight-api-slim
-Version: 0.8.0
+Version: 0.8.1
 Summary: Hindsight: Agent Memory That Works Like Human Memory
 Requires-Python: >=3.11
 Requires-Dist: aiohttp>=3.13.3
@@ -67,6 +67,7 @@ Requires-Dist: onnxruntime>=1.17.0; extra == 'all'
 Requires-Dist: pg0-embedded>=0.14.2; extra == 'all'
 Requires-Dist: safetensors>=0.6.2; extra == 'all'
 Requires-Dist: sentence-transformers>=3.3.0; extra == 'all'
+Requires-Dist: tokenizers<=0.23.0,>=0.22.0; extra == 'all'
 Requires-Dist: torch>=2.6.0; extra == 'all'
 Requires-Dist: transformers>=4.53.0; extra == 'all'
 Provides-Extra: embedded-db
@@ -81,12 +82,14 @@ Requires-Dist: mlx-lm>=0.31.1; (sys_platform != 'win32') and extra == 'local-ml'
 Requires-Dist: mlx>=0.31.0; (sys_platform != 'win32') and extra == 'local-ml'
 Requires-Dist: safetensors>=0.6.2; extra == 'local-ml'
 Requires-Dist: sentence-transformers>=3.3.0; extra == 'local-ml'
+Requires-Dist: tokenizers<=0.23.0,>=0.22.0; extra == 'local-ml'
 Requires-Dist: torch>=2.6.0; extra == 'local-ml'
 Requires-Dist: transformers>=4.53.0; extra == 'local-ml'
 Provides-Extra: local-onnx
 Requires-Dist: huggingface-hub>=0.20.0; extra == 'local-onnx'
 Requires-Dist: numpy>=1.26.0; extra == 'local-onnx'
 Requires-Dist: onnxruntime>=1.17.0; extra == 'local-onnx'
+Requires-Dist: tokenizers<=0.23.0,>=0.22.0; extra == 'local-onnx'
 Requires-Dist: transformers>=4.53.0; extra == 'local-onnx'
 Provides-Extra: oracle
 Requires-Dist: oracledb>=2.5.0; extra == 'oracle'

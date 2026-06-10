@@ -33,6 +33,7 @@ class RowPreprocessor:
                                 'channel',
                                 'margin',
                                 'teacher_prompt',
+                                'chat_template_kwargs',
                             ]
 
     def __init__(self,
@@ -260,6 +261,7 @@ class RowPreprocessor:
                         features[key] = messages_feature
                     features['images'] = List({'bytes': Value(dtype='binary'), 'path': Value(dtype='string')})
                     features['objects'] = Json()
+                    features['chat_template_kwargs'] = Json()
                 else:
                     messages_feature = [{
                         'role': Value(dtype='string'),

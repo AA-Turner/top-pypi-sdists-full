@@ -7,6 +7,7 @@ __all__ = (
     "AwsIam",
     "RedisExternalAuthProvider",
     "RedisProtocolOptions",
+    "RedisProtocolOptionsCredential",
     "RedisProxy",
     "RedisProxyConnPoolSettings",
     "RedisProxyConnPoolSettingsReadPolicy",
@@ -67,6 +68,27 @@ class RedisProxyConnPoolSettingsReadPolicy(betterproto2.Enum):
     """
     Read from any node of the cluster. A random node is selected among the primary and
     replicas, healthy nodes have precedent over unhealthy nodes.
+    """
+
+    LOCAL_ZONE_AFFINITY = 5
+    """
+    Read from replicas in the same availability zone as the Envoy proxy. If no replicas
+    are available in the same zone, fall back to any replica. If no replicas are available
+    at all, fall back to the primary.
+
+    Note: Zone discovery currently works with Valkey only. Valkey exposes availability_zone
+    in its INFO response. Standard Redis does not support this field.
+
+    The client zone is determined from Envoy's :ref:`locality zone <envoy_v3_api_field_config.core.v3.Locality.zone>`.
+    """
+
+    LOCAL_ZONE_AFFINITY_REPLICAS_AND_PRIMARY = 6
+    """
+    Similar to LOCAL_ZONE_AFFINITY, but also considers the primary node for same-zone routing.
+    Priority order: replicas in same zone -> primary in same zone -> any replica -> primary.
+    This is useful when reducing cross-zone traffic is more important than read distribution.
+
+    Note: Zone discovery currently works with Valkey only.
     """
 
 
@@ -206,11 +228,55 @@ class RedisProtocolOptions(betterproto2.Message):
     The cluster level configuration for AWS IAM authentication
     """
 
+    credentials: "list[RedisProtocolOptionsCredential]" = betterproto2.field(
+        4, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+    """
+    If specified, these credentials are used when connecting to upstream endpoints. Which
+    credential is used is determined by matching the resolved ``address`` field here with each
+    endpoint's resolved ``address`` field. The first entry for a given ``address`` here takes precedence.
+    If no entry in ``credentials`` matches, then the ``auth_password`` and ``auth_username`` fields
+    are used as defaults.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.filters.network.redis_proxy.v3",
     "RedisProtocolOptions",
     RedisProtocolOptions,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class RedisProtocolOptionsCredential(betterproto2.Message):
+    address: "_____config__core__v3__.Address | None" = betterproto2.field(
+        1, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    The address to which this username and password applies.
+    """
+
+    auth_password: "_____config__core__v3__.DataSource | None" = betterproto2.field(
+        2, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Upstream server password as defined by the ``requirepass`` directive
+    `<https://redis.io/topics/config>`_ in the server's configuration file.
+    """
+
+    auth_username: "_____config__core__v3__.DataSource | None" = betterproto2.field(
+        3, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Upstream server username as defined by the ``user`` directive
+    `<https://redis.io/topics/acl>`_ in the server's configuration file.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.network.redis_proxy.v3",
+    "RedisProtocolOptions.Credential",
+    RedisProtocolOptionsCredential,
 )
 
 

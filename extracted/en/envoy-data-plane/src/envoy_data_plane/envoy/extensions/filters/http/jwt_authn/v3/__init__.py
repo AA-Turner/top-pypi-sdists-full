@@ -4,6 +4,7 @@
 # This file has been @generated
 
 __all__ = (
+    "ExtractOnlyWithoutValidation",
     "FilterStateRule",
     "JwksAsyncFetch",
     "JwtAuthentication",
@@ -33,6 +34,22 @@ from .......message_pool import default_message_pool
 
 _COMPILER_VERSION = "0.9.0"
 betterproto2.check_compiler_version(_COMPILER_VERSION)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class ExtractOnlyWithoutValidation(betterproto2.Message):
+    """
+    Reserved for future extensions (e.g., claim filtering, logging options)
+    """
+
+    pass
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.jwt_authn.v3",
+    "ExtractOnlyWithoutValidation",
+    ExtractOnlyWithoutValidation,
+)
 
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
@@ -415,17 +432,20 @@ class JwtProvider(betterproto2.Message):
     It is optional. If specified, it has to match the ``iss`` field in JWT,
     otherwise the JWT ``iss`` field is not checked.
 
-    Note: ``JwtRequirement`` :ref:`allow_missing <envoy_v3_api_field_extensions.filters.http.jwt_authn.v3.JwtRequirement.allow_missing>`
-    and :ref:`allow_missing_or_failed <envoy_v3_api_field_extensions.filters.http.jwt_authn.v3.JwtRequirement.allow_missing_or_failed>`
-    are implemented differently than other ``JwtRequirements``. Hence the usage of this field
-    is different as follows if ``allow_missing`` or ``allow_missing_or_failed`` is used:
+    .. note::
+        ``JwtRequirement`` :ref:`allow_missing <envoy_v3_api_field_extensions.filters.http.jwt_authn.v3.JwtRequirement.allow_missing>`
+        and :ref:`allow_missing_or_failed <envoy_v3_api_field_extensions.filters.http.jwt_authn.v3.JwtRequirement.allow_missing_or_failed>`
+        are implemented differently than other ``JwtRequirements``. Hence the usage of this field
+        is different as follows if ``allow_missing`` or ``allow_missing_or_failed`` is used:
 
-    * If a JWT has ``iss`` field, it needs to be specified by this field in one of ``JwtProviders``.
-    * If a JWT doesn't have ``iss`` field, one of ``JwtProviders`` should fill this field empty.
-    * Multiple ``JwtProviders`` should not have same value in this field.
+        * If a JWT has ``iss`` field, it needs to be specified by this field in one of ``JwtProviders``.
+        * If a JWT doesn't have ``iss`` field, one of ``JwtProviders`` should fill this field empty.
+        * Multiple ``JwtProviders`` should not have same value in this field.
 
-    Example: https://securetoken.google.com
-    Example: 1234567-compute@developer.gserviceaccount.com
+    Examples:
+
+    * https://securetoken.google.com
+    * Example: 1234567-compute@developer.gserviceaccount.com
     """
 
     audiences: "list[typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]]" = betterproto2.field(
@@ -864,7 +884,7 @@ class JwtRequirement(betterproto2.Message):
            - allow_missing: {}
        - provider_name: provider-B
 
-    [#next-free-field: 7]
+    [#next-free-field: 8]
 
     Oneofs:
         - requires_type:
@@ -920,6 +940,40 @@ class JwtRequirement(betterproto2.Message):
     presented but invalid. Similar to allow_missing_or_failed, this is used
     to only verify JWTs and pass the verified payload to another filter. The
     different is this mode will reject requests with invalid tokens.
+    """
+
+    extract_only_without_validation: "ExtractOnlyWithoutValidation | None" = (
+        betterproto2.field(
+            7, betterproto2.TYPE_MESSAGE, optional=True, group="requires_type"
+        )
+    )
+    """
+    Extract JWT claims without performing signature validation.
+    This mode will decode the JWT, extract claims, and forward them as
+    configured (via claim_to_headers, forward_payload_header, etc.) but
+    will NOT verify the JWT signature against JWKS.
+
+    .. warning::
+
+       This mode does not verify JWT authenticity. Use only in scenarios where:
+
+       - JWTs come from a trusted source (e.g., internal service mesh)
+       - Signature verification is performed elsewhere in the request path
+       - You are in a testing period and the token issuer doesn't support JWKS yet
+
+    This mode will:
+
+    * Decode the JWT header and payload
+    * Extract claims and forward them as headers
+    * Always return success (Status::Ok) regardless of JWT validity
+    * Log when extraction occurs
+
+    This mode will NOT:
+
+    * Verify the JWT signature
+    * Validate the (issuer) claim
+    * Validate the (audience) claim
+    * Check not-before time (nbf claim)
     """
 
     @model_validator(mode="after")

@@ -320,6 +320,16 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.EndpointCreateRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.EndpointCreateResponse.FromString,
                 )
+        self.EndpointList = channel.unary_unary(
+                '/modal.client.ModalClient/EndpointList',
+                request_serializer=modal__proto_dot_api__pb2.EndpointListRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.EndpointListResponse.FromString,
+                )
+        self.EndpointStop = channel.unary_unary(
+                '/modal.client.ModalClient/EndpointStop',
+                request_serializer=modal__proto_dot_api__pb2.EndpointStopRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.EndpointStopResponse.FromString,
+                )
         self.EnvironmentCreate = channel.unary_unary(
                 '/modal.client.ModalClient/EnvironmentCreate',
                 request_serializer=modal__proto_dot_api__pb2.EnvironmentCreateRequest.SerializeToString,
@@ -510,6 +520,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.ImageFromIdRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.ImageFromIdResponse.FromString,
                 )
+        self.ImageGetByTag = channel.unary_unary(
+                '/modal.client.ModalClient/ImageGetByTag',
+                request_serializer=modal__proto_dot_api__pb2.ImageGetByTagRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.ImageGetByTagResponse.FromString,
+                )
         self.ImageGetOrCreate = channel.unary_unary(
                 '/modal.client.ModalClient/ImageGetOrCreate',
                 request_serializer=modal__proto_dot_api__pb2.ImageGetOrCreateRequest.SerializeToString,
@@ -519,6 +534,21 @@ class ModalClientStub(object):
                 '/modal.client.ModalClient/ImageJoinStreaming',
                 request_serializer=modal__proto_dot_api__pb2.ImageJoinStreamingRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.ImageJoinStreamingResponse.FromString,
+                )
+        self.ImageListTags = channel.unary_unary(
+                '/modal.client.ModalClient/ImageListTags',
+                request_serializer=modal__proto_dot_api__pb2.ImageListTagsRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.ImageListTagsResponse.FromString,
+                )
+        self.ImagePublish = channel.unary_unary(
+                '/modal.client.ModalClient/ImagePublish',
+                request_serializer=modal__proto_dot_api__pb2.ImagePublishRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.ImagePublishResponse.FromString,
+                )
+        self.ImageTagRevisions = channel.unary_unary(
+                '/modal.client.ModalClient/ImageTagRevisions',
+                request_serializer=modal__proto_dot_api__pb2.ImageTagRevisionsRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.ImageTagRevisionsResponse.FromString,
                 )
         self.MapAwait = channel.unary_unary(
                 '/modal.client.ModalClient/MapAwait',
@@ -692,6 +722,11 @@ class ModalClientStub(object):
                 )
         self.SandboxList = channel.unary_unary(
                 '/modal.client.ModalClient/SandboxList',
+                request_serializer=modal__proto_dot_api__pb2.SandboxListRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.SandboxListResponse.FromString,
+                )
+        self.SandboxListV2 = channel.unary_unary(
+                '/modal.client.ModalClient/SandboxListV2',
                 request_serializer=modal__proto_dot_api__pb2.SandboxListRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.SandboxListResponse.FromString,
                 )
@@ -1392,6 +1427,18 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def EndpointList(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def EndpointStop(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def EnvironmentCreate(self, request, context):
         """Environments
         """
@@ -1628,6 +1675,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ImageGetByTag(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ImageGetOrCreate(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1635,6 +1688,24 @@ class ModalClientServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def ImageJoinStreaming(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ImageListTags(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ImagePublish(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ImageTagRevisions(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1852,6 +1923,12 @@ class ModalClientServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def SandboxList(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SandboxListV2(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2552,6 +2629,16 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.EndpointCreateRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.EndpointCreateResponse.SerializeToString,
             ),
+            'EndpointList': grpc.unary_unary_rpc_method_handler(
+                    servicer.EndpointList,
+                    request_deserializer=modal__proto_dot_api__pb2.EndpointListRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.EndpointListResponse.SerializeToString,
+            ),
+            'EndpointStop': grpc.unary_unary_rpc_method_handler(
+                    servicer.EndpointStop,
+                    request_deserializer=modal__proto_dot_api__pb2.EndpointStopRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.EndpointStopResponse.SerializeToString,
+            ),
             'EnvironmentCreate': grpc.unary_unary_rpc_method_handler(
                     servicer.EnvironmentCreate,
                     request_deserializer=modal__proto_dot_api__pb2.EnvironmentCreateRequest.FromString,
@@ -2742,6 +2829,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.ImageFromIdRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.ImageFromIdResponse.SerializeToString,
             ),
+            'ImageGetByTag': grpc.unary_unary_rpc_method_handler(
+                    servicer.ImageGetByTag,
+                    request_deserializer=modal__proto_dot_api__pb2.ImageGetByTagRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.ImageGetByTagResponse.SerializeToString,
+            ),
             'ImageGetOrCreate': grpc.unary_unary_rpc_method_handler(
                     servicer.ImageGetOrCreate,
                     request_deserializer=modal__proto_dot_api__pb2.ImageGetOrCreateRequest.FromString,
@@ -2751,6 +2843,21 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.ImageJoinStreaming,
                     request_deserializer=modal__proto_dot_api__pb2.ImageJoinStreamingRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.ImageJoinStreamingResponse.SerializeToString,
+            ),
+            'ImageListTags': grpc.unary_unary_rpc_method_handler(
+                    servicer.ImageListTags,
+                    request_deserializer=modal__proto_dot_api__pb2.ImageListTagsRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.ImageListTagsResponse.SerializeToString,
+            ),
+            'ImagePublish': grpc.unary_unary_rpc_method_handler(
+                    servicer.ImagePublish,
+                    request_deserializer=modal__proto_dot_api__pb2.ImagePublishRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.ImagePublishResponse.SerializeToString,
+            ),
+            'ImageTagRevisions': grpc.unary_unary_rpc_method_handler(
+                    servicer.ImageTagRevisions,
+                    request_deserializer=modal__proto_dot_api__pb2.ImageTagRevisionsRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.ImageTagRevisionsResponse.SerializeToString,
             ),
             'MapAwait': grpc.unary_unary_rpc_method_handler(
                     servicer.MapAwait,
@@ -2924,6 +3031,11 @@ def add_ModalClientServicer_to_server(servicer, server):
             ),
             'SandboxList': grpc.unary_unary_rpc_method_handler(
                     servicer.SandboxList,
+                    request_deserializer=modal__proto_dot_api__pb2.SandboxListRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.SandboxListResponse.SerializeToString,
+            ),
+            'SandboxListV2': grpc.unary_unary_rpc_method_handler(
+                    servicer.SandboxListV2,
                     request_deserializer=modal__proto_dot_api__pb2.SandboxListRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.SandboxListResponse.SerializeToString,
             ),
@@ -4290,6 +4402,40 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def EndpointList(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/EndpointList',
+            modal__proto_dot_api__pb2.EndpointListRequest.SerializeToString,
+            modal__proto_dot_api__pb2.EndpointListResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def EndpointStop(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/EndpointStop',
+            modal__proto_dot_api__pb2.EndpointStopRequest.SerializeToString,
+            modal__proto_dot_api__pb2.EndpointStopResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def EnvironmentCreate(request,
             target,
             options=(),
@@ -4936,6 +5082,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def ImageGetByTag(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ImageGetByTag',
+            modal__proto_dot_api__pb2.ImageGetByTagRequest.SerializeToString,
+            modal__proto_dot_api__pb2.ImageGetByTagResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def ImageGetOrCreate(request,
             target,
             options=(),
@@ -4966,6 +5129,57 @@ class ModalClient(object):
         return grpc.experimental.unary_stream(request, target, '/modal.client.ModalClient/ImageJoinStreaming',
             modal__proto_dot_api__pb2.ImageJoinStreamingRequest.SerializeToString,
             modal__proto_dot_api__pb2.ImageJoinStreamingResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ImageListTags(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ImageListTags',
+            modal__proto_dot_api__pb2.ImageListTagsRequest.SerializeToString,
+            modal__proto_dot_api__pb2.ImageListTagsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ImagePublish(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ImagePublish',
+            modal__proto_dot_api__pb2.ImagePublishRequest.SerializeToString,
+            modal__proto_dot_api__pb2.ImagePublishResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ImageTagRevisions(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ImageTagRevisions',
+            modal__proto_dot_api__pb2.ImageTagRevisionsRequest.SerializeToString,
+            modal__proto_dot_api__pb2.ImageTagRevisionsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -5559,6 +5773,23 @@ class ModalClient(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxList',
+            modal__proto_dot_api__pb2.SandboxListRequest.SerializeToString,
+            modal__proto_dot_api__pb2.SandboxListResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SandboxListV2(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxListV2',
             modal__proto_dot_api__pb2.SandboxListRequest.SerializeToString,
             modal__proto_dot_api__pb2.SandboxListResponse.FromString,
             options, channel_credentials,

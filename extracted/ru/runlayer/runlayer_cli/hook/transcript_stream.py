@@ -19,7 +19,8 @@ from runlayer_sdk.hook_transport import (
 )
 
 from runlayer_cli.api import USER_AGENT
-from runlayer_cli.config import load_config
+from runlayer_cli.config import load_config, normalize_url
+from runlayer_cli.mdm_config import read_managed_config
 from runlayer_cli.tls import http_client
 
 _STATE_DIR = Path(tempfile.gettempdir()) / "runlayer-claude-transcript-stream"
@@ -356,12 +357,19 @@ def _buffer_is_complete_json_line(buffer: str) -> bool:
 class _HTTPEventPoster:
     def __init__(self, *, debug: bool) -> None:
         config = load_config()
-        host = config.default_host
-        secret = config.get_secret_for_host(host) if host else None
+        managed = read_managed_config()
+        raw_host = config.default_host or managed.get("host")
+        host = normalize_url(raw_host) if raw_host else None
+        # Mirror relay._load_credentials: prefer the org API key (the single AI
+        # Watch key) so streamed events authenticate the same way as other
+        # hooks; per-user secret remains the fallback.
+        org_api_key = managed.get("org_api_key")
+        secret = org_api_key or (config.get_secret_for_host(host) if host else None)
         if not host or not secret:
             raise RuntimeError("missing Runlayer hook credentials")
         self._client = http_client()
         self._debug = debug
+        self._org_key_mode = bool(org_api_key)
         self._hook_client = HookAPIClient(
             host,
             headers={
@@ -380,9 +388,19 @@ class _HTTPEventPoster:
         event_name: str,
         payload: dict[str, Any],
     ) -> None:
-        wrapper = json.dumps(
-            {"client": client_name, "event_name": event_name, "payload": payload}
-        )
+        body: dict[str, Any] = {
+            "client": client_name,
+            "event_name": event_name,
+            "payload": payload,
+        }
+        if self._org_key_mode:
+            # Local import avoids a circular import (relay imports this module).
+            from runlayer_cli.hook.relay import _build_device_context
+
+            device = _build_device_context()
+            if device is not None:
+                body["device"] = device
+        wrapper = json.dumps(body)
         try:
             resp = self._hook_client.post_target("event", wrapper)
         except Exception as exc:

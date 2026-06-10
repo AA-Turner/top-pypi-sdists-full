@@ -5,7 +5,7 @@ import warnings
 
 from envoy.service.load_stats.v3 import lrs_pb2 as envoy_dot_service_dot_load__stats_dot_v3_dot_lrs__pb2
 
-GRPC_GENERATED_VERSION = '1.76.0'
+GRPC_GENERATED_VERSION = '1.81.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -25,7 +25,7 @@ if _version_not_supported:
     )
 
 
-class LoadReportingServiceStub(object):
+class LoadReportingServiceStub:
     """[#protodoc-title: Load reporting service (LRS)]
 
     Load Reporting Service is an Envoy API to emit load reports. Envoy will initiate a bi-directional
@@ -51,7 +51,7 @@ class LoadReportingServiceStub(object):
                 _registered_method=True)
 
 
-class LoadReportingServiceServicer(object):
+class LoadReportingServiceServicer:
     """[#protodoc-title: Load reporting service (LRS)]
 
     Load Reporting Service is an Envoy API to emit load reports. Envoy will initiate a bi-directional
@@ -114,7 +114,7 @@ def add_LoadReportingServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class LoadReportingService(object):
+class LoadReportingService:
     """[#protodoc-title: Load reporting service (LRS)]
 
     Load Reporting Service is an Envoy API to emit load reports. Envoy will initiate a bi-directional

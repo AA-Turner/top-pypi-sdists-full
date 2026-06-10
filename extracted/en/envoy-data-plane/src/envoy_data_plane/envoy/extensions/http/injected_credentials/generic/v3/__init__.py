@@ -45,6 +45,17 @@ class Generic(betterproto2.Message):
     If not set, filter will default to: ``Authorization``
     """
 
+    header_value_prefix: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        3, betterproto2.TYPE_STRING
+    )
+    """
+    The prefix to prepend to the credential value before injecting it into the header.
+    This is useful for adding a scheme such as ``Bearer `` or ``Basic `` to the credential.
+    For example, if the credential is ``xyz123`` and the prefix is ``Bearer ``, the
+    final header value will be ``Bearer xyz123``.
+    If not set, the raw credential value will be injected without any prefix.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.http.injected_credentials.generic.v3", "Generic", Generic

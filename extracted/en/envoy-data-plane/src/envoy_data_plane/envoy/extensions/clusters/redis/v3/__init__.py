@@ -60,7 +60,7 @@ class RedisClusterConfig(betterproto2.Message):
               redirect_refresh_threshold: 10
     [#extension: envoy.clusters.redis]
 
-    [#next-free-field: 7]
+    [#next-free-field: 8]
     """
 
     cluster_refresh_rate: "datetime.timedelta | None" = betterproto2.field(
@@ -122,6 +122,23 @@ class RedisClusterConfig(betterproto2.Message):
     The number of hosts became degraded or unhealthy before triggering a topology refresh request.
     If not set, this defaults to 0, which disables the topology refresh due to degraded or
     unhealthy host.
+    """
+
+    enable_zone_discovery: "bool | None" = betterproto2.field(
+        7,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: _____google__protobuf__.BoolValue,
+        optional=True,
+    )
+    """
+    Enable zone discovery via INFO command. When enabled, the cluster will
+    send INFO command to each node to discover its availability_zone field,
+    which is then used for zone-aware routing.
+
+    Note: This feature currently works with Valkey only. Valkey exposes
+    availability_zone in its INFO response. Standard Redis does not support this field.
+
+    If not set, this defaults to false.
     """
 
 

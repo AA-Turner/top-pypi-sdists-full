@@ -67,6 +67,35 @@ class ReverseConnectionClusterConfig(betterproto2.Message):
     If the format string evaluates to an empty value, the request will not be routed.
     """
 
+    tenant_id_format: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        3, betterproto2.TYPE_STRING
+    )
+    """
+    Tenant identifier format string for tenant-aware isolation.
+
+    This format string is evaluated against the downstream request context to compute
+    the tenant identifier when tenant isolation is enabled. The format string supports
+    the same Envoy formatter syntax as ``host_id_format``.
+
+    **REQUIRED** when tenant isolation is enabled (via ``enable_tenant_isolation`` in the
+    reverse tunnel filter configuration).
+
+    When tenant isolation is enabled and this field is set, the tenant identifier must be
+    derivable from the request context (i.e., the formatter must evaluate to a non-empty
+    value). If the tenant identifier cannot be inferred, host selection will fail and the
+    request will not be routed.
+
+    Examples:
+
+    * ``%REQ(x-tenant-id)%``: Extract tenant ID from request header.
+    * ``%DYNAMIC_METADATA(envoy.filters.network.reverse_tunnel:tenant_id)%``: Use metadata from reverse tunnel filter.
+    * ``%CEL(request.headers['x-tenant-id'] | orValue('default'))%``: Use CEL with fallback.
+
+    The delimiter used for concatenation is internal and not configurable. Users should
+    ensure that tenant identifiers and host identifiers do not contain the delimiter character
+    (``:``) to avoid ambiguity.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.clusters.reverse_connection.v3",

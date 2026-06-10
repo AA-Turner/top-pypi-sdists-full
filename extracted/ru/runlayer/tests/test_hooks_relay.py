@@ -352,3 +352,88 @@ def test_relay_debug_on_network_error(tmp_path: Path):
     assert data["response_status"] is None
     assert data["response_body_size"] is None
     assert "response_body" not in data
+
+
+def test_relay_org_key_mode_uses_org_key_and_attaches_device():
+    """When MDM ships an OrgApiKey, hooks authenticate with it and attach a
+    device block so the backend can resolve identity server-side."""
+    config, mock_store = _make_config()
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.text = "{}"
+    mock_response.is_success = True
+
+    managed = {"host": "https://app.example.com", "org_api_key": "org-key-123"}
+    device = {"device_id": "dev-1", "username": "alice"}
+
+    with (
+        patch("runlayer_cli.hook.relay.load_config", return_value=config),
+        patch("runlayer_cli.hook.relay.read_managed_config", return_value=managed),
+        patch("runlayer_cli.hook.relay._build_device_context", return_value=device),
+        patch("httpx.Client") as mock_client_cls,
+    ):
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.return_value = mock_response
+        mock_client_cls.return_value = mock_client
+
+        result = runner.invoke(app, ["event"], input='{"event_name": "SessionStart"}')
+        assert result.exit_code == 0
+
+        call_args = mock_client.post.call_args
+        assert call_args[1]["headers"]["x-runlayer-api-key"] == "org-key-123"
+        body = json.loads(call_args[1]["content"])
+        assert body["device"] == device
+
+
+def test_build_device_context_logs_failure_to_stderr(capsys):
+    """When scan helpers blow up (broken import, permission error), the device
+    block is unavailable. Org-key mode degrades silently server-side, so the
+    cause must surface on stderr (not stdout, which is the hook protocol
+    channel) to help MDM rollouts spot the breakage — type/message only."""
+    from runlayer_cli.hook import relay
+
+    boom = PermissionError("denied: /Users/x/.runlayer/device_id")
+    with patch(
+        "runlayer_cli.scan.device.get_device_metadata",
+        side_effect=boom,
+    ):
+        result = relay._build_device_context()
+
+    assert result is None
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "device context unavailable" in captured.err
+    assert "PermissionError" in captured.err
+    assert "denied" in captured.err
+
+
+def test_relay_legacy_user_key_attaches_no_device():
+    """Without an OrgApiKey, the per-user path is unchanged: user key, no
+    device block."""
+    config, mock_store = _make_config()
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.text = "{}"
+    mock_response.is_success = True
+
+    with (
+        patch("runlayer_cli.hook.relay.load_config", return_value=config),
+        patch("runlayer_cli.hook.relay.read_managed_config", return_value={}),
+        patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
+        patch("httpx.Client") as mock_client_cls,
+    ):
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.return_value = mock_response
+        mock_client_cls.return_value = mock_client
+
+        result = runner.invoke(app, ["event"], input='{"event_name": "SessionStart"}')
+        assert result.exit_code == 0
+
+        call_args = mock_client.post.call_args
+        assert call_args[1]["headers"]["x-runlayer-api-key"] == "test-key"
+        body = json.loads(call_args[1]["content"])
+        assert "device" not in body

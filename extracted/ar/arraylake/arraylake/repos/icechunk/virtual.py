@@ -57,9 +57,9 @@ def get_icechunk_container_credentials(
         else:
             return icechunk.S3Credentials.Anonymous()
     elif bucket_platform in ("gs"):
-        # TODO: Implement when refreshable GCS credentials are supported
-        # https://github.com/earth-mover/icechunk/pull/776
-        if credentials:
+        if credential_refresh_func:
+            return icechunk.gcs_refreshable_credentials(credential_refresh_func)
+        elif credentials:
             assert isinstance(credentials, GSCredentials)
             return icechunk.GcsCredentials.Static(icechunk.GcsStaticCredentials.BearerToken(credentials.access_token))
         else:

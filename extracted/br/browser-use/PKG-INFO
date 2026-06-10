@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browser-use
-Version: 0.13.0
+Version: 0.13.1
 Summary: Make websites accessible for AI agents
 Project-URL: Homepage, https://browser-use.com
 Project-URL: Documentation, https://docs.browser-use.com
@@ -65,11 +65,11 @@ Provides-Extra: cli-oci
 Requires-Dist: oci==2.166.0; extra == 'cli-oci'
 Requires-Dist: textual==7.4.0; extra == 'cli-oci'
 Provides-Extra: core
-Requires-Dist: browser-use-core==0.13.0; (sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'core'
-Requires-Dist: browser-use-core==0.13.0; (sys_platform == 'darwin' and platform_machine == 'x86_64') and extra == 'core'
-Requires-Dist: browser-use-core==0.13.0; (sys_platform == 'linux' and platform_machine == 'aarch64') and extra == 'core'
-Requires-Dist: browser-use-core==0.13.0; (sys_platform == 'linux' and platform_machine == 'x86_64') and extra == 'core'
-Requires-Dist: browser-use-core==0.13.0; (sys_platform == 'win32' and (platform_machine == 'AMD64' or platform_machine == 'x86_64')) and extra == 'core'
+Requires-Dist: browser-use-core==0.13.1; (sys_platform == 'darwin' and platform_machine == 'arm64') and extra == 'core'
+Requires-Dist: browser-use-core==0.13.1; (sys_platform == 'darwin' and platform_machine == 'x86_64') and extra == 'core'
+Requires-Dist: browser-use-core==0.13.1; (sys_platform == 'linux' and platform_machine == 'aarch64') and extra == 'core'
+Requires-Dist: browser-use-core==0.13.1; (sys_platform == 'linux' and platform_machine == 'x86_64') and extra == 'core'
+Requires-Dist: browser-use-core==0.13.1; (sys_platform == 'win32' and (platform_machine == 'AMD64' or platform_machine == 'x86_64')) and extra == 'core'
 Provides-Extra: eval
 Requires-Dist: anyio==4.12.1; extra == 'eval'
 Requires-Dist: datamodel-code-generator==0.53.0; extra == 'eval'

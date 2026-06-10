@@ -24,15 +24,38 @@ else:
 
 __all__ = (
     "AccessType",
+    "AutonomousDatabaseBackupStatusType",
+    "AutonomousDatabaseBackupTypeType",
+    "AutonomousDatabaseResourceStatusType",
+    "AutonomousDatabaseWalletStatusType",
+    "AutonomousMaintenanceScheduleTypeType",
+    "CharacterSetTypeType",
+    "CloneTypeType",
     "ComputeModelType",
+    "DataGuardRoleType",
+    "DataSafeStatusType",
+    "DatabaseEditionType",
+    "DatabaseManagementStatusType",
+    "DatabaseTypeType",
     "DayOfWeekNameType",
     "DbNodeMaintenanceTypeType",
     "DbNodeResourceStatusType",
     "DbServerPatchingStatusType",
+    "DbWorkloadType",
+    "DisasterRecoveryTypeType",
     "DiskRedundancyType",
+    "EncryptionKeyProviderInputType",
+    "EncryptionKeyProviderType",
+    "ExternalIdTypeType",
     "IamRoleStatusType",
     "IormLifecycleStateType",
     "LicenseModelType",
+    "ListAutonomousDatabaseBackupsPaginatorName",
+    "ListAutonomousDatabaseCharacterSetsPaginatorName",
+    "ListAutonomousDatabaseClonesPaginatorName",
+    "ListAutonomousDatabasePeersPaginatorName",
+    "ListAutonomousDatabaseVersionsPaginatorName",
+    "ListAutonomousDatabasesPaginatorName",
     "ListAutonomousVirtualMachinesPaginatorName",
     "ListCloudAutonomousVmClustersPaginatorName",
     "ListCloudExadataInfrastructuresPaginatorName",
@@ -46,23 +69,82 @@ __all__ = (
     "ListSystemVersionsPaginatorName",
     "ManagedResourceStatusType",
     "MonthNameType",
+    "NetServicesArchitectureType",
     "ObjectiveType",
+    "OciAwsIntegrationType",
     "OciOnboardingStatusType",
     "OdbServiceName",
+    "OpenModeType",
+    "OperationsInsightsStatusType",
     "PaginatorName",
     "PatchingModeTypeType",
+    "PermissionLevelType",
     "PreferenceTypeType",
+    "RefreshableModeType",
+    "RefreshableStatusType",
+    "RepeatCadenceType",
     "ResourceServiceName",
     "ResourceStatusType",
     "ServiceName",
     "ShapeTypeType",
+    "SourceTypeType",
+    "StandbyAllowlistedIpsSourceType",
     "SupportedAwsIntegrationType",
     "VpcEndpointTypeType",
+    "WalletTypeType",
 )
 
 
 AccessType = Literal["DISABLED", "ENABLED"]
+AutonomousDatabaseBackupStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
+AutonomousDatabaseBackupTypeType = Literal[
+    "CUMULATIVE_INCREMENTAL",
+    "FULL",
+    "INCREMENTAL",
+    "LONGTERM",
+    "ROLL_FORWARD_IMAGE_COPY",
+    "VIRTUAL_FULL",
+]
+AutonomousDatabaseResourceStatusType = Literal[
+    "AVAILABLE",
+    "AVAILABLE_NEEDS_ATTENTION",
+    "BACKUP_IN_PROGRESS",
+    "FAILED",
+    "INACCESSIBLE",
+    "MAINTENANCE_IN_PROGRESS",
+    "PROVISIONING",
+    "RECREATING",
+    "RESTARTING",
+    "RESTORE_FAILED",
+    "RESTORE_IN_PROGRESS",
+    "ROLE_CHANGE_IN_PROGRESS",
+    "SCALE_IN_PROGRESS",
+    "STANDBY",
+    "STARTING",
+    "STOPPED",
+    "STOPPING",
+    "TERMINATED",
+    "TERMINATING",
+    "UNAVAILABLE",
+    "UPDATING",
+    "UPGRADING",
+]
+AutonomousDatabaseWalletStatusType = Literal["ACTIVE", "UPDATING"]
+AutonomousMaintenanceScheduleTypeType = Literal["EARLY", "REGULAR"]
+CharacterSetTypeType = Literal["DATABASE", "NATIONAL"]
+CloneTypeType = Literal["FULL", "METADATA", "PARTIAL"]
 ComputeModelType = Literal["ECPU", "OCPU"]
+DataGuardRoleType = Literal[
+    "BACKUP_COPY", "DISABLED_STANDBY", "PRIMARY", "SNAPSHOT_STANDBY", "STANDBY"
+]
+DataSafeStatusType = Literal[
+    "DEREGISTERING", "FAILED", "NOT_REGISTERED", "REGISTERED", "REGISTERING"
+]
+DatabaseEditionType = Literal["ENTERPRISE_EDITION", "STANDARD_EDITION"]
+DatabaseManagementStatusType = Literal[
+    "DISABLING", "ENABLED", "ENABLING", "FAILED_DISABLING", "FAILED_ENABLING", "NOT_ENABLED"
+]
+DatabaseTypeType = Literal["CLONE", "REGULAR"]
 DayOfWeekNameType = Literal[
     "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
 ]
@@ -79,7 +161,12 @@ DbNodeResourceStatusType = Literal[
     "UPDATING",
 ]
 DbServerPatchingStatusType = Literal["COMPLETE", "FAILED", "MAINTENANCE_IN_PROGRESS", "SCHEDULED"]
+DbWorkloadType = Literal["AJD", "APEX", "LH", "OLTP"]
+DisasterRecoveryTypeType = Literal["ADG", "BACKUP_BASED"]
 DiskRedundancyType = Literal["HIGH", "NORMAL"]
+EncryptionKeyProviderInputType = Literal["AWS_KMS", "ORACLE_MANAGED"]
+EncryptionKeyProviderType = Literal["AWS_KMS", "OCI", "OKV", "ORACLE_MANAGED"]
+ExternalIdTypeType = Literal["compartment_ocid", "database_ocid", "tenant_ocid"]
 IamRoleStatusType = Literal[
     "ASSOCIATING",
     "CONNECTED",
@@ -91,6 +178,14 @@ IamRoleStatusType = Literal[
 ]
 IormLifecycleStateType = Literal["BOOTSTRAPPING", "DISABLED", "ENABLED", "FAILED", "UPDATING"]
 LicenseModelType = Literal["BRING_YOUR_OWN_LICENSE", "LICENSE_INCLUDED"]
+ListAutonomousDatabaseBackupsPaginatorName = Literal["list_autonomous_database_backups"]
+ListAutonomousDatabaseCharacterSetsPaginatorName = Literal[
+    "list_autonomous_database_character_sets"
+]
+ListAutonomousDatabaseClonesPaginatorName = Literal["list_autonomous_database_clones"]
+ListAutonomousDatabasePeersPaginatorName = Literal["list_autonomous_database_peers"]
+ListAutonomousDatabaseVersionsPaginatorName = Literal["list_autonomous_database_versions"]
+ListAutonomousDatabasesPaginatorName = Literal["list_autonomous_databases"]
 ListAutonomousVirtualMachinesPaginatorName = Literal["list_autonomous_virtual_machines"]
 ListCloudAutonomousVmClustersPaginatorName = Literal["list_cloud_autonomous_vm_clusters"]
 ListCloudExadataInfrastructuresPaginatorName = Literal["list_cloud_exadata_infrastructures"]
@@ -117,7 +212,9 @@ MonthNameType = Literal[
     "OCTOBER",
     "SEPTEMBER",
 ]
+NetServicesArchitectureType = Literal["DEDICATED", "SHARED"]
 ObjectiveType = Literal["AUTO", "BALANCED", "BASIC", "HIGH_THROUGHPUT", "LOW_LATENCY"]
+OciAwsIntegrationType = Literal["KmsTde"]
 OciOnboardingStatusType = Literal[
     "ACTIVATING",
     "ACTIVE",
@@ -132,8 +229,16 @@ OciOnboardingStatusType = Literal[
     "PUBLIC_OFFER_UNSUPPORTED",
     "SUSPENDED",
 ]
+OpenModeType = Literal["READ_ONLY", "READ_WRITE"]
+OperationsInsightsStatusType = Literal[
+    "DISABLING", "ENABLED", "ENABLING", "FAILED_DISABLING", "FAILED_ENABLING", "NOT_ENABLED"
+]
 PatchingModeTypeType = Literal["NONROLLING", "ROLLING"]
+PermissionLevelType = Literal["RESTRICTED", "UNRESTRICTED"]
 PreferenceTypeType = Literal["CUSTOM_PREFERENCE", "NO_PREFERENCE"]
+RefreshableModeType = Literal["AUTOMATIC", "MANUAL"]
+RefreshableStatusType = Literal["NOT_REFRESHING", "REFRESHING"]
+RepeatCadenceType = Literal["MONTHLY", "ONE_TIME", "WEEKLY", "YEARLY"]
 ResourceStatusType = Literal[
     "AVAILABLE",
     "FAILED",
@@ -144,8 +249,19 @@ ResourceStatusType = Literal[
     "UPDATING",
 ]
 ShapeTypeType = Literal["AMD", "AMPERE_FLEX_A1", "INTEL", "INTEL_FLEX_X9"]
+SourceTypeType = Literal[
+    "BACKUP_FROM_ID",
+    "BACKUP_FROM_TIMESTAMP",
+    "CLONE_TO_REFRESHABLE",
+    "CROSS_REGION_DATAGUARD",
+    "CROSS_REGION_DISASTER_RECOVERY",
+    "DATABASE",
+    "NONE",
+]
+StandbyAllowlistedIpsSourceType = Literal["NOT_APPLICABLE", "PRIMARY", "SEPARATE"]
 SupportedAwsIntegrationType = Literal["KmsTde"]
 VpcEndpointTypeType = Literal["SERVICENETWORK"]
+WalletTypeType = Literal["INSTANCE", "REGIONAL"]
 OdbServiceName = Literal["odb"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -578,6 +694,12 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_autonomous_database_backups",
+    "list_autonomous_database_character_sets",
+    "list_autonomous_database_clones",
+    "list_autonomous_database_peers",
+    "list_autonomous_database_versions",
+    "list_autonomous_databases",
     "list_autonomous_virtual_machines",
     "list_cloud_autonomous_vm_clusters",
     "list_cloud_exadata_infrastructures",

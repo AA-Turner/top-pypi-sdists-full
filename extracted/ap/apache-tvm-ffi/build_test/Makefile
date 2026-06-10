@@ -733,6 +733,30 @@ src/ffi/extra/structural_hash.cc.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/structural_hash.cc.s
 .PHONY : src/ffi/extra/structural_hash.cc.s
 
+src/ffi/extra/visit_error_context.o: src/ffi/extra/visit_error_context.cc.o
+.PHONY : src/ffi/extra/visit_error_context.o
+
+# target to build an object file
+src/ffi/extra/visit_error_context.cc.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/visit_error_context.cc.o
+.PHONY : src/ffi/extra/visit_error_context.cc.o
+
+src/ffi/extra/visit_error_context.i: src/ffi/extra/visit_error_context.cc.i
+.PHONY : src/ffi/extra/visit_error_context.i
+
+# target to preprocess a source file
+src/ffi/extra/visit_error_context.cc.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/visit_error_context.cc.i
+.PHONY : src/ffi/extra/visit_error_context.cc.i
+
+src/ffi/extra/visit_error_context.s: src/ffi/extra/visit_error_context.cc.s
+.PHONY : src/ffi/extra/visit_error_context.s
+
+# target to generate assembly for a file
+src/ffi/extra/visit_error_context.cc.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/visit_error_context.cc.s
+.PHONY : src/ffi/extra/visit_error_context.cc.s
+
 src/ffi/function.o: src/ffi/function.cc.o
 .PHONY : src/ffi/function.o
 
@@ -930,6 +954,9 @@ help:
 	@echo "... src/ffi/extra/structural_hash.o"
 	@echo "... src/ffi/extra/structural_hash.i"
 	@echo "... src/ffi/extra/structural_hash.s"
+	@echo "... src/ffi/extra/visit_error_context.o"
+	@echo "... src/ffi/extra/visit_error_context.i"
+	@echo "... src/ffi/extra/visit_error_context.s"
 	@echo "... src/ffi/function.o"
 	@echo "... src/ffi/function.i"
 	@echo "... src/ffi/function.s"

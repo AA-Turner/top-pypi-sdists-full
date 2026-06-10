@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dash_mp_components
-Version: 0.5.1
+Version: 0.5.2
 Summary: Dash components for the Materials Project. Version is managed by Git tags in CI/CD
 Author: Materials Project Team <feedback@materialsproject.org>
 License: BSD

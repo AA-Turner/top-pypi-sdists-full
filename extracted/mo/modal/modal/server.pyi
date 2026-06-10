@@ -14,7 +14,7 @@ class Server:
     Instead, use the [`@app._experimental_server()`](https://modal.com/docs/reference/modal.App#server) decorator.
 
     ```python notest
-    @app._experimental_server(port=8000, proxy_regions=["us-east", "us-west"])
+    @app._experimental_server(port=8000, routing_region="us-east")
     class MyServer:
         @modal.enter()
         def start_server(self):
@@ -51,20 +51,27 @@ class Server:
             max_containers: typing.Optional[int] = None,
             buffer_containers: typing.Optional[int] = None,
             scaledown_window: typing.Optional[int] = None,
+            target_concurrency: typing.Optional[int] = None,
         ) -> None:
             """Override the current autoscaler behavior for this Server.
 
             Unspecified parameters will retain their current value.
 
             Examples:
-            ```python notest
-            server = modal.Server.from_name("my-app", "Server")
+                ```python notest
+                server = modal.Server.from_name("my-app", "Server")
 
-            # Always have at least 2 containers running, with an extra buffer of 2 containers
-            server.update_autoscaler(min_containers=2, buffer_containers=1)
+                # Always have at least 2 containers running, with an extra buffer of 2 containers
+                server.update_autoscaler(min_containers=2, buffer_containers=1)
 
-            # Limit this Server to avoid spinning up more than 5 containers
-            server.update_autoscaler(max_containers=5)
+                # Limit this Server to avoid spinning up more than 5 containers
+                server.update_autoscaler(max_containers=5)
+
+                # Adjust Server autoscaling to target 20 concurrent requests per replica
+                server.update_autoscaler(target_concurrency=20)
+
+                # Disable the Server autoscaling by setting target_concurrency to 0
+                server.update_autoscaler(target_concurrency=0)
             ```
             """
             ...
@@ -77,20 +84,27 @@ class Server:
             max_containers: typing.Optional[int] = None,
             buffer_containers: typing.Optional[int] = None,
             scaledown_window: typing.Optional[int] = None,
+            target_concurrency: typing.Optional[int] = None,
         ) -> None:
             """Override the current autoscaler behavior for this Server.
 
             Unspecified parameters will retain their current value.
 
             Examples:
-            ```python notest
-            server = modal.Server.from_name("my-app", "Server")
+                ```python notest
+                server = modal.Server.from_name("my-app", "Server")
 
-            # Always have at least 2 containers running, with an extra buffer of 2 containers
-            server.update_autoscaler(min_containers=2, buffer_containers=1)
+                # Always have at least 2 containers running, with an extra buffer of 2 containers
+                server.update_autoscaler(min_containers=2, buffer_containers=1)
 
-            # Limit this Server to avoid spinning up more than 5 containers
-            server.update_autoscaler(max_containers=5)
+                # Limit this Server to avoid spinning up more than 5 containers
+                server.update_autoscaler(max_containers=5)
+
+                # Adjust Server autoscaling to target 20 concurrent requests per replica
+                server.update_autoscaler(target_concurrency=20)
+
+                # Disable the Server autoscaling by setting target_concurrency to 0
+                server.update_autoscaler(target_concurrency=0)
             ```
             """
             ...

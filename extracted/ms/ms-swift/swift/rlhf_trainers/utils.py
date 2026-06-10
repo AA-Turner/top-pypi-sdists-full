@@ -16,19 +16,20 @@ from functools import partial
 from io import BytesIO
 from msgspec import field
 from packaging import version
-from peft.tuners import lora
 from peft.tuners.lora import LoraLayer
 from PIL import Image
 from pydantic import BaseModel, field_validator
 from torch import nn
 from torch.utils.data import DataLoader, RandomSampler
+from transformers.utils import is_torch_npu_available
 from types import MethodType
-from typing import Any, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, TypeVar, Union
 
 from swift.template import Messages
 from swift.tuners.lora import LoraConfig
-from swift.utils import (gc_collect, get_cu_seqlens_from_position_ids, get_logger, get_torch_device,
-                         is_swanlab_available, is_vllm_available, is_wandb_available, synchronize, to_device)
+from swift.utils import (gc_collect, get_cu_seqlens_from_position_ids, get_logger, get_packed_seq_params,
+                         get_torch_device, is_swanlab_available, is_vllm_available, is_wandb_available, synchronize,
+                         to_device)
 
 if is_wandb_available():
     import wandb
@@ -507,7 +508,19 @@ def round_robin(num_reqs, num_workers):
 
 @contextmanager
 def patch_lora_merge(model, parameter_group=None):
-    """Patch LoraLayer's merge and get_delta_weight methods for controlled merging.
+    """Patch LoraLayer.merge to support selective merging by ``parameter_group``.
+
+    peft's ``merge_adapter()`` merges the whole model; this patch lets us merge only the
+    layers whose name is in ``parameter_group`` (used by the vLLM weight-sync, which merges
+    one parameter group at a time within its DeepSpeed Zero3 gather context).
+
+    Before merging, each target adapter's sublayers (lora_A/B, and the DoRA
+    ``lora_magnitude_vector``) are aligned to the base-layer device via peft's
+    type-agnostic ``_move_adapter_to_device_of_base_layer``. This is correct for
+    Linear/Embedding/Conv as well as parameter-based ``ParamWrapper`` (MoE experts via
+    ``target_parameters``), whose base layer has no ``.weight`` and which overrides the
+    method to use ``get_param().device``. This replaces the previous hand-rolled,
+    Linear-only device handling that hard-coded ``base_layer.weight.device``.
 
     Args:
         model: The PEFT model to patch
@@ -521,32 +534,11 @@ def patch_lora_merge(model, parameter_group=None):
     def merge(self, safe_merge: bool = False, adapter_names: Optional[list[str]] = None) -> None:
         if parameter_group and all(self.name not in pg for pg in parameter_group):
             return  # Skip if not in target parameter group
-        adapter_names = check_adapters_to_merge(self, adapter_names)
-        if not adapter_names:
-            return
-
-        for active_adapter in adapter_names:
-            if active_adapter in self.lora_A.keys():
-                base_layer = self.get_base_layer()
-                if self.use_dora.get(active_adapter, False):
-                    self.lora_magnitude_vector[active_adapter].weight.data = \
-                        self.lora_magnitude_vector[active_adapter].weight.data.to(base_layer.weight.device)
-
+        for active_adapter in check_adapters_to_merge(self, adapter_names) or []:
+            # Align adapter sublayers (lora_A/B, DoRA magnitude, ...) to the base device.
+            # Type-agnostic: ParamWrapper overrides this to use get_param().device.
+            self._move_adapter_to_device_of_base_layer(active_adapter)
         return self.merge_origin(safe_merge, adapter_names)
-
-    def get_delta_weight(self, adapter) -> torch.Tensor:
-        # Ensure tensors are on correct device
-        if isinstance(self, lora.Embedding):
-            self.lora_embedding_A[adapter].data = self.lora_embedding_A[adapter].data.to(self.base_layer.weight.device)
-            self.lora_embedding_B[adapter].data = self.lora_embedding_B[adapter].data.to(self.base_layer.weight.device)
-        else:
-            self.lora_A[adapter].weight.data = self.lora_A[adapter].weight.data.to(self.base_layer.weight.device)
-            self.lora_B[adapter].weight.data = self.lora_B[adapter].weight.data.to(self.base_layer.weight.device)
-        return self.get_delta_weight_origin(adapter).to(self.base_layer.weight.device)
-
-    def _cache_pop(self, key: str) -> Any:
-        value = self._caches.pop(key).to(self.base_layer.weight.device)
-        return value
 
     # Patch all LoraLayer instances
     for name, module in model.named_modules():
@@ -555,38 +547,32 @@ def patch_lora_merge(model, parameter_group=None):
             if not hasattr(module, 'merge_origin') and hasattr(module, 'base_layer'):
                 module.merge_origin = module.merge
                 module.merge = MethodType(merge, module)
-                module.get_delta_weight_origin = module.get_delta_weight
-                module.get_delta_weight = MethodType(get_delta_weight, module)
-                module._cache_pop_origin = module._cache_pop
-                module._cache_pop = MethodType(_cache_pop, module)
 
     try:
         yield model
     finally:
         # Cleanup: restore original methods
         for module in model.modules():
-            if isinstance(module, LoraLayer):
-                if hasattr(module, 'merge_origin'):
-                    module.merge = module.merge_origin
-                    del module.merge_origin
-                    module.get_delta_weight = module.get_delta_weight_origin
-                    del module.get_delta_weight_origin
-                    module._cache_pop = module._cache_pop_origin
-                    del module._cache_pop_origin
+            if isinstance(module, LoraLayer) and hasattr(module, 'merge_origin'):
+                module.merge = module.merge_origin
+                del module.merge_origin
 
 
 @contextmanager
 def patch_lora_unmerge(model):
+    """Patch LoraLayer.unmerge to align adapter sublayers to the base device first.
+
+    Mirrors ``patch_lora_merge``'s device handling (via peft's type-agnostic
+    ``_move_adapter_to_device_of_base_layer``) so unmerge works under DeepSpeed Zero3 /
+    offload and for parameter-based ``ParamWrapper`` layers.
+    """
 
     def unmerge_patched(self):
         if not self.merged:
             return
-        # Move magnitude vectors to correct device first
+        # Move adapter sublayers (incl. DoRA magnitude) to the base device first
         for adapter in list(self.merged_adapters):
-            if self.use_dora.get(adapter, False):
-                self.lora_magnitude_vector[adapter].weight.data = \
-                    self.lora_magnitude_vector[adapter].weight.data.to(self.base_layer.weight.device)
-
+            self._move_adapter_to_device_of_base_layer(adapter)
         return self.unmerge_origin()
 
     for module in model.modules():
@@ -727,9 +713,25 @@ def load_pil_img(img) -> Image:
         raise ValueError("Image dictionary must contain either 'bytes' or 'path' key.")
 
 
+def get_non_thinking_prefix_ids(template) -> Optional[List[int]]:
+    """Return the token ids of the non-thinking prefix (e.g. '<think>\n\n</think>\n\n').
+
+    When enable_thinking=False, the rollout engine injects this prefix into the prompt, so it
+    is part of the forwarded sequence (and routed_experts), but the generated response_token_ids
+    do NOT contain it. Token-in-token-out re-encoding must re-add it (masked out of the loss) to
+    keep the trainer/teacher sequence aligned with the rollout sequence. Returns None when the
+    prefix is not applicable (thinking enabled, or template has no non_thinking_prefix).
+    """
+    non_thinking_prefix = template.template_meta.non_thinking_prefix
+    if template.enable_thinking is False and non_thinking_prefix:
+        return template.tokenizer.encode(non_thinking_prefix, add_special_tokens=False)
+    return None
+
+
 def replace_assistant_response_with_ids(messages: 'Messages',
                                         completion_ids: List[Union[int, List[int]]],
-                                        loss_mask: Optional[List[List[int]]] = None) -> 'Messages':  # noqa
+                                        loss_mask: Optional[List[List[int]]] = None,
+                                        non_thinking_prefix_ids: Optional[List[int]] = None) -> 'Messages':  # noqa
     """
     Replace assistant messages in a conversation with token IDs (and optional loss masks).
 
@@ -783,6 +785,19 @@ def replace_assistant_response_with_ids(messages: 'Messages',
     if loss_mask and isinstance(loss_mask[0], int):
         loss_mask = [loss_mask]
 
+    # Inject the non-thinking prefix (e.g. '<think>\n\n</think>\n\n') into the LAST assistant turn.
+    # When enable_thinking false, the engine prepends non_thinking_prefix before generation
+    # so completion_ids here are generated with the non-thinking prefix, inject here
+    if non_thinking_prefix_ids:
+        n_prefix = len(non_thinking_prefix_ids)
+        last_ids = list(completion_ids[-1])
+        # Skip if the response already starts with the prefix (avoid double injection).
+        if last_ids[:n_prefix] != list(non_thinking_prefix_ids):
+            if loss_mask is None:
+                loss_mask = [[1] * len(ids) for ids in completion_ids]
+            completion_ids[-1] = list(non_thinking_prefix_ids) + last_ids
+            loss_mask[-1] = [0] * n_prefix + list(loss_mask[-1])
+
     if loss_mask:
         assert (
             len(completion_ids) == len(loss_mask)
@@ -811,6 +826,102 @@ def replace_assistant_response_with_ids(messages: 'Messages',
         completion_index += 1
 
     return messages
+
+
+def build_teacher_infer_request(data: Dict) -> 'RolloutInferRequest':
+    """Build a minimal RolloutInferRequest for the GKD teacher logprobs fetch.
+
+    Only `messages` + multimodal fields (`images` / `audios` / `videos`) are
+    forwarded. If `data['response_token_ids']` is present, the last assistant
+    content in messages is replaced with that token-id list, enabling
+    token-in-token-out so the teacher server avoids re-tokenizing the response.
+    """
+    import base64
+    import uuid as _uuid
+    from copy import deepcopy
+
+    from swift.infer_engine.protocol import RolloutInferRequest
+
+    def _process_image(img):
+        if isinstance(img, dict):
+            if img.get('bytes'):
+                return base64.b64encode(img['bytes']).decode('utf-8')
+            if img.get('path'):
+                return img['path']
+        return img
+
+    messages = deepcopy(data.get('messages', []))
+    if data.get('response_token_ids'):
+        messages = replace_assistant_response_with_ids(messages, data['response_token_ids'])
+
+    images = data.get('images')
+    if images:
+        if not isinstance(images, list):
+            images = [images]
+        images = [_process_image(img) for img in images]
+
+    return RolloutInferRequest(
+        messages=messages,
+        images=images or [],
+        audios=data.get('audios') or [],
+        videos=data.get('videos') or [],
+        uuid=str(_uuid.uuid4().hex),
+    )
+
+
+def parse_prompt_logprobs(response, topk: int) -> Tuple[List[List[float]], List[List[int]]]:
+    raw = response.prompt_logprobs or []
+    lps: List[List[float]] = []
+    ixs: List[List[int]] = []
+    for pos_lp in raw[1:]:
+        sorted_items = sorted(pos_lp.items(), key=lambda x: -x[1]['logprob'])[:topk]
+        lp_row = [info['logprob'] for _, info in sorted_items]
+        ix_row = [int(tid) for tid, _ in sorted_items]
+        lps.append(lp_row)
+        ixs.append(ix_row)
+    return lps, ixs
+
+
+def assemble_teacher_topk_logprobs(
+    parsed: List[Tuple[List[List[float]], List[List[int]]]],
+    batch_size: int,
+    seq_len: int,
+    cu_seqlens: Optional[List[int]],
+    topk: int,
+    device: torch.device,
+    offsets: Optional[List[int]] = None,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    is_packed = cu_seqlens is not None
+
+    if is_packed:
+        total_len = seq_len
+        out_lp = torch.full((total_len, topk), float('-inf'), dtype=torch.float32)
+        out_ix = torch.zeros(total_len, topk, dtype=torch.long)
+        num_seqs = len(cu_seqlens) - 1
+        assert len(parsed) == num_seqs, f'parsed length {len(parsed)} != num_seqs {num_seqs}'
+        for i in range(num_seqs):
+            start, end = cu_seqlens[i], cu_seqlens[i + 1]
+            lps, ixs = parsed[i]
+            length = min(len(lps), end - start)
+            if length <= 0:
+                continue
+            out_lp[start:start + length] = torch.tensor(lps[:length], dtype=torch.float32)
+            out_ix[start:start + length] = torch.tensor(ixs[:length], dtype=torch.long)
+        return out_lp.unsqueeze(0).to(device), out_ix.unsqueeze(0).to(device)
+
+    out_lp = torch.full((batch_size, seq_len, topk), float('-inf'), dtype=torch.float32)
+    out_ix = torch.zeros(batch_size, seq_len, topk, dtype=torch.long)
+    assert len(parsed) == batch_size, f'parsed length {len(parsed)} != batch_size {batch_size}'
+    for idx in range(batch_size):
+        lps, ixs = parsed[idx]
+        P = len(lps)
+        start = offsets[idx] if offsets is not None else 0
+        length = min(P, seq_len - start)
+        if length <= 0:
+            continue
+        out_lp[idx, start:start + length] = torch.tensor(lps[:length], dtype=torch.float32)
+        out_ix[idx, start:start + length] = torch.tensor(ixs[:length], dtype=torch.long)
+    return out_lp.to(device), out_ix.to(device)
 
 
 def patch_save_last_checkpoint():
@@ -928,10 +1039,10 @@ def patch_vllm_moe_model_weight_loader(model):
     Args:
         model: The vLLM model to patch.
     """
-    # Check if already patched (idempotent).
-    # Note: the flag can be lost when vLLM sleep/wake_up recreates the model
-    # object, so the expensive import step is cached in _get_moe_model_registry.
-    if getattr(model, '_swift_moe_weight_loader_patched', False):
+    # Check if already patched (idempotent). On NPU/vLLM-Ascend, sleep/wake
+    # and full-model reload can recreate expert Parameters while keeping this
+    # model-level flag, so the loader needs to be reattached every reload.
+    if getattr(model, '_swift_moe_weight_loader_patched', False) and not is_torch_npu_available():
         return
 
     supported_moe_models, mlp_attr_mapping = _get_moe_model_registry()
@@ -964,6 +1075,13 @@ def patch_vllm_moe_model_weight_loader(model):
     if not hasattr(inner_model, 'layers'):
         return
 
+    def maybe_patch_vllm_ascend_moe_expert_weight_loader(experts, name, param):
+        quant_method = getattr(experts, 'quant_method', None)
+        if not is_torch_npu_available() or not type(quant_method).__module__.startswith('vllm_ascend'):
+            return
+        from swift.model.npu_patch.vllm_ascend import patch_vllm_ascend_moe_expert_weight_loader
+        patch_vllm_ascend_moe_expert_weight_loader(experts, name, param)
+
     for layer in inner_model.layers:
         mlp_attr = mlp_attr_mapping.get(original_model_type, 'mlp')
 
@@ -980,38 +1098,20 @@ def patch_vllm_moe_model_weight_loader(model):
             if 'w13_weight' in name or 'w2_weight' in name:
                 if not hasattr(param, 'weight_loader'):
                     param.weight_loader = experts.weight_loader
+                maybe_patch_vllm_ascend_moe_expert_weight_loader(experts, name, param)
 
     # Mark the model as patched (for idempotency)
     original_model._swift_moe_weight_loader_patched = True
 
 
-def finish_vllm_weight_reload(vllm_model):
-    """Re-run ``process_weights_after_loading`` on every FusedMoE layer after
-    an in-place vLLM weight update.
-
-    Without this, the second ``model.load_weights`` of an RL training step
-    writes raw checkpoint-format data over the kernel-format buffers and
-    silently corrupts forward output (vLLM issue #42821).
-    """
-    if vllm_model is None:
+def finish_vllm_weight_reload(vllm_model, model_config, target_device):
+    if vllm_model is None or model_config is None or target_device is None:
         return
     try:
-        from vllm.model_executor.layers.fused_moe.layer import FusedMoE
-    except (ImportError, AttributeError):
-        return  # vLLM is too old to have FusedMoE; nothing to fix.
-    logger = get_logger()
-    for module in vllm_model.modules():
-        if not isinstance(module, FusedMoE):
-            continue
-        quant_method = getattr(module, 'quant_method', None)
-        if quant_method is None or not hasattr(quant_method, 'process_weights_after_loading'):
-            continue
-        try:
-            quant_method.process_weights_after_loading(module)
-        except Exception as e:  # noqa: BLE001
-            logger.warning('finish_vllm_weight_reload: process_weights_after_loading failed '
-                           'on %s: %s',
-                           type(module).__name__, e)
+        from vllm.model_executor.model_loader.utils import process_weights_after_loading
+        process_weights_after_loading(vllm_model, model_config, target_device)
+    except Exception:
+        return
 
 
 def patch_vllm_load_adapter():
@@ -1270,7 +1370,7 @@ class FlattenedTensorBucket:
         return reconstructed
 
 
-def identity_data_collator(features):
+def identity_data_collator(features, **kwargs):
     """Identity data collator that returns features as-is without any processing."""
     return features
 
@@ -1402,6 +1502,7 @@ def compute_chord_loss(trainer, grpo_loss: torch.Tensor) -> torch.Tensor:
     chord_sft_loss = torch.tensor(0.0, device=grpo_loss.device, dtype=grpo_loss.dtype)
     if mu > 0:
         sft_inputs = next(trainer.chord_sft_iterator)
+        sft_inputs = to_device(sft_inputs, 'cpu')
         sft_inputs = to_device(trainer.template.data_collator(sft_inputs), trainer.accelerator.device)
 
         labels = sft_inputs.pop('labels')
@@ -1684,3 +1785,232 @@ def pad_logps_back_to_batch(logps_rmpad: Optional[torch.Tensor],
             valid_mask[i, pad_len:] = 1.0
 
     return logps_padded, valid_mask
+
+
+def build_completion_mask_and_seq_lengths(
+    labels: torch.Tensor,
+    batch_size: int,
+    *,
+    padding_free: bool = False,
+    encoded_batch: Optional[dict] = None,
+    device: Optional[torch.device] = None,
+) -> Tuple[torch.Tensor, torch.Tensor, int]:
+    """Build completion_mask and seq_lengths from labels, shared by Ray and non-Ray GRPO paths.
+
+    Args:
+        labels: Label tensor from data collator.
+        batch_size: Number of samples in the batch.
+        padding_free: Whether padding-free (rmpad) mode is used.
+        encoded_batch: The full encoded batch dict (needed for cu_seq_lens / attention_mask).
+        device: Target device for output tensors.
+
+    Returns:
+        (completion_mask, seq_lengths, max_seq_len) where:
+        - completion_mask: [batch_size, max_seq_len] bool tensor
+        - seq_lengths: [batch_size] int tensor
+        - max_seq_len: int
+    """
+    if device is None:
+        device = labels.device
+    if encoded_batch is None:
+        encoded_batch = {}
+
+    rolled_labels = torch.roll(labels, shifts=-1, dims=-1)
+
+    if padding_free:
+        if 'cu_seq_lens_q' in encoded_batch:
+            cu = encoded_batch['cu_seq_lens_q']
+        else:
+            cu = get_packed_seq_params(encoded_batch['position_ids'])['cu_seq_lens_q']
+        seq_lengths = cu[1:] - cu[:-1]
+        max_seq_len = int(seq_lengths.max().item())
+        completion_mask_rmpad = (rolled_labels != -100).float()
+        completion_mask, _ = pad_logps_back_to_batch(
+            logps_rmpad=completion_mask_rmpad,
+            logits_to_keep=max_seq_len,
+            batch_size=batch_size,
+            seq_lengths=seq_lengths,
+            pad_value=0.0)
+        completion_mask = completion_mask.bool()
+    else:
+        attention_mask = encoded_batch.get('attention_mask')
+        if attention_mask is not None:
+            if attention_mask.dim() == 4:
+                attention_mask = attention_mask[:, 0, 0, :]
+            seq_lengths = attention_mask.sum(dim=-1).to(torch.int64)
+        else:
+            seq_lengths = torch.full((batch_size, ), labels.shape[-1], dtype=torch.int64, device=device)
+        max_seq_len = labels.shape[-1]
+        completion_mask = (rolled_labels != -100)
+
+    return completion_mask, seq_lengths, max_seq_len
+
+
+def build_rollout_logps(
+    rollout_batch: 'Sequence[Dict[str, Any]]',
+    completion_mask: torch.Tensor,
+    device: torch.device,
+) -> Optional[torch.Tensor]:
+    """Convert per-sample ``rollout_logprobs`` into a [B, T] tensor aligned with completion_mask.
+
+    Shared by Ray GRPOTrainer and non-Ray MegatronGRPOTrainer to avoid
+    duplicating the rollout logprob alignment logic.
+
+    Returns None if logprobs are missing or counts don't match.
+    """
+    lp_list = [data.get('rollout_logprobs') for data in rollout_batch]
+    if not all(lp is not None and lp for lp in lp_list):
+        return None
+
+    batch_size, seq_len = completion_mask.shape
+    rollout_per_token_logps = torch.zeros(batch_size, seq_len, dtype=torch.float32, device=device)
+    for i, nested_lp in enumerate(lp_list):
+        flat_lps = [lp for turn_lps in nested_lp for lp in turn_lps]
+        if not flat_lps:
+            continue
+        if any(lp is None for lp in flat_lps):
+            return None
+        completion_count = int(completion_mask[i].sum().item())
+        if len(flat_lps) == completion_count + 1:
+            flat_lps = flat_lps[:completion_count]
+        if len(flat_lps) != completion_count:
+            return None
+        completion_indices = completion_mask[i].nonzero(as_tuple=True)[0]
+        rollout_per_token_logps[i, completion_indices] = torch.tensor(flat_lps, dtype=torch.float32, device=device)
+    return rollout_per_token_logps
+
+
+def resolve_reward_funcs(
+    reward_funcs_cfg: list,
+    args: Any = None,
+) -> Tuple[List[Any], List[str]]:
+    """Resolve reward function configs into callables and their names.
+
+    Shared between ``MegatronGRPOTrainer._prepare_rewards`` and
+    ``GRPOTrainer._prepare_rewards``.
+
+    Returns:
+        (reward_funcs, reward_func_names)
+    """
+    import asyncio
+    import inspect
+
+    from swift.rewards import orms
+
+    reward_funcs = list(reward_funcs_cfg)
+    for i, reward_func in enumerate(reward_funcs):
+        if isinstance(reward_func, str) and reward_func in orms:
+            reward_funcs[i] = orms[reward_func](args=args) if args is not None else orms[reward_func]()
+        elif not callable(reward_func) and not isinstance(reward_func, str):
+            raise ValueError(f'reward_function {reward_func} is not implemented in swift.rewards')
+
+    names = []
+    for func in reward_funcs:
+        if inspect.isfunction(func):
+            names.append(func.__name__)
+        else:
+            names.append(func.__class__.__name__)
+
+    return reward_funcs, names
+
+
+def make_reward_weights(
+    reward_weights_cfg: Optional[List[float]],
+    num_funcs: int,
+    device: torch.device,
+) -> torch.Tensor:
+    """Build reward weight tensor, validating length against the reward
+    function count."""
+    if reward_weights_cfg is not None:
+        if len(reward_weights_cfg) != num_funcs:
+            raise ValueError(f'Number of reward weights ({len(reward_weights_cfg)}) must '
+                             f'match number of reward functions ({num_funcs})')
+        return torch.tensor(reward_weights_cfg, dtype=torch.float32, device=device)
+    return torch.ones(num_funcs, dtype=torch.float32, device=device)
+
+
+def detect_async_reward_indices(reward_funcs: list) -> List[int]:
+    import asyncio
+    import torch.nn as nn
+    indices = []
+    for i, func in enumerate(reward_funcs):
+        if not isinstance(func, nn.Module):
+            if asyncio.iscoroutinefunction(func) or asyncio.iscoroutinefunction(getattr(func, '__call__', None)):
+                indices.append(i)
+    return indices
+
+
+def compute_grpo_advantages(
+    rewards_per_func: torch.Tensor,
+    reward_weights: torch.Tensor,
+    num_generations: int,
+    advantage_estimator: str = 'grpo',
+    scale_rewards: str = 'group',
+    kl_in_reward: bool = False,
+    beta: float = 0.0,
+    kl_values: Optional[torch.Tensor] = None,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Compute advantages from per-function rewards (pure function).
+
+    This implements GRPO / RLOO / REINFORCE++ advantage estimation and
+    normalization.  Both ``MegatronGRPOTrainer._compute_advantages`` and
+    ``GRPOTrainer.compute_advantages`` should delegate to this.
+
+    Args:
+        rewards_per_func: ``[N, n_funcs]`` per-function reward matrix.
+        reward_weights: ``[n_funcs]`` weighting tensor.
+        num_generations: ``K`` — how many completions per prompt.
+        advantage_estimator: ``'grpo'``, ``'rloo'``, or ``'reinforce_plus_plus'``.
+        scale_rewards: ``'batch'``, ``'group'``, ``'none'``, or ``'gdpo'``.
+        kl_in_reward: Whether to subtract KL penalty.
+        beta: KL penalty coefficient.
+        kl_values: ``[N]`` KL values (required if ``kl_in_reward``).
+
+    Returns:
+        ``(advantages, rewards)`` both ``[N]``.
+    """
+    rewards = (rewards_per_func * reward_weights.unsqueeze(0)).nansum(dim=1)
+
+    if kl_in_reward and beta != 0.0 and kl_values is not None:
+        rewards = rewards - beta * kl_values
+
+    K = num_generations
+    grouped = rewards.view(-1, K)
+    group_mean = grouped.mean(dim=1).repeat_interleave(K)
+
+    if advantage_estimator == 'rloo' and K > 1:
+        advantages = rewards * K / (K - 1) - group_mean * K / (K - 1)
+    else:
+        advantages = rewards - group_mean
+
+    std: Optional[torch.Tensor] = None
+    if advantage_estimator == 'reinforce_plus_plus':
+        if scale_rewards == 'batch':
+            std = advantages.std().expand_as(advantages) if advantages.numel() > 1 \
+                else torch.zeros_like(advantages)
+        elif scale_rewards == 'group':
+            std = advantages.view(-1, K).std(dim=1).repeat_interleave(K) if K > 1 \
+                else torch.zeros_like(advantages)
+    else:
+        if scale_rewards == 'batch':
+            std = rewards.std().expand_as(rewards) if rewards.numel() > 1 \
+                else torch.zeros_like(rewards)
+        elif scale_rewards == 'group':
+            std = grouped.std(dim=1).repeat_interleave(K) if K > 1 \
+                else torch.zeros_like(rewards)
+        elif scale_rewards == 'gdpo':
+            num_reward_funcs = rewards_per_func.shape[1]
+            normalized_list = []
+            for i in range(num_reward_funcs):
+                r_i = rewards_per_func[:, i].view(-1, K)
+                g_mean = r_i.mean(dim=1, keepdim=True)
+                g_std = r_i.std(dim=1, keepdim=True) + 1e-8
+                normalized_list.append(reward_weights[i] * ((r_i - g_mean) / g_std).view(-1))
+            summed = sum(normalized_list)
+            advantages = (summed - summed.mean()) / (summed.std() + 1e-8)
+            std = None
+
+    if std is not None and scale_rewards != 'none':
+        advantages = advantages / (std + 1e-4)
+
+    return advantages, rewards

@@ -13,7 +13,8 @@ from pydantic import BaseModel, ValidationError
 from taktile_auth._logging import get_logger
 from taktile_auth._metrics import emit_metric
 from taktile_auth.exceptions import InvalidAuthException, TaktileAuthException
-from taktile_auth.schemas.session import SessionState
+from taktile_auth.recursion import RecursionGate, RecursionMode
+from taktile_auth.schemas.session import SessionState, parse_session_prefix
 from taktile_auth.schemas.token import TaktileIdToken
 from taktile_auth.settings import settings
 from taktile_auth.utils.cache import Cache
@@ -66,6 +67,15 @@ class AuthClient:
         ),
         salt: t.Optional[str] = None,
         cert: t.Optional[t.Tuple[str, str]] = None,
+        # PEP-295 recursion accounting. Explicit ``recursion_check_enabled``
+        # gates the feature; defaults to off. When enabled, a
+        # ``recursion_cache`` is mandatory — the gate has nowhere to
+        # accumulate hops otherwise. ``recursion_mode`` controls whether
+        # threshold crossings raise (``error``) or just emit metrics
+        # (``warn``).
+        recursion_check_enabled: bool = False,
+        recursion_cache: t.Optional[Cache] = None,
+        recursion_mode: RecursionMode = settings.RECURSION_MODE,
     ) -> None:
         self.public_key_url = urljoin(url, ".well-known/jwks.json")
         self.access_token_url = urljoin(url, "api/v1/login/access-token")
@@ -74,6 +84,20 @@ class AuthClient:
         self._cache_speedup_time = cache_speedup_time
         self._cache_fallback_time = cache_fallback_time
         self._salt = salt
+        self._recursion_gate: t.Optional[RecursionGate] = None
+
+        if recursion_check_enabled and recursion_cache is None:
+            # Miswired: feature flag flipped on but no cache to
+            # accumulate hops in.
+            logger.error(
+                "recursion_check_enabled=True but no recursion_cache "
+                "provided; PEP-295 hop counting disabled"
+            )
+        elif recursion_check_enabled:
+            assert recursion_cache is not None  # narrows type for mypy
+            self._recursion_gate = RecursionGate(
+                cache=recursion_cache, mode=recursion_mode
+            )
 
     def _extract_key(self, jwk: t.Any, kid: str) -> t.Any:
         for k in jwk["keys"]:
@@ -165,10 +189,14 @@ class AuthClient:
     ) -> TaktileIdToken:
         if not token:
             raise InvalidAuthException("no-auth-provided")
+        # PEP-295: any wire-format prefix is opaque to JWT validation —
+        # strip before handing the token to PyJWT so callers can pass the
+        # raw header value transparently.
+        _, inner_token = parse_session_prefix(token)
         try:
             public_key = self.get_public_key(key=key, kid=kid)
             payload = jwt.decode(
-                token,
+                inner_token,
                 public_key,
                 algorithms=[ALGORITHM],
                 audience=settings.ENV,
@@ -185,6 +213,7 @@ class AuthClient:
         session_state: SessionState,
         key: t.Optional[str] = None,
         kid: str = "taktile-service",
+        weight: int = 1,
     ) -> t.Tuple[TaktileIdToken, SessionState]:
         if not session_state.api_key and not session_state.jwt:
             raise InvalidAuthException("no-auth-proved")
@@ -193,6 +222,10 @@ class AuthClient:
         t0 = time.perf_counter()
         success = True
         try:
+            self._record_recursion_hop(
+                session_state=session_state, weight=weight
+            )
+
             if session_state.jwt:
                 return (
                     self.decode_id_token(
@@ -368,10 +401,21 @@ class AuthClient:
         """
         Take a look at PEP 76: Auth Cache Router for details on this logic
         """
+        # PEP-295 prefix is for *customer* hop accounting. The internal
+        # access-token exchange is not a hop — the prefix would only
+        # corrupt the credential the taktile-api auth server validates
+        # (e.g. ``X-Api-Key: <uuid7>+<api_key>`` is not a valid api key).
+        # Send bare wire format here; the caller's ``session_state``
+        # still carries the prefix for downstream emission.
+        bare_state = SessionState(
+            api_key=session_state.api_key,
+            jwt=session_state.jwt,
+            session_prefix=None,
+        )
         try:
             res = requests.post(
                 self.access_token_url,
-                headers=session_state.to_auth_headers(),
+                headers=bare_state.to_auth_headers(),
                 timeout=settings.AUTH_SERVER_TIMEOUT_SECONDS,
                 params={"expires_seconds": expires_seconds},
                 cert=self.cert,
@@ -405,3 +449,31 @@ class AuthClient:
     def _get_cache_key(self, key: str) -> str:
         salt = self._salt if self._salt else ""
         return blake2b(f"{salt}{key}".encode()).hexdigest()
+
+    def _record_recursion_hop(
+        self, *, session_state: SessionState, weight: int
+    ) -> None:
+        """PEP-295 hop accounting.
+
+        - **First hop** (no inbound prefix): the auth check originates
+          at the edge of our system. Mint a fresh session prefix so
+          downstream services can chain, but **skip the DDB write** —
+          single-hop requests should pay zero recursion latency.
+
+        - **Subsequent hop** (prefix already present): an upstream
+          service stamped this request. Record the weight against the
+          existing prefix; ``record_hop`` raises ``LoopDetectedException``
+          under ``error`` mode if the abort threshold is crossed.
+
+        No-op when no gate is configured or the caller opts out via
+        ``weight=0``.
+        """
+        if self._recursion_gate is None or weight <= 0:
+            return
+        if not session_state.session_prefix:
+            session_state.session_prefix = self._recursion_gate.start_session()
+            return
+        self._recursion_gate.record_hop(
+            session_prefix=session_state.session_prefix,
+            weight=weight,
+        )

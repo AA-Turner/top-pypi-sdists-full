@@ -63,7 +63,7 @@ def get_biz_id(project_name):
     app_name = "_" + project_name
     return (
         "_".join(os.getenv(key, "-") for key in BIZ_ID_KEYS)
-        + "_%d" % sql_seq
+        + f"_{sql_seq}"
         + app_name
         + on_duty
     )
@@ -77,6 +77,8 @@ def get_priority():
 def set_skynet_to_odps_options():
     from odps import options
 
+    # Note: options object modifications are protected by internal locks
+    # in the main pyodps module, making this function thread-safe.
     skynet_settings = {
         key: val
         for key, val in os.environ.items()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 1999-2025 Alibaba Group Holding Ltd.
+# Copyright 1999-2026 Alibaba Group Holding Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,19 +15,21 @@
 # limitations under the License.
 
 import json
+import threading
+from urllib.parse import urlparse
 
 from .. import options
-from ..compat import six, urlparse
 from ..models import Projects
 from ..rest import RestClient
 from .errors import TunnelError
 
 TUNNEL_VERSION = 6
 
+_endpoint_cache_lock = threading.RLock()
 _endpoint_cache = dict()
 
 
-class TunnelMetrics(object):
+class TunnelMetrics:
     def __init__(
         self,
         owner,
@@ -84,8 +86,8 @@ class TunnelMetrics(object):
     def __repr__(self):
         d = self.to_dict()
         owner = d.pop("owner", None)
-        repr_body = ", ".join("%s=%s" % pair for pair in sorted(d.items()))
-        return "<TunnelMetrics owner=%s, %s>" % (owner, repr_body)
+        repr_body = ", ".join(f"{k}={v}" for k, v in sorted(d.items()))
+        return f"<TunnelMetrics owner={owner}, {repr_body}>"
 
     def __add__(self, other):
         if not isinstance(other, TunnelMetrics):  # pragma: no cover
@@ -104,7 +106,7 @@ class TunnelMetrics(object):
         )
 
 
-class BaseTunnel(object):
+class BaseTunnel:
     def __init__(
         self,
         odps=None,
@@ -117,8 +119,8 @@ class BaseTunnel(object):
         self._client = odps.rest if odps is not None else client
         self._account = self._client.account
         if project is None and odps is None:
-            raise AttributeError("%s requires project parameter." % type(self).__name__)
-        if isinstance(project, six.string_types):
+            raise AttributeError(f"{type(self).__name__} requires project parameter.")
+        if isinstance(project, str):
             if odps is not None:
                 self._project = odps.get_project(project or odps.project)
             else:
@@ -143,6 +145,7 @@ class BaseTunnel(object):
                 endpoint or self._project._tunnel_endpoint or options.tunnel.endpoint
             )
         self._tunnel_rest = None
+        self._tunnel_rest_lock = threading.RLock()
 
     @property
     def endpoint(self):
@@ -155,7 +158,7 @@ class BaseTunnel(object):
     def _get_tunnel_server(self, project):
         protocol = urlparse(self._client.endpoint).scheme
         if protocol is None or protocol not in ("http", "https"):
-            raise TunnelError("Invalid protocol: %s" % protocol)
+            raise TunnelError(f"Invalid protocol: {protocol}")
 
         ep_cache_key = (self._client.endpoint, project.name, self._quota_name)
         if ep_cache_key in _endpoint_cache:
@@ -169,28 +172,33 @@ class BaseTunnel(object):
 
         if self._client.is_ok(resp):
             addr = resp.text
-            server_ep = _endpoint_cache[ep_cache_key] = urlparse(
-                "%s://%s" % (protocol, addr)
-            ).geturl()
+            server_ep = urlparse(f"{protocol}://{addr}").geturl()
+            with _endpoint_cache_lock:
+                _endpoint_cache[ep_cache_key] = server_ep
             return server_ep
         else:
             raise TunnelError("Can't get tunnel server address")
 
     @property
     def tunnel_rest(self):
+        # Double-checked locking pattern
         if self._tunnel_rest is not None:
             return self._tunnel_rest
 
-        kw = dict(tag="TUNNEL", namespace=self._namespace)
-        if options.data_proxy is not None:
-            kw["proxy"] = options.data_proxy
-        if getattr(self._client, "app_account", None) is not None:
-            kw["app_account"] = self._client.app_account
+        with self._tunnel_rest_lock:
+            if self._tunnel_rest is not None:
+                return self._tunnel_rest
 
-        endpoint = self._endpoint
-        if endpoint is None:
-            endpoint = self._get_tunnel_server(self._project)
-        self._tunnel_rest = RestClient(
-            self._account, endpoint, self._client.project, **kw
-        )
-        return self._tunnel_rest
+            kw = dict(tag="TUNNEL", namespace=self._namespace)
+            if options.data_proxy is not None:
+                kw["proxy"] = options.data_proxy
+            if getattr(self._client, "app_account", None) is not None:
+                kw["app_account"] = self._client.app_account
+
+            endpoint = self._endpoint
+            if endpoint is None:
+                endpoint = self._get_tunnel_server(self._project)
+            self._tunnel_rest = RestClient(
+                self._account, endpoint, self._client.project, **kw
+            )
+            return self._tunnel_rest

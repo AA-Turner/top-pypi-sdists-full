@@ -51,14 +51,23 @@ impl BlazenControlPlane for ControlPlaneService {
         &self,
         request: Request<Streaming<PostcardRequest>>,
     ) -> Result<Response<Self::WorkerSessionStream>, Status> {
-        super::session::handle_worker_session(self.shared.clone(), request.into_inner()).await
+        let identity = request
+            .extensions()
+            .get::<crate::auth::PeerIdentity>()
+            .cloned();
+        super::session::handle_worker_session(self.shared.clone(), identity, request.into_inner())
+            .await
     }
 
     async fn submit_workflow(
         &self,
         request: Request<PostcardRequest>,
     ) -> Result<Response<PostcardResponse>, Status> {
-        super::rpc::handle_submit_workflow(&self.shared, request.into_inner()).await
+        let identity = request
+            .extensions()
+            .get::<crate::auth::PeerIdentity>()
+            .cloned();
+        super::rpc::handle_submit_workflow(&self.shared, identity, request.into_inner()).await
     }
 
     async fn cancel_workflow(
@@ -72,14 +81,22 @@ impl BlazenControlPlane for ControlPlaneService {
         &self,
         request: Request<PostcardRequest>,
     ) -> Result<Response<PostcardResponse>, Status> {
-        super::rpc::handle_describe_workflow(&self.shared, request.into_inner()).await
+        let identity = request
+            .extensions()
+            .get::<crate::auth::PeerIdentity>()
+            .cloned();
+        super::rpc::handle_describe_workflow(&self.shared, identity, request.into_inner()).await
     }
 
     async fn list_workers(
         &self,
         request: Request<PostcardRequest>,
     ) -> Result<Response<PostcardResponse>, Status> {
-        super::rpc::handle_list_workers(&self.shared, request.into_inner()).await
+        let identity = request
+            .extensions()
+            .get::<crate::auth::PeerIdentity>()
+            .cloned();
+        super::rpc::handle_list_workers(&self.shared, identity, request.into_inner()).await
     }
 
     async fn drain_worker(

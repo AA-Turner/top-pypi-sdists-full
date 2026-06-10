@@ -31,6 +31,7 @@ reference to `A` to `B`'s `fields` attribute.
 
 import builtins
 import re
+import textwrap
 from dataclasses import (
     dataclass,
     field,
@@ -168,20 +169,26 @@ def get_comment(
             if lines and not lines[-1]:
                 lines.pop()  # Remove the last empty line
 
-            # It is common for one line comments to start with a space, for example: // comment
-            # We don't add this space to the generated file.
-            lines = [line[1:] if line and line[0] == " " else line for line in lines]
+            # SourceCodeInfo strips comment markers, but line comments commonly retain
+            # one shared leading space after `// `. Remove only common indentation so
+            # intentionally indented content inside descriptions is preserved.
+            lines = textwrap.dedent("\n".join(lines)).split("\n")
 
             # Escape any double-quotes to avoid interference with docstring quotes.
             lines = [line.replace('"', '\\"') for line in lines]
-
-            # This is a field, message, enum, service, or method
             if len(lines) == 1 and len(lines[0]) < 79 - indent - 6:
+                # This is a field, message, enum, service, or method
+                if not lines[0].rstrip():
+                    return ""
                 return f'{pad}"""{lines[0]}"""'
             else:
                 # rstrip to remove trailing spaces including empty lines.
                 padded = [f"\n{pad}{line}".rstrip(" ") for line in lines]
                 joined = "".join(padded)
+
+                # avoid empty comments like this """ """
+                if not joined:
+                    return ""
                 return f'{pad}"""{joined}\n{pad}"""'
 
     return ""

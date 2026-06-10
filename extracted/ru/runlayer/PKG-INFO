@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: runlayer
-Version: 0.24.15
+Version: 0.25.0
 Summary: A command-line interface for running MCP servers via HTTP transport
 Project-URL: Homepage, https://runlayer.com
 Project-URL: Documentation, https://docs.runlayer.com/

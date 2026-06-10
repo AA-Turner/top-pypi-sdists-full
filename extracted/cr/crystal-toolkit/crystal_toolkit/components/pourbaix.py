@@ -51,7 +51,10 @@ class PourbaixDiagramComponent(MPComponent):
 
     default_plot_style = frozendict(
         xaxis={
-            "title": "pH",
+            "title": {
+                "text": "pH",
+                "font": {"color": "#000000", "size": 24.0},
+            },
             "anchor": "y",
             "mirror": "ticks",
             "showgrid": False,
@@ -59,13 +62,15 @@ class PourbaixDiagramComponent(MPComponent):
             "side": "bottom",
             "tickfont": {"size": 16.0},
             "ticks": "inside",
-            "titlefont": {"color": "#000000", "size": 24.0},
             "type": "linear",
             "zeroline": False,
             "range": [MIN_PH, MAX_PH],
         },
         yaxis={
-            "title": "Applied Potential (V vs. SHE)",
+            "title": {
+                "text": "Applied Potential (V vs. SHE)",
+                "font": {"color": "#000000", "size": 24.0},
+            },
             "anchor": "x",
             "mirror": "ticks",
             "range": [MIN_V, MAX_V],
@@ -74,7 +79,6 @@ class PourbaixDiagramComponent(MPComponent):
             "side": "left",
             "tickfont": {"size": 16.0},
             "ticks": "inside",
-            "titlefont": {"color": "#000000", "size": 24.0},
             "type": "linear",
             "zeroline": False,
         },
@@ -343,8 +347,10 @@ class PourbaixDiagramComponent(MPComponent):
                 x=list(ph_range),
                 y=list(v_range),
                 colorbar={
-                    "title": "∆G<sub>pbx</sub> (eV/atom)",
-                    "titleside": "right",
+                    "title": {
+                        "text": "∆G<sub>pbx</sub> (eV/atom)",
+                        "side": "right",
+                    },
                 },
                 colorscale=[
                     [0, "#000004"],
@@ -460,14 +466,7 @@ class PourbaixDiagramComponent(MPComponent):
                 html.Div(
                     [
                         MessageAIO(
-                            "Invalid composition input!",
-                            aio_id=self.id("invalid-comp-alarm"),
-                            msg_type="error",
-                        ),
-                        MessageAIO(
-                            "Invalid concentration input!",
-                            aio_id=self.id("invalid-conc-alarm"),
-                            msg_type="error",
+                            aio_id=self.id("outputConsole"),
                         ),
                         html.Div(
                             [
@@ -641,10 +640,9 @@ class PourbaixDiagramComponent(MPComponent):
                     if mpid_wo_function in mat_detials:
                         structure_text = mat_detials[mpid_wo_function]["structure_text"]
                         crystal_system = mat_detials[mpid_wo_function]["crystal_system"]
+                        _mpid = mat_detials[mpid_wo_function]["_mpid"]
 
-                        label_text_list = [
-                            f"{formula} ({mpid_wo_function}, {functional}) \n"
-                        ]
+                        label_text_list = [f"{formula} ({_mpid}, {functional}) \n"]
                         if structure_text:
                             label_text_list.append(
                                 " - Prototype: " + structure_text + "\n"
@@ -796,8 +794,7 @@ class PourbaixDiagramComponent(MPComponent):
 
         @app.callback(
             Output(self.id("graph-panel"), "children"),
-            Output(MessageAIO.ids.visible(self.id("invalid-comp-alarm")), "data"),
-            Output(MessageAIO.ids.visible(self.id("invalid-conc-alarm")), "data"),
+            Output(MessageAIO.ids.data(self.id("outputConsole")), "data"),
             Output(self.id("display-composition"), "children"),
             Input(self.id(), "data"),
             Input(self.id("display-composition"), "children"),
@@ -836,8 +833,7 @@ class PourbaixDiagramComponent(MPComponent):
                 logger.error("Invalid composition input!")
                 return (
                     self.get_figure_div(),
-                    True,
-                    False,
+                    {"message": "Invalid composition input!", "msg_type": "error"},
                     "",
                 )
             try:
@@ -853,8 +849,7 @@ class PourbaixDiagramComponent(MPComponent):
                 logger.error("Invalid composition input!")
                 return (
                     self.get_figure_div(),
-                    True,
-                    False,
+                    {"message": "Invalid composition input!", "msg_type": "error"},
                     "",
                 )
 
@@ -889,8 +884,10 @@ class PourbaixDiagramComponent(MPComponent):
                         # if the input is out of pre-defined range, Input will get None
                         return (
                             self.get_figure_div(),
-                            False,
-                            True,
+                            {
+                                "message": "Invalid concentration input!",
+                                "msg_type": "error",
+                            },
                             "",
                         )
 
@@ -904,12 +901,8 @@ class PourbaixDiagramComponent(MPComponent):
                 filter_solids=kwargs["filter_solids"],
             )
 
-            self.logger.debug(  # noqa: PLE1205
-                "Generated pourbaix diagram",
-                len(pourbaix_entries),
-                heatmap_entry,
-                conc_dict,
-                comp_dict,
+            self.logger.debug(
+                f"Generated pourbaix diagram with {len(pourbaix_entries)} entries."
             )
 
             figure = self.get_figure(
@@ -919,7 +912,6 @@ class PourbaixDiagramComponent(MPComponent):
 
             return (
                 self.get_figure_div(figure=figure),
-                False,
-                False,
+                {},
                 html.Small(f"Pourbaix composition set to {unicodeify(formula)}."),
             )

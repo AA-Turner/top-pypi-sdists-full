@@ -35,7 +35,16 @@ from pydantic import ValidationError
 
 import bty
 from bty import images as bty_images
-from bty.web import _auth, _backup, _db, _events_log, _releases, _settings_store, _sysconfig
+from bty.web import (
+    _auth,
+    _backup,
+    _config,
+    _db,
+    _events_log,
+    _releases,
+    _settings_store,
+    _sysconfig,
+)
 from bty.web._auth import SESSION_AUTHED_KEY
 from bty.web._events_log import KNOWN_ACTORS, KNOWN_EVENT_KINDS, KNOWN_SUBJECT_KINDS
 from bty.web._events_log import normalize_ip as _normalize_ip
@@ -77,7 +86,11 @@ def register_ui_routes(
 
     def render(name: str, request: Request, **ctx: Any) -> HTMLResponse:
         ctx.setdefault("version", bty.__version__)
+        # Auth is always on; ``logged_in`` is purely session-derived.
+        # Templates can opt-in to a "using the default password"
+        # banner via ``using_default_password``.
         ctx.setdefault("logged_in", bool(request.session.get(SESSION_AUTHED_KEY)))
+        ctx.setdefault("using_default_password", _auth.using_default_password())
         ctx.setdefault("service_user", service_user)
         # Top-level path segment under /ui/ - the layout uses this to
         # mark the active nav button. ``request.url.path`` is the full
@@ -97,8 +110,11 @@ def register_ui_routes(
         return RedirectResponse("/ui/login", status_code=status.HTTP_303_SEE_OTHER)
 
     def require_ui_auth(request: Request) -> None:
-        # Open when no admin password is configured (see _auth.auth_enabled).
-        if _auth.auth_enabled() and not request.session.get(SESSION_AUTHED_KEY):
+        # Auth is always on. 401-on-API-routes is handled by
+        # ``_auth.require_auth``; UI routes bounce through here so the
+        # exception handler can 303 to /ui/login instead of returning
+        # a JSON 401 the browser can't act on.
+        if not request.session.get(SESSION_AUTHED_KEY):
             raise NotAuthenticated
 
     # ----- entry / auth ----------------------------------------------------
@@ -109,10 +125,9 @@ def register_ui_routes(
 
     @app.get("/ui/login", include_in_schema=False)
     def ui_login_form(request: Request) -> Response:
-        # When the instance is open (no password) or the visitor is already
-        # authed, skip the form and land on the dashboard. Lets ``GET /``
-        # (which 303s here) act as a smart entry point.
-        if not _auth.auth_enabled() or request.session.get(SESSION_AUTHED_KEY):
+        # Already authed -> skip the form and land on the dashboard.
+        # Lets ``GET /`` (which 303s here) act as a smart entry point.
+        if request.session.get(SESSION_AUTHED_KEY):
             return RedirectResponse("/ui/dashboard", status_code=status.HTTP_303_SEE_OTHER)
         return render("ui/login.html", request)
 
@@ -122,9 +137,6 @@ def register_ui_routes(
         password: Annotated[str, Form()],
     ) -> Response:
         client_ip = _client_ip(request)
-        # Open instance: nothing to check, land on the dashboard.
-        if not _auth.auth_enabled():
-            return RedirectResponse("/ui/dashboard", status_code=status.HTTP_303_SEE_OTHER)
         if not _auth.check_password(password):
             # Failed login: record so an operator scanning /ui/events sees
             # brute-force attempts.
@@ -218,7 +230,6 @@ def register_ui_routes(
         # linking to the page that owns it (with a fix action on fail).
         missing_netboot = _releases.missing_netboot_artifacts(boot_root)
         tftp = _sysconfig.tftp_status()
-        tftp_controllable = _sysconfig.tftp_controllable()
         catalog_ok = catalog_entry_count > 0 or counts["img_total"] > 0
         # Dedicated-disk state check. Green when the state dir is a
         # mount that actually holds the live data (the DB plus the
@@ -248,7 +259,7 @@ def register_ui_routes(
                     else f"Missing: {', '.join(missing_netboot)}"
                 ),
                 "href": "/ui/netboot",
-                "fix_href": "/ui/downloads",
+                "fix_href": "/ui/netboot",
                 "fix_label": "Fetch netboot artifacts",
             },
             {
@@ -268,17 +279,17 @@ def register_ui_routes(
                 "ok": tftp.is_active,
                 "detail": (
                     f"dnsmasq.service is {tftp.state}."
-                    if tftp_controllable or tftp.state == "active"
+                    if tftp.state == "active"
                     else (
                         f"dnsmasq.service is {tftp.state} "
-                        "(no daemon helper here, the container "
-                        "or operator owns the lifecycle)."
+                        "(container deploys run TFTP from a sidecar "
+                        "outside bty-web's visibility -- check the "
+                        "sidecar's status if PXE is failing)."
                     )
                 ),
                 "href": "/ui/netboot",
-                # The TFTP daemon control now lives on the Netboot
-                # list view (below the artifacts table); "fix" is the
-                # same as "view".
+                # The Netboot page is purely observational; "fix" is
+                # the same as "view".
                 "fix_href": "/ui/netboot",
                 "fix_label": "TFTP daemon",
             },
@@ -653,12 +664,11 @@ def register_ui_routes(
     def _render_images_page(request: Request) -> HTMLResponse:
         """Build the context for ``/ui/images`` and render the template.
 
-        The catalog list (merge of dir-scan files + catalog entries) is
-        the page's primary content; the operator's "add a single image"
-        forms (upload local file + add-by-URL) live on
-        ``/ui/downloads``. Live progress of any fetch / hash / backup
-        is on ``/ui/downloads`` / ``/ui/hashing`` / ``/ui/backups``
-        respectively.
+        The catalog list (``catalog_entries`` rows) is the page's
+        primary content. Three add-paths live in the header: upload
+        a ``catalog.toml`` (``POST /ui/catalog/upload``), fetch the
+        release catalog (``POST /ui/catalog/fetch-release``), or add
+        a single URL (``POST /ui/catalog/entries``).
 
         ``?error=<msg>`` lands in the layout's flash slot (the form-
         style ``POST /ui/catalog/entries`` 303s back with that param on
@@ -666,16 +676,11 @@ def register_ui_routes(
         """
         unified = list_unified_images() if list_unified_images is not None else []
         flash = request.query_params.get("error")
-        catalog_manifest_path = os.environ.get("BTY_CATALOG_FILE") or str(
-            state_path.parent / "catalog.toml"
-        )
+        catalog_manifest_path = str(_config.cfg().catalog_file)
         with _db.open_db(state_path) as conn:
             release_repo = _settings_store.resolve_release_repo(conn)
-            image_events = []
-            for kind in ("image", "catalog"):
-                image_events.extend(_events_log.list_events(conn, subject_kind=kind, limit=10))
-        image_events.sort(key=lambda e: e.id, reverse=True)
-        image_events = image_events[:15]
+            catalog_tag = _settings_store.resolve_catalog_tag(conn)
+            image_events = _events_log.list_events(conn, subject_kind="catalog", limit=15)
         return render(
             "ui/images.html",
             request,
@@ -683,6 +688,7 @@ def register_ui_routes(
             image_events=image_events,
             manifest_path=catalog_manifest_path,
             release_repo=release_repo,
+            catalog_tag=catalog_tag,
             flash=flash,
             flash_kind="danger" if flash else None,
         )
@@ -694,50 +700,11 @@ def register_ui_routes(
         dependencies=[Depends(require_ui_auth)],
     )
     def ui_images(request: Request) -> HTMLResponse:
-        """The image catalog: the SHA-keyed merge of dir-scan files +
-        catalog entries. Live job progress lives on the three worker
-        pages (``/ui/downloads`` / ``/ui/hashing`` / ``/ui/backups``);
-        the per-image Add forms live on ``/ui/downloads``."""
+        """The image catalog: one row per ``catalog_entries`` row.
+        Add-paths (upload TOML / fetch release / add URL) live in the
+        page's header; active netboot fetches live on ``/ui/netboot``;
+        backups on ``/ui/backups``."""
         return _render_images_page(request)
-
-    @app.get(
-        "/ui/downloads",
-        response_class=HTMLResponse,
-        include_in_schema=False,
-        dependencies=[Depends(require_ui_auth)],
-    )
-    def ui_downloads(request: Request) -> HTMLResponse:
-        """The Downloads worker page: trigger buttons (Fetch artifacts,
-        Add image from URL, Upload image) + active downloads table
-        (merging catalog entries + per-file release artifacts) +
-        recent download-relevant activity at the bottom.
-
-        ``artifacts_all_cached`` lets the template disable the Fetch
-        artifacts button when the trio + sha256 manifest are all
-        present locally. The button re-enables when one or more
-        files disappear from boot_root (e.g. the operator manually
-        ``rm``s them, or the dir is wiped on a state-dir migrate).
-        """
-        with _db.open_db(state_path) as conn:
-            release_repo = _settings_store.resolve_release_repo(conn)
-            release_tag = _settings_store.resolve_release_tag(conn)
-            download_events: list[_events_log.Event] = []
-            for kind in ("catalog", "image", "netboot"):
-                download_events.extend(_events_log.list_events(conn, subject_kind=kind, limit=10))
-        download_events.sort(key=lambda e: e.id, reverse=True)
-        download_events = download_events[:15]
-        # ``inspect_boot_dir`` returns one ArtifactState per file in
-        # the trio + manifest; ``a.present`` is the cached-on-disk bit.
-        artifacts = _releases.inspect_boot_dir(boot_root)
-        artifacts_all_cached = bool(artifacts) and all(a.present for a in artifacts)
-        return render(
-            "ui/downloads.html",
-            request,
-            release_repo=release_repo,
-            release_tag=release_tag,
-            download_events=download_events,
-            artifacts_all_cached=artifacts_all_cached,
-        )
 
     @app.get(
         "/ui/backups",
@@ -1050,34 +1017,42 @@ def register_ui_routes(
         flash_kind: str | None = None,
     ) -> HTMLResponse:
         """The netboot artifacts inventory (present/missing, size,
-        sha256, download) plus the TFTP daemon control.
+        sha256, download), the Fetch-artifacts trigger + active-jobs
+        table, plus the TFTP daemon control.
 
-        Pure inventory view (which files are present, sizes, sha256s,
-        last-fetched). The "Fetch artifacts" trigger lives on the
-        Downloads page now (``/ui/downloads``) -- enqueue there and
-        come back here to see the rows tick from missing to present.
-        The router-side DHCP / PXE cheatsheet moved to Settings.
-        Operator-side artifact uploads stay scripted via the auth-
-        gated ``PUT /boot/{name}`` route, not the browser.
+        v0.41.2+: the old ``/ui/downloads`` page collapsed into this
+        one since bty-web's only download workload is the netboot
+        artifact trio. ``artifacts_all_cached`` lets the template
+        disable the Fetch artifacts button when the trio + sha256
+        manifest are all present locally; it re-enables when one
+        disappears (operator ``rm``, state-dir migrate, etc.).
+        Router-side DHCP / PXE cheatsheet lives on the Settings page.
         """
+        artifacts = _releases.inspect_boot_dir(boot_root)
+        artifacts_all_cached = bool(artifacts) and all(a.present for a in artifacts)
         with _db.open_db(state_path) as conn:
             release_repo = _settings_store.resolve_release_repo(conn)
-            release_tag = _settings_store.resolve_release_tag(conn)
+            netboot_tag = _settings_store.resolve_netboot_tag(conn)
             # Recent netboot activity for the page's "Activity" table.
             boot_events = _events_log.list_events(conn, subject_kind="netboot", limit=10)
         return render(
             "ui/netboot.html",
             request,
             boot_root=str(boot_root),
-            artifacts=_releases.inspect_boot_dir(boot_root),
+            artifacts=artifacts,
+            artifacts_all_cached=artifacts_all_cached,
             artifact_shas=_releases.boot_artifact_shas(boot_root),
             release_repo=release_repo,
-            release_tag=release_tag,
+            netboot_tag=netboot_tag,
             boot_events=boot_events,
             flash=flash,
             flash_kind=flash_kind,
             tftp=_sysconfig.tftp_status(),
-            tftp_controllable=_sysconfig.tftp_controllable(),
+            # Diagnostic probe: TFTP host reachable + ipxe.efi present?
+            # The render is request-time so a config / sidecar change
+            # reflects on the next page load. ~1.5s in the worst case
+            # (probe timeout); on the fast path < 5 ms.
+            tftp_probe=_sysconfig.tftp_probe(),
         )
 
     @app.get(
@@ -1204,17 +1179,57 @@ def register_ui_routes(
 
     # ----- settings -------------------------------------------------------
 
-    def _config_row(label: str, value: object, env: str | None, default: str) -> dict[str, Any]:
-        """One read-only config row. ``source`` is "env" when an env var
-        is set, else "default" (the built-in / derived value), so the
-        operator can see why a magic value is what it is."""
-        source = "env" if (env and os.environ.get(env)) else "default"
+    def _config_row(
+        label: str,
+        value: object,
+        env: str | None,
+        default: str,
+        *,
+        section: str | None = None,
+        key: str | None = None,
+    ) -> dict[str, Any]:
+        """One config row for the Settings page.
+
+        v0.42+: when ``section`` + ``key`` are passed, the row is an
+        editable Config field; the template renders an inline form
+        that POSTs to ``/ui/settings/config/edit`` and write-backs to
+        ``cfg.primary_toml`` via ``_config.save_value``. The row is
+        read-only iff (a) no ``section`` / ``key`` is set (display-
+        only diagnostic like "bty version") OR (b) the value is
+        currently sourced from an env var (the env wins; editing
+        the TOML wouldn't take effect until env is unset).
+
+        ``source`` is read from the LoadedConfig's per-key
+        ``sources`` map so the badge reflects the actual provenance
+        chain, not a heuristic.
+        """
+        loaded = _config.active_config()
+        if section and key:
+            dotted = f"{section}.{key}"
+            raw_source = loaded.sources.get(dotted, "default")
+        else:
+            raw_source = "default"  # display-only row (e.g. bty version)
+        # Squash the source string to a coarse bucket the template
+        # branches on. ``raw_source`` may be ``"toml(/etc/bty/bty.toml)"``
+        # or ``"env(BTY_ADMIN_PASSWORD)"`` -- keep the detail for the
+        # tooltip but show a one-word badge.
+        if raw_source.startswith("env("):
+            source_bucket = "env"
+        elif raw_source.startswith("toml("):
+            source_bucket = "toml"
+        else:
+            source_bucket = "default"
+        editable = section is not None and key is not None and source_bucket != "env"
         return {
             "label": label,
             "value": str(value),
             "env": env,
             "default": default,
-            "source": source,
+            "source": source_bucket,
+            "source_detail": raw_source,
+            "section": section,
+            "key": key,
+            "editable": editable,
         }
 
     def _render_settings_page(
@@ -1228,26 +1243,28 @@ def register_ui_routes(
         # derived path / default), plus the one editable card: the
         # upstream sources (release repo + catalog URL), persisted in
         # state.db so they survive a restart.
+        cfg = _config.cfg()
         state_dir = state_path.parent
-        catalog_file = os.environ.get("BTY_CATALOG_FILE") or str(state_dir / "catalog.toml")
-        session_secret = os.environ.get("BTY_SESSION_SECRET")
+        catalog_file = str(cfg.catalog_file)
         with _db.open_db(state_path) as conn:
             release_repo = _settings_store.resolve_release_repo(conn)
             catalog_url = _settings_store.resolve_catalog_url(conn)
-            release_tag = _settings_store.resolve_release_tag(conn)
+            catalog_tag = _settings_store.resolve_catalog_tag(conn)
+            netboot_tag = _settings_store.resolve_netboot_tag(conn)
             repo_override = _settings_store.get(conn, _settings_store.KEY_RELEASE_REPO)
-            catalog_override = _settings_store.get(conn, _settings_store.KEY_CATALOG_URL)
-            tag_override = _settings_store.get(conn, _settings_store.KEY_RELEASE_TAG)
+            catalog_tag_override = _settings_store.get(conn, _settings_store.KEY_CATALOG_TAG)
+            netboot_tag_override = _settings_store.get(conn, _settings_store.KEY_NETBOOT_TAG)
         upstream = {
             "release_repo": release_repo,
             "release_repo_override": repo_override,
             "release_repo_default": _settings_store.default_release_repo(),
-            "catalog_url": catalog_url,
-            "catalog_url_override": catalog_override,
-            "catalog_url_default": _settings_store.default_catalog_url(release_repo),
-            "release_tag": release_tag,
-            "release_tag_override": tag_override,
-            "release_tag_default": _settings_store.DEFAULT_RELEASE_TAG,
+            "catalog_tag": catalog_tag,
+            "catalog_tag_override": catalog_tag_override,
+            "catalog_tag_default": _settings_store.DEFAULT_TAG,
+            "catalog_url": catalog_url,  # derived view (repo + catalog_tag)
+            "netboot_tag": netboot_tag,
+            "netboot_tag_override": netboot_tag_override,
+            "netboot_tag_default": _settings_store.DEFAULT_TAG,
         }
         config_groups = [
             {
@@ -1268,20 +1285,38 @@ def register_ui_routes(
                 "title": "Storage paths",
                 "icon": "hdd",
                 "rows": [
-                    _config_row("State directory", state_dir, "BTY_STATE_DIR", "/var/lib/bty"),
+                    _config_row(
+                        "State directory",
+                        cfg.paths.state_dir,
+                        "BTY_PATHS_STATE_DIR",
+                        "/var/lib/bty",
+                        section="paths",
+                        key="state_dir",
+                    ),
                     _config_row("Database", state_path, None, "<state dir>/state.db"),
-                    _config_row("Netboot directory", boot_root, "BTY_BOOT_DIR", "<state dir>/boot"),
+                    _config_row(
+                        "Netboot directory",
+                        cfg.paths.boot_dir or str(cfg.boot_dir),
+                        "BTY_PATHS_BOOT_DIR",
+                        "<state dir>/boot",
+                        section="paths",
+                        key="boot_dir",
+                    ),
                     _config_row(
                         "Catalog manifest",
-                        catalog_file,
-                        "BTY_CATALOG_FILE",
+                        cfg.paths.catalog_file or catalog_file,
+                        "BTY_PATHS_CATALOG_FILE",
                         "<state dir>/catalog.toml",
+                        section="paths",
+                        key="catalog_file",
                     ),
                     _config_row(
                         "Session secret",
-                        session_secret or str(state_dir / "session-secret"),
-                        "BTY_SESSION_SECRET",
+                        cfg.server.session_secret or str(state_dir / "session-secret"),
+                        "BTY_SERVER_SESSION_SECRET",
                         "<state dir>/session-secret",
+                        section="server",
+                        key="session_secret",
                     ),
                 ],
             },
@@ -1291,20 +1326,44 @@ def register_ui_routes(
                 "rows": [
                     _config_row(
                         "Bind host",
-                        os.environ.get("BTY_WEB_HOST", "0.0.0.0"),
-                        "BTY_WEB_HOST",
+                        cfg.server.host,
+                        "BTY_SERVER_HOST",
                         "0.0.0.0",
+                        section="server",
+                        key="host",
                     ),
                     _config_row(
-                        "Bind port", os.environ.get("BTY_WEB_PORT", "8080"), "BTY_WEB_PORT", "8080"
+                        "Bind port",
+                        str(cfg.server.port),
+                        "BTY_SERVER_PORT",
+                        "8080",
+                        section="server",
+                        key="port",
                     ),
                     _config_row(
                         "Trust X-Forwarded-For",
-                        "yes" if os.environ.get("BTY_TRUSTED_PROXY") else "no",
-                        "BTY_TRUSTED_PROXY",
-                        "no",
+                        cfg.server.trusted_proxy or "(off)",
+                        "BTY_SERVER_TRUSTED_PROXY",
+                        "(off)",
+                        section="server",
+                        key="trusted_proxy",
                     ),
-                    _config_row("TFTP systemd unit", _sysconfig.TFTP_UNIT, None, "dnsmasq.service"),
+                    _config_row(
+                        "TFTP probe target",
+                        cfg.netboot.tftp_probe_host,
+                        "BTY_NETBOOT_TFTP_PROBE_HOST",
+                        "127.0.0.1",
+                        section="netboot",
+                        key="tftp_probe_host",
+                    ),
+                    _config_row(
+                        "withcache base URL",
+                        cfg.withcache.url or "(unset)",
+                        "BTY_WITHCACHE_URL",
+                        "(unset; bty-web streams from origin)",
+                        section="withcache",
+                        key="url",
+                    ),
                 ],
             },
             {
@@ -1349,6 +1408,15 @@ def register_ui_routes(
             backup_retention_count=backup_retention_count,
             backup_last_run_at=backup_last_run_at,
             missing_netboot_artifacts=_releases.missing_netboot_artifacts(boot_root),
+            # Provenance / write-target info for the editable config
+            # rows: the path the Settings POST handler writes to (or
+            # None when the operator hasn't installed a TOML yet).
+            config_primary_toml=(
+                str(_config.active_config().primary_toml)
+                if _config.active_config().primary_toml is not None
+                else None
+            ),
+            config_loaded_files=[str(p) for p in _config.active_config().loaded_files],
         )
 
     @app.get(
@@ -1384,6 +1452,156 @@ def register_ui_routes(
         return render("ui/account.html", request)
 
     @app.post(
+        "/ui/settings/config/edit",
+        include_in_schema=False,
+        dependencies=[Depends(require_ui_auth)],
+    )
+    def ui_settings_config_edit(
+        request: Request,
+        section: Annotated[str, Form()] = "",
+        key: Annotated[str, Form()] = "",
+        value: Annotated[str, Form()] = "",
+    ) -> RedirectResponse:
+        """Persist a single config edit from the Settings page into
+        the operator's bty.toml.
+
+        Per-row inline edit form on /ui/settings posts ``section`` +
+        ``key`` + ``value``. The handler validates the key is part
+        of the Config schema (no arbitrary write paths) + the
+        section/key combo IS editable (not env-overridden +
+        ``primary_toml`` is writable), then calls
+        ``_config.save_value`` to round-trip through tomlkit.
+        Coerces ``value`` to int when the schema field is typed as
+        int (``server.port`` / ``tuning.*``); empty string is treated
+        as "clear" and removes the override (reverts to default).
+
+        Records ``settings.config.updated`` (or ``.failed``) so the
+        audit log carries before/after for the bty-toml edit
+        trail. The next-reload picks up the change; bty-web reloads
+        on restart, OR the operator can call this endpoint and the
+        SAME process reloads the active config inline so the change
+        shows up on the next page render.
+        """
+        from dataclasses import fields
+        from typing import get_type_hints
+
+        from bty.web._config import Config as _ConfigCls
+
+        client_ip = _client_ip(request)
+        section = section.strip()
+        key = key.strip()
+        value = value.strip()
+
+        # Validate section/key against the schema -- the form can
+        # only target keys that exist in Config. Stops a hand-
+        # crafted POST from writing arbitrary TOML keys.
+        section_types = get_type_hints(_ConfigCls)
+        if section not in section_types:
+            return RedirectResponse(
+                "/ui/settings?error=unknown+section",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+        valid_keys = {f.name: f.type for f in fields(section_types[section])}
+        if key not in valid_keys:
+            return RedirectResponse(
+                "/ui/settings?error=unknown+key",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+
+        loaded = _config.active_config()
+        primary = loaded.primary_toml
+        if primary is None:
+            return RedirectResponse(
+                "/ui/settings?error=no+writable+bty.toml",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+
+        # Refuse to write a key that's currently env-overridden --
+        # the TOML write would silently no-op as the env wins. The
+        # template hides edit forms for those rows, but a hand-
+        # crafted POST could still try.
+        dotted = f"{section}.{key}"
+        cur_source = loaded.sources.get(dotted, "default")
+        if cur_source.startswith("env("):
+            return RedirectResponse(
+                f"/ui/settings?error=env+override+for+{dotted}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+
+        # Coerce value to the schema's declared type. Int fields
+        # accept blank (treated as "no override" -- delete the key
+        # from the TOML so the default takes effect).
+        declared = valid_keys[key]
+        coerced: str | int
+        try:
+            if value == "":
+                coerced = ""
+            elif declared in (int, "int"):
+                coerced = int(value)
+            else:
+                coerced = value
+        except ValueError:
+            return RedirectResponse(
+                f"/ui/settings?error=invalid+value+for+{dotted}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+
+        # Capture old value for the audit row before the write.
+        old_value = _read_dotted(loaded.cfg, section, key)
+        try:
+            if coerced == "":
+                # Remove the key so the default takes over. Use
+                # ``tomlkit``'s in-place delete to preserve comments.
+                _delete_toml_key(primary, section, key)
+            else:
+                _config.save_value(primary, section, key, coerced)
+        except OSError as exc:
+            with _db.open_db(state_path) as conn:
+                _events_log.record(
+                    conn,
+                    kind="settings.config.failed",
+                    summary=f"bty.toml write failed: {exc}",
+                    subject_kind="settings",
+                    subject_id=dotted,
+                    actor="operator",
+                    source_ip=client_ip,
+                    details={"section": section, "key": key, "error": str(exc)},
+                )
+                conn.commit()
+            return RedirectResponse(
+                f"/ui/settings?error=write+failed+{dotted}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+
+        # Reload the active config so the next render sees the new
+        # value without a process restart.
+        _config.set_active_config(_config.load_config(None))
+
+        with _db.open_db(state_path) as conn:
+            _events_log.record(
+                conn,
+                kind="settings.config.updated",
+                summary=f"bty.toml: {dotted} = {coerced!r}",
+                subject_kind="settings",
+                subject_id=dotted,
+                actor="operator",
+                source_ip=client_ip,
+                details={
+                    "section": section,
+                    "key": key,
+                    "old": str(old_value),
+                    "new": "" if coerced == "" else str(coerced),
+                    "path": str(primary),
+                },
+            )
+            conn.commit()
+
+        return RedirectResponse(
+            "/ui/settings?saved=config",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    @app.post(
         "/ui/settings/upstream",
         include_in_schema=False,
         dependencies=[Depends(require_ui_auth)],
@@ -1391,45 +1609,43 @@ def register_ui_routes(
     def ui_settings_upstream(
         request: Request,
         release_repo: Annotated[str, Form()] = "",
-        catalog_url: Annotated[str, Form()] = "",
-        release_tag: Annotated[str, Form()] = "",
+        catalog_tag: Annotated[str, Form()] = "",
+        netboot_tag: Annotated[str, Form()] = "",
     ) -> RedirectResponse:
-        """Save (or clear) the three editable upstream overrides
-        (release repo, catalog URL, release tag). An empty field clears
-        that override, reverting to env / default. All three take effect
+        """Save (or clear) the three editable upstream overrides:
+        release repo, catalog tag, netboot tag. An empty field clears
+        that override, reverting to the default. All three take effect
         on the next fetch without a restart, since the fetch sites
         resolve from this store at request time."""
         rr = release_repo.strip()
-        cu = catalog_url.strip()
-        rt = release_tag.strip()
+        ct = catalog_tag.strip()
+        nt = netboot_tag.strip()
         with _db.open_db(state_path) as conn:
             # Snapshot the previous explicit overrides (None = was on
             # default) BEFORE the writes so the audit event can carry
-            # both before + after. Pre-fix the event only recorded the
-            # post-change state; a drift-tracking script or an operator
-            # auditing "what changed?" had no way to see the prior
-            # values. Both go in details now.
+            # both before + after.
             old_rr = _settings_store.get(conn, _settings_store.KEY_RELEASE_REPO)
-            old_cu = _settings_store.get(conn, _settings_store.KEY_CATALOG_URL)
-            old_rt = _settings_store.get(conn, _settings_store.KEY_RELEASE_TAG)
+            old_ct = _settings_store.get(conn, _settings_store.KEY_CATALOG_TAG)
+            old_nt = _settings_store.get(conn, _settings_store.KEY_NETBOOT_TAG)
             if rr:
                 _settings_store.set_value(conn, _settings_store.KEY_RELEASE_REPO, rr)
             else:
                 _settings_store.clear(conn, _settings_store.KEY_RELEASE_REPO)
-            if cu:
-                _settings_store.set_value(conn, _settings_store.KEY_CATALOG_URL, cu)
+            if ct:
+                _settings_store.set_value(conn, _settings_store.KEY_CATALOG_TAG, ct)
             else:
-                _settings_store.clear(conn, _settings_store.KEY_CATALOG_URL)
-            if rt:
-                _settings_store.set_value(conn, _settings_store.KEY_RELEASE_TAG, rt)
+                _settings_store.clear(conn, _settings_store.KEY_CATALOG_TAG)
+            if nt:
+                _settings_store.set_value(conn, _settings_store.KEY_NETBOOT_TAG, nt)
             else:
-                _settings_store.clear(conn, _settings_store.KEY_RELEASE_TAG)
+                _settings_store.clear(conn, _settings_store.KEY_NETBOOT_TAG)
             _events_log.record(
                 conn,
                 kind="settings.upstream.updated",
                 summary=(
                     f"upstream sources set: repo={rr or '(default)'}, "
-                    f"catalog_url={cu or '(default)'}, tag={rt or '(default)'}"
+                    f"catalog_tag={ct or '(default)'}, "
+                    f"netboot_tag={nt or '(default)'}"
                 ),
                 subject_kind="settings",
                 subject_id="upstream",
@@ -1437,8 +1653,8 @@ def register_ui_routes(
                 source_ip=_client_ip(request),
                 details={
                     "release_repo": {"old": old_rr, "new": rr or None},
-                    "catalog_url": {"old": old_cu, "new": cu or None},
-                    "release_tag": {"old": old_rt, "new": rt or None},
+                    "catalog_tag": {"old": old_ct, "new": ct or None},
+                    "netboot_tag": {"old": old_nt, "new": nt or None},
                 },
             )
             conn.commit()
@@ -1514,57 +1730,6 @@ def register_ui_routes(
         return RedirectResponse(
             "/ui/settings?saved=backup#backup-schedule",
             status_code=status.HTTP_303_SEE_OTHER,
-        )
-
-    @app.post(
-        "/ui/settings/tftp-control",
-        include_in_schema=False,
-        dependencies=[Depends(require_ui_auth)],
-    )
-    def ui_settings_tftp_control(
-        request: Request,
-        action: Annotated[str, Form()] = "",
-    ) -> HTMLResponse:
-        # Start / Stop / Restart dnsmasq.service (the local TFTP
-        # daemon). Operator triage: "TFTP isn't responding -> restart
-        # it"; "I want to take PXE offline briefly -> stop it".
-        client_ip = _client_ip(request)
-        try:
-            _sysconfig.control_tftp(action)
-        except _sysconfig.SysConfigError as exc:
-            with _db.open_db(state_path) as conn:
-                _events_log.record(
-                    conn,
-                    kind="netboot.tftp.control.failed",
-                    summary=f"TFTP {action!r} failed: {exc}",
-                    subject_kind="netboot",
-                    subject_id="tftp",
-                    actor="operator",
-                    source_ip=client_ip,
-                    details={"action": action, "error": str(exc)},
-                )
-                conn.commit()
-            return _render_netboot_page(
-                request,
-                flash=f"{action} of TFTP daemon failed: {exc}",
-                flash_kind="danger",
-            )
-        with _db.open_db(state_path) as conn:
-            _events_log.record(
-                conn,
-                kind="netboot.tftp.controlled",
-                summary=f"TFTP daemon {action}",
-                subject_kind="netboot",
-                subject_id="tftp",
-                actor="operator",
-                source_ip=client_ip,
-                details={"action": action},
-            )
-            conn.commit()
-        return _render_netboot_page(
-            request,
-            flash=f"{action.capitalize()}ed TFTP daemon.",
-            flash_kind="success",
         )
 
     @app.post(
@@ -1750,6 +1915,39 @@ def lshw_highlights(blob: str | None) -> dict[str, Any] | None:
     }
 
 
+def _read_dotted(cfg_obj: Any, section: str, key: str) -> Any:
+    """Read ``cfg.<section>.<key>`` -- the path-walk version of
+    Python attribute access. Used by the Settings edit handler to
+    capture the BEFORE value for the audit row without hand-rolling
+    a switch per section."""
+    section_obj = getattr(cfg_obj, section)
+    return getattr(section_obj, key)
+
+
+def _delete_toml_key(path: Path, section: str, key: str) -> None:
+    """Remove ``[section] key`` from the TOML at ``path``, preserving
+    operator formatting via tomlkit. No-op if the file / section /
+    key doesn't exist (the caller already validated; this is the
+    on-disk path).
+
+    Atomic via tempfile + rename, same shape as ``save_value``."""
+    import os
+
+    import tomlkit
+
+    if not path.is_file():
+        return
+    with path.open("r", encoding="utf-8") as f:
+        doc = tomlkit.parse(f.read())
+    if section not in doc or key not in doc[section]:
+        return
+    del doc[section][key]
+    tmp = path.with_name(f".{path.name}.tmp")
+    tmp.write_text(tomlkit.dumps(doc), encoding="utf-8")
+    os.chmod(tmp, 0o640)
+    tmp.replace(path)
+
+
 def _row_to_dict(row: Any) -> dict[str, Any]:
     """Decode a sqlite3.Row of ``machines`` into a plain dict.
 
@@ -1805,11 +2003,12 @@ def _client_ip(request: Request) -> str | None:
     """Mirror of ``bty.web._app._client_ip``: read the request's
     client host and feed it through :func:`_events_log.normalize_ip`
     so v4-mapped-v6 addresses collapse to bare v4 before hitting
-    the audit log. ``BTY_TRUSTED_PROXY`` opts into reading
+    the audit log. ``[server] trusted_proxy`` (env override
+    ``BTY_SERVER_TRUSTED_PROXY``) opts into reading
     ``X-Forwarded-For`` for deployments behind a reverse proxy.
     Duplicated here rather than imported because ``_app`` already
     imports this module (circular)."""
-    if os.environ.get("BTY_TRUSTED_PROXY"):
+    if _config.cfg().server.trusted_proxy:
         xff = request.headers.get("x-forwarded-for")
         if xff:
             first = xff.split(",", 1)[0].strip()

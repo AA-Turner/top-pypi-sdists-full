@@ -2,17 +2,13 @@ import asyncio
 import asyncio.locks
 import asyncio.queues
 import collections.abc
+import modal._runtime.task_lifecycle_manager
 import modal._runtime.user_code_imports
 import modal.client
 import modal_proto.api_pb2
 import synchronicity.combined_types
 import typing
 import typing_extensions
-
-class UserException(Exception):
-    """Used to shut down the task gracefully."""
-
-    ...
 
 class Sentinel:
     """Used to get type-stubs to work with this object."""
@@ -62,7 +58,7 @@ class IOContext:
     def _prepare_batch_output(self, data: typing.Any) -> list[typing.Any]: ...
     def call_function_sync(self) -> list[typing.Any]: ...
     async def call_function_async(self) -> list[typing.Any]: ...
-    def call_generator_sync(self) -> typing.Generator[typing.Any, None, None]: ...
+    def call_generator_sync(self) -> collections.abc.Generator[typing.Any, None, None]: ...
     def call_generator_async(self) -> collections.abc.AsyncGenerator[typing.Any, None]: ...
     async def output_items_cancellation(self, started_at: float): ...
     def _determine_output_format(self, input_format: int) -> int: ...
@@ -101,11 +97,8 @@ class _ContainerIOManager:
     Then we could potentially move a bunch of the global functions onto it.
     """
 
-    task_id: str
-    function_id: str
     app_id: str
-    function_def: modal_proto.api_pb2.Function
-    checkpoint_id: typing.Optional[str]
+    _task_lifecycle_manager: modal._runtime.task_lifecycle_manager._TaskLifecycleManager
     input_plane_server_url: typing.Optional[str]
     calls_completed: int
     total_user_time: float
@@ -123,7 +116,6 @@ class _ContainerIOManager:
     _waiting_for_memory_snapshot: bool
     _is_interactivity_enabled: bool
     _fetching_inputs: bool
-    _client: modal.client._Client
     _singleton: typing.ClassVar[typing.Optional[_ContainerIOManager]]
 
     def _init(self, container_args: modal_proto.api_pb2.ContainerArguments, client: modal.client._Client): ...
@@ -141,6 +133,17 @@ class _ContainerIOManager:
         """Only used for tests."""
         ...
 
+    def get_task_lifecycle_manager(self) -> modal._runtime.task_lifecycle_manager.TaskLifecycleManager: ...
+    @property
+    def task_id(self) -> str: ...
+    @property
+    def function_id(self) -> str: ...
+    @property
+    def function_def(self) -> modal_proto.api_pb2.Function: ...
+    @property
+    def checkpoint_id(self) -> typing.Optional[str]: ...
+    @property
+    def _client(self) -> modal.client._Client: ...
     async def hello(self): ...
     async def _run_heartbeat_loop(self): ...
     async def _heartbeat_handle_cancellations(self) -> bool: ...
@@ -197,32 +200,15 @@ class _ContainerIOManager:
         """Send pre-built output items with retry and chunking."""
         ...
 
-    def handle_user_exception(self) -> typing.AsyncContextManager[None]:
-        """Sets the task as failed in a way where it's not retried.
-
-        Used for handling exceptions from container lifecycle methods at the moment, which should
-        trigger a task failure state.
-        """
-        ...
-
     def handle_input_exception(self, io_context: IOContext, started_at: float) -> typing.AsyncContextManager[None]:
         """Handle an exception while processing a function input."""
         ...
 
     def exit_context(self, started_at, input_ids: list[str]): ...
     async def push_outputs(self, io_context: IOContext, started_at: float, output_data: list[typing.Any]) -> None: ...
-    async def memory_restore(self) -> None: ...
-    async def memory_snapshot(self) -> None:
-        """Message server indicating that function is ready to be checkpointed."""
-        ...
-
-    async def volume_commit(self, volume_ids: list[str]) -> None:
-        """Perform volume commit for given `volume_ids`.
-        Only used on container exit to persist uncommitted changes on behalf of user.
-        """
-        ...
-
+    def snapshot_context_manager(self) -> typing.AsyncContextManager[None]: ...
     async def interact(self, from_breakpoint: bool = False): ...
+    def _install_breakpoint_hook(self) -> None: ...
     @property
     def target_concurrency(self) -> int: ...
     @property
@@ -257,11 +243,8 @@ class ContainerIOManager:
     Then we could potentially move a bunch of the global functions onto it.
     """
 
-    task_id: str
-    function_id: str
     app_id: str
-    function_def: modal_proto.api_pb2.Function
-    checkpoint_id: typing.Optional[str]
+    _task_lifecycle_manager: modal._runtime.task_lifecycle_manager.TaskLifecycleManager
     input_plane_server_url: typing.Optional[str]
     calls_completed: int
     total_user_time: float
@@ -279,7 +262,6 @@ class ContainerIOManager:
     _waiting_for_memory_snapshot: bool
     _is_interactivity_enabled: bool
     _fetching_inputs: bool
-    _client: modal.client.Client
     _singleton: typing.ClassVar[typing.Optional[ContainerIOManager]]
 
     def __init__(self, /, *args, **kwargs):
@@ -293,6 +275,18 @@ class ContainerIOManager:
     def _reset_singleton(cls):
         """Only used for tests."""
         ...
+
+    def get_task_lifecycle_manager(self) -> modal._runtime.task_lifecycle_manager.TaskLifecycleManager: ...
+    @property
+    def task_id(self) -> str: ...
+    @property
+    def function_id(self) -> str: ...
+    @property
+    def function_def(self) -> modal_proto.api_pb2.Function: ...
+    @property
+    def checkpoint_id(self) -> typing.Optional[str]: ...
+    @property
+    def _client(self) -> modal.client.Client: ...
 
     class __hello_spec(typing_extensions.Protocol):
         def __call__(self, /): ...
@@ -461,25 +455,6 @@ class ContainerIOManager:
 
     _send_outputs: ___send_outputs_spec
 
-    class __handle_user_exception_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> synchronicity.combined_types.AsyncAndBlockingContextManager[None]:
-            """Sets the task as failed in a way where it's not retried.
-
-            Used for handling exceptions from container lifecycle methods at the moment, which should
-            trigger a task failure state.
-            """
-            ...
-
-        def aio(self, /) -> typing.AsyncContextManager[None]:
-            """Sets the task as failed in a way where it's not retried.
-
-            Used for handling exceptions from container lifecycle methods at the moment, which should
-            trigger a task failure state.
-            """
-            ...
-
-    handle_user_exception: __handle_user_exception_spec
-
     class __handle_input_exception_spec(typing_extensions.Protocol):
         def __call__(
             self, /, io_context: IOContext, started_at: float
@@ -501,37 +476,11 @@ class ContainerIOManager:
 
     push_outputs: __push_outputs_spec
 
-    class __memory_restore_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> None: ...
-        async def aio(self, /) -> None: ...
+    class __snapshot_context_manager_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> synchronicity.combined_types.AsyncAndBlockingContextManager[None]: ...
+        def aio(self, /) -> typing.AsyncContextManager[None]: ...
 
-    memory_restore: __memory_restore_spec
-
-    class __memory_snapshot_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> None:
-            """Message server indicating that function is ready to be checkpointed."""
-            ...
-
-        async def aio(self, /) -> None:
-            """Message server indicating that function is ready to be checkpointed."""
-            ...
-
-    memory_snapshot: __memory_snapshot_spec
-
-    class __volume_commit_spec(typing_extensions.Protocol):
-        def __call__(self, /, volume_ids: list[str]) -> None:
-            """Perform volume commit for given `volume_ids`.
-            Only used on container exit to persist uncommitted changes on behalf of user.
-            """
-            ...
-
-        async def aio(self, /, volume_ids: list[str]) -> None:
-            """Perform volume commit for given `volume_ids`.
-            Only used on container exit to persist uncommitted changes on behalf of user.
-            """
-            ...
-
-    volume_commit: __volume_commit_spec
+    snapshot_context_manager: __snapshot_context_manager_spec
 
     class __interact_spec(typing_extensions.Protocol):
         def __call__(self, /, from_breakpoint: bool = False): ...
@@ -539,6 +488,7 @@ class ContainerIOManager:
 
     interact: __interact_spec
 
+    def _install_breakpoint_hook(self) -> None: ...
     @property
     def target_concurrency(self) -> int: ...
     @property
@@ -565,15 +515,6 @@ class ContainerIOManager:
 
     @classmethod
     def stop_fetching_inputs(cls): ...
-
-def check_fastapi_pydantic_compatibility(exc: ImportError) -> None:
-    """Add a helpful note to an exception that is likely caused by a pydantic<>fastapi version incompatibility.
-
-    We need this becasue the legacy set of container requirements (image_builder_version=2023.12) contains a
-    version of fastapi that is not forwards-compatible with pydantic 2.0+, and users commonly run into issues
-    building an image that specifies a more recent version only for pydantic.
-    """
-    ...
 
 MAX_OUTPUT_BATCH_SIZE: int
 

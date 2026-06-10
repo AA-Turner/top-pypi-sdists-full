@@ -196,6 +196,7 @@ class DatasetNode(BaseModel):
     coordinates: list[ClassifiedArray]
     data_variables: list[ClassifiedArray]
     child_groups: list[str]  # Names of direct child groups (for navigation)
+    members_truncated: bool = False
     is_xarray_compatible: bool = True  # False if dimensions conflict or arrays lack dimension_names
     nbytes: int = 0  # Total bytes consumed by all arrays (uncompressed)
     # Returning spec_version in this response to avoid another roundtrip in the web app for IC spec version

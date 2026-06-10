@@ -104,31 +104,38 @@ class _VolumeManager:
         environment_name: typing.Optional[str] = None,
         client: typing.Optional[modal.client._Client] = None,
     ) -> None:
-        """Create a new Volume object.
+        """Create a new named Volume in the workspace environment.
 
-        **Examples:**
-
-        ```python notest
-        modal.Volume.objects.create("my-volume")
-        ```
-
-        Volumes will be created in the active environment, or another one can be specified:
-
-        ```python notest
-        modal.Volume.objects.create("my-volume", environment_name="dev")
-        ```
-
-        By default, an error will be raised if the Volume already exists, but passing
-        `allow_existing=True` will make the creation attempt a no-op in this case.
-
-        ```python notest
-        modal.Volume.objects.create("my-volume", allow_existing=True)
-        ```
-
-        Note that this method does not return a local instance of the Volume. You can use
-        `modal.Volume.from_name` to perform a lookup after creation.
+        This does not return a local handle; use `modal.Volume.from_name` to look up the Volume after creation.
 
         Added in v1.1.2.
+
+        Args:
+            name: Name for the new Volume.
+            version: Optional VolumeFS backend version (1 or 2); experimental.
+            allow_existing: If True, do nothing when a Volume with this name already exists.
+            environment_name: Environment to create in; defaults to the active environment.
+            client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+        Examples:
+            ```python notest
+            modal.Volume.objects.create("my-volume")
+            ```
+
+            Volumes will be created in the active environment, or another one can be specified:
+
+            ```python notest
+            modal.Volume.objects.create("my-volume", environment_name="dev")
+            ```
+
+            By default, an error is raised if the Volume already exists; `allow_existing=True` makes that case a no-op:
+
+            ```python notest
+            modal.Volume.objects.create("my-volume", allow_existing=True)
+            ```
+
+            Note that this method does not return a local instance of the Volume. You can use
+            `modal.Volume.from_name` to perform a lookup after creation.
         """
         ...
 
@@ -140,29 +147,39 @@ class _VolumeManager:
         environment_name: str = "",
         client: typing.Optional[modal.client._Client] = None,
     ) -> list[_Volume]:
-        """Return a list of hydrated Volume objects.
+        """List named Volumes in the workspace environment as hydrated handles.
 
-        **Examples:**
-
-        ```python
-        volumes = modal.Volume.objects.list()
-        print([v.name for v in volumes])
-        ```
-
-        Volumes will be retreived from the active environment, or another one can be specified:
-
-        ```python notest
-        dev_volumes = modal.Volume.objects.list(environment_name="dev")
-        ```
-
-        By default, all named Volumes are returned, newest to oldest. It's also possible to limit the
-        number of results and to filter by creation date:
-
-        ```python
-        volumes = modal.Volume.objects.list(max_objects=10, created_before="2025-01-01")
-        ```
+        Results are ordered newest to oldest. By default, all matching Volumes are returned.
 
         Added in v1.1.2.
+
+        Args:
+            max_objects: Maximum number of Volumes to return.
+            created_before: Only include Volumes created before this time (datetime or ISO date string).
+            environment_name: Environment to list from; defaults to the active environment.
+            client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            Hydrated `Volume` objects for each named Volume in the listing.
+
+        Examples:
+            ```python
+            volumes = modal.Volume.objects.list()
+            print([v.name for v in volumes])
+            ```
+
+            Volumes will be retrieved from the active environment, or another one can be specified:
+
+            ```python notest
+            dev_volumes = modal.Volume.objects.list(environment_name="dev")
+            ```
+
+            By default, all named Volumes are returned, newest to oldest. It's also possible to limit the
+            number of results and to filter by creation date:
+
+            ```python
+            volumes = modal.Volume.objects.list(max_objects=10, created_before="2025-01-01")
+            ```
         """
         ...
 
@@ -174,24 +191,28 @@ class _VolumeManager:
         environment_name: typing.Optional[str] = None,
         client: typing.Optional[modal.client._Client] = None,
     ):
-        """Delete a named Volume.
+        """Delete a named Volume entirely (not individual files).
 
-        Warning: This deletes an *entire Volume*, not just a specific file.
-        Deletion is irreversible and will affect any Apps currently using the Volume.
-
-        **Examples:**
-
-        ```python notest
-        await modal.Volume.objects.delete("my-volume")
-        ```
-
-        Volumes will be deleted from the active environment, or another one can be specified:
-
-        ```python notest
-        await modal.Volume.objects.delete("my-volume", environment_name="dev")
-        ```
+        Deletion is irreversible and affects any Apps using this Volume.
 
         Added in v1.1.2.
+
+        Args:
+            name: Name of the Volume to delete.
+            allow_missing: If True, do nothing when the Volume does not exist.
+            environment_name: Environment to delete from; defaults to the active environment.
+            client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+        Examples:
+            ```python notest
+            await modal.Volume.objects.delete("my-volume")
+            ```
+
+            Volumes will be deleted from the active environment, or another one can be specified:
+
+            ```python notest
+            await modal.Volume.objects.delete("my-volume", environment_name="dev")
+            ```
         """
         ...
 
@@ -212,31 +233,38 @@ class VolumeManager:
             environment_name: typing.Optional[str] = None,
             client: typing.Optional[modal.client.Client] = None,
         ) -> None:
-            """Create a new Volume object.
+            """Create a new named Volume in the workspace environment.
 
-            **Examples:**
-
-            ```python notest
-            modal.Volume.objects.create("my-volume")
-            ```
-
-            Volumes will be created in the active environment, or another one can be specified:
-
-            ```python notest
-            modal.Volume.objects.create("my-volume", environment_name="dev")
-            ```
-
-            By default, an error will be raised if the Volume already exists, but passing
-            `allow_existing=True` will make the creation attempt a no-op in this case.
-
-            ```python notest
-            modal.Volume.objects.create("my-volume", allow_existing=True)
-            ```
-
-            Note that this method does not return a local instance of the Volume. You can use
-            `modal.Volume.from_name` to perform a lookup after creation.
+            This does not return a local handle; use `modal.Volume.from_name` to look up the Volume after creation.
 
             Added in v1.1.2.
+
+            Args:
+                name: Name for the new Volume.
+                version: Optional VolumeFS backend version (1 or 2); experimental.
+                allow_existing: If True, do nothing when a Volume with this name already exists.
+                environment_name: Environment to create in; defaults to the active environment.
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+            Examples:
+                ```python notest
+                modal.Volume.objects.create("my-volume")
+                ```
+
+                Volumes will be created in the active environment, or another one can be specified:
+
+                ```python notest
+                modal.Volume.objects.create("my-volume", environment_name="dev")
+                ```
+
+                By default, an error is raised if the Volume already exists; `allow_existing=True` makes that case a no-op:
+
+                ```python notest
+                modal.Volume.objects.create("my-volume", allow_existing=True)
+                ```
+
+                Note that this method does not return a local instance of the Volume. You can use
+                `modal.Volume.from_name` to perform a lookup after creation.
             """
             ...
 
@@ -250,31 +278,38 @@ class VolumeManager:
             environment_name: typing.Optional[str] = None,
             client: typing.Optional[modal.client.Client] = None,
         ) -> None:
-            """Create a new Volume object.
+            """Create a new named Volume in the workspace environment.
 
-            **Examples:**
-
-            ```python notest
-            modal.Volume.objects.create("my-volume")
-            ```
-
-            Volumes will be created in the active environment, or another one can be specified:
-
-            ```python notest
-            modal.Volume.objects.create("my-volume", environment_name="dev")
-            ```
-
-            By default, an error will be raised if the Volume already exists, but passing
-            `allow_existing=True` will make the creation attempt a no-op in this case.
-
-            ```python notest
-            modal.Volume.objects.create("my-volume", allow_existing=True)
-            ```
-
-            Note that this method does not return a local instance of the Volume. You can use
-            `modal.Volume.from_name` to perform a lookup after creation.
+            This does not return a local handle; use `modal.Volume.from_name` to look up the Volume after creation.
 
             Added in v1.1.2.
+
+            Args:
+                name: Name for the new Volume.
+                version: Optional VolumeFS backend version (1 or 2); experimental.
+                allow_existing: If True, do nothing when a Volume with this name already exists.
+                environment_name: Environment to create in; defaults to the active environment.
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+            Examples:
+                ```python notest
+                modal.Volume.objects.create("my-volume")
+                ```
+
+                Volumes will be created in the active environment, or another one can be specified:
+
+                ```python notest
+                modal.Volume.objects.create("my-volume", environment_name="dev")
+                ```
+
+                By default, an error is raised if the Volume already exists; `allow_existing=True` makes that case a no-op:
+
+                ```python notest
+                modal.Volume.objects.create("my-volume", allow_existing=True)
+                ```
+
+                Note that this method does not return a local instance of the Volume. You can use
+                `modal.Volume.from_name` to perform a lookup after creation.
             """
             ...
 
@@ -290,29 +325,39 @@ class VolumeManager:
             environment_name: str = "",
             client: typing.Optional[modal.client.Client] = None,
         ) -> list[Volume]:
-            """Return a list of hydrated Volume objects.
+            """List named Volumes in the workspace environment as hydrated handles.
 
-            **Examples:**
-
-            ```python
-            volumes = modal.Volume.objects.list()
-            print([v.name for v in volumes])
-            ```
-
-            Volumes will be retreived from the active environment, or another one can be specified:
-
-            ```python notest
-            dev_volumes = modal.Volume.objects.list(environment_name="dev")
-            ```
-
-            By default, all named Volumes are returned, newest to oldest. It's also possible to limit the
-            number of results and to filter by creation date:
-
-            ```python
-            volumes = modal.Volume.objects.list(max_objects=10, created_before="2025-01-01")
-            ```
+            Results are ordered newest to oldest. By default, all matching Volumes are returned.
 
             Added in v1.1.2.
+
+            Args:
+                max_objects: Maximum number of Volumes to return.
+                created_before: Only include Volumes created before this time (datetime or ISO date string).
+                environment_name: Environment to list from; defaults to the active environment.
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+            Returns:
+                Hydrated `Volume` objects for each named Volume in the listing.
+
+            Examples:
+                ```python
+                volumes = modal.Volume.objects.list()
+                print([v.name for v in volumes])
+                ```
+
+                Volumes will be retrieved from the active environment, or another one can be specified:
+
+                ```python notest
+                dev_volumes = modal.Volume.objects.list(environment_name="dev")
+                ```
+
+                By default, all named Volumes are returned, newest to oldest. It's also possible to limit the
+                number of results and to filter by creation date:
+
+                ```python
+                volumes = modal.Volume.objects.list(max_objects=10, created_before="2025-01-01")
+                ```
             """
             ...
 
@@ -325,29 +370,39 @@ class VolumeManager:
             environment_name: str = "",
             client: typing.Optional[modal.client.Client] = None,
         ) -> list[Volume]:
-            """Return a list of hydrated Volume objects.
+            """List named Volumes in the workspace environment as hydrated handles.
 
-            **Examples:**
-
-            ```python
-            volumes = modal.Volume.objects.list()
-            print([v.name for v in volumes])
-            ```
-
-            Volumes will be retreived from the active environment, or another one can be specified:
-
-            ```python notest
-            dev_volumes = modal.Volume.objects.list(environment_name="dev")
-            ```
-
-            By default, all named Volumes are returned, newest to oldest. It's also possible to limit the
-            number of results and to filter by creation date:
-
-            ```python
-            volumes = modal.Volume.objects.list(max_objects=10, created_before="2025-01-01")
-            ```
+            Results are ordered newest to oldest. By default, all matching Volumes are returned.
 
             Added in v1.1.2.
+
+            Args:
+                max_objects: Maximum number of Volumes to return.
+                created_before: Only include Volumes created before this time (datetime or ISO date string).
+                environment_name: Environment to list from; defaults to the active environment.
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+            Returns:
+                Hydrated `Volume` objects for each named Volume in the listing.
+
+            Examples:
+                ```python
+                volumes = modal.Volume.objects.list()
+                print([v.name for v in volumes])
+                ```
+
+                Volumes will be retrieved from the active environment, or another one can be specified:
+
+                ```python notest
+                dev_volumes = modal.Volume.objects.list(environment_name="dev")
+                ```
+
+                By default, all named Volumes are returned, newest to oldest. It's also possible to limit the
+                number of results and to filter by creation date:
+
+                ```python
+                volumes = modal.Volume.objects.list(max_objects=10, created_before="2025-01-01")
+                ```
             """
             ...
 
@@ -363,24 +418,28 @@ class VolumeManager:
             environment_name: typing.Optional[str] = None,
             client: typing.Optional[modal.client.Client] = None,
         ):
-            """Delete a named Volume.
+            """Delete a named Volume entirely (not individual files).
 
-            Warning: This deletes an *entire Volume*, not just a specific file.
-            Deletion is irreversible and will affect any Apps currently using the Volume.
-
-            **Examples:**
-
-            ```python notest
-            await modal.Volume.objects.delete("my-volume")
-            ```
-
-            Volumes will be deleted from the active environment, or another one can be specified:
-
-            ```python notest
-            await modal.Volume.objects.delete("my-volume", environment_name="dev")
-            ```
+            Deletion is irreversible and affects any Apps using this Volume.
 
             Added in v1.1.2.
+
+            Args:
+                name: Name of the Volume to delete.
+                allow_missing: If True, do nothing when the Volume does not exist.
+                environment_name: Environment to delete from; defaults to the active environment.
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+            Examples:
+                ```python notest
+                await modal.Volume.objects.delete("my-volume")
+                ```
+
+                Volumes will be deleted from the active environment, or another one can be specified:
+
+                ```python notest
+                await modal.Volume.objects.delete("my-volume", environment_name="dev")
+                ```
             """
             ...
 
@@ -393,31 +452,35 @@ class VolumeManager:
             environment_name: typing.Optional[str] = None,
             client: typing.Optional[modal.client.Client] = None,
         ):
-            """Delete a named Volume.
+            """Delete a named Volume entirely (not individual files).
 
-            Warning: This deletes an *entire Volume*, not just a specific file.
-            Deletion is irreversible and will affect any Apps currently using the Volume.
-
-            **Examples:**
-
-            ```python notest
-            await modal.Volume.objects.delete("my-volume")
-            ```
-
-            Volumes will be deleted from the active environment, or another one can be specified:
-
-            ```python notest
-            await modal.Volume.objects.delete("my-volume", environment_name="dev")
-            ```
+            Deletion is irreversible and affects any Apps using this Volume.
 
             Added in v1.1.2.
+
+            Args:
+                name: Name of the Volume to delete.
+                allow_missing: If True, do nothing when the Volume does not exist.
+                environment_name: Environment to delete from; defaults to the active environment.
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+            Examples:
+                ```python notest
+                await modal.Volume.objects.delete("my-volume")
+                ```
+
+                Volumes will be deleted from the active environment, or another one can be specified:
+
+                ```python notest
+                await modal.Volume.objects.delete("my-volume", environment_name="dev")
+                ```
             """
             ...
 
     delete: __delete_spec
 
 class _VolumeMountOptions:
-    """_VolumeMountOptions(read_only: bool = False, sub_path: Optional[str] = None)"""
+    """_VolumeMountOptions(read_only: bool = False, sub_path: str | None = None)"""
 
     read_only: bool
     sub_path: typing.Optional[str]
@@ -470,26 +533,25 @@ class _Volume(modal._object._Object):
     Volumes can only be reloaded if there are no open files for the volume - attempting to reload with open files
     will result in an error.
 
-    **Usage**
+    Examples:
+        ```python
+        import modal
 
-    ```python
-    import modal
+        app = modal.App()
+        volume = modal.Volume.from_name("my-persisted-volume", create_if_missing=True)
 
-    app = modal.App()
-    volume = modal.Volume.from_name("my-persisted-volume", create_if_missing=True)
+        @app.function(volumes={"/root/foo": volume})
+        def f():
+            with open("/root/foo/bar.txt", "w") as f:
+                f.write("hello")
+            volume.commit()  # Persist changes
 
-    @app.function(volumes={"/root/foo": volume})
-    def f():
-        with open("/root/foo/bar.txt", "w") as f:
-            f.write("hello")
-        volume.commit()  # Persist changes
-
-    @app.function(volumes={"/root/foo": volume})
-    def g():
-        volume.reload()  # Fetch latest changes
-        with open("/root/foo/bar.txt", "r") as f:
-            print(f.read())
-    ```
+        @app.function(volumes={"/root/foo": volume})
+        def g():
+            volume.reload()  # Fetch latest changes
+            with open("/root/foo/bar.txt", "r") as f:
+                print(f.read())
+        ```
     """
 
     _lock: typing.Optional[asyncio.locks.Lock]
@@ -519,32 +581,39 @@ class _Volume(modal._object._Object):
         Note that these options are not properties stored with the Volume itself - they can be individually configured
         for each Volume - container association.
 
-        read_only: bool (optional) - set this to True to make the Volume read only from within containers
-        sub_path: str | PurePosixPath (optional) - only mount this sub_path directory from the Volume.
-            If the directory doesn't exist in the Volume, it will be created when the container starts up
+        Args:
+            read_only: Set this to True to make the Volume read only from within containers.
+            sub_path:
+                Only mount this sub_path directory from the Volume. If the directory doesn't exist in the Volume,
+                it will be created when the container starts up.
 
+        Returns:
+            A `Volume` handle with the mount options applied.
 
-        **Mount Volume in read-only mode**
-        ```python
-        import modal
+        Examples:
+            To mount a volume in read-only mode:
 
-        volume = modal.Volume.from_name("my-volume")
+            ```python
+            import modal
 
-        @app.function(volumes={"/mnt": volume.with_mount_options(read_only=True)})
-        def f():
-            return os.mkdir("/mnt/foo")  # not possible!
-        ```
+            volume = modal.Volume.from_name("my-volume")
 
-        **Mount only part of a Volume using sub_path**
-        ```python
-        import modal
+            @app.function(volumes={"/mnt": volume.with_mount_options(read_only=True)})
+            def f():
+                return os.mkdir("/mnt/foo")  # not possible!
+            ```
 
-        volume = modal.Volume.from_name("my-volume")
+            To mount only part of a Volume using sub_path:
 
-        @app.function(volumes={"/user_data": volume.with_mount_options(sub_path="/users/my_user")})
-        def f():
-            return os.listdir("/user_data")  # lists data from /users/my_user
-        ```
+            ```python
+            import modal
+
+            volume = modal.Volume.from_name("my-volume")
+
+            @app.function(volumes={"/user_data": volume.with_mount_options(sub_path="/users/my_user")})
+            def f():
+                return os.listdir("/user_data")  # lists data from /users/my_user
+            ```
         """
         ...
 
@@ -562,22 +631,30 @@ class _Volume(modal._object._Object):
         version: typing.Optional[int] = None,
         client: typing.Optional[modal.client._Client] = None,
     ) -> _Volume:
-        """Reference a Volume by name, creating if necessary.
+        """Reference a Volume by name, optionally creating it on the server first.
 
-        This is a lazy method that defers hydrating the local
-        object with metadata from Modal servers until the first
-        time is is actually used.
+        Hydration is lazy: metadata is fetched from Modal the first time the handle is used.
 
-        ```python
-        vol = modal.Volume.from_name("my-volume", create_if_missing=True)
+        Args:
+            name: Deployment name of the Volume.
+            environment_name: Environment to resolve the name in; defaults to the active environment.
+            create_if_missing: If True, create the Volume when it does not already exist.
+            version: Optional VolumeFS backend version; must match an existing Volume when set.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
 
-        app = modal.App()
+        Returns:
+            A `Volume` handle (possibly not yet hydrated).
 
-        # Volume refers to the same object, even across instances of `app`.
-        @app.function(volumes={"/data": vol})
-        def f():
-            pass
-        ```
+        Examples:
+            ```python
+            vol = modal.Volume.from_name("my-volume", create_if_missing=True)
+
+            app = modal.App()
+
+            @app.function(volumes={"/data": vol})
+            def f():
+                pass
+            ```
         """
         ...
 
@@ -591,19 +668,24 @@ class _Volume(modal._object._Object):
 
         The ID of a Volume object can be accessed using `.object_id`.
 
-        **Example:**
+        Args:
+            volume_id: Volume object ID to attach to.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
 
-        ```python notest
-        @app.function()
-        def my_worker(volume_id: str):
-            vol = modal.Volume.from_id(volume_id)
-            for entry in vol.listdir("/"):
-                print(entry.path)
+        Returns:
+            A `Volume` handle (possibly not yet hydrated).
 
-        with modal.Volume.ephemeral() as vol:
-            # Pass the volume ID to a remote function
-            my_worker.remote(vol.object_id)
-        ```
+        Examples:
+            ```python notest
+            @app.function()
+            def my_worker(volume_id: str):
+                vol = modal.Volume.from_id(volume_id)
+                for entry in vol.listdir("/"):
+                    print(entry.path)
+
+            with modal.Volume.ephemeral() as vol:
+                my_worker.remote(vol.object_id)
+            ```
         """
         ...
 
@@ -615,41 +697,26 @@ class _Volume(modal._object._Object):
         version: typing.Optional[int] = None,
         _heartbeat_sleep: float = 300,
     ) -> typing.AsyncContextManager[_Volume]:
-        """Creates a new ephemeral volume within a context manager:
+        """Create an anonymous Volume that exists for the duration of the context manager.
 
-        Usage:
-        ```python
-        import modal
-        with modal.Volume.ephemeral() as vol:
-            assert vol.listdir("/") == []
-        ```
+        Args:
+            client: Modal client to use; defaults to `Client.from_env()` when omitted.
+            environment_name: Environment for the ephemeral Volume; defaults to the active environment.
+            version: Optional VolumeFS backend version for the ephemeral Volume.
 
-        ```python notest
-        async with modal.Volume.ephemeral() as vol:
-            assert await vol.listdir("/") == []
-        ```
+        Examples:
+            ```python
+            import modal
+
+            with modal.Volume.ephemeral() as vol:
+                assert vol.listdir("/") == []
+            ```
+
+            ```python notest
+            async with modal.Volume.ephemeral() as vol:
+                assert await vol.listdir("/") == []
+            ```
         """
-        ...
-
-    @staticmethod
-    async def create_deployed(
-        deployment_name: str,
-        namespace=None,
-        client: typing.Optional[modal.client._Client] = None,
-        environment_name: typing.Optional[str] = None,
-        version: typing.Optional[int] = None,
-    ) -> str:
-        """mdmd:hidden"""
-        ...
-
-    @staticmethod
-    async def _create_deployed(
-        deployment_name: str,
-        client: typing.Optional[modal.client._Client] = None,
-        environment_name: typing.Optional[str] = None,
-        version: typing.Optional[int] = None,
-    ) -> str:
-        """mdmd:hidden"""
         ...
 
     async def info(self) -> VolumeInfo:
@@ -700,15 +767,17 @@ class _Volume(modal._object._Object):
         For more information on downloading files from a Modal Volume, see
         [the guide](https://modal.com/docs/guide/volumes).
 
-        **Example:**
+        Args:
+            path: Path to the file inside the Volume.
 
-        ```python notest
-        vol = modal.Volume.from_name("my-modal-volume")
-        data = b""
-        for chunk in vol.read_file("1mb.csv"):
-            data += chunk
-        print(len(data))  # == 1024 * 1024
-        ```
+        Examples:
+            ```python notest
+            vol = modal.Volume.from_name("my-modal-volume")
+            data = b""
+            for chunk in vol.read_file("1mb.csv"):
+                data += chunk
+            print(len(data))  # == 1024 * 1024
+            ```
         """
         ...
 
@@ -748,14 +817,18 @@ class _Volume(modal._object._Object):
         `src_paths` and `dst_path` should refer to the desired location *inside* the volume. You do not need to prepend
         the volume mount path.
 
-        **Usage**
+        Args:
+            src_paths: Source paths inside the Volume (list of one or more paths).
+            dst_path: Destination path inside the Volume (file or directory, following ``cp`` semantics).
+            recursive: Whether to copy directories recursively (V2 volumes only).
 
-        ```python notest
-        vol = modal.Volume.from_name("my-modal-volume")
+        Examples:
+            ```python notest
+            vol = modal.Volume.from_name("my-modal-volume")
 
-        vol.copy_files(["bar/example.txt"], "bar2")  # Copy files to another directory
-        vol.copy_files(["bar/example.txt"], "bar/example2.txt")  # Rename a file by copying
-        ```
+            vol.copy_files(["bar/example.txt"], "bar2")
+            vol.copy_files(["bar/example.txt"], "bar/example2.txt")
+            ```
 
         Note that if the volume is already mounted on the Modal function, you should use normal filesystem operations
         like `os.rename()` and then `commit()` the volume. The `copy_files()` method is useful when you don't have
@@ -769,34 +842,22 @@ class _Volume(modal._object._Object):
         To allow overwriting existing files, set `force` to `True` (you cannot overwrite existing directories with
         uploaded files regardless).
 
-        **Example:**
+        Args:
+            force: If True, allow overwriting existing files with uploads (not directories).
 
-        ```python notest
-        vol = modal.Volume.from_name("my-modal-volume")
+        Examples:
+            ```python notest
+            vol = modal.Volume.from_name("my-modal-volume")
 
-        with vol.batch_upload() as batch:
-            batch.put_file("local-path.txt", "/remote-path.txt")
-            batch.put_directory("/local/directory/", "/remote/directory")
-            batch.put_file(io.BytesIO(b"some data"), "/foobar")
-        ```
+            with vol.batch_upload() as batch:
+                batch.put_file("local-path.txt", "/remote-path.txt")
+                batch.put_directory("/local/directory/", "/remote/directory")
+                batch.put_file(io.BytesIO(b"some data"), "/foobar")
+            ```
         """
         ...
 
     async def _instance_delete(self): ...
-    @staticmethod
-    async def delete(
-        name: str, client: typing.Optional[modal.client._Client] = None, environment_name: typing.Optional[str] = None
-    ):
-        """mdmd:hidden
-        Delete a named Volume.
-
-        Warning: This deletes an *entire Volume*, not just a specific file.
-        Deletion is irreversible and will affect any Apps currently using the Volume.
-
-        DEPRECATED: This method is deprecated; we recommend using `modal.Volume.objects.delete` instead.
-        """
-        ...
-
     @staticmethod
     async def rename(
         old_name: str,
@@ -826,26 +887,25 @@ class Volume(modal.object.Object):
     Volumes can only be reloaded if there are no open files for the volume - attempting to reload with open files
     will result in an error.
 
-    **Usage**
+    Examples:
+        ```python
+        import modal
 
-    ```python
-    import modal
+        app = modal.App()
+        volume = modal.Volume.from_name("my-persisted-volume", create_if_missing=True)
 
-    app = modal.App()
-    volume = modal.Volume.from_name("my-persisted-volume", create_if_missing=True)
+        @app.function(volumes={"/root/foo": volume})
+        def f():
+            with open("/root/foo/bar.txt", "w") as f:
+                f.write("hello")
+            volume.commit()  # Persist changes
 
-    @app.function(volumes={"/root/foo": volume})
-    def f():
-        with open("/root/foo/bar.txt", "w") as f:
-            f.write("hello")
-        volume.commit()  # Persist changes
-
-    @app.function(volumes={"/root/foo": volume})
-    def g():
-        volume.reload()  # Fetch latest changes
-        with open("/root/foo/bar.txt", "r") as f:
-            print(f.read())
-    ```
+        @app.function(volumes={"/root/foo": volume})
+        def g():
+            volume.reload()  # Fetch latest changes
+            with open("/root/foo/bar.txt", "r") as f:
+                print(f.read())
+        ```
     """
 
     _lock: typing.Optional[asyncio.locks.Lock]
@@ -879,32 +939,39 @@ class Volume(modal.object.Object):
         Note that these options are not properties stored with the Volume itself - they can be individually configured
         for each Volume - container association.
 
-        read_only: bool (optional) - set this to True to make the Volume read only from within containers
-        sub_path: str | PurePosixPath (optional) - only mount this sub_path directory from the Volume.
-            If the directory doesn't exist in the Volume, it will be created when the container starts up
+        Args:
+            read_only: Set this to True to make the Volume read only from within containers.
+            sub_path:
+                Only mount this sub_path directory from the Volume. If the directory doesn't exist in the Volume,
+                it will be created when the container starts up.
 
+        Returns:
+            A `Volume` handle with the mount options applied.
 
-        **Mount Volume in read-only mode**
-        ```python
-        import modal
+        Examples:
+            To mount a volume in read-only mode:
 
-        volume = modal.Volume.from_name("my-volume")
+            ```python
+            import modal
 
-        @app.function(volumes={"/mnt": volume.with_mount_options(read_only=True)})
-        def f():
-            return os.mkdir("/mnt/foo")  # not possible!
-        ```
+            volume = modal.Volume.from_name("my-volume")
 
-        **Mount only part of a Volume using sub_path**
-        ```python
-        import modal
+            @app.function(volumes={"/mnt": volume.with_mount_options(read_only=True)})
+            def f():
+                return os.mkdir("/mnt/foo")  # not possible!
+            ```
 
-        volume = modal.Volume.from_name("my-volume")
+            To mount only part of a Volume using sub_path:
 
-        @app.function(volumes={"/user_data": volume.with_mount_options(sub_path="/users/my_user")})
-        def f():
-            return os.listdir("/user_data")  # lists data from /users/my_user
-        ```
+            ```python
+            import modal
+
+            volume = modal.Volume.from_name("my-volume")
+
+            @app.function(volumes={"/user_data": volume.with_mount_options(sub_path="/users/my_user")})
+            def f():
+                return os.listdir("/user_data")  # lists data from /users/my_user
+            ```
         """
         ...
 
@@ -928,22 +995,30 @@ class Volume(modal.object.Object):
         version: typing.Optional[int] = None,
         client: typing.Optional[modal.client.Client] = None,
     ) -> Volume:
-        """Reference a Volume by name, creating if necessary.
+        """Reference a Volume by name, optionally creating it on the server first.
 
-        This is a lazy method that defers hydrating the local
-        object with metadata from Modal servers until the first
-        time is is actually used.
+        Hydration is lazy: metadata is fetched from Modal the first time the handle is used.
 
-        ```python
-        vol = modal.Volume.from_name("my-volume", create_if_missing=True)
+        Args:
+            name: Deployment name of the Volume.
+            environment_name: Environment to resolve the name in; defaults to the active environment.
+            create_if_missing: If True, create the Volume when it does not already exist.
+            version: Optional VolumeFS backend version; must match an existing Volume when set.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
 
-        app = modal.App()
+        Returns:
+            A `Volume` handle (possibly not yet hydrated).
 
-        # Volume refers to the same object, even across instances of `app`.
-        @app.function(volumes={"/data": vol})
-        def f():
-            pass
-        ```
+        Examples:
+            ```python
+            vol = modal.Volume.from_name("my-volume", create_if_missing=True)
+
+            app = modal.App()
+
+            @app.function(volumes={"/data": vol})
+            def f():
+                pass
+            ```
         """
         ...
 
@@ -957,19 +1032,24 @@ class Volume(modal.object.Object):
 
         The ID of a Volume object can be accessed using `.object_id`.
 
-        **Example:**
+        Args:
+            volume_id: Volume object ID to attach to.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
 
-        ```python notest
-        @app.function()
-        def my_worker(volume_id: str):
-            vol = modal.Volume.from_id(volume_id)
-            for entry in vol.listdir("/"):
-                print(entry.path)
+        Returns:
+            A `Volume` handle (possibly not yet hydrated).
 
-        with modal.Volume.ephemeral() as vol:
-            # Pass the volume ID to a remote function
-            my_worker.remote(vol.object_id)
-        ```
+        Examples:
+            ```python notest
+            @app.function()
+            def my_worker(volume_id: str):
+                vol = modal.Volume.from_id(volume_id)
+                for entry in vol.listdir("/"):
+                    print(entry.path)
+
+            with modal.Volume.ephemeral() as vol:
+                my_worker.remote(vol.object_id)
+            ```
         """
         ...
 
@@ -982,19 +1062,25 @@ class Volume(modal.object.Object):
             version: typing.Optional[int] = None,
             _heartbeat_sleep: float = 300,
         ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[Volume]:
-            """Creates a new ephemeral volume within a context manager:
+            """Create an anonymous Volume that exists for the duration of the context manager.
 
-            Usage:
-            ```python
-            import modal
-            with modal.Volume.ephemeral() as vol:
-                assert vol.listdir("/") == []
-            ```
+            Args:
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+                environment_name: Environment for the ephemeral Volume; defaults to the active environment.
+                version: Optional VolumeFS backend version for the ephemeral Volume.
 
-            ```python notest
-            async with modal.Volume.ephemeral() as vol:
-                assert await vol.listdir("/") == []
-            ```
+            Examples:
+                ```python
+                import modal
+
+                with modal.Volume.ephemeral() as vol:
+                    assert vol.listdir("/") == []
+                ```
+
+                ```python notest
+                async with modal.Volume.ephemeral() as vol:
+                    assert await vol.listdir("/") == []
+                ```
             """
             ...
 
@@ -1006,75 +1092,29 @@ class Volume(modal.object.Object):
             version: typing.Optional[int] = None,
             _heartbeat_sleep: float = 300,
         ) -> typing.AsyncContextManager[Volume]:
-            """Creates a new ephemeral volume within a context manager:
+            """Create an anonymous Volume that exists for the duration of the context manager.
 
-            Usage:
-            ```python
-            import modal
-            with modal.Volume.ephemeral() as vol:
-                assert vol.listdir("/") == []
-            ```
+            Args:
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+                environment_name: Environment for the ephemeral Volume; defaults to the active environment.
+                version: Optional VolumeFS backend version for the ephemeral Volume.
 
-            ```python notest
-            async with modal.Volume.ephemeral() as vol:
-                assert await vol.listdir("/") == []
-            ```
+            Examples:
+                ```python
+                import modal
+
+                with modal.Volume.ephemeral() as vol:
+                    assert vol.listdir("/") == []
+                ```
+
+                ```python notest
+                async with modal.Volume.ephemeral() as vol:
+                    assert await vol.listdir("/") == []
+                ```
             """
             ...
 
     ephemeral: typing.ClassVar[__ephemeral_spec]
-
-    class __create_deployed_spec(typing_extensions.Protocol):
-        def __call__(
-            self,
-            /,
-            deployment_name: str,
-            namespace=None,
-            client: typing.Optional[modal.client.Client] = None,
-            environment_name: typing.Optional[str] = None,
-            version: typing.Optional[int] = None,
-        ) -> str:
-            """mdmd:hidden"""
-            ...
-
-        async def aio(
-            self,
-            /,
-            deployment_name: str,
-            namespace=None,
-            client: typing.Optional[modal.client.Client] = None,
-            environment_name: typing.Optional[str] = None,
-            version: typing.Optional[int] = None,
-        ) -> str:
-            """mdmd:hidden"""
-            ...
-
-    create_deployed: typing.ClassVar[__create_deployed_spec]
-
-    class ___create_deployed_spec(typing_extensions.Protocol):
-        def __call__(
-            self,
-            /,
-            deployment_name: str,
-            client: typing.Optional[modal.client.Client] = None,
-            environment_name: typing.Optional[str] = None,
-            version: typing.Optional[int] = None,
-        ) -> str:
-            """mdmd:hidden"""
-            ...
-
-        async def aio(
-            self,
-            /,
-            deployment_name: str,
-            client: typing.Optional[modal.client.Client] = None,
-            environment_name: typing.Optional[str] = None,
-            version: typing.Optional[int] = None,
-        ) -> str:
-            """mdmd:hidden"""
-            ...
-
-    _create_deployed: typing.ClassVar[___create_deployed_spec]
 
     class __info_spec(typing_extensions.Protocol):
         def __call__(self, /) -> VolumeInfo:
@@ -1185,15 +1225,17 @@ class Volume(modal.object.Object):
             For more information on downloading files from a Modal Volume, see
             [the guide](https://modal.com/docs/guide/volumes).
 
-            **Example:**
+            Args:
+                path: Path to the file inside the Volume.
 
-            ```python notest
-            vol = modal.Volume.from_name("my-modal-volume")
-            data = b""
-            for chunk in vol.read_file("1mb.csv"):
-                data += chunk
-            print(len(data))  # == 1024 * 1024
-            ```
+            Examples:
+                ```python notest
+                vol = modal.Volume.from_name("my-modal-volume")
+                data = b""
+                for chunk in vol.read_file("1mb.csv"):
+                    data += chunk
+                print(len(data))  # == 1024 * 1024
+                ```
             """
             ...
 
@@ -1204,15 +1246,17 @@ class Volume(modal.object.Object):
             For more information on downloading files from a Modal Volume, see
             [the guide](https://modal.com/docs/guide/volumes).
 
-            **Example:**
+            Args:
+                path: Path to the file inside the Volume.
 
-            ```python notest
-            vol = modal.Volume.from_name("my-modal-volume")
-            data = b""
-            for chunk in vol.read_file("1mb.csv"):
-                data += chunk
-            print(len(data))  # == 1024 * 1024
-            ```
+            Examples:
+                ```python notest
+                vol = modal.Volume.from_name("my-modal-volume")
+                data = b""
+                for chunk in vol.read_file("1mb.csv"):
+                    data += chunk
+                print(len(data))  # == 1024 * 1024
+                ```
             """
             ...
 
@@ -1291,14 +1335,18 @@ class Volume(modal.object.Object):
             `src_paths` and `dst_path` should refer to the desired location *inside* the volume. You do not need to prepend
             the volume mount path.
 
-            **Usage**
+            Args:
+                src_paths: Source paths inside the Volume (list of one or more paths).
+                dst_path: Destination path inside the Volume (file or directory, following ``cp`` semantics).
+                recursive: Whether to copy directories recursively (V2 volumes only).
 
-            ```python notest
-            vol = modal.Volume.from_name("my-modal-volume")
+            Examples:
+                ```python notest
+                vol = modal.Volume.from_name("my-modal-volume")
 
-            vol.copy_files(["bar/example.txt"], "bar2")  # Copy files to another directory
-            vol.copy_files(["bar/example.txt"], "bar/example2.txt")  # Rename a file by copying
-            ```
+                vol.copy_files(["bar/example.txt"], "bar2")
+                vol.copy_files(["bar/example.txt"], "bar/example2.txt")
+                ```
 
             Note that if the volume is already mounted on the Modal function, you should use normal filesystem operations
             like `os.rename()` and then `commit()` the volume. The `copy_files()` method is useful when you don't have
@@ -1318,14 +1366,18 @@ class Volume(modal.object.Object):
             `src_paths` and `dst_path` should refer to the desired location *inside* the volume. You do not need to prepend
             the volume mount path.
 
-            **Usage**
+            Args:
+                src_paths: Source paths inside the Volume (list of one or more paths).
+                dst_path: Destination path inside the Volume (file or directory, following ``cp`` semantics).
+                recursive: Whether to copy directories recursively (V2 volumes only).
 
-            ```python notest
-            vol = modal.Volume.from_name("my-modal-volume")
+            Examples:
+                ```python notest
+                vol = modal.Volume.from_name("my-modal-volume")
 
-            vol.copy_files(["bar/example.txt"], "bar2")  # Copy files to another directory
-            vol.copy_files(["bar/example.txt"], "bar/example2.txt")  # Rename a file by copying
-            ```
+                vol.copy_files(["bar/example.txt"], "bar2")
+                vol.copy_files(["bar/example.txt"], "bar/example2.txt")
+                ```
 
             Note that if the volume is already mounted on the Modal function, you should use normal filesystem operations
             like `os.rename()` and then `commit()` the volume. The `copy_files()` method is useful when you don't have
@@ -1344,16 +1396,18 @@ class Volume(modal.object.Object):
             To allow overwriting existing files, set `force` to `True` (you cannot overwrite existing directories with
             uploaded files regardless).
 
-            **Example:**
+            Args:
+                force: If True, allow overwriting existing files with uploads (not directories).
 
-            ```python notest
-            vol = modal.Volume.from_name("my-modal-volume")
+            Examples:
+                ```python notest
+                vol = modal.Volume.from_name("my-modal-volume")
 
-            with vol.batch_upload() as batch:
-                batch.put_file("local-path.txt", "/remote-path.txt")
-                batch.put_directory("/local/directory/", "/remote/directory")
-                batch.put_file(io.BytesIO(b"some data"), "/foobar")
-            ```
+                with vol.batch_upload() as batch:
+                    batch.put_file("local-path.txt", "/remote-path.txt")
+                    batch.put_directory("/local/directory/", "/remote/directory")
+                    batch.put_file(io.BytesIO(b"some data"), "/foobar")
+                ```
             """
             ...
 
@@ -1363,16 +1417,18 @@ class Volume(modal.object.Object):
             To allow overwriting existing files, set `force` to `True` (you cannot overwrite existing directories with
             uploaded files regardless).
 
-            **Example:**
+            Args:
+                force: If True, allow overwriting existing files with uploads (not directories).
 
-            ```python notest
-            vol = modal.Volume.from_name("my-modal-volume")
+            Examples:
+                ```python notest
+                vol = modal.Volume.from_name("my-modal-volume")
 
-            with vol.batch_upload() as batch:
-                batch.put_file("local-path.txt", "/remote-path.txt")
-                batch.put_directory("/local/directory/", "/remote/directory")
-                batch.put_file(io.BytesIO(b"some data"), "/foobar")
-            ```
+                with vol.batch_upload() as batch:
+                    batch.put_file("local-path.txt", "/remote-path.txt")
+                    batch.put_directory("/local/directory/", "/remote/directory")
+                    batch.put_file(io.BytesIO(b"some data"), "/foobar")
+                ```
             """
             ...
 
@@ -1383,43 +1439,6 @@ class Volume(modal.object.Object):
         async def aio(self, /): ...
 
     _instance_delete: ___instance_delete_spec
-
-    class __delete_spec(typing_extensions.Protocol):
-        def __call__(
-            self,
-            /,
-            name: str,
-            client: typing.Optional[modal.client.Client] = None,
-            environment_name: typing.Optional[str] = None,
-        ):
-            """mdmd:hidden
-            Delete a named Volume.
-
-            Warning: This deletes an *entire Volume*, not just a specific file.
-            Deletion is irreversible and will affect any Apps currently using the Volume.
-
-            DEPRECATED: This method is deprecated; we recommend using `modal.Volume.objects.delete` instead.
-            """
-            ...
-
-        async def aio(
-            self,
-            /,
-            name: str,
-            client: typing.Optional[modal.client.Client] = None,
-            environment_name: typing.Optional[str] = None,
-        ):
-            """mdmd:hidden
-            Delete a named Volume.
-
-            Warning: This deletes an *entire Volume*, not just a specific file.
-            Deletion is irreversible and will affect any Apps currently using the Volume.
-
-            DEPRECATED: This method is deprecated; we recommend using `modal.Volume.objects.delete` instead.
-            """
-            ...
-
-    delete: typing.ClassVar[__delete_spec]
 
     class __rename_spec(typing_extensions.Protocol):
         def __call__(
@@ -1619,7 +1638,7 @@ class _VolumeUploadContextManager2(_AbstractVolumeUploadContextManager):
     _uploader_generators: list[
         collections.abc.Generator[
             collections.abc.Callable[
-                [asyncio.locks.Semaphore], typing.Awaitable[modal._utils.blob_utils.FileUploadSpec2]
+                [asyncio.locks.Semaphore], collections.abc.Awaitable[modal._utils.blob_utils.FileUploadSpec2]
             ]
         ]
     ]
@@ -1678,7 +1697,7 @@ class VolumeUploadContextManager2(AbstractVolumeUploadContextManager):
     _uploader_generators: list[
         collections.abc.Generator[
             collections.abc.Callable[
-                [asyncio.locks.Semaphore], typing.Awaitable[modal._utils.blob_utils.FileUploadSpec2]
+                [asyncio.locks.Semaphore], collections.abc.Awaitable[modal._utils.blob_utils.FileUploadSpec2]
             ]
         ]
     ]

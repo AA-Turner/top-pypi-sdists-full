@@ -24,10 +24,11 @@ def record_usage(km, entry_id, task_id):
     km._conn.commit()
 
 
-def mark_stale_entries(km):
+def mark_stale_entries(km, threshold_days=None):
     from kanban_framework.domain.knowledge_lazy import STALE_DAYS
 
-    threshold = (datetime.now(timezone.utc) - timedelta(days=STALE_DAYS)).isoformat()
+    days = threshold_days if threshold_days is not None else STALE_DAYS
+    threshold = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     rows = km._conn.execute(
         """SELECT id FROM entries WHERE status='active'
            AND COALESCE(last_referenced_at, created_at) < ?""",
@@ -199,14 +200,15 @@ def find_semantic_duplicates(km, threshold=0.85):
     return result
 
 
-def scan_stale_candidates(km):
+def scan_stale_candidates(km, threshold_days=None):
     """List stale candidates without marking them, for human review.
 
     Returns entries that would be marked stale, with days_since_ref info.
     """
     from kanban_framework.domain.knowledge_lazy import STALE_DAYS
 
-    threshold = (datetime.now(timezone.utc) - timedelta(days=STALE_DAYS)).isoformat()
+    days = threshold_days if threshold_days is not None else STALE_DAYS
+    threshold = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
     rows = km._conn.execute(
         """SELECT id, title, domain, referenced_count,
                   last_referenced_at, created_at, stale_at
@@ -215,13 +217,19 @@ def scan_stale_candidates(km):
         (threshold,),
     ).fetchall()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     candidates = []
     for r in rows:
         eid, title, domain, ref_count, last_ref, created, stale_at = (
             r[0], r[1], r[2], r[3], r[4], r[5], r[6])
         ref_time = last_ref or created
-        days = (now - datetime.fromisoformat(ref_time)).days if ref_time else STALE_DAYS + 1
+        if ref_time:
+            dt = datetime.fromisoformat(ref_time)
+            if dt.tzinfo is not None:
+                dt = dt.replace(tzinfo=None)
+            days = (now - dt).days
+        else:
+            days = STALE_DAYS + 1
         candidates.append({
             "id": eid, "title": title, "domain": domain,
             "referenced_count": ref_count,
@@ -230,7 +238,7 @@ def scan_stale_candidates(km):
             "days_since_reference": days,
         })
     candidates.sort(key=lambda c: c["days_since_reference"], reverse=True)
-    return {"stale_days_threshold": STALE_DAYS, "candidates": candidates}
+    return {"stale_days_threshold": days, "candidates": candidates}
 
 
 def cleanup_zombies(km, min_age_days=60):
@@ -249,12 +257,9 @@ def cleanup_zombies(km, min_age_days=60):
     zombie_ids = [r[0] for r in rows]
     if not zombie_ids:
         return []
-    # Delete FTS records first (subquery depends on entries table)
-    for eid in zombie_ids:
-        km._conn.execute(
-            "DELETE FROM entries_fts WHERE rowid=(SELECT rowid FROM entries WHERE id=?)",
-            (eid,),
-        )
+    # Delete usage_log first (no triggers), then entries (FTS triggers handle sync).
+    # Do NOT manually delete from entries_fts — FTS5 external content triggers
+    # (entries_ad) fire on DELETE FROM entries and sync automatically.
     placeholders = ",".join("?" * len(zombie_ids))
     km._conn.execute(f"DELETE FROM usage_log WHERE entry_id IN ({placeholders})", zombie_ids)
     km._conn.execute(f"DELETE FROM entries WHERE id IN ({placeholders})", zombie_ids)

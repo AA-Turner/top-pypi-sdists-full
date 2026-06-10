@@ -1,9 +1,0 @@
-[extensions]
-"tombi-toml/pyproject" = {
-  lsp = {
-    document-link = {
-      pypi-org.enabled = false,
-      pyproject-toml.enabled = true,
-    },
-  },
-}

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: param
-Version: 2.4.0
+Version: 2.4.1
 Summary: Declarative parameters for robust Python classes and a rich API for reactive programming
 Project-URL: Homepage, https://param.holoviz.org/
 Project-URL: Tracker, https://github.com/holoviz/param/issues

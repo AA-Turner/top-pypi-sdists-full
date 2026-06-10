@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aristaproto
-Version: 0.1.4
+Version: 0.1.5
 Summary: Arista Protobuf / Python gRPC bindings generator & library
 Home-page: https://github.com/aristanetworks/python-aristaproto
 License: MIT

@@ -106,17 +106,11 @@ class Guard:
         self._checks = GuardChecks(fs, config)
         self._reviews = GuardReviews(fs, config)
 
-    # Hardcoded fallback when workflow.json lacks required_artifacts
-    _DEFAULT_ARTIFACTS: dict[str, list[str]] = {
-        "plan": ["spec.md", "task_breakdown.json", "plan/index.md", "plan/knowledge_used.json"],
-        "execute": ["execution_summary.md", "execution_pitfalls.md", "execution_decisions.md"],
-    }
-
-    # Hardcoded checks per phase — fallback when workflow.json lacks guard.checks
-    _HARDCODED_CHECKS: dict[str, list[str]] = {
-        "plan": ["knowledge_references"],
-        "execute": ["test_files", "knowledge_artifact"],
-        "retrospective": ["knowledge_artifact"],
+    # Minimum phase artifacts — only used as last-resort fallback
+    # when no mode JSON exists. Modes with custom JSON skip this entirely.
+    _MODE_MINIMUMS: dict[str, list[str]] = {
+        "plan": ["spec.md"],
+        "execute": ["execution_summary.md"],
     }
 
     def _get_phase_guard(self, phase_str: str, mode: str | None = None) -> dict:
@@ -172,22 +166,28 @@ class Guard:
         return {}
 
     def _get_phase_checks(self, phase_str: str, mode: str | None = None) -> list[str]:
-        """Read guard checks list; per-mode guard → step-derived → hardcoded."""
+        """Read guard checks list; per-mode guard → directory file → step-derived → hardcoded."""
         guard_cfg = self._get_phase_guard(phase_str, mode)
         if "checks" in guard_cfg:
             return guard_cfg["checks"]
-        # All modes: auto-derive checks from step definitions
-        checks = list(self._HARDCODED_CHECKS.get(phase_str, []))
-        # All modes: execute checks are user-controlled via workflow
-        if phase_str == "execute":
-            return []
-        return checks
 
-    # Lenient defaults — all modes get these when no explicit config
-    _MODE_MINIMUMS: dict[str, list[str]] = {
-        "plan": ["spec.md", "plan/index.md", "task_breakdown.json"],
-        "execute": ["execution_summary.md"],
-    }
+        # If mode has a custom workflow JSON, trust it over hardcoded defaults
+        if mode:
+            try:
+                wf_file = self._fs.kanban_dir / "workflows" / f"{mode}.json"
+                if wf_file.is_file():
+                    mode_data = json.loads(wf_file.read_text(encoding="utf-8"))
+                    for p in mode_data.get("phases", []):
+                        if isinstance(p, dict) and p.get("id") == phase_str:
+                            phase_guard = p.get("guard", {})
+                            if "checks" in phase_guard:
+                                return phase_guard["checks"]
+                            # Phase exists in custom JSON — skip hardcoded checks
+                            return []
+            except Exception:
+                pass
+
+        return []  # no hardcoded phase checks — use step-level guard
 
     def _get_required_artifacts(self, phase, mode: str | None = None) -> list[str]:
         """Read required_artifacts; priority: per-mode config → lenient defaults.
@@ -212,8 +212,10 @@ class Guard:
                     for p in mode_data.get("phases", []):
                         if isinstance(p, dict) and p.get("id") == phase_str:
                             artifacts = p.get("required_artifacts")
-                            if artifacts:
-                                return artifacts
+                            if artifacts is not None:
+                                return artifacts  # explicit list (may be empty)
+                            # Phase exists but no required_artifacts — don't short-circuit,
+                            # continue to _MODE_MINIMUMS fallback below
             except Exception:
                 pass
 
@@ -228,8 +230,7 @@ class Guard:
         if phase_str in self._MODE_MINIMUMS:
             return list(self._MODE_MINIMUMS[phase_str])
 
-        # Priority 5: strict fallback for unusual phases
-        return list(self._DEFAULT_ARTIFACTS.get(phase_str, []))
+        return []  # unknown phase — no hardcoded artifacts
 
     def _mode_has_score_step(self, task: Task, mode: str | None) -> bool:
         """Check whether the task's mode has score collection in evaluate phase."""

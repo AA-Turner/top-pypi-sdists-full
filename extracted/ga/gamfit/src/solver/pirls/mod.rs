@@ -42,7 +42,7 @@ pub use crate::solver::active_set::{
     ACTIVE_SET_PRIMAL_FEASIBILITY_TOL, ConstraintKktDiagnostics, LinearInequalityConstraints,
 };
 
-use crate::linalg::utils::{array_is_finite, inf_norm};
+use crate::linalg::utils::{array_is_finite, inf_norm, row_chunk_for_byte_budget};
 
 // ── Submodule split ─────────────────────────────────────────────────────────
 mod convergence;
@@ -2293,7 +2293,7 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
             //
             // Rule: use X_transformed if available; fall back to X_original only
             // when PIRLS is operating directly in the original basis.
-            let (hat_diag, jeffreys_logdet) = match &self.coordinate_design {
+            let (hat_diag, jeffreys_logdet, firth_score_shift) = match &self.coordinate_design {
                 WorkingCoordinateDesign::TransformedExplicit {
                     x_transformed,
                     x_csr,
@@ -2368,13 +2368,21 @@ impl<'a> WorkingModel for GamWorkingModel<'a> {
                 jeffreys_logdet,
                 hat_diag: hat_diag.clone(),
             };
+            // Apply the link-general Firth working-response shift `Δ_i` built by
+            // the operator (`½ (w'_i/w_i) h_diag_i`). PIRLS then solves
+            // `Xᵀ W (z* − η) = 0`, so the Firth term it adds to the score is
+            // `Σ_i w_i Δ_i x_i = ½ Σ_i w'_i h_diag_i x_i = ∂Φ/∂β` — exactly the
+            // Jeffreys score the outer REML differentiates. For the canonical
+            // logit `Δ_i` equals the historical `h_i (½ − μ_i)/w_i`; for probit /
+            // cloglog it carries the correct non-canonical `w'_i/w_i` instead of
+            // the logit-pinned `(½ − μ_i)`, so the inner mode and the outer
+            // objective no longer disagree.
             ndarray::Zip::from(&mut self.lastz)
-                .and(&hat_diag)
+                .and(&firth_score_shift)
                 .and(&self.lastweights)
-                .and(&self.lastmu)
-                .par_for_each(|zi, &hii, &wi, &mui| {
+                .par_for_each(|zi, &delta_i, &wi| {
                     if wi > 0.0 {
-                        *zi += hii * (0.5 - mui) / wi;
+                        *zi += delta_i;
                     }
                 });
         }
@@ -2932,7 +2940,7 @@ pub(super) fn compute_jeffreys_pirls_diagnostics_sparse(
     x_design_csr: &SparseRowMat<usize, f64>,
     eta: ArrayView1<f64>,
     observation_weights: ArrayView1<f64>,
-) -> Result<(Array1<f64>, f64), EstimationError> {
+) -> Result<(Array1<f64>, f64, Array1<f64>), EstimationError> {
     let n = x_design_csr.nrows();
     let p = x_design_csr.ncols();
     let mut x_dense = Array2::<f64>::zeros((n, p));
@@ -2957,21 +2965,27 @@ pub(super) fn compute_jeffreys_pirls_diagnostics(
     x_design: ArrayView2<f64>,
     eta: ArrayView1<f64>,
     observation_weights: ArrayView1<f64>,
-) -> Result<(Array1<f64>, f64), EstimationError> {
+) -> Result<(Array1<f64>, f64, Array1<f64>), EstimationError> {
     // PIRLS must use the same identifiable-subspace Jeffreys functional as the
     // outer REML code:
     //   Φ(β) = 0.5 log|Xᵀ W(η) X|_+.
-    // The operator below is the single source of truth for both the Jeffreys
-    // scalar value and the PIRLS hat-diagonal correction derived from it. The
-    // Fisher working weight `W(η)` is evaluated for the resolved inverse link;
-    // `StandardLink::Logit` reproduces the released logit diagnostics exactly.
+    // The operator below is the single source of truth for the Jeffreys scalar
+    // value, the PIRLS hat-diagonal, AND the working-response score shift the
+    // inner solve applies. The Fisher working weight `W(η)` is evaluated for the
+    // resolved inverse link; `StandardLink::Logit` reproduces the released logit
+    // diagnostics exactly while non-canonical links (probit, cloglog) get the
+    // correct link-general shift instead of the logit-pinned `(½ − μ)` term.
     let op = FirthDenseOperator::build_with_observation_weights_for_link(
         link,
         &x_design.to_owned(),
         &eta.to_owned(),
         observation_weights,
     )?;
-    Ok((op.pirls_hat_diag(), op.jeffreys_logdet()))
+    Ok((
+        op.pirls_hat_diag(),
+        op.jeffreys_logdet(),
+        op.pirls_firth_score_shift(),
+    ))
 }
 
 fn ensure_positive_definitewithridge(
@@ -3286,6 +3300,16 @@ pub(super) fn project_coefficients_to_lower_bounds(
 /// bound that point into the infeasible direction (gradient > 0 for minimization)
 /// are KKT multipliers, not convergence defects.  Zeroing them gives the
 /// standard "projected gradient" used to test stationarity.
+/// Relative and absolute tolerances for deciding when a coefficient sits "at"
+/// its lower bound (an active box constraint). A coefficient is active when its
+/// slack is below `ACTIVE_BOUND_REL_TOL * scale + ACTIVE_BOUND_ABS_TOL`; the
+/// absolute term keeps genuinely-near-zero bounded coefficients (e.g. I-spline
+/// time coefficients pinned around 1e-6) from being treated as interior. Both
+/// the projected-gradient norm and the active-set classifier must use the same
+/// band so KKT diagnostics and the working set agree.
+const ACTIVE_BOUND_REL_TOL: f64 = 1e-6;
+const ACTIVE_BOUND_ABS_TOL: f64 = 1e-10;
+
 pub(super) fn projected_gradient_norm(
     gradient: &Array1<f64>,
     beta: &Array1<f64>,
@@ -3304,7 +3328,7 @@ pub(super) fn projected_gradient_norm(
             // is a multiplier, not a convergence defect.
             let slack = beta[i] - lb[i];
             let scale = beta[i].abs().max(lb[i].abs()).max(1.0);
-            let tol = 1e-6 * scale + 1e-10;
+            let tol = ACTIVE_BOUND_REL_TOL * scale + ACTIVE_BOUND_ABS_TOL;
             if slack < tol {
                 continue;
             }
@@ -3488,18 +3512,6 @@ pub(super) fn constrained_stationarity_norm(
     projected_gradient_norm(gradient, beta, lower_bounds)
 }
 
-fn chunk_rows_for_nnz_count(n: usize, p: usize) -> usize {
-    const TARGET_BYTES: usize = 8 * 1024 * 1024;
-    const MIN_ROWS: usize = 256;
-    const MAX_ROWS: usize = 65_536;
-    if p == 0 {
-        return n.max(1);
-    }
-    (TARGET_BYTES / (p * 8))
-        .clamp(MIN_ROWS, MAX_ROWS)
-        .min(n.max(1))
-}
-
 fn count_dense_upper_nnz(matrix: &Array2<f64>, tol: f64) -> usize {
     let p = matrix.nrows().min(matrix.ncols());
     let mut nnz = 0usize;
@@ -3549,7 +3561,7 @@ fn estimate_sparse_native_decision(
         // path without forcing a full materialization.
         let row_chunk_start = std::time::Instant::now();
         let n = x_original.nrows();
-        let chunk = chunk_rows_for_nnz_count(n, x_original.ncols());
+        let chunk = row_chunk_for_byte_budget(n, x_original.ncols());
         let mut nnz: usize = 0;
         let mut chunks_processed = 0usize;
         if chunk > 0 && n > 0 {
@@ -3856,7 +3868,7 @@ pub(crate) fn solve_newton_directionwith_lower_bounds(
             // so coefficients near the bound (e.g. I-spline at 1e-6) with positive
             // gradient (KKT multiplier) are correctly identified as active.
             let scale = beta[i].abs().max(lb.abs()).max(1.0);
-            let tol = 1e-6 * scale + 1e-10;
+            let tol = ACTIVE_BOUND_REL_TOL * scale + ACTIVE_BOUND_ABS_TOL;
             if beta[i] <= lb + tol {
                 active[i] = true;
             }
@@ -5490,6 +5502,10 @@ pub struct VarianceJet {
 }
 
 impl VarianceJet {
+    /// Lower floor on μ before evaluating power-law variance functions, so that
+    /// `μ^(p−k)` derivatives stay finite as μ → 0 instead of producing inf/NaN.
+    const VARIANCE_MU_FLOOR: f64 = 1e-10;
+
     /// Bernoulli / binomial variance V(μ) = μ(1−μ).
     #[inline]
     pub fn bernoulli(mu: f64) -> Self {
@@ -5529,7 +5545,7 @@ impl VarianceJet {
     /// Tweedie variance V(μ) = μ^p.
     #[inline]
     pub fn tweedie(mu: f64, p: f64) -> Self {
-        let mu = mu.max(1e-10);
+        let mu = mu.max(Self::VARIANCE_MU_FLOOR);
         Self {
             v: mu.powf(p),
             v1: p * mu.powf(p - 1.0),
@@ -5542,7 +5558,7 @@ impl VarianceJet {
     /// Negative-binomial variance V(μ) = μ + μ² / theta.
     #[inline]
     pub fn negative_binomial(mu: f64, theta: f64) -> Self {
-        let mu = mu.max(1e-10);
+        let mu = mu.max(Self::VARIANCE_MU_FLOOR);
         let inv_theta = if valid_negbin_theta(theta) {
             1.0 / theta
         } else {
@@ -6640,94 +6656,6 @@ pub(crate) fn calculate_loglikelihood_omitting_constants(
 }
 
 // ---------------------------------------------------------------------------
-// Latent-field hooks. New functions only; existing weighted-LS / Gram
-// code paths are intentionally untouched here (those belong to other
-// pieces). Names are `latent_*`-prefixed per the shared-file convention.
-// ---------------------------------------------------------------------------
-
-/// Predict an IFT latent shift from a cached
-/// [`crate::solver::arrow_schur::ArrowFactorCache`] and a candidate
-/// `(Δβ, δg_t)` perturbation, then apply it (with per-row magnitude
-/// clamp) to the supplied `LatentCoordValues`.
-///
-/// Thin façade around
-/// [`crate::solver::persistent_warm_start::ift_warm_start_latent`] +
-/// [`latent_apply_ift_warm_start`] so the latent IFT pipeline is
-/// reachable from the PIRLS-side driver code (the existing β-only
-/// PIRLS LM loop) without that code taking a dependency on the
-/// `persistent_warm_start` module directly.
-///
-/// Returns `(applied_rows_clamped, applied)` where `applied=false`
-/// means the predictor declined (no-op outcome) and the latent field
-/// is unchanged.
-pub fn latent_predict_and_apply_ift_warm_start(
-    cache: &crate::solver::arrow_schur::ArrowFactorCache,
-    delta_beta: Option<ndarray::ArrayView1<'_, f64>>,
-    delta_gt: Option<ndarray::ArrayView1<'_, f64>>,
-    latent: &mut crate::terms::latent_coord::LatentCoordValues,
-    max_row_delta: f64,
-) -> (usize, bool) {
-    use crate::solver::persistent_warm_start::{LatentIftOutcome, ift_warm_start_latent};
-    match ift_warm_start_latent(cache, delta_beta, delta_gt) {
-        LatentIftOutcome::Applied { delta_t } => {
-            let clamped = latent_apply_ift_warm_start(latent, &delta_t, max_row_delta);
-            (clamped, true)
-        }
-        LatentIftOutcome::Noop => (0, false),
-    }
-}
-
-/// Apply an IFT-predicted latent shift `Δt` to a
-/// [`crate::terms::latent_coord::LatentCoordValues`] block.
-///
-/// This is the integration point between
-/// [`crate::solver::persistent_warm_start::ift_warm_start_latent`] (which
-/// produces `Δt`) and the latent inner solver (which reads the updated
-/// values on its next assemble call). Lives in `pirls.rs` so it can be
-/// invoked from the existing inner-loop dispatch without a separate
-/// module dependency arrow.
-///
-/// The function clamps the per-row shift magnitude to
-/// `max_row_delta` to guard against IFT extrapolation outside the local
-/// quadratic basin — same role as the
-/// [`crate::solver::reml::runtime::predict_warm_start_beta_ift_with_outcome`]
-/// adaptive Δρ cap, restricted to per-row magnitudes here because the
-/// per-row Hessian condition number can vary across rows even when the
-/// joint condition number is benign.
-///
-/// Returns the number of rows whose shift was clamped (caller can log).
-pub fn latent_apply_ift_warm_start(
-    latent: &mut crate::terms::latent_coord::LatentCoordValues,
-    delta_t: &ndarray::Array1<f64>,
-    max_row_delta: f64,
-) -> usize {
-    let n = latent.n_obs();
-    let d = latent.latent_dim();
-    assert_eq!(delta_t.len(), n * d);
-    let mut clamped_rows = 0_usize;
-    let mut applied = ndarray::Array1::<f64>::zeros(n * d);
-    for i in 0..n {
-        let mut row_norm_sq = 0.0_f64;
-        for a in 0..d {
-            let dv = delta_t[i * d + a];
-            row_norm_sq += dv * dv;
-        }
-        let row_norm = row_norm_sq.sqrt();
-        let scale = if row_norm > max_row_delta && row_norm > 0.0 {
-            clamped_rows += 1;
-            max_row_delta / row_norm
-        } else {
-            1.0
-        };
-        for a in 0..d {
-            applied[i * d + a] = scale * delta_t[i * d + a];
-        }
-    }
-    latent.retract_flat_delta(applied.view());
-    clamped_rows
-}
-
-// ---------------------------------------------------------------------------
 // Piece 5: structured low-rank weight in the inner solve.
 //
 // External Fisher-Rao / behavioral metrics arrive shaped as `W = D + U Vᵀ`
@@ -7129,7 +7057,7 @@ mod tests {
         );
 
         for link in [&cloglog, &mixture] {
-            let (hat, logdet) = compute_jeffreys_pirls_diagnostics(
+            let (hat, logdet, shift) = compute_jeffreys_pirls_diagnostics(
                 link,
                 x.view(),
                 eta.view(),
@@ -7137,6 +7065,7 @@ mod tests {
             )
             .expect("supported Firth inverse link");
             assert_eq!(hat.len(), x.nrows());
+            assert_eq!(shift.len(), x.nrows());
             assert!(
                 logdet.is_finite(),
                 "Jeffreys logdet must stay finite for {link:?}"
@@ -7144,6 +7073,10 @@ mod tests {
             assert!(
                 hat.iter().all(|value| value.is_finite() && *value >= 0.0),
                 "hat diagonal must stay finite and non-negative for {link:?}: {hat:?}"
+            );
+            assert!(
+                shift.iter().all(|value| value.is_finite()),
+                "Firth score shift must stay finite for {link:?}: {shift:?}"
             );
         }
     }

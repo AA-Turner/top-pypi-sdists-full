@@ -135,14 +135,15 @@ class KconfigHelpBlock(KconfigBlock):
 # Complete regex combining all the parts:
 symbol_regex = r"""(?<!\S)
                     (y|n|\"y\"|\"n\")(?!\S)  # y, n, "y", "n" symbols
+                    |(true|True|false|False|yes|Yes|no|No)(?!\S)  # invalid bool literals - will sanitize later
                     |0[x|X][\da-fA-F]+  # hexnums: 0x1234, 0X1234ABCD
                     |\d+(\.\d+){1,2} # versions: 4.4, 5.3.1 (versions without dots are handled by the "numbers" below)
                     |-?\d+\.\d+(?:[eE][+-]?\d+)?  # floats: 1.5, -3.14, 1.5e-6, -2.5E10
                     |-?\d+[eE][+-]?\d+  # floats with exponent but no decimal: 1e-6, -2E10
                     |-?\d+   # numbers: 1234, -1234
                     |[A-Z\d_]+  # variables: FOO, BAR_BAR, ENABLE_ESP64
-                    |'[^']*'  # strings: 'here is a đĐđĐ[]tring'
-                    |\"[^\"]*\" # strings: "hello world", ""
+                    |'(?:\\.|[^'\\])*'  # strings: 'a string', with \\. backslash escapes
+                    |\"(?:\\.|[^\"\\])*\" # strings: "hello world", "", with \\. backslash escapes
                     |\"?\$[({]?[A-Z\d_]+[)}]?\"?"""  # $ENV, ENV can be in () or {} and the whole thing can be in ""
 
 symbol = Regex(symbol_regex, re.X)

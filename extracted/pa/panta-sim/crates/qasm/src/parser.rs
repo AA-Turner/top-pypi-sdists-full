@@ -427,10 +427,15 @@ impl Parser {
         use crate::ast::{DefParam, DefParamKind};
         let cur = self.cur().clone();
         let is_qubit = matches!(&cur.kind, Tok::Qubit);
+        let is_bit = matches!(&cur.kind, Tok::Bit);
         let kind = match &cur.kind {
             Tok::Qubit => {
                 self.bump();
                 DefParamKind::Qubit
+            }
+            Tok::Bit => {
+                self.bump();
+                DefParamKind::Bit
             }
             Tok::Int_ => {
                 self.bump();
@@ -445,20 +450,20 @@ impl Parser {
                     line: cur.line,
                     col: cur.col,
                     message: format!(
-                        "def 파라미터 타입은 int/float/angle/uint/qubit 만 지원합니다 (got {other:?})"
+                        "def 파라미터 타입은 int/float/angle/uint/qubit/bit 만 지원합니다 (got {other:?})"
                     ),
                 });
             }
         };
-        // optional width designator `[N]`.  qubit[N] → 배열 파라미터 (v0.7.3),
+        // optional width designator `[N]`.  qubit[N]/bit[N] → 배열 파라미터,
         // classical 의 width 는 무시.
         let mut array_size: Option<usize> = None;
         if self.check(&Tok::LBracket) {
             self.bump();
-            // qubit[N] 은 정수 크기, classical width 도 정수 — 첫 정수만 취하고
-            // 나머지 토큰은 ']' 까지 소비.
-            if is_qubit {
-                array_size = Some(self.parse_size("qubit array size")?);
+            // qubit[N]/bit[N] 은 정수 크기, classical width 도 정수 — 첫 정수만
+            // 취하고 나머지 토큰은 ']' 까지 소비.
+            if is_qubit || is_bit {
+                array_size = Some(self.parse_size("array size")?);
             }
             while !self.check(&Tok::RBracket) && !self.is_eof() {
                 self.bump();
@@ -466,10 +471,10 @@ impl Parser {
             self.expect(Tok::RBracket, "']'")?;
         }
         let name = self.parse_ident("def param name")?;
-        let (kind, size) = if kind == DefParamKind::Qubit && array_size.is_some() {
-            (DefParamKind::QubitArray, array_size)
-        } else {
-            (kind, None)
+        let (kind, size) = match (kind, array_size) {
+            (DefParamKind::Qubit, Some(_)) => (DefParamKind::QubitArray, array_size),
+            (DefParamKind::Bit, Some(_)) => (DefParamKind::BitArray, array_size),
+            _ => (kind, None),
         };
         Ok(DefParam { kind, name, size })
     }
@@ -495,6 +500,10 @@ impl Parser {
                     Some(crate::ast::DefParamKind::Qubit)
                     | Some(crate::ast::DefParamKind::QubitArray) => {
                         args.push(DefArg::Qubit(self.parse_qarg()?));
+                    }
+                    Some(crate::ast::DefParamKind::Bit)
+                    | Some(crate::ast::DefParamKind::BitArray) => {
+                        args.push(DefArg::Cbit(self.parse_carg()?));
                     }
                     Some(crate::ast::DefParamKind::Classical) => {
                         args.push(DefArg::Classical(self.parse_expr()?));

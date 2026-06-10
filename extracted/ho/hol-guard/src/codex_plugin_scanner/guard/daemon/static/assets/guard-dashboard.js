@@ -1,4 +1,4 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/chunks/home-dashboard.js","assets/chunks/runtime-overview.js","assets/chunks/fleet-workspace.js","assets/chunks/app-catalog.js","assets/chunks/settings-workspace.js"])))=>i.map(i=>d[i]);
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/chunks/home-dashboard.js","assets/chunks/runtime-overview.js","assets/chunks/home-protection-module.js","assets/chunks/fleet-workspace.js","assets/chunks/app-catalog.js","assets/chunks/settings-workspace.js"])))=>i.map(i=>d[i]);
 (function polyfill() {
   const relList = document.createElement("link").relList;
   if (relList && relList.supports && relList.supports("modulepreload")) return;
@@ -12712,6 +12712,9 @@ function HiMiniSparkles(props) {
 function HiMiniSignal(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "d": "M16.364 3.636a.75.75 0 0 0-1.06 1.06 7.5 7.5 0 0 1 0 10.607.75.75 0 0 0 1.06 1.061 9 9 0 0 0 0-12.728ZM4.697 4.697a.75.75 0 0 0-1.061-1.061 9 9 0 0 0 0 12.728.75.75 0 1 0 1.06-1.06 7.5 7.5 0 0 1 0-10.607Z" }, "child": [] }, { "tag": "path", "attr": { "d": "M12.475 6.464a.75.75 0 0 1 1.06 0 5 5 0 0 1 0 7.072.75.75 0 0 1-1.06-1.061 3.5 3.5 0 0 0 0-4.95.75.75 0 0 1 0-1.06ZM7.525 6.464a.75.75 0 0 1 0 1.061 3.5 3.5 0 0 0 0 4.95.75.75 0 0 1-1.06 1.06 5 5 0 0 1 0-7.07.75.75 0 0 1 1.06 0ZM11 10a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" }, "child": [] }] })(props);
 }
+function HiMiniShieldExclamation(props) {
+  return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M10.339 2.237a.531.531 0 0 0-.678 0 11.947 11.947 0 0 1-7.078 2.75.5.5 0 0 0-.479.425A12.11 12.11 0 0 0 2 7c0 5.163 3.26 9.564 7.834 11.257a.48.48 0 0 0 .332 0C14.74 16.564 18 12.163 18 7c0-.538-.035-1.069-.104-1.589a.5.5 0 0 0-.48-.425 11.947 11.947 0 0 1-7.077-2.75ZM10 6a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 6Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z", "clipRule": "evenodd" }, "child": [] }] })(props);
+}
 function HiMiniShieldCheck(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M9.661 2.237a.531.531 0 0 1 .678 0 11.947 11.947 0 0 0 7.078 2.749.5.5 0 0 1 .479.425c.069.52.104 1.05.104 1.59 0 5.162-3.26 9.563-7.834 11.256a.48.48 0 0 1-.332 0C5.26 16.564 2 12.163 2 7c0-.538.035-1.069.104-1.589a.5.5 0 0 1 .48-.425 11.947 11.947 0 0 0 7.077-2.75Zm4.196 5.954a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z", "clipRule": "evenodd" }, "child": [] }] })(props);
 }
@@ -12784,6 +12787,9 @@ function HiMiniCube(props) {
 function HiMiniCpuChip(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "d": "M14 6H6v8h8V6Z" }, "child": [] }, { "tag": "path", "attr": { "fillRule": "evenodd", "d": "M9.25 3V1.75a.75.75 0 0 1 1.5 0V3h1.5V1.75a.75.75 0 0 1 1.5 0V3h.5A2.75 2.75 0 0 1 17 5.75v.5h1.25a.75.75 0 0 1 0 1.5H17v1.5h1.25a.75.75 0 0 1 0 1.5H17v1.5h1.25a.75.75 0 0 1 0 1.5H17v.5A2.75 2.75 0 0 1 14.25 17h-.5v1.25a.75.75 0 0 1-1.5 0V17h-1.5v1.25a.75.75 0 0 1-1.5 0V17h-1.5v1.25a.75.75 0 0 1-1.5 0V17h-.5A2.75 2.75 0 0 1 3 14.25v-.5H1.75a.75.75 0 0 1 0-1.5H3v-1.5H1.75a.75.75 0 0 1 0-1.5H3v-1.5H1.75a.75.75 0 0 1 0-1.5H3v-.5A2.75 2.75 0 0 1 5.75 3h.5V1.75a.75.75 0 0 1 1.5 0V3h1.5ZM4.5 5.75c0-.69.56-1.25 1.25-1.25h8.5c.69 0 1.25.56 1.25 1.25v8.5c0 .69-.56 1.25-1.25 1.25h-8.5c-.69 0-1.25-.56-1.25-1.25v-8.5Z", "clipRule": "evenodd" }, "child": [] }] })(props);
 }
+function HiMiniComputerDesktop(props) {
+  return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M2 4.25A2.25 2.25 0 0 1 4.25 2h11.5A2.25 2.25 0 0 1 18 4.25v8.5A2.25 2.25 0 0 1 15.75 15h-3.105a3.501 3.501 0 0 0 1.1 1.677A.75.75 0 0 1 13.26 18H6.74a.75.75 0 0 1-.484-1.323A3.501 3.501 0 0 0 7.355 15H4.25A2.25 2.25 0 0 1 2 12.75v-8.5Zm1.5 0a.75.75 0 0 1 .75-.75h11.5a.75.75 0 0 1 .75.75v7.5a.75.75 0 0 1-.75.75H4.25a.75.75 0 0 1-.75-.75v-7.5Z", "clipRule": "evenodd" }, "child": [] }] })(props);
+}
 function HiMiniCommandLine(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M3.25 3A2.25 2.25 0 0 0 1 5.25v9.5A2.25 2.25 0 0 0 3.25 17h13.5A2.25 2.25 0 0 0 19 14.75v-9.5A2.25 2.25 0 0 0 16.75 3H3.25Zm.943 8.752a.75.75 0 0 1 .055-1.06L6.128 9l-1.88-1.693a.75.75 0 1 1 1.004-1.114l2.5 2.25a.75.75 0 0 1 0 1.114l-2.5 2.25a.75.75 0 0 1-1.06-.055ZM9.75 10.25a.75.75 0 0 0 0 1.5h2.5a.75.75 0 0 0 0-1.5h-2.5Z", "clipRule": "evenodd" }, "child": [] }] })(props);
 }
@@ -12853,6 +12859,9 @@ function HiMiniBarsArrowUp(props) {
 function HiMiniBarsArrowDown(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M2 3.75A.75.75 0 0 1 2.75 3h11.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 3.75ZM2 7.5a.75.75 0 0 1 .75-.75h7.508a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 7.5ZM14 7a.75.75 0 0 1 .75.75v6.59l1.95-2.1a.75.75 0 1 1 1.1 1.02l-3.25 3.5a.75.75 0 0 1-1.1 0l-3.25-3.5a.75.75 0 1 1 1.1-1.02l1.95 2.1V7.75A.75.75 0 0 1 14 7ZM2 11.25a.75.75 0 0 1 .75-.75h4.562a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75Z", "clipRule": "evenodd" }, "child": [] }] })(props);
 }
+function HiMiniArrowUp(props) {
+  return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M10 17a.75.75 0 0 1-.75-.75V5.612L5.29 9.77a.75.75 0 0 1-1.08-1.04l5.25-5.5a.75.75 0 0 1 1.08 0l5.25 5.5a.75.75 0 1 1-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0 1 10 17Z", "clipRule": "evenodd" }, "child": [] }] })(props);
+}
 function HiMiniArrowTopRightOnSquare(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h5a.75.75 0 0 1 0 1.5h-5Z", "clipRule": "evenodd" }, "child": [] }, { "tag": "path", "attr": { "fillRule": "evenodd", "d": "M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z", "clipRule": "evenodd" }, "child": [] }] })(props);
 }
@@ -12864,6 +12873,9 @@ function HiMiniArrowPath(props) {
 }
 function HiMiniArrowLeft(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z", "clipRule": "evenodd" }, "child": [] }] })(props);
+}
+function HiMiniArrowDown(props) {
+  return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M10 3a.75.75 0 0 1 .75.75v10.638l3.96-4.158a.75.75 0 1 1 1.08 1.04l-5.25 5.5a.75.75 0 0 1-1.08 0l-5.25-5.5a.75.75 0 1 1 1.08-1.04l3.96 4.158V3.75A.75.75 0 0 1 10 3Z", "clipRule": "evenodd" }, "child": [] }] })(props);
 }
 function HiMiniArrowDownTray(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "d": "M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" }, "child": [] }, { "tag": "path", "attr": { "d": "M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" }, "child": [] }] })(props);
@@ -15550,27 +15562,76 @@ function normalizePackageFirewallConnectFlow(value) {
     poll_after_ms: numberValue(value.poll_after_ms)
   };
 }
-function normalizePackageShimEntry(manager, detail, pathStatus) {
+function readPackageShimField(status, snakeKey, camelKey) {
+  if (status[snakeKey] !== void 0) {
+    return status[snakeKey];
+  }
+  return status[camelKey];
+}
+function readPackageShimStringArray(status, snakeKey, camelKey) {
+  return normalizeStringArray(readPackageShimField(status, snakeKey, camelKey));
+}
+function buildPackageShimPathSummary(detail) {
+  if (detail === null) {
+    return null;
+  }
+  const shimPath = stringValue(detail.shim_path);
+  const realBinaryPath = stringValue(detail.real_binary_path);
+  if (shimPath !== null && realBinaryPath !== null) {
+    return `${shimPath} precedes ${realBinaryPath}`;
+  }
+  if (shimPath !== null) {
+    return shimPath;
+  }
+  return stringValue(detail.path_state);
+}
+function readLastInterceptProofAtByManager(status) {
+  const merged = {};
+  const sources = [
+    readPackageShimField(status, "last_intercept_proof_at", "lastInterceptProofAt"),
+    readPackageShimField(status, "last_test_at", "lastTestAt")
+  ];
+  for (const source of sources) {
+    if (!isRecord(source)) {
+      continue;
+    }
+    for (const [manager, timestamp] of Object.entries(source)) {
+      const normalized = stringValue(timestamp);
+      if (normalized !== null) {
+        merged[manager] = normalized;
+      }
+    }
+  }
+  return merged;
+}
+function normalizePackageShimEntry(manager, detail, pathStatus, coverage) {
   const integrity = stringValue(detail?.integrity) ?? "uninstalled";
   const installed = detail !== null && integrity !== "missing";
   const active = booleanValue(detail?.path_active);
-  const activation_state = !installed ? "uninstalled" : integrity === "tampered" ? "repair_required" : active ? "protected" : pathStatus === "restart_required" ? "restart_required" : "repair_required";
+  const pathBroken = coverage.pathBroken || detail?.path_broken === true;
+  const activation_state = !installed ? "uninstalled" : integrity === "tampered" || pathBroken ? "repair_required" : active ? "protected" : pathStatus === "restart_required" ? "restart_required" : "repair_required";
   return {
     active,
     activation_state,
+    detected: coverage.detected,
     installed,
     integrity,
+    last_intercept_proof_at: coverage.lastInterceptProofAt,
     manager,
+    path_broken: pathBroken,
     path_index: numberValue(detail?.path_index),
+    path_summary: buildPackageShimPathSummary(detail),
     real_binary_found: booleanValue(detail?.real_binary_found),
     real_binary_path: stringValue(detail?.real_binary_path),
     real_binary_path_index: numberValue(detail?.real_binary_path_index),
-    shim_path: stringValue(detail?.shim_path)
+    shim_path: stringValue(detail?.shim_path),
+    tested: coverage.tested
   };
 }
 function normalizePackageShimEntries(value, supportedManagers, pathStatus) {
   const status = isRecord(value) ? value : {};
-  const detailRows = Array.isArray(status.manager_details) ? status.manager_details.filter(isRecord) : [];
+  const managerDetailsValue = readPackageShimField(status, "manager_details", "managerDetails");
+  const detailRows = Array.isArray(managerDetailsValue) ? managerDetailsValue.filter(isRecord) : [];
   const detailByManager = /* @__PURE__ */ new Map();
   for (const detail of detailRows) {
     const manager = stringValue(detail.manager);
@@ -15578,13 +15639,42 @@ function normalizePackageShimEntries(value, supportedManagers, pathStatus) {
       detailByManager.set(manager, detail);
     }
   }
+  const detectedManagers = readPackageShimStringArray(status, "detected_managers", "detectedManagers");
+  const installedManagers = readPackageShimStringArray(status, "installed_managers", "installedManagers");
+  const testedManagers = readPackageShimStringArray(status, "tested_managers", "testedManagers");
+  const pathBrokenManagers = /* @__PURE__ */ new Set([
+    ...readPackageShimStringArray(status, "path_broken_managers", "pathBrokenManagers")
+  ]);
+  const bypassesValue = readPackageShimField(status, "bypasses", "bypasses");
+  if (Array.isArray(bypassesValue)) {
+    for (const entry of bypassesValue) {
+      if (!isRecord(entry)) {
+        continue;
+      }
+      const manager = stringValue(entry.manager);
+      if (manager !== null) {
+        pathBrokenManagers.add(manager);
+      }
+    }
+  }
+  const lastInterceptProofAtByManager = readLastInterceptProofAtByManager(status);
+  const detectedSet = new Set(detectedManagers);
+  const installedSet = new Set(installedManagers);
+  const testedSet = new Set(testedManagers);
   const managers = /* @__PURE__ */ new Set([
-    ...supportedManagers,
-    ...normalizeStringArray(status.installed_managers),
-    ...normalizeStringArray(status.active_managers),
+    ...detectedManagers,
+    ...installedManagers,
+    ...testedManagers,
     ...detailByManager.keys()
   ]);
-  return Array.from(managers).sort().map((manager) => normalizePackageShimEntry(manager, detailByManager.get(manager) ?? null, pathStatus));
+  return Array.from(managers).filter((manager) => detectedSet.has(manager) || installedSet.has(manager) || testedSet.has(manager)).sort().map(
+    (manager) => normalizePackageShimEntry(manager, detailByManager.get(manager) ?? null, pathStatus, {
+      detected: detectedSet.has(manager),
+      pathBroken: pathBrokenManagers.has(manager),
+      tested: testedSet.has(manager),
+      lastInterceptProofAt: lastInterceptProofAtByManager[manager] ?? null
+    })
+  );
 }
 function actionResultSummary(operation, detail) {
   const countKeys = ["installed_now_count", "repaired_count"];
@@ -15604,20 +15694,24 @@ function normalizePackageFirewallStatus(value) {
   const record = isRecord(value) ? value : {};
   const supportedManagers = normalizeStringArray(record.supported_managers);
   const shimStatus = isRecord(record.package_shims) ? record.package_shims : {};
-  const installedManagers = normalizeStringArray(shimStatus.installed_managers);
-  const activeManagers = normalizeStringArray(shimStatus.active_managers);
-  const missingManagers = normalizeStringArray(shimStatus.missing_managers);
-  const rawPathStatus = shimStatus["path_status"] === "in_path" ? "in_path" : shimStatus["path_status"] === "restart_required" ? "restart_required" : "missing_from_path";
+  const installedManagers = readPackageShimStringArray(shimStatus, "installed_managers", "installedManagers");
+  const activeManagers = readPackageShimStringArray(shimStatus, "active_managers", "activeManagers");
+  const missingManagers = readPackageShimStringArray(shimStatus, "missing_managers", "missingManagers");
+  const detectedManagers = readPackageShimStringArray(shimStatus, "detected_managers", "detectedManagers");
+  const pathStatusValue = readPackageShimField(shimStatus, "path_status", "pathStatus");
+  const rawPathStatus = pathStatusValue === "in_path" ? "in_path" : pathStatusValue === "restart_required" ? "restart_required" : "missing_from_path";
   const packageShims = normalizePackageShimEntries(record.package_shims, supportedManagers, rawPathStatus);
   const protectedManagers = packageShims.filter((shim) => shim.activation_state === "protected").map((shim) => shim.manager);
   const protectedSet = new Set(protectedManagers);
+  const lastAuditProofAt = stringValue(readPackageShimField(shimStatus, "last_audit_proof_at", "lastAuditProofAt")) ?? null;
+  const shellProfilePath = readPackageShimField(shimStatus, "shell_profile_path", "shellProfilePath");
   const protection = {
     path_status: rawPathStatus,
-    path_contains_shim_dir: shimStatus["path_contains_shim_dir"] === true,
-    restart_shell_required: shimStatus["restart_shell_required"] === true,
-    shell_profile_configured: shimStatus["shell_profile_configured"] === true,
-    shell_profile_path: isStringOrNull(shimStatus["shell_profile_path"]) ? shimStatus["shell_profile_path"] : null,
-    shim_dir: stringValue(shimStatus["shim_dir"]) ?? "",
+    path_contains_shim_dir: readPackageShimField(shimStatus, "path_contains_shim_dir", "pathContainsShimDir") === true,
+    restart_shell_required: readPackageShimField(shimStatus, "restart_shell_required", "restartShellRequired") === true,
+    shell_profile_configured: readPackageShimField(shimStatus, "shell_profile_configured", "shellProfileConfigured") === true,
+    shell_profile_path: isStringOrNull(shellProfilePath) ? shellProfilePath : null,
+    shim_dir: stringValue(readPackageShimField(shimStatus, "shim_dir", "shimDir")) ?? "",
     supported_managers: supportedManagers,
     installed_managers: installedManagers,
     active_managers: activeManagers,
@@ -15629,7 +15723,9 @@ function normalizePackageFirewallStatus(value) {
     actions: normalizePackageFirewallActions(record.actions),
     cli_fallback: normalizePackageFirewallCliFallback(record.cli_fallback),
     connect_flow: normalizePackageFirewallConnectFlow(record.connect_flow),
+    detected_managers: detectedManagers,
     entitlement: normalizePackageFirewallEntitlement(record.entitlement),
+    last_audit_proof_at: lastAuditProofAt,
     operation: stringValue(record.operation) ?? "status",
     package_shims: packageShims,
     protection,
@@ -17959,12 +18055,6 @@ function formatDayLabel(dateKey) {
     year: "numeric"
   });
 }
-function selectRecentDailyActivity(days, dayCount) {
-  if (!days || dayCount <= 0) {
-    return [];
-  }
-  return days.slice(-dayCount);
-}
 function intensityClass(total, peak) {
   if (total <= 0) return "evidence-heatmap-0";
   const ratio = peak > 0 ? total / peak : 0;
@@ -17972,9 +18062,6 @@ function intensityClass(total, peak) {
   if (ratio >= 0.4) return "evidence-heatmap-3";
   if (ratio >= 0.15) return "evidence-heatmap-2";
   return "evidence-heatmap-1";
-}
-function formatWeekdayShort(dateKey) {
-  return (/* @__PURE__ */ new Date(`${dateKey}T12:00:00`)).toLocaleDateString("en-US", { weekday: "short" });
 }
 function buildWeekColumns(days) {
   if (days.length === 0) return [];
@@ -18031,146 +18118,6 @@ function flatCellsFromWeeks(weeks) {
     }
   }
   return result;
-}
-function EvidenceActivityHeatmapMini({
-  days,
-  dayCount = 5,
-  onSelectDay
-}) {
-  const cellRefs = reactExports.useRef(/* @__PURE__ */ new Map());
-  const [hoveredKey, setHoveredKey] = reactExports.useState(null);
-  const [tooltip, setTooltip] = reactExports.useState(null);
-  const [reduceMotion, setReduceMotion] = reactExports.useState(false);
-  const visibleDays = reactExports.useMemo(() => selectRecentDailyActivity(days, dayCount), [days, dayCount]);
-  const peak = reactExports.useMemo(() => Math.max(...visibleDays.map((day) => day.total), 0), [visibleDays]);
-  reactExports.useEffect(() => {
-    setReduceMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-  }, []);
-  const updateTooltipForKey = reactExports.useCallback(
-    (dateKey) => {
-      if (!dateKey || isGuardModalOpen$1()) {
-        setTooltip(null);
-        return;
-      }
-      const day = visibleDays.find((entry) => entry.date_key === dateKey);
-      const element = cellRefs.current.get(dateKey);
-      if (!day || !element) {
-        setTooltip(null);
-        return;
-      }
-      const rect = element.getBoundingClientRect();
-      const aboveTop = rect.top - 8;
-      const belowTop = rect.bottom + 8;
-      const placement = aboveTop > 72 ? "above" : "below";
-      setTooltip({
-        dateKey: day.date_key,
-        total: day.total,
-        left: rect.left + rect.width / 2,
-        top: placement === "above" ? aboveTop : belowTop,
-        placement
-      });
-    },
-    [visibleDays]
-  );
-  reactExports.useLayoutEffect(() => {
-    updateTooltipForKey(hoveredKey);
-  }, [hoveredKey, updateTooltipForKey, visibleDays]);
-  reactExports.useEffect(() => {
-    if (!hoveredKey) return;
-    const onScrollOrResize = () => updateTooltipForKey(hoveredKey);
-    window.addEventListener("scroll", onScrollOrResize, true);
-    window.addEventListener("resize", onScrollOrResize);
-    return () => {
-      window.removeEventListener("scroll", onScrollOrResize, true);
-      window.removeEventListener("resize", onScrollOrResize);
-    };
-  }, [hoveredKey, updateTooltipForKey]);
-  reactExports.useEffect(() => {
-    if (typeof document === "undefined") return;
-    const dismissWhenModalOpens = () => {
-      if (isGuardModalOpen$1()) {
-        setTooltip(null);
-        setHoveredKey(null);
-      }
-    };
-    const observer = new MutationObserver(dismissWhenModalOpens);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-guard-modal-open"] });
-    return () => observer.disconnect();
-  }, []);
-  const miniHeatmapTooltipId = "mini-heatmap-tooltip";
-  if (visibleDays.length === 0) {
-    return /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "py-2 text-sm text-slate-400", children: "No activity in this period." });
-  }
-  const tooltipNode = tooltip && !isGuardModalOpen$1() && typeof document !== "undefined" ? reactDomExports.createPortal(
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(
-      "div",
-      {
-        className: "pointer-events-none fixed z-40 -translate-x-1/2 rounded-lg bg-brand-dark px-3 py-2 text-xs text-white shadow-lg",
-        style: {
-          left: tooltip.left,
-          top: tooltip.top,
-          transform: `translate(-50%, ${tooltip.placement === "above" ? "-100%" : "0"})`
-        },
-        role: "tooltip",
-        id: miniHeatmapTooltipId,
-        children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "font-semibold", children: formatDayLabel(tooltip.dateKey) }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-0.5 text-slate-200", children: tooltip.total > 0 ? `${formatEvidenceCount(tooltip.total)} action${tooltip.total === 1 ? "" : "s"}` : "No activity" })
-        ]
-      }
-    ),
-    document.body
-  ) : null;
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-3", children: [
-    tooltipNode,
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "div",
-      {
-        className: "grid gap-2",
-        style: { gridTemplateColumns: `repeat(${visibleDays.length}, minmax(0, 1fr))` },
-        role: "group",
-        "aria-label": `Last ${visibleDays.length} days of Guard activity`,
-        children: visibleDays.map((day) => {
-          const isHovered = hoveredKey === day.date_key;
-          const showTooltip = isHovered && tooltip !== null;
-          return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex min-w-0 flex-col items-center gap-1.5", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "button",
-              {
-                type: "button",
-                ref: (node) => {
-                  if (node) cellRefs.current.set(day.date_key, node);
-                  else cellRefs.current.delete(day.date_key);
-                },
-                "aria-label": `${formatDayLabel(day.date_key)}: ${day.total} actions`,
-                "aria-describedby": showTooltip ? miniHeatmapTooltipId : void 0,
-                className: `h-5 w-full max-w-5 rounded-[3px] transition-[transform,opacity] duration-150 ${intensityClass(day.total, peak)} ${day.total > 0 ? "cursor-pointer hover:opacity-90" : "cursor-default opacity-90"} ${isHovered ? "evidence-heatmap-active" : ""} ${reduceMotion ? "" : "evidence-heatmap-motion"}`,
-                onMouseEnter: () => setHoveredKey(day.date_key),
-                onMouseLeave: () => setHoveredKey(null),
-                onFocus: () => setHoveredKey(day.date_key),
-                onBlur: () => setHoveredKey(null),
-                onClick: () => {
-                  if (day.total > 0 && onSelectDay) {
-                    onSelectDay(day.date_key);
-                  }
-                }
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "w-full truncate text-center text-[10px] font-medium leading-none text-slate-400", children: formatWeekdayShort(day.date_key) })
-          ] }, day.date_key);
-        })
-      }
-    ),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Less" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "h-3 w-3 rounded-[2px] evidence-heatmap-0" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "h-3 w-3 rounded-[2px] evidence-heatmap-1" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "h-3 w-3 rounded-[2px] evidence-heatmap-2" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "h-3 w-3 rounded-[2px] evidence-heatmap-3" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "h-3 w-3 rounded-[2px] evidence-heatmap-4" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "More" })
-    ] })
-  ] });
 }
 function EvidenceActivityHeatmap({
   days,
@@ -18764,6 +18711,41 @@ function EvidenceInsightsShareSheet({ publicUrl, onClose }) {
     ] })
   ] }) });
 }
+function getHeatmapLevel(total, peak) {
+  if (total <= 0 || peak <= 0) return 0;
+  const ratio = total / peak;
+  if (ratio >= 0.85) return 4;
+  if (ratio >= 0.6) return 3;
+  if (ratio >= 0.35) return 2;
+  return 1;
+}
+function EvidenceActivityHeatmapMini({ cells }) {
+  const filled = cells.length < 5 ? [
+    ...Array.from({ length: 5 - cells.length }, () => null),
+    ...cells
+  ] : cells.slice(-5);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center gap-1.5", children: filled.map((cell, index) => {
+    if (!cell) {
+      return /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "div",
+        {
+          className: "h-4 w-4 rounded-[3px] evidence-heatmap-0",
+          "aria-hidden": "true"
+        },
+        `empty-${index}`
+      );
+    }
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        className: `h-4 w-4 rounded-[3px] evidence-heatmap-${cell.level}`,
+        "aria-label": `${cell.date}: level ${cell.level}`,
+        title: `${cell.date}: level ${cell.level}`
+      },
+      cell.date
+    );
+  }) });
+}
 function insightsSharePublishErrorMessage(raw) {
   const message = raw.trim();
   const lower = message.toLowerCase();
@@ -18778,6 +18760,10 @@ function insightsSharePublishErrorMessage(raw) {
   }
   return message || "Unable to publish share link.";
 }
+function isInsightsShareScopeError(raw) {
+  const lower = raw.toLowerCase();
+  return lower.includes("guard:insights.share") || lower.includes("insufficient_scope") || lower.includes("insufficient scope") || lower.includes("missing_scope") || lower.includes("missing scope") || lower.includes("unauthorized");
+}
 function EvidenceInsightsShareModal({
   analytics,
   runtime,
@@ -18788,12 +18774,17 @@ function EvidenceInsightsShareModal({
   const [displayName, setDisplayName] = reactExports.useState("");
   const [publishing, setPublishing] = reactExports.useState(false);
   const [error, setError] = reactExports.useState(null);
+  const [rawError, setRawError] = reactExports.useState(null);
   const [shareResult, setShareResult] = reactExports.useState(null);
   const cloudConnected = runtime?.cloud_state === "paired_active";
   const connectUrl = runtime?.connect_url ?? "https://hol.org/guard/connect";
+  const handleReauth = reactExports.useCallback(() => {
+    window.open(connectUrl, "_blank", "noopener,noreferrer");
+  }, [connectUrl]);
   const handlePublish = reactExports.useCallback(async () => {
     setPublishing(true);
     setError(null);
+    setRawError(null);
     try {
       const result = await publishInsightsShare({
         includeTopArtifacts,
@@ -18803,11 +18794,14 @@ function EvidenceInsightsShareModal({
       setShareResult(result);
     } catch (publishError) {
       const rawMessage = publishError instanceof Error ? publishError.message : "Unable to publish share link.";
+      setRawError(rawMessage);
       setError(insightsSharePublishErrorMessage(rawMessage));
     } finally {
       setPublishing(false);
     }
   }, [displayName, includeTopArtifacts, showDisplayName]);
+  const isScopeError = Boolean(rawError) && isInsightsShareScopeError(rawError ?? "");
+  const errorIsReauth = isScopeError || (rawError?.toLowerCase().includes("unauthorized") ?? false);
   if (shareResult) {
     return /* @__PURE__ */ jsxRuntimeExports.jsx(
       EvidenceInsightsShareSheet,
@@ -18841,7 +18835,48 @@ function EvidenceInsightsShareModal({
       )
     ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4 px-5 py-5", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "overflow-hidden rounded-2xl border border-slate-200", children: /* @__PURE__ */ jsxRuntimeExports.jsx(EvidenceInsightsHeadlineBento, { analytics, variant: "compact" }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "overflow-hidden rounded-2xl border border-slate-200 bg-white", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-3 gap-px bg-slate-100", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              GuardStatMetric,
+              {
+                label: "Pending",
+                value: String(runtime?.pending_count ?? 0),
+                compact: true
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              GuardStatMetric,
+              {
+                label: "Apps",
+                value: String(runtime?.managed_installs?.length ?? 0),
+                compact: true
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              GuardStatMetric,
+              {
+                label: "Recorded",
+                value: String(runtime?.receipt_count ?? 0),
+                compact: true
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(HomeInsightsMetrics, { analytics }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "px-4 py-3", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500", children: "Last 5 days" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+              EvidenceActivityHeatmapMini,
+              {
+                cells: analytics.daily_activity.slice(-5).map((day) => ({
+                  date: day.date_key,
+                  level: getHeatmapLevel(day.total, analytics.peak_day_total || 1)
+                }))
+              }
+            ) })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("hr", { className: "border-slate-100" }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "flex items-center gap-3 text-sm text-brand-dark", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "input",
@@ -18880,7 +18915,10 @@ function EvidenceInsightsShareModal({
           ),
           "Include top recurring action labels (redacted)"
         ] }),
-        error ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900", role: "alert", children: error }) : null
+        error ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `rounded-xl border px-3 py-2 text-sm ${errorIsReauth ? "border-amber-200 bg-amber-50 text-amber-900" : "border-rose-200 bg-rose-50 text-rose-900"}`, role: "alert", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { children: error }),
+          errorIsReauth ? /* @__PURE__ */ jsxRuntimeExports.jsx(ActionButton, { variant: "outline", onClick: handleReauth, className: "mt-2 w-full", children: "Reconnect Guard Cloud" }) : null
+        ] }) : null
       ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-end gap-2 border-t border-slate-100 px-5 py-4", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(ActionButton, { variant: "outline", onClick: onClose, children: "Cancel" }),
@@ -18929,6 +18967,12 @@ const TOOLTIP_ID = "evidence-trend-chart-tooltip";
 function bucketTotal(bucket) {
   return bucket.allowed + bucket.blocked + bucket.reviewed;
 }
+function computeTrendBarHeight(total, maxTotal, chartHeight = CHART_HEIGHT_PX) {
+  if (total <= 0 || maxTotal <= 0) {
+    return 0;
+  }
+  return Math.max(Math.round(total / maxTotal * chartHeight), 10);
+}
 function isGuardModalOpen() {
   if (typeof document === "undefined") return false;
   const count = Number(document.documentElement.dataset.guardModalOpen ?? 0);
@@ -18942,7 +18986,11 @@ function EvidenceTrendChart({ buckets }) {
   const maxTotal = reactExports.useMemo(() => Math.max(...buckets.map((bucket) => bucketTotal(bucket)), 1), [buckets]);
   const hasAnyData = reactExports.useMemo(() => buckets.some((bucket) => bucketTotal(bucket) > 0), [buckets]);
   reactExports.useEffect(() => {
-    setReduceMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncPreference = () => setReduceMotion(media.matches);
+    syncPreference();
+    media.addEventListener("change", syncPreference);
+    return () => media.removeEventListener("change", syncPreference);
   }, []);
   const updateTooltipForKey = reactExports.useCallback(
     (dateKey) => {
@@ -18972,7 +19020,7 @@ function EvidenceTrendChart({ buckets }) {
     },
     [buckets]
   );
-  reactExports.useLayoutEffect(() => {
+  reactExports.useEffect(() => {
     updateTooltipForKey(hoveredKey);
   }, [hoveredKey, updateTooltipForKey, buckets]);
   reactExports.useEffect(() => {
@@ -19005,7 +19053,7 @@ function EvidenceTrendChart({ buckets }) {
       "div",
       {
         id: TOOLTIP_ID,
-        className: "pointer-events-none fixed z-40 -translate-x-1/2 rounded-lg bg-brand-dark px-3 py-2 text-xs text-white shadow-lg",
+        className: "pointer-events-none fixed z-40 rounded-lg bg-brand-dark px-3 py-2 text-xs text-white shadow-lg",
         style: {
           left: tooltip.left,
           top: tooltip.top,
@@ -19061,7 +19109,7 @@ function EvidenceTrendChart({ buckets }) {
           ),
           buckets.map((bucket, index) => {
             const total = bucketTotal(bucket);
-            const barHeight = total > 0 ? Math.max(Math.round(total / maxTotal * CHART_HEIGHT_PX), 10) : 0;
+            const barHeight = computeTrendBarHeight(total, maxTotal);
             const isActive = hoveredKey === bucket.date_key;
             const showTooltip = isActive && tooltip !== null;
             return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "relative z-[1] flex min-w-0 flex-1 flex-col items-center justify-end", children: [
@@ -19069,7 +19117,7 @@ function EvidenceTrendChart({ buckets }) {
                 "span",
                 {
                   className: `mb-2 text-[11px] font-semibold tabular-nums tracking-tight transition-colors ${isActive ? "text-brand-blue" : "text-brand-dark"}`,
-                  "aria-hidden": total <= 0,
+                  "aria-hidden": "true",
                   children: total > 0 ? formatEvidenceCount(total) : ""
                 }
               ),
@@ -20190,7 +20238,7 @@ function WorkspacePageHeader({
       description ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm text-slate-500", children: description }) : null
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-start sm:justify-end sm:gap-4", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "-mx-1 w-full overflow-x-auto px-1 pb-1 sm:mx-0 sm:w-auto sm:pb-0 [&>div]:!flex-nowrap", children: /* @__PURE__ */ jsxRuntimeExports.jsx(TabBar, { tabs, active: activeTab, onChange: onTabChange }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full min-w-0 sm:w-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsx(TabBar, { tabs, active: activeTab, onChange: onTabChange }) }),
       actions ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex shrink-0 flex-wrap items-center justify-end gap-2", children: actions }) : null
     ] })
   ] });
@@ -24587,13 +24635,13 @@ function useRouteFocus(view, mainSelector = "main#main-content") {
     }
   }, [view, mainSelector]);
 }
-const HomeWorkspace = reactExports.lazy(() => __vitePreload(() => import("./chunks/home-dashboard.js"), true ? __vite__mapDeps([0,1]) : void 0).then((m) => ({ default: m.HomeWorkspace })));
-const FleetWorkspace = reactExports.lazy(() => __vitePreload(() => import("./chunks/fleet-workspace.js"), true ? __vite__mapDeps([2,3]) : void 0).then((m) => ({ default: m.FleetWorkspace })));
-const SettingsWorkspace = reactExports.lazy(() => __vitePreload(() => import("./chunks/settings-workspace.js"), true ? __vite__mapDeps([4,1,3]) : void 0).then((m) => ({ default: m.SettingsWorkspace })));
+const HomeWorkspace = reactExports.lazy(() => __vitePreload(() => import("./chunks/home-dashboard.js"), true ? __vite__mapDeps([0,1,2]) : void 0).then((m) => ({ default: m.HomeWorkspace })));
+const FleetWorkspace = reactExports.lazy(() => __vitePreload(() => import("./chunks/fleet-workspace.js"), true ? __vite__mapDeps([3,4]) : void 0).then((m) => ({ default: m.FleetWorkspace })));
+const SettingsWorkspace = reactExports.lazy(() => __vitePreload(() => import("./chunks/settings-workspace.js"), true ? __vite__mapDeps([5,1,4]) : void 0).then((m) => ({ default: m.SettingsWorkspace })));
 const AppDetailWorkspace = reactExports.lazy(() => __vitePreload(() => import("./chunks/app-detail-workspace.js"), true ? [] : void 0).then((m) => ({ default: m.AppDetailWorkspace })));
 const HelpModal = reactExports.lazy(() => __vitePreload(() => import("./chunks/help-modal.js"), true ? [] : void 0).then((m) => ({ default: m.HelpModal })));
 const SupplyChainHubWorkspace = reactExports.lazy(
-  () => __vitePreload(() => import("./chunks/supply-chain-hub-workspace.js"), true ? [] : void 0).then((m) => ({ default: m.SupplyChainHubWorkspace }))
+  () => __vitePreload(() => import("./chunks/supply-chain-hub-workspace.js").then((n) => n.s), true ? [] : void 0).then((m) => ({ default: m.SupplyChainHubWorkspace }))
 );
 const AboutWorkspace = reactExports.lazy(
   () => __vitePreload(() => import("./chunks/about-workspace.js"), true ? [] : void 0).then((m) => ({ default: m.AboutWorkspace }))
@@ -24721,6 +24769,7 @@ function App() {
   const [helpOpen, setHelpOpen] = reactExports.useState(false);
   const [clearConfirm, setClearConfirm] = reactExports.useState(null);
   const [approvalGate, setApprovalGate] = reactExports.useState(null);
+  const [guardVersion, setGuardVersion] = reactExports.useState(null);
   const resolutionInFlight = reactExports.useRef(false);
   reactExports.useEffect(() => {
     function handleKeyDown(event) {
@@ -24785,6 +24834,12 @@ function App() {
     fetchSettings().then((payload) => {
       if (!cancelled && payload.settings.approval_gate !== void 0) {
         setApprovalGate(payload.settings.approval_gate);
+      }
+    }).catch(() => {
+    });
+    fetchGuardUpdateStatus().then((status) => {
+      if (!cancelled && status.current_version) {
+        setGuardVersion(status.current_version);
       }
     }).catch(() => {
     });
@@ -25179,7 +25234,17 @@ function App() {
             onRuntimeRefresh: refreshStateAfterAction
           }
         ) }) : null,
-        aboutContent: /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx(LazyFallback, {}), children: /* @__PURE__ */ jsxRuntimeExports.jsx(AboutWorkspace, {}) })
+        aboutContent: /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: /* @__PURE__ */ jsxRuntimeExports.jsx(LazyFallback, {}), children: /* @__PURE__ */ jsxRuntimeExports.jsx(AboutWorkspace, { runtimeSummary: runtime.kind === "ready" ? {
+          // TODO: GuardRuntimeSnapshot does not yet expose guard_version or protected_app_count.
+          // When those fields are added, populate them here instead of null/0.
+          guardVersion,
+          cloudState: runtime.snapshot.cloud_state ?? "unknown",
+          cloudStateLabel: runtime.snapshot.cloud_state_label ?? "Unknown",
+          syncConfigured: runtime.snapshot.sync_configured ?? false,
+          pendingCount: runtime.snapshot.pending_count ?? 0,
+          receiptCount: runtime.snapshot.receipt_count ?? 0,
+          protectedAppCount: 0
+        } : null }) })
       }
     ),
     helpOpen && /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.Suspense, { fallback: null, children: /* @__PURE__ */ jsxRuntimeExports.jsx(HelpModal, { open: helpOpen, onClose: handleCloseHelp }) })
@@ -25193,107 +25258,115 @@ clientExports.createRoot(container).render(
   /* @__PURE__ */ jsxRuntimeExports.jsx(reactExports.StrictMode, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(App, {}) })
 );
 export {
-  disableApprovalGateTotp as $,
+  clearPolicy as $,
   ActionButton as A,
   Badge as B,
-  HiMiniMinusCircle as C,
-  HiMiniEye as D,
+  HiMiniWrenchScrewdriver as C,
+  HiMiniXCircle as D,
   EvidenceInsightsShareButton as E,
-  HiMiniWrenchScrewdriver as F,
+  HiMiniExclamationCircle as F,
   GuardStatMetric as G,
-  HiMiniShieldCheck as H,
-  HiMiniExclamationCircle as I,
-  HiMiniClipboardDocumentCheck as J,
-  HiMiniClipboard as K,
-  requireReact as L,
-  getDefaultExportFromCjs as M,
-  HiMiniLockClosed as N,
-  HiMiniBellAlert as O,
+  HomeInsightsMetrics as H,
+  HiMiniClipboardDocumentCheck as I,
+  HiMiniClipboard as J,
+  requireReact as K,
+  getDefaultExportFromCjs as L,
+  HiMiniLockClosed as M,
+  HiMiniBellAlert as N,
+  HiMiniAdjustmentsHorizontal as O,
   ProofStrip as P,
-  HiMiniAdjustmentsHorizontal as Q,
-  HiMiniCog6Tooth as R,
+  HiMiniCog6Tooth as Q,
+  HiMiniCircleStack as R,
   SectionLabel as S,
-  Tag as T,
-  HiMiniCircleStack as U,
-  TabBar as V,
-  fetchSettings as W,
-  fetchRuntimeSnapshot as X,
-  revokeApprovalGateCooldown as Y,
-  enrollApprovalGateTotp as Z,
-  verifyApprovalGateTotp as _,
-  HiMiniInformationCircle as a,
-  updateSettings as a0,
-  clearPolicy as a1,
-  clearReviewQueue as a2,
-  clearEvidence as a3,
-  exportDiagnostics as a4,
-  repairApprovalCenter as a5,
-  exportSettings as a6,
-  importSettings as a7,
-  resetSettings as a8,
-  setupDesktopNotifications as a9,
-  runPackageSync as aA,
-  startPackageFirewallConnect as aB,
-  openPackageFirewallShell as aC,
-  HiMiniBugAnt as aD,
-  IconActionButton as aE,
-  HiMiniBeaker as aF,
-  fetchSupplyChainBundle as aG,
-  runAuditRemediation as aH,
-  guardAwareHref as aI,
-  HiMiniBarsArrowUp as aJ,
-  HiMiniBarsArrowDown as aK,
-  HiMiniSignal as aL,
-  HiMiniClock as aM,
-  HiMiniMagnifyingGlass as aa,
-  approvalGateCooldownLabel as ab,
-  fetchApprovalPage as ac,
-  fetchPolicy as ad,
-  HiMiniArrowLeft as ae,
-  HiMiniHome as af,
-  detectCategory as ag,
-  CATEGORIES as ah,
-  policyIdentityKey as ai,
-  HiMiniChartBar as aj,
-  runHarnessAction as ak,
-  GuardHarnessActionError as al,
-  HiMiniRocketLaunch as am,
-  HiMiniArrowPath as an,
-  HiMiniTrash as ao,
-  clearLabelForScope as ap,
-  formatHarnessCommand as aq,
-  HiMiniCommandLine as ar,
-  WorkspacePageHeader as as,
-  __vitePreload as at,
-  HiMiniDocumentText as au,
-  HiMiniArrowTopRightOnSquare as av,
-  HiMiniCheckBadge as aw,
-  fetchPackageFirewallStatus as ax,
-  runPackageFirewallAction as ay,
-  runPackageAudit as az,
-  HiMiniExclamationTriangle as b,
-  HiMiniArrowRight as c,
-  HiMiniChevronUp as d,
-  HiMiniChevronDown as e,
-  formatRelativeTime as f,
-  HiMiniCheckCircle as g,
-  HiMiniXCircle as h,
-  HomeInsightsMetrics as i,
+  TabBar as T,
+  fetchSettings as U,
+  fetchRuntimeSnapshot as V,
+  revokeApprovalGateCooldown as W,
+  enrollApprovalGateTotp as X,
+  verifyApprovalGateTotp as Y,
+  disableApprovalGateTotp as Z,
+  updateSettings as _,
+  EvidenceActivityHeatmapMini as a,
+  clearReviewQueue as a0,
+  clearEvidence as a1,
+  exportDiagnostics as a2,
+  repairApprovalCenter as a3,
+  exportSettings as a4,
+  importSettings as a5,
+  resetSettings as a6,
+  setupDesktopNotifications as a7,
+  Tag as a8,
+  HiMiniMagnifyingGlass as a9,
+  fetchPackageFirewallStatus as aA,
+  runPackageFirewallAction as aB,
+  runPackageAudit as aC,
+  runPackageSync as aD,
+  startPackageFirewallConnect as aE,
+  openPackageFirewallShell as aF,
+  HiMiniArrowDown as aG,
+  HiMiniArrowUp as aH,
+  fetchSupplyChainBundle as aI,
+  HiMiniDocumentMagnifyingGlass as aJ,
+  HiMiniShieldExclamation as aK,
+  HiMiniComputerDesktop as aL,
+  HiMiniInformationCircle as aM,
+  fetchReceipts as aN,
+  HiMiniArrowRight as aO,
+  runAuditRemediation as aP,
+  HiMiniDocumentText as aQ,
+  guardAwareHref as aR,
+  HiMiniBarsArrowUp as aS,
+  HiMiniBarsArrowDown as aT,
+  HiMiniSignal as aU,
+  approvalGateCooldownLabel as aa,
+  fetchApprovalPage as ab,
+  fetchPolicy as ac,
+  HiMiniArrowLeft as ad,
+  HiMiniHome as ae,
+  detectCategory as af,
+  CATEGORIES as ag,
+  policyIdentityKey as ah,
+  HiMiniChartBar as ai,
+  runHarnessAction as aj,
+  GuardHarnessActionError as ak,
+  HiMiniRocketLaunch as al,
+  HiMiniArrowPath as am,
+  HiMiniTrash as an,
+  clearLabelForScope as ao,
+  formatHarnessCommand as ap,
+  HiMiniCommandLine as aq,
+  WorkspacePageHeader as ar,
+  __vitePreload as as,
+  Surface as at,
+  HiMiniArrowTopRightOnSquare as au,
+  HiMiniCheckBadge as av,
+  HiMiniClock as aw,
+  IconActionButton as ax,
+  HiMiniBeaker as ay,
+  HiMiniBugAnt as az,
+  EmptyState as b,
+  EvidenceInsightsShareModal as c,
+  HiMiniCheckCircle as d,
+  GuardHero as e,
+  fetchReceiptAnalytics as f,
+  getHeatmapLevel as g,
+  harnessDisplayName as h,
+  isDisplayableHarness as i,
   jsxRuntimeExports as j,
-  EvidenceActivityHeatmapMini as k,
-  fetchReceiptAnalytics as l,
-  harnessDisplayName as m,
-  isDisplayableHarness as n,
-  EmptyState as o,
-  EvidenceInsightsShareModal as p,
-  GuardHero as q,
+  formatNumber as k,
+  HiMiniShieldCheck as l,
+  formatRelativeTime as m,
+  HiMiniSparkles as n,
+  HiMiniXMark as o,
+  HiMiniChevronUp as p,
+  HiMiniChevronDown as q,
   reactExports as r,
-  formatNumber as s,
-  HiMiniSparkles as t,
-  HiMiniXMark as u,
-  HiMiniCloud as v,
-  HiMiniQuestionMarkCircle as w,
-  useFocusTrap as x,
-  HiMiniBolt as y,
-  HiMiniChevronRight as z
+  HiMiniCloud as s,
+  HiMiniQuestionMarkCircle as t,
+  useFocusTrap as u,
+  HiMiniExclamationTriangle as v,
+  HiMiniBolt as w,
+  HiMiniChevronRight as x,
+  HiMiniMinusCircle as y,
+  HiMiniEye as z
 };

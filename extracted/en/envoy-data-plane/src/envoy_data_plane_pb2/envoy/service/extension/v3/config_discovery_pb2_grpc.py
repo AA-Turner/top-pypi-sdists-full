@@ -5,7 +5,7 @@ import warnings
 
 from envoy.service.discovery.v3 import discovery_pb2 as envoy_dot_service_dot_discovery_dot_v3_dot_discovery__pb2
 
-GRPC_GENERATED_VERSION = '1.76.0'
+GRPC_GENERATED_VERSION = '1.81.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -25,9 +25,8 @@ if _version_not_supported:
     )
 
 
-class ExtensionConfigDiscoveryServiceStub(object):
+class ExtensionConfigDiscoveryServiceStub:
     """[#protodoc-title: Extension config discovery service (ECDS)]
-
     A service that supports dynamic configuration updates for a specific filter.
     Currently, ECDS is supported for network filters, HTTP filters, UDP session filters, and listener filters.
     Please check :ref:`Extension Config Discovery Service (ECDS) API <config_overview_extension_discovery>`.
@@ -78,9 +77,8 @@ class ExtensionConfigDiscoveryServiceStub(object):
                 _registered_method=True)
 
 
-class ExtensionConfigDiscoveryServiceServicer(object):
+class ExtensionConfigDiscoveryServiceServicer:
     """[#protodoc-title: Extension config discovery service (ECDS)]
-
     A service that supports dynamic configuration updates for a specific filter.
     Currently, ECDS is supported for network filters, HTTP filters, UDP session filters, and listener filters.
     Please check :ref:`Extension Config Discovery Service (ECDS) API <config_overview_extension_discovery>`.
@@ -152,9 +150,8 @@ def add_ExtensionConfigDiscoveryServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class ExtensionConfigDiscoveryService(object):
+class ExtensionConfigDiscoveryService:
     """[#protodoc-title: Extension config discovery service (ECDS)]
-
     A service that supports dynamic configuration updates for a specific filter.
     Currently, ECDS is supported for network filters, HTTP filters, UDP session filters, and listener filters.
     Please check :ref:`Extension Config Discovery Service (ECDS) API <config_overview_extension_discovery>`.

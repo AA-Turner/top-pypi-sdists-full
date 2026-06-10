@@ -1,9 +1,10 @@
 # Varia to be sorted later...
 import logging
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Any
 
 import orjson
 
@@ -102,10 +103,12 @@ def _utf16_pos_to_utf8_pos(text: str, line: int, utf16_character: int) -> int:
 
     lines = text.split("\n")
     if line >= len(lines):
-        return len(text)
+        return len(text.encode("utf-8"))
 
-    # Get byte offset to start of line
-    line_start_byte = sum(len(lines[i]) + 1 for i in range(line))  # +1 for '\n'
+    # Get byte offset to start of line (count UTF-8 bytes of preceding lines)
+    line_start_byte = sum(
+        len(lines[i].encode("utf-8")) + 1 for i in range(line)
+    )  # +1 for '\n'
 
     # Convert UTF-16 character offset to UTF-8 byte offset within the line
     line_content = lines[line]
@@ -141,8 +144,8 @@ class DocumentContentChange:
     """Represents a change in a document."""
 
     text: str
-    start: Tuple[int, int] | None = None
-    end: Tuple[int, int] | None = None
+    start: Sequence[int] | None = None
+    end: Sequence[int] | None = None
 
     def __post_init__(self) -> None:
         normalized_text = normalize_newlines(self.text)
@@ -194,15 +197,20 @@ def apply_changes_to_text(text: str, changes: list[DocumentContentChange]) -> st
             continue
 
         assert change.start is not None and change.end is not None
+        # Indices are UTF-8 byte offsets, so splice on the encoded bytes to keep
+        # positions correct for lines containing non-ASCII characters.
+        data = text.encode("utf-8")
         start_idx = _index_from_line_character(text, change.start[0], change.start[1])
         end_idx = _index_from_line_character(text, change.end[0], change.end[1])
-        text = text[:start_idx] + change.text + text[end_idx:]
+        text = (data[:start_idx] + change.text.encode("utf-8") + data[end_idx:]).decode(
+            "utf-8"
+        )
 
     return text
 
 
 def get_diagnostics_in_range(
-    diagnostics: list,
+    diagnostics: Iterable[dict],
     start_line: int,
     end_line: int,
 ) -> list:
@@ -277,7 +285,7 @@ def experimental(func):
 
     # Change __doc__ to include a sphinx warning
     warning = "\n        .. admonition:: Experimental\n\n            This method is experimental. Use with caution.\n            Warnings are logged via the 'leanclient' logger.\n"
-    doc_lines = wrapper.__doc__.split("\n")
+    doc_lines = (wrapper.__doc__ or "").split("\n")
     doc_lines.insert(1, warning)
     wrapper.__doc__ = "\n".join(doc_lines)
     return wrapper

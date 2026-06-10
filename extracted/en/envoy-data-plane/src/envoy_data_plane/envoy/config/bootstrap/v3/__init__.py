@@ -57,12 +57,12 @@ class CustomInlineHeaderInlineHeaderType(betterproto2.Enum):
 
 class WatchdogWatchdogActionWatchdogEvent(betterproto2.Enum):
     """
-    The events are fired in this order: KILL, MULTIKILL, MEGAMISS, MISS.
+    The events are fired in this order: ``KILL``, ``MULTIKILL``, ``MEGAMISS``, ``MISS``.
     Within an event type, actions execute in the order they are configured.
-    For KILL/MULTIKILL there is a default PANIC that will run after the
+    For ``KILL``/``MULTIKILL`` there is a default ``PANIC`` that will run after the
     registered actions and kills the process if it wasn't already killed.
     It might be useful to specify several debug actions, and possibly an
-    alternate FATAL action.
+    alternate ``FATAL`` action.
     """
 
     UNKNOWN = 0
@@ -81,7 +81,7 @@ class Admin(betterproto2.Message):
     """
     Administration interface :ref:`operations documentation
     <operations_admin_interface>`.
-    [#next-free-field: 7]
+    [#next-free-field: 8]
     """
 
     access_log: "list[__accesslog__v3__.AccessLog]" = betterproto2.field(
@@ -97,7 +97,7 @@ class Admin(betterproto2.Message):
     )
     """
     The path to write the access log for the administration server. If no
-    access log is desired specify ‘/dev/null’. This is only required if
+    access log is desired specify ``/dev/null``. This is only required if
     :ref:`address <envoy_v3_api_field_config.bootstrap.v3.Admin.address>` is set.
     Deprecated in favor of ``access_log`` which offers more options.
     """
@@ -106,8 +106,8 @@ class Admin(betterproto2.Message):
         2, betterproto2.TYPE_STRING
     )
     """
-    The cpu profiler output path for the administration server. If no profile
-    path is specified, the default is ‘/var/log/envoy/envoy.prof’.
+    The CPU profiler output path for the administration server. If no profile
+    path is specified, the default is ``/var/log/envoy/envoy.prof``.
     """
 
     address: "__core__v3__.Address | None" = betterproto2.field(
@@ -130,6 +130,27 @@ class Admin(betterproto2.Message):
     """
     Indicates whether :ref:`global_downstream_max_connections <config_overload_manager_limiting_connections>`
     should apply to the admin interface or not.
+    """
+
+    allow_paths: "list[___type__matcher__v3__.StringMatcher]" = betterproto2.field(
+        7, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+    """
+    List of admin paths that are accessible. If not specified, all admin endpoints are accessible.
+    Matchers are evaluated against the request path. For endpoints commonly queried with
+    parameters (for example ``/stats?format=...``), prefer ``prefix`` matchers.
+
+    When specified, only paths in this list will be accessible, all others will return ``HTTP 403 Forbidden``.
+
+    Example:
+
+    .. code-block:: yaml
+
+      allow_paths:
+      - prefix: /stats
+      - prefix: /config_dump
+      - exact: /ready
+      - prefix: /healthcheck
     """
 
     def __post_init__(self) -> None:
@@ -171,25 +192,25 @@ class Bootstrap(betterproto2.Message):
     """
     A list of :ref:`Node <envoy_v3_api_msg_config.core.v3.Node>` field names
     that will be included in the context parameters of the effective
-    xdstp:// URL that is sent in a discovery request when resource
+    ``xdstp://`` URL that is sent in a discovery request when resource
     locators are used for LDS/CDS. Any non-string field will have its JSON
     encoding set as the context parameter value, with the exception of
     metadata, which will be flattened (see example below). The supported field
     names are:
-    - "cluster"
-    - "id"
-    - "locality.region"
-    - "locality.sub_zone"
-    - "locality.zone"
-    - "metadata"
-    - "user_agent_build_version.metadata"
-    - "user_agent_build_version.version"
-    - "user_agent_name"
-    - "user_agent_version"
+    - ``cluster``
+    - ``id``
+    - ``locality.region``
+    - ``locality.sub_zone``
+    - ``locality.zone``
+    - ``metadata``
+    - ``user_agent_build_version.metadata``
+    - ``user_agent_build_version.version``
+    - ``user_agent_name``
+    - ``user_agent_version``
 
     The node context parameters act as a base layer dictionary for the context
     parameters (i.e. more specific resource specific context parameters will
-    override). Field names will be prefixed with “udpa.node.” when included in
+    override). Field names will be prefixed with ````"udpa.node."```` when included in
     context parameters.
 
     For example, if node_context_params is ``["user_agent_name", "metadata"]``,
@@ -270,10 +291,10 @@ class Bootstrap(betterproto2.Message):
     """
     Optional duration between flushes to configured stats sinks. For
     performance reasons Envoy latches counters and only flushes counters and
-    gauges at a periodic interval. If not specified the default is 5000ms (5
-    seconds). Only one of ``stats_flush_interval`` or ``stats_flush_on_admin``
+    gauges at a periodic interval. If not specified the default is ``5000ms`` (``5`` seconds).
+    Only one of ``stats_flush_interval`` or ``stats_flush_on_admin``
     can be set.
-    Duration must be at least 1ms and at most 5 min.
+    Duration must be at least ``1ms`` and at most ``5 min``.
     """
 
     stats_flush_on_admin: "bool | None" = betterproto2.field(
@@ -352,27 +373,32 @@ class Bootstrap(betterproto2.Message):
 
     enable_dispatcher_stats: "bool" = betterproto2.field(16, betterproto2.TYPE_BOOL)
     """
-    Enable :ref:`stats for event dispatcher <operations_performance>`, defaults to false.
-    Note that this records a value for each iteration of the event loop on every thread. This
-    should normally be minimal overhead, but when using
-    :ref:`statsd <envoy_v3_api_msg_config.metrics.v3.StatsdSink>`, it will send each observed value
-    over the wire individually because the statsd protocol doesn't have any way to represent a
-    histogram summary. Be aware that this can be a very large volume of data.
+    Enable :ref:`stats for event dispatcher <operations_performance>`. Defaults to ``false``.
+
+    .. note::
+
+      This records a value for each iteration of the event loop on every thread. This
+      should normally be minimal overhead, but when using
+      :ref:`statsd <envoy_v3_api_msg_config.metrics.v3.StatsdSink>`, it will send each observed value
+      over the wire individually because the statsd protocol doesn't have any way to represent a
+      histogram summary. Be aware that this can be a very large volume of data.
     """
 
     header_prefix: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
         18, betterproto2.TYPE_STRING
     )
     """
-    Optional string which will be used in lieu of x-envoy in prefixing headers.
+    Optional string which will be used in lieu of ``x-envoy`` in prefixing headers.
 
-    For example, if this string is present and set to X-Foo, then x-envoy-retry-on will be
-    transformed into x-foo-retry-on etc.
+    For example, if this string is present and set to ``X-Foo``, then ``x-envoy-retry-on`` will be
+    transformed into ``x-foo-retry-on`` etc.
 
-    Note this applies to the headers Envoy will generate, the headers Envoy will sanitize, and the
-    headers Envoy will trust for core code and core extensions only. Be VERY careful making
-    changes to this string, especially in multi-layer Envoy deployments or deployments using
-    extensions which are not upstream.
+    .. note::
+
+      This applies to the headers Envoy will generate, the headers Envoy will sanitize, and the
+      headers Envoy will trust for core code and core extensions only. Be VERY careful making
+      changes to this string, especially in multi-layer Envoy deployments or deployments using
+      extensions which are not upstream.
     """
 
     stats_server_version_override: "int | None" = betterproto2.field(
@@ -389,8 +415,8 @@ class Bootstrap(betterproto2.Message):
 
     use_tcp_for_dns_lookups: "bool" = betterproto2.field(20, betterproto2.TYPE_BOOL)
     """
-    Always use TCP queries instead of UDP queries for DNS lookups.
-    This may be overridden on a per-cluster basis in cds_config,
+    Always use ``TCP`` queries instead of ``UDP`` queries for DNS lookups.
+    This may be overridden on a per-cluster basis in ``cds_config``,
     when :ref:`dns_resolvers <envoy_v3_api_field_config.cluster.v3.Cluster.dns_resolvers>` and
     :ref:`use_tcp_for_dns_lookups <envoy_v3_api_field_config.cluster.v3.Cluster.use_tcp_for_dns_lookups>` are
     specified.
@@ -402,8 +428,8 @@ class Bootstrap(betterproto2.Message):
         betterproto2.field(30, betterproto2.TYPE_MESSAGE, optional=True)
     )
     """
-    DNS resolution configuration which includes the underlying dns resolver addresses and options.
-    This may be overridden on a per-cluster basis in cds_config, when
+    DNS resolution configuration which includes the underlying DNS resolver addresses and options.
+    This may be overridden on a per-cluster basis in ``cds_config``, when
     :ref:`dns_resolution_config <envoy_v3_api_field_config.cluster.v3.Cluster.dns_resolution_config>`
     is specified.
     This field is deprecated in favor of
@@ -414,14 +440,15 @@ class Bootstrap(betterproto2.Message):
         betterproto2.field(31, betterproto2.TYPE_MESSAGE, optional=True)
     )
     """
-    DNS resolver type configuration extension. This extension can be used to configure c-ares, apple,
+    DNS resolver type configuration extension. This extension can be used to configure ``c-ares``, ``apple``,
     or any other DNS resolver types and the related parameters.
     For example, an object of
     :ref:`CaresDnsResolverConfig <envoy_v3_api_msg_extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig>`
     can be packed into this ``typed_dns_resolver_config``. This configuration replaces the
     :ref:`dns_resolution_config <envoy_v3_api_field_config.bootstrap.v3.Bootstrap.dns_resolution_config>`
     configuration.
-    During the transition period when both ``dns_resolution_config`` and ``typed_dns_resolver_config`` exists,
+
+    During the transition period when both ``dns_resolution_config`` and ``typed_dns_resolver_config`` exist,
     when ``typed_dns_resolver_config`` is in place, Envoy will use it and ignore ``dns_resolution_config``.
     When ``typed_dns_resolver_config`` is missing, the default behavior is in place.
     [#extension-category: envoy.network.dns_resolver]
@@ -449,9 +476,10 @@ class Bootstrap(betterproto2.Message):
     )
     """
     Configuration sources that will participate in
-    xdstp:// URL authority resolution. The algorithm is as
+    ``xdstp://`` URL authority resolution. The algorithm is as
     follows:
-    1. The authority field is taken from the xdstp:// URL, call
+
+    1. The authority field is taken from the ``xdstp://`` URL, call
        this ``resource_authority``.
     2. ``resource_authority`` is compared against the authorities in any peer
        ``ConfigSource``. The peer ``ConfigSource`` is the configuration source
@@ -471,7 +499,7 @@ class Bootstrap(betterproto2.Message):
         23, betterproto2.TYPE_MESSAGE, optional=True
     )
     """
-    Default configuration source for xdstp:// URLs if all
+    Default configuration source for ``xdstp://`` URLs if all
     other resolution fails.
     [#not-implemented-hide:]
     """
@@ -509,15 +537,17 @@ class Bootstrap(betterproto2.Message):
     allows users to customize the inline headers on-demand at Envoy startup without modifying
     Envoy's source code.
 
-    Note that the 'set-cookie' header cannot be registered as inline header.
+    .. note::
+
+      The ``set-cookie`` header cannot be registered as inline header.
     """
 
     perf_tracing_file_path: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
         33, betterproto2.TYPE_STRING
     )
     """
-    Optional path to a file with performance tracing data created by "Perfetto" SDK in binary
-    ProtoBuf format. The default value is "envoy.pftrace".
+    Optional path to a file with performance tracing data created by ``Perfetto`` SDK in binary
+    ProtoBuf format. The default value is ``envoy.pftrace``.
     """
 
     default_regex_engine: "__core__v3__.TypedExtensionConfig | None" = (
@@ -525,7 +555,7 @@ class Bootstrap(betterproto2.Message):
     )
     """
     Optional overriding of default regex engine.
-    If the value is not specified, Google RE2 will be used by default.
+    If the value is not specified, ``Google RE2`` will be used by default.
     [#extension-category: envoy.regex_engines]
     """
 
@@ -535,7 +565,7 @@ class Bootstrap(betterproto2.Message):
     """
     Optional XdsResourcesDelegate configuration, which allows plugging custom logic into both
     fetch and load events during xDS processing.
-    If a value is not specified, no XdsResourcesDelegate will be used.
+    If a value is not specified, no ``XdsResourcesDelegate`` will be used.
     TODO(abeyad): Add public-facing documentation.
     [#not-implemented-hide:]
     """
@@ -546,7 +576,7 @@ class Bootstrap(betterproto2.Message):
     """
     Optional XdsConfigTracker configuration, which allows tracking xDS responses in external components,
     e.g., external tracer or monitor. It provides the process point when receive, ingest, or fail to
-    process xDS resources and messages. If a value is not specified, no XdsConfigTracker will be used.
+    process xDS resources and messages. If a value is not specified, no ``XdsConfigTracker`` will be used.
 
     .. note::
 
@@ -562,8 +592,8 @@ class Bootstrap(betterproto2.Message):
     """
     [#not-implemented-hide:]
     This controls the type of listener manager configured for Envoy. Currently
-    Envoy only supports ListenerManager for this field and Envoy Mobile
-    supports ApiListenerManager.
+    Envoy only supports ``ListenerManager`` for this field and Envoy Mobile
+    supports ``ApiListenerManager``.
     """
 
     application_log_config: "BootstrapApplicationLogConfig | None" = betterproto2.field(
@@ -577,7 +607,7 @@ class Bootstrap(betterproto2.Message):
         betterproto2.field(40, betterproto2.TYPE_MESSAGE, optional=True)
     )
     """
-    Optional gRPC async manager config.
+    Optional gRPC async client manager config.
     """
 
     memory_allocator_manager: "MemoryAllocatorManager | None" = betterproto2.field(
@@ -680,11 +710,13 @@ class BootstrapDeferredStatOptions(betterproto2.Message):
     When the flag is enabled, Envoy will lazily initialize a subset of the stats (see below).
     This will save memory and CPU cycles when creating the objects that own these stats, if those
     stats are never referenced throughout the lifetime of the process. However, it will incur additional
-    memory overhead for these objects, and a small increase of CPU usage when a at least one of the stats
+    memory overhead for these objects, and a small increase of CPU usage when at least one of the stats
     is updated for the first time.
+
     Groups of stats that will be lazily initialized:
+
     - Cluster traffic stats: a subgroup of the :ref:`cluster statistics <config_cluster_manager_cluster_stats>`
-    that are used when requests are routed to the cluster.
+      that are used when requests are routed to the cluster.
     """
 
 
@@ -713,7 +745,7 @@ class BootstrapDynamicResources(betterproto2.Message):
         5, betterproto2.TYPE_STRING
     )
     """
-    xdstp:// resource locator for listener collection.
+    ``xdstp://`` resource locator for listener collection.
     [#not-implemented-hide:]
     """
 
@@ -730,7 +762,7 @@ class BootstrapDynamicResources(betterproto2.Message):
         6, betterproto2.TYPE_STRING
     )
     """
-    xdstp:// resource locator for cluster collection.
+    ``xdstp://`` resource locator for cluster collection.
     [#not-implemented-hide:]
     """
 
@@ -763,7 +795,7 @@ class BootstrapGrpcAsyncClientManagerConfig(betterproto2.Message):
     )
     """
     Optional field to set the expiration time for the cached gRPC client object.
-    The minimal value is 5s and the default is 50s.
+    The minimal value is ``5s`` and the default is ``50s``.
     """
 
 
@@ -842,7 +874,7 @@ class ClusterManager(betterproto2.Message):
     )
     """
     Optional configuration used to bind newly established upstream connections.
-    This may be overridden on a per-cluster basis by upstream_bind_config in the cds_config.
+    This may be overridden on a per-cluster basis by ``upstream_bind_config`` in the ``cds_config``.
     """
 
     load_stats_config: "__core__v3__.ApiConfigSource | None" = betterproto2.field(
@@ -861,7 +893,7 @@ class ClusterManager(betterproto2.Message):
     """
     Whether the ClusterManager will create clusters on the worker threads
     inline during requests. This will save memory and CPU cycles in cases where
-    there are lots of inactive clusters and > 1 worker thread.
+    there are lots of inactive clusters and ``> 1`` worker thread.
     """
 
 
@@ -902,11 +934,11 @@ class CustomInlineHeader(betterproto2.Message):
     Used to specify the header that needs to be registered as an inline header.
 
     If request or response contain multiple headers with the same name and the header
-    name is registered as an inline header. Then multiple headers will be folded
+    name is registered as an inline header, then multiple headers will be folded
     into one, and multiple header values will be concatenated by a suitable delimiter.
     The delimiter is generally a comma.
 
-    For example, if 'foo' is registered as an inline header, and the headers contains
+    For example, if ``foo`` is registered as an inline header, and the headers contain
     the following two headers:
 
     .. code-block:: text
@@ -952,8 +984,11 @@ class FatalAction(betterproto2.Message):
     """
     Fatal actions to run while crashing. Actions can be safe (meaning they are
     async-signal safe) or unsafe. We run all safe actions before we run unsafe actions.
-    If using an unsafe action that could get stuck or deadlock, it important to
-    have an out of band system to terminate the process.
+
+    .. note::
+
+      If using an unsafe action that could get stuck or deadlock, it is important to
+      have an out of band system to terminate the process.
 
     The interface for the extension is ``Envoy::Server::Configuration::FatalAction``.
     ``FatalAction`` extensions live in the ``envoy.extensions.fatal_actions`` API
@@ -996,6 +1031,10 @@ default_message_pool.register_message(
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class MemoryAllocatorManager(betterproto2.Message):
+    """
+    [#next-free-field: 6]
+    """
+
     bytes_to_release: "typing.Annotated[int, pydantic.Field(ge=0, le=2**64 - 1)]" = (
         betterproto2.field(1, betterproto2.TYPE_UINT64)
     )
@@ -1013,7 +1052,48 @@ class MemoryAllocatorManager(betterproto2.Message):
     """
     Interval in milliseconds for memory releasing. If specified, during every
     interval Envoy will try to release ``bytes_to_release`` of free memory back to operating system for reuse.
-    Defaults to 1000 milliseconds.
+    Defaults to ``1000`` milliseconds.
+    """
+
+    soft_memory_limit_bytes: "int | None" = betterproto2.field(
+        3,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ____google__protobuf__.UInt64Value,
+        optional=True,
+    )
+    """
+    Sets the soft memory limit for tcmalloc. When the total memory used by tcmalloc exceeds this
+    limit, background release will be performed more aggressively to bring memory usage below the
+    limit. If not set, no soft memory limit is applied.
+
+    .. note::
+        This is currently only supported with tcmalloc and not with ``gperftools``.
+    """
+
+    max_per_cpu_cache_size_bytes: "int | None" = betterproto2.field(
+        4,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ____google__protobuf__.UInt32Value,
+        optional=True,
+    )
+    """
+    Sets the maximum per-CPU cache size in bytes for tcmalloc. Smaller values reduce per-CPU
+    memory overhead at the cost of increased contention on the central free list. If not set,
+    tcmalloc's default is used.
+
+    .. note::
+        This is currently only supported with tcmalloc and not with ``gperftools``.
+    """
+
+    max_unfreed_memory_bytes: "typing.Annotated[int, pydantic.Field(ge=0, le=2**64 - 1)]" = betterproto2.field(
+        5, betterproto2.TYPE_UINT64
+    )
+    """
+    The threshold of unfreed memory in bytes that triggers the heap shrinker to release memory
+    back to the OS. When the difference between physical memory used and application-allocated
+    memory exceeds this threshold, free memory is released.
+
+    Defaults to ``104857600`` (100 MB).
     """
 
 
@@ -1188,7 +1268,7 @@ class RuntimeLayerRtdsLayer(betterproto2.Message):
         1, betterproto2.TYPE_STRING
     )
     """
-    Resource to subscribe to at ``rtds_config`` for the RTDS layer.
+    Resource to subscribe to at the ``rtds_config`` for the RTDS layer.
     """
 
     rtds_config: "__core__v3__.ConfigSource | None" = betterproto2.field(
@@ -1217,8 +1297,8 @@ class Watchdog(betterproto2.Message):
         7, betterproto2.TYPE_MESSAGE, repeated=True
     )
     """
-    Register actions that will fire on given WatchDog events.
-    See ``WatchDogAction`` for priority of events.
+    Register actions that will fire on given Watchdog events.
+    See ``WatchdogAction`` for priority of events.
     """
 
     miss_timeout: "datetime.timedelta | None" = betterproto2.field(
@@ -1229,7 +1309,7 @@ class Watchdog(betterproto2.Message):
     )
     """
     The duration after which Envoy counts a nonresponsive thread in the
-    ``watchdog_miss`` statistic. If not specified the default is 200ms.
+    ``watchdog_miss`` statistic. If not specified the default is ``200ms``.
     """
 
     megamiss_timeout: "datetime.timedelta | None" = betterproto2.field(
@@ -1240,8 +1320,7 @@ class Watchdog(betterproto2.Message):
     )
     """
     The duration after which Envoy counts a nonresponsive thread in the
-    ``watchdog_mega_miss`` statistic. If not specified the default is
-    1000ms.
+    ``watchdog_mega_miss`` statistic. If not specified the default is ``1000ms``.
     """
 
     kill_timeout: "datetime.timedelta | None" = betterproto2.field(
@@ -1252,8 +1331,8 @@ class Watchdog(betterproto2.Message):
     )
     """
     If a watched thread has been nonresponsive for this duration, assume a
-    programming error and kill the entire Envoy process. Set to 0 to disable
-    kill behavior. If not specified the default is 0 (disabled).
+    programming error and kill the entire Envoy process. Set to ``0`` to disable
+    kill behavior. If not specified the default is ``0`` (disabled).
     """
 
     max_kill_timeout_jitter: "datetime.timedelta | None" = betterproto2.field(
@@ -1265,8 +1344,8 @@ class Watchdog(betterproto2.Message):
     """
     Defines the maximum jitter used to adjust the ``kill_timeout`` if ``kill_timeout`` is
     enabled. Enabling this feature would help to reduce risk of synchronized
-    watchdog kill events across proxies due to external triggers. Set to 0 to
-    disable. If not specified the default is 0 (disabled).
+    watchdog kill events across proxies due to external triggers. Set to ``0`` to
+    disable. If not specified the default is ``0`` (disabled).
     """
 
     multikill_timeout: "datetime.timedelta | None" = betterproto2.field(
@@ -1276,10 +1355,10 @@ class Watchdog(betterproto2.Message):
         optional=True,
     )
     """
-    If ``max(2, ceil(registered_threads * Fraction(*multikill_threshold*)))``
+    If ``max(2, ceil(registered_threads * Fraction(multikill_threshold)))``
     threads have been nonresponsive for at least this duration kill the entire
-    Envoy process. Set to 0 to disable this behavior. If not specified the
-    default is 0 (disabled).
+    Envoy process. Set to ``0`` to disable this behavior. If not specified the
+    default is ``0`` (disabled).
     """
 
     multikill_threshold: "___type__v3__.Percent | None" = betterproto2.field(
@@ -1288,7 +1367,7 @@ class Watchdog(betterproto2.Message):
     """
     Sets the threshold for ``multikill_timeout`` in terms of the percentage of
     nonresponsive threads required for the ``multikill_timeout``.
-    If not specified the default is 0.
+    If not specified the default is ``0``.
     """
 
 
@@ -1349,6 +1428,7 @@ from ....extensions.transport_sockets.tls import (
     v3 as ___extensions__transport_sockets__tls__v3__,
 )
 from ....type import v3 as ___type__v3__
+from ....type.matcher import v3 as ___type__matcher__v3__
 from ...accesslog import v3 as __accesslog__v3__
 from ...cluster import v3 as __cluster__v3__
 from ...core import v3 as __core__v3__

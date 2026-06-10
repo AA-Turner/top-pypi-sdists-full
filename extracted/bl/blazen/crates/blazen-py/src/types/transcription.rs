@@ -7,6 +7,7 @@
 
 use std::sync::Arc;
 
+use blazen_macros::py_async;
 use pyo3::prelude::*;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 
@@ -167,9 +168,11 @@ impl PyTranscription {
     ///     ``language``, ``timing``, ``cost``, and ``metadata``.
     ///
     /// Example:
-    ///     >>> req = TranscriptionRequest.from_file("/path/to/audio.wav")
-    ///     >>> result = await transcriber.transcribe(req)
-    ///     >>> print(result.text)
+    /// ```text
+    ///  >>> req = TranscriptionRequest.from_file("/path/to/audio.wav")
+    ///  >>> result = await transcriber.transcribe(req)
+    ///  >>> print(result.text)
+    /// ```
     #[gen_stub(override_return_type(type_repr = "typing.Coroutine[typing.Any, typing.Any, TranscriptionResult]", imports = ("typing",)))]
     fn transcribe<'py>(
         &self,
@@ -203,6 +206,7 @@ impl PyTranscription {
 // ---------------------------------------------------------------------------
 
 #[cfg(feature = "whispercpp")]
+#[py_async]
 #[gen_stub_pymethods]
 #[pymethods]
 impl PyTranscription {
@@ -222,18 +226,24 @@ impl PyTranscription {
     ///         device, language, and cache directory.
     ///
     /// Example:
-    ///     >>> opts = WhisperOptions(model=WhisperModel.Base)
-    ///     >>> transcriber = Transcription.whispercpp(options=opts)
-    ///     >>> req = TranscriptionRequest.from_file("audio.wav")
-    ///     >>> result = await transcriber.transcribe(req)
-    ///     >>> print(result.text)
-    #[staticmethod]
+    /// ```text
+    ///  >>> opts = WhisperOptions(model=WhisperModel.Base)
+    ///  >>> transcriber = Transcription.whispercpp(options=opts)
+    ///  >>> req = TranscriptionRequest.from_file("audio.wav")
+    ///  >>> result = await transcriber.transcribe(req)
+    ///  >>> print(result.text)
+    /// ```
+    #[py_async_static]
     #[pyo3(signature = (*, options=None))]
-    fn whispercpp(options: Option<PyRef<'_, PyWhisperOptions>>) -> PyResult<Self> {
-        let opts = options.map(|o| o.inner.clone()).unwrap_or_default();
-        let provider =
-            crate::convert::block_on_context(blazen_llm::WhisperCppProvider::from_options(opts))
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    async fn whispercpp(options: Option<Py<PyWhisperOptions>>) -> PyResult<Self> {
+        let opts = Python::attach(|py| {
+            options
+                .map(|o| o.borrow(py).inner.clone())
+                .unwrap_or_default()
+        });
+        let provider = blazen_llm::WhisperCppProvider::from_options(opts)
+            .await
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
         Ok(Self {
             inner: Some(Arc::new(provider)),
             config: None,

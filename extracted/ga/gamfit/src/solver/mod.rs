@@ -1,7 +1,5 @@
 pub(crate) mod active_set;
 pub mod arrow_schur;
-pub mod arrow_schur_beta_graph;
-pub mod arrow_schur_convergence_check;
 pub mod estimate;
 pub mod evidence;
 pub mod gaussian_reml;
@@ -18,9 +16,7 @@ pub(crate) mod persistent_warm_start;
 pub mod pirls;
 pub(crate) mod priority_selection;
 pub mod protocol;
-pub mod reml_compare;
-pub mod riemannian;
-pub mod riemannian_retraction;
+pub(crate) mod riemannian_retraction;
 pub mod row_measure;
 pub mod seeding;
 pub mod sindy;

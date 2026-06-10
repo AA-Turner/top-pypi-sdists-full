@@ -5,6 +5,7 @@
 
 __all__ = (
     "DescriptorSet",
+    "MessageRestrictions",
     "MethodRestrictions",
     "ProtoApiScrubberConfig",
     "ProtoApiScrubberConfigFilteringMode",
@@ -58,6 +59,42 @@ default_message_pool.register_message(
 
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class MessageRestrictions(betterproto2.Message):
+    """
+    Contains message-level restrictions.
+    """
+
+    config: "RestrictionConfig | None" = betterproto2.field(
+        1, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    The core restriction to apply to this message type.
+    The 'matcher' within RestrictionConfig will determine if the message is
+    scrubbed/denied/allowed.
+    """
+
+    field_restrictions: "dict[str, RestrictionConfig]" = betterproto2.field(
+        2,
+        betterproto2.TYPE_MAP,
+        map_meta=betterproto2.map_meta(
+            betterproto2.TYPE_STRING, betterproto2.TYPE_MESSAGE
+        ),
+    )
+    """
+    Restrictions that apply to specific fields within this message type.
+    Key - field mask (e.g. "social_security_number").
+    Value - The restriction configuration for that field.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.proto_api_scrubber.v3",
+    "MessageRestrictions",
+    MessageRestrictions,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class MethodRestrictions(betterproto2.Message):
     """
     Contains the method restrictions which include the field level restrictions
@@ -73,7 +110,7 @@ class MethodRestrictions(betterproto2.Message):
     )
     """
     Restrictions that apply to request fields of the method.
-    Key - field mask like path of the field eg, foo.bar.baz
+    Key - field mask like path of the field e.g., foo.bar.baz
     Value - Restrictions map containing the mapping from restriction name to
     the restriction values.
     """
@@ -87,9 +124,23 @@ class MethodRestrictions(betterproto2.Message):
     )
     """
     Restrictions that apply to response fields of the method.
-    Key - field mask like path of the field eg, foo.bar.baz
+    Key - field mask like path of the field e.g., foo.bar.baz
     Value - Restrictions map containing the mapping from restriction name to
     the restriction values.
+    """
+
+    method_restriction: "RestrictionConfig | None" = betterproto2.field(
+        3, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Optional restriction that applies to the entire method. If present, this
+    rule takes precedence for the method itself over field-level or
+    message-level rules. The 'matcher' within RestrictionConfig will determine
+    if the method is denied/scrubbed. If the matcher evaluates to true:
+
+    - The request is **denied**, and further processing is stopped.
+    - The implementation should generate an immediate error response
+      (e.g., an HTTP 403 Forbidden status) and send it to the client.
     """
 
 
@@ -104,7 +155,6 @@ default_message_pool.register_message(
 class ProtoApiScrubberConfig(betterproto2.Message):
     """
     [#protodoc-title: Proto API Scrubber]
-    [#not-implemented-hide:] Implementation in progress.
     [#extension: envoy.filters.http.proto_api_scrubber]
 
     ProtoApiScrubber filter supports filtering of the request and
@@ -112,10 +162,7 @@ class ProtoApiScrubberConfig(betterproto2.Message):
     The field restrictions and actions can be defined using unified matcher API.
     The filter evaluates the configured restriction for each field
     to produce the filtered output using the configured actions.
-    This filter currently supports only field level restrictions.
-    Restriction support for other proto elements (eg, message
-    level restriction, method level restriction, etc.) are planned to be
-    implemented in future. The design doc for this filter is available
+    The design doc for this filter is available
     `here <https://docs.google.com/document/d/1jgRe5mhucFRgmKYf-Ukk20jW8kusIo53U5bcF74GkK8>`_
     """
 
@@ -140,6 +187,11 @@ class ProtoApiScrubberConfig(betterproto2.Message):
     )
     """
     Specifies the filtering mode of this filter.
+    """
+
+    scrub_unknown_fields: "bool" = betterproto2.field(4, betterproto2.TYPE_BOOL)
+    """
+    If true, the filter will scrub unknown fields from the protobuf messages.
     """
 
 
@@ -180,8 +232,6 @@ class RestrictionConfig(betterproto2.Message):
     )
     """
     Matcher tree for matching requests and responses with the configured restrictions.
-    NOTE: Currently, only CEL expressions are supported for matching. Support for more
-    matchers will be added incrementally overtime.
     """
 
 
@@ -209,6 +259,19 @@ class Restrictions(betterproto2.Message):
     Specifies the method restrictions.
     Key - Fully qualified method name e.g., ``endpoints.examples.bookstore.BookStore/GetShelf``.
     Value - Method restrictions.
+    """
+
+    message_restrictions: "dict[str, MessageRestrictions]" = betterproto2.field(
+        2,
+        betterproto2.TYPE_MAP,
+        map_meta=betterproto2.map_meta(
+            betterproto2.TYPE_STRING, betterproto2.TYPE_MESSAGE
+        ),
+    )
+    """
+    Specifies the message restrictions.
+    Key - Fully qualified message name e.g., ``endpoints.examples.bookstore.Book``.
+    Value - Message restrictions.
     """
 
 

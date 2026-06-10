@@ -198,7 +198,10 @@ class VllmEngine(InferEngine):
         self._prepare_engine_kwargs(max_model_len, engine_kwargs)
         context = nullcontext()
         if is_torch_npu_available() and (tensor_parallel_size == 1 or pipeline_parallel_size == 1):
-            context = patch_npu_vllm(get_device())
+            colocate = (
+                getattr(self, '_swift_vllm_colocate_runtime', False)
+                or self.distributed_executor_backend == 'external_launcher')
+            context = patch_npu_vllm(get_device(), colocate=colocate)
         with context:
             self._prepare_engine()
         self._load_generation_config()
@@ -238,6 +241,8 @@ class VllmEngine(InferEngine):
                     self._config_cls = hf_config.__class__
                 if not isinstance(config, self._config_cls):
                     config.__class__ = self._config_cls
+                    if self.model_type == 'deepseek_v4':
+                        config.rope_parameters.setdefault('rope_type', 'default')
             return config
 
         AutoConfig.from_pretrained = _from_pretrained
@@ -495,6 +500,9 @@ class VllmEngine(InferEngine):
                 # Return only the sampled token's logprob
                 kwargs['logprobs'] = 0
 
+        if request_config.prompt_logprobs is not None:
+            kwargs['prompt_logprobs'] = request_config.prompt_logprobs
+
         # TODO: beam search
         for key in ['n', 'best_of', 'frequency_penalty', 'presence_penalty', 'seed']:
             if hasattr(SamplingParams, key):
@@ -535,7 +543,9 @@ class VllmEngine(InferEngine):
     ) -> AsyncIterator[ChatCompletionStreamResponse]:
         request_id = random_uuid()
         result_generator = self._add_request(inputs, generation_config, request_id, adapter_request=adapter_request)
-        infer_streamers = [InferStreamer(self.template) for _ in range(generation_config.n)]
+        infer_streamers = [
+            InferStreamer(self.template, template_inputs=inputs['template_inputs']) for _ in range(generation_config.n)
+        ]
         token_idxs = [0 for _ in range(generation_config.n)]
         async for result in result_generator:
             res = self._create_chat_completion_stream_response(result, request_config, request_id, infer_streamers,
@@ -600,7 +610,8 @@ class VllmEngine(InferEngine):
 
             toolcall = None
             if output.is_finished:
-                toolcall = self._get_toolcall(self.template.decode(output.token_ids))
+                toolcall = self._get_toolcall(
+                    self.template.decode_generate_ids(output.token_ids, **infer_streamers[i].decode_kwargs))
 
             choice = ChatCompletionResponseStreamChoice(
                 index=i,
@@ -613,6 +624,25 @@ class VllmEngine(InferEngine):
                 logprobs=logprobs)
             choices.append(choice)
         return ChatCompletionStreamResponse(model=self.model_name, choices=choices, usage=usage_info, id=request_id)
+
+    @staticmethod
+    def _format_prompt_logprobs(prompt_logprobs):
+        if prompt_logprobs is None:
+            return None
+        result = []
+        for pos_lps in prompt_logprobs:
+            if pos_lps is None:
+                result.append(None)
+            else:
+                pos_dict = {}
+                for token_id, lp_obj in pos_lps.items():
+                    pos_dict[str(token_id)] = {
+                        'logprob': lp_obj.logprob,
+                        'rank': getattr(lp_obj, 'rank', None),
+                        'decoded_token': getattr(lp_obj, 'decoded_token', ''),
+                    }
+                result.append(pos_dict)
+        return result
 
     def _create_embedding_response(self, result, generation_config, request_id) -> EmbeddingResponse:
         assert result is not None
@@ -634,7 +664,7 @@ class VllmEngine(InferEngine):
         choices = []
         for output in result.outputs:
             output.token_ids = list(output.token_ids)
-            response = self.template.decode(output.token_ids)
+            response = self.template.decode_generate_ids(output.token_ids, template_inputs=inputs['template_inputs'])
 
             # Extract reasoning content if reasoning_parser is enabled
             reasoning_content = None
@@ -668,12 +698,16 @@ class VllmEngine(InferEngine):
             images = inputs['template_inputs'].images
             if all(isinstance(image, Image.Image) for image in images):
                 images_size = [image.size for image in images]
+        formatted_prompt_logprobs = None
+        if request_config.prompt_logprobs is not None:
+            formatted_prompt_logprobs = self._format_prompt_logprobs(result.prompt_logprobs)
         return ChatCompletionResponse(
             model=self.model_name,
             choices=choices,
             usage=usage_info,
             id=request_id,
             prompt_token_ids=prompt_token_ids,
+            prompt_logprobs=formatted_prompt_logprobs,
             images_size=images_size)
 
     def _create_seq_cls_response(
@@ -784,7 +818,10 @@ class VllmEngine(InferEngine):
             if request_config.stream:
 
                 def _gen_wrapper():
-                    infer_streamers = [InferStreamer(self.template) for _ in range(generation_config.n)]
+                    infer_streamers = [
+                        InferStreamer(self.template, template_inputs=inputs['template_inputs'])
+                        for _ in range(generation_config.n)
+                    ]
                     token_idxs = [0 for _ in range(generation_config.n)]
                     while self.engine.has_unfinished_requests():
                         result = self.engine.step()

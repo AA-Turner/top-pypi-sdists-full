@@ -1,7 +1,8 @@
 import _io
 import _typeshed
-import enum
+import collections.abc
 import modal.client
+import modal.sandbox_fs
 import typing
 import typing_extensions
 
@@ -21,34 +22,9 @@ async def _replace_bytes(
     """
     ...
 
-class FileWatchEventType(enum.Enum):
-    Unknown = "Unknown"
-    Access = "Access"
-    Create = "Create"
-    Modify = "Modify"
-    Remove = "Remove"
-
-class FileWatchEvent:
-    """FileWatchEvent(paths: list[str], type: modal.file_io.FileWatchEventType)"""
-
-    paths: list[str]
-    type: FileWatchEventType
-
-    def __init__(self, paths: list[str], type: FileWatchEventType) -> None:
-        """Initialize self.  See help(type(self)) for accurate signature."""
-        ...
-
-    def __repr__(self):
-        """Return repr(self)."""
-        ...
-
-    def __eq__(self, other):
-        """Return self==value."""
-        ...
-
 def _consume_output(
     client: modal.client._Client, exec_id: str
-) -> typing.AsyncIterator[typing.Union[bytes, None, Exception]]: ...
+) -> collections.abc.AsyncIterator[typing.Union[bytes, None, Exception]]: ...
 async def _wait(client: modal.client._Client, exec_id: str) -> bytes: ...
 async def _consume_watch_output(
     client: modal.client._Client, exec_id: str, buffer: list[typing.Union[bytes, None, Exception]]
@@ -66,18 +42,17 @@ class _FileIO(typing.Generic[T]):
     restricted in the current implementation. For our recommendations on large file transfers
     see the Sandbox [filesystem access guide](https://modal.com/docs/guide/sandbox-files).
 
-    **Usage**
+    Examples:
+        ```python notest
+        import modal
 
-    ```python notest
-    import modal
+        app = modal.App.lookup("my-app", create_if_missing=True)
 
-    app = modal.App.lookup("my-app", create_if_missing=True)
-
-    sb = modal.Sandbox.create(app=app)
-    f = sb.open("/tmp/foo.txt", "w")
-    f.write("hello")
-    f.close()
-    ```
+        sb = modal.Sandbox.create(app=app)
+        f = sb.open("/tmp/foo.txt", "w")
+        f.write("hello")
+        f.close()
+        ```
     """
 
     _task_id: str
@@ -110,7 +85,7 @@ class _FileIO(typing.Generic[T]):
         """Read a single line from the current position."""
         ...
 
-    async def readlines(self) -> typing.Sequence[T]:
+    async def readlines(self) -> collections.abc.Sequence[T]:
         """Read all lines from the current position."""
         ...
 
@@ -157,10 +132,10 @@ class _FileIO(typing.Generic[T]):
         path: str,
         client: modal.client._Client,
         task_id: str,
-        filter: typing.Optional[list[FileWatchEventType]] = None,
+        filter: typing.Optional[list[modal.sandbox_fs.FileWatchEventType]] = None,
         recursive: bool = False,
         timeout: typing.Optional[int] = None,
-    ) -> typing.AsyncIterator[FileWatchEvent]: ...
+    ) -> collections.abc.AsyncIterator[modal.sandbox_fs.FileWatchEvent]: ...
     async def _close(self) -> None: ...
     async def close(self) -> None:
         """Flush the buffer and close the file."""
@@ -190,10 +165,10 @@ def watch(
     path: str,
     client: modal.client._Client,
     task_id: str,
-    filter: typing.Optional[list[FileWatchEventType]] = None,
+    filter: typing.Optional[list[modal.sandbox_fs.FileWatchEventType]] = None,
     recursive: bool = False,
     timeout: typing.Optional[int] = None,
-) -> typing.AsyncIterator[FileWatchEvent]:
+) -> collections.abc.AsyncIterator[modal.sandbox_fs.FileWatchEvent]:
     """Watch a file or directory for changes."""
     ...
 
@@ -245,18 +220,17 @@ class FileIO(typing.Generic[T]):
     restricted in the current implementation. For our recommendations on large file transfers
     see the Sandbox [filesystem access guide](https://modal.com/docs/guide/sandbox-files).
 
-    **Usage**
+    Examples:
+        ```python notest
+        import modal
 
-    ```python notest
-    import modal
+        app = modal.App.lookup("my-app", create_if_missing=True)
 
-    app = modal.App.lookup("my-app", create_if_missing=True)
-
-    sb = modal.Sandbox.create(app=app)
-    f = sb.open("/tmp/foo.txt", "w")
-    f.write("hello")
-    f.close()
-    ```
+        sb = modal.Sandbox.create(app=app)
+        f = sb.open("/tmp/foo.txt", "w")
+        f.write("hello")
+        f.close()
+        ```
     """
 
     _task_id: str
@@ -326,11 +300,11 @@ class FileIO(typing.Generic[T]):
     readline: __readline_spec[T]
 
     class __readlines_spec(typing_extensions.Protocol[T_INNER]):
-        def __call__(self, /) -> typing.Sequence[T_INNER]:
+        def __call__(self, /) -> collections.abc.Sequence[T_INNER]:
             """Read all lines from the current position."""
             ...
 
-        async def aio(self, /) -> typing.Sequence[T_INNER]:
+        async def aio(self, /) -> collections.abc.Sequence[T_INNER]:
             """Read all lines from the current position."""
             ...
 
@@ -429,20 +403,20 @@ class FileIO(typing.Generic[T]):
             path: str,
             client: modal.client.Client,
             task_id: str,
-            filter: typing.Optional[list[FileWatchEventType]] = None,
+            filter: typing.Optional[list[modal.sandbox_fs.FileWatchEventType]] = None,
             recursive: bool = False,
             timeout: typing.Optional[int] = None,
-        ) -> typing.Iterator[FileWatchEvent]: ...
+        ) -> typing.Iterator[modal.sandbox_fs.FileWatchEvent]: ...
         def aio(
             self,
             /,
             path: str,
             client: modal.client.Client,
             task_id: str,
-            filter: typing.Optional[list[FileWatchEventType]] = None,
+            filter: typing.Optional[list[modal.sandbox_fs.FileWatchEventType]] = None,
             recursive: bool = False,
             timeout: typing.Optional[int] = None,
-        ) -> typing.AsyncIterator[FileWatchEvent]: ...
+        ) -> collections.abc.AsyncIterator[modal.sandbox_fs.FileWatchEvent]: ...
 
     watch: typing.ClassVar[__watch_spec]
 

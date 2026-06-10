@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.49.7
-Summary: A framework for stealthy Chromium automation with CDP Mode. Includes CAPTCHA-bypass, E2E Testing, and a Playwright integration.
+Version: 4.49.8
+Summary: SeleniumBase is a framework for web crawling, scraping, and testing. Supports pytest. CDP Mode adds stealth. Includes many tools.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
 Author-email: mdmintz@gmail.com
@@ -16,7 +16,7 @@ Project-URL: PyPI, https://pypi.org/project/seleniumbase/
 Project-URL: Source, https://github.com/seleniumbase/SeleniumBase
 Project-URL: Repository, https://github.com/seleniumbase/SeleniumBase
 Project-URL: Documentation, https://seleniumbase.io/
-Keywords: pytest,selenium,framework,automation,browser,testing,webdriver,seleniumbase,sbase,web-crawling,web-scraping,stealth,chromium,playwright,undetected,bot-detection,fingerprint,recaptcha,cloudflare,turnstile,datadome,captcha,headless
+Keywords: pytest,selenium,framework,automation,browser,testing,webdriver,seleniumbase,sbase,web-crawling,web-scraping,stealth,chromium,playwright,anti-detection,captcha-bypass,fingerprint,recaptcha,turnstile,headless
 Platform: Windows
 Platform: Linux
 Platform: Mac OS-X
@@ -127,7 +127,7 @@ Requires-Dist: pytest-xdist==3.8.0
 Requires-Dist: parameterized==0.9.0
 Requires-Dist: behave==1.2.6
 Requires-Dist: soupsieve~=2.8.4
-Requires-Dist: beautifulsoup4~=4.14.3
+Requires-Dist: beautifulsoup4~=4.15.0
 Requires-Dist: pyotp==2.9.0
 Requires-Dist: python-xlib==0.33; platform_system == "Linux"
 Requires-Dist: PyAutoGUI>=0.9.54; platform_system == "Linux"
@@ -153,7 +153,7 @@ Requires-Dist: mss==10.2.0; extra == "mss"
 Provides-Extra: pdfminer
 Requires-Dist: pdfminer.six==20251107; python_version < "3.10" and extra == "pdfminer"
 Requires-Dist: pdfminer.six==20260107; python_version >= "3.10" and extra == "pdfminer"
-Requires-Dist: cryptography==48.0.0; extra == "pdfminer"
+Requires-Dist: cryptography==48.0.1; extra == "pdfminer"
 Requires-Dist: cffi==2.0.0; extra == "pdfminer"
 Requires-Dist: pycparser==2.23; python_version < "3.10" and extra == "pdfminer"
 Requires-Dist: pycparser==3.0; python_version >= "3.10" and extra == "pdfminer"
@@ -187,8 +187,8 @@ Dynamic: summary
 <!-- SeleniumBase Docs -->
 
 <meta property="og:site_name" content="SeleniumBase">
-<meta property="og:title" content="SeleniumBase: Stealthy Chromium Automation with Python; and E2E Testing." />
-<meta property="og:description" content="Stealthy Chromium Automation, including fast, easy, and reliable Web/UI testing with Python." />
+<meta property="og:title" content="SeleniumBase: Stealthy Chromium Automation and E2E Testing with Python." />
+<meta property="og:description" content="Stealthy Chromium Automation and E2E Testing with Python." />
 <meta property="og:keywords" content="Python, pytest, selenium, webdriver, testing, automation, seleniumbase, framework, dashboard, recorder, reports, screenshots, playwright, stealth, CAPTCHA">
 <meta property="og:image" content="https://seleniumbase.github.io/cdn/img/mac_sb_logo_5b.png" />
 <link rel="icon" href="https://seleniumbase.github.io/img/logo6.png" />
@@ -252,7 +252,7 @@ Dynamic: summary
 from seleniumbase import sb_cdp
 
 sb = sb_cdp.Chrome()
-sb.open("https://browserscan.net/bot-detection")
+sb.goto("https://browserscan.net/bot-detection")
 sb.sleep(3)
 sb.quit()
 ```
@@ -291,7 +291,7 @@ with sync_playwright() as p:
 from seleniumbase import sb_cdp
 
 sb = sb_cdp.Chrome(locale="en", ad_block=True)
-sb.open("https://browserscan.net/bot-detection")
+sb.goto("https://browserscan.net/bot-detection")
 sb.flash("Test Results", duration=1.5, pause=0.5)
 sb.assert_element('strong:contains("Normal")')
 print("Bot Not Detected")
@@ -428,7 +428,7 @@ BaseCase.main(__name__, __file__)  # Call pytest
 
 class MyTestClass(BaseCase):
     def test_swag_labs(self):
-        self.open("https://www.saucedemo.com")
+        self.goto("https://www.saucedemo.com")
         self.type("#user-name", "standard_user")
         self.type("#password", "secret_sauce\n")
         self.assert_element("div.inventory_list")
@@ -548,7 +548,7 @@ BaseCase.main(__name__, __file__)
 
 class TestSimpleLogin(BaseCase):
     def test_simple_login(self):
-        self.open("seleniumbase.io/simple/login")
+        self.goto("seleniumbase.io/simple/login")
         self.type("#username", "demo_user")
         self.type("#password", "secret_pass")
         self.click('a:contains("Sign in")')
@@ -565,7 +565,7 @@ class TestSimpleLogin(BaseCase):
 from seleniumbase import SB
 
 with SB() as sb:
-    sb.open("seleniumbase.io/simple/login")
+    sb.goto("seleniumbase.io/simple/login")
     sb.type("#username", "demo_user")
     sb.type("#password", "secret_pass")
     sb.click('a:contains("Sign in")')
@@ -583,7 +583,7 @@ from seleniumbase import Driver
 
 driver = Driver()
 try:
-    driver.open("seleniumbase.io/simple/login")
+    driver.goto("seleniumbase.io/simple/login")
     driver.type("#username", "demo_user")
     driver.type("#password", "secret_pass")
     driver.click('a:contains("Sign in")')
@@ -735,7 +735,7 @@ BaseCase.main(__name__, __file__)
 
 class MyTestClass(BaseCase):
     def test_swag_labs(self):
-        self.open("https://www.saucedemo.com")
+        self.goto("https://www.saucedemo.com")
         self.type("#user-name", "standard_user")
         self.type("#password", "secret_sauce\n")
         self.assert_element("div.inventory_list")
@@ -768,7 +768,8 @@ class MyTestClass(BaseCase):
 <h3><img src="https://seleniumbase.github.io/img/logo7.png" title="SeleniumBase" width="32" /> Here are some common SeleniumBase methods:</h3>
 
 ```python
-self.open(url)  # Navigate the browser window to the URL.
+self.goto(url)  # Navigate the browser window to the URL.
+self.open(url)  # Same as `self.goto(url)`
 self.activate_cdp_mode()  # Activate CDP Mode from UC Mode.
 self.type(selector, text)  # Update the field with the text.
 self.click(selector)  # Click the element with the selector.
@@ -1144,7 +1145,7 @@ BaseCase.main(__name__, __file__)
 class MyTestClass(BaseCase):
 
     def test_find_army_of_robots_on_xkcd_desert_island(self):
-        self.open("https://xkcd.com/731/")
+        self.goto("https://xkcd.com/731/")
         self.assert_element("div#ARMY_OF_ROBOTS", timeout=1)  # This should fail
 ```
 
@@ -1348,7 +1349,7 @@ pytest [YOUR_TEST_FILE.py] --with-db-reporting --with-s3-logging
 🔵 **Navigating to a web page: (and related commands)**
 
 ```python
-self.open("https://xkcd.com/378/")  # This method opens the specified page.
+self.goto("https://xkcd.com/378/")  # This method opens the specified page.
 
 self.go_back()  # This method navigates the browser to the previous page.
 
@@ -1485,7 +1486,7 @@ def is_there_a_cloaked_klingon_ship_on_this_page():
 
 ```python
 if self.is_text_visible("You Shall Not Pass!", "h1"):
-    self.open("https://www.youtube.com/watch?v=3xYXUeSmb-Y")
+    self.goto("https://www.youtube.com/watch?v=3xYXUeSmb-Y")
 ```
 
 <div></div>
@@ -1630,7 +1631,7 @@ self.execute_script("return jQuery('textarea')[2].value")  # Returns the css "va
 ```python
 start_page = "https://xkcd.com/465/"
 destination_page = "https://github.com/seleniumbase/SeleniumBase"
-self.open(start_page)
+self.goto(start_page)
 referral_link = '''<a class='analytics test' href='%s'>Free-Referral Button!</a>''' % destination_page
 self.execute_script('''document.body.innerHTML = \"%s\"''' % referral_link)
 self.click("a.analytics")  # Clicks the generated button
@@ -1650,7 +1651,7 @@ BaseCase.main(__name__, __file__)
 
 class DeferredAssertTests(BaseCase):
     def test_deferred_asserts(self):
-        self.open("https://xkcd.com/993/")
+        self.goto("https://xkcd.com/993/")
         self.wait_for_element("#comic")
         self.deferred_assert_element('img[alt="Brand Identity"]')
         self.deferred_assert_element('img[alt="Rocket Ship"]')  # Will Fail

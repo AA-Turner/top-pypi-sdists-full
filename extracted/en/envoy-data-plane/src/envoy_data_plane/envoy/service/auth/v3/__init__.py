@@ -421,6 +421,7 @@ default_message_pool.register_message(
 class CheckResponse(betterproto2.Message):
     """
     Intended for gRPC and Network Authorization servers ``only``.
+    [#next-free-field: 6]
 
     Oneofs:
         - http_response: An message that contains HTTP response attributes. This message is
@@ -449,6 +450,22 @@ class CheckResponse(betterproto2.Message):
     )
     """
     Supplies http attributes for an ok response.
+    """
+
+    error_response: "DeniedHttpResponse | None" = betterproto2.field(
+        5, betterproto2.TYPE_MESSAGE, optional=True, group="http_response"
+    )
+    """
+    Supplies http attributes for an error response. This is used when the authorization
+    service encounters an internal error and wants to return custom headers and body to the
+    downstream client. When ``error_response`` is set, the ext_authz filter increments the
+    ``ext_authz_error`` stat and respects the :ref:`failure_mode_allow
+    <envoy_v3_api_field_extensions.filters.http.ext_authz.v3.ExtAuthz.failure_mode_allow>`
+    configuration. The HTTP status code, headers, and body are taken from the
+    :ref:`DeniedHttpResponse <envoy_v3_api_msg_service.auth.v3.DeniedHttpResponse>` message.
+    If the status field is not set, Envoy sends the status code configured via
+    :ref:`status_on_error <envoy_v3_api_field_extensions.filters.http.ext_authz.v3.ExtAuthz.status_on_error>`,
+    which defaults to ``403 Forbidden``.
     """
 
     dynamic_metadata: "____google__protobuf__.Struct | None" = betterproto2.field(

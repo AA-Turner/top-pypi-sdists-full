@@ -54,6 +54,7 @@ __all__ = (
     "AnomalyDetectorConfigurationTypeDef",
     "AnomalyDetectorConfigurationUnionTypeDef",
     "AnomalyDetectorTypeDef",
+    "AssociateDatasetKmsKeyInputTypeDef",
     "CloudwatchEventDetailConfigurationTypeDef",
     "CloudwatchEventDetailTypeDef",
     "CloudwatchEventMetricStatsMetricTypeDef",
@@ -95,6 +96,7 @@ __all__ = (
     "DisableAlarmActionsInputTypeDef",
     "DisableInsightRulesInputTypeDef",
     "DisableInsightRulesOutputTypeDef",
+    "DisassociateDatasetKmsKeyInputTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EnableAlarmActionsInputTypeDef",
     "EnableInsightRulesInputTypeDef",
@@ -107,6 +109,8 @@ __all__ = (
     "GetAlarmMuteRuleOutputTypeDef",
     "GetDashboardInputTypeDef",
     "GetDashboardOutputTypeDef",
+    "GetDatasetInputTypeDef",
+    "GetDatasetOutputTypeDef",
     "GetInsightRuleReportInputTypeDef",
     "GetInsightRuleReportOutputTypeDef",
     "GetMetricDataInputPaginateTypeDef",
@@ -254,6 +258,11 @@ class DimensionTypeDef(TypedDict):
 
 class MetricCharacteristicsTypeDef(TypedDict):
     PeriodicSpikes: NotRequired[bool]
+
+
+class AssociateDatasetKmsKeyInputTypeDef(TypedDict):
+    DatasetIdentifier: str
+    KmsKeyArn: str
 
 
 class CloudwatchEventStateTypeDef(TypedDict):
@@ -409,6 +418,10 @@ class DisableInsightRulesInputTypeDef(TypedDict):
     RuleNames: Sequence[str]
 
 
+class DisassociateDatasetKmsKeyInputTypeDef(TypedDict):
+    DatasetIdentifier: str
+
+
 class EnableAlarmActionsInputTypeDef(TypedDict):
     AlarmNames: Sequence[str]
 
@@ -432,6 +445,10 @@ class MuteTargetsOutputTypeDef(TypedDict):
 
 class GetDashboardInputTypeDef(TypedDict):
     DashboardName: str
+
+
+class GetDatasetInputTypeDef(TypedDict):
+    DatasetIdentifier: str
 
 
 class InsightRuleMetricDatapointTypeDef(TypedDict):
@@ -670,6 +687,13 @@ class GetDashboardOutputTypeDef(TypedDict):
     DashboardArn: str
     DashboardBody: str
     DashboardName: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetDatasetOutputTypeDef(TypedDict):
+    DatasetId: str
+    Arn: str
+    KmsKeyArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 

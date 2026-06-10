@@ -10,6 +10,7 @@ from isolate.connections.common import (
     load_serialized_object,
     serialize_object,
 )
+from isolate.connections.grpc.interface import from_grpc, to_serialized_object
 
 
 @pytest.mark.parametrize(
@@ -66,12 +67,55 @@ def test_deserialize_raised_exception_with_unimportable_type_preserves_traceback
             serialized,
             was_it_raised=True,
             stringized_traceback=stringized_traceback,
+            exception_type_name="RemoteOnlyError",
+            exception_message="remote boom",
         )
 
     assert exc_info.value.message == "Error while deserializing the given object"
     assert exc_info.value.original_traceback is not None
     assert exc_info.value.original_stringized_traceback == stringized_traceback
+    assert exc_info.value.original_exception_type_name == "RemoteOnlyError"
+    assert exc_info.value.original_exception_message == "remote boom"
     assert isinstance(exc_info.value.__cause__, ModuleNotFoundError)
+
+
+def test_to_serialized_object_includes_raised_exception_metadata():
+    serialized = to_serialized_object(
+        ValueError("some error"),
+        method="pickle",
+        was_it_raised=True,
+    )
+
+    assert serialized.exception_type_name == "ValueError"
+    assert serialized.exception_message == "some error"
+
+
+def test_from_grpc_preserves_empty_raised_exception_message_metadata(
+    tmp_path,
+    monkeypatch,
+):
+    module_name = "remote_only_empty_exc_for_isolate_test"
+    module_path = tmp_path / f"{module_name}.py"
+    module_path.write_text("class RemoteOnlyError(Exception):\n    pass\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    remote_module = importlib.import_module(module_name)
+
+    serialized = to_serialized_object(
+        remote_module.RemoteOnlyError(),
+        method="pickle",
+        was_it_raised=True,
+    )
+
+    sys.modules.pop(module_name, None)
+    # Keep the remote exception class unimportable while from_grpc reconstructs
+    # the result; monkeypatch teardown would happen too late for this assertion.
+    sys.path.remove(str(tmp_path))
+
+    with pytest.raises(ExceptionDeserializationError) as exc_info:
+        from_grpc(serialized)
+
+    assert exc_info.value.original_exception_type_name == "RemoteOnlyError"
+    assert exc_info.value.original_exception_message == ""
 
 
 def error_while_serializing():

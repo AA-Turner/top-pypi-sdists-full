@@ -5,7 +5,9 @@
 
 __all__ = ("OpenTelemetryAccessLogConfig",)
 
+import datetime
 import typing
+import warnings
 
 import betterproto2
 import pydantic
@@ -20,14 +22,14 @@ betterproto2.check_compiler_version(_COMPILER_VERSION)
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class OpenTelemetryAccessLogConfig(betterproto2.Message):
     """
-    [#protodoc-title: OpenTelemetry (gRPC) Access Log]
+    [#protodoc-title: OpenTelemetry Access Log]
 
     Configuration for the built-in ``envoy.access_loggers.open_telemetry``
     :ref:`AccessLog <envoy_v3_api_msg_config.accesslog.v3.AccessLog>`. This configuration will
     populate `opentelemetry.proto.collector.v1.logs.ExportLogsServiceRequest.resource_logs <https://github.com/open-telemetry/opentelemetry-proto/blob/main/opentelemetry/proto/collector/logs/v1/logs_service.proto>`_.
     In addition, the request start time is set in the dedicated field.
     [#extension: envoy.access_loggers.open_telemetry]
-    [#next-free-field: 8]
+    [#next-free-field: 15]
     """
 
     common_config: "__grpc__v3__.CommonGrpcAccessLogConfig | None" = betterproto2.field(
@@ -35,6 +37,31 @@ class OpenTelemetryAccessLogConfig(betterproto2.Message):
     )
     """
     [#comment:TODO(itamarkam): add 'filter_state_objects_to_log' to logs.]
+    Deprecated. Use ``grpc_service`` or ``http_service`` instead.
+    """
+
+    http_service: "____config__core__v3__.HttpService | None" = betterproto2.field(
+        8, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    The upstream HTTP cluster that will receive OTLP logs via
+    `OTLP/HTTP <https://opentelemetry.io/docs/specs/otlp/#otlphttp>`_.
+    Note: Only one of ``common_config``, ``grpc_service``, or ``http_service`` may be used.
+
+    .. note::
+
+      The ``request_headers_to_add`` property in the OTLP HTTP exporter service supports
+      substitution formatters. The formatters cannot access any HTTP or connection properties, but
+      can load content such as environment variables or files or secrets.
+    """
+
+    grpc_service: "____config__core__v3__.GrpcService | None" = betterproto2.field(
+        9, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    The upstream gRPC cluster that will receive OTLP logs.
+    Note: Only one of ``common_config``, ``grpc_service``, or ``http_service`` may be used.
+    This field is preferred over ``common_config.grpc_service``.
     """
 
     disable_builtin_labels: "bool" = betterproto2.field(5, betterproto2.TYPE_BOOL)
@@ -89,6 +116,53 @@ class OpenTelemetryAccessLogConfig(betterproto2.Message):
     [#extension-category: envoy.formatter]
     """
 
+    log_name: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        10, betterproto2.TYPE_STRING
+    )
+
+    buffer_flush_interval: "datetime.timedelta | None" = betterproto2.field(
+        11,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: _____google__protobuf__.Duration,
+        optional=True,
+    )
+    """
+    The interval for flushing access logs to the transport. Default: 1 second.
+    """
+
+    buffer_size_bytes: "int | None" = betterproto2.field(
+        12,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: _____google__protobuf__.UInt32Value,
+        optional=True,
+    )
+    """
+    Soft size limit in bytes for the access log buffer. When the buffer exceeds
+    this limit, logs will be flushed. Default: 16KB.
+    """
+
+    filter_state_objects_to_log: "list[typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]]" = betterproto2.field(
+        13, betterproto2.TYPE_STRING, repeated=True
+    )
+    """
+    Additional filter state objects to log as attributes.
+    """
+
+    custom_tags: "list[____type__tracing__v3__.CustomTag]" = betterproto2.field(
+        14, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+    """
+    Custom tags to include as log attributes.
+    """
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.is_set("common_config"):
+            warnings.warn(
+                "OpenTelemetryAccessLogConfig.common_config is deprecated",
+                DeprecationWarning,
+            )
+
 
 default_message_pool.register_message(
     "envoy.extensions.access_loggers.open_telemetry.v3",
@@ -97,8 +171,10 @@ default_message_pool.register_message(
 )
 
 
+from ......google import protobuf as _____google__protobuf__
 from ......opentelemetry.proto.common import (
     v1 as _____opentelemetry__proto__common__v1__,
 )
 from .....config.core import v3 as ____config__core__v3__
+from .....type.tracing import v3 as ____type__tracing__v3__
 from ...grpc import v3 as __grpc__v3__

@@ -75,7 +75,12 @@ _ENTERPRISE_ATTR: dict[Client, str] = {
 # (extra_args, managed_config, expected include_pipeline)
 _EVENT_MODES = [
     pytest.param([], {}, True, id="default-full-pipeline"),
-    pytest.param([], {"sessions": False}, False, id="sessions-false-enforcement-only"),
+    pytest.param(
+        [],
+        {"enforcement": True, "sessions": False},
+        False,
+        id="sessions-false-enforcement-only",
+    ),
     pytest.param(
         ["--all-events"],
         {"sessions": False},

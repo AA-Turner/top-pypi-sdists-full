@@ -414,7 +414,10 @@ class TestSessionsIncludePipeline:
 
     def test_mdm_sessions_false_excludes_pipeline(self, tmp_path, monkeypatch):
         captured = self._invoke(
-            tmp_path, monkeypatch, args=["--mdm"], managed_config={"sessions": False}
+            tmp_path,
+            monkeypatch,
+            args=["--mdm"],
+            managed_config={"enforcement": True, "sessions": False},
         )
         assert all(kwargs.get("include_pipeline") is False for kwargs in captured)
 
@@ -437,7 +440,10 @@ class TestSessionsIncludePipeline:
 
     def test_user_scope_sessions_false_excludes_pipeline(self, tmp_path, monkeypatch):
         captured = self._invoke(
-            tmp_path, monkeypatch, args=["--user"], managed_config={"sessions": False}
+            tmp_path,
+            monkeypatch,
+            args=["--user"],
+            managed_config={"enforcement": True, "sessions": False},
         )
         assert all(kwargs.get("include_pipeline") is False for kwargs in captured)
 
@@ -446,3 +452,97 @@ class TestSessionsIncludePipeline:
             tmp_path, monkeypatch, args=["--user"], managed_config={}
         )
         assert all(kwargs.get("include_pipeline") is True for kwargs in captured)
+
+
+# ── org-key mode: skip the legacy enroll step (ENG-3180) ───────────────
+
+
+class TestOrgKeyModeSkipsEnroll:
+    def test_bootstrap_skips_enroll_when_org_api_key_present(
+        self, tmp_path, monkeypatch
+    ):
+        """A managed ``OrgApiKey`` ⇒ no enroll exchange; hooks still install."""
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        (tmp_path / ".cursor").mkdir()
+        config = _config_no_secret()
+
+        with (
+            patch(
+                "runlayer_cli.commands.bootstrap.load_config",
+                return_value=config,
+            ),
+            patch("runlayer_cli.enrollment.load_config", return_value=config),
+            patch("runlayer_cli.enrollment.read_managed_config", return_value={}),
+            patch(
+                "runlayer_cli.commands.bootstrap.read_managed_config",
+                return_value={"org_api_key": "rl_org_x"},
+            ),
+            patch(
+                "runlayer_cli.hook_install.credential_gate.read_managed_config",
+                return_value={"org_api_key": "rl_org_x"},
+            ),
+            patch("runlayer_cli.commands.bootstrap.exchange_enrollment_key") as mock_ex,
+            patch(
+                "runlayer_cli.commands.bootstrap.resolve_hook_command",
+                return_value="/usr/local/bin/aiwatch-hook",
+            ),
+        ):
+            result = runner.invoke(aiwatch_app, ["bootstrap", "--user"])
+
+        assert result.exit_code == 0, result.output
+        mock_ex.assert_not_called()
+        assert "using managed org api key" in result.output
+        assert (tmp_path / ".cursor" / "hooks.json").exists()
+
+
+# ── scan-only no-op (Enforcement + Sessions both off) ──────────────────
+
+
+class TestScanOnlyNoOp:
+    def test_bootstrap_scan_only_no_op(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        (tmp_path / ".cursor").mkdir()
+        config = _config_with_secret()
+
+        with (
+            patch(
+                "runlayer_cli.commands.bootstrap.load_config",
+                return_value=config,
+            ),
+            patch("runlayer_cli.enrollment.load_config", return_value=config),
+            patch("runlayer_cli.enrollment.read_managed_config", return_value={}),
+            patch(
+                "runlayer_cli.commands.bootstrap.read_managed_config",
+                return_value={"enforcement": False, "sessions": False},
+            ),
+            patch("runlayer_cli.commands.bootstrap.exchange_enrollment_key") as mock_ex,
+            patch("runlayer_cli.commands.bootstrap.install_client") as mock_install,
+        ):
+            result = runner.invoke(aiwatch_app, ["bootstrap", "--user"])
+
+        assert result.exit_code == 0, result.output
+        assert "scan-only" in result.output
+        mock_ex.assert_not_called()
+        mock_install.assert_not_called()
+        assert not (tmp_path / ".cursor" / "hooks.json").exists()
+
+    def test_bootstrap_check_scan_only_no_op(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        config = _config_no_secret()
+
+        with (
+            patch(
+                "runlayer_cli.commands.bootstrap.load_config",
+                return_value=config,
+            ),
+            patch("runlayer_cli.enrollment.load_config", return_value=config),
+            patch("runlayer_cli.enrollment.read_managed_config", return_value={}),
+            patch(
+                "runlayer_cli.commands.bootstrap.read_managed_config",
+                return_value={"enforcement": False, "sessions": False},
+            ),
+        ):
+            result = runner.invoke(aiwatch_app, ["bootstrap", "--check", "--user"])
+
+        assert result.exit_code == 0, result.output
+        assert "scan-only" in result.output

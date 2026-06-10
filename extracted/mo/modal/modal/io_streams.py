@@ -4,15 +4,14 @@ import codecs
 import contextlib
 import io
 import sys
-from collections.abc import AsyncGenerator, AsyncIterator
+from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Generic,
-    Optional,
     TextIO,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -34,7 +33,7 @@ if TYPE_CHECKING:
 
 async def _sandbox_logs_iterator(
     sandbox_id: str, file_descriptor: "api_pb2.FileDescriptor.ValueType", last_entry_id: str, client: _Client
-) -> AsyncGenerator[tuple[Optional[bytes], str], None]:
+) -> AsyncGenerator[tuple[bytes | None, str], None]:
     req = api_pb2.SandboxGetLogsRequest(
         sandbox_id=sandbox_id,
         file_descriptor=file_descriptor,
@@ -57,7 +56,7 @@ T = TypeVar("T", str, bytes)
 class _StreamReaderThroughServer(Generic[T]):
     """A StreamReader implementation that reads sandbox logs from the server."""
 
-    _stream: Optional[AsyncGenerator[T, None]]
+    _stream: AsyncGenerator[T, None] | None
 
     def __init__(
         self,
@@ -231,21 +230,61 @@ class _StreamReaderThroughServerParams:
 
 
 @dataclass(frozen=True)
-class _StreamReaderThroughCommandRouterParams:
-    """Parameters for a ``_StreamReader`` that reads container-process stdio
-    directly from the worker via the task command router."""
+class _StreamReaderThroughSandboxExecCommandRouterParams:
+    """Parameters for a ``_StreamReader`` that reads sandbox-exec stdio
+    directly from the worker via the task command router (``exec_stdio_read``)."""
 
     file_descriptor: "api_pb2.FileDescriptor.ValueType"
     task_id: str
     object_id: str
     command_router_client: TaskCommandRouterClient
-    deadline: Optional[float]
+    deadline: float | None
 
 
-async def _stdio_stream_from_command_router(
-    params: _StreamReaderThroughCommandRouterParams,
+@dataclass(frozen=True)
+class _StreamReaderThroughSandboxCommandRouterParams:
+    """Parameters for a ``_StreamReader`` that reads a V2 sandbox's
+    stdio directly from the worker via the task command router
+    (``sandbox_stdio_read``)."""
+
+    file_descriptor: "api_pb2.FileDescriptor.ValueType"
+    sandbox_id: str
+    # Lazily fetches ``(task_id, command_router_client)`` the first time the
+    # stream is iterated. Captures the sandbox handle so we only mint a JWT
+    # and open a connection to the worker when stdio is actually read.
+    resolve_router: Callable[[], Awaitable[tuple[str, TaskCommandRouterClient]]]
+
+
+_StreamReaderThroughCommandRouterParams = (
+    _StreamReaderThroughSandboxExecCommandRouterParams | _StreamReaderThroughSandboxCommandRouterParams
+)
+
+
+async def _stdio_stream_from_sandbox_command_router(
+    params: _StreamReaderThroughSandboxCommandRouterParams,
 ) -> AsyncGenerator[bytes, None]:
-    """Stream raw bytes from the router client."""
+    """Stream raw bytes from a V2 sandbox's primary stdio via ``sandbox_stdio_read``."""
+    task_id, command_router_client = await params.resolve_router()
+    first_chunk = True
+    async with aclosing(command_router_client.sandbox_stdio_read(task_id, params.file_descriptor)) as stream:
+        async for item in stream:
+            if len(item.data) == 0:
+                raise ValueError("Received empty message streaming stdio from sandbox.")
+            if first_chunk:
+                first_chunk = False
+                if item.starting_offset > 0:
+                    logger.warning(
+                        f"V2 sandbox {params.sandbox_id} stdio: dropped first "
+                        f"{item.starting_offset} bytes; only the most recent portion "
+                        f"of output is retained."
+                    )
+            yield item.data
+
+
+async def _stdio_stream_from_sandbox_exec_command_router(
+    params: _StreamReaderThroughSandboxExecCommandRouterParams,
+) -> AsyncGenerator[bytes, None]:
+    """Stream raw bytes from a V2 sandbox-exec'd process via ``exec_stdio_read``."""
     async with aclosing(
         params.command_router_client.exec_stdio_read(
             params.task_id, params.object_id, params.file_descriptor, params.deadline
@@ -254,9 +293,7 @@ async def _stdio_stream_from_command_router(
         try:
             async for item in stream:
                 if len(item.data) == 0:
-                    # This is an error.
                     raise ValueError("Received empty message streaming stdio from sandbox.")
-
                 yield item.data
         except ExecTimeoutError:
             logger.debug(f"Deadline exceeded while streaming stdio for exec {params.object_id}")
@@ -265,20 +302,22 @@ async def _stdio_stream_from_command_router(
             return
 
 
+def _stdio_stream_from_command_router(
+    params: _StreamReaderThroughCommandRouterParams,
+) -> AsyncGenerator[bytes, None]:
+    """Dispatch between the V2-sandbox primary stdio and the V2-sandbox-exec
+    stdio streams, both of which yield raw bytes."""
+    if isinstance(params, _StreamReaderThroughSandboxCommandRouterParams):
+        return _stdio_stream_from_sandbox_command_router(params)
+    return _stdio_stream_from_sandbox_exec_command_router(params)
+
+
 class _BytesStreamReaderThroughCommandRouter:
-    """
-    StreamReader implementation that will read directly from the worker that
-    hosts the sandbox.
+    """StreamReader that yields raw bytes from the router-backed stdio source
+    (either V2 sandbox top-level stdio or V2 sandbox-exec stdio)."""
 
-    This implementation is used for non-text streams.
-    """
-
-    def __init__(
-        self,
-        params: _StreamReaderThroughCommandRouterParams,
-    ) -> None:
+    def __init__(self, params: _StreamReaderThroughCommandRouterParams) -> None:
         self._params = params
-        self._stream = None
 
     @property
     def file_descriptor(self) -> int:
@@ -300,18 +339,10 @@ class _BytesStreamReaderThroughCommandRouter:
 
 
 class _TextStreamReaderThroughCommandRouter:
-    """
-    StreamReader implementation that will read directly from the worker
-    that hosts the sandbox.
+    """StreamReader that yields UTF-8-decoded text from the router-backed
+    stdio source."""
 
-    This implementation is used for text streams.
-    """
-
-    def __init__(
-        self,
-        params: _StreamReaderThroughCommandRouterParams,
-        by_line: bool,
-    ) -> None:
+    def __init__(self, params: _StreamReaderThroughCommandRouterParams, by_line: bool) -> None:
         self._params = params
         self._by_line = by_line
 
@@ -350,14 +381,14 @@ class _StdoutPrintingStreamReaderThroughCommandRouter(Generic[T]):
     the local stdout immediately and is not readable via StreamReader methods.
     """
 
-    _reader: Union[_TextStreamReaderThroughCommandRouter, _BytesStreamReaderThroughCommandRouter]
+    _reader: _TextStreamReaderThroughCommandRouter | _BytesStreamReaderThroughCommandRouter
 
     def __init__(
         self,
-        reader: Union[_TextStreamReaderThroughCommandRouter, _BytesStreamReaderThroughCommandRouter],
+        reader: _TextStreamReaderThroughCommandRouter | _BytesStreamReaderThroughCommandRouter,
     ) -> None:
         self._reader = reader
-        self._task: Optional[asyncio.Task[None]] = None
+        self._task: asyncio.Task[None] | None = None
         # Kick off a background task that reads from the underlying text stream and prints to stdout.
         self._start_printing_task()
 
@@ -424,18 +455,18 @@ class _StreamReader(Generic[T]):
     statements. Just loop over the object to read in chunks.
     """
 
-    _impl: Union[
-        _StreamReaderThroughServer,
-        _DevnullStreamReader,
-        _TextStreamReaderThroughCommandRouter,
-        _BytesStreamReaderThroughCommandRouter,
-        _StdoutPrintingStreamReaderThroughCommandRouter,
-    ]
-    _read_gen: Optional[AsyncGenerator[T, None]] = None
+    _impl: (
+        _StreamReaderThroughServer
+        | _DevnullStreamReader
+        | _TextStreamReaderThroughCommandRouter
+        | _BytesStreamReaderThroughCommandRouter
+        | _StdoutPrintingStreamReaderThroughCommandRouter
+    )
+    _read_gen: AsyncGenerator[T, None] | None = None
 
     def __init__(
         self,
-        params: Union[_StreamReaderThroughServerParams, _StreamReaderThroughCommandRouterParams],
+        params: _StreamReaderThroughServerParams | _StreamReaderThroughCommandRouterParams,
         *,
         stream_type: StreamType = StreamType.PIPE,
         text: bool = True,
@@ -501,7 +532,7 @@ class _StreamReader(Generic[T]):
 MAX_BUFFER_SIZE = 2 * 1024 * 1024
 # Larger buffer limit for the exec path via the task command router.
 # This applies only to task_exec_stdin_write; sandbox stdin via the server keeps MAX_BUFFER_SIZE.
-TASK_COMMAND_ROUTER_MAX_BUFFER_SIZE = 16 * 1024 * 1024
+TASK_COMMAND_ROUTER_MAX_BUFFER_SIZE: int = 16 * 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -513,13 +544,26 @@ class _StreamWriterThroughServerParams:
 
 
 @dataclass(frozen=True)
-class _StreamWriterThroughCommandRouterParams:
-    """Parameters for a ``_StreamWriter`` that writes container-process stdin
-    directly to the worker via the task command router."""
+class _StreamWriterThroughCommandRouterSandboxExecParams:
+    """Parameters for a ``_StreamWriter`` that writes the stdin of a process
+    spawned via ``sb.exec(...)`` directly to the worker via the task command
+    router."""
 
     task_id: str
     object_id: str
     command_router_client: TaskCommandRouterClient
+
+
+@dataclass(frozen=True)
+class _StreamWriterThroughCommandRouterSandboxParams:
+    """Parameters for a ``_StreamWriter`` that writes a V2 sandbox entrypoint's
+    stdin directly to the worker via the task command router.
+    """
+
+    # Lazily fetches ``(task_id, command_router_client)`` the first time the
+    # writer drains. Captures the sandbox handle so we only mint a JWT and
+    # open a connection to the worker when stdin is actually written.
+    resolve_router: Callable[[], Awaitable[tuple[str, TaskCommandRouterClient]]]
 
 
 class _StreamWriterThroughServer:
@@ -538,7 +582,7 @@ class _StreamWriterThroughServer:
         self._index += 1
         return index
 
-    def write(self, data: Union[bytes, bytearray, memoryview, str]) -> None:
+    def write(self, data: bytes | bytearray | memoryview | str) -> None:
         """Write data to the stream but does not send it immediately.
 
         This is non-blocking and queues the data to an internal buffer. Must be
@@ -584,16 +628,20 @@ class _StreamWriterThroughServer:
             raise ValueError(str(exc))
 
 
-class _StreamWriterThroughCommandRouter:
-    def __init__(self, params: _StreamWriterThroughCommandRouterParams) -> None:
-        self._object_id = params.object_id
-        self._command_router_client = params.command_router_client
-        self._task_id = params.task_id
-        self._is_closed = False
-        self._buffer = bytearray()
-        self._offset = 0
+class _StreamWriterThroughCommandRouterBuffer(ABC):
+    """Buffering/draining logic for stream writers that flush data
+    to the task command router."""
 
-    def write(self, data: Union[bytes, bytearray, memoryview, str]) -> None:
+    def __init__(self) -> None:
+        self._buffer: bytearray = bytearray()
+        self._is_closed: bool = False
+        self._offset: int = 0
+
+    @abstractmethod
+    async def stdin_write(self, data: bytes, eof: bool) -> None:
+        """Write the given chunk (with optional EOF) to the command router."""
+
+    def write(self, data: bytes | bytearray | memoryview | str) -> None:
         if self._is_closed:
             raise ValueError("Stdin is closed. Cannot write to it.")
         if isinstance(data, (bytes, bytearray, memoryview, str)):
@@ -613,15 +661,39 @@ class _StreamWriterThroughCommandRouter:
         # NB: There's no need to prevent writing eof twice, because the command router will ignore the second EOF.
         if self._buffer or eof:
             data = bytes(self._buffer)
-            await self._command_router_client.exec_stdin_write(
-                task_id=self._task_id, exec_id=self._object_id, offset=self._offset, data=data, eof=eof
-            )
+            await self.stdin_write(data, eof)
             # Only clear the buffer after writing the data to the command router is successful.
             # This allows the client to retry drain() in the event of an exception (though
-            # exec_stdin_write already retries on transient errors, so most users will probably
-            # not do this).
+            # the underlying write call already retries on transient errors, so most users will
+            # probably not do this).
             self._buffer.clear()
             self._offset += len(data)
+
+
+class _StreamWriterThroughCommandRouterSandboxExec(_StreamWriterThroughCommandRouterBuffer):
+    def __init__(self, params: _StreamWriterThroughCommandRouterSandboxExecParams) -> None:
+        super().__init__()
+        self._object_id = params.object_id
+        self._command_router_client = params.command_router_client
+        self._task_id = params.task_id
+
+    async def stdin_write(self, data: bytes, eof: bool) -> None:
+        await self._command_router_client.exec_stdin_write(
+            task_id=self._task_id, exec_id=self._object_id, offset=self._offset, data=data, eof=eof
+        )
+
+
+class _StreamWriterThroughCommandRouterSandbox(_StreamWriterThroughCommandRouterBuffer):
+    """Write a V2 sandbox entrypoint's stdin directly to the worker
+    via the task command router."""
+
+    def __init__(self, params: _StreamWriterThroughCommandRouterSandboxParams) -> None:
+        super().__init__()
+        self._resolve_router = params.resolve_router
+
+    async def stdin_write(self, data: bytes, eof: bool) -> None:
+        task_id, client = await self._resolve_router()
+        await client.sandbox_stdin_write_v2(task_id=task_id, offset=self._offset, data=data, eof=eof)
 
 
 class _StreamWriter:
@@ -629,34 +701,36 @@ class _StreamWriter:
 
     def __init__(
         self,
-        params: Union[_StreamWriterThroughServerParams, _StreamWriterThroughCommandRouterParams],
+        params: _StreamWriterThroughServerParams
+        | _StreamWriterThroughCommandRouterSandboxExecParams
+        | _StreamWriterThroughCommandRouterSandboxParams,
     ) -> None:
         """mdmd:hidden"""
-        if isinstance(params, _StreamWriterThroughCommandRouterParams):
-            self._impl = _StreamWriterThroughCommandRouter(params)
+        if isinstance(params, _StreamWriterThroughCommandRouterSandboxExecParams):
+            self._impl = _StreamWriterThroughCommandRouterSandboxExec(params)
+        elif isinstance(params, _StreamWriterThroughCommandRouterSandboxParams):
+            self._impl = _StreamWriterThroughCommandRouterSandbox(params)
         else:
-            # Sandbox stdin is written via the server.
             self._impl = _StreamWriterThroughServer(params)
 
-    def write(self, data: Union[bytes, bytearray, memoryview, str]) -> None:
+    def write(self, data: bytes | bytearray | memoryview | str) -> None:
         """Write data to the stream but does not send it immediately.
 
         This is non-blocking and queues the data to an internal buffer. Must be
         used along with the `drain()` method, which flushes the buffer.
 
-        **Usage**
-
-        ```python fixture:sandbox
-        proc = sandbox.exec(
-            "bash",
-            "-c",
-            "while read line; do echo $line; done",
-        )
-        proc.stdin.write(b"foo\\n")
-        proc.stdin.write(b"bar\\n")
-        proc.stdin.write_eof()
-        proc.stdin.drain()
-        ```
+        Examples:
+            ```python fixture:sandbox
+            proc = sandbox.exec(
+                "bash",
+                "-c",
+                "while read line; do echo $line; done",
+            )
+            proc.stdin.write(b"foo\\n")
+            proc.stdin.write(b"bar\\n")
+            proc.stdin.write_eof()
+            proc.stdin.drain()
+            ```
         """
         self._impl.write(data)
 
@@ -675,18 +749,18 @@ class _StreamWriter:
         This is a flow control method that blocks until data is sent. It returns
         when it is appropriate to continue writing data to the stream.
 
-        **Usage**
+        Examples:
+            ```python notest
+            writer.write(data)
+            writer.drain()
+            ```
 
-        ```python notest
-        writer.write(data)
-        writer.drain()
-        ```
+            Async usage:
 
-        Async usage:
-        ```python notest
-        writer.write(data)  # not a blocking operation
-        await writer.drain.aio()
-        ```
+            ```python notest
+            writer.write(data)  # not a blocking operation
+            await writer.drain.aio()
+            ```
         """
         await self._impl.drain()
 

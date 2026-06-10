@@ -14,10 +14,17 @@ logger = structlog.get_logger(__name__)
 _EXCLUDED_PREFIXES = (
     "mistralai.workflows.plugins.webhook.examples",
     "mistralai.workflows.plugins.mistralai.connectors.examples",
+    "mistralai.workflows.plugins.evaluation._orchestrator",
     "mistralai_workflow_tests",
 )
 
-_BASE_PASSTHROUGH_MODULES = ("mistralai.client.models",)
+_BASE_PASSTHROUGH_MODULES = (
+    "mistralai.client.models",
+    "mistralai.observability.models",
+    "mistralai.observability.api_models",
+    "mistralai.observability.statistics",
+    "mistralai.observability.utils",
+)
 
 
 def _discover_workflow_modules() -> tuple[str, ...]:

@@ -1,22 +1,32 @@
-Metadata-Version: 2.1
-Name: free-proxy
-Version: 1.1.3
+Metadata-Version: 2.4
+Name: free_proxy
+Version: 1.2.0
 Summary: Proxy scraper for further use
 Home-page: https://github.com/jundymek/free-proxy
 Author: jundymek
 Author-email: jundymek@gmail.com
-License: UNKNOWN
-Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.6
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: lxml<7,>=5.0
+Requires-Dist: requests<3,>=2.31
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Free-proxy
 
-![Version 1.1.3](https://img.shields.io/badge/Version-1.1.3-blue.svg)
+![Version 1.2.0](https://img.shields.io/badge/Version-1.2.0-blue.svg)
 
 ## Get free working proxies from <https://www.sslproxies.org/>, <https://www.us-proxy.org/>, <https://free-proxy-list.net/uk-proxy.html> and <https://free-proxy-list.net> and use them in your script
 
@@ -227,5 +237,3 @@ The authors of this repository are not responsible for any consequences, damages
 [MIT](https://github.com/jundymek/free-proxy/blob/master/LICENSE)
 
 **Free Software!**
-
-

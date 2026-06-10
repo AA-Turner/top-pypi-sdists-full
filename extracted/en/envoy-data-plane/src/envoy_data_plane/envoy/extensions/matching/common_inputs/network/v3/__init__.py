@@ -215,13 +215,40 @@ default_message_pool.register_message(
 class FilterStateInput(betterproto2.Message):
     """
     Input that matches by a specific filter state key.
-    The value of the provided filter state key will be the raw string representation of the filter state object
+    The value of the provided filter state key will be the raw string representation of the filter state object.
+
+    When ``field`` is specified and the filter state object supports field access
+    (i.e. ``hasFieldSupport()`` returns true), the value of the specified field will be returned
+    instead of the serialized representation of the entire object. This enables direct matching
+    on individual fields within composite filter state objects, such as proxy protocol TLV values
+    stored in the shared ``envoy.network.proxy_protocol.tlv`` object.
+
+    Example configuration with field access:
+
+    .. code-block:: yaml
+
+       input:
+         name: filter_state
+         typed_config:
+           "@type": type.googleapis.com/envoy.extensions.matching.common_inputs.network.v3.FilterStateInput
+           key: "envoy.network.proxy_protocol.tlv"
+           field: "aws_vpce_id"
+
     [#extension: envoy.matching.inputs.filter_state]
     """
 
     key: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
         1, betterproto2.TYPE_STRING
     )
+
+    field: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        2, betterproto2.TYPE_STRING
+    )
+    """
+    Optional field name to retrieve from the filter state object.
+    When set and the filter state object supports field access, the value of this specific
+    field is returned instead of the serialized string representation of the whole object.
+    """
 
 
 default_message_pool.register_message(

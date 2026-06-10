@@ -37,6 +37,9 @@ class Http11ProxyUpstreamTransport(betterproto2.Message):
     Set ``typed_filter_metadata`` in :ref:`LbEndpoint.Metadata <envoy_v3_api_field_config.endpoint.v3.lbendpoint.metadata>` or :ref:`LocalityLbEndpoints.Metadata <envoy_v3_api_field_config.endpoint.v3.LocalityLbEndpoints.metadata>`.
     using the key ``envoy.http11_proxy_transport_socket.proxy_address`` and the
     proxy address in ``config::core::v3::Address`` format.
+
+    If the ``default_proxy_address`` is set and proxy address is not found in
+    ``typed_filter_metadata``, the default proxy address is used.
     """
 
     transport_socket: "____config__core__v3__.TransportSocket | None" = (
@@ -44,6 +47,14 @@ class Http11ProxyUpstreamTransport(betterproto2.Message):
     )
     """
     The underlying transport socket being wrapped. Defaults to plaintext (raw_buffer) if unset.
+    """
+
+    default_proxy_address: "____config__core__v3__.Address | None" = betterproto2.field(
+        2, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Specifies the default proxy address to use if the proxy address is not present in the
+    ``typed_filter_metadata`` of the endpoint.
     """
 
 

@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Alibaba Group Holding Ltd.
+# Copyright 1999-2026 Alibaba Group Holding Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
+import decimal
+import threading
 from collections import OrderedDict
 
 from cpython.bool cimport PyBool_Check
@@ -23,20 +24,16 @@ from libc.string cimport *
 from datetime import date, datetime
 
 from .. import options, types
-from ..compat import DECIMAL_TYPES
-from ..compat import decimal as _decimal
 from ..lib.ext_types import Monthdelta
-from .utils_c cimport to_lower_str
+from .utils_c cimport _load_pandas_type, to_lower_str
 
 
 cdef int64_t bigint_min = types.bigint._bounds[0]
 cdef int64_t bigint_max = types.bigint._bounds[1]
 cdef int string_len_max = types.string._max_length
 cdef object pd_na_type = types.pd_na_type
-cdef bint is_py3 = sys.version_info[0] >= 3
-cdef bint _has_other_decimal_type = types.Decimal._has_other_decimal_type
-cdef object _decimal_type = _decimal.Decimal
-cdef object _decimal_ROUND_HALF_UP = _decimal.ROUND_HALF_UP
+cdef object _decimal_type = decimal.Decimal
+cdef object _decimal_ROUND_HALF_UP = decimal.ROUND_HALF_UP
 
 cdef:
     int64_t BOOL_TYPE_ID = types.boolean._type_id
@@ -55,6 +52,19 @@ cdef:
     int64_t ARRAY_TYPE_ID = types.Array._type_id
     int64_t MAP_TYPE_ID = types.Map._type_id
     int64_t STRUCT_TYPE_ID = types.Struct._type_id
+    int64_t VECTOR_TYPE_ID = types.Vector._type_id
+
+# Import numpy for NaN/Infinity checking at module level
+cdef object np_isnan = None
+cdef object np_isinf = None
+cdef object np_isscalar = None
+try:
+    import numpy as np
+    np_isnan = np.isnan
+    np_isinf = np.isinf
+    np_isscalar = np.isscalar
+except ImportError:
+    pass
 
 import_datetime()
 
@@ -79,7 +89,7 @@ cdef class BigintValidator(TypeValidator):
         i_val = val
         if bigint_min <= i_val <= bigint_max:
             return i_val
-        raise ValueError("InvalidData: Bigint(%s) out of range" % val)
+        raise ValueError(f"InvalidData: Bigint({val}) out of range")
 
 
 cdef class StringValidator(TypeValidator):
@@ -104,13 +114,13 @@ cdef class StringValidator(TypeValidator):
                 # only encode when strings are long enough
                 s_size = len(u_val.encode("utf-8"))
         else:
-            raise TypeError("Invalid data type: expect bytes or unicode, got %s" % type(val))
+            raise TypeError(f"Invalid data type: expect bytes or unicode, got {type(val)}")
 
         if s_size <= max_field_size:
             return u_val
         raise ValueError(
-            "InvalidData: Byte length of string(%s) is more than %sM.'" %
-            (s_size, max_field_size / (1024 ** 2))
+            f"InvalidData: Byte length of string({s_size}) is more than"
+            f" {max_field_size / (1024 ** 2)}M.'"
         )
 
 
@@ -131,14 +141,15 @@ cdef class BinaryValidator(TypeValidator):
         elif type(val) is unicode or isinstance(val, unicode):
             bytes_val = (<unicode> val).encode("utf-8")
         else:
-            raise TypeError("Invalid data type: expect bytes or unicode, got %s" % type(val))
+            raise TypeError(f"Invalid data type: expect bytes or unicode, got {type(val)}")
 
         s_size = len(bytes_val)
         if s_size <= max_field_size:
             return bytes_val
         raise ValueError(
-            "InvalidData: Byte length of string(%s) is more than %sM.'" %
-            (s_size, max_field_size / (1024 ** 2)))
+            f"InvalidData: Byte length of string({s_size}) is more than"
+            f" {max_field_size / (1024 ** 2)}M.'"
+        )
 
 
 cdef class SizeLimitedStringValidator(TypeValidator):
@@ -160,13 +171,12 @@ cdef class SizeLimitedStringValidator(TypeValidator):
         elif type(val) is unicode or isinstance(val, unicode):
             u_val = <unicode> val
         else:
-            raise TypeError("Invalid data type: expect bytes or unicode, got %s" % type(val))
+            raise TypeError(f"Invalid data type: expect bytes or unicode, got {type(val)}")
 
         if len(u_val) <= self._size_limit:
             return u_val
         raise ValueError(
-            "InvalidData: Length of string(%s) is more than %s.'" %
-            (val, self._size_limit)
+            f"InvalidData: Length of string({val}) is more than {self._size_limit}.'"
         )
 
 
@@ -182,7 +192,7 @@ cdef class DatetimeValidator(TypeValidator):
             return val
         if isinstance(val, (bytes, unicode)):
             return py_strptime(val, "%Y-%m-%d %H:%M:%S")
-        raise TypeError("Invalid data type: expect datetime, got %s" % type(val))
+        raise TypeError(f"Invalid data type: expect datetime, got {type(val)}")
 
 
 cdef class DateValidator(TypeValidator):
@@ -196,54 +206,35 @@ cdef class DateValidator(TypeValidator):
             return val.date()
         if isinstance(val, (bytes, unicode)):
             return py_strptime(val, "%Y-%m-%d").date()
-        raise TypeError("Invalid data type: expect date, got %s" % type(val))
-
-
-pd_ts = None
-pd_ts_strptime = None
+        raise TypeError(f"Invalid data type: expect date, got {type(val)}")
 
 
 cdef class TimestampValidator(TypeValidator):
     cdef object validate(self, object val, int64_t max_field_size):
-        global pd_ts, pd_ts_strptime
-
         if self.nullable and val is None:
             return val
 
-        if pd_ts is None:
-            try:
-                import pandas as pd
-                pd_ts = pd.Timestamp
-                pd_ts_strptime = pd_ts.strptime
-            except (ImportError, ValueError):
-                raise ImportError("To use TIMESTAMP in pyodps, you need to install pandas.")
+        cdef object pd_ts = _load_pandas_type(
+            "Timestamp",
+            "To use TIMESTAMP in pyodps, you need to install pandas."
+        )
 
         if isinstance(val, pd_ts):
             return val
         if isinstance(val, (bytes, unicode)):
-            return pd_ts_strptime(val, "%Y-%m-%d %H:%M:%S")
-        raise TypeError("Invalid data type: expect timestamp, got %s" % type(val))
-
-
-pd_td = None
+            return pd_ts.strptime(val, "%Y-%m-%d %H:%M:%S")
+        raise TypeError(f"Invalid data type: expect timestamp, got {type(val)}")
 
 
 cdef class IntervalDayTimeValidator(TypeValidator):
     cdef object validate(self, object val, int64_t max_field_size):
-        global pd_td
-
         if self.nullable and val is None:
             return val
 
-        if pd_td is None:
-            try:
-                import pandas as pd
-
-                pd_td = pd.Timedelta
-            except (ImportError, ValueError):
-                raise ImportError(
-                    "To use INTERVAL_DAY_TIME in pyodps, you need to install pandas."
-                )
+        cdef object pd_td = _load_pandas_type(
+            "Timedelta",
+            "To use INTERVAL_DAY_TIME in pyodps, you need to install pandas."
+        )
 
         if isinstance(val, pd_td):
             return val
@@ -253,7 +244,7 @@ cdef class IntervalDayTimeValidator(TypeValidator):
             return pd_td(val)
         else:
             raise TypeError(
-                "Invalid data type: cannot accept %r for interval day time type" % val
+                f"Invalid data type: cannot accept {val!r} for interval day time type"
             )
 
 
@@ -264,11 +255,13 @@ cdef class IntervalYearMonthValidator(TypeValidator):
 
         if isinstance(val, Monthdelta):
             return val
-        elif isinstance(val, (int, long, bytes, unicode)):
+        elif isinstance(
+            val, (int, bytes, unicode)
+        ):
             return Monthdelta(val)
         else:
             raise TypeError(
-                "Invalid data type: cannot accept %r for interval year month type" % val
+                f"Invalid data type: cannot accept {val!r} for interval year month type"
             )
 
 
@@ -277,14 +270,16 @@ cdef class JsonValidator(TypeValidator):
         if self.nullable and val is None:
             return val
 
-        if not isinstance(val, (list, dict, unicode, bytes, float, int, long)):
-            raise ValueError("Invalid data type: cannot accept %r for json type" % val)
+        if not isinstance(
+            val, (list, dict, unicode, bytes, float, int)
+        ):
+            raise ValueError(f"Invalid data type: cannot accept {val!r} for json type")
 
-        if is_py3 and type(val) is bytes:
+        if type(val) is bytes:
             val = (<bytes> val).decode("utf-8")
-        elif not is_py3 and type(val) is unicode:
-            val = (<unicode> val).encode("utf-8")
         return val
+
+
 
 
 cdef class FloatValidator(TypeValidator):
@@ -314,7 +309,7 @@ cdef class BoolValidator(TypeValidator):
 
         if PyBool_Check(val):
             return val
-        raise TypeError("Invalid data type: expect bool, got %s" % type(val))
+        raise TypeError(f"Invalid data type: expect bool, got {type(val)}")
 
 
 cdef class DecimalValidator(TypeValidator):
@@ -339,14 +334,8 @@ cdef class DecimalValidator(TypeValidator):
         if self.nullable and val is None:
             return val
 
-        if (
-            _has_other_decimal_type
-            and not isinstance(val, _decimal_type)
-            and isinstance(val, DECIMAL_TYPES)
-        ):
-            val = _decimal_type(str(val))
-        elif type(val) is not _decimal_type and not isinstance(val, _decimal_type):
-            if is_py3 and isinstance(val, bytes):
+        if type(val) is not _decimal_type and not isinstance(val, _decimal_type):
+            if isinstance(val, bytes):
                 val = (<bytes>val).decode("utf-8")
             val = _decimal_type(val)
 
@@ -391,7 +380,7 @@ cdef class ArrayValidator(TypeValidator):
 
         if type(val) is not list:
             if not isinstance(val, list):
-                raise ValueError("Array data type requires `list`, instead of %s" % val)
+                raise ValueError(f"Array data type requires `list`, instead of {val}")
             val = list(val)
 
         cdef int idx
@@ -467,7 +456,7 @@ cdef class MapValidator(TypeValidator):
             return val
 
         if not isinstance(val, dict):
-            raise ValueError("Map data type requires `dict`, instead of %s" % val)
+            raise ValueError(f"Map data type requires `dict`, instead of {val}")
 
         if self._use_ordered_dict:
             dict_ret = None
@@ -573,8 +562,85 @@ cdef class StructValidator(TypeValidator):
                     ret_list[idx] = self._validate_by_key(k, val.get(k), max_field_size)
                 return self._namedtuple_type(*tuple(ret_list))
         raise ValueError(
-            "Struct data type requires `tuple` or `dict`, instead of %s" % type(val)
+            f"Struct data type requires `tuple` or `dict`, instead of {type(val)}"
         )
+
+
+cdef class VectorValidator(TypeValidator):
+    cdef:
+        object _element_type
+        TypeValidator _element_validator
+        int64_t _dimension
+
+    def __init__(self, object element_type, int64_t dimension, bint nullable=True):
+        super(VectorValidator, self).__init__(nullable=nullable)
+        self._element_type = element_type
+        self._element_validator = _build_type_validator(
+            element_type._type_id, element_type, True
+        )
+        self._dimension = dimension
+
+    cdef object validate(self, object val, int64_t max_field_size):
+        cdef:
+            size_t i, n
+            float f_val
+            object element
+
+        if self.nullable and val is None:
+            return val
+
+        # Check type
+        if not isinstance(val, (list, tuple)) and not hasattr(val, "__iter__"):
+            raise ValueError("Vector value must be a list, tuple, or array-like")
+
+        # Check dimension
+        n = len(val)
+        if n != self._dimension:
+            raise ValueError(
+                f"Vector dimension mismatch: expected {self._dimension}, got {n}"
+            )
+
+        # Validate each element and check for NaN/Infinity
+        result = []
+
+        for i in range(n):
+            element = val[i]
+
+            # Check for NaN/Infinity using numpy if available
+            if np_isnan is not None:
+                try:
+                    # Check if value is scalar first
+                    if not np_isscalar(element):
+                        raise ValueError(
+                            f"Vector value {element} must be numeric, got: {type(element).__name__}"
+                        )
+                    if np_isnan(element) or np_isinf(element):
+                        raise ValueError(f"Vector contains NaN or Infinity at index {i}")
+                except TypeError:
+                    # Not a numeric type that can be NaN/Inf
+                    raise ValueError(
+                        f"Vector value {element} must be numeric, got: {type(element).__name__}"
+                    ) from None
+            else:
+                # Fallback for Python floats
+                if isinstance(element, float):
+                    f_val = <float>element
+                    if f_val != f_val:  # NaN check (NaN != NaN)
+                        raise ValueError(f"Vector contains NaN at index {i}")
+                    if f_val == float("inf") or f_val == float("-inf"):
+                        raise ValueError(f"Vector contains Infinity at index {i}")
+                elif not isinstance(element, (int, float)):
+                    raise ValueError(
+                        f"Vector value {element} must be numeric, got: {type(element).__name__}"
+                    )
+
+            # Validate element type
+            if self._element_validator is not None:
+                result.append(self._element_validator.validate(element, max_field_size))
+            else:
+                result.append(types.validate_value(element, self._element_type, max_field_size=max_field_size))
+
+        return result
 
 
 cdef object _build_type_validator(int type_id, object data_type, bint nullable):
@@ -615,6 +681,12 @@ cdef object _build_type_validator(int type_id, object data_type, bint nullable):
         return MapValidator(data_type, nullable=nullable)
     elif type_id == STRUCT_TYPE_ID:
         return StructValidator(data_type, nullable=nullable)
+    elif type_id == VECTOR_TYPE_ID:
+        return VectorValidator(
+            data_type.element_type,
+            data_type.dimension,
+            nullable=data_type.nullable
+        )
     return None
 
 
@@ -771,7 +843,7 @@ cdef class BaseRecord:
         ):
             raise ValueError(
                 "The values set to records are against the schema, "
-                "expect len %s, got len %s" % (len(self._c_columns), n_values)
+                f"expect len {len(self._c_columns)}, got len {n_values}"
             )
 
         if type(values) is list:

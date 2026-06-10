@@ -92,10 +92,7 @@ Keyword arguments:
 
     - name (string; required)
 
-    - data (list of dicts; required)
-
-        `data` is a list of dicts with keys:
-
+    - data (list of dicts with strings as keys and values of type number; required)
 
 - data-* (string; optional):
     Wild card data attributes.
@@ -429,19 +426,12 @@ Keyword arguments:
         }
     )
 
-    DataData = TypedDict(
-        "DataData",
-            {
-
-        }
-    )
-
     Data = TypedDict(
         "Data",
             {
             "color": typing.Union[Literal["dark"], Literal["gray"], Literal["red"], Literal["pink"], Literal["grape"], Literal["violet"], Literal["indigo"], Literal["blue"], Literal["cyan"], Literal["green"], Literal["lime"], Literal["yellow"], Literal["orange"], Literal["teal"]],
             "name": str,
-            "data": typing.Sequence["DataData"]
+            "data": typing.Sequence[typing.Dict[typing.Union[str, float, int], NumberType]]
         }
     )
 

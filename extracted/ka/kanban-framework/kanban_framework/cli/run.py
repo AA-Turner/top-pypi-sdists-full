@@ -110,11 +110,25 @@ def cmd_run(args: list[str]) -> dict:
         _log.warning("transition blocked: task=%s %s -> %s: %s", task_id, task.phase_id, target_str, e)
         from kanban_framework.infra.issue_capture import capture_issue
         capture_issue(fs, task, e, {"action": "transition", "target": target_str})
-        return {
+        # Surface next step so user knows what to do
+        result: dict = {
             "task_id": task_id,
             "phase": task.phase_id,
             "message": str(e),
         }
+        try:
+            from kanban_framework.domain.state_machine import next_step, next_step_to_dict
+            ns = next_step(fs, cfg, task)
+            ns_dict = next_step_to_dict(ns)
+            if ns_dict.get("step_id"):
+                result["next_step"] = ns_dict
+                result["hint"] = (
+                    f"当前阶段 {task.phase_id} 未完成。运行以下命令查看下一步指引:\n"
+                    f"  kanban workflow next-step {task_id}"
+                )
+        except Exception:
+            pass
+        return result
     except Exception as e:
         from kanban_framework.infra.issue_capture import capture_issue
         capture_issue(fs, task, e, {"action": "run", "target": target_str})

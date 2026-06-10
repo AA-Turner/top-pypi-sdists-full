@@ -22,8 +22,6 @@ import traceback
 import warnings
 from copy import deepcopy
 
-from .compat import six
-
 try:
     import contextvars
 except ImportError:
@@ -46,7 +44,7 @@ class OptionError(AttributeError):
     pass
 
 
-class Redirection(object):
+class Redirection:
     def __init__(self, item, warn=None, getter=None, setter=None):
         self._items = item.split(".")
         self._warn = warn
@@ -150,7 +148,7 @@ class AttributeDict(dict):
         return object.__getattribute__(self, item)
 
     def __dir__(self):
-        return list(six.iterkeys(self))
+        return list(self.keys())
 
     def register(self, key, value, validator=None):
         self[key] = value, validator
@@ -172,7 +170,7 @@ class AttributeDict(dict):
 
     def _setattr(self, key, value, silent=False):
         if not silent and key not in self:
-            raise OptionError("Cannot identify configuration name '%s'." % str(key))
+            raise OptionError(f"Cannot identify configuration name '{key}'.")
 
         if not isinstance(value, AttributeDict):
             validate = None
@@ -181,7 +179,7 @@ class AttributeDict(dict):
                 validate = self[key][1]
                 if validate is not None:
                     if not validate(value):
-                        raise ValueError("Cannot set value %s" % value)
+                        raise ValueError(f"Cannot set value {value}")
                 if isinstance(val[0], Redirection):
                     val[0].setvalue(value)
                 else:
@@ -209,7 +207,7 @@ class AttributeDict(dict):
 
     def loads(self, d):
         dispatches = collections.defaultdict(dict)
-        for k, v in six.iteritems(d):
+        for k, v in d.items():
             if "." in k:
                 sk, rk = k.split(".", 1)
                 dispatches[sk][rk] = v
@@ -217,18 +215,16 @@ class AttributeDict(dict):
                 self[k][0].setvalue(v, silent=True)
             else:
                 setattr(self, k, v)
-        for k, v in six.iteritems(dispatches):
+        for k, v in dispatches.items():
             self[k].loads(v)
 
     def dumps(self):
         from .accounts import BaseAccount
 
         result_dict = dict()
-        for k, v in six.iteritems(self):
+        for k, v in self.items():
             if isinstance(v, AttributeDict):
-                result_dict.update(
-                    (k + "." + sk, sv) for sk, sv in six.iteritems(v.dumps())
-                )
+                result_dict.update((k + "." + sk, sv) for sk, sv in v.dumps().items())
             elif isinstance(v[0], BaseAccount) or callable(v[0]):
                 # ignore accounts in config dumps
                 result_dict[k] = None
@@ -239,12 +235,12 @@ class AttributeDict(dict):
         return result_dict
 
 
-class Config(object):
+class Config:
     def __init__(self, config=None):
         self._config = config or AttributeDict()
 
     def __dir__(self):
-        return list(six.iterkeys(self._config))
+        return list(self._config.keys())
 
     def __getattr__(self, item):
         return getattr(self._config, item)
@@ -268,14 +264,14 @@ class Config(object):
                 conf = val
             elif not isinstance(config, dict):
                 raise AttributeError(
-                    "Fail to set option: %s, conflict has encountered" % option
+                    f"Fail to set option: {option}, conflict has encountered"
                 )
             else:
                 conf = config
 
         key = splits[-1]
         if conf.get(key) is not None:
-            raise AttributeError("Fail to set option: %s, option has been set" % option)
+            raise AttributeError(f"Fail to set option: {option}, option has been set")
 
         conf.register(key, value, validator)
 
@@ -303,7 +299,7 @@ class Config(object):
             config = conf.get(name)
             if not isinstance(config, dict):
                 raise AttributeError(
-                    "Fail to unregister option: %s, conflict has encountered" % option
+                    f"Fail to unregister option: {option}, conflict has encountered"
                 )
             else:
                 conf = config
@@ -311,7 +307,7 @@ class Config(object):
         key = splits[-1]
         if key not in conf:
             raise AttributeError(
-                "Option %s not configured, thus failed to unregister." % option
+                f"Option {option} not configured, thus failed to unregister."
             )
         conf.unregister(key)
 
@@ -331,7 +327,7 @@ class Config(object):
             config = conf.get(name)
             if not isinstance(config, dict):
                 raise AttributeError(
-                    "Fail to add validator: %s, conflict has encountered" % option
+                    f"Fail to add validator: {option}, conflict has encountered"
                 )
             else:
                 conf = config
@@ -339,7 +335,7 @@ class Config(object):
         key = splits[-1]
         if key not in conf:
             raise AttributeError(
-                "Option %s not configured, thus failed to set validator." % option
+                f"Option {option} not configured, thus failed to set validator."
             )
         conf.add_validator(key, validator)
 
@@ -375,8 +371,8 @@ def all_validator(*validators):
 is_null = lambda x: x is None
 is_bool = lambda x: isinstance(x, bool)
 is_float = lambda x: isinstance(x, float)
-is_integer = lambda x: isinstance(x, six.integer_types)
-is_string = lambda x: isinstance(x, six.string_types)
+is_integer = lambda x: isinstance(x, int)
+is_string = lambda x: isinstance(x, str)
 is_dict = lambda x: isinstance(x, dict)
 is_list = lambda x: isinstance(x, list)
 
@@ -629,6 +625,7 @@ default_options.register_option(
     "sql.use_odps2_extension", None, validator=any_validator(is_null, is_bool)
 )
 default_options.register_option("sql.parse_set_as_hints", True, validator=is_bool)
+default_options.register_option("legacy_cast_csv_result", False, validator=is_bool)
 
 # Catalog API
 default_options.register_option(
@@ -636,6 +633,9 @@ default_options.register_option(
 )
 default_options.register_option(
     "catalog.url_prefix", "/api/catalog/v1alpha", validator=is_string
+)
+default_options.register_option(
+    "catalog.url_scheme", None, validator=any_validator(is_string, is_null)
 )
 
 # sqlalchemy
@@ -803,7 +803,7 @@ def option_context(config=None):
         set_global_options(global_options)
 
 
-class OptionsProxy(object):
+class OptionsProxy:
     def __dir__(self):
         return dir(get_global_options())
 

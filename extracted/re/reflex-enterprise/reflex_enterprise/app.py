@@ -11,6 +11,7 @@ from reflex_enterprise.config import ConfigEnterprise
 from reflex_enterprise.environment import environment
 from reflex_enterprise.utils import (
     check_config_option_in_tier,
+    check_paid_tier_for_command,
     get_user_tier,
     is_deploy_context,
     is_new_session,
@@ -25,6 +26,7 @@ class AppEnterprise(App):
         super().__post_init__()
         self._check_and_setup_access_token()
         self._check_login()
+        check_paid_tier_for_command()
         self._verify_and_setup_badge()
         self._verify_and_setup_proxy()
 

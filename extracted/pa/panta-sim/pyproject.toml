@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "panta-sim"
-version = "0.8.22"
+version = "1.4.0"
 description = "Full Rust core quantum circuit simulator with Python bindings"
 readme = "README.md"
 license = { text = "MIT" }
@@ -12,7 +12,7 @@ requires-python = ">=3.9"
 authors = [{ name = "quantumfia" }]
 keywords = ["quantum", "simulator", "quantum-computing", "rust", "pyo3"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",

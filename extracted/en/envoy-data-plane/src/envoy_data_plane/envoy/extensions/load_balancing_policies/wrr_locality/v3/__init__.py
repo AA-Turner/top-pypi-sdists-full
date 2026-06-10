@@ -19,7 +19,7 @@ betterproto2.check_compiler_version(_COMPILER_VERSION)
 class WrrLocality(betterproto2.Message):
     """
     [#protodoc-title: Weighted Round Robin Locality-Picking Load Balancing Policy]
-    [#not-implemented-hide:]
+    [#extension: envoy.load_balancing_policies.wrr_locality]
 
     Configuration for the wrr_locality LB policy. See the :ref:`load balancing architecture overview
     <arch_overview_load_balancing_types>` for more information.

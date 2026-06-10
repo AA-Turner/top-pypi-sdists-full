@@ -16,26 +16,22 @@
 import pynini
 from pynini.lib import pynutil
 
-from tn.processor import Processor
-from tn.utils import get_abs_path, load_labels
 from tn.english.rules.cardinal import Cardinal
 from tn.english.rules.decimal import Decimal
 from tn.english.rules.measure import SINGULAR_TO_PLURAL
+from tn.processor import Processor
+from tn.utils import get_abs_path, load_labels
 
-maj_singular = pynini.string_file(
-    (get_abs_path("english/data/money/currency_major.tsv")))
+maj_singular = pynini.string_file((get_abs_path("english/data/money/currency_major.tsv")))
 
 
 class Money(Processor):
 
-    def __init__(self, deterministic: bool = False):
-        """
-        Args:
-            deterministic: if True will provide a single transduction option,
-                for False multiple transduction are generated (used for audio-based normalization)
-        """
-        super().__init__('money', ordertype="en_tn")
+    def __init__(self, deterministic: bool = False, cardinal=None, decimal=None):
+        super().__init__("money", ordertype="en_tn")
         self.deterministic = deterministic
+        self.cardinal = cardinal or Cardinal(deterministic)
+        self.decimal = decimal or Decimal(deterministic, cardinal=self.cardinal)
         self.build_tagger()
         self.build_verbalizer()
 
@@ -51,48 +47,45 @@ class Money(Processor):
             $1.2 million -> money { currency_maj: "dollars" integer_part: "one"  fractional_part: "two" quantity: "million" }
             $1.2320 -> money { currency_maj: "dollars" integer_part: "one"  fractional_part: "two three two" }
         """
-        cardinal = Cardinal(self.deterministic)
-        decimal = Decimal(self.deterministic)
+        cardinal = self.cardinal
+        decimal = self.decimal
         cardinal_graph = cardinal.graph_with_and
         graph_decimal_final = decimal.final_graph_wo_negative_w_abbr
 
-        maj_singular_labels = load_labels(
-            get_abs_path("english/data/money/currency_major.tsv"))
+        maj_singular_labels = load_labels(get_abs_path("english/data/money/currency_major.tsv"))
         maj_unit_plural = maj_singular @ SINGULAR_TO_PLURAL
         maj_unit_singular = maj_singular
 
-        graph_maj_singular = pynutil.insert(
-            "currency_maj: \"") + maj_unit_singular + pynutil.insert("\"")
-        graph_maj_plural = pynutil.insert(
-            "currency_maj: \"") + maj_unit_plural + pynutil.insert("\"")
+        graph_maj_singular = pynutil.insert('currency_maj: "') + maj_unit_singular + pynutil.insert('"')
+        graph_maj_plural = pynutil.insert('currency_maj: "') + maj_unit_plural + pynutil.insert('"')
 
-        optional_delete_fractional_zeros = pynini.closure(
-            pynutil.delete(".") +
-            pynini.closure(pynutil.add_weight(pynutil.delete("0"), -0.2), 1),
-            0, 1)
+        optional_delete_fractional_zeros = (
+            pynutil.delete(".") + pynutil.add_weight(pynutil.delete("0"), -0.2).plus
+        ).ques
 
-        graph_integer_one = pynutil.insert("integer_part: \"") + pynini.cross(
-            "1", "one") + pynutil.insert("\"")
+        graph_integer_one = pynutil.insert('integer_part: "') + pynini.cross("1", "one") + pynutil.insert('"')
         decimal_delete_last_zeros = (
-            pynini.closure(self.DIGIT | pynutil.delete(",")) +
-            pynini.accep(".") + pynini.closure(self.DIGIT, 1) +
-            pynini.closure(pynutil.add_weight(pynutil.delete("0"), -0.01)))
-        decimal_with_quantity = pynini.closure(self.VCHAR) + self.ALPHA
+            (self.DIGIT | pynutil.delete(",")).star
+            + pynini.accep(".")
+            + self.DIGIT.plus
+            + pynutil.add_weight(pynutil.delete("0"), -0.01).star
+        )
+        decimal_with_quantity = self.VCHAR.star + self.ALPHA
 
-        graph_decimal = (graph_maj_plural + self.INSERT_SPACE +
-                         (decimal_delete_last_zeros | decimal_with_quantity)
-                         @ graph_decimal_final)
+        graph_decimal = (
+            graph_maj_plural
+            + self.INSERT_SPACE
+            + (decimal_delete_last_zeros | decimal_with_quantity) @ graph_decimal_final
+        )
 
         graph_integer = (
-            pynutil.insert("integer_part: \"") +
-            ((pynini.closure(self.VCHAR) - "1") @ cardinal_graph) +
-            pynutil.insert("\""))  # noqa
+            pynutil.insert('integer_part: "') + ((self.VCHAR.star - "1") @ cardinal_graph) + pynutil.insert('"')
+        )  # noqa
 
         graph_integer_only = graph_maj_singular + self.INSERT_SPACE + graph_integer_one
         graph_integer_only |= graph_maj_plural + self.INSERT_SPACE + graph_integer
 
-        final_graph = (graph_integer_only +
-                       optional_delete_fractional_zeros) | graph_decimal
+        final_graph = (graph_integer_only + optional_delete_fractional_zeros) | graph_decimal
 
         self.tagger = self.add_tokens(final_graph.optimize())
 
@@ -101,14 +94,11 @@ class Money(Processor):
         Finite state transducer for verbalizing money, e.g.
             money { integer_part: "twelve" fractional_part: "o five" currency: "dollars" } -> twelve o five dollars
         """
-        decimal = Decimal(self.deterministic)
+        decimal = self.decimal
         keep_space = pynini.accep(" ")
-        maj = pynutil.delete("currency_maj: \"") + pynini.closure(
-            self.NOT_QUOTE, 1) + pynutil.delete("\"")
+        maj = pynutil.delete('currency_maj: "') + self.NOT_QUOTE.plus + pynutil.delete('"')
 
-        fractional_part = (pynutil.delete("fractional_part: \"") +
-                           pynini.closure(self.NOT_QUOTE, 1) +
-                           pynutil.delete("\""))
+        fractional_part = pynutil.delete('fractional_part: "') + self.NOT_QUOTE.plus + pynutil.delete('"')
 
         integer_part = decimal.integer
 

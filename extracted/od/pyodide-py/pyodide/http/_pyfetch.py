@@ -2,6 +2,7 @@
 Async fetch API implementation for Pyodide.
 """
 
+import builtins
 import json
 from asyncio import CancelledError
 from collections.abc import Awaitable, Callable
@@ -9,14 +10,14 @@ from functools import wraps
 from typing import IO, TYPE_CHECKING, Any, ParamSpec, TypeVar
 
 from .._package_loader import unpack_buffer
-from ..ffi import IN_BROWSER, JsBuffer, JsException, JsFetchResponse, to_js
+from ..ffi import IN_PYODIDE, JsBuffer, JsException, JsFetchResponse, to_js
 from ._exceptions import (
     AbortError,
     BodyUsedError,
     HttpStatusError,
 )
 
-if IN_BROWSER or TYPE_CHECKING:
+if IN_PYODIDE or TYPE_CHECKING:
     try:
         from js import AbortController, AbortSignal, Object, Request
         from js import fetch as _jsfetch
@@ -84,7 +85,7 @@ class FetchResponse:
         The abort signal that was used for the fetch request.
     """
 
-    js_request: "Request"
+    js_request: "Request" | None
     js_response: JsFetchResponse
     _url: str
     abort_controller: "AbortController | None"
@@ -98,9 +99,18 @@ class FetchResponse:
         abort_signal: "AbortSignal | None" = None,
     ):
         if isinstance(request, str):
-            request = Request.new(request)
-        self.js_request = request
-        self._url = self.js_request.url
+            # When url is empty, Node.js will throw.
+            # This would normally not happen, but we handle it gracefully.
+            if request == "":
+                self.js_request = None
+                self._url = request
+            else:
+                js_request = Request.new(request)
+                self.js_request = js_request
+                self._url = self.js_request.url
+        else:
+            self.js_request = request
+            self._url = self.js_request.url
         self.js_response = js_response
         self.abort_controller = abort_controller
         self.abort_signal = abort_signal
@@ -189,7 +199,7 @@ class FetchResponse:
         if self.js_response.bodyUsed:
             raise BodyUsedError
         return FetchResponse(
-            self.js_request,
+            self.js_request or self._url,
             self.js_response.clone(),
             self.abort_controller,
             self.abort_signal,
@@ -234,7 +244,7 @@ class FetchResponse:
         return json.loads(await self.string(), **kwargs)
 
     @_abort_on_cancel
-    async def memoryview(self) -> memoryview:
+    async def memoryview(self) -> "builtins.memoryview":
         """Return the response body as a :py:class:`memoryview` object"""
         self._raise_if_failed()
         return (await self.buffer()).to_memoryview()
@@ -273,7 +283,7 @@ class FetchResponse:
             await self._into_file(f)
 
     @_abort_on_cancel
-    async def bytes(self) -> bytes:
+    async def bytes(self) -> "builtins.bytes":
         """Return the response body as a bytes object"""
         self._raise_if_failed()
         return (await self.buffer()).to_bytes()

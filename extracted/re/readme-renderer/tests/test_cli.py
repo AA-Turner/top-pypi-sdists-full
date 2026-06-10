@@ -9,9 +9,9 @@ from unittest import mock
                         "test_GFM_001.md", "test_txt_001.txt"])
 def input_file(request):
     path = pathlib.Path("tests/fixtures", request.param)
-    # Skip markdown tests if the cmarkgfm optional dependency is not installed.
+    # Skip markdown tests if the comrak optional dependency is not installed.
     if path.suffix == ".md":
-        pytest.importorskip("cmarkgfm")
+        pytest.importorskip("comrak")
     return path
 
 
@@ -44,13 +44,14 @@ def test_cli_invalid_format():
         main(["no-file.invalid"])
 
 
-def test_cli_explicit_format(input_file):
+def test_cli_explicit_format(input_file, tmp_path):
     fmt = input_file.suffix.lstrip(".")
-    with input_file.open() as fp, \
-            mock.patch("pathlib.Path.open", return_value=fp), \
-            mock.patch("builtins.print") as print_:
-        main(["-f", fmt, "no-file.invalid"])
-        print_.assert_called_once()
+
+    temp_input = tmp_path / "invalid.invalid"
+    temp_input.write_text(input_file.read_text())
+
+    with mock.patch("builtins.print") as print_:
+        main(["-f", fmt, str(temp_input)])
         (result,), _ = print_.call_args
 
     with input_file.with_suffix(".html").open() as fp:

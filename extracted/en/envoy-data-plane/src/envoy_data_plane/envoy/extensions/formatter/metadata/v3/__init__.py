@@ -30,6 +30,7 @@ class Metadata(betterproto2.Message):
     * ROUTE
     * UPSTREAM_HOST
     * LISTENER
+    * LISTENER_FILTER_CHAIN
     * VIRTUAL_HOST
 
     See :ref:`here <config_access_log>` for more information on access log configuration.

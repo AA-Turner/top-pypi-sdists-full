@@ -1877,6 +1877,8 @@ class TestTranscriptStream:
 
         monkeypatch.setattr(transcript_stream, "load_config", lambda: _FakeConfig())
         monkeypatch.setattr(transcript_stream, "http_client", lambda: _FailingClient())
+        # Legacy per-user path: no org key in MDM.
+        monkeypatch.setattr(transcript_stream, "read_managed_config", lambda: {})
 
         poster = transcript_stream._make_http_event_poster(debug=True)
         with pytest.raises(RuntimeError, match="network down"):
@@ -1885,6 +1887,49 @@ class TestTranscriptStream:
         assert captured["host"] == "https://tenant.runlayer.test"
         assert captured["url"] == "https://tenant.runlayer.test/api/v1/hooks/events"
         assert captured["kwargs"]["headers"]["x-runlayer-api-key"] == "rl_test"
+        # Legacy path attaches no device block.
+        assert "device" not in json.loads(captured["kwargs"]["content"])
+
+    def test_http_event_poster_org_key_mode_attaches_device(self, monkeypatch):
+        captured: dict = {}
+
+        class _FakeConfig:
+            default_host = "https://tenant.runlayer.test"
+
+            def get_secret_for_host(self, _host):
+                return "rl_user"
+
+        class _FailingClient:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def post(self, url, **kwargs):
+                captured["url"] = url
+                captured["kwargs"] = kwargs
+                raise RuntimeError("network down")
+
+        monkeypatch.setattr(transcript_stream, "load_config", lambda: _FakeConfig())
+        monkeypatch.setattr(transcript_stream, "http_client", lambda: _FailingClient())
+        monkeypatch.setattr(
+            transcript_stream,
+            "read_managed_config",
+            lambda: {"org_api_key": "org-key-123"},
+        )
+        monkeypatch.setattr(
+            "runlayer_cli.hook.relay._build_device_context",
+            lambda: {"device_id": "dev-1", "username": "alice"},
+        )
+
+        poster = transcript_stream._make_http_event_poster(debug=True)
+        with pytest.raises(RuntimeError, match="network down"):
+            poster("claude_code", "message.updated", {"session_id": "s1"})
+
+        assert captured["kwargs"]["headers"]["x-runlayer-api-key"] == "org-key-123"
+        body = json.loads(captured["kwargs"]["content"])
+        assert body["device"] == {"device_id": "dev-1", "username": "alice"}
 
     def test_http_event_poster_treats_non_success_as_failure(self, monkeypatch):
         class _FakeConfig:
@@ -3098,6 +3143,9 @@ class TestLoadCredentialsFailClosed:
                 raise OSError("keyring backend exploded")
 
         monkeypatch.setattr(relay, "load_config", lambda: _ConfigStub())
+        # Force the legacy per-user path: an org key in machine MDM config would
+        # short-circuit before keyring is ever consulted.
+        monkeypatch.setattr(relay, "read_managed_config", lambda: {})
 
         with pytest.raises(relay.RelayError) as exc:
             relay._load_credentials()
@@ -3245,21 +3293,21 @@ class TestResolveEnforcement:
         )
         assert hook_dispatch._resolve_enforcement() is True
 
-    def test_frozen_defaults_true_when_key_absent(self, monkeypatch):
+    def test_frozen_defaults_false_when_key_absent(self, monkeypatch):
         monkeypatch.setattr(sys, "frozen", True, raising=False)
         monkeypatch.setattr(
             "runlayer_cli.mdm_config.read_managed_config",
             lambda: {"host": "https://t.example.com"},
         )
-        assert hook_dispatch._resolve_enforcement() is True
+        assert hook_dispatch._resolve_enforcement() is False
 
-    def test_frozen_defaults_true_when_empty_managed_config(self, monkeypatch):
+    def test_frozen_defaults_false_when_empty_managed_config(self, monkeypatch):
         monkeypatch.setattr(sys, "frozen", True, raising=False)
         monkeypatch.setattr(
             "runlayer_cli.mdm_config.read_managed_config",
             lambda: {},
         )
-        assert hook_dispatch._resolve_enforcement() is True
+        assert hook_dispatch._resolve_enforcement() is False
 
     def test_unfrozen_reads_file_enforcement_false(self, tmp_path, monkeypatch):
         monkeypatch.setattr(sys, "frozen", False, raising=False)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 1999-2025 Alibaba Group Holding Ltd.
+# Copyright 1999-2026 Alibaba Group Holding Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ import collections
 import functools
 import json
 import struct
-import sys
 import warnings
 from collections import OrderedDict
 from decimal import Decimal
@@ -41,10 +40,11 @@ try:
 except (AttributeError, ImportError):
     pac = None
 
+import time
+
 from ... import compat, types, utils
 from ...config import options
 from ...errors import ChecksumError, DatetimeOverflowError
-from ...lib.monotonic import monotonic
 from ...models import Record
 from ...readers import AbstractRecordReader
 from ...types import PartitionSpec
@@ -54,7 +54,11 @@ from ..pb import wire_format
 from ..pb.decoder import Decoder
 from ..pb.errors import DecodeError
 from ..wireconstants import ProtoWireConstants
-from .types import odps_schema_to_arrow_schema
+from .types import (
+    TIMESTAMP_STRUCT_TYPE,
+    _is_timestamp_struct_type,
+    odps_schema_to_arrow_schema,
+)
 
 try:
     if not options.force_py:
@@ -102,7 +106,7 @@ if BaseTunnelRecordReader is None:
             self._reader = None
 
             if self._enable_client_metrics:
-                ts = monotonic()
+                ts = time.monotonic()
 
             self._read_limit = options.table_read_limit
             self._to_datetime = utils.MillisecondsConverter().from_milliseconds
@@ -117,17 +121,17 @@ if BaseTunnelRecordReader is None:
 
             map_as_ordered_dict = options.map_as_ordered_dict
             if map_as_ordered_dict is None:
-                map_as_ordered_dict = sys.version_info[:2] <= (3, 6)
+                map_as_ordered_dict = False
             self._map_dict_hook = OrderedDict if map_as_ordered_dict else dict
 
             struct_as_ordered_dict = options.struct_as_ordered_dict
             if struct_as_ordered_dict is None:
-                struct_as_ordered_dict = sys.version_info[:2] <= (3, 6)
+                struct_as_ordered_dict = False
             self._struct_dict_hook = OrderedDict if struct_as_ordered_dict else dict
 
             if self._enable_client_metrics:
-                self._local_wall_time_ms += compat.long_type(
-                    MICRO_SEC_PER_SEC * (monotonic() - ts)
+                self._local_wall_time_ms += int(
+                    MICRO_SEC_PER_SEC * (time.monotonic() - ts)
                 )
 
             self._on_exception = on_exception
@@ -152,11 +156,11 @@ if BaseTunnelRecordReader is None:
 
         def _reopen_reader(self, row_number=None, raw_size=None):
             if self._enable_client_metrics:
-                ts = monotonic()
+                ts = time.monotonic()
 
             if self._enable_client_metrics:
-                self._acc_network_time_ms += compat.long_type(
-                    MICRO_SEC_PER_SEC * (monotonic() - ts)
+                self._acc_network_time_ms += int(
+                    MICRO_SEC_PER_SEC * (time.monotonic() - ts)
                 )
                 if self._reader is not None:
                     self._acc_network_time_ms += self._reader.network_wall_time_ms
@@ -182,8 +186,8 @@ if BaseTunnelRecordReader is None:
                 )
 
             if self._enable_client_metrics:
-                self._local_wall_time_ms += compat.long_type(
-                    MICRO_SEC_PER_SEC * (monotonic() - ts)
+                self._local_wall_time_ms += int(
+                    MICRO_SEC_PER_SEC * (time.monotonic() - ts)
                 )
 
         def _read_field(self, data_type):
@@ -272,8 +276,10 @@ if BaseTunnelRecordReader is None:
                 val = self._map_dict_hook(zip(keys, values))
             elif isinstance(data_type, types.Struct):
                 val = self._read_struct(data_type)
+            elif isinstance(data_type, types.Vector):
+                val = self._read_vector(data_type)
             else:
-                raise IOError("Unsupported type %s" % data_type)
+                raise IOError(f"Unsupported type {data_type}")
             return val
 
         def _read_array(self, value_type):
@@ -299,6 +305,30 @@ if BaseTunnelRecordReader is None:
                 )
             else:
                 return value_type.namedtuple_type(*res_list)
+
+        def _read_vector(self, data_type):
+            dim = self._reader.read_uint32()
+
+            if dim != data_type.dimension:
+                raise ValueError(
+                    f"Vector dimension mismatch: expected {data_type.dimension}, got {dim}"
+                )
+
+            result = []
+            for _ in range(dim):
+                elem = self._read_field(data_type.element_type)
+                result.append(elem)
+
+            # Convert to numpy array if available
+            try:
+                import numpy as np
+
+                dtype = (
+                    np.float32 if data_type.element_type == types.float_ else np.float64
+                )
+                return np.array(result, dtype=dtype)
+            except ImportError:
+                return result
 
         def _read_single_record(self):
             if (
@@ -396,7 +426,7 @@ if BaseTunnelRecordReader is None:
 
         def read(self):
             if self._enable_client_metrics:
-                ts = monotonic()
+                ts = time.monotonic()
 
             if self._reader is None:
                 self._reopen_reader()
@@ -407,7 +437,9 @@ if BaseTunnelRecordReader is None:
                 on_exception_func=self._on_exception,
             )
             if self._enable_client_metrics:
-                self._local_wall_time_ms += int(MICRO_SEC_PER_SEC * (monotonic() - ts))
+                self._local_wall_time_ms += int(
+                    MICRO_SEC_PER_SEC * (time.monotonic() - ts)
+                )
             return result
 
         def reads(self):
@@ -712,7 +744,7 @@ class ArrowStreamReader(IOBase):
             self._reader.close()
 
 
-class TunnelArrowReader(object):
+class TunnelArrowReader:
     """
     Reader object to read data from ODPS in Arrow format. Should be created
     with :meth:`TableDownloadSession.open_arrow_reader`.
@@ -740,12 +772,14 @@ class TunnelArrowReader(object):
         partition_spec=None,
         append_partitions=False,
         use_ipc_stream=False,
+        timestamp_as_struct=False,
         on_exception=None,
     ):
         if pa is None:
             raise ValueError("To use arrow reader you need to install pyarrow")
 
         self._raw_schema = schema
+        self._timestamp_as_struct = timestamp_as_struct
 
         raw_arrow_schema = odps_schema_to_arrow_schema(schema)
         if columns is None:
@@ -797,11 +831,58 @@ class TunnelArrowReader(object):
         self._arrow_stream = None
         if self._use_ipc_stream:
             self._reader = input_stream
+        elif self._timestamp_as_struct:
+            wire_schema = self._build_wire_schema(self._raw_arrow_schema)
+            self._reader = ArrowStreamReader(input_stream, wire_schema)
         else:
             self._reader = ArrowStreamReader(input_stream, self._raw_arrow_schema)
 
     def _inject_error(self, cursor, exc):
         self._injected_error = (cursor, exc)
+
+    @staticmethod
+    def _build_wire_schema(arrow_schema):
+        """Build a wire-compatible schema by replacing pa.timestamp("ns") with
+        pa.struct([("sec", pa.int64()), ("nano", pa.int32())]) to match the
+        server's Arrow IPC wire format for timestamp columns. Only timestamp[ns]
+        columns (ODPS timestamp/timestamp_ntz) use struct wire format;
+        timestamp[ms] (ODPS datetime) are left unchanged."""
+        fields = []
+        for field in arrow_schema:
+            if isinstance(field.type, pa.TimestampType) and field.type.unit == "ns":
+                field = pa.field(
+                    field.name, TIMESTAMP_STRUCT_TYPE, field.nullable, field.metadata
+                )
+            fields.append(field)
+        return pa.schema(fields)
+
+    def _convert_struct_timestamps(self, batch, target_schema):
+        """Convert struct-based timestamp columns in a batch to pa.timestamp("ns").
+        Servers that transmit timestamps as struct([("sec", int64), ("nano", int32)])
+        need this conversion. Only columns whose ODPS type is Timestamp or
+        TimestampNTZ are converted; IntervalDayTime columns sharing the same
+        struct layout are left unchanged."""
+        convert_indices = set()
+        for idx in range(batch.num_columns):
+            if _is_timestamp_struct_type(batch.schema.types[idx]):
+                col_name = batch.schema.names[idx]
+                col_type = self._schema.get_column(col_name).type
+                if isinstance(col_type, (types.Timestamp, types.TimestampNTZ)):
+                    convert_indices.add(idx)
+
+        if not convert_indices:
+            return batch
+
+        cols = []
+        for idx in range(batch.num_columns):
+            col = batch.column(idx)
+            if idx in convert_indices:
+                sec = col.field("sec")
+                nano = col.field("nano")
+                ns = pac.add(pac.multiply(sec, 1_000_000_000), nano)
+                col = ns.cast(pa.timestamp("ns"))
+            cols.append(col)
+        return pa.RecordBatch.from_arrays(cols, names=target_schema.names)
 
     @property
     def schema(self):
@@ -920,6 +1001,8 @@ class TunnelArrowReader(object):
                 col_to_array[name] = arr
             arrays = [col_to_array[name] for name in self._columns]
             batch = pa.RecordBatch.from_arrays(arrays, names=self._columns)
+        if self._timestamp_as_struct:
+            batch = self._convert_struct_timestamps(batch, self._arrow_schema)
         batch = self._convert_timezone(batch)
         return batch
 
@@ -1043,20 +1126,20 @@ if convert_legacy_decimal_bytes is None:
         if intg + frac == 0:
             return Decimal("0")
 
-        sio = BytesIO() if compat.PY27 else StringIO()
+        sio = StringIO()
         if sign > 0:
             sio.write("-")
-        intg_nums = struct.unpack("<%dI" % intg, value[12 : 12 + intg * 4])
-        intg_val = "".join("%09d" % d for d in reversed(intg_nums)).lstrip("0")
+        intg_nums = struct.unpack(f"<{intg}I", value[12 : 12 + intg * 4])
+        intg_val = "".join(f"{d:09d}" for d in reversed(intg_nums)).lstrip("0")
         sio.write(intg_val or "0")
         if frac > 0:
             sio.write(".")
-            frac_nums = struct.unpack("<%dI" % frac, value[12 - frac * 4 : 12])
-            sio.write("".join("%09d" % d for d in reversed(frac_nums)))
+            frac_nums = struct.unpack(f"<{frac}I", value[12 - frac * 4 : 12])
+            sio.write("".join(f"{d:09d}" for d in reversed(frac_nums)))
         return Decimal(sio.getvalue())
 
 
-class ArrowRecordFieldConverter(object):
+class ArrowRecordFieldConverter:
     _sensitive_types = (
         types.Datetime,
         types.Timestamp,
@@ -1079,33 +1162,33 @@ class ArrowRecordFieldConverter(object):
         mills = self._mills_converter.to_milliseconds(value)
         return self._mills_converter.from_milliseconds(mills)
 
+    def _localize_timestamp(self, total_ns, ntz=False):
+        """Construct a pd.Timestamp from UTC nanoseconds and localize
+        according to the converter's timezone settings."""
+        if not ntz:
+            converter = self._mills_converter
+        else:
+            converter = self._mills_converter_utc
+
+        ts = pd.Timestamp(total_ns, tz="UTC")
+        if not converter._use_default_tz and converter._tz is not None:
+            ts = ts.tz_convert(converter._tz)
+        elif ntz or converter._use_default_tz:
+            ts = ts.tz_localize(None)
+        return ts
+
     def _convert_ts_timestamp(self, value, ntz=False):
         if value is None:
             return None
 
-        if not ntz:
-            converter = self._mills_converter
-        else:  # TimestampNtz
-            converter = self._mills_converter_utc
-
-        microsec = value.microsecond
-        nanosec = value.nanosecond
-        secs = int(converter.to_milliseconds(value.to_pydatetime()) / 1000)
-        value = pd.Timestamp(converter.from_milliseconds(secs * 1000))
-        return value.replace(microsecond=microsec, nanosecond=nanosec)
+        return self._localize_timestamp(value.value, ntz=ntz)
 
     def _convert_struct_timestamp(self, value, ntz=False):
         if value is None:
             return None
 
-        if not ntz:
-            converter = self._mills_converter
-        else:  # TimestampNtz
-            converter = self._mills_converter_utc
-
-        ts = pd.Timestamp(converter.from_milliseconds(value["sec"] * 1000))
-        nanos = value["nano"]
-        return ts.replace(microsecond=nanos // 1000, nanosecond=nanos % 1000)
+        total_ns = value["sec"] * 1_000_000_000 + value["nano"]
+        return self._localize_timestamp(total_ns, ntz=ntz)
 
     @staticmethod
     def _convert_struct_timedelta(value):

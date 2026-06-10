@@ -1,10 +1,9 @@
 Metadata-Version: 2.4
 Name: autoevals
-Version: 0.2.0
+Version: 0.3.0
 Summary: Universal library for evaluating AI models
-Home-page: https://www.braintrustdata.com
-Author: BrainTrust
-Author-email: info@braintrustdata.com
+Author-email: BrainTrust <info@braintrustdata.com>
+Project-URL: Homepage, https://www.braintrustdata.com
 Project-URL: Bug Tracker, https://github.com/braintrustdata/autoevals
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
@@ -13,55 +12,34 @@ Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: chevron
+Requires-Dist: jsonschema
 Requires-Dist: polyleven
 Requires-Dist: pyyaml
-Requires-Dist: jsonschema
 Provides-Extra: dev
 Requires-Dist: black==22.6.0; extra == "dev"
-Requires-Dist: braintrust; extra == "dev"
-Requires-Dist: build; extra == "dev"
 Requires-Dist: flake8; extra == "dev"
 Requires-Dist: flake8-isort; extra == "dev"
-Requires-Dist: IPython; extra == "dev"
 Requires-Dist: isort==5.12.0; extra == "dev"
-Requires-Dist: openai; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: respx; extra == "dev"
+Requires-Dist: build; extra == "dev"
 Requires-Dist: twine; extra == "dev"
+Requires-Dist: braintrust; extra == "dev"
+Requires-Dist: ipython; extra == "dev"
+Requires-Dist: openai; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: pytest-mock; extra == "dev"
+Requires-Dist: respx; extra == "dev"
 Provides-Extra: doc
 Requires-Dist: pydoc-markdown; extra == "doc"
 Provides-Extra: scipy
 Requires-Dist: numpy; extra == "scipy"
 Requires-Dist: scipy; extra == "scipy"
+Provides-Extra: litellm
+Requires-Dist: litellm<1.85,>=1.60; extra == "litellm"
 Provides-Extra: all
-Requires-Dist: IPython; extra == "all"
-Requires-Dist: black==22.6.0; extra == "all"
-Requires-Dist: braintrust; extra == "all"
-Requires-Dist: build; extra == "all"
-Requires-Dist: flake8; extra == "all"
-Requires-Dist: flake8-isort; extra == "all"
-Requires-Dist: isort==5.12.0; extra == "all"
-Requires-Dist: numpy; extra == "all"
-Requires-Dist: openai; extra == "all"
-Requires-Dist: pre-commit; extra == "all"
-Requires-Dist: pydoc-markdown; extra == "all"
-Requires-Dist: pytest; extra == "all"
-Requires-Dist: respx; extra == "all"
-Requires-Dist: scipy; extra == "all"
-Requires-Dist: twine; extra == "all"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
+Requires-Dist: autoevals[scipy]; extra == "all"
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # Autoevals
 
@@ -166,24 +144,24 @@ import { Factuality } from "autoevals";
 
 ## Using other AI providers
 
-When you use Autoevals, it will look for an `OPENAI_BASE_URL` environment variable to use as the base for requests to an OpenAI compatible API. If `OPENAI_BASE_URL` is not set, it will default to the [AI proxy](https://www.braintrust.dev/docs/guides/proxy).
+When you use Autoevals, it will look for an `OPENAI_BASE_URL` environment variable to use as the base for requests to an OpenAI-compatible API. If `OPENAI_BASE_URL` is not set, it will look for a `BRAINTRUST_AI_GATEWAY_URL` environment variable and then default to the [Braintrust Gateway](https://www.braintrust.dev/docs/deploy/gateway).
 
-If you choose to use the proxy, you'll also get:
+When you use the Braintrust Gateway, you'll also get:
 
 - Simplified access to many AI providers
 - Reduced costs with automatic request caching
 - Increased observability when you enable logging to Braintrust
 
-The proxy is free to use, even if you don't have a Braintrust account.
+The Braintrust-hosted Gateway is free to use while it is in beta.
 
-If you have a Braintrust account, you can optionally set the `BRAINTRUST_API_KEY` environment variable instead of `OPENAI_API_KEY` to unlock additional features like logging and monitoring. You can also route requests to [supported AI providers and models](https://www.braintrust.dev/docs/guides/proxy#supported-models) or custom models you have configured in Braintrust.
+Set the `BRAINTRUST_API_KEY` environment variable to authenticate Gateway requests. You can also route requests to supported AI providers and models or custom models you have configured in Braintrust.
 
 <div className="tabs">
 
 ### Python
 
 ```python
-# NOTE: ensure BRAINTRUST_API_KEY is set in your environment and OPENAI_API_KEY is not set
+# NOTE: ensure BRAINTRUST_API_KEY is set in your environment
 from autoevals.llm import *
 
 # Create an LLM-based evaluator using the Claude 3.5 Sonnet model from Anthropic
@@ -204,7 +182,7 @@ print(f"Factuality metadata: {result.metadata['rationale']}")
 ### TypeScript
 
 ```typescript
-// NOTE: ensure BRAINTRUST_API_KEY is set in your environment and OPENAI_API_KEY is not set
+// NOTE: ensure BRAINTRUST_API_KEY is set in your environment
 import { Factuality } from "autoevals";
 
 (async () => {
@@ -517,6 +495,23 @@ Nicolo also dropped this as a reference: http://spec.openapis.org/oas/v3.0.3#ope
 ```
 
 </div>
+
+## Score results
+
+Every scorer returns a small `Score` result object. This is the public surface
+consumers should read when they need to store, compare, or export evaluation
+results:
+
+- `name`: the scorer name
+- `score`: a number between 0 and 1, or `None` / `null` when the evaluation is skipped
+- `metadata`: optional scorer-specific details, such as rationale text or a
+  selected choice. Keys are scorer-specific; consumers should not assume
+  metadata keys are shared across scorer types.
+- `error`: deprecated and retained for backward compatibility; some scorers may
+  still populate it, but callers should primarily handle thrown exceptions
+
+Inputs, expected values, model prompts, and other runtime context are not part
+of the `Score` object. Keep those separately if your application needs them.
 
 ## Creating custom scorers
 

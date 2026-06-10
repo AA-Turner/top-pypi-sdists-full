@@ -22,29 +22,45 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, windows-2022, macos-11]
+        # macos-14 = Apple silicon (arm64). Intel macOS (macos-13) is
+        # dropped: that runner pool is being wound down by GitHub and
+        # queues unreliably, blocking releases. Intel macOS users build
+        # from the sdist. macos-11 was removed by GitHub on 2024-06-28.
+        os: [ubuntu-24.04, windows-2022, macos-14]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.15.0
+        uses: pypa/cibuildwheel@v3.4.1
+        env:
+          # Build wheels only for supported (non-EOL) CPython versions.
+          # Keep this list in sync with the python_requires in setup.cfg
+          # and the tox.yml test matrix. cp314 (Python 3.14) requires
+          # cibuildwheel >= 3.1.0.
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-*"
+          # Skip free-threaded builds (cp3XYt-*); the C extension is not
+          # validated for the free-threading ABI.
+          CIBW_SKIP: "*t-*"
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
+          # upload-artifact@v4 requires a unique name per matrix entry.
+          name: wheels-${{ matrix.os }}
           path: ./wheelhouse/*.whl
 
   build_sdist:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Build sdist
         run: pipx run build --sdist
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
+          name: sdist
           path: dist/*.tar.gz
 
   upload_pypi:
@@ -54,9 +70,18 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: artifact
+          # Pull every artifact from build_wheels (one per matrix os) and
+          # build_sdist, flattening them into dist/ for the publisher.
           path: dist
+          pattern: "*"
+          merge-multiple: true
 
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      # Pinned to an exact tag (rather than the moving release/v1) to lock
+      # down the action used for the actual PyPI upload via Trusted
+      # Publishing. v1.12.4+ is required: earlier versions bundle a twine/
+      # pkginfo too old to parse Metadata-Version 2.4 wheels (emitted by
+      # current setuptools), failing with "Metadata is missing required
+      # fields: Name, Version".
+      - uses: pypa/gh-action-pypi-publish@v1.14.0

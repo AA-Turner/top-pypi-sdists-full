@@ -61,7 +61,7 @@ from mindroom.tool_system.worker_routing import (
 from mindroom.workspaces import ensure_workspace_template
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable
 
     from agno.knowledge.protocol import KnowledgeProtocol
     from agno.models.base import Model
@@ -73,6 +73,7 @@ if TYPE_CHECKING:
     from mindroom.config.agent import AgentConfig, CultureConfig, CultureMode
     from mindroom.config.main import Config
     from mindroom.config.models import DefaultsConfig
+    from mindroom.config.worker_egress import WorkerEgressBrokerConfig
     from mindroom.credentials import CredentialsManager
     from mindroom.hooks import HookRegistryPlugin
     from mindroom.knowledge.refresh_scheduler import KnowledgeRefreshScheduler
@@ -450,7 +451,7 @@ def _build_registered_agent_tool(
     routing_agent_is_private: bool,
     execution_identity: ToolExecutionIdentity | None,
     runtime_overrides: dict[str, object] | None,
-    worker_egress_env: Mapping[str, str] | None,
+    worker_egress_broker: WorkerEgressBrokerConfig | None,
 ) -> Toolkit:
     """Build one registered toolkit using the resolved routing inputs for this agent."""
     worker_target = build_worker_target_from_runtime_env(
@@ -463,6 +464,11 @@ def _build_registered_agent_tool(
             if worker_scope == "user_agent" and routing_agent_is_private
             else (frozenset() if worker_scope == "user_agent" else None)
         ),
+    )
+    worker_egress_env = (
+        worker_egress_broker.execution_env_for_worker_target(worker_target)
+        if worker_egress_broker is not None
+        else None
     )
 
     return get_tool_by_name(
@@ -544,7 +550,7 @@ def _load_agent_model_instance(
 
 
 @timed("system_prompt_assembly.agent_create.toolkit_build")
-def build_agent_toolkit(  # noqa: C901, PLR0911
+def build_agent_toolkit(  # noqa: C901, PLR0911, PLR0912
     tool_name: str,
     *,
     agent_name: str,
@@ -667,6 +673,16 @@ def build_agent_toolkit(  # noqa: C901, PLR0911
             tool_output_auto_save_threshold_bytes=config.defaults.tool_output_auto_save_threshold_bytes,
         )
 
+    if tool_name == "report_publishing":
+        from mindroom.custom_tools.report_publishing import ReportPublishingTools  # noqa: PLC0415
+
+        return _wrap_direct_agent_toolkit_for_output_files(
+            ReportPublishingTools(),
+            agent_runtime=agent_runtime,
+            runtime_paths=runtime_paths,
+            tool_output_auto_save_threshold_bytes=config.defaults.tool_output_auto_save_threshold_bytes,
+        )
+
     if tool_name == "dynamic_tools":
         from mindroom.custom_tools.dynamic_tools import DynamicToolsToolkit  # noqa: PLC0415
 
@@ -709,7 +725,7 @@ def build_agent_toolkit(  # noqa: C901, PLR0911
         agent_runtime.is_private,
         execution_identity,
         runtime_overrides,
-        worker_egress_broker.execution_env if worker_egress_broker is not None else None,
+        worker_egress_broker,
     )
 
 
@@ -733,7 +749,7 @@ def get_agent_toolkit_names(
     ]
 
 
-def _resolve_runtime_worker_tools(
+def resolve_runtime_worker_tools(
     agent_name: str,
     config: Config,
     runtime_paths: constants.RuntimePaths,
@@ -1231,7 +1247,7 @@ def create_agent(  # noqa: PLR0915, C901, PLR0912
             tool_name for tool_name in dynamic_tool_selection.loaded_tools if tool_name not in disabled_tool_names
         )
     )
-    worker_tools = _resolve_runtime_worker_tools(
+    worker_tools = resolve_runtime_worker_tools(
         agent_name,
         config,
         runtime_paths,
@@ -1542,5 +1558,6 @@ __all__ = [
     "get_agent_toolkit_names",
     "get_rooms_for_entity",
     "remove_run_by_event_id",
+    "resolve_runtime_worker_tools",
     "show_tool_calls_for_agent",
 ]

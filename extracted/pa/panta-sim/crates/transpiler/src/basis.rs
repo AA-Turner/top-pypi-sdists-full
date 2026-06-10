@@ -14,7 +14,7 @@
 //! XXPlusYY/XXMinusYY) 는 Python `unitary(M, q, decompose="cx")` (KAK 합성) 으로
 //! 안내하는 에러를 반환한다.
 
-use std::f64::consts::{FRAC_PI_2, FRAC_PI_4, PI};
+use std::f64::consts::FRAC_PI_2;
 
 use qsim_core::Gate;
 use qsim_simulator::{Circuit, Instruction};
@@ -236,9 +236,85 @@ pub fn is_cx_basis(circuit: &Circuit) -> bool {
     true
 }
 
-// `FRAC_PI_4` / `PI` 는 향후 추가 분해용 — 현재 미사용 경고 억제.
-#[allow(dead_code)]
-const _PI_GUARD: f64 = FRAC_PI_4 + PI;
+/// 회로를 **IBM basis (`rz` + `sx` + `x` + CX)** 로 변환한 새 회로를 반환한다.
+///
+/// 두 단계: (1) [`transpile_to_cx_basis`] 로 모든 2/3q 게이트를 CX + 임의 1q 로
+/// 풀고, (2) 모든 1-큐비트 게이트를 `{rz, sx, x}` 로 rebase 한다.  IBM Eagle/
+/// Heron (`rz`/`sx`/`x`/`cx`(or `ecr`)) 등 실제 초전도 하드웨어의 표준 basis.
+///
+/// 1q rebase 는 ZYZ 분해 `U = e^{iα} Rz(β) Ry(γ) Rz(δ)` 후 항등식
+/// `Ry(γ) = SX† Rz(γ) SX = X·SX·Rz(γ)·SX` (∵ `SX³ = SX†`, `X`·`SX` 가환) 로
+/// `Ry` 를 제거한다 → `Rz(β)·X·SX·Rz(γ)·SX·Rz(δ)` (전역 위상 `α` 보존).  대각
+/// (γ≈0) 게이트는 `Rz(β+δ)` 하나로 접는다.
+pub fn transpile_to_ibm_basis(circuit: &Circuit) -> Result<Circuit, TranspileError> {
+    let cx = transpile_to_cx_basis(circuit)?;
+    Ok(rebase_1q_to_zsx(&cx))
+}
+
+/// 모든 1-큐비트 게이트를 `{rz, sx, x}` 로 rebase 한 새 회로 (2q+ / 비게이트
+/// 명령은 그대로 보존).
+fn rebase_1q_to_zsx(circuit: &Circuit) -> Circuit {
+    let mut out = Circuit::new(circuit.num_qubits());
+    out.set_global_phase(circuit.global_phase());
+    for inst in circuit.instructions() {
+        match inst {
+            Instruction::ApplyGate { gate, targets } if targets.len() == 1 => {
+                rebase_1q_zsx(&mut out, &gate_matrix2(gate), targets[0]);
+            }
+            Instruction::ApplyUnitary { matrix, targets } if targets.len() == 1 => {
+                let u = [[matrix[0], matrix[1]], [matrix[2], matrix[3]]];
+                rebase_1q_zsx(&mut out, &u, targets[0]);
+            }
+            other => out.instructions_mut().push(other.clone()),
+        }
+    }
+    out
+}
+
+/// 게이트의 2×2 행렬 (ZYZ 분해 입력용).
+fn gate_matrix2(gate: &Gate) -> crate::decompose::Matrix2 {
+    let m = gate.matrix_2x2::<f64>();
+    [[m[0][0], m[0][1]], [m[1][0], m[1][1]]]
+}
+
+/// 1-큐비트 unitary `u` 를 `{rz, sx, x}` 로 분해해 `out` 의 qubit `q` 에 emit.
+fn rebase_1q_zsx(out: &mut Circuit, u: &crate::decompose::Matrix2, q: usize) {
+    let zyz = crate::decompose::decompose_unitary_zyz(u);
+    out.add_global_phase(zyz.alpha);
+    let push_rz = |out: &mut Circuit, ang: f64, q: usize| {
+        if ang.abs() > 1e-12 {
+            out.rz(ang, q);
+        }
+    };
+    if zyz.gamma.abs() < 1e-12 {
+        // Ry(0) = I → 대각, Rz(β+δ) 하나로 접는다.
+        push_rz(out, zyz.beta + zyz.delta, q);
+    } else {
+        // Rz(β)·X·SX·Rz(γ)·SX·Rz(δ) — 적용 순서 (역순): δ, SX, γ, SX, X, β.
+        push_rz(out, zyz.delta, q);
+        out.sx(q);
+        out.rz(zyz.gamma, q);
+        out.sx(q);
+        out.x(q);
+        push_rz(out, zyz.beta, q);
+    }
+}
+
+/// 회로가 IBM basis (`rz`/`sx`/`x`/`id` 1q + CX 2q) 인지 검사한다.
+pub fn is_zsx_basis(circuit: &Circuit) -> bool {
+    for inst in circuit.instructions() {
+        if let Instruction::ApplyGate { gate, targets } = inst {
+            let ok = match targets.len() {
+                1 => matches!(gate, Gate::Rz(_) | Gate::Sx | Gate::X | Gate::Id),
+                _ => matches!(gate, Gate::CNOT),
+            };
+            if !ok {
+                return false;
+            }
+        }
+    }
+    true
+}
 
 #[cfg(test)]
 mod tests {
@@ -338,5 +414,83 @@ mod tests {
         let mut c = Circuit::new(2);
         c.ecr(0, 1);
         assert!(transpile_to_cx_basis(&c).is_err());
+    }
+
+    // ---- IBM basis (rz/sx/x + CX) ----
+
+    /// 원본 게이트를 비자명 입력 상태에서 IBM basis transpile 과 비교한다.
+    fn check_ibm(n: usize, build: impl Fn(&mut Circuit)) {
+        let mut orig = Circuit::new(n);
+        for q in 0..n {
+            orig.h(q);
+            orig.t(q);
+        }
+        build(&mut orig);
+        let trans = transpile_to_ibm_basis(&orig).expect("ibm transpile");
+        assert!(is_zsx_basis(&trans), "결과가 rz/sx/x + CX basis 가 아님");
+        assert!(
+            equiv_up_to_phase(&statevector(&orig), &statevector(&trans)),
+            "statevector 불일치"
+        );
+    }
+
+    #[test]
+    fn ibm_single_qubit_gates() {
+        // 모든 1q 게이트가 rz/sx/x 로 정확히 rebase 되는지.
+        for g in [
+            |c: &mut Circuit| c.h(0),
+            |c: &mut Circuit| c.x(0),
+            |c: &mut Circuit| c.y(0),
+            |c: &mut Circuit| c.z(0),
+            |c: &mut Circuit| c.s(0),
+            |c: &mut Circuit| c.sdg(0),
+            |c: &mut Circuit| c.t(0),
+            |c: &mut Circuit| c.tdg(0),
+            |c: &mut Circuit| c.sx(0),
+            |c: &mut Circuit| c.sxdg(0),
+            |c: &mut Circuit| c.rx(0.7, 0),
+            |c: &mut Circuit| c.ry(-1.3, 0),
+            |c: &mut Circuit| c.rz(2.1, 0),
+        ] {
+            check_ibm(1, g);
+        }
+    }
+
+    #[test]
+    fn ibm_two_and_three_qubit() {
+        check_ibm(2, |c| c.cz(0, 1));
+        check_ibm(2, |c| c.crx(0.9, 0, 1));
+        check_ibm(2, |c| c.rxx(0.6, 0, 1));
+        check_ibm(2, |c| c.iswap(0, 1));
+        check_ibm(3, |c| c.ccx(0, 1, 2));
+    }
+
+    #[test]
+    fn ibm_full_circuit_mixed() {
+        check_ibm(3, |c| {
+            c.h(0);
+            c.cz(0, 1);
+            c.ry(0.5, 2);
+            c.cry(0.3, 1, 2);
+            c.rzz(0.4, 0, 2);
+            c.swap(0, 2);
+            c.ccx(0, 1, 2);
+            c.t(0);
+        });
+    }
+
+    #[test]
+    fn ibm_diagonal_folds_to_single_rz() {
+        // Z (대각) → rz 하나 (sx/x 없음).
+        let mut c = Circuit::new(1);
+        c.z(0);
+        let t = transpile_to_ibm_basis(&c).unwrap();
+        let n_sx = t
+            .instructions()
+            .iter()
+            .filter(|i| matches!(i, Instruction::ApplyGate { gate: Gate::Sx, .. }))
+            .count();
+        assert_eq!(n_sx, 0, "대각 게이트는 SX 를 emit 하면 안 됨");
+        assert!(is_zsx_basis(&t));
     }
 }

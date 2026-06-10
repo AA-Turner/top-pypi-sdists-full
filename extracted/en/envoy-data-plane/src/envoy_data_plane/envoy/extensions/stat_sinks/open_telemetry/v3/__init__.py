@@ -6,6 +6,7 @@
 __all__ = (
     "SinkConfig",
     "SinkConfigConversionAction",
+    "SinkConfigDropAction",
 )
 
 import typing
@@ -28,7 +29,7 @@ class SinkConfig(betterproto2.Message):
     Stats configuration proto schema for ``envoy.stat_sinks.open_telemetry`` sink.
     [#extension: envoy.stat_sinks.open_telemetry]
 
-    [#next-free-field: 9]
+    [#next-free-field: 10]
 
     Oneofs:
         - protocol_specifier:
@@ -39,6 +40,21 @@ class SinkConfig(betterproto2.Message):
     )
     """
     The upstream gRPC cluster that implements the OTLP/gRPC collector.
+    """
+
+    http_service: "____config__core__v3__.HttpService | None" = betterproto2.field(
+        9, betterproto2.TYPE_MESSAGE, optional=True, group="protocol_specifier"
+    )
+    """
+    The upstream HTTP cluster that implements the OTLP/HTTP collector.
+    See `OTLP/HTTP <https://opentelemetry.io/docs/specs/otlp/#otlphttp>`_.
+
+    .. note::
+
+      The ``request_headers_to_add`` property in the OTLP HTTP exporter service
+      does not support the :ref:`format specifier <config_access_log_format>`.
+      The values configured are added as HTTP headers on the OTLP export request
+      without any formatting applied.
     """
 
     resource_detectors: "list[____config__core__v3__.TypedExtensionConfig]" = (
@@ -99,8 +115,11 @@ class SinkConfig(betterproto2.Message):
     )
     """
     The custom conversion from a stat to a metric. Currently, the only supported input is
-    ``envoy.extensions.matching.common_inputs.stats.v3.StatFullNameMatchInput`` and the only support action is
-    ``envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.ConversionAction``.
+    ``envoy.extensions.matching.common_inputs.stats.v3.StatFullNameMatchInput``.
+    The supported actions are
+    - ``envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.DropAction``.
+    - ``envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.ConversionAction``.
+    If stats are not matched, they will be directly converted to OTLP metrics as usual.
     """
 
     @model_validator(mode="after")
@@ -141,6 +160,22 @@ default_message_pool.register_message(
     "envoy.extensions.stat_sinks.open_telemetry.v3",
     "SinkConfig.ConversionAction",
     SinkConfigConversionAction,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class SinkConfigDropAction(betterproto2.Message):
+    """
+    DropAction is an action that, when matched, will prevent the stat from being converted to an OTLP metric and flushed.
+    """
+
+    pass
+
+
+default_message_pool.register_message(
+    "envoy.extensions.stat_sinks.open_telemetry.v3",
+    "SinkConfig.DropAction",
+    SinkConfigDropAction,
 )
 
 

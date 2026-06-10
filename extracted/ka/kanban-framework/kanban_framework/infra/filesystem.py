@@ -22,63 +22,18 @@ class Filesystem:
     def find_skill_dir() -> Path:
         """Find the kanban skill directory (SKILL.md, agents, rules, etc).
 
-        Works both pip-installed and from source.
-        Resolution order (importlib first — most reliable on Windows):
-        1. importlib.resources (works for pip/wheel/venv on all platforms)
-        2. kanban_framework/_skill/ (bundled via __file__)
-        3. parent of kanban_framework/ (source checkout)
-        4. Best available: bundled dir with most content, or parent
+        Uses importlib.resources — the single reliable cross-platform mechanism.
+        Raises FileNotFoundError with a clear message if the skill files
+        are missing from the installed package.
         """
-        import logging
-        _log = logging.getLogger("kanban")
-
-        pkg_dir = Path(__file__).resolve().parent.parent  # kanban_framework/
-        candidates: list[tuple[Path, str]] = []
-
-        # 1. importlib.resources — most reliable across platforms (Windows pip install)
-        try:
-            from importlib import resources
-            res_path = Path(str(resources.files("kanban_framework") / "_skill"))
-            _log.info("find_skill_dir: checking importlib=%s (SKILL.md=%s)",
-                      res_path, (res_path / "SKILL.md").is_file())
-            if (res_path / "SKILL.md").is_file():
-                return res_path
-            candidates.append((res_path, "importlib"))
-        except Exception as exc:
-            _log.warning("find_skill_dir: importlib.resources failed: %s", exc)
-
-        # 2. Pip-installed: skill files bundled in kanban_framework/_skill/
-        bundled = pkg_dir / "_skill"
-        _log.info("find_skill_dir: checking bundled=%s (SKILL.md=%s)",
-                  bundled, (bundled / "SKILL.md").is_file())
-        if (bundled / "SKILL.md").is_file():
-            return bundled
-        candidates.append((bundled, "bundled"))
-
-        # 3. Source install: walk up from kanban_framework/ to kanban skill dir
-        skill_dir = pkg_dir.parent  # .claude/skills/kanban/
-        _log.info("find_skill_dir: checking parent=%s (SKILL.md=%s)",
-                  skill_dir, (skill_dir / "SKILL.md").is_file())
-        if (skill_dir / "SKILL.md").is_file():
-            return skill_dir
-        candidates.append((skill_dir, "parent"))
-
-        # 4. Best available: pick the candidate with most subdirectories
-        best = bundled
-        best_score = -1
-        for path, label in candidates:
-            if not path.is_dir():
-                _log.info("find_skill_dir: candidate '%s' = %s (not a dir)", label, path)
-                continue
-            score = sum(1 for c in path.iterdir() if c.is_dir() or c.is_file())
-            _log.warning("find_skill_dir: candidate '%s' = %s (score=%d, has_SKILL.md=%s)",
-                         label, path, score, (path / "SKILL.md").is_file())
-            if score > best_score:
-                best_score = score
-                best = path
-
-        _log.warning("find_skill_dir: no candidate has SKILL.md, returning best=%s", best)
-        return best
+        from importlib import resources
+        skill_path = Path(str(resources.files("kanban_framework") / "_skill"))
+        if not (skill_path / "SKILL.md").is_file():
+            raise FileNotFoundError(
+                f"Kanban skill 文件未找到: {skill_path}\n"
+                "请重新安装: pip install --force-reinstall kanban-framework"
+            )
+        return skill_path
 
     @staticmethod
     def find_project_root() -> Path:

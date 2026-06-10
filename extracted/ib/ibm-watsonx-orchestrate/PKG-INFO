@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibm-watsonx-orchestrate
-Version: 2.10.0
+Version: 2.10.1
 Summary: IBM watsonx.orchestrate ADK
 Author-email: IBM <support@ibm.com>
 License: MIT License
@@ -12,10 +12,10 @@ Requires-Dist: click<8.2.0,>=8.0.0
 Requires-Dist: docstring-parser<1.0,>=0.16
 Requires-Dist: httpx<1.0.0,>=0.28.1
 Requires-Dist: ibm-cloud-sdk-core>=3.24.2
-Requires-Dist: ibm-watsonx-orchestrate-clients==2.10.0
-Requires-Dist: ibm-watsonx-orchestrate-core==2.10.0
+Requires-Dist: ibm-watsonx-orchestrate-clients==2.10.1
+Requires-Dist: ibm-watsonx-orchestrate-core==2.10.1
 Requires-Dist: jsonref==1.1.0
-Requires-Dist: langchain-core~=1.2.4
+Requires-Dist: langchain-core~=1.4.0
 Requires-Dist: packaging>=24.2
 Requires-Dist: pydantic<3.0.0,>=2.10.3
 Requires-Dist: pyjwt<3.0.0,>=2.10.1
@@ -29,7 +29,7 @@ Requires-Dist: typer<1.0.0,>=0.15.1
 Requires-Dist: urllib3>=2.7.0
 Requires-Dist: websocket-client<2.0.0,>=1.8.0
 Provides-Extra: agentops
-Requires-Dist: ibm-watsonx-orchestrate-evaluation-framework==1.4.9; extra == 'agentops'
+Requires-Dist: ibm-watsonx-orchestrate-evaluation-framework==1.4.13; extra == 'agentops'
 Provides-Extra: dev
 Requires-Dist: black~=22.3.0; extra == 'dev'
 Requires-Dist: coverage[toml]>=6.5; extra == 'dev'

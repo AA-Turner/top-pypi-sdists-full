@@ -22,7 +22,8 @@ betterproto2.check_compiler_version(_COMPILER_VERSION)
 class QuicDownstreamTransport(betterproto2.Message):
     """
     [#protodoc-title: quic transport]
-    [#comment:#extension: envoy.transport_sockets.quic]
+    [#extension: envoy.transport_sockets.quic]
+    The QUIC configurations below provide the transport socket configuration for downstream/upstream QUIC.
 
     Configuration for Downstream QUIC transport socket. This provides Google's implementation of Google QUIC and IETF QUIC to Envoy.
     """

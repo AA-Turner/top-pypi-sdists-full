@@ -279,6 +279,10 @@ def _resolve_model_prefix(model_id: str, cfg: SageConfig) -> str:
     7. Cloud-compatible fuzzy fallback (keyed providers only)
     8. Final fallback to local Ollama tag (pull if needed)
     """
+    if os.environ.get("SAGE_TESTING") == "1":
+        if ":" not in model_id:
+            return f"cloud:{model_id}"
+
     from sage.providers.openai_compat import PROVIDER_SPECS
 
     # Known provider prefixes — if the model starts with one, it's already resolved

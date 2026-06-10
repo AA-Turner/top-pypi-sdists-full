@@ -12,13 +12,9 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from bty.web._sysconfig import (
     DaemonStatus,
     Interface,
-    SysConfigError,
-    control_tftp,
     list_interfaces,
     tftp_status,
 )
@@ -104,7 +100,7 @@ def test_list_interfaces_tolerates_missing_ip_tool(tmp_path: Path) -> None:
     assert out[0].ipv4 is None
 
 
-# ---------- DaemonStatus / tftp_status / control_tftp ---------------------
+# ---------- DaemonStatus / tftp_status ----------------------------------
 
 
 def test_daemon_status_is_active_true_only_for_active() -> None:
@@ -149,53 +145,6 @@ def test_tftp_status_returns_unknown_on_timeout() -> None:
         assert tftp_status().state == "unknown"
 
 
-def test_control_tftp_shells_helper_via_sudo() -> None:
-    completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
-    with patch("bty.web._sysconfig.subprocess.run", return_value=completed) as mock_run:
-        control_tftp("restart")
-    cmd = mock_run.call_args[0][0]
-    assert cmd[:2] == ["sudo", "-n"]
-    assert cmd[2].endswith("/bty-web-tftp")
-    assert cmd[3:] == ["restart"]
-
-
-def test_control_tftp_rejects_unknown_action() -> None:
-    with pytest.raises(SysConfigError, match="unknown action"):
-        control_tftp("enable")  # not in allowlist
-
-
-def test_control_tftp_helper_failure_wraps_as_sysconfig_error() -> None:
-    err = subprocess.CalledProcessError(
-        returncode=1, cmd=["sudo"], stderr="Failed to restart dnsmasq.service\n"
-    )
-    with (
-        patch("bty.web._sysconfig.subprocess.run", side_effect=err),
-        pytest.raises(SysConfigError, match="exited 1"),
-    ):
-        control_tftp("restart")
-
-
-def test_control_tftp_helper_timeout_wraps_as_sysconfig_error() -> None:
-    """If systemctl wedges and the 30s timeout fires, the user
-    should get a SysConfigError flash, not a raw subprocess
-    exception bubbling to the UI."""
-    with (
-        patch(
-            "bty.web._sysconfig.subprocess.run",
-            side_effect=subprocess.TimeoutExpired(cmd=["sudo"], timeout=30),
-        ),
-        pytest.raises(SysConfigError, match="tftp helper failed"),
-    ):
-        control_tftp("restart")
-
-
-def test_control_tftp_empty_action_gets_friendly_error() -> None:
-    """Form field arriving as an empty string surfaces a clean
-    error rather than the generic 'unknown action: \\'\\'' path."""
-    with pytest.raises(SysConfigError, match="no action specified"):
-        control_tftp("")
-
-
 def test_tftp_status_masked_state_passes_through() -> None:
     """``systemctl is-active`` returns 'inactive' for masked units
     (and 'masked' on some systemd versions). Either way the
@@ -205,41 +154,6 @@ def test_tftp_status_masked_state_passes_through() -> None:
         status = tftp_status()
     assert status.state == "masked"
     assert status.is_active is False
-
-
-def test_tftp_controllable_requires_helper_and_sudo() -> None:
-    """The UI hides Start/Stop/Restart buttons when sudo or the
-    helper isn't installed (Docker container case). On a clean
-    test host neither path exists; on the appliance both do.
-
-    Stronger than just "returns a bool": exercises each of the
-    three branches by monkey-patching ``Path.is_file`` so we
-    don't depend on the test host's actual filesystem.
-    """
-    from bty.web._sysconfig import tftp_controllable
-
-    # Always-True: both helper + sudo present.
-    with patch.object(Path, "is_file", lambda self: True):
-        assert tftp_controllable() is True
-
-    # Helper missing: sudo present but bty-web-tftp absent.
-    def _no_helper(self: Path) -> bool:
-        return not str(self).endswith("bty-web-tftp")
-
-    with patch.object(Path, "is_file", _no_helper):
-        assert tftp_controllable() is False
-
-    # sudo missing: helper present, neither /usr/bin/sudo nor
-    # /bin/sudo on the host.
-    def _no_sudo(self: Path) -> bool:
-        return "sudo" not in str(self)
-
-    with patch.object(Path, "is_file", _no_sudo):
-        assert tftp_controllable() is False
-
-    # Both missing.
-    with patch.object(Path, "is_file", lambda self: False):
-        assert tftp_controllable() is False
 
 
 def test_tftp_status_falls_back_to_pgrep_when_systemctl_missing() -> None:
@@ -258,6 +172,140 @@ def test_tftp_status_falls_back_to_pgrep_when_systemctl_missing() -> None:
     with patch("bty.web._sysconfig.subprocess.run", side_effect=fake_run):
         status = tftp_status()
     assert status.state == "active"
+
+
+# ---------- tftp_probe ----------------------------------------------------
+
+
+def test_tftp_probe_reports_file_present_on_data_reply() -> None:
+    """A DATA opcode (3) means the server has the file -- both
+    legs of the probe should report success."""
+    import struct as _struct
+
+    from bty.web._sysconfig import tftp_probe
+
+    fake_data = _struct.pack("!HH", 3, 1) + b"x" * 510  # DATA, block 1, payload
+
+    class FakeSock:
+        def __init__(self) -> None:
+            self.sent: list[tuple] = []
+
+        def settimeout(self, _t: float) -> None:
+            return None
+
+        def sendto(self, pkt: bytes, addr: tuple) -> None:
+            self.sent.append((pkt, addr))
+
+        def recvfrom(self, _n: int) -> tuple[bytes, tuple]:
+            return fake_data, ("127.0.0.1", 33000)
+
+        def close(self) -> None:
+            return None
+
+    fake = FakeSock()
+    with patch("bty.web._sysconfig.socket.socket", return_value=fake):
+        result = tftp_probe(host="127.0.0.1")
+    assert result.reachable is True
+    assert result.file_present is True
+    assert result.ok is True
+    # RRQ packet structure: opcode 1, filename, NUL, "octet", NUL.
+    sent_pkt = fake.sent[0][0]
+    assert sent_pkt.startswith(b"\x00\x01")
+    assert b"ipxe.efi\x00octet\x00" in sent_pkt
+
+
+def test_tftp_probe_reports_missing_on_error_reply() -> None:
+    """An ERROR opcode (5) means the server is up but the file
+    isn't there -- reachable yes, file_present no."""
+    import struct as _struct
+
+    from bty.web._sysconfig import tftp_probe
+
+    fake_data = _struct.pack("!HH", 5, 1) + b"File not found\x00"
+
+    class FakeSock:
+        def settimeout(self, _t: float) -> None:
+            return None
+
+        def sendto(self, _pkt: bytes, _addr: tuple) -> None:
+            return None
+
+        def recvfrom(self, _n: int) -> tuple[bytes, tuple]:
+            return fake_data, ("127.0.0.1", 33000)
+
+        def close(self) -> None:
+            return None
+
+    with patch("bty.web._sysconfig.socket.socket", return_value=FakeSock()):
+        result = tftp_probe(host="127.0.0.1")
+    assert result.reachable is True
+    assert result.file_present is False
+    assert result.ok is False
+    assert "File not found" in result.detail
+
+
+def test_tftp_probe_timeout_means_unreachable() -> None:
+    """No reply within the timeout -> reachable=False, file_present
+    irrelevant. The detail string includes the host:port + timeout
+    so an operator can see exactly what bty-web tried."""
+
+    from bty.web._sysconfig import tftp_probe
+
+    class FakeSock:
+        def settimeout(self, _t: float) -> None:
+            return None
+
+        def sendto(self, _pkt: bytes, _addr: tuple) -> None:
+            return None
+
+        def recvfrom(self, _n: int) -> tuple[bytes, tuple]:
+            raise TimeoutError
+
+        def close(self) -> None:
+            return None
+
+    with patch("bty.web._sysconfig.socket.socket", return_value=FakeSock()):
+        result = tftp_probe(host="127.0.0.1", timeout_s=0.05)
+    assert result.reachable is False
+    assert result.file_present is False
+    assert "127.0.0.1:69" in result.detail
+
+
+def test_tftp_probe_oserror_is_unreachable_not_500() -> None:
+    """Connection refused / no-route surfaces as reachable=False
+    with the exception class + message in detail -- the UI never
+    sees a 500 from a bad probe target."""
+    from bty.web._sysconfig import tftp_probe
+
+    class FakeSock:
+        def settimeout(self, _t: float) -> None:
+            return None
+
+        def sendto(self, _pkt: bytes, _addr: tuple) -> None:
+            raise ConnectionRefusedError("nope")
+
+        def recvfrom(self, _n: int) -> tuple[bytes, tuple]:
+            raise AssertionError("should not be reached")
+
+        def close(self) -> None:
+            return None
+
+    with patch("bty.web._sysconfig.socket.socket", return_value=FakeSock()):
+        result = tftp_probe(host="127.0.0.1")
+    assert result.reachable is False
+    assert "ConnectionRefusedError" in result.detail
+
+
+def test_default_tftp_probe_host_respects_env(monkeypatch: object) -> None:
+    """``$BTY_TFTP_PROBE_HOST`` overrides the localhost default
+    so a deploy with TFTP on a separate machine still probes the
+    right place."""
+    from bty.web._sysconfig import default_tftp_probe_host
+
+    monkeypatch.setenv("BTY_TFTP_PROBE_HOST", "10.20.30.40")  # type: ignore[attr-defined]
+    assert default_tftp_probe_host() == "10.20.30.40"
+    monkeypatch.delenv("BTY_TFTP_PROBE_HOST")  # type: ignore[attr-defined]
+    assert default_tftp_probe_host() == "127.0.0.1"
 
 
 def test_tftp_status_pgrep_missing_returns_inactive() -> None:

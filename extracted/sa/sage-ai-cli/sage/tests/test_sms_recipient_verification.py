@@ -89,7 +89,7 @@ def test_send_functions_permit_unverified(monkeypatch):
     monkeypatch.setattr("sage.core.sms_bridge._load_sage_token", lambda: ("fake_token", "http://fake"))
     
     # Mock chat.db check to return True
-    monkeypatch.setattr("sage.core.sms_bridge._imessage_row_matches", lambda baseline, text: True)
+    monkeypatch.setattr("sage.core.sms_bridge._imessage_row_matches", lambda baseline, text, recipient=None: True)
     # Mock osascript run to return success
     class MockResult:
         returncode = 0

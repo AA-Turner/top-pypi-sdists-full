@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import builtins
 import contextlib
 import cProfile
 import datetime
@@ -36,7 +37,6 @@ from .diagnose import (
     config_warning_messages,
     diagnose_pyodps_errors,
     log_dev_project_warning,
-    log_python2_deprecation_warning,
     log_reload_usage_warning,
     log_replaced_vars,
 )
@@ -52,6 +52,8 @@ from .utils import (
 
 logger = logging.getLogger("odps.pyodpswrapper")
 
+_linecache_lock = threading.RLock()
+
 
 class GlobalCopyDict(dict):
     """
@@ -60,10 +62,9 @@ class GlobalCopyDict(dict):
     """
 
     def __init__(self, wrapped, **kw):
-        from odps.compat import builtins
-
         dict.__init__(self, **kw)
         self.update(wrapped)
+        self._lock = threading.RLock()  # Instance-level lock for thread-safety
         self._globals = globals()
         self._global_vars = set(globals().keys()) | set(dir(builtins))
         if not use_spawn_method():
@@ -95,66 +96,69 @@ class GlobalCopyDict(dict):
             pass
 
     def __setitem__(self, key, value):
-        self._patch_module(value)
-        dict.__setitem__(self, key, value)
-        if key not in self._global_vars:
-            self._globals[key] = value
-            if self._mp_main_mod is not None:
-                try:
-                    setattr(self._mp_main_mod, key, value)
-                except AttributeError:
-                    pass
-            self._new_keys.add(key)
-        elif key in self._globals and self._globals[key] is not value:
-            warnings.warn(
-                "Global variable %s you are about to set conflicts "
-                "with pyodpswrapper or builtin variables. "
-                "It might not be runnable with multiprocessing." % key
-            )
+        with self._lock:
+            self._patch_module(value)
+            dict.__setitem__(self, key, value)
+            if key not in self._global_vars:
+                self._globals[key] = value
+                if self._mp_main_mod is not None:
+                    try:
+                        setattr(self._mp_main_mod, key, value)
+                    except AttributeError:
+                        pass
+                self._new_keys.add(key)
+            elif key in self._globals and self._globals[key] is not value:
+                warnings.warn(
+                    f"Global variable {key} you are about to set conflicts "
+                    "with pyodpswrapper or builtin variables. "
+                    "It might not be runnable with multiprocessing."
+                )
 
     def __delitem__(self, key):
-        # remove in globals also to avoid refcount issue
-        dict.__delitem__(self, key)
-        if key in self._new_keys:
-            self._globals.pop(key, None)
-            if self._mp_main_mod is not None:
-                try:
-                    delattr(self._mp_main_mod, key)
-                except AttributeError:
-                    pass
+        with self._lock:
+            # remove in globals also to avoid refcount issue
+            dict.__delitem__(self, key)
+            if key in self._new_keys:
+                self._globals.pop(key, None)
+                if self._mp_main_mod is not None:
+                    try:
+                        delattr(self._mp_main_mod, key)
+                    except AttributeError:
+                        pass
 
     def check_changes(self, raw_locals):
-        var_names = []
-        raw_locals.pop("odps", None)
-        raw_locals.pop("__doc__", None)
-        for var_name in raw_locals:
-            if var_name in self:
-                raw_local_val = raw_locals[var_name]
-                actual_local_val = self[var_name]
-                if raw_local_val is not actual_local_val:
-                    if (
-                        isinstance(raw_local_val, types.ModuleType)
-                        and isinstance(actual_local_val, types.ModuleType)
-                        and raw_local_val.__file__ == actual_local_val.__file__
-                    ):
-                        continue
-                    var_names.append(var_name)
-        log_replaced_vars(var_names, logger)
+        with self._lock:
+            var_names = []
+            raw_locals.pop("odps", None)
+            raw_locals.pop("__doc__", None)
+            for var_name in raw_locals:
+                if var_name in self:
+                    raw_local_val = raw_locals[var_name]
+                    actual_local_val = self[var_name]
+                    if raw_local_val is not actual_local_val:
+                        if (
+                            isinstance(raw_local_val, types.ModuleType)
+                            and isinstance(actual_local_val, types.ModuleType)
+                            and raw_local_val.__file__ == actual_local_val.__file__
+                        ):
+                            continue
+                        var_names.append(var_name)
+            log_replaced_vars(var_names, logger)
 
     def erase_copied(self):
-        for k in self._new_keys:
-            self._globals.pop(k, None)
-            if self._mp_main_mod is not None:
-                try:
-                    delattr(self._mp_main_mod, k)
-                except AttributeError:
-                    pass
+        with self._lock:
+            for k in self._new_keys:
+                self._globals.pop(k, None)
+                if self._mp_main_mod is not None:
+                    try:
+                        delattr(self._mp_main_mod, k)
+                    except AttributeError:
+                        pass
 
 
 @contextlib.contextmanager
 def build_user_locals(odps, args):
     from odps import DataFrame, NullScalar, Scalar, options
-    from odps.compat import builtins
 
     if args.args is not None:
         args_dict = dict([a.split("=", 1) for a in args.args if "=" in a])
@@ -162,17 +166,14 @@ def build_user_locals(odps, args):
         args_dict = dict()
 
     # customize reload
-    if sys.version_info[0] < 3:
-        _old_reload = builtins.reload
-    else:
-        try:
-            import importlib
+    try:
+        import importlib
 
-            _old_reload = importlib.reload
-        except ImportError:
-            import imp
+        _old_reload = importlib.reload
+    except ImportError:
+        import imp
 
-            _old_reload = imp.reload
+        _old_reload = imp.reload
 
     def _custom_reload(mod):
         _stdout = sys.stdout
@@ -287,17 +288,18 @@ def enable_profiling(run_flags):
 
 
 def patch_linecache():
-    _old_checkcache = linecache.checkcache
+    with _linecache_lock:
+        _old_checkcache = linecache.checkcache
 
-    def _pyodps_checkcache(filename):
-        if filename == CODE_FILE_NAME:
-            return
-        else:
-            _old_checkcache(filename)
+        def _pyodps_checkcache(filename):
+            if filename == CODE_FILE_NAME:
+                return
+            else:
+                _old_checkcache(filename)
 
-    _pyodps_checkcache._pyodps_wrapped = True
-    if not getattr(linecache.checkcache, "_pyodps_wrapped", False):
-        linecache.checkcache = _pyodps_checkcache
+        _pyodps_checkcache._pyodps_wrapped = True
+        if not getattr(linecache.checkcache, "_pyodps_wrapped", False):
+            linecache.checkcache = _pyodps_checkcache
 
 
 def _set_maxframe_options():
@@ -326,12 +328,17 @@ def set_running_options(odps, args):
 
     cur_pid = os.getpid()
     instances = []
+    instances_lock = threading.RLock()
 
     def append_instance(instance_id):
-        instances.append(instance_id)
+        with instances_lock:
+            instances.append(instance_id)
 
     def kill_instances(*_):
-        for i in instances:
+        # Copy the list under lock to avoid modification during iteration
+        with instances_lock:
+            instances_copy = list(instances)
+        for i in instances_copy:
             try:
                 odps.stop_instance(i)
             except:
@@ -399,6 +406,8 @@ def set_running_options(odps, args):
         options.struct_as_ordered_dict = True
     with suspend_option_errors():
         options.map_as_ordered_dict = True
+    with suspend_option_errors():
+        options.legacy_cast_csv_result = True
 
     with suspend_option_errors():
         if not is_internal() and RUNNING_QUOTA_ENV in os.environ:
@@ -412,8 +421,6 @@ def set_running_options(odps, args):
 
 
 def run_code(odps, args, uid=None, conn=None):
-    from odps.compat import StringIO, six
-
     # limit_resource(args.cpu_timeout, args.mem or args.mem_limit)
     import_all_sub_modules("odps")
     run_flags = get_run_flags()
@@ -446,25 +453,26 @@ def run_code(odps, args, uid=None, conn=None):
         conn.recv()  # block until the signal to run received
 
     # replace sensitive environs
+    # Note: os.environ modification is process-wide state. This is intentional
+    # as we're sanitizing the environment for the current process.
     tailored_env = os.environ.copy()
     tailored_env.pop(ACCESS_KEY_ENV, None)
     tailored_env.pop(ACCESS_KEY_ENCRYPT, None)
     tailored_env.pop(PICKLE_ACCOUNT, None)
     os.environ = tailored_env
 
-    class Empty(object):
+    class Empty:
         pass
 
     sys.modules["resource"] = Empty
 
     set_running_options(odps, args)
 
-    log_python2_deprecation_warning(logger)
     log_dev_project_warning(odps.project, logger)
     log_reload_usage_warning(code, logger)
 
     try:
-        lines = StringIO(code).readlines()
+        lines = io.StringIO(code).readlines()
         if lines and not lines[-1].endswith("\n"):
             lines[-1] += "\n"
         linecache.cache[CODE_FILE_NAME] = (
@@ -483,13 +491,15 @@ def run_code(odps, args, uid=None, conn=None):
 
         try:
             if use_spawn_method():
+                # Note: multiprocessing.set_start_method is a global operation and not thread-safe.
+                # It should only be called during initialization or in single-threaded context.
                 # set start method as fork to make sure mp works for user code
                 multiprocessing.set_start_method("fork", force=True)
 
             with enable_profiling(run_flags), enable_dumper_thread(
                 run_flags
             ), build_user_locals(odps, args) as local:
-                six.exec_(compiled, local)
+                exec(compiled, local)
         finally:
             if use_spawn_method() and old_start_method:
                 multiprocessing.set_start_method(old_start_method, force=True)

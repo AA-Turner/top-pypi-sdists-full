@@ -29,7 +29,7 @@ class Router(betterproto2.Message):
     Router :ref:`configuration overview <config_http_filters_router>`.
     [#extension: envoy.filters.http.router]
 
-    [#next-free-field: 10]
+    [#next-free-field: 11]
     """
 
     dynamic_stats: "bool | None" = betterproto2.field(
@@ -142,6 +142,19 @@ class Router(betterproto2.Message):
     upstream HTTP filters will not trigger retries, and local errors sent by
     upstream HTTP filters will count as a final response if hedging is configured.
     [#extension-category: envoy.filters.http.upstream]
+    """
+
+    reject_connect_request_early_data: "bool | None" = betterproto2.field(
+        10,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ______google__protobuf__.BoolValue,
+        optional=True,
+    )
+    """
+    If set to true, Envoy will reject ``CONNECT`` requests that send data before
+    receiving a ``200`` response from the upstream. This early data behavior
+    is common for latency reduction but can cause issues with some upstreams.
+    Defaults to false to allow early data and be compatible with common behavior.
     """
 
     def __post_init__(self) -> None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: robotcode-plugin
-Version: 2.5.1
+Version: 2.6.0
 Summary: Some classes for RobotCode plugin management
 Project-URL: Donate, https://opencollective.com/robotcode
 Project-URL: Documentation, https://github.com/robotcodedev/robotcode#readme
@@ -27,6 +27,7 @@ Requires-Python: >=3.10
 Requires-Dist: click>=8.2.0
 Requires-Dist: colorama>=0.4.6
 Requires-Dist: pluggy>=1.0.0
+Requires-Dist: rich>=14.0.0
 Requires-Dist: tomli-w>=1.0.0
 Description-Content-Type: text/markdown
 

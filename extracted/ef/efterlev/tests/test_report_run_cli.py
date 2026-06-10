@@ -65,8 +65,9 @@ def test_pipeline_runs_init_scan_gap_document_poam_in_order(  # type: ignore[no-
     tmp_path: Path, monkeypatch
 ) -> None:
     """A fresh target with no .efterlev/ runs every default stage in
-    the documented order. v0.1.163 / #368 added `vdr` between `poam`
-    and `oscal poam`."""
+    the documented order. v0.1.163 / #368 added `vdr` after `poam`;
+    v0.1.223 removed the OSCAL stages from the default set (opt-in via
+    --with-oscal)."""
     calls: list[tuple[str, list[str]]] = []
     list(_stub_command_outcomes(monkeypatch, calls))  # consume the generator
 
@@ -81,8 +82,6 @@ def test_pipeline_runs_init_scan_gap_document_poam_in_order(  # type: ignore[no-
         "agent document",
         "poam",
         "vdr",
-        "oscal poam",
-        "oscal component-definition",
         "inspector",
     ]
 
@@ -110,8 +109,6 @@ def test_pipeline_skips_init_when_frmr_cache_exists(  # type: ignore[no-untyped-
         "agent document",
         "poam",
         "vdr",
-        "oscal poam",
-        "oscal component-definition",
         "inspector",
     ]
 
@@ -190,14 +187,16 @@ def test_skip_poam_flag_skips_poam_stage(  # type: ignore[no-untyped-def]
     assert "agent document" in stages
 
 
-def test_skip_oscal_flag_skips_both_oscal_stages(  # type: ignore[no-untyped-def]
+def test_oscal_off_by_default_at_v0_1_223(  # type: ignore[no-untyped-def]
     tmp_path: Path, monkeypatch
 ) -> None:
-    """v0.1.111 doc graduation: --skip-oscal opts out of both OSCAL stages."""
+    """v0.1.223: OSCAL is opt-in. FedRAMP 20x does not require OSCAL (the
+    ADS standard is format-agnostic; no 20x pilot used it), so emitting it
+    by default overclaimed its relevance to the ICP's submission path."""
     calls: list[tuple[str, list[str]]] = []
     list(_stub_command_outcomes(monkeypatch, calls))
 
-    result = runner.invoke(app, ["report", "run", "--target", str(tmp_path), "--skip-oscal"])
+    result = runner.invoke(app, ["report", "run", "--target", str(tmp_path)])
     assert result.exit_code == 0, result.output
     stages = [name for name, _ in calls]
     assert "oscal poam" not in stages
@@ -206,18 +205,35 @@ def test_skip_oscal_flag_skips_both_oscal_stages(  # type: ignore[no-untyped-def
     assert "poam" in stages
 
 
-def test_oscal_default_on_at_v0_1_111(  # type: ignore[no-untyped-def]
+def test_with_oscal_flag_opts_in_both_oscal_stages(  # type: ignore[no-untyped-def]
     tmp_path: Path, monkeypatch
 ) -> None:
-    """v0.1.111 doc graduation: OSCAL emit ships by default, no flag needed."""
+    """v0.1.223: --with-oscal re-enables both OSCAL stages (Rev5-ecosystem /
+    GRC interop path)."""
     calls: list[tuple[str, list[str]]] = []
     list(_stub_command_outcomes(monkeypatch, calls))
 
-    result = runner.invoke(app, ["report", "run", "--target", str(tmp_path)])
+    result = runner.invoke(app, ["report", "run", "--target", str(tmp_path), "--with-oscal"])
     assert result.exit_code == 0, result.output
     stages = [name for name, _ in calls]
     assert "oscal poam" in stages
     assert "oscal component-definition" in stages
+
+
+def test_skip_oscal_is_deprecated_noop(  # type: ignore[no-untyped-def]
+    tmp_path: Path, monkeypatch
+) -> None:
+    """v0.1.223: --skip-oscal still parses (no CLI break for existing
+    scripts) but is a warn-and-ignore no-op — OSCAL already defaults off."""
+    calls: list[tuple[str, list[str]]] = []
+    list(_stub_command_outcomes(monkeypatch, calls))
+
+    result = runner.invoke(app, ["report", "run", "--target", str(tmp_path), "--skip-oscal"])
+    assert result.exit_code == 0, result.output
+    stages = [name for name, _ in calls]
+    assert "oscal poam" not in stages
+    assert "oscal component-definition" not in stages
+    assert "deprecated" in result.output
 
 
 def test_skip_all_optional_stages(  # type: ignore[no-untyped-def]
@@ -241,7 +257,6 @@ def test_skip_all_optional_stages(  # type: ignore[no-untyped-def]
             "--skip-document",
             "--skip-poam",
             "--skip-vdr",
-            "--skip-oscal",
             "--skip-inspector",
         ],
     )
@@ -349,11 +364,11 @@ def test_pipeline_prints_stage_headers(  # type: ignore[no-untyped-def]
 
     result = runner.invoke(app, ["report", "run", "--target", str(tmp_path), "--skip-init"])
     assert result.exit_code == 0
-    # v0.1.168 / #374 added inspector → 9 stages without --skip-init
-    # (scan, inventory, agent gap, agent document, poam, vdr,
-    # oscal poam, oscal component-definition, inspector).
-    assert "[1/9] scan" in result.output
-    assert "[2/9] inventory" in result.output
+    # v0.1.223 dropped the 2 OSCAL stages from the default set → 7 stages
+    # without --skip-init (scan, inventory, agent gap, agent document,
+    # poam, vdr, inspector).
+    assert "[1/7] scan" in result.output
+    assert "[2/7] inventory" in result.output
     # Pipeline-complete marker on success.
     assert "Pipeline complete" in result.output
 
@@ -499,8 +514,12 @@ def test_pipeline_emits_inline_stage_timing(  # type: ignore[no-untyped-def]
     assert "✓ [agent gap] done in" in result.output
     assert "✓ [agent document] done in" in result.output
     assert "✓ [poam] done in" in result.output
-    assert "✓ [oscal poam] done in" in result.output
-    assert "✓ [oscal component-definition] done in" in result.output
+    # v0.1.223: OSCAL stages are opt-in; still timed when enabled.
+    result_oscal = runner.invoke(
+        app, ["report", "run", "--target", str(tmp_path), "--skip-init", "--with-oscal"]
+    )
+    assert "✓ [oscal poam] done in" in result_oscal.output
+    assert "✓ [oscal component-definition] done in" in result_oscal.output
 
 
 def test_pipeline_prints_timing_summary_table(  # type: ignore[no-untyped-def]
@@ -524,8 +543,6 @@ def test_pipeline_prints_timing_summary_table(  # type: ignore[no-untyped-def]
         "agent gap",
         "agent document",
         "poam",
-        "oscal poam",
-        "oscal component-definition",
         "total",
     ):
         assert stage in timing_block, f"timing summary missing {stage!r}"
@@ -617,8 +634,6 @@ def test_pipeline_skips_vdr_with_skip_vdr_flag(  # type: ignore[no-untyped-def]
     assert "vdr" not in stages, f"--skip-vdr should remove the vdr stage; got {stages}"
     # POA&M still runs (the program-current artifact) when VDR is skipped.
     assert "poam" in stages
-    # OSCAL downstream of VDR still runs.
-    assert "oscal poam" in stages
 
 
 def test_pipeline_vdr_runs_after_poam_before_oscal(  # type: ignore[no-untyped-def]
@@ -627,11 +642,14 @@ def test_pipeline_vdr_runs_after_poam_before_oscal(  # type: ignore[no-untyped-d
     """v0.1.163 / #368: VDR sits between POA&M and OSCAL in the
     pipeline so a reader scanning artifacts sees the program-current
     POA&M first, then the ahead-of-RFC-0012 VDR, then the OSCAL
-    machine-readable views."""
+    machine-readable views. v0.1.223: OSCAL is opt-in, so the ordering
+    assertion opts in via --with-oscal."""
     calls: list[tuple[str, list[str]]] = []
     list(_stub_command_outcomes(monkeypatch, calls))
 
-    result = runner.invoke(app, ["report", "run", "--target", str(tmp_path), "--skip-init"])
+    result = runner.invoke(
+        app, ["report", "run", "--target", str(tmp_path), "--skip-init", "--with-oscal"]
+    )
     assert result.exit_code == 0
     stages = [name for name, _ in calls]
     poam_idx = stages.index("poam")
@@ -660,7 +678,6 @@ def test_pipeline_skip_combinations_compose(  # type: ignore[no-untyped-def]
             "--skip-inventory",
             "--skip-poam",
             "--skip-vdr",
-            "--skip-oscal",
             "--skip-inspector",
         ],
     )

@@ -14,7 +14,6 @@
 
 """Restful client enhanced by URL building and request signing facilities.
 """
-from __future__ import absolute_import
 
 import json
 import logging
@@ -23,6 +22,7 @@ import platform
 import re
 import threading
 from string import Template
+from urllib.parse import urlparse
 
 import requests
 
@@ -36,7 +36,6 @@ except ImportError:
     requests_unixsocket = None
 
 from . import __version__, errors, utils
-from .compat import six, urlparse
 from .config import options
 from .utils import clear_survey_calls, get_package_version, get_survey_calls
 
@@ -63,6 +62,7 @@ _RETRY_METHODS = ("GET", "HEAD", "DELETE")
 _RETRY_STATUS_FORCELIST = [502, 503, 504]
 _RETRY_BACKOFF_MAX = 120
 
+_ua_lock = threading.RLock()
 _default_user_agent = None
 
 _v4_sign_fallback_msgs = [
@@ -76,57 +76,62 @@ def default_user_agent():
     if _default_user_agent is not None:
         return _default_user_agent
 
-    py_implementation = platform.python_implementation()
-    py_version = platform.python_version()
-    try:
-        py_system = platform.system()
-        py_release = platform.release()
-    except IOError:
-        py_system = "Unknown"
-        py_release = "Unknown"
+    with _ua_lock:
+        if _default_user_agent is not None:
+            return _default_user_agent
 
-    ua_template = Template(
-        options.user_agent_pattern
-        or os.getenv("PYODPS_USER_AGENT_PATTERN")
-        or "$pyodps_version $mars_version $maxframe_version $python_version $os_version"
-    )
-    substitutes = dict(
-        pyodps_version="%s/%s" % ("pyodps", __version__),
-        python_version="%s/%s" % (py_implementation, py_version),
-        os_version="%s/%s" % (py_system, py_release),
-        mars_version="",
-        maxframe_version="",
-    )
+        py_implementation = platform.python_implementation()
+        py_version = platform.python_version()
+        try:
+            py_system = platform.system()
+            py_release = platform.release()
+        except IOError:
+            py_system = "Unknown"
+            py_release = "Unknown"
 
-    try:
-        from mars import __version__ as mars_version
-    except:
-        mars_version = None
-    if mars_version:
-        substitutes["mars_version"] = "%s/%s" % ("mars", mars_version)
+        ua_template = Template(
+            options.user_agent_pattern
+            or os.getenv("PYODPS_USER_AGENT_PATTERN")
+            or "$pyodps_version $mars_version $maxframe_version $python_version $os_version"
+        )
+        substitutes = dict(
+            pyodps_version=f"pyodps/{__version__}",
+            python_version=f"{py_implementation}/{py_version}",
+            os_version=f"{py_system}/{py_release}",
+            mars_version="",
+            maxframe_version="",
+        )
 
-    try:
-        maxframe_version = get_package_version("maxframe")
-    except:
-        maxframe_version = None
-    if maxframe_version:
-        substitutes["maxframe_version"] = "%s/%s" % ("maxframe", maxframe_version)
+        try:
+            from mars import __version__ as mars_version
+        except:
+            mars_version = None
+        if mars_version:
+            substitutes["mars_version"] = f"mars/{mars_version}"
 
-    _default_user_agent = ua_template.safe_substitute(**substitutes)
-    _default_user_agent = re.sub(" +", " ", _default_user_agent).strip()
+        try:
+            maxframe_version = get_package_version("maxframe")
+        except:
+            maxframe_version = None
+        if maxframe_version:
+            substitutes["maxframe_version"] = f"maxframe/{maxframe_version}"
 
-    try:
-        from .internal.rest import get_internal_user_agent_suffix
+        _default_user_agent = ua_template.safe_substitute(**substitutes)
+        _default_user_agent = re.sub(" +", " ", _default_user_agent).strip()
 
-        _default_user_agent += " " + get_internal_user_agent_suffix()
-    except:
-        pass
-    return _default_user_agent
+        try:
+            from .internal.rest import get_internal_user_agent_suffix
+
+            _default_user_agent += " " + get_internal_user_agent_suffix()
+        except:
+            pass
+        return _default_user_agent
 
 
-class RestClient(object):
+class RestClient:
     _session_local = threading.local()
     _endpoints_without_v4_sign = set()
+    _endpoint_sign_lock = threading.RLock()
 
     def __init__(
         self,
@@ -151,7 +156,7 @@ class RestClient(object):
         self._proxy = kwargs.get("proxy")
         self._app_account = kwargs.get("app_account")
         self._tag = kwargs.get("tag")
-        if isinstance(self._proxy, six.string_types):
+        if isinstance(self._proxy, str):
             self._proxy = dict(http=self._proxy, https=self._proxy)
 
     @property
@@ -202,10 +207,9 @@ class RestClient(object):
 
     def request(self, url, method, stream=False, **kwargs):
         sign_region_name = kwargs.get("region_name") or self._region_name
-        if (
-            self._endpoint in self._endpoints_without_v4_sign
-            or not options.enable_v4_sign
-        ):
+        with self._endpoint_sign_lock:
+            endpoint_no_v4 = self._endpoint in self._endpoints_without_v4_sign
+        if endpoint_no_v4 or not options.enable_v4_sign:
             sign_region_name = None
 
         auth_expire_retried = False
@@ -223,7 +227,8 @@ class RestClient(object):
                 logger.info(
                     "Fallback of V4 signature for %s. Error message: %s", url, ex
                 )
-                self._endpoints_without_v4_sign.add(self._endpoint)
+                with self._endpoint_sign_lock:
+                    self._endpoints_without_v4_sign.add(self._endpoint)
                 sign_region_name = None
             except errors.InvalidParameter as ex:
                 if sign_region_name is None or "ODPS-0410051" not in str(ex):
@@ -232,7 +237,8 @@ class RestClient(object):
                 logger.info(
                     "Fallback of V4 signature for %s. Error message: %s", url, ex
                 )
-                self._endpoints_without_v4_sign.add(self._endpoint)
+                with self._endpoint_sign_lock:
+                    self._endpoints_without_v4_sign.add(self._endpoint)
                 sign_region_name = None
             except errors.AuthorizationRequired as ex:
                 if sign_region_name is None or "invalid or missing" not in str(ex):
@@ -240,7 +246,8 @@ class RestClient(object):
                 logger.info(
                     "Fallback of V4 signature for %s. Error message: %s", url, ex
                 )
-                self._endpoints_without_v4_sign.add(self._endpoint)
+                with self._endpoint_sign_lock:
+                    self._endpoints_without_v4_sign.add(self._endpoint)
                 sign_region_name = None
             except errors.AuthenticationRequestExpired:
                 if not hasattr(self.account, "reload") or auth_expire_retried:
@@ -286,7 +293,7 @@ class RestClient(object):
         # Construct user agent without handling the letter case.
         headers = dict(options.custom_headers or {})
         headers.update(kwargs.get("headers", {}))
-        headers = {k: str(v) for k, v in six.iteritems(headers)}
+        headers = {k: str(v) for k, v in headers.items()}
         headers["User-Agent"] = self._user_agent
         if self.namespace:
             headers["x-odps-namespace-id"] = self.namespace
@@ -294,7 +301,7 @@ class RestClient(object):
         params = kwargs.setdefault("params", {})
 
         actions = kwargs.pop("actions", None) or kwargs.pop("action", None) or []
-        if isinstance(actions, six.string_types):
+        if isinstance(actions, str):
             actions = [actions]
         if actions:
             separator = "?" if "?" not in url else "&"
@@ -326,7 +333,7 @@ class RestClient(object):
         if any(v is None for v in prepared_req.headers.values()):
             none_headers = [k for k, v in prepared_req.headers.items() if v is None]
             raise TypeError(
-                "Value of headers %s cannot be None" % ", ".join(none_headers)
+                f"Value of headers {', '.join(none_headers)} cannot be None"
             )
 
         try:
@@ -339,7 +346,7 @@ class RestClient(object):
             )
         except ConnectTimeout:
             raise errors.ConnectTimeout(
-                "Connecting to endpoint %s timeout." % self._endpoint
+                f"Connecting to endpoint {self._endpoint} timeout."
             )
 
         logger.debug("response.status_code %d", res.status_code)
@@ -356,14 +363,12 @@ class RestClient(object):
 
     def post(self, url, data=None, **kwargs):
         data = (
-            utils.to_binary(data, encoding="utf-8")
-            if isinstance(data, six.string_types)
-            else data
+            utils.to_binary(data, encoding="utf-8") if isinstance(data, str) else data
         )
         return self.request(url, "post", data=data, **kwargs)
 
     def put(self, url, data=None, **kwargs):
-        data = utils.to_binary(data) if isinstance(data, six.string_types) else data
+        data = utils.to_binary(data) if isinstance(data, str) else data
         return self.request(url, "put", data=data, **kwargs)
 
     def head(self, url, **kwargs):

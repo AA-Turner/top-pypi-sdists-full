@@ -251,6 +251,99 @@ struct ObjectiveEval {
     edf: f64,
 }
 
+/// A single Gaussian closed-form REML objective term, carrying its analytic
+/// VALUE together with its analytic ρ-GRADIENT and ρ-HESSIAN.
+///
+/// Single source of truth: each term's value and its (already hand-derived,
+/// closed-form) ρ-derivatives are returned from ONE function body, so a future
+/// edit to the value formula cannot silently leave the derivatives stale.
+/// Mirrors the `PenaltyLogdetDerivs`-returning-tuple pattern used by the
+/// unified outer evaluator — the structural cure for the objective↔gradient
+/// desync class (#752/#748/#808). The three contributions are accumulated
+/// through [`ObjectiveEval`] at one site, so they cannot drift apart.
+#[derive(Clone, Copy)]
+struct TermDerivs {
+    value: f64,
+    grad: f64,
+    hess: f64,
+}
+
+impl std::ops::AddAssign<TermDerivs> for ObjectiveEval {
+    /// Fold a term's `(value, grad, hess)` triple into the running totals in
+    /// lock-step, so value and derivative can never be added at separate sites.
+    fn add_assign(&mut self, rhs: TermDerivs) {
+        self.cost += rhs.value;
+        self.grad += rhs.grad;
+        self.hess += rhs.hess;
+    }
+}
+
+/// `½d·(log|H| − log|S|_+)` value with its analytic ρ-gradient/Hessian.
+///
+/// The penalty-eigenvalue sum produces all three quantities from the SAME
+/// `t = λδ` intermediates in one pass, so the value (`log|1+t|`) and its
+/// derivatives (`t/(1+t)`, `t/(1+t)²`) are single-sourced.
+fn gaussian_reml_logdet_term(
+    cache: &GaussianRemlEigenCache,
+    rho: f64,
+    n_outputs: f64,
+) -> (TermDerivs, f64) {
+    let lambda = rho.exp();
+    let mut logdet_h = cache.logdet_xtwx;
+    let mut trace_h = 0.0;
+    let mut trace_h_deriv = 0.0;
+    let mut edf = 0.0;
+    for &delta in &cache.penalty_eigenvalues {
+        let t = lambda * delta;
+        logdet_h += (1.0 + t).ln();
+        if delta > 0.0 {
+            trace_h += t / (1.0 + t);
+            trace_h_deriv += t / ((1.0 + t) * (1.0 + t));
+        }
+        edf += 1.0 / (1.0 + t);
+    }
+    let logdet_s = cache.logdet_penalty_positive + (cache.penalty_rank as f64) * rho;
+    let term = TermDerivs {
+        value: 0.5 * n_outputs * (logdet_h - logdet_s),
+        grad: 0.5 * n_outputs * (trace_h - cache.penalty_rank as f64),
+        hess: 0.5 * n_outputs * trace_h_deriv,
+    };
+    (term, edf)
+}
+
+/// Per-output dispersion-prior term `½ν·(1 + log(2π·dp/ν))` with its analytic
+/// ρ-gradient/Hessian.
+///
+/// `dp`, `dp_grad`, `dp_hess` are computed from the SAME eigenvalue sum, then
+/// the value `log(dp)` and its derivatives `dp_grad/dp`,
+/// `dp_hess/dp − (dp_grad/dp)²` are returned together so they cannot desync.
+fn gaussian_reml_dispersion_term(
+    cache: &GaussianRemlEigenCache,
+    ywy: ArrayView1<'_, f64>,
+    projected_rhs_squared: ArrayView2<'_, f64>,
+    output: usize,
+    nu: f64,
+    lambda: f64,
+) -> TermDerivs {
+    let mut fitted_quadratic = 0.0;
+    let mut dp_grad = 0.0;
+    let mut dp_hess = 0.0;
+    for eig in 0..cache.penalty_eigenvalues.len() {
+        let c2 = projected_rhs_squared[[eig, output]];
+        let t = lambda * cache.penalty_eigenvalues[eig];
+        let denom = 1.0 + t;
+        fitted_quadratic += c2 / denom;
+        dp_grad += c2 * t / (denom * denom);
+        dp_hess += c2 * t * (1.0 - t) / (denom * denom * denom);
+    }
+    let dp = (ywy[output] - fitted_quadratic).max(MIN_DEVIANCE);
+    TermDerivs {
+        value: 0.5 * nu * (1.0 + (2.0 * std::f64::consts::PI * dp / nu).ln()),
+        grad: 0.5 * nu * dp_grad / dp,
+        hess: 0.5 * nu * (dp_hess / dp - (dp_grad * dp_grad) / (dp * dp)),
+    }
+}
+
 pub fn gaussian_reml_closed_form(
     x: ArrayView2<'_, f64>,
     y: ArrayView1<'_, f64>,
@@ -560,16 +653,6 @@ struct BlockOrthogonalEval {
     edf: f64,
 }
 
-fn trace_product_dense(left: ArrayView2<'_, f64>, right: ArrayView2<'_, f64>) -> f64 {
-    let mut value = 0.0;
-    for i in 0..left.nrows() {
-        for j in 0..left.ncols() {
-            value += left[[i, j]] * right[[j, i]];
-        }
-    }
-    value
-}
-
 fn block_penalty_rank_logdet(
     penalty: ArrayView2<'_, f64>,
 ) -> Result<(usize, f64), EstimationError> {
@@ -610,7 +693,8 @@ fn block_orthogonal_eval(
     let trace = (0..solved_penalty.nrows())
         .map(|i| solved_penalty[[i, i]])
         .sum::<f64>();
-    let trace_pair = trace_product_dense(solved_penalty.view(), solved_penalty.view());
+    let trace_pair =
+        crate::linalg::utils::trace_of_product(solved_penalty.view(), solved_penalty.view());
     let fitted_energy = (rhs * &beta).sum_axis(Axis(0));
     let p_beta = scaled_penalty.dot(&beta);
     let penalty_energy = (&beta * &p_beta).sum_axis(Axis(0));
@@ -628,19 +712,56 @@ fn block_orthogonal_eval(
     })
 }
 
+/// Block-orthogonal shared-scale REML objective VALUE together with its
+/// analytic ρ-gradient and ρ-Hessian.
+///
+/// Single source of truth: the value `½d·logdet − ½·fit − ½d·rank·ρ` and its
+/// ρ-derivatives are returned from ONE function body, so a future edit to the
+/// objective cannot leave the Newton gradient/Hessian (previously written at a
+/// physically separate site inside `solve_block_orthogonal_rho`) stale. This
+/// closes a genuine `(value_here, gradient_there)` loose pair. Mirrors the
+/// `PenaltyLogdetDerivs` single-source pattern; behavior is identical (the same
+/// closed-form formulas, reorganized).
+struct BlockOrthogonalScaleDerivs {
+    value: f64,
+    grad: f64,
+    hess: f64,
+}
+
 fn block_orthogonal_scale_objective(
     eval: &BlockOrthogonalEval,
     rho: f64,
     scale_precision: ArrayView1<'_, f64>,
     rank: usize,
-) -> f64 {
+) -> BlockOrthogonalScaleDerivs {
     let d = scale_precision.len() as f64;
     let fit_term = scale_precision
         .iter()
         .zip(eval.fitted_energy.iter())
         .map(|(scale, energy)| scale * energy)
         .sum::<f64>();
-    0.5 * d * eval.logdet - 0.5 * fit_term - 0.5 * d * (rank as f64) * rho
+    // VALUE: ½d·log|H| − ½ Σ_o w_o ⟨y_o, fit_o⟩ − ½d·rank·ρ.
+    let value = 0.5 * d * eval.logdet - 0.5 * fit_term - 0.5 * d * (rank as f64) * rho;
+    // ρ-GRADIENT: d/dρ of the same scalar. The logdet term contributes
+    // ½d·(tr(H⁻¹λS) − rank); the (data-independent-at-fixed-β envelope) fit term
+    // contributes +½ Σ_o w_o βᵀ(λS)β. Both share `eval`'s cached energies.
+    let grad = 0.5 * d * (eval.trace - rank as f64)
+        + 0.5
+            * scale_precision
+                .iter()
+                .zip(eval.penalty_energy.iter())
+                .map(|(scale, energy)| scale * energy)
+                .sum::<f64>();
+    // ρ-HESSIAN: d²/dρ². Logdet term: ½d·(tr(H⁻¹λS) − tr((H⁻¹λS)²)); penalty
+    // term: ½ Σ_o w_o (βᵀλSβ − 2 βᵀλS H⁻¹ λS β).
+    let hess = 0.5 * d * (eval.trace - eval.trace_pair)
+        + 0.5
+            * scale_precision
+                .iter()
+                .zip(eval.penalty_energy.iter().zip(eval.curvature_energy.iter()))
+                .map(|(scale, (energy, curvature))| scale * (energy - 2.0 * curvature))
+                .sum::<f64>();
+    BlockOrthogonalScaleDerivs { value, grad, hess }
 }
 
 fn solve_block_orthogonal_rho(
@@ -653,28 +774,13 @@ fn solve_block_orthogonal_rho(
     max_iter: usize,
 ) -> Result<(f64, BlockOrthogonalEval), EstimationError> {
     let mut rho = rho0;
-    let d = rhs.ncols() as f64;
     let mut current = block_orthogonal_eval(gram, rhs, penalty, rho)?;
     for _ in 0..max_iter {
-        let grad = 0.5 * d * (current.trace - rank as f64)
-            + 0.5
-                * scale_precision
-                    .iter()
-                    .zip(current.penalty_energy.iter())
-                    .map(|(scale, energy)| scale * energy)
-                    .sum::<f64>();
-        let hess = 0.5 * d * (current.trace - current.trace_pair)
-            + 0.5
-                * scale_precision
-                    .iter()
-                    .zip(
-                        current
-                            .penalty_energy
-                            .iter()
-                            .zip(current.curvature_energy.iter()),
-                    )
-                    .map(|(scale, (energy, curvature))| scale * (energy - 2.0 * curvature))
-                    .sum::<f64>();
+        // Value, ρ-gradient, and ρ-Hessian all come from the SINGLE
+        // single-source objective evaluation — they cannot desync.
+        let derivs = block_orthogonal_scale_objective(&current, rho, scale_precision, rank);
+        let grad = derivs.grad;
+        let hess = derivs.hess;
         if !(grad.is_finite() && hess.is_finite()) {
             return Err(EstimationError::ModelIsIllConditioned {
                 condition_number: f64::INFINITY,
@@ -691,7 +797,7 @@ fn solve_block_orthogonal_rho(
         let mut best_rho = rho;
         let mut best_eval = current;
         let mut best_phi =
-            block_orthogonal_scale_objective(&best_eval, best_rho, scale_precision, rank);
+            block_orthogonal_scale_objective(&best_eval, best_rho, scale_precision, rank).value;
         let descent = grad.signum();
         for candidate_rho in [
             rho - step,
@@ -706,7 +812,8 @@ fn solve_block_orthogonal_rho(
                 candidate_rho,
                 scale_precision,
                 rank,
-            );
+            )
+            .value;
             if candidate_phi < best_phi {
                 best_rho = candidate_rho;
                 best_eval = candidate_eval;
@@ -1767,12 +1874,16 @@ fn add_edf_vjp(
     //   grad_X += scale · 2 · (W X) · G_A
     //   grad_w_i += scale · (X G_A X^T)_{ii}
     let xg = dense_ab(x, g_a.view());
-    crate::solver::estimate::reml::assembly::add_row_scaled_dense_into(
-        xg.view(),
-        weights,
-        2.0 * scale,
-        grad_x,
-    );
+    // Row-scaled dense accumulate: grad_x[i,:] += (2·scale·weights[i]) · xg[i,:].
+    // (Inlined here — the former `assembly::add_row_scaled_dense_into` helper was
+    // removed as "unused" by 0cb722d, which missed this gam-pyffi-reachable caller.)
+    let leading_scale = 2.0 * scale;
+    for i in 0..xg.nrows() {
+        let row_scale = leading_scale * weights[i];
+        for k in 0..xg.ncols() {
+            grad_x[[i, k]] += row_scale * xg[[i, k]];
+        }
+    }
     for i in 0..x.nrows() {
         let mut quad = 0.0;
         for k in 0..x.ncols() {
@@ -2626,47 +2737,22 @@ fn evaluate_reml_parts(
     let lambda = rho.exp();
     let nu = n_observations as f64 - cache.nullity as f64;
     let d = n_outputs as f64;
-    let mut logdet_h = cache.logdet_xtwx;
-    let mut trace_h = 0.0;
-    let mut trace_h_deriv = 0.0;
-    let mut edf = 0.0;
-    for &delta in &cache.penalty_eigenvalues {
-        let t = lambda * delta;
-        logdet_h += (1.0 + t).ln();
-        if delta > 0.0 {
-            trace_h += t / (1.0 + t);
-            trace_h_deriv += t / ((1.0 + t) * (1.0 + t));
-        }
-        edf += 1.0 / (1.0 + t);
-    }
-    let logdet_s = cache.logdet_penalty_positive + (cache.penalty_rank as f64) * rho;
 
-    let mut cost = 0.5 * d * (logdet_h - logdet_s);
-    let mut grad = 0.5 * d * (trace_h - cache.penalty_rank as f64);
-    let mut hess = 0.5 * d * trace_h_deriv;
-    for output in 0..n_outputs {
-        let mut fitted_quadratic = 0.0;
-        let mut dp_grad = 0.0;
-        let mut dp_hess = 0.0;
-        for eig in 0..cache.penalty_eigenvalues.len() {
-            let c2 = projected_rhs_squared[[eig, output]];
-            let t = lambda * cache.penalty_eigenvalues[eig];
-            let denom = 1.0 + t;
-            fitted_quadratic += c2 / denom;
-            dp_grad += c2 * t / (denom * denom);
-            dp_hess += c2 * t * (1.0 - t) / (denom * denom * denom);
-        }
-        let dp = (ywy[output] - fitted_quadratic).max(MIN_DEVIANCE);
-        cost += 0.5 * nu * (1.0 + (2.0 * std::f64::consts::PI * dp / nu).ln());
-        grad += 0.5 * nu * dp_grad / dp;
-        hess += 0.5 * nu * (dp_hess / dp - (dp_grad * dp_grad) / (dp * dp));
-    }
-    ObjectiveEval {
-        cost,
-        grad,
-        hess,
+    // Each term's value and its ρ-derivatives come back from ONE function so
+    // they cannot be edited independently; `+=` folds the triple in lock-step.
+    let (logdet_term, edf) = gaussian_reml_logdet_term(cache, rho, d);
+    let mut eval = ObjectiveEval {
+        cost: 0.0,
+        grad: 0.0,
+        hess: 0.0,
         edf,
+    };
+    eval += logdet_term;
+    for output in 0..n_outputs {
+        eval +=
+            gaussian_reml_dispersion_term(cache, ywy, projected_rhs_squared, output, nu, lambda);
     }
+    eval
 }
 
 fn optimize_rho_no_alloc(
@@ -3247,6 +3333,7 @@ mod tests {
         RemlScore,
         Coefficient(usize, usize),
         Fitted(usize, usize),
+        Edf,
     }
 
     fn finite_difference_design() -> Array2<f64> {
@@ -3294,13 +3381,19 @@ mod tests {
         })
     }
 
-    fn one_hot_objective(
+    /// Fallible forward-scalar probe. Returns `None` when the closed-form fit
+    /// rejects the inputs — the relevant case being a penalty perturbation that
+    /// pushes `S` out of the PSD cone (a single-entry central bump on a
+    /// null-direction entry drives one eigenvalue slightly negative). Such a
+    /// point has no well-defined REML objective, so the caller skips it rather
+    /// than panicking.
+    fn one_hot_objective_try(
         x: ArrayView2<'_, f64>,
         y: ArrayView2<'_, f64>,
         penalty: ArrayView2<'_, f64>,
         weights: ArrayView1<'_, f64>,
         target: ForwardScalar,
-    ) -> f64 {
+    ) -> Option<f64> {
         let fit = gaussian_reml_multi_closed_form_with_cache(
             x,
             y,
@@ -3309,13 +3402,25 @@ mod tests {
             Some(0.85),
             None,
         )
-        .expect("finite-difference forward fit");
-        match target {
+        .ok()?;
+        Some(match target {
             ForwardScalar::Lambda => fit.lambda,
             ForwardScalar::RemlScore => fit.reml_score,
             ForwardScalar::Coefficient(row, col) => fit.coefficients[[row, col]],
             ForwardScalar::Fitted(row, col) => fit.fitted[[row, col]],
-        }
+            ForwardScalar::Edf => fit.edf,
+        })
+    }
+
+    fn one_hot_objective(
+        x: ArrayView2<'_, f64>,
+        y: ArrayView2<'_, f64>,
+        penalty: ArrayView2<'_, f64>,
+        weights: ArrayView1<'_, f64>,
+        target: ForwardScalar,
+    ) -> f64 {
+        one_hot_objective_try(x, y, penalty, weights, target)
+            .expect("finite-difference forward fit")
     }
 
     fn one_hot_backward(
@@ -3327,18 +3432,20 @@ mod tests {
     ) -> GaussianRemlBackwardResult {
         let mut grad_coefficients = Array2::<f64>::zeros((x.ncols(), y.ncols()));
         let mut grad_fitted = Array2::<f64>::zeros(y.dim());
-        let (grad_lambda, grad_score, coefficient_upstream, fitted_upstream) = match target {
-            ForwardScalar::Lambda => (1.0, 0.0, None, None),
-            ForwardScalar::RemlScore => (0.0, 1.0, None, None),
-            ForwardScalar::Coefficient(row, col) => {
-                grad_coefficients[[row, col]] = 1.0;
-                (0.0, 0.0, Some(grad_coefficients.view()), None)
-            }
-            ForwardScalar::Fitted(row, col) => {
-                grad_fitted[[row, col]] = 1.0;
-                (0.0, 0.0, None, Some(grad_fitted.view()))
-            }
-        };
+        let (grad_lambda, grad_score, grad_edf, coefficient_upstream, fitted_upstream) =
+            match target {
+                ForwardScalar::Lambda => (1.0, 0.0, 0.0, None, None),
+                ForwardScalar::RemlScore => (0.0, 1.0, 0.0, None, None),
+                ForwardScalar::Coefficient(row, col) => {
+                    grad_coefficients[[row, col]] = 1.0;
+                    (0.0, 0.0, 0.0, Some(grad_coefficients.view()), None)
+                }
+                ForwardScalar::Fitted(row, col) => {
+                    grad_fitted[[row, col]] = 1.0;
+                    (0.0, 0.0, 0.0, None, Some(grad_fitted.view()))
+                }
+                ForwardScalar::Edf => (0.0, 0.0, 1.0, None, None),
+            };
         gaussian_reml_multi_closed_form_backward(
             x,
             y,
@@ -3349,7 +3456,7 @@ mod tests {
             coefficient_upstream,
             fitted_upstream,
             grad_score,
-            0.0,
+            grad_edf,
         )
         .expect("analytic backward VJP")
     }
@@ -3399,6 +3506,7 @@ mod tests {
             ForwardScalar::RemlScore,
             ForwardScalar::Coefficient(3, outputs - 1),
             ForwardScalar::Fitted(12, outputs - 1),
+            ForwardScalar::Edf,
         ];
         for target in targets {
             let backward =
@@ -3460,6 +3568,79 @@ mod tests {
                     backward.grad_weights[row],
                     fd,
                 );
+            }
+
+            // ∂L/∂S over the RANGE-SPACE penalty entries. The REML objective
+            // carries −½d·log|S|₊ (the pseudo-determinant over the NONZERO
+            // eigenvalues), so ∂L/∂S is only a finite, FD-verifiable derivative
+            // where a central ±h bump keeps S inside the PSD cone WITHOUT
+            // changing its rank. A single-entry bump touching the null
+            // direction violates both: the −h side drives an eigenvalue
+            // slightly negative (leaves the cone → fit Err) and the +h side
+            // turns the zero eigenvalue into a tiny positive one that joins
+            // log|S|₊ as a −log(ε) term (a rank-change discontinuity in L).
+            // The null-direction component of the analytic S-gradient is a
+            // gauge convention for the null space (the L-metric pseudoinverse
+            // `penalty_pinv` = L⁻ᵀ T⁺ L⁻¹), validated by algebra/consumer, not
+            // FD. So restrict to the strictly-positive diagonal block (both
+            // indices in 1..p for the diag([0, 0.8, 1.2, 1.7, 2.3]) fixture,
+            // where S_rr > 0 and ±h stays PSD at full rank). The forward
+            // consumes only `S_canon = 0.5(S + Sᵀ)` and the backward returns
+            // the symmetrized gradient, so a single-entry bump of S[r, c]
+            // (asymmetric) compares directly against `grad_penalty[r, c]` =
+            // 0.5(G[r, c] + G[c, r]). Defensively, any entry whose largest ±h
+            // probe leaves the cone is skipped (cone membership is monotone in
+            // |h| here, so probing the largest step suffices).
+            let null_index = 0usize; // diag([0.0, ...]) ⇒ coordinate 0 is the null direction.
+            let probe_h = 1.0e-3_f64; // matches the largest adaptive_central_difference step.
+            for r in 0..penalty.nrows() {
+                for c in 0..penalty.ncols() {
+                    if r == null_index || c == null_index {
+                        continue;
+                    }
+                    let eval = |delta: f64| {
+                        let mut candidate = penalty.clone();
+                        candidate[[r, c]] += delta;
+                        one_hot_objective(
+                            x.view(),
+                            y.view(),
+                            candidate.view(),
+                            weights.view(),
+                            target,
+                        )
+                    };
+                    let cone_safe = {
+                        let mut s_plus = penalty.clone();
+                        let mut s_minus = penalty.clone();
+                        s_plus[[r, c]] += probe_h;
+                        s_minus[[r, c]] -= probe_h;
+                        one_hot_objective_try(
+                            x.view(),
+                            y.view(),
+                            s_plus.view(),
+                            weights.view(),
+                            target,
+                        )
+                        .is_some()
+                            && one_hot_objective_try(
+                                x.view(),
+                                y.view(),
+                                s_minus.view(),
+                                weights.view(),
+                                target,
+                            )
+                            .is_some()
+                    };
+                    if !cone_safe {
+                        continue;
+                    }
+                    let fd = adaptive_central_difference(eval);
+                    assert_fd_close(
+                        &format!("target={target:?} penalty[{r},{c}]"),
+                        backward.grad_penalty[[r, c]],
+                        fd,
+                    );
+                }
             }
         }
     }
@@ -3577,6 +3758,49 @@ mod tests {
             backward.grad_weights[2],
             fd_w
         );
+
+        // Combined-seed ∂L/∂S spot-check: perturb individual penalty entries with
+        // x/y/w held at base, under mixed (λ, score, β, fitted) seeds. The penalty
+        // [[0,0,0],[0,1,0.2],[0,0.2,1.7]] is nullity 1 (coordinate 0 is the null
+        // direction); ∂L/∂S is FD-verifiable only on the strictly-positive
+        // RANGE block (indices 1,2), where a central ±h bump keeps S PSD at full
+        // rank. Null-touching entries (any index 0) are non-FD-verifiable — the
+        // −½d·log|S|₊ pseudo-determinant term makes L either cone-leaving or
+        // rank-change-discontinuous there (see the exhaustive S loop above). A
+        // single-entry asymmetric bump of S[r, c] compares directly to
+        // grad_penalty[[r, c]] = 0.5(G[r,c] + G[c,r]), exercising the backward
+        // symmetrization.
+        let objective_s = |s_eval: &Array2<f64>| {
+            let fit = gaussian_reml_multi_closed_form_with_cache(
+                x.view(),
+                y.view(),
+                s_eval.view(),
+                Some(weights.view()),
+                Some(0.8),
+                None,
+            )
+            .expect("fit for penalty objective");
+            upstream_lambda * fit.lambda
+                + upstream_score * fit.reml_score
+                + (&fit.coefficients * &upstream_coefficients).sum()
+                + (&fit.fitted * &upstream_fitted).sum()
+        };
+        // (1,1) full-rank diagonal; (1,2) pure off-diagonal between two penalized
+        // directions; (2,2) full-rank diagonal. All in the strictly-positive
+        // range block, so ±h stays PSD at full rank.
+        for (r, c) in [(1usize, 1usize), (1, 2), (2, 2)] {
+            let mut s_plus = penalty.clone();
+            let mut s_minus = penalty.clone();
+            s_plus[[r, c]] += eps;
+            s_minus[[r, c]] -= eps;
+            let fd_s = (objective_s(&s_plus) - objective_s(&s_minus)) / (2.0 * eps);
+            assert!(
+                (fd_s - backward.grad_penalty[[r, c]]).abs() <= 2.0e-4,
+                "grad_penalty[{r},{c}] mismatch: analytic={} fd={}",
+                backward.grad_penalty[[r, c]],
+                fd_s
+            );
+        }
     }
 
     #[test]
@@ -4179,7 +4403,10 @@ pub fn gaussian_reml_fit_blocks_backward_analytic(
     let mut trace_pairs = Array2::<f64>::zeros((f_blocks, f_blocks));
     for i in 0..f_blocks {
         for j in 0..f_blocks {
-            trace_pairs[[i, j]] = trace_product_dense(rp_matrices[i].view(), rp_matrices[j].view());
+            trace_pairs[[i, j]] = crate::linalg::utils::trace_of_product(
+                rp_matrices[i].view(),
+                rp_matrices[j].view(),
+            );
         }
     }
 

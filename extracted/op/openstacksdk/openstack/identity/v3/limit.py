@@ -10,9 +10,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from typing import Any, Self
-
 from keystoneauth1 import adapter
+import requests
 
 from openstack import exceptions
 from openstack import resource
@@ -30,6 +29,8 @@ class Limit(resource.Resource):
     allow_delete = True
     allow_list = True
     commit_method = 'PATCH'
+
+    create_opts = resource.CreateOpts(response_key='limits')
 
     _query_mapping = resource.QueryParameters(
         'service_id', 'region_id', 'resource_name', 'project_id'
@@ -53,40 +54,28 @@ class Limit(resource.Resource):
     #: ID of project. *Type: string*
     project_id = resource.Body('project_id')
 
-    def _transform_create_request(self, request):
+    @classmethod
+    def _transform_create_request(
+        cls,
+        session: adapter.Adapter,
+        request: resource._Request,
+        *,
+        microversion: str | None,
+    ) -> resource._Request:
+        assert isinstance(request.body, dict)  # narrow type
         # Keystone supports batch create for unified limit. So the
         # request body for creating limit is a list instead of dict.
-        request.body = {self.resources_key: [request.body[self.resource_key]]}
-
-    def create(
-        self,
-        session: adapter.Adapter,
-        prepend_key: bool = True,
-        base_path: str | None = None,
-        *,
-        resource_request_key: str | None = None,
-        resource_response_key: str | None = 'limits',
-        microversion: str | None = None,
-        **params: Any,
-    ) -> Self:
-        return super().create(
-            session,
-            prepend_key=prepend_key,
-            base_path=base_path,
-            resource_request_key=resource_request_key,
-            resource_response_key=resource_response_key,
-            microversion=microversion,
-            **params,
-        )
+        request.body = {cls.resources_key: [request.body[cls.resource_key]]}
+        return request
 
     def _translate_response(
         self,
-        response,
-        has_body=None,
-        error_message=None,
+        response: requests.Response,
+        has_body: bool | None = None,
+        error_message: str | None = None,
         *,
-        resource_response_key=None,
-    ):
+        resource_response_key: str | None = None,
+    ) -> None:
         """Given a KSA response, inflate this instance with its data
 
         DELETE operations don't return a body, so only try to work

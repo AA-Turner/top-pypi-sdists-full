@@ -14,7 +14,9 @@ from unittest import mock
 
 from openstack.shared_file_system.v2 import _proxy
 from openstack.shared_file_system.v2 import limit
+from openstack.shared_file_system.v2 import quota_class_set
 from openstack.shared_file_system.v2 import resource_locks
+from openstack.shared_file_system.v2 import service
 from openstack.shared_file_system.v2 import share
 from openstack.shared_file_system.v2 import share_access_rule
 from openstack.shared_file_system.v2 import share_group
@@ -22,8 +24,10 @@ from openstack.shared_file_system.v2 import share_group_snapshot
 from openstack.shared_file_system.v2 import share_instance
 from openstack.shared_file_system.v2 import share_network
 from openstack.shared_file_system.v2 import share_network_subnet
+from openstack.shared_file_system.v2 import share_replica
 from openstack.shared_file_system.v2 import share_snapshot
 from openstack.shared_file_system.v2 import share_snapshot_instance
+from openstack.shared_file_system.v2 import share_type
 from openstack.shared_file_system.v2 import storage_pool
 from openstack.shared_file_system.v2 import user_message
 from openstack.tests.unit import test_proxy_base
@@ -35,7 +39,48 @@ class TestSharedFileSystemProxy(test_proxy_base.TestProxyBase):
         self.proxy = _proxy.Proxy(self.session)
 
 
-class TestSharedFileSystemShare(TestSharedFileSystemProxy):
+class TestQuotaClassSet(TestSharedFileSystemProxy):
+    def test_get_quota_class_set(self):
+        self.verify_get(
+            self.proxy.get_quota_class_set,
+            quota_class_set.QuotaClassSet,
+        )
+
+    def test_update_quota_class_set(self):
+        self.verify_update(
+            self.proxy.update_quota_class_set,
+            quota_class_set.QuotaClassSet,
+        )
+
+
+class TestQuotaSet(TestSharedFileSystemProxy):
+    def test_get_quota_set(self):
+        self._verify(
+            'openstack.common.quota_set.QuotaSet.fetch',
+            self.proxy.get_quota_set,
+            method_args=['prj'],
+            expected_args=[self.proxy],
+        )
+
+    def test_update_quota_set(self):
+        self._verify(
+            'openstack.resource.Resource.commit',
+            self.proxy.update_quota_set,
+            method_args=['prj'],
+            method_kwargs={'gigabytes': 100},
+            expected_args=[self.proxy],
+        )
+
+    def test_revert_quota_set(self):
+        self._verify(
+            'openstack.resource.Resource.delete',
+            self.proxy.revert_quota_set,
+            method_args=['prj'],
+            expected_args=[self.proxy],
+        )
+
+
+class TestShare(TestSharedFileSystemProxy):
     def test_shares(self):
         self.verify_list(self.proxy.shares, share.Share)
 
@@ -78,7 +123,7 @@ class TestSharedFileSystemShare(TestSharedFileSystemProxy):
         self.proxy._get = mock.Mock(return_value=mock_share)
 
         self._verify(
-            "openstack.shared_file_system.v2.share." + "Share.extend_share",
+            "openstack.shared_file_system.v2.share.Share.extend_share",
             self.proxy.resize_share,
             method_args=['fakeId', 20],
             expected_args=[self.proxy, 20, False],
@@ -89,12 +134,53 @@ class TestSharedFileSystemShare(TestSharedFileSystemProxy):
         self.proxy._get = mock.Mock(return_value=mock_share)
 
         self._verify(
-            "openstack.shared_file_system.v2.share." + "Share.shrink_share",
+            "openstack.shared_file_system.v2.share.Share.shrink_share",
             self.proxy.resize_share,
             method_args=['fakeId', 20],
             expected_args=[self.proxy, 20],
         )
 
+    def test_share_soft_delete(self):
+        mock_share = share.Share(size=10, id='fakeId')
+        self.proxy._get = mock.Mock(return_value=mock_share)
+
+        self._verify(
+            "openstack.shared_file_system.v2.share.Share.soft_delete",
+            self.proxy.soft_delete_share,
+            method_args=['fakeId'],
+            expected_args=[self.proxy],
+        )
+
+    def test_share_force_delete(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share.Share.force_delete",
+            self.proxy.delete_share,
+            method_args=['id'],
+            method_kwargs={'force': True},
+            expected_args=[self.proxy],
+        )
+
+    def test_share_restore(self):
+        mock_share = share.Share(size=10, id='fakeId')
+        self.proxy._get = mock.Mock(return_value=mock_share)
+
+        self._verify(
+            "openstack.shared_file_system.v2.share.Share.restore",
+            self.proxy.restore_share,
+            method_args=['fakeId'],
+            expected_args=[self.proxy],
+        )
+
+    def test_share_reset_status(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share.Share.reset_status",
+            self.proxy.reset_share_status,
+            method_args=['id', 'available'],
+            expected_args=[self.proxy, 'available'],
+        )
+
+
+class TestShareInstance(TestSharedFileSystemProxy):
     def test_share_instances(self):
         self.verify_list(
             self.proxy.share_instances, share_instance.ShareInstance
@@ -105,10 +191,9 @@ class TestSharedFileSystemShare(TestSharedFileSystemProxy):
             self.proxy.get_share_instance, share_instance.ShareInstance
         )
 
-    def test_share_instance_reset(self):
+    def test_share_instance_reset_status(self):
         self._verify(
-            "openstack.shared_file_system.v2.share_instance."
-            + "ShareInstance.reset_status",
+            "openstack.shared_file_system.v2.share_instance.ShareInstance.reset_status",
             self.proxy.reset_share_instance_status,
             method_args=['id', 'available'],
             expected_args=[self.proxy, 'available'],
@@ -116,15 +201,14 @@ class TestSharedFileSystemShare(TestSharedFileSystemProxy):
 
     def test_share_instance_delete(self):
         self._verify(
-            "openstack.shared_file_system.v2.share_instance."
-            + "ShareInstance.force_delete",
+            "openstack.shared_file_system.v2.share_instance.ShareInstance.force_delete",
             self.proxy.delete_share_instance,
             method_args=['id'],
             expected_args=[self.proxy],
         )
 
     @mock.patch("openstack.resource.wait_for_status")
-    def test_wait_for(self, mock_wait):
+    def test_wait_for_status(self, mock_wait):
         mock_resource = mock.Mock()
         mock_wait.return_value = mock_resource
 
@@ -134,8 +218,19 @@ class TestSharedFileSystemShare(TestSharedFileSystemProxy):
             self.proxy, mock_resource, 'ACTIVE', None, 2, None, 'status', None
         )
 
+    @mock.patch("openstack.resource.wait_for_delete")
+    def test_wait_for_delete(self, mock_wait):
+        mock_resource = mock.Mock()
+        mock_wait.return_value = mock_resource
 
-class TestSharedFileSystemStoragePool(TestSharedFileSystemProxy):
+        self.proxy.wait_for_delete(mock_resource)
+
+        mock_wait.assert_called_once_with(
+            self.proxy, mock_resource, 2, 120, None
+        )
+
+
+class TestStoragePool(TestSharedFileSystemProxy):
     def test_storage_pools(self):
         self.verify_list(self.proxy.storage_pools, storage_pool.StoragePool)
 
@@ -156,7 +251,7 @@ class TestSharedFileSystemStoragePool(TestSharedFileSystemProxy):
         )
 
 
-class TestSharedFileSystemShareMetadata(TestSharedFileSystemProxy):
+class TestShareMetadata(TestSharedFileSystemProxy):
     def test_fetch_share_metadata(self):
         self._verify(
             "openstack.shared_file_system.v2.share.Share.fetch_metadata",
@@ -213,11 +308,7 @@ class TestSharedFileSystemShareMetadata(TestSharedFileSystemProxy):
         )
 
 
-class TestUserMessageProxy(test_proxy_base.TestProxyBase):
-    def setUp(self):
-        super().setUp()
-        self.proxy = _proxy.Proxy(self.session)
-
+class TestUserMessage(TestSharedFileSystemProxy):
     def test_user_messages(self):
         self.verify_list(self.proxy.user_messages, user_message.UserMessage)
 
@@ -242,15 +333,13 @@ class TestUserMessageProxy(test_proxy_base.TestProxyBase):
             self.proxy.delete_user_message, user_message.UserMessage, True
         )
 
+
+class TestLimit(TestSharedFileSystemProxy):
     def test_limit(self):
         self.verify_list(self.proxy.limits, limit.Limit)
 
 
-class TestShareSnapshotResource(test_proxy_base.TestProxyBase):
-    def setUp(self):
-        super().setUp()
-        self.proxy = _proxy.Proxy(self.session)
-
+class TestShareSnapshot(TestSharedFileSystemProxy):
     def test_share_snapshots(self):
         self.verify_list(
             self.proxy.share_snapshots, share_snapshot.ShareSnapshot
@@ -301,23 +390,102 @@ class TestShareSnapshotResource(test_proxy_base.TestProxyBase):
             self.proxy.update_share_snapshot, share_snapshot.ShareSnapshot
         )
 
-    @mock.patch("openstack.resource.wait_for_delete")
-    def test_wait_for_delete(self, mock_wait):
-        mock_resource = mock.Mock()
-        mock_wait.return_value = mock_resource
+    def test_share_snapshot_force_delete(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_snapshot.ShareSnapshot.force_delete",
+            self.proxy.delete_share_snapshot,
+            method_args=['id'],
+            method_kwargs={'force': True},
+            expected_args=[self.proxy],
+        )
 
-        self.proxy.wait_for_delete(mock_resource)
+    def test_share_snapshot_reset_status(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_snapshot.ShareSnapshot.reset_status",
+            self.proxy.reset_share_snapshot_status,
+            method_args=['id', 'available'],
+            expected_args=[self.proxy, 'available'],
+        )
 
-        mock_wait.assert_called_once_with(
-            self.proxy, mock_resource, 2, 120, None
+    def test_manage_share_snapshot(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_snapshot.ShareSnapshot.manage",
+            self.proxy.manage_share_snapshot,
+            method_args=['share_id', 'provider_location'],
+            expected_args=[self.proxy, 'share_id', 'provider_location'],
+        )
+
+    def test_unmanage_share_snapshot(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_snapshot.ShareSnapshot.unmanage",
+            self.proxy.unmanage_share_snapshot,
+            method_args=['id'],
+            expected_args=[self.proxy],
         )
 
 
-class TestShareSnapshotInstanceResource(test_proxy_base.TestProxyBase):
-    def setUp(self):
-        super().setUp()
-        self.proxy = _proxy.Proxy(self.session)
+class TestShareSnapshotMetadata(TestSharedFileSystemProxy):
+    def test_get_share_snapshot_metadata(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_snapshot.ShareSnapshot.fetch_metadata",
+            self.proxy.fetch_share_snapshot_metadata,
+            method_args=["snapshot_id"],
+            expected_args=[self.proxy],
+            expected_result=share_snapshot.ShareSnapshot(
+                id="snapshot_id", metadata={"key": "value"}
+            ),
+        )
 
+    def test_get_share_snapshot_metadata_item(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_snapshot.ShareSnapshot.get_metadata_item",
+            self.proxy.fetch_share_snapshot_metadata_item,
+            method_args=["snapshot_id", "key"],
+            expected_args=[self.proxy, "key"],
+            expected_result=share_snapshot.ShareSnapshot(
+                id="snapshot_id", metadata={"key": "value"}
+            ),
+        )
+
+    def test_set_share_snapshot_metadata(self):
+        metadata = {"foo": "bar", "newFoo": "newBar"}
+        self._verify(
+            "openstack.shared_file_system.v2.share_snapshot.ShareSnapshot.set_metadata",
+            self.proxy.set_share_snapshot_metadata,
+            method_args=["snapshot_id"],
+            method_kwargs=metadata,
+            expected_args=[self.proxy],
+            expected_kwargs={"metadata": metadata, "replace": False},
+            expected_result=share_snapshot.ShareSnapshot(
+                id="snapshot_id", metadata=metadata
+            ),
+        )
+
+    def test_set_share_snapshot_metadata_replace(self):
+        metadata = {"foo": "bar", "newFoo": "newBar"}
+        self._verify(
+            "openstack.shared_file_system.v2.share_snapshot.ShareSnapshot.set_metadata",
+            self.proxy.set_share_snapshot_metadata,
+            method_args=["snapshot_id"],
+            method_kwargs={"replace": True, **metadata},
+            expected_args=[self.proxy],
+            expected_kwargs={"metadata": metadata, "replace": True},
+            expected_result=share_snapshot.ShareSnapshot(
+                id="snapshot_id", metadata=metadata
+            ),
+        )
+
+    def test_delete_share_snapshot_metadata(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_snapshot.ShareSnapshot.delete_metadata_item",
+            self.proxy.delete_share_snapshot_metadata,
+            expected_result=None,
+            method_args=["snapshot_id", ["key"]],
+            expected_args=[self.proxy, "key"],
+        )
+
+
+class TestShareSnapshotInstance(TestSharedFileSystemProxy):
     def test_share_snapshot_instances(self):
         self.verify_list(
             self.proxy.share_snapshot_instances,
@@ -347,11 +515,7 @@ class TestShareSnapshotInstanceResource(test_proxy_base.TestProxyBase):
         )
 
 
-class TestShareNetworkResource(test_proxy_base.TestProxyBase):
-    def setUp(self):
-        super().setUp()
-        self.proxy = _proxy.Proxy(self.session)
-
+class TestShareNetwork(TestSharedFileSystemProxy):
     def test_share_networks(self):
         self.verify_list(self.proxy.share_networks, share_network.ShareNetwork)
 
@@ -397,11 +561,7 @@ class TestShareNetworkResource(test_proxy_base.TestProxyBase):
         )
 
 
-class TestShareNetworkSubnetResource(test_proxy_base.TestProxyBase):
-    def setUp(self):
-        super().setUp()
-        self.proxy = _proxy.Proxy(self.session)
-
+class TestShareNetworkSubnet(TestSharedFileSystemProxy):
     def test_share_network_subnets(self):
         self.verify_list(
             self.proxy.share_network_subnets,
@@ -444,11 +604,54 @@ class TestShareNetworkSubnetResource(test_proxy_base.TestProxyBase):
         )
 
 
-class TestAccessRuleProxy(test_proxy_base.TestProxyBase):
-    def setUp(self):
-        super().setUp()
-        self.proxy = _proxy.Proxy(self.session)
+class TestShareNetworkSubnetMetadata(TestSharedFileSystemProxy):
+    def test_fetch_share_network_subnet_metadata(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_network_subnet.ShareNetworkSubnet.fetch_metadata",
+            self.proxy.fetch_share_network_subnet_metadata,
+            method_args=["network_id", "subnet_id"],
+            expected_args=[self.proxy],
+            expected_result=share_network_subnet.ShareNetworkSubnet(
+                id="subnet_id", metadata={"key": "value"}
+            ),
+        )
 
+    def test_fetch_share_network_subnet_metadata_item(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_network_subnet.ShareNetworkSubnet.get_metadata_item",
+            self.proxy.fetch_share_network_subnet_metadata_item,
+            method_args=["network_id", "subnet_id", "key"],
+            expected_args=[self.proxy, "key"],
+            expected_result=share_network_subnet.ShareNetworkSubnet(
+                id="subnet_id", metadata={"key": "value"}
+            ),
+        )
+
+    def test_set_share_network_subnet_metadata(self):
+        metadata = {"foo": "bar", "newFoo": "newBar"}
+        self._verify(
+            "openstack.shared_file_system.v2.share_network_subnet.ShareNetworkSubnet.set_metadata",
+            self.proxy.set_share_network_subnet_metadata,
+            method_args=["network_id", "subnet_id"],
+            method_kwargs=metadata,
+            expected_args=[self.proxy],
+            expected_kwargs={"metadata": metadata, "replace": False},
+            expected_result=share_network_subnet.ShareNetworkSubnet(
+                id="subnet_id", metadata=metadata
+            ),
+        )
+
+    def test_delete_share_network_subnet_metadata(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_network_subnet.ShareNetworkSubnet.delete_metadata_item",
+            self.proxy.delete_share_network_subnet_metadata,
+            method_args=["network_id", "subnet_id", ["key"]],
+            expected_args=[self.proxy, "key"],
+            expected_result=None,
+        )
+
+
+class TestAccessRule(TestSharedFileSystemProxy):
     def test_access_ruless(self):
         self.verify_list(
             self.proxy.access_rules,
@@ -484,11 +687,7 @@ class TestAccessRuleProxy(test_proxy_base.TestProxyBase):
         )
 
 
-class TestResourceLocksProxy(test_proxy_base.TestProxyBase):
-    def setUp(self):
-        super().setUp()
-        self.proxy = _proxy.Proxy(self.session)
-
+class TestResourceLock(TestSharedFileSystemProxy):
     def test_list_resource_locks(self):
         self.verify_list(
             self.proxy.resource_locks, resource_locks.ResourceLock
@@ -520,11 +719,7 @@ class TestResourceLocksProxy(test_proxy_base.TestProxyBase):
         )
 
 
-class TestShareGroupResource(test_proxy_base.TestProxyBase):
-    def setUp(self):
-        super().setUp()
-        self.proxy = _proxy.Proxy(self.session)
-
+class TestShareGroup(TestSharedFileSystemProxy):
     def test_share_groups(self):
         self.verify_list(self.proxy.share_groups, share_group.ShareGroup)
 
@@ -592,4 +787,163 @@ class TestShareGroupResource(test_proxy_base.TestProxyBase):
             self.proxy.delete_share_group_snapshot,
             share_group_snapshot.ShareGroupSnapshot,
             True,
+        )
+
+
+class TestShareReplica(TestSharedFileSystemProxy):
+    def test_share_replicas(self):
+        self.verify_list(self.proxy.share_replicas, share_replica.ShareReplica)
+
+    def test_share_replica_get(self):
+        self.verify_get(
+            self.proxy.get_share_replica, share_replica.ShareReplica
+        )
+
+    def test_share_replica_delete(self):
+        self.verify_delete(
+            self.proxy.delete_share_replica, share_replica.ShareReplica, False
+        )
+
+    def test_share_replica_delete_ignore(self):
+        self.verify_delete(
+            self.proxy.delete_share_replica, share_replica.ShareReplica, True
+        )
+
+    def test_share_replica_force_delete(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_replica.ShareReplica.force_delete",
+            self.proxy.delete_share_replica,
+            method_args=['id', 'ignore_missing', 'force'],
+            expected_args=[self.proxy],
+        )
+
+    def test_share_replica_reset_status(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_replica.ShareReplica.reset_status",
+            self.proxy.reset_share_replica_status,
+            method_args=['id', 'available'],
+            expected_args=[self.proxy, 'available'],
+        )
+
+    def test_share_replica_reset_state(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_replica.ShareReplica.reset_replica_state",
+            self.proxy.reset_share_replica_state,
+            method_args=['id', 'active'],
+            expected_args=[self.proxy, 'active'],
+        )
+
+    def test_share_replica_promote(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_replica.ShareReplica.promote",
+            self.proxy.promote_share_replica,
+            method_args=['id'],
+            expected_args=[self.proxy],
+        )
+
+    def test_share_replica_resync(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_replica.ShareReplica.resync",
+            self.proxy.resync_share_replica,
+            method_args=['id'],
+            expected_args=[self.proxy],
+        )
+
+
+class TestServicesResource(test_proxy_base.TestProxyBase):
+    def setUp(self):
+        super().setUp()
+        self.proxy = _proxy.Proxy(self.session)
+
+    def test_services(self):
+        self.verify_list(self.proxy.services, service.Service)
+
+    def test_services_queried(self):
+        self.verify_list(
+            self.proxy.services,
+            service.Service,
+            method_kwargs={"name": "manila-share"},
+            expected_kwargs={"name": "manila-share"},
+        )
+
+    def test_service_enable(self):
+        self._verify(
+            'openstack.shared_file_system.v2.service.Service.enable',
+            self.proxy.enable_service,
+            method_args=["value", "host1", "manila-share"],
+            expected_args=[self.proxy],
+        )
+
+    def test_service_disable(self):
+        self._verify(
+            'openstack.shared_file_system.v2.service.Service.disable',
+            self.proxy.disable_service,
+            method_args=["value", "host1", "manila-share"],
+            expected_args=[self.proxy],
+        )
+
+
+class TestShareTypeResource(test_proxy_base.TestProxyBase):
+    def setUp(self):
+        super().setUp()
+        self.proxy = _proxy.Proxy(self.session)
+
+    def test_share_types(self):
+        self.verify_list(self.proxy.share_types, share_type.ShareType)
+
+    def test_share_types_query(self):
+        self.verify_list(
+            self.proxy.share_types,
+            share_type.ShareType,
+            method_kwargs={"name": "my_share_type"},
+            expected_kwargs={"name": "my_share_type"},
+        )
+
+    def test_share_type_get(self):
+        self.verify_get(self.proxy.get_share_type, share_type.ShareType)
+
+    def test_share_type_delete(self):
+        self.verify_delete(
+            self.proxy.delete_share_type, share_type.ShareType, False
+        )
+
+    def test_share_type_delete_ignore(self):
+        self.verify_delete(
+            self.proxy.delete_share_type, share_type.ShareType, True
+        )
+
+    def test_share_type_create(self):
+        self.verify_create(
+            self.proxy.create_share_type,
+            share_type.ShareType,
+            method_kwargs={
+                "extra_specs": {"driver_handles_share_servers": "False"},
+                "name": "my_share_type",
+            },
+            expected_kwargs={
+                "extra_specs": {"driver_handles_share_servers": "False"},
+                "name": "my_share_type",
+            },
+        )
+
+    def test_share_type_update(self):
+        self.verify_update(self.proxy.update_share_type, share_type.ShareType)
+
+    def test_share_type_extra_specs_update(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_type.ShareType.set_extra_specs",
+            self.proxy.update_share_type_extra_specs,
+            method_args=["value"],
+            method_kwargs={"a": "b"},
+            expected_args=[self.proxy],
+            expected_kwargs={"a": "b"},
+        )
+
+    def test_share_type_extra_spec_property_delete(self):
+        self._verify(
+            "openstack.shared_file_system.v2.share_type.ShareType.delete_extra_specs_property",
+            self.proxy.delete_share_type_extra_spec_property,
+            expected_result=None,
+            method_args=["value", "key"],
+            expected_args=[self.proxy, "key"],
         )

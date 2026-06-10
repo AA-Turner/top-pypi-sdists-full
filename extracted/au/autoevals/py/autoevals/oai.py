@@ -9,7 +9,16 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, Optional, Protocol, TypedDict, TypeVar, Union, cast, runtime_checkable
 
-PROXY_URL = "https://api.braintrust.dev/v1/proxy"
+GATEWAY_URL = "https://gateway.braintrust.dev"
+
+
+def _gateway_url() -> str:
+    return os.environ.get("BRAINTRUST_AI_GATEWAY_URL", "").strip() or GATEWAY_URL
+
+
+def _is_gateway_url(base_url: str) -> bool:
+    normalized_base_url = base_url.rstrip("/")
+    return normalized_base_url == GATEWAY_URL or normalized_base_url == _gateway_url().rstrip("/")
 
 
 class DefaultModelConfig(TypedDict, total=False):
@@ -195,7 +204,9 @@ class LLMClient:
         if not has_customization and not isinstance(self.openai, NamedWrapper):
             self.openai = wrap_openai(self.openai)
 
-        self._is_wrapped = isinstance(self.openai, NamedWrapper)
+        self._is_wrapped = isinstance(self.openai, NamedWrapper) or (
+            not has_customization and wrap_openai.__module__.startswith("braintrust.")
+        )
 
         openai_module = get_openai_module()
 
@@ -310,9 +321,11 @@ class LLMClient:
                         responses_params["tool_choice"] = "required"
 
                 # Copy supported parameters
-                for key in ["temperature", "reasoning_effort"]:
-                    if key in kwargs:
-                        responses_params[key] = kwargs[key]
+                if "temperature" in kwargs:
+                    responses_params["temperature"] = kwargs["temperature"]
+                # The Responses API nests this under reasoning.effort, unlike Chat Completions.
+                if "reasoning_effort" in kwargs:
+                    responses_params["reasoning"] = {"effort": kwargs["reasoning_effort"]}
 
                 return responses_params
 
@@ -320,7 +333,9 @@ class LLMClient:
 
                 async def complete_wrapper(**kwargs: Any) -> Any:
                     model = kwargs.get("model", "")
-                    if is_gpt5_model(model):
+                    # Strip use_responses_api so it is never forwarded to either API.
+                    use_responses_api = kwargs.pop("use_responses_api", False)
+                    if is_gpt5_model(model) or use_responses_api:
                         responses_params = prepare_responses_params(kwargs)
                         response = await responses_create(**responses_params)
                         return convert_responses_to_chat_completion(response)
@@ -330,7 +345,9 @@ class LLMClient:
 
                 def complete_wrapper(**kwargs: Any) -> Any:
                     model = kwargs.get("model", "")
-                    if is_gpt5_model(model):
+                    # Strip use_responses_api so it is never forwarded to either API.
+                    use_responses_api = kwargs.pop("use_responses_api", False)
+                    if is_gpt5_model(model) or use_responses_api:
                         responses_params = prepare_responses_params(kwargs)
                         response = responses_create(**responses_params)
                         return convert_responses_to_chat_completion(response)
@@ -425,7 +442,7 @@ def init(
               models for different evaluation types. Only the specified models are updated;
               others remain unchanged.
 
-            When using non-OpenAI providers via the Braintrust proxy, set this to the
+            When using non-OpenAI providers via the Braintrust Gateway, set this to the
             appropriate model string (e.g., "claude-3-5-sonnet-20241022").
 
     Example:
@@ -442,7 +459,7 @@ def init(
             init(
                 client=OpenAI(
                     api_key=os.environ["BRAINTRUST_API_KEY"],
-                    base_url="https://api.braintrust.dev/v1/proxy",
+                    base_url=os.getenv("BRAINTRUST_AI_GATEWAY_URL") or "https://gateway.braintrust.dev",
                 ),
                 default_model={
                     "completion": "claude-3-5-sonnet-20241022",
@@ -514,7 +531,8 @@ def prepare_openai(
             Deprecated: Use the `client` argument and set the `openai`.
 
         base_url (str, optional): Base URL for API requests. If not provided, will
-            use OPENAI_BASE_URL from environment or fall back to PROXY_URL.
+            use OPENAI_BASE_URL from environment or fall back to BRAINTRUST_AI_GATEWAY_URL
+            or GATEWAY_URL.
             Deprecated: Use the `client` argument and set the `openai`.
 
     Returns:
@@ -553,11 +571,14 @@ def prepare_openai(
         )
         warned_deprecated_api_key_base_url = True
 
+    if base_url is None:
+        base_url = os.environ.get("OPENAI_BASE_URL") or _gateway_url()
     # prepare the default openai sdk, if not provided
     if api_key is None:
-        api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("BRAINTRUST_API_KEY")
-    if base_url is None:
-        base_url = os.environ.get("OPENAI_BASE_URL", PROXY_URL)
+        if _is_gateway_url(base_url):
+            api_key = os.environ.get("BRAINTRUST_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        else:
+            api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("BRAINTRUST_API_KEY")
 
     if hasattr(openai_module, "OpenAI"):
         openai_module = cast(OpenAIV1Module, openai_module)

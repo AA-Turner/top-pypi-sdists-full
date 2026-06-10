@@ -1,7 +1,7 @@
 # Copyright Modal Labs 2024
 import asyncio
 import platform
-from typing import Generic, Optional, TypeVar
+from typing import Generic, TypeVar
 
 from modal_proto import api_pb2
 
@@ -13,9 +13,9 @@ from .config import logger
 from .exception import ExecTimeoutError, InteractiveTimeoutError, InvalidError
 from .io_streams import (
     _StreamReader,
-    _StreamReaderThroughCommandRouterParams,
+    _StreamReaderThroughSandboxExecCommandRouterParams,
     _StreamWriter,
-    _StreamWriterThroughCommandRouterParams,
+    _StreamWriterThroughCommandRouterSandboxExecParams,
 )
 from .stream_type import StreamType
 
@@ -46,7 +46,7 @@ class _ContainerProcess(Generic[T]):
         command_router_client: TaskCommandRouterClient,
         stdout: StreamType = StreamType.PIPE,
         stderr: StreamType = StreamType.PIPE,
-        exec_deadline: Optional[float] = None,
+        exec_deadline: float | None = None,
         text: bool = True,
         by_line: bool = False,
     ) -> None:
@@ -58,7 +58,7 @@ class _ContainerProcess(Generic[T]):
         self._by_line = by_line
         self._task_id = task_id
         self._stdout = _StreamReader[T](
-            _StreamReaderThroughCommandRouterParams(
+            _StreamReaderThroughSandboxExecCommandRouterParams(
                 file_descriptor=api_pb2.FILE_DESCRIPTOR_STDOUT,
                 task_id=self._task_id,
                 object_id=process_id,
@@ -70,7 +70,7 @@ class _ContainerProcess(Generic[T]):
             by_line=by_line,
         )
         self._stderr = _StreamReader[T](
-            _StreamReaderThroughCommandRouterParams(
+            _StreamReaderThroughSandboxExecCommandRouterParams(
                 file_descriptor=api_pb2.FILE_DESCRIPTOR_STDERR,
                 task_id=self._task_id,
                 object_id=process_id,
@@ -82,7 +82,7 @@ class _ContainerProcess(Generic[T]):
             by_line=by_line,
         )
         self._stdin = _StreamWriter(
-            _StreamWriterThroughCommandRouterParams(
+            _StreamWriterThroughCommandRouterSandboxExecParams(
                 task_id=self._task_id,
                 object_id=process_id,
                 command_router_client=self._command_router_client,
@@ -117,7 +117,7 @@ class _ContainerProcess(Generic[T]):
             )
         return self._returncode
 
-    async def poll(self) -> Optional[int]:
+    async def poll(self) -> int | None:
         """Check if the container process has finished running.
 
         Returns `None` if the process is still running, else returns the exit code.

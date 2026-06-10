@@ -14,52 +14,27 @@
 
 import argparse
 
+from tn.utils import str2bool
+
 # TODO(pzd17 & sxc19): multi-language support
 from tn.chinese.normalizer import Normalizer as ZhNormalizer
 from tn.english.normalizer import Normalizer as EnNormalizer
-from itn.main import str2bool
+from tn.japanese.normalizer import Normalizer as JaNormalizer
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--text', help='input string')
-    parser.add_argument('--file', help='input file path')
-    parser.add_argument('--cache_dir',
-                        type=str,
-                        default=None,
-                        help='cache dir containing *.fst')
-    parser.add_argument('--overwrite_cache',
-                        action='store_true',
-                        help='rebuild *.fst')
-    parser.add_argument('--remove_interjections',
-                        type=str,
-                        default='True',
-                        help='remove interjections like "啊"')
-    parser.add_argument('--remove_erhua',
-                        type=str,
-                        default='True',
-                        help='remove "儿"')
-    parser.add_argument('--traditional_to_simple',
-                        type=str,
-                        default='True',
-                        help='i.e., "喆" -> "哲"')
-    parser.add_argument('--remove_puncts',
-                        type=str,
-                        default='False',
-                        help='remove punctuations like "。" and "，"')
-    parser.add_argument('--full_to_half',
-                        type=str,
-                        default='True',
-                        help='i.e., "Ａ" -> "A"')
-    parser.add_argument('--tag_oov',
-                        type=str,
-                        default='False',
-                        help='tag OOV with "OOV"')
-    parser.add_argument('--language',
-                        type=str,
-                        default='zh',
-                        choices=["zh", "en"],
-                        help='valid languages')
+    parser.add_argument("--text", help="input string")
+    parser.add_argument("--file", help="input file path")
+    parser.add_argument("--cache_dir", type=str, default=None, help="cache dir containing *.fst")
+    parser.add_argument("--overwrite_cache", action="store_true", help="rebuild *.fst")
+    parser.add_argument("--remove_interjections", type=str, default="True", help='remove interjections like "啊"')
+    parser.add_argument("--remove_erhua", type=str, default="True", help='remove "儿"')
+    parser.add_argument("--traditional_to_simple", type=str, default="True", help='i.e., "喆" -> "哲"')
+    parser.add_argument("--remove_puncts", type=str, default="False", help='remove punctuations like "。" and "，"')
+    parser.add_argument("--full_to_half", type=str, default="True", help='i.e., "Ａ" -> "A"')
+    parser.add_argument("--tag_oov", type=str, default="False", help='tag OOV with "OOV"')
+    parser.add_argument("--language", type=str, default="zh", choices=["zh", "en", "ja"], help="valid languages")
     args = parser.parse_args()
 
     if args.language == "zh":
@@ -71,20 +46,28 @@ def main():
             traditional_to_simple=str2bool(args.traditional_to_simple),
             remove_puncts=str2bool(args.remove_puncts),
             full_to_half=str2bool(args.full_to_half),
-            tag_oov=str2bool(args.tag_oov))
+            tag_oov=str2bool(args.tag_oov),
+        )
     elif args.language == "en":
-        normalizer = EnNormalizer(cache_dir=args.cache_dir,
-                                  overwrite_cache=args.overwrite_cache)
+        normalizer = EnNormalizer(cache_dir=args.cache_dir, overwrite_cache=args.overwrite_cache)
+    elif args.language == "ja":
+        normalizer = JaNormalizer(
+            cache_dir=args.cache_dir,
+            overwrite_cache=args.overwrite_cache,
+            remove_puncts=str2bool(args.remove_puncts),
+            full_to_half=str2bool(args.full_to_half),
+            tag_oov=str2bool(args.tag_oov),
+        )
 
     if args.text:
         print(normalizer.tag(args.text))
         print(normalizer.normalize(args.text))
     elif args.file:
-        with open(args.file) as fin:
+        with open(args.file, encoding="utf-8") as fin:
             for line in fin:
                 print(normalizer.tag(line.strip()))
                 print(normalizer.normalize(line.strip()))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -27,6 +27,12 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListAutonomousDatabaseBackupsPaginator,
+    ListAutonomousDatabaseCharacterSetsPaginator,
+    ListAutonomousDatabaseClonesPaginator,
+    ListAutonomousDatabasePeersPaginator,
+    ListAutonomousDatabasesPaginator,
+    ListAutonomousDatabaseVersionsPaginator,
     ListAutonomousVirtualMachinesPaginator,
     ListCloudAutonomousVmClustersPaginator,
     ListCloudExadataInfrastructuresPaginator,
@@ -42,6 +48,12 @@ from .paginator import (
 from .type_defs import (
     AcceptMarketplaceRegistrationInputTypeDef,
     AssociateIamRoleToResourceInputTypeDef,
+    CreateAutonomousDatabaseBackupInputTypeDef,
+    CreateAutonomousDatabaseBackupOutputTypeDef,
+    CreateAutonomousDatabaseInputTypeDef,
+    CreateAutonomousDatabaseOutputTypeDef,
+    CreateAutonomousDatabaseWalletInputTypeDef,
+    CreateAutonomousDatabaseWalletOutputTypeDef,
     CreateCloudAutonomousVmClusterInputTypeDef,
     CreateCloudAutonomousVmClusterOutputTypeDef,
     CreateCloudExadataInfrastructureInputTypeDef,
@@ -52,12 +64,22 @@ from .type_defs import (
     CreateOdbNetworkOutputTypeDef,
     CreateOdbPeeringConnectionInputTypeDef,
     CreateOdbPeeringConnectionOutputTypeDef,
+    DeleteAutonomousDatabaseBackupInputTypeDef,
+    DeleteAutonomousDatabaseInputTypeDef,
     DeleteCloudAutonomousVmClusterInputTypeDef,
     DeleteCloudExadataInfrastructureInputTypeDef,
     DeleteCloudVmClusterInputTypeDef,
     DeleteOdbNetworkInputTypeDef,
     DeleteOdbPeeringConnectionInputTypeDef,
     DisassociateIamRoleFromResourceInputTypeDef,
+    FailoverAutonomousDatabaseInputTypeDef,
+    FailoverAutonomousDatabaseOutputTypeDef,
+    GetAutonomousDatabaseBackupInputTypeDef,
+    GetAutonomousDatabaseBackupOutputTypeDef,
+    GetAutonomousDatabaseInputTypeDef,
+    GetAutonomousDatabaseOutputTypeDef,
+    GetAutonomousDatabaseWalletDetailsInputTypeDef,
+    GetAutonomousDatabaseWalletDetailsOutputTypeDef,
     GetCloudAutonomousVmClusterInputTypeDef,
     GetCloudAutonomousVmClusterOutputTypeDef,
     GetCloudExadataInfrastructureInputTypeDef,
@@ -76,6 +98,18 @@ from .type_defs import (
     GetOdbPeeringConnectionInputTypeDef,
     GetOdbPeeringConnectionOutputTypeDef,
     InitializeServiceInputTypeDef,
+    ListAutonomousDatabaseBackupsInputTypeDef,
+    ListAutonomousDatabaseBackupsOutputTypeDef,
+    ListAutonomousDatabaseCharacterSetsInputTypeDef,
+    ListAutonomousDatabaseCharacterSetsOutputTypeDef,
+    ListAutonomousDatabaseClonesInputTypeDef,
+    ListAutonomousDatabaseClonesOutputTypeDef,
+    ListAutonomousDatabasePeersInputTypeDef,
+    ListAutonomousDatabasePeersOutputTypeDef,
+    ListAutonomousDatabasesInputTypeDef,
+    ListAutonomousDatabasesOutputTypeDef,
+    ListAutonomousDatabaseVersionsInputTypeDef,
+    ListAutonomousDatabaseVersionsOutputTypeDef,
     ListAutonomousVirtualMachinesInputTypeDef,
     ListAutonomousVirtualMachinesOutputTypeDef,
     ListCloudAutonomousVmClustersInputTypeDef,
@@ -100,14 +134,30 @@ from .type_defs import (
     ListSystemVersionsOutputTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    RebootAutonomousDatabaseInputTypeDef,
+    RebootAutonomousDatabaseOutputTypeDef,
     RebootDbNodeInputTypeDef,
     RebootDbNodeOutputTypeDef,
+    RestoreAutonomousDatabaseInputTypeDef,
+    RestoreAutonomousDatabaseOutputTypeDef,
+    ShrinkAutonomousDatabaseInputTypeDef,
+    ShrinkAutonomousDatabaseOutputTypeDef,
+    StartAutonomousDatabaseInputTypeDef,
+    StartAutonomousDatabaseOutputTypeDef,
     StartDbNodeInputTypeDef,
     StartDbNodeOutputTypeDef,
+    StopAutonomousDatabaseInputTypeDef,
+    StopAutonomousDatabaseOutputTypeDef,
     StopDbNodeInputTypeDef,
     StopDbNodeOutputTypeDef,
+    SwitchoverAutonomousDatabaseInputTypeDef,
+    SwitchoverAutonomousDatabaseOutputTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateAutonomousDatabaseBackupInputTypeDef,
+    UpdateAutonomousDatabaseBackupOutputTypeDef,
+    UpdateAutonomousDatabaseInputTypeDef,
+    UpdateAutonomousDatabaseOutputTypeDef,
     UpdateCloudExadataInfrastructureInputTypeDef,
     UpdateCloudExadataInfrastructureOutputTypeDef,
     UpdateOdbNetworkInputTypeDef,
@@ -192,6 +242,36 @@ class OdbClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#associate_iam_role_to_resource)
         """
 
+    def create_autonomous_database(
+        self, **kwargs: Unpack[CreateAutonomousDatabaseInputTypeDef]
+    ) -> CreateAutonomousDatabaseOutputTypeDef:
+        """
+        Creates a new Autonomous Database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/create_autonomous_database.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#create_autonomous_database)
+        """
+
+    def create_autonomous_database_backup(
+        self, **kwargs: Unpack[CreateAutonomousDatabaseBackupInputTypeDef]
+    ) -> CreateAutonomousDatabaseBackupOutputTypeDef:
+        """
+        Creates a new backup of the specified Autonomous Database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/create_autonomous_database_backup.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#create_autonomous_database_backup)
+        """
+
+    def create_autonomous_database_wallet(
+        self, **kwargs: Unpack[CreateAutonomousDatabaseWalletInputTypeDef]
+    ) -> CreateAutonomousDatabaseWalletOutputTypeDef:
+        """
+        Creates a new wallet for the specified Autonomous Database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/create_autonomous_database_wallet.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#create_autonomous_database_wallet)
+        """
+
     def create_cloud_autonomous_vm_cluster(
         self, **kwargs: Unpack[CreateCloudAutonomousVmClusterInputTypeDef]
     ) -> CreateCloudAutonomousVmClusterOutputTypeDef:
@@ -240,6 +320,26 @@ class OdbClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/create_odb_peering_connection.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#create_odb_peering_connection)
+        """
+
+    def delete_autonomous_database(
+        self, **kwargs: Unpack[DeleteAutonomousDatabaseInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the specified Autonomous Database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/delete_autonomous_database.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#delete_autonomous_database)
+        """
+
+    def delete_autonomous_database_backup(
+        self, **kwargs: Unpack[DeleteAutonomousDatabaseBackupInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the specified Autonomous Database backup.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/delete_autonomous_database_backup.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#delete_autonomous_database_backup)
         """
 
     def delete_cloud_autonomous_vm_cluster(
@@ -300,6 +400,47 @@ class OdbClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/disassociate_iam_role_from_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#disassociate_iam_role_from_resource)
+        """
+
+    def failover_autonomous_database(
+        self, **kwargs: Unpack[FailoverAutonomousDatabaseInputTypeDef]
+    ) -> FailoverAutonomousDatabaseOutputTypeDef:
+        """
+        Initiates a failover of the specified Autonomous Database to a standby peer
+        database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/failover_autonomous_database.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#failover_autonomous_database)
+        """
+
+    def get_autonomous_database(
+        self, **kwargs: Unpack[GetAutonomousDatabaseInputTypeDef]
+    ) -> GetAutonomousDatabaseOutputTypeDef:
+        """
+        Gets information about a specific Autonomous Database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_autonomous_database.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#get_autonomous_database)
+        """
+
+    def get_autonomous_database_backup(
+        self, **kwargs: Unpack[GetAutonomousDatabaseBackupInputTypeDef]
+    ) -> GetAutonomousDatabaseBackupOutputTypeDef:
+        """
+        Gets information about a specific Autonomous Database backup.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_autonomous_database_backup.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#get_autonomous_database_backup)
+        """
+
+    def get_autonomous_database_wallet_details(
+        self, **kwargs: Unpack[GetAutonomousDatabaseWalletDetailsInputTypeDef]
+    ) -> GetAutonomousDatabaseWalletDetailsOutputTypeDef:
+        """
+        Gets the wallet details for the specified Autonomous Database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_autonomous_database_wallet_details.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#get_autonomous_database_wallet_details)
         """
 
     def get_cloud_autonomous_vm_cluster(
@@ -394,6 +535,67 @@ class OdbClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/initialize_service.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#initialize_service)
+        """
+
+    def list_autonomous_database_backups(
+        self, **kwargs: Unpack[ListAutonomousDatabaseBackupsInputTypeDef]
+    ) -> ListAutonomousDatabaseBackupsOutputTypeDef:
+        """
+        Lists the backups of the specified Autonomous Database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/list_autonomous_database_backups.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#list_autonomous_database_backups)
+        """
+
+    def list_autonomous_database_character_sets(
+        self, **kwargs: Unpack[ListAutonomousDatabaseCharacterSetsInputTypeDef]
+    ) -> ListAutonomousDatabaseCharacterSetsOutputTypeDef:
+        """
+        Lists the available character sets for Autonomous Databases.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/list_autonomous_database_character_sets.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#list_autonomous_database_character_sets)
+        """
+
+    def list_autonomous_database_clones(
+        self, **kwargs: Unpack[ListAutonomousDatabaseClonesInputTypeDef]
+    ) -> ListAutonomousDatabaseClonesOutputTypeDef:
+        """
+        Lists the clones of the specified Autonomous Database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/list_autonomous_database_clones.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#list_autonomous_database_clones)
+        """
+
+    def list_autonomous_database_peers(
+        self, **kwargs: Unpack[ListAutonomousDatabasePeersInputTypeDef]
+    ) -> ListAutonomousDatabasePeersOutputTypeDef:
+        """
+        Lists the peer databases of the specified Autonomous Database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/list_autonomous_database_peers.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#list_autonomous_database_peers)
+        """
+
+    def list_autonomous_database_versions(
+        self, **kwargs: Unpack[ListAutonomousDatabaseVersionsInputTypeDef]
+    ) -> ListAutonomousDatabaseVersionsOutputTypeDef:
+        """
+        Lists the available Oracle Database software versions for Autonomous Databases.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/list_autonomous_database_versions.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#list_autonomous_database_versions)
+        """
+
+    def list_autonomous_databases(
+        self, **kwargs: Unpack[ListAutonomousDatabasesInputTypeDef]
+    ) -> ListAutonomousDatabasesOutputTypeDef:
+        """
+        Returns information about the Autonomous Databases owned by your Amazon Web
+        Services account in the current Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/list_autonomous_databases.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#list_autonomous_databases)
         """
 
     def list_autonomous_virtual_machines(
@@ -522,6 +724,16 @@ class OdbClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#list_tags_for_resource)
         """
 
+    def reboot_autonomous_database(
+        self, **kwargs: Unpack[RebootAutonomousDatabaseInputTypeDef]
+    ) -> RebootAutonomousDatabaseOutputTypeDef:
+        """
+        Reboots the specified Autonomous Database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/reboot_autonomous_database.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#reboot_autonomous_database)
+        """
+
     def reboot_db_node(
         self, **kwargs: Unpack[RebootDbNodeInputTypeDef]
     ) -> RebootDbNodeOutputTypeDef:
@@ -532,6 +744,37 @@ class OdbClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#reboot_db_node)
         """
 
+    def restore_autonomous_database(
+        self, **kwargs: Unpack[RestoreAutonomousDatabaseInputTypeDef]
+    ) -> RestoreAutonomousDatabaseOutputTypeDef:
+        """
+        Restores the specified Autonomous Database to a point in time.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/restore_autonomous_database.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#restore_autonomous_database)
+        """
+
+    def shrink_autonomous_database(
+        self, **kwargs: Unpack[ShrinkAutonomousDatabaseInputTypeDef]
+    ) -> ShrinkAutonomousDatabaseOutputTypeDef:
+        """
+        Shrinks the storage of the specified Autonomous Database to reclaim unused
+        space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/shrink_autonomous_database.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#shrink_autonomous_database)
+        """
+
+    def start_autonomous_database(
+        self, **kwargs: Unpack[StartAutonomousDatabaseInputTypeDef]
+    ) -> StartAutonomousDatabaseOutputTypeDef:
+        """
+        Starts the specified Autonomous Database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/start_autonomous_database.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#start_autonomous_database)
+        """
+
     def start_db_node(self, **kwargs: Unpack[StartDbNodeInputTypeDef]) -> StartDbNodeOutputTypeDef:
         """
         Starts the specified DB node in a VM cluster.
@@ -540,12 +783,33 @@ class OdbClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#start_db_node)
         """
 
+    def stop_autonomous_database(
+        self, **kwargs: Unpack[StopAutonomousDatabaseInputTypeDef]
+    ) -> StopAutonomousDatabaseOutputTypeDef:
+        """
+        Stops the specified Autonomous Database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/stop_autonomous_database.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#stop_autonomous_database)
+        """
+
     def stop_db_node(self, **kwargs: Unpack[StopDbNodeInputTypeDef]) -> StopDbNodeOutputTypeDef:
         """
         Stops the specified DB node in a VM cluster.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/stop_db_node.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#stop_db_node)
+        """
+
+    def switchover_autonomous_database(
+        self, **kwargs: Unpack[SwitchoverAutonomousDatabaseInputTypeDef]
+    ) -> SwitchoverAutonomousDatabaseOutputTypeDef:
+        """
+        Performs a switchover of the specified Autonomous Database to a standby peer
+        database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/switchover_autonomous_database.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#switchover_autonomous_database)
         """
 
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
@@ -562,6 +826,26 @@ class OdbClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/untag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#untag_resource)
+        """
+
+    def update_autonomous_database(
+        self, **kwargs: Unpack[UpdateAutonomousDatabaseInputTypeDef]
+    ) -> UpdateAutonomousDatabaseOutputTypeDef:
+        """
+        Updates the properties of an Autonomous Database.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/update_autonomous_database.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#update_autonomous_database)
+        """
+
+    def update_autonomous_database_backup(
+        self, **kwargs: Unpack[UpdateAutonomousDatabaseBackupInputTypeDef]
+    ) -> UpdateAutonomousDatabaseBackupOutputTypeDef:
+        """
+        Updates the properties of an Autonomous Database backup.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/update_autonomous_database_backup.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#update_autonomous_database_backup)
         """
 
     def update_cloud_exadata_infrastructure(
@@ -593,6 +877,72 @@ class OdbClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/update_odb_peering_connection.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#update_odb_peering_connection)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_autonomous_database_backups"]
+    ) -> ListAutonomousDatabaseBackupsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_autonomous_database_character_sets"]
+    ) -> ListAutonomousDatabaseCharacterSetsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_autonomous_database_clones"]
+    ) -> ListAutonomousDatabaseClonesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_autonomous_database_peers"]
+    ) -> ListAutonomousDatabasePeersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_autonomous_database_versions"]
+    ) -> ListAutonomousDatabaseVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_autonomous_databases"]
+    ) -> ListAutonomousDatabasesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_odb/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

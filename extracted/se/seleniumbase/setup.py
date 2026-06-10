@@ -18,7 +18,10 @@ try:
             long_description_lines.append(line)
     long_description = "\n".join(long_description_lines)
 except IOError:
-    long_description = "A complete library for building end-to-end tests."
+    long_description = (
+        "SeleniumBase is a framework for web crawling, scraping, and testing. "
+        "Supports pytest. CDP Mode adds stealth. Includes many tools."
+    )
 about = {}
 # Get the package version from the seleniumbase/__version__.py file
 with open(
@@ -75,8 +78,8 @@ setup(
     name="seleniumbase",
     version=about["__version__"],
     description=(
-        "A framework for stealthy Chromium automation with CDP Mode. "
-        "Includes CAPTCHA-bypass, E2E Testing, and a Playwright integration."
+        "SeleniumBase is a framework for web crawling, scraping, and testing. "
+        "Supports pytest. CDP Mode adds stealth. Includes many tools."
     ),
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -112,14 +115,11 @@ setup(
         "stealth",
         "chromium",
         "playwright",
-        "undetected",
-        "bot-detection",
+        "anti-detection",
+        "captcha-bypass",
         "fingerprint",
         "recaptcha",
-        "cloudflare",
         "turnstile",
-        "datadome",
-        "captcha",
         "headless",
     ],
     classifiers=[
@@ -230,7 +230,7 @@ setup(
         'parameterized==0.9.0',
         'behave==1.2.6',  # Newer ones had issues
         'soupsieve~=2.8.4',
-        'beautifulsoup4~=4.14.3',
+        'beautifulsoup4~=4.15.0',
         'pyotp==2.9.0',
         'python-xlib==0.33;platform_system=="Linux"',
         'PyAutoGUI>=0.9.54;platform_system=="Linux"',
@@ -273,7 +273,7 @@ setup(
         "pdfminer": [
             'pdfminer.six==20251107;python_version<"3.10"',
             'pdfminer.six==20260107;python_version>="3.10"',
-            'cryptography==48.0.0',
+            'cryptography==48.0.1',
             'cffi==2.0.0',
             'pycparser==2.23;python_version<"3.10"',
             'pycparser==3.0;python_version>="3.10"',

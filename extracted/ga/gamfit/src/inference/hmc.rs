@@ -31,7 +31,7 @@ use crate::estimate::{
     EstimationError, UnifiedFitResult, validate_explicit_dense_hessian_for_whitening,
 };
 use crate::faer_ndarray::{FaerCholesky, FaerEigh, fast_ata_into, fast_atv, fast_av_into};
-use crate::families::gamlss::monotone_wiggle_basis_with_derivative_order;
+use crate::families::wiggle::monotone_wiggle_basis_with_derivative_order;
 use crate::linalg::triangular::back_substitution_lower_transpose_guarded_into;
 use crate::matrix::DesignMatrix;
 use crate::solver::mixture_link::{
@@ -189,6 +189,17 @@ impl SamplingVisualizer {
     }
 }
 
+/// Upper bound on the autocorrelation lag summed in the effective-sample-size
+/// estimate. The Geyer initial-positive-sequence sum normally self-truncates
+/// long before this, but a hard cap bounds the `O(n·lag)` work for very long
+/// chains where the autocorrelation tail is numerical noise.
+const MAX_AUTOCORRELATION_LAG: usize = 1000;
+
+/// Floor on the lag-0 autocovariance (chain variance) used as the denominator in
+/// the autocorrelation ratios, guarding against division by zero for a chain
+/// that is numerically constant.
+const AUTOCOVARIANCE_FLOOR: f64 = 1e-16;
+
 /// Compute split-chain R-hat and ESS using the Gelman-Rubin diagnostic.
 ///
 /// This is the standard split-chain formulation (no rank normalization).
@@ -253,10 +264,10 @@ fn compute_split_rhat_and_ess(samples: &Array3<f64>) -> (f64, f64) {
                 let d = splitvalue(samples, n_chains, half, dim, sc, t) - mean;
                 g0 += d * d;
             }
-            gamma0[sc] = (g0 / n as f64).max(1e-16);
+            gamma0[sc] = (g0 / n as f64).max(AUTOCOVARIANCE_FLOOR);
         }
 
-        let max_lag = (n - 1).min(1000);
+        let max_lag = (n - 1).min(MAX_AUTOCORRELATION_LAG);
         let mut tau = 1.0_f64;
         let mut lag = 1usize;
         while lag < max_lag {
@@ -462,6 +473,14 @@ struct SharedData {
     weights: Arc<Array1<f64>>,
     /// MAP estimate (mode) μ [dim]
     mode: Arc<Array1<f64>>,
+    /// Fixed additive offset on the linear predictor: η = Xβ + offset
+    /// [n_samples]. `None` when the model was fit without an offset (the common
+    /// case), avoiding a per-step O(n) add of zeros. The offset shifts η only —
+    /// it is constant in β, so ∂η/∂β = X is unchanged and no gradient,
+    /// Hessian, or penalty term is affected. Dropping it (the historical
+    /// behaviour) silently sampled the wrong posterior for any `--offset-column`
+    /// fit (#882).
+    offset: Option<Arc<Array1<f64>>>,
     /// Auxiliary log-link family parameter: Gamma shape, Tweedie power, or NB theta.
     gamma_shape: f64,
     /// Dispersion parameter φ (Gaussian: σ²; Gamma: 1/shape; `Known(1.0)` for
@@ -736,6 +755,7 @@ impl NutsPosterior {
             y: Arc::new(y.to_owned()),
             weights: Arc::new(weights.to_owned()),
             mode: Arc::new(mode_owned),
+            offset: None,
             gamma_shape,
             dispersion,
             n_samples,
@@ -755,6 +775,36 @@ impl NutsPosterior {
         })
     }
 
+    /// Attach a fixed additive offset to the linear predictor: η = Xβ + offset.
+    ///
+    /// The offset is constant in β, so the whitening geometry (`chol`), penalty
+    /// operators, and stored Hessian are all unchanged — only η (and hence the
+    /// per-observation working residual / mean) shifts. The fitted `mode` and
+    /// `hessian` handed to [`Self::new`] already correspond to the offset-trained
+    /// fit, so this only needs to restore the offset to the likelihood
+    /// evaluation. Returns an error if the offset length disagrees with the data
+    /// or carries non-finite entries.
+    fn with_offset(mut self, offset: ArrayView1<f64>) -> Result<Self, String> {
+        if offset.len() != self.data.n_samples {
+            return Err(HmcError::DimensionMismatch {
+                reason: format!(
+                    "NUTS offset length {} does not match {} observations",
+                    offset.len(),
+                    self.data.n_samples
+                ),
+            }
+            .into());
+        }
+        if !offset.iter().all(|v| v.is_finite()) {
+            return Err(HmcError::NonFiniteState {
+                reason: "NUTS offset contains NaN or Inf values".to_string(),
+            }
+            .into());
+        }
+        self.data.offset = Some(Arc::new(offset.to_owned()));
+        Ok(self)
+    }
+
     fn compute_logp_and_grad_nd_into(
         &self,
         z: &Array1<f64>,
@@ -765,8 +815,11 @@ impl NutsPosterior {
         // β = μ + L @ z
         let beta = self.data.mode.as_ref() + &self.chol.dot(z);
 
-        // === Step 2: Compute η = X @ β ===
-        let eta = crate::faer_ndarray::fast_av(self.data.x.as_ref(), &beta);
+        // === Step 2: Compute η = X @ β (+ offset) ===
+        let mut eta = crate::faer_ndarray::fast_av(self.data.x.as_ref(), &beta);
+        if let Some(offset) = self.data.offset.as_ref() {
+            eta += offset.as_ref();
+        }
 
         // === Step 3: Compute log-likelihood and gradient ===
         let (ll, mut grad_ll_beta) = self.family_logp_and_grad_into(&eta, residual);
@@ -1651,6 +1704,7 @@ mod tests {
         LinkWigglePosterior, LinkWiggleSplineArtifacts, NutsConfig, NutsFamily, NutsPosterior,
         SharedData, cloglog_bernoulli_logp_and_residual, firth_jeffreys_logp_and_grad,
         joint_family_logp_and_grad, laplace_directional_cubic_diagnostic,
+        laplace_skewness_threshold, laplace_trustworthiness_from_skewness,
         run_joint_beta_rho_sampling, run_logit_polya_gamma_gibbs,
         run_nuts_sampling_flattened_family,
     };
@@ -2072,6 +2126,7 @@ mod tests {
             y: Arc::new(y.clone()),
             weights: Arc::new(weights.clone()),
             mode: Arc::new(Array1::zeros(1)),
+            offset: None,
             gamma_shape: shape,
             dispersion: crate::estimate::Dispersion::Known(1.0),
             n_samples: x.nrows(),
@@ -2263,6 +2318,7 @@ mod tests {
             y: Arc::new(y),
             weights: Arc::new(weights.clone()),
             mode: Arc::new(Array1::zeros(x.ncols())),
+            offset: None,
             gamma_shape: 1.0,
             dispersion: crate::estimate::Dispersion::Known(1.0),
             n_samples: x.nrows(),
@@ -2335,6 +2391,7 @@ mod tests {
                 gamma_shape: None,
                 dispersion: crate::solver::estimate::Dispersion::Known(1.0),
                 firth_bias_reduction: false,
+                offset: None,
             }),
             &cfg,
         );
@@ -2376,6 +2433,7 @@ mod tests {
                 gamma_shape: None,
                 dispersion: crate::estimate::Dispersion::Known(1.0),
                 firth_bias_reduction: false,
+                offset: None,
             }),
             &cfg,
         )
@@ -2415,6 +2473,7 @@ mod tests {
                 gamma_shape: None,
                 dispersion: crate::estimate::Dispersion::Known(1.0),
                 firth_bias_reduction: false,
+                offset: None,
             }),
             &cfg,
         ) {
@@ -2459,6 +2518,7 @@ mod tests {
                 gamma_shape: None,
                 dispersion: crate::estimate::Dispersion::Known(1.0),
                 firth_bias_reduction: true,
+                offset: None,
             }),
             &cfg,
         ) {
@@ -2501,6 +2561,7 @@ mod tests {
             1.0,
             crate::estimate::Dispersion::Known(1.0),
             false,
+            None,
             &cfg,
         )
         .expect_err("invalid target_accept should be rejected before sampling");
@@ -2546,6 +2607,7 @@ mod tests {
                 1.0,
                 crate::estimate::Dispersion::Known(1.0),
                 false,
+                None,
                 &cfg,
             )
             .expect_err("too-few samples must be rejected before sampling");
@@ -2678,6 +2740,7 @@ mod tests {
             1.0,
             crate::estimate::Dispersion::Known(1.0),
             false,
+            None,
             &zero_chain_cfg,
         )
         .expect_err("zero chains must be rejected before sampling");
@@ -2704,6 +2767,7 @@ mod tests {
             1.0,
             crate::estimate::Dispersion::Known(1.0),
             false,
+            None,
             &single_chain_cfg,
         )
         .expect("a single chain is a supported configuration and must return draws");
@@ -2889,6 +2953,7 @@ mod tests {
             y: Arc::new(y),
             weights: Arc::new(weights),
             mode: Arc::new(Array1::zeros(1)),
+            offset: None,
             gamma_shape: 1.0,
             dispersion: crate::estimate::Dispersion::Known(1.0),
             n_samples: 2,
@@ -3054,6 +3119,7 @@ mod tests {
             y: Arc::new(array![1.0, 0.0]),
             weights: Arc::new(array![1.0, 1.0]),
             mode: Arc::new(Array1::zeros(1)),
+            offset: None,
             gamma_shape: 1.0,
             dispersion: crate::estimate::Dispersion::Known(1.0),
             n_samples: 2,
@@ -3179,6 +3245,131 @@ mod tests {
             max_val,
             eig_max,
         );
+    }
+
+    #[test]
+    fn laplace_trustworthiness_is_block_local_and_threshold_shrinks_with_n() {
+        // Two directions: one nearly Gaussian (tiny skewness), one strongly
+        // skewed. The adaptive verdict must flag ONLY the skewed direction —
+        // this is the block-local behavior #784 requires (keep cheap Laplace
+        // where the Gaussian summary holds, correct only the curvature-heavy
+        // block).
+        let skew = array![0.01, 0.9];
+
+        // At a modest effective sample size the skewed direction dominates the
+        // Laplace floor and must be flagged; the near-Gaussian one must not.
+        let verdict = laplace_trustworthiness_from_skewness(&skew, 100.0);
+        assert_eq!(
+            verdict.untrustworthy_directions,
+            vec![1],
+            "only the strongly-skewed direction should be flagged (block-local)",
+        );
+        assert!(verdict.fallback_required());
+        assert!((verdict.max_abs_skewness - 0.9).abs() < 1e-12);
+
+        // The threshold must SHRINK as n grows (Laplace gets stricter): a
+        // direction tolerated at small n becomes untrustworthy at large n,
+        // because the Gaussian floor it must beat is O(1/n).
+        let t_small = laplace_skewness_threshold(25.0);
+        let t_large = laplace_skewness_threshold(10_000.0);
+        assert!(
+            t_large < t_small,
+            "validity threshold must tighten with sample size: {t_large} !< {t_small}",
+        );
+
+        // Degenerate / empty curvature support => everything trustworthy
+        // (nothing for the Gaussian summary to be wrong about).
+        let none = laplace_trustworthiness_from_skewness(&skew, 0.0);
+        assert!(!none.fallback_required());
+        assert!(none.threshold.is_infinite());
+    }
+
+    /// Synthetic block-excess oracle: an anharmonicity `ΔF(t) = a·Σ_k t_k⁴`
+    /// whose per-direction strength carries unit ρ-sensitivity, so
+    /// `∂ΔF/∂ρ_k = a·t_k⁴`. `a = 0` is a pure Gaussian block (exactly zero
+    /// excess and zero ρ-gradient — the consistency anchor); `a > 0` is the
+    /// quartic correction oracle the importance sampler is checked against.
+    struct AnharmonicBlock {
+        lambdas: Array1<f64>,
+        a: f64,
+    }
+    impl super::BlockExcessTarget for AnharmonicBlock {
+        fn block_dim(&self) -> usize {
+            self.lambdas.len()
+        }
+        fn rho_dim(&self) -> usize {
+            self.lambdas.len()
+        }
+        fn block_curvatures(&self) -> &Array1<f64> {
+            &self.lambdas
+        }
+        fn excess(&self, t: &Array1<f64>) -> f64 {
+            self.a * t.iter().map(|&x| x.powi(4)).sum::<f64>()
+        }
+        fn excess_rho_gradient(&self, t: &Array1<f64>) -> Array1<f64> {
+            t.mapv(|x| self.a * x.powi(4))
+        }
+    }
+
+    #[test]
+    fn block_sampled_marginal_is_zero_for_gaussian_block() {
+        // A purely Gaussian block has ΔF ≡ 0, so the sampled correction (the
+        // log-ratio of true to Laplace block free energy) must be exactly 0,
+        // with a zero ρ-gradient. This is the consistency anchor: where the
+        // Gaussian summary holds, the fallback is a no-op.
+        let target = AnharmonicBlock {
+            lambdas: array![2.0, 0.5],
+            a: 0.0,
+        };
+        let out = super::block_sampled_marginal_correction(&target).expect("correction");
+        assert!(
+            out.value.abs() < 1e-12,
+            "Gaussian block value {}",
+            out.value
+        );
+        assert!(out.rho_gradient.iter().all(|&g| g.abs() < 1e-12));
+        assert!(out.n_draws > 0);
+    }
+
+    #[test]
+    fn block_sampled_marginal_recovers_analytic_quartic_correction() {
+        // 1-D block with a quartic excess ΔF(t) = a t⁴ (a small positive
+        // anharmonicity). Then exp(Δ_b) = E_{t~N(0,1/λ)}[exp(−a t⁴)], a known
+        // 1-D integral the IS estimator must recover. We check the sampled Δ_b
+        // matches a high-accuracy deterministic quadrature of the same
+        // expectation, and that Δ_b < 0 (an added quartic penalty makes the
+        // true block mass *smaller* than the Gaussian's).
+        let lambda = 3.0_f64;
+        let a = 0.05_f64;
+        let target = AnharmonicBlock {
+            lambdas: array![lambda],
+            a,
+        };
+        let out = super::block_sampled_marginal_correction(&target).expect("correction");
+
+        // Deterministic reference: Δ_b = log E_{t~N(0,1/λ)}[exp(−a t⁴)] via a
+        // fine trapezoid rule over the Gaussian density.
+        let sigma = (1.0 / lambda).sqrt();
+        let steps = 20_001;
+        let lo = -8.0 * sigma;
+        let hi = 8.0 * sigma;
+        let h = (hi - lo) / (steps as f64 - 1.0);
+        let mut integral = 0.0_f64;
+        for i in 0..steps {
+            let tt = lo + h * i as f64;
+            let gauss = (-(tt * tt) / (2.0 * sigma * sigma)).exp()
+                / (sigma * (2.0 * std::f64::consts::PI).sqrt());
+            let w = if i == 0 || i == steps - 1 { 0.5 } else { 1.0 };
+            integral += w * gauss * (-a * tt.powi(4)).exp() * h;
+        }
+        let reference = integral.ln();
+        assert!(
+            (out.value - reference).abs() < 5e-3,
+            "sampled Δ_b {} vs reference {}",
+            out.value,
+            reference,
+        );
+        assert!(out.value < 0.0, "quartic penalty must shrink block mass");
     }
 
     #[test]
@@ -3724,10 +3915,56 @@ fn nuts_transition_seed(seed: u64, stream: u64) -> u64 {
     splitmix64(seed ^ stream ^ 0xA24B_AED4_963E_E407)
 }
 
+/// Parameter dimension above which the posterior is treated as "high-dimensional"
+/// for the purpose of the more conservative sampler heuristics below: a higher
+/// target-acceptance floor (smaller leapfrog steps) and stronger mass-matrix
+/// regularization. The boundary matches the `dense_max_dim` cap at which the
+/// engine stops attempting dense mass-matrix adaptation.
+const HIGH_DIM_THRESHOLD: usize = 50;
+
+/// Target-acceptance floor enforced for high-dimensional posteriors
+/// (`dim > HIGH_DIM_THRESHOLD`). NUTS efficiency degrades faster with too-large
+/// steps in high dimensions, so we refuse to honor a requested accept below this.
+const HIGH_DIM_TARGET_ACCEPT_FLOOR: f64 = 0.92;
+/// Target-acceptance floor for low-dimensional posteriors.
+const LOW_DIM_TARGET_ACCEPT_FLOOR: f64 = 0.90;
+/// Upper bound on the effective target acceptance. Pushing target accept toward
+/// 1 collapses the step size and stalls mixing, so we cap the requested value.
+const MAX_TARGET_ACCEPT: f64 = 0.95;
+
+/// Minimum warmup length below which mass-matrix adaptation is disabled: the
+/// windowed (Stan-style) adaptation schedule needs enough warmup iterations to
+/// populate its initial / terminal buffers, otherwise the estimated metric is
+/// noise. With fewer warmup steps the sampler runs on the identity metric.
+const MIN_WARMUP_FOR_MASS_ADAPT: usize = 80;
+
+/// Largest parameter dimension for which the engine attempts *dense* mass-matrix
+/// adaptation; above this it falls back to a diagonal metric (an `O(p²)` dense
+/// metric is neither affordable nor reliably estimable from limited warmup).
+const DENSE_MASS_MATRIX_MAX_DIM: usize = 75;
+
+/// Mass-matrix ridge (added to the diagonal of the estimated metric) for the
+/// general (mean-family) sampler. The high-dimensional value is larger because
+/// the warmup metric estimate is noisier relative to its scale as `p` grows.
+const MASS_REGULARIZE_HIGH_DIM: f64 = 0.14;
+const MASS_REGULARIZE_LOW_DIM: f64 = 0.10;
+/// Mass-matrix ridge for survival posteriors, which are frequently skewed by
+/// censoring / rare events and so warrant a heavier ridge than the mean family.
+const SURVIVAL_MASS_REGULARIZE_HIGH_DIM: f64 = 0.18;
+const SURVIVAL_MASS_REGULARIZE_LOW_DIM: f64 = 0.12;
+
+/// Jitter added during mass-matrix inversion to keep the metric strictly
+/// positive-definite against round-off in the warmup covariance estimate.
+const MASS_MATRIX_JITTER: f64 = 1e-5;
+
 #[inline]
 fn robust_target_accept(requested: f64, dim: usize) -> f64 {
-    let floor = if dim > 50 { 0.92 } else { 0.90 };
-    requested.max(floor).min(0.95)
+    let floor = if dim > HIGH_DIM_THRESHOLD {
+        HIGH_DIM_TARGET_ACCEPT_FLOOR
+    } else {
+        LOW_DIM_TARGET_ACCEPT_FLOOR
+    };
+    requested.max(floor).min(MAX_TARGET_ACCEPT)
 }
 
 fn jittered_initial_positions(
@@ -3745,7 +3982,7 @@ fn jittered_initial_positions(
 }
 
 fn robust_mass_matrix_config(dim: usize, nwarmup: usize) -> NUTSMassMatrixConfig {
-    if nwarmup < 80 {
+    if nwarmup < MIN_WARMUP_FOR_MASS_ADAPT {
         return NUTSMassMatrixConfig::disabled();
     }
     let start_buffer = (nwarmup / 8).clamp(35, 180);
@@ -3756,14 +3993,18 @@ fn robust_mass_matrix_config(dim: usize, nwarmup: usize) -> NUTSMassMatrixConfig
         start_buffer,
         end_buffer,
         initial_window,
-        regularize: if dim > 50 { 0.14 } else { 0.10 },
-        jitter: 1e-5,
-        dense_max_dim: 75,
+        regularize: if dim > HIGH_DIM_THRESHOLD {
+            MASS_REGULARIZE_HIGH_DIM
+        } else {
+            MASS_REGULARIZE_LOW_DIM
+        },
+        jitter: MASS_MATRIX_JITTER,
+        dense_max_dim: DENSE_MASS_MATRIX_MAX_DIM,
     }
 }
 
 fn robust_survival_mass_matrix_config(dim: usize, nwarmup: usize) -> NUTSMassMatrixConfig {
-    if nwarmup < 80 {
+    if nwarmup < MIN_WARMUP_FOR_MASS_ADAPT {
         return NUTSMassMatrixConfig::disabled();
     }
     // Survival posteriors with censoring/rare events are often skewed; this
@@ -3776,9 +4017,13 @@ fn robust_survival_mass_matrix_config(dim: usize, nwarmup: usize) -> NUTSMassMat
         start_buffer,
         end_buffer,
         initial_window,
-        regularize: if dim > 50 { 0.18 } else { 0.12 },
-        jitter: 1e-5,
-        dense_max_dim: 75,
+        regularize: if dim > HIGH_DIM_THRESHOLD {
+            SURVIVAL_MASS_REGULARIZE_HIGH_DIM
+        } else {
+            SURVIVAL_MASS_REGULARIZE_LOW_DIM
+        },
+        jitter: MASS_MATRIX_JITTER,
+        dense_max_dim: DENSE_MASS_MATRIX_MAX_DIM,
     }
 }
 
@@ -4242,6 +4487,7 @@ pub fn estimate_logit_pg_rao_blackwell_terms(
 /// * `nuts_family` - Family for log-likelihood computation
 /// * `firth_bias_reduction` - Whether Firth bias reduction was used in training
 /// * `config` - NUTS configuration
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn run_nuts_sampling(
     x: ArrayView2<f64>,
     y: ArrayView1<f64>,
@@ -4253,6 +4499,7 @@ pub(crate) fn run_nuts_sampling(
     gamma_shape: f64,
     dispersion: crate::solver::estimate::Dispersion,
     firth_bias_reduction: bool,
+    offset: Option<ArrayView1<f64>>,
     config: &NutsConfig,
 ) -> Result<NutsResult, String> {
     validate_firth_support(nuts_family, firth_bias_reduction).map_err(String::from)?;
@@ -4278,6 +4525,10 @@ pub(crate) fn run_nuts_sampling(
         dispersion,
         firth_bias_reduction,
     )?;
+    let target = match offset {
+        Some(offset) => target.with_offset(offset)?,
+        None => target,
+    };
 
     // Get Cholesky factor for un-whitening samples later
     let chol = target.chol().clone();
@@ -4534,6 +4785,11 @@ pub struct GlmFlatInputs<'a> {
     /// See `inference::dispersion_cov` for the ownership invariants.
     pub dispersion: crate::solver::estimate::Dispersion,
     pub firth_bias_reduction: bool,
+    /// Fixed additive offset on the linear predictor (η = Xβ + offset), or
+    /// `None` for an offset-free fit. Carried so posterior sampling targets the
+    /// same η the model was fit and predicts on; omitting it sampled the wrong
+    /// posterior for any `--offset-column` model (#882).
+    pub offset: Option<ArrayView1<'a, f64>>,
 }
 
 /// Flat survival inputs for engine-facing HMC APIs.
@@ -4631,6 +4887,7 @@ pub fn run_nuts_sampling_flattened_family(
             1.0,
             glm.dispersion,
             glm.firth_bias_reduction,
+            glm.offset,
             config,
         ),
         (
@@ -4640,7 +4897,14 @@ pub fn run_nuts_sampling_flattened_family(
         ) => {
             // Auto-select PG Gibbs when assumptions hold; otherwise fall back to NUTS.
             // This gives gradient-free posterior draws for standard Bernoulli logit GAMs.
-            if !glm.firth_bias_reduction && glm.weights.iter().all(|w| (*w - 1.0).abs() <= 1e-10) {
+            // The Pólya-Gamma augmentation here assumes η = Xβ (no offset); an
+            // offset model routes to NUTS, which carries the offset through
+            // `glm.offset` (#882). PG-with-offset is a valid but separate scheme
+            // we deliberately do not duplicate.
+            if !glm.firth_bias_reduction
+                && glm.offset.is_none()
+                && glm.weights.iter().all(|w| (*w - 1.0).abs() <= 1e-10)
+            {
                 run_logit_polya_gamma_gibbs(
                     glm.x,
                     glm.y,
@@ -4661,6 +4925,7 @@ pub fn run_nuts_sampling_flattened_family(
                     1.0,
                     glm.dispersion,
                     glm.firth_bias_reduction,
+                    glm.offset,
                     config,
                 )
             }
@@ -4680,6 +4945,7 @@ pub fn run_nuts_sampling_flattened_family(
             1.0,
             glm.dispersion,
             glm.firth_bias_reduction,
+            glm.offset,
             config,
         ),
         (
@@ -4697,6 +4963,7 @@ pub fn run_nuts_sampling_flattened_family(
             1.0,
             glm.dispersion,
             glm.firth_bias_reduction,
+            glm.offset,
             config,
         ),
         (
@@ -4714,6 +4981,7 @@ pub fn run_nuts_sampling_flattened_family(
             1.0,
             glm.dispersion,
             glm.firth_bias_reduction,
+            glm.offset,
             config,
         ),
         (ResponseFamily::Binomial, InverseLink::Mixture(_), FamilyNutsInputs::Glm(_)) => Err(
@@ -4772,6 +5040,7 @@ pub fn run_nuts_sampling_flattened_family(
             1.0,
             glm.dispersion,
             glm.firth_bias_reduction,
+            glm.offset,
             config,
         ),
         (ResponseFamily::Tweedie { p }, _, FamilyNutsInputs::Glm(glm)) => {
@@ -4793,6 +5062,7 @@ pub fn run_nuts_sampling_flattened_family(
                 p,
                 glm.dispersion,
                 glm.firth_bias_reduction,
+                glm.offset,
                 config,
             )
         }
@@ -4810,6 +5080,7 @@ pub fn run_nuts_sampling_flattened_family(
                 theta,
                 glm.dispersion,
                 glm.firth_bias_reduction,
+                glm.offset,
                 config,
             )
         }
@@ -4827,6 +5098,7 @@ pub fn run_nuts_sampling_flattened_family(
             glm.gamma_shape.unwrap_or(1.0),
             glm.dispersion,
             glm.firth_bias_reduction,
+            glm.offset,
             config,
         ),
         (ResponseFamily::Gaussian, _, FamilyNutsInputs::Glm(_)) => Err(
@@ -5732,6 +6004,343 @@ fn cubic_power_iteration_refinement(
     best
 }
 
+/// Per-direction adaptive Laplace-trustworthiness verdict for the inner
+/// marginalization loop (issue #784).
+///
+/// The Laplace approximation to the coefficient marginal likelihood replaces
+/// the local log-posterior `F(β) = −ℓ(β) + ½βᵀS(ρ)β` by its second-order
+/// Taylor expansion at the mode β̂.  In a whitened Hessian eigendirection
+/// `v_r` (curvature `λ_r`) the leading correction to that Gaussian summary is
+/// governed by the standardized third cumulant
+///   γ_r = T₃[v_r,v_r,v_r] / λ_r^{3/2},  T₃[a,b,c] = Σ_i c_i x_{ia} x_{ib} x_{ic}
+/// (`c_i = ∂W_i/∂η_i`, the same per-row weight the unified Hessian uses).  The
+/// Edgeworth/Tierney–Kadane expansion of the marginal integral contributes a
+/// *relative* correction `(5/24) γ_r²` from this direction; the Laplace floor
+/// error is `O(1/n)`.  A direction is therefore "Laplace-trustworthy" exactly
+/// when its skewness contribution sits at or below that floor.
+///
+/// This is the missing adaptive, block-local primitive #784 calls for: instead
+/// of an all-or-nothing Laplace-vs-sampling switch, each curvature direction is
+/// judged on its own, so the cheap Gaussian summary is kept where it holds and
+/// the higher-order correction (and, ultimately, directional sampling) is spent
+/// only on the curvature-heavy directions where it fails.
+#[derive(Clone, Debug)]
+pub struct LaplaceTrustworthiness {
+    /// Per-eigendirection standardized skewness `γ_r` (aligned with the
+    /// `directional` output of [`laplace_directional_cubic_diagnostic`]).
+    pub directional_skewness: Array1<f64>,
+    /// Indices of the directions whose skewness exceeds the auto-derived
+    /// validity threshold (the curvature-heavy, non-Gaussian block).
+    pub untrustworthy_directions: Vec<usize>,
+    /// The auto-derived per-direction skewness threshold `τ(n)` actually used.
+    pub threshold: f64,
+    /// `max_r |γ_r|` across all directions (the global non-Gaussianity scale).
+    pub max_abs_skewness: f64,
+}
+
+impl LaplaceTrustworthiness {
+    /// Whether any curvature direction is too non-Gaussian for the plain
+    /// Laplace summary, i.e. whether the adaptive higher-order correction /
+    /// directional sampling fallback should engage at all.
+    pub fn fallback_required(&self) -> bool {
+        !self.untrustworthy_directions.is_empty()
+    }
+}
+
+/// Auto-derive the per-direction skewness threshold `τ(n)` separating
+/// Laplace-trustworthy directions from those that need the higher-order
+/// correction / sampling fallback.  MAGIC: derived purely from problem
+/// characteristics (the effective sample size), with no tunable flag.
+///
+/// Derivation.  The standardized third cumulant of a well-specified GLM mode
+/// scales as `γ_r = O(n^{-1/2})`, so the Laplace skewness term `(5/24) γ_r²`
+/// is `O(1/n)` — the same order as the Laplace floor error that is always
+/// present and uncorrectable at this expansion order.  We declare a direction
+/// untrustworthy once its skewness term provably dominates that floor, i.e.
+///   (5/24) γ_r² > 1 / n_eff   ⇔   |γ_r| > sqrt( (24/5) / n_eff ).
+/// `n_eff` is the effective sample size carried by the curvature in that block
+/// (passed in by the caller as the trace-equivalent count); using the local
+/// count rather than the global `n` is what makes the verdict block-local.
+pub fn laplace_skewness_threshold(n_eff: f64) -> f64 {
+    // Guard a degenerate / empty effective count: with no curvature support
+    // there is nothing the Gaussian summary can be wrong about, so demand an
+    // unreachable skewness (treat every direction as trustworthy).
+    if !(n_eff > 0.0) {
+        return f64::INFINITY;
+    }
+    ((24.0 / 5.0) / n_eff).sqrt()
+}
+
+/// Adaptive, block-local Laplace-trustworthiness verdict (issue #784).
+///
+/// Given the per-direction standardized skewness `directional_skewness`
+/// (as produced by [`laplace_directional_cubic_diagnostic`]) and the effective
+/// sample size `n_eff` supporting the local curvature, flags exactly the
+/// directions whose skewness exceeds the auto-derived threshold
+/// [`laplace_skewness_threshold`].  Those flagged directions are the
+/// curvature-heavy block that the inner loop should hand to the higher-order
+/// correction / directional sampler instead of summarizing with plain Laplace.
+///
+/// This function performs no linear algebra of its own — it consumes the cubic
+/// diagnostic that already exists and converts it into an actionable, local
+/// activation set, which is precisely the seam the inner marginalization loop
+/// was missing.
+pub fn laplace_trustworthiness_from_skewness(
+    directional_skewness: &Array1<f64>,
+    n_eff: f64,
+) -> LaplaceTrustworthiness {
+    let threshold = laplace_skewness_threshold(n_eff);
+    let mut untrustworthy_directions = Vec::new();
+    let mut max_abs_skewness = 0.0_f64;
+    for (r, &gamma) in directional_skewness.iter().enumerate() {
+        let abs_gamma = if gamma.is_finite() { gamma.abs() } else { 0.0 };
+        max_abs_skewness = max_abs_skewness.max(abs_gamma);
+        if abs_gamma > threshold {
+            untrustworthy_directions.push(r);
+        }
+    }
+    LaplaceTrustworthiness {
+        directional_skewness: directional_skewness.clone(),
+        untrustworthy_directions,
+        threshold,
+        max_abs_skewness,
+    }
+}
+
+/// Caller-supplied evaluator for the *non-Gaussian remainder* of the local
+/// log-posterior, restricted to the curvature-heavy block subspace (issue
+/// #784).
+///
+/// The inner marginalization summarizes the coefficient posterior by its
+/// Laplace (Gaussian) moments.  In the curvature-heavy block this Gaussian
+/// summary is wrong; the exact summary is the integral of the true target.
+/// Writing the block displacement as `β = β̂ + V_b t` (with `V_b` the
+/// untrustworthy H-eigenvectors and `λ_r` their curvatures), the only thing
+/// the sampler needs from the family + penalty is the **excess over the local
+/// Gaussian**:
+///
+///   ΔF(t) = [F(β̂ + V_b t) − F(β̂)] − ½ Σ_r λ_r t_r²
+///   F(β)  = −ℓ(β) + ½ βᵀ S(ρ) β.
+///
+/// `ΔF` is identically zero for a purely Gaussian (quadratic) `F`, so it
+/// isolates exactly the cubic-and-higher non-Gaussianity that defeats Laplace.
+/// `rho_gradient` returns `∂ΔF/∂ρ_k` at the same `t`, which lets the marginal
+/// correction expose a ρ-gradient consistent with its own value (Fisher's
+/// identity over the same draws) — required so the outer REML/LAML stays
+/// consistent and smoothing selection is not biased.
+pub trait BlockExcessTarget {
+    /// Dimension `m` of the block subspace (number of untrustworthy
+    /// directions being sampled).
+    fn block_dim(&self) -> usize;
+    /// Number of outer ρ coordinates the gradient is reported against.
+    fn rho_dim(&self) -> usize;
+    /// Block curvatures `λ_r` (the H-eigenvalues of the sampled directions),
+    /// length `block_dim()`.
+    fn block_curvatures(&self) -> &Array1<f64>;
+    /// Non-Gaussian remainder `ΔF(t)` at whitened block displacement `t`
+    /// (length `block_dim()`).
+    fn excess(&self, t: &Array1<f64>) -> f64;
+    /// ρ-gradient `∂ΔF/∂ρ_k` at the same `t`, length `rho_dim()`.
+    fn excess_rho_gradient(&self, t: &Array1<f64>) -> Array1<f64>;
+}
+
+/// Block-local sampled marginal correction (issue #784).
+///
+/// `value` is `Δ_b = A_exact − A_Lap`, the log-ratio of the true block free
+/// energy to its Laplace value, to be **added** to the marginal log-likelihood
+/// (equivalently **subtracted** from the REML/LAML cost).  `rho_gradient` is
+/// `∂Δ_b/∂ρ`, the consistent outer-coordinate gradient computed from the same
+/// importance draws.  Both are exactly zero when the block is Gaussian.
+#[derive(Clone, Debug)]
+pub struct BlockSampledMarginal {
+    /// `Δ_b`: additive correction to the block marginal log-likelihood.
+    pub value: f64,
+    /// `∂Δ_b/∂ρ`, length `rho_dim()`.
+    pub rho_gradient: Array1<f64>,
+    /// Importance-sampling effective sample size (draws), for diagnostics /
+    /// trust gating.
+    pub importance_ess: f64,
+    /// Number of draws used.
+    pub n_draws: usize,
+}
+
+/// Auto-derive the number of importance draws for the block-local sampled
+/// marginalization from the block dimension.  MAGIC: more directions need more
+/// draws to control the importance-weight variance, but the block is small by
+/// construction (only the curvature-heavy directions), so this stays cheap.
+/// No CLI flag.
+fn block_sampling_draws(block_dim: usize) -> usize {
+    // Base budget plus a per-direction allowance; capped so a pathological
+    // block can never make a single inner evaluation explode.
+    const BASE: usize = 256;
+    const PER_DIM: usize = 256;
+    const CAP: usize = 4096;
+    (BASE + PER_DIM * block_dim).min(CAP)
+}
+
+/// Estimate the block-local sampled marginal correction `Δ_b` and its
+/// ρ-gradient by importance sampling against the local Laplace Gaussian
+/// (issue #784).
+///
+/// # Math
+///
+/// Draw `t_s ~ q = N(0, diag(1/λ_r))` (the local Laplace Gaussian in the block
+/// subspace; whitened draws `z_s ~ N(0, I)` give `t_{s,r} = z_{s,r}/√λ_r`).
+/// With the non-Gaussian remainder `ΔF` defined on [`BlockExcessTarget`],
+///
+///   exp(Δ_b) = E_q[ exp(−ΔF(t)) ]  ⇒  Δ_b = log mean_s exp(−ΔF(t_s)),
+///
+/// computed via a numerically-stable log-mean-exp.  The ρ-gradient follows
+/// from differentiating `Δ_b = log E_q[e^{−ΔF}]` (the `q`-Gaussian normalizer
+/// `½Σ log(2π/λ_r)` cancels against `A_Lap`, leaving only the `ΔF` channel):
+///
+///   ∂Δ_b/∂ρ_k = E_p[ −∂ΔF/∂ρ_k ],   p ∝ q·e^{−ΔF},
+///
+/// i.e. the self-normalized importance-weighted average of `−∂ΔF/∂ρ_k` over the
+/// same draws.  Because value and gradient come from one set of draws and one
+/// target, they are mutually consistent — the contract the outer REML needs.
+///
+/// Determinism: draws come from a fixed-seed RNG so the inner evaluation is a
+/// pure function of `(β̂, H, ρ)` and the outer optimizer sees a smooth,
+/// reproducible objective rather than Monte-Carlo jitter across evaluations.
+pub fn block_sampled_marginal_correction<T: BlockExcessTarget>(
+    target: &T,
+) -> Result<BlockSampledMarginal, String> {
+    use rand::SeedableRng;
+    use rand::rngs::StdRng;
+
+    let m = target.block_dim();
+    let k = target.rho_dim();
+    if m == 0 {
+        return Ok(BlockSampledMarginal {
+            value: 0.0,
+            rho_gradient: Array1::zeros(k),
+            importance_ess: 0.0,
+            n_draws: 0,
+        });
+    }
+    let lambdas = target.block_curvatures();
+    if lambdas.len() != m {
+        return Err(format!(
+            "block_sampled_marginal_correction: block_curvatures len {} != block_dim {m}",
+            lambdas.len()
+        ));
+    }
+    let inv_sqrt_lambda: Array1<f64> = lambdas.mapv(|l| {
+        if l > 0.0 {
+            1.0 / l.sqrt()
+        } else {
+            // A non-positive block curvature means the mode is not a strict
+            // minimum in this direction; the Laplace Gaussian is undefined
+            // there. Reject rather than fabricate a correction.
+            f64::NAN
+        }
+    });
+    if inv_sqrt_lambda.iter().any(|v| !v.is_finite()) {
+        return Err(
+            "block_sampled_marginal_correction: non-positive block curvature (mode is not a \
+             strict local minimum in a sampled direction)"
+                .to_string(),
+        );
+    }
+
+    let n_draws = block_sampling_draws(m);
+    // ρ-invariant fixed seed → deterministic AND smooth-in-ρ objective.
+    //
+    // The doc comment above promises "the outer optimizer sees a smooth,
+    // reproducible objective rather than Monte-Carlo jitter across
+    // evaluations." That smoothness holds only if the importance draws
+    // `z_s` themselves do NOT depend on ρ — ρ may enter the estimator
+    // only through the per-sample importance weights `exp(−ΔF(t_s))` and
+    // the rescaling `t_s = z_s / √λ_r`, both of which are continuous in
+    // ρ for fixed `z_s`. A seed mixed from `λ_r = exp(ρ_k)` (or any
+    // other ρ-dependent quantity such as the H-eigenvalues) permutes
+    // `z_s` for every ρ probe, so the FD `(F(ρ+h) − F(ρ−h))/2h`
+    // identity fails by O(MC_stdev/h) — exactly the order-10²–10³ FD
+    // blow-up observed in the iso-κ Duchon binomial FD probes — and
+    // every outer trust-region step lands on a different random face of
+    // the objective. Mix only the (ρ-invariant) block / outer dimensions
+    // so different problems still get independent streams.
+    let mut seed_bits: u64 = 0x9E37_79B9_7F4A_7C15;
+    seed_bits ^= (m as u64).rotate_left(17);
+    seed_bits = seed_bits.wrapping_mul(0x1000_0000_01B3);
+    seed_bits ^= (k as u64).rotate_left(31);
+    seed_bits = seed_bits.wrapping_mul(0x1000_0000_01B3);
+    let mut rng = StdRng::seed_from_u64(seed_bits);
+
+    // Accumulate log-weights w_s = −ΔF(t_s) (stable log-mean-exp) and the
+    // gradient channel g_{s,k} = −∂ΔF/∂ρ_k(t_s).
+    let mut log_weights = Vec::with_capacity(n_draws);
+    let mut grad_samples: Vec<Array1<f64>> = Vec::with_capacity(n_draws);
+    let mut t = Array1::<f64>::zeros(m);
+    for _ in 0..n_draws {
+        for r in 0..m {
+            let z = sample_standard_normal(&mut rng);
+            t[r] = z * inv_sqrt_lambda[r];
+        }
+        let excess = target.excess(&t);
+        if !excess.is_finite() {
+            // An infeasible / divergent draw contributes zero weight rather
+            // than poisoning the estimate.
+            log_weights.push(f64::NEG_INFINITY);
+            grad_samples.push(Array1::zeros(k));
+            continue;
+        }
+        log_weights.push(-excess);
+        let mut g = target.excess_rho_gradient(&t);
+        // gradient channel is −∂ΔF/∂ρ
+        g.mapv_inplace(|v| -v);
+        grad_samples.push(g);
+    }
+
+    // Stable log-mean-exp for Δ_b = log mean_s exp(log_weights_s).
+    let max_lw = log_weights
+        .iter()
+        .copied()
+        .fold(f64::NEG_INFINITY, f64::max);
+    if !max_lw.is_finite() {
+        return Err(
+            "block_sampled_marginal_correction: all importance draws were infeasible".to_string(),
+        );
+    }
+    let mut sum_w = 0.0_f64;
+    let mut sum_w2 = 0.0_f64;
+    let mut grad_acc = Array1::<f64>::zeros(k);
+    for (lw, g) in log_weights.iter().zip(grad_samples.iter()) {
+        let w = (lw - max_lw).exp();
+        sum_w += w;
+        sum_w2 += w * w;
+        grad_acc.scaled_add(w, g);
+    }
+    let value = max_lw + (sum_w / n_draws as f64).ln();
+    // Self-normalized importance-weighted gradient E_p[−∂ΔF/∂ρ].
+    let rho_gradient = if sum_w > 0.0 {
+        grad_acc / sum_w
+    } else {
+        Array1::zeros(k)
+    };
+    // Kish effective sample size of the importance weights.
+    let importance_ess = if sum_w2 > 0.0 {
+        (sum_w * sum_w) / sum_w2
+    } else {
+        0.0
+    };
+
+    if !value.is_finite() || rho_gradient.iter().any(|v| !v.is_finite()) {
+        return Err(
+            "block_sampled_marginal_correction: produced a non-finite correction or gradient"
+                .to_string(),
+        );
+    }
+
+    Ok(BlockSampledMarginal {
+        value,
+        rho_gradient,
+        importance_ess,
+        n_draws,
+    })
+}
+
 /// Result of joint (β, ρ) sampling.
 #[derive(Clone, Debug)]
 pub struct JointBetaRhoResult {
@@ -5910,6 +6519,7 @@ impl JointBetaRhoPosterior {
             y: Arc::new(y.to_owned()),
             weights: Arc::new(weights.to_owned()),
             mode: Arc::new(mode.to_owned()),
+            offset: None,
             gamma_shape: gamma_shape.unwrap_or(1.0),
             // Joint (β, ρ) HMC keeps the likelihood on its native scale;
             // dispersion enters via the per-family scale parameter, not

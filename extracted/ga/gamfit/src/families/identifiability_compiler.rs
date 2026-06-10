@@ -21,6 +21,16 @@ use crate::linalg::faer_ndarray::{
 };
 use faer::Side;
 
+/// Slack factor (multiples of machine ε) for the rank-revealing eigenvalue
+/// threshold used when pseudo-inverting a Gram matrix or selecting the
+/// positive eigenspace of a residual Gram. The retain threshold is
+/// `scale · RANK_REVEAL_EPS_SLACK · size · ε`, where `scale` is the dominant
+/// eigenvalue (and matrix size accounts for the worst-case roundoff
+/// accumulation in the `O(size)` inner products forming each Gram entry). 64×
+/// keeps numerically-zero directions out of the kept subspace while preserving
+/// every genuinely identified direction at biobank-scale conditioning.
+const RANK_REVEAL_EPS_SLACK: f64 = 64.0;
+
 /// Maps a coefficient perturbation `δβ ∈ R^p` for one parameter block into
 /// its contribution to the per-row primary state `u_i ∈ R^K`.
 ///
@@ -42,6 +52,62 @@ pub trait RowJacobianOperator: Send + Sync {
 
     /// Materialise the full operator as an `(n_rows × ncols × K)` tensor.
     fn evaluate_full(&self) -> Array3<f64>;
+
+    /// Build the sqrt(H)-scaled design `W = stack_i sqrt(H_i) · J_i`, flattened
+    /// channel-major to `(n_rows·K × ncols)`.
+    ///
+    /// This is the representation the identifiability *compiler*
+    /// ([`compile_with_dual_metric`]) actually consumes — it residualises and
+    /// eigendecomposes Grams of `W`, and never indexes the per-row `(n, p, K)`
+    /// tensor element-wise. Requesting the scaled design directly lets an
+    /// operator with a structured / streaming form supply it without
+    /// materialising and cloning the whole `O(n·p·K)` tensor; the default
+    /// implementation routes through [`evaluate_full`] so existing operators
+    /// remain correct unchanged. (#738: a capability is not a representation —
+    /// the compiler asks for the scaled design it needs, not the dense tensor.)
+    ///
+    /// [`evaluate_full`]: RowJacobianOperator::evaluate_full
+    /// [`compile_with_dual_metric`]: crate::families::identifiability_compiler::compile_with_dual_metric
+    fn scaled_design_by_sqrt_h(&self, h_full: &Array3<f64>) -> Array2<f64> {
+        scale_block_by_sqrt_h(&self.evaluate_full(), h_full)
+    }
+
+    /// Write the channel-flattened column `col` — the `(n_rows · K)` vector
+    /// whose entry `i·K + ch` is `J[i, col, ch]` — into `out`.
+    ///
+    /// This is the representation the identifiability *audit* actually consumes
+    /// (per-column leverage statistics and pairwise overlaps), as opposed to the
+    /// dense `(n, p, K)` tensor. Requesting a column directly lets an operator
+    /// that has a structured / streaming form supply it without materialising
+    /// and cloning the whole `O(n·p·K)` tensor on every audit pass; the default
+    /// implementation routes through [`evaluate_full`] so existing operators
+    /// remain correct unchanged. (#738: a capability is not a representation —
+    /// the audit asks for the column view it needs, not the tensor.)
+    ///
+    /// [`evaluate_full`]: RowJacobianOperator::evaluate_full
+    fn channel_flattened_column(&self, col: usize, out: &mut [f64]) {
+        let k = self.k();
+        let n = self.nrows();
+        assert!(
+            col < self.ncols(),
+            "channel_flattened_column col {col} out of range {}",
+            self.ncols()
+        );
+        assert_eq!(
+            out.len(),
+            n * k,
+            "channel_flattened_column out length {} != n*k = {}*{}",
+            out.len(),
+            n,
+            k
+        );
+        let full = self.evaluate_full();
+        for i in 0..n {
+            for ch in 0..k {
+                out[i * k + ch] = full[[i, col, ch]];
+            }
+        }
+    }
 }
 
 /// Per-row `K × K` PSD Hessian of `−log L_i(u_i)` evaluated at a pilot β.
@@ -320,15 +386,24 @@ pub fn compile_with_dual_metric(
     // symmetric-sqrt cost is dominated by the joint-design audit below.
     let h_full = row_hess.evaluate_full();
     let s_full = row_structural.evaluate_full();
-    let j_full: Vec<Array3<f64>> = operators.iter().map(|op| op.evaluate_full()).collect();
 
-    let scaled_h: Vec<Array2<f64>> = j_full
+    // Request each block's sqrt(H)-scaled design directly through the intent
+    // accessor — the `(n·K, p)` representation the compiler actually consumes —
+    // instead of first materialising the dense `(n, p, K)` per-row tensor and
+    // scaling it. The default `scaled_design_by_sqrt_h` impl still routes
+    // through `evaluate_full()`, so operators without a structured form stay
+    // correct unchanged; a streaming operator (e.g. `BlockJacobianAsRowOp`)
+    // overrides it to scale straight out of its stored layout, dropping the
+    // `O(n·p·K)` tensor clone that `evaluate_full()` performs per block at
+    // biobank `n`. (#738: a capability is not a representation — the compiler
+    // asks for the scaled design it needs, never the dense tensor.)
+    let scaled_h: Vec<Array2<f64>> = operators
         .iter()
-        .map(|jb| scale_block_by_sqrt_h(jb, &h_full))
+        .map(|op| op.scaled_design_by_sqrt_h(&h_full))
         .collect();
-    let scaled_s: Vec<Array2<f64>> = j_full
+    let scaled_s: Vec<Array2<f64>> = operators
         .iter()
-        .map(|jb| scale_block_by_sqrt_h(jb, &s_full))
+        .map(|op| op.scaled_design_by_sqrt_h(&s_full))
         .collect();
 
     let mut compiled: Vec<CompiledBlock> = Vec::with_capacity(operators.len());
@@ -542,19 +617,42 @@ pub fn compile_with_dual_metric(
     })
 }
 
-/// Build `W_b = stack_i sqrt(H_i) · J_b,i` flattened to `(n*K, ncols)`.
+/// Build `W_b = stack_i sqrt(H_i) · J_b,i` flattened to `(n*K, ncols)` from a
+/// materialised `(n, p, K)` tensor. Thin wrapper over
+/// [`scale_jacobian_by_sqrt_h_with`] that reads the tensor element-wise.
 fn scale_block_by_sqrt_h(jb: &Array3<f64>, h_full: &Array3<f64>) -> Array2<f64> {
     let n = jb.shape()[0];
     let p = jb.shape()[1];
     let k = jb.shape()[2];
+    scale_jacobian_by_sqrt_h_with(n, p, k, h_full, |i, a, c| jb[[i, a, c]])
+}
+
+/// Build `W_b = stack_i sqrt(H_i) · J_b,i` flattened to `(n*K, ncols)` without
+/// ever requiring a materialised `(n, p, K)` tensor.
+///
+/// The Jacobian entries are pulled through the `jac` closure
+/// (`jac(i, a, c) = J_b,i[a, c]`), so a structured operator that stores its
+/// Jacobian in a compact / streaming form can supply the sqrt(H)-scaled design
+/// directly — the representation the compiler actually consumes — rather than
+/// being forced to clone a dense `(n, p, K)` tensor first. (#738: a capability
+/// is not a representation — the compiler asks for the scaled `(n·K, p)` design
+/// it needs, not the dense per-row tensor.)
+///
+/// `K` is tiny (1 or 4), so the per-row symmetric sqrt is negligible relative
+/// to the overall compile.
+pub fn scale_jacobian_by_sqrt_h_with(
+    n: usize,
+    p: usize,
+    k: usize,
+    h_full: &Array3<f64>,
+    jac: impl Fn(usize, usize, usize) -> f64,
+) -> Array2<f64> {
     assert_eq!(h_full.shape(), &[n, k, k]);
     let mut out = Array2::<f64>::zeros((n * k, p));
     let mut sqrt_h = Array2::<f64>::zeros((k, k));
     let mut scratch_jrow = Array2::<f64>::zeros((p, k));
     for i in 0..n {
-        // Symmetric square root of H_i via eigendecomposition. K is tiny
-        // (1 or 4), so the per-row eigh cost is negligible relative to the
-        // overall compile.
+        // Symmetric square root of H_i via eigendecomposition.
         let h_i = h_full.index_axis(Axis(0), i).to_owned();
         sqrt_h.fill(0.0);
         symmetric_sqrt_into(&h_i, &mut sqrt_h);
@@ -563,7 +661,7 @@ fn scale_block_by_sqrt_h(jb: &Array3<f64>, h_full: &Array3<f64>) -> Array2<f64> 
         // sqrt_h, but we batch by writing out[(i*k+c), a] = (sqrt_h · J_b,iᵀ)[c, a].
         for a in 0..p {
             for c in 0..k {
-                scratch_jrow[[a, c]] = jb[[i, a, c]];
+                scratch_jrow[[a, c]] = jac(i, a, c);
             }
         }
         for c in 0..k {
@@ -657,7 +755,7 @@ fn solve_psd_system(g: &Array2<f64>, r: &Array2<f64>) -> Result<Array2<f64>, Com
         .eigh(Side::Lower)
         .map_err(|err| CompilerError::LinalgFailure(format!("Gram eigh failed: {err:?}")))?;
     let lambda_max = evals.iter().cloned().fold(0.0_f64, f64::max).max(0.0);
-    let tol = lambda_max * 64.0 * (n.max(1) as f64) * f64::EPSILON;
+    let tol = lambda_max * RANK_REVEAL_EPS_SLACK * (n.max(1) as f64) * f64::EPSILON;
     // M = U · diag(1/λ_kept) · Uᵀ · R
     let u_t_r = fast_atb(&evecs, r);
     let mut scaled = u_t_r.clone();
@@ -674,7 +772,7 @@ fn solve_psd_system(g: &Array2<f64>, r: &Array2<f64>) -> Result<Array2<f64>, Com
 
 /// Eigendecompose the residual Gram `G̃` and return `V` made of the
 /// eigenvectors whose eigenvalues exceed
-/// `τ = max(λ_max(G̃), tr(G_BB)) · 64 · n · K · ε`.
+/// `τ = max(λ_max(G̃), tr(G_BB)) · RANK_REVEAL_EPS_SLACK · n · K · ε`.
 fn keep_positive_eigenspace(
     g_tilde: &Array2<f64>,
     n: usize,
@@ -691,7 +789,7 @@ fn keep_positive_eigenspace(
     let lambda_max = evals.iter().cloned().fold(0.0_f64, f64::max).max(0.0);
     let scale = lambda_max.max(g_bb_trace);
     let nk = (n.saturating_mul(k)).max(p).max(1) as f64;
-    let tau = scale * 64.0 * nk * f64::EPSILON;
+    let tau = scale * RANK_REVEAL_EPS_SLACK * nk * f64::EPSILON;
     // Collect kept column indices.
     let mut kept: Vec<usize> = (0..p).filter(|&i| evals[i] > tau).collect();
     // Sort kept indices by descending eigenvalue for a stable column order.

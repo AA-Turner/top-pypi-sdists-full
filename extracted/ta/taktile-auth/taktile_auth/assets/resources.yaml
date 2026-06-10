@@ -237,3 +237,15 @@ scim_provisioning:
   # read+write: can perform SCIM v2 provisioning operations (create/update/deactivate users) for an org
   # Granted only to scim_provisioner service accounts, not to human org admins
   org_id: wildcard
+access_request:
+  # read: can read access requests
+  # write: can create / update access requests
+  # delete: can delete access requests
+  org_id: wildcard
+  ws_id: wildcard
+access_request_decision:
+  # read: can read access request decisions
+  # write: can approve or deny an access request (state transition)
+  # delete: can revoke / clear a decision
+  org_id: wildcard
+  ws_id: wildcard

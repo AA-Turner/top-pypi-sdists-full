@@ -234,7 +234,7 @@ default_message_pool.register_message(
 class CompressorResponseDirectionConfig(betterproto2.Message):
     """
     Configuration for filter behavior on the response direction.
-    [#next-free-field: 6]
+    [#next-free-field: 7]
     """
 
     common_config: "CompressorCommonDirectionConfig | None" = betterproto2.field(
@@ -245,7 +245,20 @@ class CompressorResponseDirectionConfig(betterproto2.Message):
     """
     When this field is ``true``, disables compression when the response contains an ``ETag`` header.
     When this field is ``false``, the filter will preserve weak ``ETag`` values and remove those that
-    require strong validation.
+    require strong validation (unless ``weaken_etag_on_compress`` is set).
+    When both ``disable_on_etag_header`` and ``weaken_etag_on_compress`` are ``true``,
+    ``weaken_etag_on_compress`` takes precedence (compression is applied and the ETag is weakened).
+    """
+
+    weaken_etag_on_compress: "bool" = betterproto2.field(6, betterproto2.TYPE_BOOL)
+    """
+    When this field is ``true`` and the filter compresses a response that contains a strong
+    ``ETag``, the filter will weaken the ETag by prepending ``W/`` to its value instead of
+    removing it. This allows caching and conditional requests to work while indicating the
+    response body was modified by compression. When ``false`` (default), strong ETags are
+    removed when compression is applied. When both ``weaken_etag_on_compress`` and
+    ``disable_on_etag_header`` are ``true``, this field takes precedence so that compression
+    is applied and the ETag is weakened, supporting gradual rollout to clients and servers.
     """
 
     remove_accept_encoding_header: "bool" = betterproto2.field(

@@ -71,6 +71,12 @@ pub(crate) const OVERSMOOTH_RETRY_MAX: usize = 3;
 /// collapse. 0.5 log-units ≈ factor of √e in λ.
 pub(crate) const RHO_EQUAL_TOL: f64 = 0.5;
 
+/// Number of consecutive `TrustRegionFloor` failures at the SAME ρ-step that
+/// switches the recovery from "shrink α and retry" to "expand ρ₀ and restart
+/// the path". Two repeats means step-shrinking is not buying convergence at
+/// this start, so the oversmoothed seed itself must move outward.
+pub(crate) const TRUST_FLOOR_EXPAND_AFTER: usize = 2;
+
 #[derive(Debug, Clone)]
 pub(crate) enum ContinuationFailure {
     PathBudgetExhausted {
@@ -225,8 +231,14 @@ fn step_toward(rho_k: &Array1<f64>, target: &Array1<f64>, alpha: f64) -> Array1<
     out
 }
 
+/// How much tighter the "we have arrived at ρ*" stopping test is than the
+/// `RHO_EQUAL_TOL` start-collapse band. Reaching the target must be a stricter
+/// statement than ρ₀≈ρ*, so the path does not declare success one full collapse
+/// band away from the seed.
+const REACHED_TARGET_TIGHTEN: f64 = 8.0;
+
 fn reached_target(rho: &Array1<f64>, target: &Array1<f64>) -> bool {
-    let tol = RHO_EQUAL_TOL / 8.0;
+    let tol = RHO_EQUAL_TOL / REACHED_TARGET_TIGHTEN;
     rho.iter()
         .zip(target.iter())
         .all(|(a, b)| (a - b).abs() <= tol)
@@ -254,8 +266,23 @@ fn eval_step(
     //     not a structural failure (issue #236).
     //   - `Err(_)`: a genuine seeding failure (dimension mismatch when a
     //     slot exists, etc.). Forward as a hard failure.
-    obj.seed_inner_state(beta_seed)
-        .map_err(inner_failure_from)?;
+    //
+    // An empty `beta_seed` is the documented "no warm-start available, use
+    // your own current inner state" signal. We therefore SKIP the
+    // `seed_inner_state` call entirely rather than forwarding the empty slice.
+    // Forwarding it is a semantic no-op for objectives whose `seed_inner_state`
+    // treats an empty β as "leave inner state untouched", but it would CLOBBER
+    // an objective that observably tracks the last-seeded β (the dispatcher's
+    // cache-β warm-start install in `OuterProblem::run`, the survival/custom
+    // marginal-slope seed cache): an empty-β reset would overwrite a warm β the
+    // dispatcher just installed with nothing. The pre-warm is a warm-start
+    // optimization layered ON TOP of the dispatcher's seed-state contract, so
+    // it must never reset that state — only refine it when it carries a real
+    // (non-empty) warm-start β forward across continuation steps (#834, #236).
+    if !beta_seed.is_empty() {
+        obj.seed_inner_state(beta_seed)
+            .map_err(inner_failure_from)?;
+    }
     obj.eval_with_order(rho, order).map_err(inner_failure_from)
 }
 
@@ -513,7 +540,7 @@ fn run_path(
                     }
                     FailureAction::ShrinkOrExpand => {
                         consecutive_trust_floor += 1;
-                        if consecutive_trust_floor >= 2 {
+                        if consecutive_trust_floor >= TRUST_FLOOR_EXPAND_AFTER {
                             return Err(PathOutcome::ExpandRhoZero(failure));
                         }
                         alpha *= ALPHA_SHRINK;

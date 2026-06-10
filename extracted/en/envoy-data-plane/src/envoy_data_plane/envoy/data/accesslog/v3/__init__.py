@@ -56,6 +56,8 @@ class AccessLogType(betterproto2.Enum):
 
     TcpPeriodic = 2
 
+    TcpConnectionStart = 14
+
     TcpConnectionEnd = 3
 
     DownstreamStart = 4

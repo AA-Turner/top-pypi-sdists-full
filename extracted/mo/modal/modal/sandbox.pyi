@@ -1,6 +1,8 @@
 import _typeshed
 import collections.abc
+import enum
 import google.protobuf.message
+import modal._image
 import modal._object
 import modal._tunnel
 import modal._utils.task_command_router_client
@@ -27,6 +29,31 @@ import pathlib
 import typing
 import typing_extensions
 
+async def _gather_load_with_timings(
+    load_coros: collections.abc.Sequence[collections.abc.Awaitable[typing.Any]],
+) -> list[tuple[str, float]]:
+    """Await all loader coroutines concurrently and return [(object_id, elapsed_seconds)] per load."""
+    ...
+
+def _format_sandbox_create_timing_log(
+    sandbox_id: str, total_seconds: float, rpc_seconds: float, dep_timings: collections.abc.Sequence[tuple[str, float]]
+) -> str:
+    """Format the Sandbox create debug log line, listing the slowest deps first."""
+    ...
+
+def _ttl_to_wire_ttl(ttl: typing.Optional[int]) -> int:
+    """Convert a TTL value to the wire format, validating the input."""
+    ...
+
+def _validate_experimental_encryption_key(key: typing.Optional[bytes]) -> typing.Optional[bytes]: ...
+
+class SandboxVersion(enum.Enum):
+    V1 = 1
+    V2 = 2
+
+def _is_v1_sandbox_id(sandbox_id: str) -> bool: ...
+def _is_v2_sandbox_id(sandbox_id: str) -> bool: ...
+def _get_sandbox_version(sandbox_id: str) -> SandboxVersion: ...
 def _result_returncode(result: typing.Optional[modal_proto.api_pb2.GenericResult]) -> typing.Optional[int]: ...
 def _validate_exec_args(args: collections.abc.Sequence[str]) -> None: ...
 
@@ -74,25 +101,24 @@ class SandboxConnectCredentials:
 class Probe:
     """Probe configuration for the Sandbox Readiness Probe.
 
-    **Usage**
+    Examples:
+        ```python notest
+        # Wait until a file exists.
+        readiness_probe = modal.Probe.with_exec(
+            "sh", "-c", "test -f /tmp/ready",
+        )
 
-    ```python notest
-    # Wait until a file exists.
-    readiness_probe = modal.Probe.with_exec(
-        "sh", "-c", "test -f /tmp/ready",
-    )
+        # Wait until a TCP port is accepting connections.
+        readiness_probe = modal.Probe.with_tcp(8080)
 
-    # Wait until a TCP port is accepting connections.
-    readiness_probe = modal.Probe.with_tcp(8080)
-
-    app = modal.App.lookup('sandbox-readiness-probe', create_if_missing=True)
-    sandbox = modal.Sandbox.create(
-        "python3", "-m", "http.server", "8080",
-        readiness_probe=readiness_probe,
-        app=app,
-    )
-    sandbox.wait_until_ready()
-    ```
+        app = modal.App.lookup('sandbox-readiness-probe', create_if_missing=True)
+        sandbox = modal.Sandbox.create(
+            "python3", "-m", "http.server", "8080",
+            readiness_probe=readiness_probe,
+            app=app,
+        )
+        sandbox.wait_until_ready()
+        ```
     """
 
     tcp_port: typing.Optional[int]
@@ -158,7 +184,7 @@ class _Sandbox(modal._object._Object):
     @staticmethod
     def _new(
         args: collections.abc.Sequence[str],
-        image: modal.image._Image,
+        image: modal._image._Image,
         secrets: collections.abc.Collection[modal.secret._Secret],
         name: typing.Optional[str] = None,
         timeout: int = 300,
@@ -173,6 +199,7 @@ class _Sandbox(modal._object._Object):
         network_file_systems: dict[typing.Union[str, os.PathLike], modal.network_file_system._NetworkFileSystem] = {},
         block_network: bool = False,
         outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         volumes: dict[
             typing.Union[str, os.PathLike],
@@ -201,7 +228,7 @@ class _Sandbox(modal._object._Object):
         app: typing.Optional[modal.app._App] = None,
         name: typing.Optional[str] = None,
         tags: typing.Optional[dict[str, str]] = None,
-        image: typing.Optional[modal.image._Image] = None,
+        image: typing.Optional[modal._image._Image] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
         network_file_systems: dict[typing.Union[str, os.PathLike], modal.network_file_system._NetworkFileSystem] = {},
@@ -215,6 +242,7 @@ class _Sandbox(modal._object._Object):
         memory: typing.Union[int, tuple[int, int], None] = None,
         block_network: bool = False,
         outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         volumes: dict[
             typing.Union[str, os.PathLike],
@@ -240,14 +268,69 @@ class _Sandbox(modal._object._Object):
 
         The Sandbox's corresponding container will be created asynchronously.
 
-        **Usage**
+        Args:
+            *args: Set the CMD of the Sandbox, overriding any CMD of the container image.
+            app: Associate the sandbox with an app. Required unless creating from a container.
+            name: Optionally give the sandbox a name. Unique within an app.
+            tags: Tags to assign to the Sandbox.
+            image: The image to run as the container for the sandbox.
+            env: Environment variables to set in the Sandbox.
+            secrets: Secrets to inject into the Sandbox as environment variables.
+            network_file_systems: Network file systems to mount into the sandbox.
+            timeout: Maximum lifetime of the sandbox in seconds.
+            idle_timeout: The amount of time in seconds that a sandbox can be idle before being terminated.
+            workdir: Working directory of the sandbox.
+            gpu: GPU reservation for the sandbox.
+            cloud: Cloud provider for the sandbox.
+            region: Region or regions to run the sandbox on.
+            cpu:
+                Specify, in fractional CPU cores, how many CPU cores to request. Or, pass (request, limit) to
+                additionally specify a hard limit in fractional CPU cores. CPU throttling will prevent a container
+                from exceeding its specified limit.
+            memory:
+                Specify, in MiB, a memory request which is the minimum memory required. Or, pass (request, limit) to
+                additionally specify a hard limit in MiB.
+            block_network: Whether to block network access.
+            outbound_cidr_allowlist: List of CIDRs the sandbox is allowed to access. If None, all CIDRs are allowed.
+            outbound_domain_allowlist: List of domain names the sandbox is allowed to access. Supports
+                wildcard prefixes (``*.``).
+            inbound_cidr_allowlist:
+                List of CIDRs allowed to connect inbound to the sandbox (tunnels and connection tokens). If None,
+                all CIDRs are allowed.
+            volumes: Mount points for Modal Volumes and CloudBucketMounts.
+            pty:
+                Enable a PTY for the Sandbox entrypoint command. When enabled, all output (stdout and stderr from the
+                process) is multiplexed into stdout, and the stderr stream is effectively empty.
+            encrypted_ports: List of ports to tunnel into the sandbox. Encrypted ports are tunneled with TLS.
+            h2_ports: List of encrypted ports to tunnel into the sandbox, using HTTP/2.
+            unencrypted_ports: List of ports to tunnel into the sandbox without encryption.
+            custom_domain:
+                Allow connections to the Sandbox via a subdomain of this parent rather than a default Modal domain.
+            proxy: Reference to a Modal Proxy to use in front of this Sandbox.
+            include_oidc_identity_token:
+                If True, the sandbox will receive a MODAL_IDENTITY_TOKEN env var for OIDC-based auth.
+            readiness_probe: Probe used to determine when the sandbox has become ready.
+            verbose: Enable verbose logging for sandbox operations.
+            experimental_options: Experimental options to pass to the sandbox.
+            _experimental_enable_snapshot: Enable memory snapshots.
+            client: Modal Client to use for the sandbox.
+            environment_name: *DEPRECATED* Optionally override the default environment
+            pty_info: *DEPRECATED* Use `pty` instead. `pty` will override `pty_info`.
+            cidr_allowlist: *DEPRECATED* Use outbound_cidr_allowlist instead.
 
-        ```python
-        app = modal.App.lookup('sandbox-hello-world', create_if_missing=True)
-        sandbox = modal.Sandbox.create("echo", "hello world", app=app)
-        print(sandbox.stdout.read())
-        sandbox.wait()
-        ```
+        Returns:
+            A `Sandbox` object representing the created sandbox which can be used to interact with the sandbox.
+
+        Raises:
+            AlreadyExistsError: If a sandbox with the same name already exists.
+
+        Examples:
+            ```python
+            app = modal.App.lookup('sandbox-hello-world', create_if_missing=True)
+            sandbox = modal.Sandbox.create("echo", "hello world", app=app)
+            print(sandbox.stdout.read())
+            sandbox.wait()
+            ```
         """
         ...
 
@@ -257,7 +340,7 @@ class _Sandbox(modal._object._Object):
         app: typing.Optional[modal.app._App] = None,
         name: typing.Optional[str] = None,
         tags: typing.Optional[dict[str, str]] = None,
-        image: typing.Optional[modal.image._Image] = None,
+        image: typing.Optional[modal._image._Image] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
         mounts: collections.abc.Sequence[modal.mount._Mount] = (),
@@ -272,6 +355,7 @@ class _Sandbox(modal._object._Object):
         memory: typing.Union[int, tuple[int, int], None] = None,
         block_network: bool = False,
         outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         volumes: dict[
             typing.Union[str, os.PathLike],
@@ -304,7 +388,7 @@ class _Sandbox(modal._object._Object):
         *args: str,
         app: typing.Optional[modal.app._App] = None,
         name: typing.Optional[str] = None,
-        image: typing.Optional[modal.image._Image] = None,
+        image: typing.Optional[modal._image._Image] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
         timeout: int = 300,
@@ -315,8 +399,12 @@ class _Sandbox(modal._object._Object):
         cloud: typing.Optional[str] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         block_network: bool = False,
-        cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        volumes: dict[
+            typing.Union[str, os.PathLike],
+            typing.Union[modal.volume._Volume, modal.cloud_bucket_mount._CloudBucketMount],
+        ] = {},
         pty: bool = False,
         encrypted_ports: collections.abc.Sequence[int] = [],
         h2_ports: collections.abc.Sequence[int] = [],
@@ -327,12 +415,28 @@ class _Sandbox(modal._object._Object):
     ) -> _Sandbox:
         """Create a sandbox using the V2 backend.
 
-        Features like tags, snapshots, exec, volumes, network file systems,
-        GPUs, custom domains, and proxies are not supported.
+        Supported features include exec, encrypted tunnels, wait/poll/terminate,
+        CPU and memory configuration, region placement, volumes, cloud bucket mounts
+        (with static credentials via `secret=...`), and filesystem snapshots.
+
+        Features like tags, memory snapshots, network file systems, GPUs, custom
+        domains, OIDC identity tokens (including `oidc_auth_role_arn` on a
+        CloudBucketMount), and proxies are not supported.
+
+        V2 sandboxes created with this method are not currently returned by
+        `Sandbox.list()` and cannot be looked up with `Sandbox.from_name()`.
+        Store `sandbox.object_id` if you need to retrieve the sandbox later, and
+        use `Sandbox.from_id(sandbox.object_id)` to reattach.
         """
         ...
 
     def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]): ...
+    def _hydrate_metadata_v2(self) -> None:
+        """Wire up V2 stdio readers that read directly from the worker. Cheap
+        to call eagerly: the router connection is opened lazily on first read.
+        """
+        ...
+
     def _initialize_from_other(self, other): ...
     def _initialize_from_empty(self): ...
     async def detach(self):
@@ -360,8 +464,19 @@ class _Sandbox(modal._object._Object):
     ) -> _Sandbox:
         """Get a running Sandbox by name from a deployed App.
 
-        Raises a modal.exception.NotFoundError if no running sandbox is found with the given name.
         A Sandbox's name is the `name` argument passed to `Sandbox.create`.
+
+        Args:
+            app_name: Name of the deployed app to look up the sandbox under.
+            name: Sandbox name to resolve.
+            environment_name: Optional environment name for the lookup; defaults to the configured environment.
+            client: Modal client to use for the RPC; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            A `Sandbox` handle for the running sandbox.
+
+        Raises:
+            NotFoundError: If no running sandbox exists with the given name.
         """
         ...
 
@@ -370,30 +485,60 @@ class _Sandbox(modal._object._Object):
         """Construct a Sandbox from an id and look up the Sandbox result.
 
         The ID of a Sandbox object can be accessed using `.object_id`.
+
+        Args:
+            sandbox_id: Sandbox object ID to attach to.
+            client: Modal client to use for the lookup; defaults to the environment client when omitted.
+
+        Returns:
+            A `Sandbox` handle with any available result metadata populated from the server.
         """
         ...
 
     async def get_tags(self) -> dict[str, str]:
-        """Fetches any tags (key-value pairs) currently attached to this Sandbox from the server."""
-        ...
+        """Fetches any tags (key-value pairs) currently attached to this Sandbox from the server.
 
-    async def set_tags(self, tags: dict[str, str], *, client: typing.Optional[modal.client._Client] = None) -> None:
-        """Set tags (key-value pairs) on the Sandbox. Tags can be used to filter results in `Sandbox.list`."""
-        ...
-
-    async def snapshot_filesystem(self, timeout: int = 55) -> modal.image._Image:
-        """Snapshot the filesystem of the Sandbox.
-
-        Returns an [`Image`](https://modal.com/docs/reference/modal.Image) object which
-        can be used to spawn a new Sandbox with the same filesystem.
-
-        `timeout` If the snapshot does not return within that window, the call is cancelled
-        and `modal.exception.TimeoutError` is raised.
+        Returns:
+            Tags as a map from tag name to tag value.
         """
         ...
 
-    async def _legacy_snapshot_filesystem(self, timeout: int = 55) -> modal.image._Image: ...
-    async def mount_image(self, path: typing.Union[pathlib.PurePosixPath, str], image: modal.image._Image):
+    async def set_tags(self, tags: dict[str, str], *, client: typing.Optional[modal.client._Client] = None) -> None:
+        """Set tags (key-value pairs) on the Sandbox. Tags can be used to filter results in `Sandbox.list`.
+
+        Args:
+            tags: Tag names and values to set on this sandbox.
+            client: Deprecated. Prefer setting the client when creating or re-attaching to the sandbox.
+        """
+        ...
+
+    async def snapshot_filesystem(
+        self, timeout: int = 55, *, ttl: typing.Optional[int] = 2592000
+    ) -> modal._image._Image:
+        """Snapshot the filesystem of the Sandbox.
+
+        Args:
+            timeout:
+                Maximum time in seconds to wait for the snapshot operation. If the snapshot does not return within
+                that window, the call is cancelled and `modal.exception.TimeoutError` is raised.
+            ttl:
+                The resulting Image is retained for `ttl` seconds (default: 30 days). Pass `ttl=None` to retain
+                the image indefinitely.
+
+        Returns:
+            An [`Image`](https://modal.com/docs/reference/modal.Image) object which can be used to spawn a new
+            Sandbox with the same filesystem.
+        """
+        ...
+
+    async def _legacy_snapshot_filesystem(self, timeout: int = 55) -> modal._image._Image: ...
+    async def mount_image(
+        self,
+        path: typing.Union[pathlib.PurePosixPath, str],
+        image: modal._image._Image,
+        *,
+        _experimental_encryption_key: typing.Optional[bytes] = None,
+    ):
         """Mount an Image at a specified path in a running Sandbox.
 
         `path` should be a directory that is **not** the root path (`/`). If the path doesn't exist
@@ -406,15 +551,20 @@ class _Sandbox(modal._object._Object):
         - Filesystem/directory snapshots, e.g. created by `.snapshot_directory()` or `.snapshot_filesystem()`
         - Empty images created with `Image.from_scratch()`
 
-        Usage:
-        ```py notest
-        user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+        Args:
+            path: Absolute mount point directory inside the sandbox (not `/`).
+            image: Image to mount at `path` (must be built, referenced by ID, or snapshot-based as described above).
 
-        # You can later mount this snapshot to another Sandbox:
-        sandbox_session_2 = modal.Sandbox.create(...)
-        sandbox_session_2.mount_image("/user_project", user_project_snapshot)
-        sandbox_session_2.ls("/user_project")
-        ```
+
+        Examples:
+            ```py notest
+            user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+
+            # You can later mount this snapshot to another Sandbox:
+            sandbox_session_2 = modal.Sandbox.create(...)
+            sandbox_session_2.mount_image("/user_project", user_project_snapshot)
+            sandbox_session_2.filesystem.list_files("/user_project")
+            ```
         """
         ...
 
@@ -424,28 +574,52 @@ class _Sandbox(modal._object._Object):
         `path` must be the exact mount point that was passed to `.mount_image()`.
         After unmounting, the underlying Sandbox filesystem at that path becomes
         visible again.
+
+        Args:
+            path: Absolute mount point directory to unmount.
         """
         ...
 
-    async def snapshot_directory(self, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image._Image:
+    async def snapshot_directory(
+        self,
+        path: typing.Union[pathlib.PurePosixPath, str],
+        *,
+        timeout: int = 55,
+        ttl: typing.Optional[int] = 2592000,
+        _experimental_encryption_key: typing.Optional[bytes] = None,
+    ) -> modal._image._Image:
         """Snapshot a directory in a running Sandbox, creating a new Image with its content.
 
-        Directory snapshots are currently persisted for 30 days after they were created.
+        `timeout` If the snapshot does not return within that window, the call is cancelled
+        and `modal.exception.TimeoutError` is raised.
 
-        Usage:
-        ```py notest
-        user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+        `ttl` The resulting Image is retained for `ttl` seconds (default: 30 days)
+        Pass `ttl=None` to retain the image indefinitely.
 
-        # You can later mount this snapshot to another Sandbox:
-        sandbox_session_2 = modal.Sandbox.create(...)
-        sandbox_session_2.mount_image("/user_project", user_project_snapshot)
-        sandbox_session_2.ls("/user_project")
-        ```
+        Args:
+            path: Absolute path of the directory inside the sandbox to snapshot.
+
+        Returns:
+            An `Image` containing the directory contents.
+
+        Examples:
+            ```py notest
+            user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+
+            # You can later mount this snapshot to another Sandbox:
+            sandbox_session_2 = modal.Sandbox.create(...)
+            sandbox_session_2.mount_image("/user_project", user_project_snapshot)
+            sandbox_session_2.filesystem.list_files("/user_project")
+            ```
         """
         ...
 
     async def wait(self, raise_on_termination: bool = True):
-        """Wait for the Sandbox to finish running."""
+        """Wait for the Sandbox to finish running.
+
+        Args:
+            raise_on_termination: If True, raise when the sandbox is terminated externally.
+        """
         ...
 
     async def wait_until_ready(self, *, timeout: int = 300) -> None:
@@ -453,28 +627,37 @@ class _Sandbox(modal._object._Object):
 
         The Sandbox must be configured with a `readiness_probe` in order to use this method.
 
-        Usage:
-        ```py notest
-        app = modal.App.lookup('sandbox-wait-until-ready', create_if_missing=True)
-        sandbox = modal.Sandbox.create(
-            "python3", "-m", "http.server", "8080",
-            readiness_probe=modal.Probe.with_tcp(8080),
-            app=app,
-        )
-        sandbox.wait_until_ready()
-        ```
+        Args:
+            timeout: Maximum time in seconds to wait for readiness.
+
+
+        Examples:
+            ```py notest
+            app = modal.App.lookup('sandbox-wait-until-ready', create_if_missing=True)
+            sandbox = modal.Sandbox.create(
+                "python3", "-m", "http.server", "8080",
+                readiness_probe=modal.Probe.with_tcp(8080),
+                app=app,
+            )
+            sandbox.wait_until_ready()
+            ```
         """
         ...
 
     async def tunnels(self, timeout: int = 50) -> dict[int, modal._tunnel.Tunnel]:
         """Get Tunnel metadata for the sandbox.
 
-        Raises `SandboxTimeoutError` if the tunnels are not available after the timeout.
-
-        Returns a dictionary of `Tunnel` objects which are keyed by the container port.
-
         NOTE: Previous to client [v0.64.153](https://modal.com/docs/reference/changelog#064153-2024-09-30), this
         returned a list of `TunnelData` objects.
+
+        Args:
+            timeout: Maximum time in seconds to wait for tunnel metadata when not already cached.
+
+        Returns:
+            A dictionary mapping container port to `Tunnel` metadata.
+
+        Raises:
+            SandboxTimeoutError: If the tunnels are not available after the timeout.
         """
         ...
 
@@ -485,6 +668,12 @@ class _Sandbox(modal._object._Object):
 
         Also accepts an optional user_metadata string or dict to associate with the token. This metadata
         will be added to the headers by the proxy when forwarding requests to the Sandbox.
+
+        Args:
+            user_metadata: Optional JSON-serializable metadata or string stored with the connect token.
+
+        Returns:
+            URL and token credentials for connecting to the sandbox over HTTP.
         """
         ...
 
@@ -502,7 +691,8 @@ class _Sandbox(modal._object._Object):
     async def poll(self) -> typing.Optional[int]:
         """Check if the Sandbox has finished running.
 
-        Returns `None` if the Sandbox is still running, else returns the exit code.
+        Returns:
+            `None` if the Sandbox is still running, otherwise the exit code.
         """
         ...
 
@@ -511,8 +701,8 @@ class _Sandbox(modal._object._Object):
         self, task_id: str
     ) -> modal._utils.task_command_router_client.TaskCommandRouterClient: ...
     @property
-    def _experimental_containers(self) -> _SandboxContainerManager:
-        """Manage additional containers running in this Sandbox."""
+    def _experimental_sidecars(self) -> _SidecarManager:
+        """Manage sidecar containers running in this Sandbox."""
         ...
 
     @typing.overload
@@ -597,7 +787,11 @@ class _Sandbox(modal._object._Object):
     ): ...
     @property
     def filesystem(self) -> modal.sandbox_fs._SandboxFilesystem:
-        """Namespace for filesystem APIs."""
+        """Namespace for filesystem APIs.
+
+        Returns:
+            A `SandboxFilesystem` helper bound to this sandbox.
+        """
         ...
 
     @typing.overload
@@ -609,58 +803,89 @@ class _Sandbox(modal._object._Object):
     async def ls(self, path: str) -> list[str]:
         """[Alpha] List the contents of a directory in the Sandbox.
 
-        **Deprecated (2026-04-15):** Use `Sandbox.filesystem.list_files()` instead.
+        **Deprecated (2026-04-15):** Use `Sandbox.filesystem.list_files()` instead for improved reliability.
+
+        Args:
+            path: Absolute directory path inside the sandbox.
+
+        Returns:
+            Entry names in the directory as a list of strings.
         """
         ...
 
     async def mkdir(self, path: str, parents: bool = False) -> None:
         """[Alpha] Create a new directory in the Sandbox.
 
-        **Deprecated (2026-04-15):** Use `Sandbox.filesystem.make_directory()` instead.
+        **Deprecated (2026-04-15):** Use `Sandbox.filesystem.make_directory()` instead for improved reliability.
         """
         ...
 
     async def rm(self, path: str, recursive: bool = False) -> None:
         """[Alpha] Remove a file or directory in the Sandbox.
 
-        **Deprecated (2026-04-15):** Use `Sandbox.filesystem.remove()` instead.
+        **Deprecated (2026-04-15):** Use `Sandbox.filesystem.remove()` instead for improved reliability.
         """
         ...
 
     def watch(
         self,
         path: str,
-        filter: typing.Optional[list[modal.file_io.FileWatchEventType]] = None,
+        filter: typing.Optional[list[modal.sandbox_fs.FileWatchEventType]] = None,
         recursive: typing.Optional[bool] = None,
         timeout: typing.Optional[int] = None,
-    ) -> typing.AsyncIterator[modal.file_io.FileWatchEvent]:
-        """[Alpha] Watch a file or directory in the Sandbox for changes."""
+    ) -> collections.abc.AsyncIterator[modal.sandbox_fs.FileWatchEvent]:
+        """[Alpha] Watch a file or directory in the Sandbox for changes.
+
+        **Deprecated (2026-05-08):** Use `Sandbox.filesystem.watch()` instead for improved reliability.
+
+        Args:
+            path: Absolute path to watch.
+            filter: Optional list of event types to include.
+            recursive: Whether to watch subdirectories; None uses server defaults.
+            timeout: Optional timeout for the watch stream.
+
+        Returns:
+            An async iterator of `FileWatchEvent` values.
+        """
         ...
 
     @property
     def stdout(self) -> modal.io_streams._StreamReader[str]:
-        """[`StreamReader`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamreader) for
-        the sandbox's stdout stream.
+        """[`StreamReader`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamreader)
+        for the sandbox's stdout stream.
+
+        Returns:
+            Stream reader for sandbox stdout.
         """
         ...
 
     @property
     def stderr(self) -> modal.io_streams._StreamReader[str]:
-        """[`StreamReader`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamreader) for
-        the Sandbox's stderr stream.
+        """[`StreamReader`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamreader)
+        for the Sandbox's stderr stream.
+
+        Returns:
+            Stream reader for sandbox stderr.
         """
         ...
 
     @property
     def stdin(self) -> modal.io_streams._StreamWriter:
-        """[`StreamWriter`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamwriter) for
-        the Sandbox's stdin stream.
+        """[`StreamWriter`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamwriter)
+        for the Sandbox's stdin stream.
+
+        Returns:
+            Stream writer for sandbox stdin.
         """
         ...
 
     @property
     def returncode(self) -> typing.Optional[int]:
-        """Return code of the Sandbox process if it has finished running, else `None`."""
+        """Return code of the Sandbox process if it has finished running, else `None`.
+
+        Returns:
+            Exit code when the sandbox process has completed, otherwise None.
+        """
         ...
 
     @staticmethod
@@ -671,14 +896,23 @@ class _Sandbox(modal._object._Object):
         client: typing.Optional[modal.client._Client] = None,
     ) -> collections.abc.AsyncGenerator[_Sandbox, None]:
         """List all Sandboxes for the current Environment or App ID (if specified). If tags are specified, only
-        Sandboxes that have at least those tags are returned. Returns an iterator over `Sandbox` objects.
+        Sandboxes that have at least those tags are returned.
+
+        Args:
+            app_id: If set, restrict results to sandboxes under this app ID.
+            tags: If set, only sandboxes containing at least these tags are returned.
+            client: Modal client to use for listing; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            An async generator yielding `Sandbox` objects.
         """
         ...
 
-class _SandboxContainer:
+class _SidecarContainer:
     """Handle to an additional container running in a Sandbox."""
 
     _result: typing.Optional[modal_proto.api_pb2.GenericResult]
+    _filesystem: typing.Optional[modal.sandbox_fs._SandboxFilesystem]
 
     def __init__(
         self,
@@ -697,11 +931,12 @@ class _SandboxContainer:
     @staticmethod
     def _from_container_info(
         sandbox: _Sandbox, container_info: modal_proto.task_command_router_pb2.TaskContainerInfo
-    ) -> _SandboxContainer: ...
+    ) -> _SidecarContainer: ...
     async def _get_command_router(self) -> tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]:
         """Get task ID and command router client."""
         ...
 
+    @typing.overload
     async def exec(
         self,
         *args: str,
@@ -711,12 +946,29 @@ class _SandboxContainer:
         workdir: typing.Optional[str] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
-        text: bool = True,
+        text: typing.Literal[True] = True,
         bufsize: typing.Literal[-1, 1] = -1,
         pty: bool = False,
-    ) -> typing.Union[
-        modal.container_process._ContainerProcess[bytes], modal.container_process._ContainerProcess[str]
-    ]: ...
+    ) -> modal.container_process._ContainerProcess[str]: ...
+    @typing.overload
+    async def exec(
+        self,
+        *args: str,
+        stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+        stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+        timeout: typing.Optional[int] = None,
+        workdir: typing.Optional[str] = None,
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
+        text: typing.Literal[False],
+        bufsize: typing.Literal[-1, 1] = -1,
+        pty: bool = False,
+    ) -> modal.container_process._ContainerProcess[bytes]: ...
+    @property
+    def filesystem(self) -> modal.sandbox_fs._SandboxFilesystem:
+        """Namespace for filesystem APIs."""
+        ...
+
     async def wait(self, raise_on_termination: bool = True) -> None: ...
     async def poll(self) -> typing.Optional[int]: ...
     @typing.overload
@@ -724,8 +976,8 @@ class _SandboxContainer:
     @typing.overload
     async def terminate(self, *, wait: typing.Literal[False] = False) -> None: ...
 
-class _SandboxContainerManager:
-    """Creates and manages additional containers in a Sandbox."""
+class _SidecarManager:
+    """Creates and manages sidecar containers in a Sandbox."""
     def __init__(self, sandbox: _Sandbox) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
@@ -738,18 +990,19 @@ class _SandboxContainerManager:
         self,
         *args: str,
         name: str,
-        image: modal.image._Image,
+        image: modal._image._Image,
         env: typing.Optional[dict[str, str]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
         workdir: typing.Optional[str] = None,
-    ) -> _SandboxContainer: ...
-    async def get(self, *, name: str, include_terminated: bool = False) -> _SandboxContainer: ...
-    async def list(self, include_terminated: bool = False) -> list[_SandboxContainer]: ...
+    ) -> _SidecarContainer: ...
+    async def get(self, *, name: str, include_terminated: bool = False) -> _SidecarContainer: ...
+    async def list(self, include_terminated: bool = False) -> list[_SidecarContainer]: ...
 
-class SandboxContainer:
+class SidecarContainer:
     """Handle to an additional container running in a Sandbox."""
 
     _result: typing.Optional[modal_proto.api_pb2.GenericResult]
+    _filesystem: typing.Optional[modal.sandbox_fs.SandboxFilesystem]
 
     def __init__(
         self,
@@ -765,7 +1018,7 @@ class SandboxContainer:
     @staticmethod
     def _from_container_info(
         sandbox: Sandbox, container_info: modal_proto.task_command_router_pb2.TaskContainerInfo
-    ) -> SandboxContainer: ...
+    ) -> SidecarContainer: ...
 
     class ___get_command_router_spec(typing_extensions.Protocol):
         def __call__(self, /) -> tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]:
@@ -779,6 +1032,7 @@ class SandboxContainer:
     _get_command_router: ___get_command_router_spec
 
     class __exec_spec(typing_extensions.Protocol):
+        @typing.overload
         def __call__(
             self,
             /,
@@ -789,12 +1043,26 @@ class SandboxContainer:
             workdir: typing.Optional[str] = None,
             env: typing.Optional[dict[str, typing.Optional[str]]] = None,
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
-            text: bool = True,
+            text: typing.Literal[True] = True,
             bufsize: typing.Literal[-1, 1] = -1,
             pty: bool = False,
-        ) -> typing.Union[
-            modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
-        ]: ...
+        ) -> modal.container_process.ContainerProcess[str]: ...
+        @typing.overload
+        def __call__(
+            self,
+            /,
+            *args: str,
+            stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            timeout: typing.Optional[int] = None,
+            workdir: typing.Optional[str] = None,
+            env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+            text: typing.Literal[False],
+            bufsize: typing.Literal[-1, 1] = -1,
+            pty: bool = False,
+        ) -> modal.container_process.ContainerProcess[bytes]: ...
+        @typing.overload
         async def aio(
             self,
             /,
@@ -805,14 +1073,32 @@ class SandboxContainer:
             workdir: typing.Optional[str] = None,
             env: typing.Optional[dict[str, typing.Optional[str]]] = None,
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
-            text: bool = True,
+            text: typing.Literal[True] = True,
             bufsize: typing.Literal[-1, 1] = -1,
             pty: bool = False,
-        ) -> typing.Union[
-            modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
-        ]: ...
+        ) -> modal.container_process.ContainerProcess[str]: ...
+        @typing.overload
+        async def aio(
+            self,
+            /,
+            *args: str,
+            stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            timeout: typing.Optional[int] = None,
+            workdir: typing.Optional[str] = None,
+            env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+            text: typing.Literal[False],
+            bufsize: typing.Literal[-1, 1] = -1,
+            pty: bool = False,
+        ) -> modal.container_process.ContainerProcess[bytes]: ...
 
     exec: __exec_spec
+
+    @property
+    def filesystem(self) -> modal.sandbox_fs.SandboxFilesystem:
+        """Namespace for filesystem APIs."""
+        ...
 
     class __wait_spec(typing_extensions.Protocol):
         def __call__(self, /, raise_on_termination: bool = True) -> None: ...
@@ -838,8 +1124,8 @@ class SandboxContainer:
 
     terminate: __terminate_spec
 
-class SandboxContainerManager:
-    """Creates and manages additional containers in a Sandbox."""
+class SidecarManager:
+    """Creates and manages sidecar containers in a Sandbox."""
     def __init__(self, sandbox: Sandbox) -> None: ...
 
     class ___get_command_router_spec(typing_extensions.Protocol):
@@ -863,7 +1149,7 @@ class SandboxContainerManager:
             env: typing.Optional[dict[str, str]] = None,
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
             workdir: typing.Optional[str] = None,
-        ) -> SandboxContainer: ...
+        ) -> SidecarContainer: ...
         async def aio(
             self,
             /,
@@ -873,19 +1159,19 @@ class SandboxContainerManager:
             env: typing.Optional[dict[str, str]] = None,
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
             workdir: typing.Optional[str] = None,
-        ) -> SandboxContainer: ...
+        ) -> SidecarContainer: ...
 
     create: __create_spec
 
     class __get_spec(typing_extensions.Protocol):
-        def __call__(self, /, *, name: str, include_terminated: bool = False) -> SandboxContainer: ...
-        async def aio(self, /, *, name: str, include_terminated: bool = False) -> SandboxContainer: ...
+        def __call__(self, /, *, name: str, include_terminated: bool = False) -> SidecarContainer: ...
+        async def aio(self, /, *, name: str, include_terminated: bool = False) -> SidecarContainer: ...
 
     get: __get_spec
 
     class __list_spec(typing_extensions.Protocol):
-        def __call__(self, /, include_terminated: bool = False) -> list[SandboxContainer]: ...
-        async def aio(self, /, include_terminated: bool = False) -> list[SandboxContainer]: ...
+        def __call__(self, /, include_terminated: bool = False) -> list[SidecarContainer]: ...
+        async def aio(self, /, include_terminated: bool = False) -> list[SidecarContainer]: ...
 
     list: __list_spec
 
@@ -932,6 +1218,7 @@ class Sandbox(modal.object.Object):
         network_file_systems: dict[typing.Union[str, os.PathLike], modal.network_file_system.NetworkFileSystem] = {},
         block_network: bool = False,
         outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         volumes: dict[
             typing.Union[str, os.PathLike], typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount]
@@ -977,6 +1264,7 @@ class Sandbox(modal.object.Object):
             memory: typing.Union[int, tuple[int, int], None] = None,
             block_network: bool = False,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             volumes: dict[
                 typing.Union[str, os.PathLike],
@@ -1002,14 +1290,69 @@ class Sandbox(modal.object.Object):
 
             The Sandbox's corresponding container will be created asynchronously.
 
-            **Usage**
+            Args:
+                *args: Set the CMD of the Sandbox, overriding any CMD of the container image.
+                app: Associate the sandbox with an app. Required unless creating from a container.
+                name: Optionally give the sandbox a name. Unique within an app.
+                tags: Tags to assign to the Sandbox.
+                image: The image to run as the container for the sandbox.
+                env: Environment variables to set in the Sandbox.
+                secrets: Secrets to inject into the Sandbox as environment variables.
+                network_file_systems: Network file systems to mount into the sandbox.
+                timeout: Maximum lifetime of the sandbox in seconds.
+                idle_timeout: The amount of time in seconds that a sandbox can be idle before being terminated.
+                workdir: Working directory of the sandbox.
+                gpu: GPU reservation for the sandbox.
+                cloud: Cloud provider for the sandbox.
+                region: Region or regions to run the sandbox on.
+                cpu:
+                    Specify, in fractional CPU cores, how many CPU cores to request. Or, pass (request, limit) to
+                    additionally specify a hard limit in fractional CPU cores. CPU throttling will prevent a container
+                    from exceeding its specified limit.
+                memory:
+                    Specify, in MiB, a memory request which is the minimum memory required. Or, pass (request, limit) to
+                    additionally specify a hard limit in MiB.
+                block_network: Whether to block network access.
+                outbound_cidr_allowlist: List of CIDRs the sandbox is allowed to access. If None, all CIDRs are allowed.
+                outbound_domain_allowlist: List of domain names the sandbox is allowed to access. Supports
+                    wildcard prefixes (``*.``).
+                inbound_cidr_allowlist:
+                    List of CIDRs allowed to connect inbound to the sandbox (tunnels and connection tokens). If None,
+                    all CIDRs are allowed.
+                volumes: Mount points for Modal Volumes and CloudBucketMounts.
+                pty:
+                    Enable a PTY for the Sandbox entrypoint command. When enabled, all output (stdout and stderr from the
+                    process) is multiplexed into stdout, and the stderr stream is effectively empty.
+                encrypted_ports: List of ports to tunnel into the sandbox. Encrypted ports are tunneled with TLS.
+                h2_ports: List of encrypted ports to tunnel into the sandbox, using HTTP/2.
+                unencrypted_ports: List of ports to tunnel into the sandbox without encryption.
+                custom_domain:
+                    Allow connections to the Sandbox via a subdomain of this parent rather than a default Modal domain.
+                proxy: Reference to a Modal Proxy to use in front of this Sandbox.
+                include_oidc_identity_token:
+                    If True, the sandbox will receive a MODAL_IDENTITY_TOKEN env var for OIDC-based auth.
+                readiness_probe: Probe used to determine when the sandbox has become ready.
+                verbose: Enable verbose logging for sandbox operations.
+                experimental_options: Experimental options to pass to the sandbox.
+                _experimental_enable_snapshot: Enable memory snapshots.
+                client: Modal Client to use for the sandbox.
+                environment_name: *DEPRECATED* Optionally override the default environment
+                pty_info: *DEPRECATED* Use `pty` instead. `pty` will override `pty_info`.
+                cidr_allowlist: *DEPRECATED* Use outbound_cidr_allowlist instead.
 
-            ```python
-            app = modal.App.lookup('sandbox-hello-world', create_if_missing=True)
-            sandbox = modal.Sandbox.create("echo", "hello world", app=app)
-            print(sandbox.stdout.read())
-            sandbox.wait()
-            ```
+            Returns:
+                A `Sandbox` object representing the created sandbox which can be used to interact with the sandbox.
+
+            Raises:
+                AlreadyExistsError: If a sandbox with the same name already exists.
+
+            Examples:
+                ```python
+                app = modal.App.lookup('sandbox-hello-world', create_if_missing=True)
+                sandbox = modal.Sandbox.create("echo", "hello world", app=app)
+                print(sandbox.stdout.read())
+                sandbox.wait()
+                ```
             """
             ...
 
@@ -1036,6 +1379,7 @@ class Sandbox(modal.object.Object):
             memory: typing.Union[int, tuple[int, int], None] = None,
             block_network: bool = False,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             volumes: dict[
                 typing.Union[str, os.PathLike],
@@ -1061,14 +1405,69 @@ class Sandbox(modal.object.Object):
 
             The Sandbox's corresponding container will be created asynchronously.
 
-            **Usage**
+            Args:
+                *args: Set the CMD of the Sandbox, overriding any CMD of the container image.
+                app: Associate the sandbox with an app. Required unless creating from a container.
+                name: Optionally give the sandbox a name. Unique within an app.
+                tags: Tags to assign to the Sandbox.
+                image: The image to run as the container for the sandbox.
+                env: Environment variables to set in the Sandbox.
+                secrets: Secrets to inject into the Sandbox as environment variables.
+                network_file_systems: Network file systems to mount into the sandbox.
+                timeout: Maximum lifetime of the sandbox in seconds.
+                idle_timeout: The amount of time in seconds that a sandbox can be idle before being terminated.
+                workdir: Working directory of the sandbox.
+                gpu: GPU reservation for the sandbox.
+                cloud: Cloud provider for the sandbox.
+                region: Region or regions to run the sandbox on.
+                cpu:
+                    Specify, in fractional CPU cores, how many CPU cores to request. Or, pass (request, limit) to
+                    additionally specify a hard limit in fractional CPU cores. CPU throttling will prevent a container
+                    from exceeding its specified limit.
+                memory:
+                    Specify, in MiB, a memory request which is the minimum memory required. Or, pass (request, limit) to
+                    additionally specify a hard limit in MiB.
+                block_network: Whether to block network access.
+                outbound_cidr_allowlist: List of CIDRs the sandbox is allowed to access. If None, all CIDRs are allowed.
+                outbound_domain_allowlist: List of domain names the sandbox is allowed to access. Supports
+                    wildcard prefixes (``*.``).
+                inbound_cidr_allowlist:
+                    List of CIDRs allowed to connect inbound to the sandbox (tunnels and connection tokens). If None,
+                    all CIDRs are allowed.
+                volumes: Mount points for Modal Volumes and CloudBucketMounts.
+                pty:
+                    Enable a PTY for the Sandbox entrypoint command. When enabled, all output (stdout and stderr from the
+                    process) is multiplexed into stdout, and the stderr stream is effectively empty.
+                encrypted_ports: List of ports to tunnel into the sandbox. Encrypted ports are tunneled with TLS.
+                h2_ports: List of encrypted ports to tunnel into the sandbox, using HTTP/2.
+                unencrypted_ports: List of ports to tunnel into the sandbox without encryption.
+                custom_domain:
+                    Allow connections to the Sandbox via a subdomain of this parent rather than a default Modal domain.
+                proxy: Reference to a Modal Proxy to use in front of this Sandbox.
+                include_oidc_identity_token:
+                    If True, the sandbox will receive a MODAL_IDENTITY_TOKEN env var for OIDC-based auth.
+                readiness_probe: Probe used to determine when the sandbox has become ready.
+                verbose: Enable verbose logging for sandbox operations.
+                experimental_options: Experimental options to pass to the sandbox.
+                _experimental_enable_snapshot: Enable memory snapshots.
+                client: Modal Client to use for the sandbox.
+                environment_name: *DEPRECATED* Optionally override the default environment
+                pty_info: *DEPRECATED* Use `pty` instead. `pty` will override `pty_info`.
+                cidr_allowlist: *DEPRECATED* Use outbound_cidr_allowlist instead.
 
-            ```python
-            app = modal.App.lookup('sandbox-hello-world', create_if_missing=True)
-            sandbox = modal.Sandbox.create("echo", "hello world", app=app)
-            print(sandbox.stdout.read())
-            sandbox.wait()
-            ```
+            Returns:
+                A `Sandbox` object representing the created sandbox which can be used to interact with the sandbox.
+
+            Raises:
+                AlreadyExistsError: If a sandbox with the same name already exists.
+
+            Examples:
+                ```python
+                app = modal.App.lookup('sandbox-hello-world', create_if_missing=True)
+                sandbox = modal.Sandbox.create("echo", "hello world", app=app)
+                print(sandbox.stdout.read())
+                sandbox.wait()
+                ```
             """
             ...
 
@@ -1099,6 +1498,7 @@ class Sandbox(modal.object.Object):
             memory: typing.Union[int, tuple[int, int], None] = None,
             block_network: bool = False,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             volumes: dict[
                 typing.Union[str, os.PathLike],
@@ -1150,6 +1550,7 @@ class Sandbox(modal.object.Object):
             memory: typing.Union[int, tuple[int, int], None] = None,
             block_network: bool = False,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             volumes: dict[
                 typing.Union[str, os.PathLike],
@@ -1197,8 +1598,12 @@ class Sandbox(modal.object.Object):
             cloud: typing.Optional[str] = None,
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             block_network: bool = False,
-            cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            volumes: dict[
+                typing.Union[str, os.PathLike],
+                typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
+            ] = {},
             pty: bool = False,
             encrypted_ports: collections.abc.Sequence[int] = [],
             h2_ports: collections.abc.Sequence[int] = [],
@@ -1209,8 +1614,18 @@ class Sandbox(modal.object.Object):
         ) -> Sandbox:
             """Create a sandbox using the V2 backend.
 
-            Features like tags, snapshots, exec, volumes, network file systems,
-            GPUs, custom domains, and proxies are not supported.
+            Supported features include exec, encrypted tunnels, wait/poll/terminate,
+            CPU and memory configuration, region placement, volumes, cloud bucket mounts
+            (with static credentials via `secret=...`), and filesystem snapshots.
+
+            Features like tags, memory snapshots, network file systems, GPUs, custom
+            domains, OIDC identity tokens (including `oidc_auth_role_arn` on a
+            CloudBucketMount), and proxies are not supported.
+
+            V2 sandboxes created with this method are not currently returned by
+            `Sandbox.list()` and cannot be looked up with `Sandbox.from_name()`.
+            Store `sandbox.object_id` if you need to retrieve the sandbox later, and
+            use `Sandbox.from_id(sandbox.object_id)` to reattach.
             """
             ...
 
@@ -1231,8 +1646,12 @@ class Sandbox(modal.object.Object):
             cloud: typing.Optional[str] = None,
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             block_network: bool = False,
-            cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            volumes: dict[
+                typing.Union[str, os.PathLike],
+                typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
+            ] = {},
             pty: bool = False,
             encrypted_ports: collections.abc.Sequence[int] = [],
             h2_ports: collections.abc.Sequence[int] = [],
@@ -1243,14 +1662,30 @@ class Sandbox(modal.object.Object):
         ) -> Sandbox:
             """Create a sandbox using the V2 backend.
 
-            Features like tags, snapshots, exec, volumes, network file systems,
-            GPUs, custom domains, and proxies are not supported.
+            Supported features include exec, encrypted tunnels, wait/poll/terminate,
+            CPU and memory configuration, region placement, volumes, cloud bucket mounts
+            (with static credentials via `secret=...`), and filesystem snapshots.
+
+            Features like tags, memory snapshots, network file systems, GPUs, custom
+            domains, OIDC identity tokens (including `oidc_auth_role_arn` on a
+            CloudBucketMount), and proxies are not supported.
+
+            V2 sandboxes created with this method are not currently returned by
+            `Sandbox.list()` and cannot be looked up with `Sandbox.from_name()`.
+            Store `sandbox.object_id` if you need to retrieve the sandbox later, and
+            use `Sandbox.from_id(sandbox.object_id)` to reattach.
             """
             ...
 
     _experimental_create: typing.ClassVar[___experimental_create_spec]
 
     def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]): ...
+    def _hydrate_metadata_v2(self) -> None:
+        """Wire up V2 stdio readers that read directly from the worker. Cheap
+        to call eagerly: the router connection is opened lazily on first read.
+        """
+        ...
+
     def _initialize_from_other(self, other): ...
     def _initialize_from_empty(self): ...
 
@@ -1294,8 +1729,19 @@ class Sandbox(modal.object.Object):
         ) -> Sandbox:
             """Get a running Sandbox by name from a deployed App.
 
-            Raises a modal.exception.NotFoundError if no running sandbox is found with the given name.
             A Sandbox's name is the `name` argument passed to `Sandbox.create`.
+
+            Args:
+                app_name: Name of the deployed app to look up the sandbox under.
+                name: Sandbox name to resolve.
+                environment_name: Optional environment name for the lookup; defaults to the configured environment.
+                client: Modal client to use for the RPC; defaults to `Client.from_env()` when omitted.
+
+            Returns:
+                A `Sandbox` handle for the running sandbox.
+
+            Raises:
+                NotFoundError: If no running sandbox exists with the given name.
             """
             ...
 
@@ -1310,8 +1756,19 @@ class Sandbox(modal.object.Object):
         ) -> Sandbox:
             """Get a running Sandbox by name from a deployed App.
 
-            Raises a modal.exception.NotFoundError if no running sandbox is found with the given name.
             A Sandbox's name is the `name` argument passed to `Sandbox.create`.
+
+            Args:
+                app_name: Name of the deployed app to look up the sandbox under.
+                name: Sandbox name to resolve.
+                environment_name: Optional environment name for the lookup; defaults to the configured environment.
+                client: Modal client to use for the RPC; defaults to `Client.from_env()` when omitted.
+
+            Returns:
+                A `Sandbox` handle for the running sandbox.
+
+            Raises:
+                NotFoundError: If no running sandbox exists with the given name.
             """
             ...
 
@@ -1322,6 +1779,13 @@ class Sandbox(modal.object.Object):
             """Construct a Sandbox from an id and look up the Sandbox result.
 
             The ID of a Sandbox object can be accessed using `.object_id`.
+
+            Args:
+                sandbox_id: Sandbox object ID to attach to.
+                client: Modal client to use for the lookup; defaults to the environment client when omitted.
+
+            Returns:
+                A `Sandbox` handle with any available result metadata populated from the server.
             """
             ...
 
@@ -1329,6 +1793,13 @@ class Sandbox(modal.object.Object):
             """Construct a Sandbox from an id and look up the Sandbox result.
 
             The ID of a Sandbox object can be accessed using `.object_id`.
+
+            Args:
+                sandbox_id: Sandbox object ID to attach to.
+                client: Modal client to use for the lookup; defaults to the environment client when omitted.
+
+            Returns:
+                A `Sandbox` handle with any available result metadata populated from the server.
             """
             ...
 
@@ -1336,46 +1807,76 @@ class Sandbox(modal.object.Object):
 
     class __get_tags_spec(typing_extensions.Protocol):
         def __call__(self, /) -> dict[str, str]:
-            """Fetches any tags (key-value pairs) currently attached to this Sandbox from the server."""
+            """Fetches any tags (key-value pairs) currently attached to this Sandbox from the server.
+
+            Returns:
+                Tags as a map from tag name to tag value.
+            """
             ...
 
         async def aio(self, /) -> dict[str, str]:
-            """Fetches any tags (key-value pairs) currently attached to this Sandbox from the server."""
+            """Fetches any tags (key-value pairs) currently attached to this Sandbox from the server.
+
+            Returns:
+                Tags as a map from tag name to tag value.
+            """
             ...
 
     get_tags: __get_tags_spec
 
     class __set_tags_spec(typing_extensions.Protocol):
         def __call__(self, /, tags: dict[str, str], *, client: typing.Optional[modal.client.Client] = None) -> None:
-            """Set tags (key-value pairs) on the Sandbox. Tags can be used to filter results in `Sandbox.list`."""
+            """Set tags (key-value pairs) on the Sandbox. Tags can be used to filter results in `Sandbox.list`.
+
+            Args:
+                tags: Tag names and values to set on this sandbox.
+                client: Deprecated. Prefer setting the client when creating or re-attaching to the sandbox.
+            """
             ...
 
         async def aio(self, /, tags: dict[str, str], *, client: typing.Optional[modal.client.Client] = None) -> None:
-            """Set tags (key-value pairs) on the Sandbox. Tags can be used to filter results in `Sandbox.list`."""
+            """Set tags (key-value pairs) on the Sandbox. Tags can be used to filter results in `Sandbox.list`.
+
+            Args:
+                tags: Tag names and values to set on this sandbox.
+                client: Deprecated. Prefer setting the client when creating or re-attaching to the sandbox.
+            """
             ...
 
     set_tags: __set_tags_spec
 
     class __snapshot_filesystem_spec(typing_extensions.Protocol):
-        def __call__(self, /, timeout: int = 55) -> modal.image.Image:
+        def __call__(self, /, timeout: int = 55, *, ttl: typing.Optional[int] = 2592000) -> modal.image.Image:
             """Snapshot the filesystem of the Sandbox.
 
-            Returns an [`Image`](https://modal.com/docs/reference/modal.Image) object which
-            can be used to spawn a new Sandbox with the same filesystem.
+            Args:
+                timeout:
+                    Maximum time in seconds to wait for the snapshot operation. If the snapshot does not return within
+                    that window, the call is cancelled and `modal.exception.TimeoutError` is raised.
+                ttl:
+                    The resulting Image is retained for `ttl` seconds (default: 30 days). Pass `ttl=None` to retain
+                    the image indefinitely.
 
-            `timeout` If the snapshot does not return within that window, the call is cancelled
-            and `modal.exception.TimeoutError` is raised.
+            Returns:
+                An [`Image`](https://modal.com/docs/reference/modal.Image) object which can be used to spawn a new
+                Sandbox with the same filesystem.
             """
             ...
 
-        async def aio(self, /, timeout: int = 55) -> modal.image.Image:
+        async def aio(self, /, timeout: int = 55, *, ttl: typing.Optional[int] = 2592000) -> modal.image.Image:
             """Snapshot the filesystem of the Sandbox.
 
-            Returns an [`Image`](https://modal.com/docs/reference/modal.Image) object which
-            can be used to spawn a new Sandbox with the same filesystem.
+            Args:
+                timeout:
+                    Maximum time in seconds to wait for the snapshot operation. If the snapshot does not return within
+                    that window, the call is cancelled and `modal.exception.TimeoutError` is raised.
+                ttl:
+                    The resulting Image is retained for `ttl` seconds (default: 30 days). Pass `ttl=None` to retain
+                    the image indefinitely.
 
-            `timeout` If the snapshot does not return within that window, the call is cancelled
-            and `modal.exception.TimeoutError` is raised.
+            Returns:
+                An [`Image`](https://modal.com/docs/reference/modal.Image) object which can be used to spawn a new
+                Sandbox with the same filesystem.
             """
             ...
 
@@ -1388,7 +1889,14 @@ class Sandbox(modal.object.Object):
     _legacy_snapshot_filesystem: ___legacy_snapshot_filesystem_spec
 
     class __mount_image_spec(typing_extensions.Protocol):
-        def __call__(self, /, path: typing.Union[pathlib.PurePosixPath, str], image: modal.image.Image):
+        def __call__(
+            self,
+            /,
+            path: typing.Union[pathlib.PurePosixPath, str],
+            image: modal.image.Image,
+            *,
+            _experimental_encryption_key: typing.Optional[bytes] = None,
+        ):
             """Mount an Image at a specified path in a running Sandbox.
 
             `path` should be a directory that is **not** the root path (`/`). If the path doesn't exist
@@ -1401,19 +1909,31 @@ class Sandbox(modal.object.Object):
             - Filesystem/directory snapshots, e.g. created by `.snapshot_directory()` or `.snapshot_filesystem()`
             - Empty images created with `Image.from_scratch()`
 
-            Usage:
-            ```py notest
-            user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+            Args:
+                path: Absolute mount point directory inside the sandbox (not `/`).
+                image: Image to mount at `path` (must be built, referenced by ID, or snapshot-based as described above).
 
-            # You can later mount this snapshot to another Sandbox:
-            sandbox_session_2 = modal.Sandbox.create(...)
-            sandbox_session_2.mount_image("/user_project", user_project_snapshot)
-            sandbox_session_2.ls("/user_project")
-            ```
+
+            Examples:
+                ```py notest
+                user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+
+                # You can later mount this snapshot to another Sandbox:
+                sandbox_session_2 = modal.Sandbox.create(...)
+                sandbox_session_2.mount_image("/user_project", user_project_snapshot)
+                sandbox_session_2.filesystem.list_files("/user_project")
+                ```
             """
             ...
 
-        async def aio(self, /, path: typing.Union[pathlib.PurePosixPath, str], image: modal.image.Image):
+        async def aio(
+            self,
+            /,
+            path: typing.Union[pathlib.PurePosixPath, str],
+            image: modal.image.Image,
+            *,
+            _experimental_encryption_key: typing.Optional[bytes] = None,
+        ):
             """Mount an Image at a specified path in a running Sandbox.
 
             `path` should be a directory that is **not** the root path (`/`). If the path doesn't exist
@@ -1426,15 +1946,20 @@ class Sandbox(modal.object.Object):
             - Filesystem/directory snapshots, e.g. created by `.snapshot_directory()` or `.snapshot_filesystem()`
             - Empty images created with `Image.from_scratch()`
 
-            Usage:
-            ```py notest
-            user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+            Args:
+                path: Absolute mount point directory inside the sandbox (not `/`).
+                image: Image to mount at `path` (must be built, referenced by ID, or snapshot-based as described above).
 
-            # You can later mount this snapshot to another Sandbox:
-            sandbox_session_2 = modal.Sandbox.create(...)
-            sandbox_session_2.mount_image("/user_project", user_project_snapshot)
-            sandbox_session_2.ls("/user_project")
-            ```
+
+            Examples:
+                ```py notest
+                user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+
+                # You can later mount this snapshot to another Sandbox:
+                sandbox_session_2 = modal.Sandbox.create(...)
+                sandbox_session_2.mount_image("/user_project", user_project_snapshot)
+                sandbox_session_2.filesystem.list_files("/user_project")
+                ```
             """
             ...
 
@@ -1447,6 +1972,9 @@ class Sandbox(modal.object.Object):
             `path` must be the exact mount point that was passed to `.mount_image()`.
             After unmounting, the underlying Sandbox filesystem at that path becomes
             visible again.
+
+            Args:
+                path: Absolute mount point directory to unmount.
             """
             ...
 
@@ -1456,43 +1984,82 @@ class Sandbox(modal.object.Object):
             `path` must be the exact mount point that was passed to `.mount_image()`.
             After unmounting, the underlying Sandbox filesystem at that path becomes
             visible again.
+
+            Args:
+                path: Absolute mount point directory to unmount.
             """
             ...
 
     unmount_image: __unmount_image_spec
 
     class __snapshot_directory_spec(typing_extensions.Protocol):
-        def __call__(self, /, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image.Image:
+        def __call__(
+            self,
+            /,
+            path: typing.Union[pathlib.PurePosixPath, str],
+            *,
+            timeout: int = 55,
+            ttl: typing.Optional[int] = 2592000,
+            _experimental_encryption_key: typing.Optional[bytes] = None,
+        ) -> modal.image.Image:
             """Snapshot a directory in a running Sandbox, creating a new Image with its content.
 
-            Directory snapshots are currently persisted for 30 days after they were created.
+            `timeout` If the snapshot does not return within that window, the call is cancelled
+            and `modal.exception.TimeoutError` is raised.
 
-            Usage:
-            ```py notest
-            user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+            `ttl` The resulting Image is retained for `ttl` seconds (default: 30 days)
+            Pass `ttl=None` to retain the image indefinitely.
 
-            # You can later mount this snapshot to another Sandbox:
-            sandbox_session_2 = modal.Sandbox.create(...)
-            sandbox_session_2.mount_image("/user_project", user_project_snapshot)
-            sandbox_session_2.ls("/user_project")
-            ```
+            Args:
+                path: Absolute path of the directory inside the sandbox to snapshot.
+
+            Returns:
+                An `Image` containing the directory contents.
+
+            Examples:
+                ```py notest
+                user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+
+                # You can later mount this snapshot to another Sandbox:
+                sandbox_session_2 = modal.Sandbox.create(...)
+                sandbox_session_2.mount_image("/user_project", user_project_snapshot)
+                sandbox_session_2.filesystem.list_files("/user_project")
+                ```
             """
             ...
 
-        async def aio(self, /, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image.Image:
+        async def aio(
+            self,
+            /,
+            path: typing.Union[pathlib.PurePosixPath, str],
+            *,
+            timeout: int = 55,
+            ttl: typing.Optional[int] = 2592000,
+            _experimental_encryption_key: typing.Optional[bytes] = None,
+        ) -> modal.image.Image:
             """Snapshot a directory in a running Sandbox, creating a new Image with its content.
 
-            Directory snapshots are currently persisted for 30 days after they were created.
+            `timeout` If the snapshot does not return within that window, the call is cancelled
+            and `modal.exception.TimeoutError` is raised.
 
-            Usage:
-            ```py notest
-            user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+            `ttl` The resulting Image is retained for `ttl` seconds (default: 30 days)
+            Pass `ttl=None` to retain the image indefinitely.
 
-            # You can later mount this snapshot to another Sandbox:
-            sandbox_session_2 = modal.Sandbox.create(...)
-            sandbox_session_2.mount_image("/user_project", user_project_snapshot)
-            sandbox_session_2.ls("/user_project")
-            ```
+            Args:
+                path: Absolute path of the directory inside the sandbox to snapshot.
+
+            Returns:
+                An `Image` containing the directory contents.
+
+            Examples:
+                ```py notest
+                user_project_snapshot: Image = sandbox_session_1.snapshot_directory("/user_project")
+
+                # You can later mount this snapshot to another Sandbox:
+                sandbox_session_2 = modal.Sandbox.create(...)
+                sandbox_session_2.mount_image("/user_project", user_project_snapshot)
+                sandbox_session_2.filesystem.list_files("/user_project")
+                ```
             """
             ...
 
@@ -1500,11 +2067,19 @@ class Sandbox(modal.object.Object):
 
     class __wait_spec(typing_extensions.Protocol):
         def __call__(self, /, raise_on_termination: bool = True):
-            """Wait for the Sandbox to finish running."""
+            """Wait for the Sandbox to finish running.
+
+            Args:
+                raise_on_termination: If True, raise when the sandbox is terminated externally.
+            """
             ...
 
         async def aio(self, /, raise_on_termination: bool = True):
-            """Wait for the Sandbox to finish running."""
+            """Wait for the Sandbox to finish running.
+
+            Args:
+                raise_on_termination: If True, raise when the sandbox is terminated externally.
+            """
             ...
 
     wait: __wait_spec
@@ -1515,16 +2090,20 @@ class Sandbox(modal.object.Object):
 
             The Sandbox must be configured with a `readiness_probe` in order to use this method.
 
-            Usage:
-            ```py notest
-            app = modal.App.lookup('sandbox-wait-until-ready', create_if_missing=True)
-            sandbox = modal.Sandbox.create(
-                "python3", "-m", "http.server", "8080",
-                readiness_probe=modal.Probe.with_tcp(8080),
-                app=app,
-            )
-            sandbox.wait_until_ready()
-            ```
+            Args:
+                timeout: Maximum time in seconds to wait for readiness.
+
+
+            Examples:
+                ```py notest
+                app = modal.App.lookup('sandbox-wait-until-ready', create_if_missing=True)
+                sandbox = modal.Sandbox.create(
+                    "python3", "-m", "http.server", "8080",
+                    readiness_probe=modal.Probe.with_tcp(8080),
+                    app=app,
+                )
+                sandbox.wait_until_ready()
+                ```
             """
             ...
 
@@ -1533,16 +2112,20 @@ class Sandbox(modal.object.Object):
 
             The Sandbox must be configured with a `readiness_probe` in order to use this method.
 
-            Usage:
-            ```py notest
-            app = modal.App.lookup('sandbox-wait-until-ready', create_if_missing=True)
-            sandbox = modal.Sandbox.create(
-                "python3", "-m", "http.server", "8080",
-                readiness_probe=modal.Probe.with_tcp(8080),
-                app=app,
-            )
-            sandbox.wait_until_ready()
-            ```
+            Args:
+                timeout: Maximum time in seconds to wait for readiness.
+
+
+            Examples:
+                ```py notest
+                app = modal.App.lookup('sandbox-wait-until-ready', create_if_missing=True)
+                sandbox = modal.Sandbox.create(
+                    "python3", "-m", "http.server", "8080",
+                    readiness_probe=modal.Probe.with_tcp(8080),
+                    app=app,
+                )
+                sandbox.wait_until_ready()
+                ```
             """
             ...
 
@@ -1552,24 +2135,34 @@ class Sandbox(modal.object.Object):
         def __call__(self, /, timeout: int = 50) -> dict[int, modal._tunnel.Tunnel]:
             """Get Tunnel metadata for the sandbox.
 
-            Raises `SandboxTimeoutError` if the tunnels are not available after the timeout.
-
-            Returns a dictionary of `Tunnel` objects which are keyed by the container port.
-
             NOTE: Previous to client [v0.64.153](https://modal.com/docs/reference/changelog#064153-2024-09-30), this
             returned a list of `TunnelData` objects.
+
+            Args:
+                timeout: Maximum time in seconds to wait for tunnel metadata when not already cached.
+
+            Returns:
+                A dictionary mapping container port to `Tunnel` metadata.
+
+            Raises:
+                SandboxTimeoutError: If the tunnels are not available after the timeout.
             """
             ...
 
         async def aio(self, /, timeout: int = 50) -> dict[int, modal._tunnel.Tunnel]:
             """Get Tunnel metadata for the sandbox.
 
-            Raises `SandboxTimeoutError` if the tunnels are not available after the timeout.
-
-            Returns a dictionary of `Tunnel` objects which are keyed by the container port.
-
             NOTE: Previous to client [v0.64.153](https://modal.com/docs/reference/changelog#064153-2024-09-30), this
             returned a list of `TunnelData` objects.
+
+            Args:
+                timeout: Maximum time in seconds to wait for tunnel metadata when not already cached.
+
+            Returns:
+                A dictionary mapping container port to `Tunnel` metadata.
+
+            Raises:
+                SandboxTimeoutError: If the tunnels are not available after the timeout.
             """
             ...
 
@@ -1583,6 +2176,12 @@ class Sandbox(modal.object.Object):
 
             Also accepts an optional user_metadata string or dict to associate with the token. This metadata
             will be added to the headers by the proxy when forwarding requests to the Sandbox.
+
+            Args:
+                user_metadata: Optional JSON-serializable metadata or string stored with the connect token.
+
+            Returns:
+                URL and token credentials for connecting to the sandbox over HTTP.
             """
             ...
 
@@ -1593,6 +2192,12 @@ class Sandbox(modal.object.Object):
 
             Also accepts an optional user_metadata string or dict to associate with the token. This metadata
             will be added to the headers by the proxy when forwarding requests to the Sandbox.
+
+            Args:
+                user_metadata: Optional JSON-serializable metadata or string stored with the connect token.
+
+            Returns:
+                URL and token credentials for connecting to the sandbox over HTTP.
             """
             ...
 
@@ -1631,14 +2236,16 @@ class Sandbox(modal.object.Object):
         def __call__(self, /) -> typing.Optional[int]:
             """Check if the Sandbox has finished running.
 
-            Returns `None` if the Sandbox is still running, else returns the exit code.
+            Returns:
+                `None` if the Sandbox is still running, otherwise the exit code.
             """
             ...
 
         async def aio(self, /) -> typing.Optional[int]:
             """Check if the Sandbox has finished running.
 
-            Returns `None` if the Sandbox is still running, else returns the exit code.
+            Returns:
+                `None` if the Sandbox is still running, otherwise the exit code.
             """
             ...
 
@@ -1657,8 +2264,8 @@ class Sandbox(modal.object.Object):
     _get_command_router_client: ___get_command_router_client_spec
 
     @property
-    def _experimental_containers(self) -> SandboxContainerManager:
-        """Manage additional containers running in this Sandbox."""
+    def _experimental_sidecars(self) -> SidecarManager:
+        """Manage sidecar containers running in this Sandbox."""
         ...
 
     class __exec_spec(typing_extensions.Protocol):
@@ -1859,7 +2466,11 @@ class Sandbox(modal.object.Object):
 
     @property
     def filesystem(self) -> modal.sandbox_fs.SandboxFilesystem:
-        """Namespace for filesystem APIs."""
+        """Namespace for filesystem APIs.
+
+        Returns:
+            A `SandboxFilesystem` helper bound to this sandbox.
+        """
         ...
 
     class __open_spec(typing_extensions.Protocol):
@@ -1882,14 +2493,26 @@ class Sandbox(modal.object.Object):
         def __call__(self, /, path: str) -> list[str]:
             """[Alpha] List the contents of a directory in the Sandbox.
 
-            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.list_files()` instead.
+            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.list_files()` instead for improved reliability.
+
+            Args:
+                path: Absolute directory path inside the sandbox.
+
+            Returns:
+                Entry names in the directory as a list of strings.
             """
             ...
 
         async def aio(self, /, path: str) -> list[str]:
             """[Alpha] List the contents of a directory in the Sandbox.
 
-            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.list_files()` instead.
+            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.list_files()` instead for improved reliability.
+
+            Args:
+                path: Absolute directory path inside the sandbox.
+
+            Returns:
+                Entry names in the directory as a list of strings.
             """
             ...
 
@@ -1899,14 +2522,14 @@ class Sandbox(modal.object.Object):
         def __call__(self, /, path: str, parents: bool = False) -> None:
             """[Alpha] Create a new directory in the Sandbox.
 
-            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.make_directory()` instead.
+            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.make_directory()` instead for improved reliability.
             """
             ...
 
         async def aio(self, /, path: str, parents: bool = False) -> None:
             """[Alpha] Create a new directory in the Sandbox.
 
-            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.make_directory()` instead.
+            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.make_directory()` instead for improved reliability.
             """
             ...
 
@@ -1916,14 +2539,14 @@ class Sandbox(modal.object.Object):
         def __call__(self, /, path: str, recursive: bool = False) -> None:
             """[Alpha] Remove a file or directory in the Sandbox.
 
-            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.remove()` instead.
+            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.remove()` instead for improved reliability.
             """
             ...
 
         async def aio(self, /, path: str, recursive: bool = False) -> None:
             """[Alpha] Remove a file or directory in the Sandbox.
 
-            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.remove()` instead.
+            **Deprecated (2026-04-15):** Use `Sandbox.filesystem.remove()` instead for improved reliability.
             """
             ...
 
@@ -1934,50 +2557,87 @@ class Sandbox(modal.object.Object):
             self,
             /,
             path: str,
-            filter: typing.Optional[list[modal.file_io.FileWatchEventType]] = None,
+            filter: typing.Optional[list[modal.sandbox_fs.FileWatchEventType]] = None,
             recursive: typing.Optional[bool] = None,
             timeout: typing.Optional[int] = None,
-        ) -> typing.Iterator[modal.file_io.FileWatchEvent]:
-            """[Alpha] Watch a file or directory in the Sandbox for changes."""
+        ) -> typing.Iterator[modal.sandbox_fs.FileWatchEvent]:
+            """[Alpha] Watch a file or directory in the Sandbox for changes.
+
+            **Deprecated (2026-05-08):** Use `Sandbox.filesystem.watch()` instead for improved reliability.
+
+            Args:
+                path: Absolute path to watch.
+                filter: Optional list of event types to include.
+                recursive: Whether to watch subdirectories; None uses server defaults.
+                timeout: Optional timeout for the watch stream.
+
+            Returns:
+                An async iterator of `FileWatchEvent` values.
+            """
             ...
 
         def aio(
             self,
             /,
             path: str,
-            filter: typing.Optional[list[modal.file_io.FileWatchEventType]] = None,
+            filter: typing.Optional[list[modal.sandbox_fs.FileWatchEventType]] = None,
             recursive: typing.Optional[bool] = None,
             timeout: typing.Optional[int] = None,
-        ) -> typing.AsyncIterator[modal.file_io.FileWatchEvent]:
-            """[Alpha] Watch a file or directory in the Sandbox for changes."""
+        ) -> collections.abc.AsyncIterator[modal.sandbox_fs.FileWatchEvent]:
+            """[Alpha] Watch a file or directory in the Sandbox for changes.
+
+            **Deprecated (2026-05-08):** Use `Sandbox.filesystem.watch()` instead for improved reliability.
+
+            Args:
+                path: Absolute path to watch.
+                filter: Optional list of event types to include.
+                recursive: Whether to watch subdirectories; None uses server defaults.
+                timeout: Optional timeout for the watch stream.
+
+            Returns:
+                An async iterator of `FileWatchEvent` values.
+            """
             ...
 
     watch: __watch_spec
 
     @property
     def stdout(self) -> modal.io_streams.StreamReader[str]:
-        """[`StreamReader`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamreader) for
-        the sandbox's stdout stream.
+        """[`StreamReader`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamreader)
+        for the sandbox's stdout stream.
+
+        Returns:
+            Stream reader for sandbox stdout.
         """
         ...
 
     @property
     def stderr(self) -> modal.io_streams.StreamReader[str]:
-        """[`StreamReader`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamreader) for
-        the Sandbox's stderr stream.
+        """[`StreamReader`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamreader)
+        for the Sandbox's stderr stream.
+
+        Returns:
+            Stream reader for sandbox stderr.
         """
         ...
 
     @property
     def stdin(self) -> modal.io_streams.StreamWriter:
-        """[`StreamWriter`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamwriter) for
-        the Sandbox's stdin stream.
+        """[`StreamWriter`](https://modal.com/docs/reference/modal.io_streams#modalio_streamsstreamwriter)
+        for the Sandbox's stdin stream.
+
+        Returns:
+            Stream writer for sandbox stdin.
         """
         ...
 
     @property
     def returncode(self) -> typing.Optional[int]:
-        """Return code of the Sandbox process if it has finished running, else `None`."""
+        """Return code of the Sandbox process if it has finished running, else `None`.
+
+        Returns:
+            Exit code when the sandbox process has completed, otherwise None.
+        """
         ...
 
     class __list_spec(typing_extensions.Protocol):
@@ -1990,7 +2650,15 @@ class Sandbox(modal.object.Object):
             client: typing.Optional[modal.client.Client] = None,
         ) -> typing.Generator[Sandbox, None, None]:
             """List all Sandboxes for the current Environment or App ID (if specified). If tags are specified, only
-            Sandboxes that have at least those tags are returned. Returns an iterator over `Sandbox` objects.
+            Sandboxes that have at least those tags are returned.
+
+            Args:
+                app_id: If set, restrict results to sandboxes under this app ID.
+                tags: If set, only sandboxes containing at least these tags are returned.
+                client: Modal client to use for listing; defaults to `Client.from_env()` when omitted.
+
+            Returns:
+                An async generator yielding `Sandbox` objects.
             """
             ...
 
@@ -2003,10 +2671,20 @@ class Sandbox(modal.object.Object):
             client: typing.Optional[modal.client.Client] = None,
         ) -> collections.abc.AsyncGenerator[Sandbox, None]:
             """List all Sandboxes for the current Environment or App ID (if specified). If tags are specified, only
-            Sandboxes that have at least those tags are returned. Returns an iterator over `Sandbox` objects.
+            Sandboxes that have at least those tags are returned.
+
+            Args:
+                app_id: If set, restrict results to sandboxes under this app ID.
+                tags: If set, only sandboxes containing at least these tags are returned.
+                client: Modal client to use for listing; defaults to `Client.from_env()` when omitted.
+
+            Returns:
+                An async generator yielding `Sandbox` objects.
             """
             ...
 
     list: typing.ClassVar[__list_spec]
 
-_default_image: modal.image._Image
+_default_image: modal._image._Image
+
+_MAIN_CONTAINER_NAME: str

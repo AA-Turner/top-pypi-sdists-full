@@ -45,14 +45,29 @@ class OverrideHost(betterproto2.Message):
     .. code-block:: yaml
 
        override_host_sources:
-         - header: "x-gateway-destination-endpoint"
-         - metadata:
-             key: "envoy.lb"
-             path:
-             - key: "x-gateway-destination-endpoint"
+       - header: "x-gateway-destination-endpoint"
+       - metadata:
+           key: "envoy.lb"
+           path:
+           - key: "x-gateway-destination-endpoint"
 
     If no valid host in the override host list, then the specified fallback load balancing policy is used. This allows load
     balancing to degrade to a a built in policy (i.e. Round Robin) in case external endpoint picker fails.
+
+    In addition to specifying ``override_host_sources``, the policy can be configured to inform downstream filters
+    of the selected endpoint through dynamic metadata or response headers through ``selected_endpoint_key``:
+
+    .. code-block:: yaml
+
+       override_host_sources:
+       - metadata:
+           key: "envoy.lb"
+           path:
+           - key: "x-gateway-destination-endpoint"
+       selected_host_key:
+         key: "envoy.lb"
+         path:
+         - key: "x-gateway-destination-endpoint-served"
 
     See the :ref:`load balancing architecture
     overview<arch_overview_load_balancing_types>` for more information.
@@ -68,6 +83,14 @@ class OverrideHost(betterproto2.Message):
     Note that if an overridden host address is not present in the current endpoint set, it is
     skipped and the next found address is used. If there are not enough overridden addresses to
     satisfy all retry attempts the fallback load balancing policy is used to pick a host.
+    """
+
+    selected_host_key: "____type__metadata__v3__.MetadataKey | None" = (
+        betterproto2.field(2, betterproto2.TYPE_MESSAGE, optional=True)
+    )
+    """
+    The metadata key to populate with the selected host address. This is optional and
+    may be used to inform downstream filters of the host address selected by load balancing policy.
     """
 
     fallback_policy: "____config__cluster__v3__.LoadBalancingPolicy | None" = (

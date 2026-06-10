@@ -123,6 +123,41 @@ class Experiment(ABC):
         """
         pass
 
+    def generate_random_absorbers(self,N_min=0, N_max=5, min_radius_mm=0.5, max_radius_mm=5, min_amplitude=0, max_amplitude=1, seed=None):
+        if seed is not None:
+            np.random.seed(seed)
+
+        N = int(np.random.normal(loc=2.5, scale=1.5))
+        N = max(N_min, min(N, N_max))
+
+        absorbers = []
+        for i in range(N):
+            radius_mm = np.random.normal(loc=10, scale=5)
+            radius_mm = max(min_radius_mm, min(radius_mm, max_radius_mm))
+            radius = radius_mm / 1000  # Conversion en mètres
+
+            amplitude = np.random.normal(loc=0.5, scale=0.25)
+            amplitude = max(min_amplitude, min(amplitude, max_amplitude))
+
+            z_center = np.random.uniform(
+                low=self.params.general["Zrange"][0] + radius,
+                high=self.params.general["Zrange"][1] - radius
+            )
+            x_center = np.random.uniform(
+                low=self.params.general["Xrange"][0] + radius,
+                high=self.params.general["Xrange"][1] - radius
+            )
+
+            absorbers.append({
+                "name": f"Absorber_{i+1}",
+                "type": "Gaussian",
+                "center": [x_center, z_center],
+                "radius": radius,
+                "amplitude": amplitude
+            })
+
+        return absorbers
+    
     def cut_acoustic_fields(self, max_t, min_t=0, show_log=True):
         """
         Cut the acoustic fields to a specified time range.
@@ -521,10 +556,9 @@ class Experiment(ABC):
         plt.show()
         plt.close(fig)
 
-    def show_experiment(self, fileOfAcousticField=None, N_file=None, save_dir=None, withTumor=True, desired_duration_ms=5000, figsize=(8, 4), wave_name=None, display_in_notebook=True):
-        mpl.rcParams['animation.embed_limit'] = 100
+    def show_experiment_static(self, fileOfAcousticField=None, N_file=None, save_dir=None, withTumor=True, t=None, figsize=(8, 4), wave_name=None):
         if fileOfAcousticField is None and N_file is None:
-            print("No acoustic field file provided. Showing animation for the first field in AcousticFields.")
+            print("No acoustic field file provided. Showing the first field in AcousticFields.")
             fieldToPlot = self.AcousticFields[0]
             idx = 0
         elif fileOfAcousticField is not None:
@@ -546,14 +580,23 @@ class Experiment(ABC):
         if wave_name is None:
             wave_name = f"{fieldToPlot.pattern.activeList}"
 
-        extent = [self.params.general['Xrange'][0]*1e3, self.params.general['Xrange'][1]*1e3,
-                self.params.general['Zrange'][1]*1e3, self.params.general['Zrange'][0]*1e3]
+        t_max_us = (fieldToPlot.field.shape[0] - 1) / self.params.acoustic['f_saving'] * 1e6
+        if t is None:
+            t = t_max_us / 2
+        frame = int(t * self.params.acoustic['f_saving'] / 1e6)
+        frame = min(frame, fieldToPlot.field.shape[0] - 1)  
+        extent = [
+            self.params.general['Xrange'][0] * 1e3,
+            self.params.general['Xrange'][1] * 1e3,
+            self.params.general['Zrange'][1] * 1e3,
+            self.params.general['Zrange'][0] * 1e3
+        ]
 
         fig, axs = plt.subplots(1, 2, figsize=figsize)
         if isinstance(axs, plt.Axes):
             axs = np.array([axs])
 
-        fig.suptitle(f"AO Signal Animation | {wave_name} | Angle {fieldToPlot.angle}°", y=0.98)
+        fig.suptitle(f"AO Signal | {wave_name} | Angle {fieldToPlot.angle}° | t = {t:.2f} µs", y=0.98)
 
         if withTumor:
             if self.AOsignal_withTumor is None:
@@ -573,59 +616,58 @@ class Experiment(ABC):
                 raise ValueError("Laser image is not generated. Please generate the laser image first.")
             else:
                 opticImageToPlot = self.OpticImage.laser.intensity
-        custom_cmap = create_dark_transparent_hot_cmap(vmin=0.2*np.max(opticImageToPlot))
-        axs[0].imshow(self.medium.kmedium.sound_speed.T, cmap='gray', origin='upper', extent=extent, aspect='equal')
-        axs[0].imshow(opticImageToPlot, cmap=custom_cmap, origin='upper', extent=extent, aspect='equal', alpha=0.5)
-        im_field = axs[0].imshow(fieldToPlot.field[0, :, :]/np.max(fieldToPlot.field[0, :, :]), cmap='jet', origin='upper', extent=extent, vmax=1, vmin=0.01, alpha=0.8, aspect='equal')
+
+        custom_cmap = create_dark_transparent_hot_cmap(vmin=0.2 * np.max(opticImageToPlot))
+        axs[0].imshow(
+            self.medium.kmedium.sound_speed.T,
+            cmap='gray',
+            origin='upper',
+            extent=extent,
+            aspect='equal'
+        )
+        axs[0].imshow(
+            opticImageToPlot,
+            cmap=custom_cmap,
+            origin='upper',
+            extent=extent,
+            aspect='equal',
+            alpha=0.5
+        )
+
+        frame_data = fieldToPlot.field[frame, :, :] / np.max(fieldToPlot.field[frame, :, :])
+        masked_data = np.where(frame_data > 0.02, frame_data, np.nan)
+        im_field = axs[0].imshow(
+            masked_data,
+            cmap='jet',
+            origin='upper',
+            extent=extent,
+            vmax=1,
+            vmin=0.01,
+            alpha=0.8,
+            aspect='equal'
+        )
         axs[0].set_xlabel("X (mm)")
         axs[0].set_ylabel("Z (mm)")
 
         time_axis = np.arange(AOsignal.shape[0]) / self.params.acoustic['f_saving'] * 1e6
-        line_y, = axs[1].plot(time_axis, AOsignal[:, idx])
-        vertical_line, = axs[1].plot([time_axis[0], time_axis[0]], [0, AOsignal[0, idx]], 'r--')
-        axs[1].set_xlabel(f"Time ($\mu$s)")
+        axs[1].plot(time_axis, AOsignal[:, idx], label="AO Signal")
+        axs[1].axvline(x=t, color='r', linestyle='--', label=f"t = {t:.2f} µs")
+        axs[1].set_xlabel("Time (µs)")
         axs[1].set_ylabel("Amplitude")
+        axs[1].legend()
 
         plt.tight_layout(rect=[0, 0, 1, 0.95])
-
-        def update(frame):
-            current_time_us = frame / self.params.acoustic['f_saving'] * 1e6  # in µs
-            frame_data = fieldToPlot.field[frame, :, :]/np.max(fieldToPlot.field[frame, :, :])
-            masked_data = np.where(frame_data > 0.02, frame_data, np.nan)
-            im_field.set_data(masked_data)
-
-            y_vals = AOsignal[:, idx]
-            y_copy = np.full_like(y_vals, np.nan)
-            y_copy[:frame + 1] = y_vals[:frame + 1]
-            line_y.set_data(time_axis, y_copy)
-            vertical_line.set_data([time_axis[frame], time_axis[frame]], [0, y_vals[frame]])
-
-            fig.suptitle(f"AO Signal Animation\n{wave_name} | Angle {fieldToPlot.angle}°\nt = {current_time_us:.2f} $\mu$s", y=0.98)
-
-            return [im_field, vertical_line, line_y]
-
-        interval = desired_duration_ms / fieldToPlot.field.shape[0]
-        ani = animation.FuncAnimation(
-            fig, update,
-            frames=range(0, fieldToPlot.field.shape[0]),
-            interval=interval, blit=True
-        )
 
         if save_dir is not None:
             now = datetime.now()
             date_str = now.strftime("%Y_%d_%m_%y")
             os.makedirs(save_dir, exist_ok=True)
-            save_filename = f"experiment_animation_{fieldToPlot.pattern.activeList}_{fieldToPlot.angle}_{date_str}.gif"
+            save_filename = f"experiment_static_{fieldToPlot.pattern.activeList}_{fieldToPlot.angle}_{date_str}_t{t:.2f}us.png"
             save_path = os.path.join(save_dir, save_filename)
-            ani.save(save_path, writer='pillow', fps=20)
+            fig.savefig(save_path, dpi=300, bbox_inches='tight')
             print(f"Saved: {save_path}")
-        
-        if display_in_notebook:
-            plt.close(fig)  # Ferme la figure pour éviter l'affichage double
-            return HTML(ani.to_jshtml()) 
 
-        plt.close(fig)
-        return ani
+        plt.show()
     
     def show_phantom(self, withROI=False, figsize=(4,4)):
         """

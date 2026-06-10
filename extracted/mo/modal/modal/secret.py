@@ -3,7 +3,6 @@ import builtins
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Union
 
 from google.protobuf.message import Message
 from synchronicity import classproperty
@@ -15,7 +14,6 @@ from ._object import _get_environment_name, _Object, live_method
 from ._resolver import Resolver
 from ._runtime.execution_context import is_local
 from ._utils.async_utils import synchronize_api
-from ._utils.deprecation import deprecation_warning
 from ._utils.name_utils import check_object_name
 from ._utils.time_utils import as_timestamp, timestamp_to_localized_dt
 from .client import _Client
@@ -31,9 +29,9 @@ class SecretInfo:
     # This dataclass should be limited to information that is unchanging over the lifetime of the Secret,
     # since it is transmitted from the server when the object is hydrated and could be stale when accessed.
 
-    name: Optional[str]
+    name: str | None
     created_at: datetime
-    created_by: Optional[str]
+    created_by: str | None
 
 
 class _SecretManager:
@@ -41,41 +39,48 @@ class _SecretManager:
 
     async def create(
         self,
-        name: str,  # Name to use for the new Secret
-        env_dict: dict[str, str],  # Key-value pairs to set in the Secret
+        name: str,
+        env_dict: dict[str, str],
         *,
-        allow_existing: bool = False,  # If True, no-op when the Secret already exists
-        environment_name: Optional[str] = None,  # Uses active environment if not specified
-        client: Optional[_Client] = None,  # Optional client with Modal credentials
+        allow_existing: bool = False,
+        environment_name: str | None = None,
+        client: _Client | None = None,
     ) -> None:
-        """Create a new Secret object.
+        """Create a new named Secret in the workspace environment.
 
-        **Examples:**
-
-        ```python notest
-        contents = {"MY_KEY": "my-value", "MY_OTHER_KEY": "my-other-value"}
-        modal.Secret.objects.create("my-secret", contents)
-        ```
-
-        Secrets will be created in the active environment, or another one can be specified:
-
-        ```python notest
-        modal.Secret.objects.create("my-secret", contents, environment_name="dev")
-        ```
-
-        By default, an error will be raised if the Secret already exists, but passing
-        `allow_existing=True` will make the creation attempt a no-op in this case.
-        If the `env_dict` data differs from the existing Secret, it will be ignored.
-
-        ```python notest
-        modal.Secret.objects.create("my-secret", contents, allow_existing=True)
-        ```
-
-        Note that this method does not return a local instance of the Secret. You can use
-        `modal.Secret.from_name` to perform a lookup after creation.
+        This does not return a local handle; use `modal.Secret.from_name` to look up the Secret after creation.
 
         Added in v1.1.2.
 
+        Args:
+            name: Name for the new Secret.
+            env_dict: Environment variable keys and values stored in the Secret.
+            allow_existing: If True, do nothing when a Secret with this name already exists (existing values are kept).
+            environment_name: Environment to create in; defaults to the active environment.
+            client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+        Examples:
+            ```python notest
+            contents = {"MY_KEY": "my-value", "MY_OTHER_KEY": "my-other-value"}
+            modal.Secret.objects.create("my-secret", contents)
+            ```
+
+            Secrets will be created in the active environment, or another one can be specified:
+
+            ```python notest
+            modal.Secret.objects.create("my-secret", contents, environment_name="dev")
+            ```
+
+            By default, an error will be raised if the Secret already exists, but passing
+            `allow_existing=True` will make the creation attempt a no-op in this case.
+            If the `env_dict` data differs from the existing Secret, it will be ignored.
+
+            ```python notest
+            modal.Secret.objects.create("my-secret", contents, allow_existing=True)
+            ```
+
+            Note that this method does not return a local instance of the Secret. You can use
+            `modal.Secret.from_name` to perform a lookup after creation.
         """
         check_object_name(name, "Secret")
         client = await _Client.from_env() if client is None else client
@@ -99,35 +104,44 @@ class _SecretManager:
     async def list(
         self,
         *,
-        max_objects: Optional[int] = None,  # Limit requests to this size
-        created_before: Optional[Union[datetime, str]] = None,  # Limit based on creation date
-        environment_name: str = "",  # Uses active environment if not specified
-        client: Optional[_Client] = None,  # Optional client with Modal credentials
+        max_objects: int | None = None,
+        created_before: datetime | str | None = None,
+        environment_name: str = "",
+        client: _Client | None = None,
     ) -> builtins.list["_Secret"]:
-        """Return a list of hydrated Secret objects.
+        """List named Secrets in the workspace environment as hydrated handles.
 
-        **Examples:**
-
-        ```python
-        secrets = modal.Secret.objects.list()
-        print([s.name for s in secrets])
-        ```
-
-        Secrets will be retreived from the active environment, or another one can be specified:
-
-        ```python notest
-        dev_secrets = modal.Secret.objects.list(environment_name="dev")
-        ```
-
-        By default, all named Secrets are returned, newest to oldest. It's also possible to limit the
-        number of results and to filter by creation date:
-
-        ```python
-        secrets = modal.Secret.objects.list(max_objects=10, created_before="2025-01-01")
-        ```
+        Results are ordered newest to oldest. By default, all matching Secrets are returned.
 
         Added in v1.1.2.
 
+        Args:
+            max_objects: Maximum number of Secrets to return.
+            created_before: Only include Secrets created before this time (datetime or ISO date string).
+            environment_name: Environment to list from; defaults to the active environment.
+            client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            Hydrated `Secret` objects for each named Secret in the listing.
+
+        Examples:
+            ```python
+            secrets = modal.Secret.objects.list()
+            print([s.name for s in secrets])
+            ```
+
+            Secrets will be retrieved from the active environment, or another one can be specified:
+
+            ```python notest
+            dev_secrets = modal.Secret.objects.list(environment_name="dev")
+            ```
+
+            By default, all named Secrets are returned, newest to oldest. It's also possible to limit the
+            number of results and to filter by creation date:
+
+            ```python
+            secrets = modal.Secret.objects.list(max_objects=10, created_before="2025-01-01")
+            ```
         """
         client = await _Client.from_env() if client is None else client
         if max_objects is not None and max_objects < 0:
@@ -166,30 +180,34 @@ class _SecretManager:
 
     async def delete(
         self,
-        name: str,  # Name of the Secret to delete
+        name: str,
         *,
-        allow_missing: bool = False,  # If True, don't raise an error if the Secret doesn't exist
-        environment_name: Optional[str] = None,  # Uses active environment if not specified
-        client: Optional[_Client] = None,  # Optional client with Modal credentials
+        allow_missing: bool = False,
+        environment_name: str | None = None,
+        client: _Client | None = None,
     ):
-        """Delete a named Secret.
+        """Delete a named Secret entirely.
 
-        Warning: Deletion is irreversible and will affect any Apps currently using the Secret.
-
-        **Examples:**
-
-        ```python notest
-        await modal.Secret.objects.delete("my-secret")
-        ```
-
-        Secrets will be deleted from the active environment, or another one can be specified:
-
-        ```python notest
-        await modal.Secret.objects.delete("my-secret", environment_name="dev")
-        ```
+        Deletion is irreversible and affects any Apps using this Secret.
 
         Added in v1.1.2.
 
+        Args:
+            name: Name of the Secret to delete.
+            allow_missing: If True, do nothing when the Secret does not exist.
+            environment_name: Environment to delete from; defaults to the active environment.
+            client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+        Examples:
+            ```python notest
+            await modal.Secret.objects.delete("my-secret")
+            ```
+
+            Secrets will be deleted from the active environment, or another one can be specified:
+
+            ```python notest
+            await modal.Secret.objects.delete("my-secret", environment_name="dev")
+            ```
         """
         try:
             obj = await _Secret.from_name(name, environment_name=environment_name).hydrate(client)
@@ -234,7 +252,7 @@ class _Secret(_Object, type_prefix="st"):
     See [the secrets guide page](https://modal.com/docs/guide/secrets) for more information.
     """
 
-    _metadata: Optional[api_pb2.SecretMetadata] = None
+    _metadata: api_pb2.SecretMetadata | None = None
 
     @classproperty
     @classmethod
@@ -242,10 +260,10 @@ class _Secret(_Object, type_prefix="st"):
         return _SecretManager()
 
     @property
-    def name(self) -> Optional[str]:
+    def name(self) -> str | None:
         return self._name
 
-    def _hydrate_metadata(self, metadata: Optional[Message]):
+    def _hydrate_metadata(self, metadata: Message | None):
         if metadata:
             assert isinstance(metadata, api_pb2.SecretMetadata)
             self._metadata = metadata
@@ -257,18 +275,24 @@ class _Secret(_Object, type_prefix="st"):
 
     @staticmethod
     def from_dict(
-        env_dict: dict[
-            str, Optional[str]
-        ] = {},  # dict of entries to be inserted as environment variables in functions using the secret
+        env_dict: dict[str, str | None] = {},
     ) -> "_Secret":
-        """Create a secret from a str-str dictionary. Values can also be `None`, which is ignored.
+        """Create a Secret from a dictionary of environment variable names to string values.
 
-        Usage:
-        ```python
-        @app.function(secrets=[modal.Secret.from_dict({"FOO": "bar"})])
-        def run():
-            print(os.environ["FOO"])
-        ```
+        Values may be ``None``; those keys are omitted from the Secret.
+
+        Args:
+            env_dict: Mapping of variable names to values (or ``None`` to skip a key).
+
+        Returns:
+            A lazy `Secret` handle backed by the given key-value pairs.
+
+        Examples:
+            ```python
+            @app.function(secrets=[modal.Secret.from_dict({"FOO": "bar"})])
+            def run():
+                print(os.environ["FOO"])
+            ```
         """
         if not isinstance(env_dict, dict):
             raise InvalidError(ENV_DICT_WRONG_TYPE_ERR)
@@ -279,9 +303,7 @@ class _Secret(_Object, type_prefix="st"):
         if not all(isinstance(v, str) for v in env_dict_filtered.values()):
             raise InvalidError(ENV_DICT_WRONG_TYPE_ERR)
 
-        async def _load(
-            self: _Secret, resolver: Resolver, load_context: LoadContext, existing_object_id: Optional[str]
-        ):
+        async def _load(self: _Secret, resolver: Resolver, load_context: LoadContext, existing_object_id: str | None):
             await _load_from_env_dict(self, load_context, env_dict_filtered)
 
         rep = f"Secret.from_dict([{', '.join(env_dict.keys())}])"
@@ -290,9 +312,18 @@ class _Secret(_Object, type_prefix="st"):
 
     @staticmethod
     def from_local_environ(
-        env_keys: list[str],  # list of local env vars to be included for remote execution
+        env_keys: list[str],
     ) -> "_Secret":
-        """Create secrets from local environment variables automatically."""
+        """Build a Secret from the current process environment (local runs only).
+
+        In remote execution, returns an empty Secret.
+
+        Args:
+            env_keys: Names of environment variables to copy into the Secret.
+
+        Returns:
+            A `Secret` containing the resolved variables (or empty when not local).
+        """
 
         if is_local():
             try:
@@ -306,37 +337,35 @@ class _Secret(_Object, type_prefix="st"):
         return _Secret.from_dict({})
 
     @staticmethod
-    def from_dotenv(path=None, *, filename=".env", client: Optional[_Client] = None) -> "_Secret":
-        """Create secrets from a .env file automatically.
+    def from_dotenv(path=None, *, filename=".env", client: _Client | None = None) -> "_Secret":
+        """Load environment variables from a `.env` file into a Secret.
 
-        If no argument is provided, it will use the current working directory as the starting
-        point for finding a `.env` file. Note that it does not use the location of the module
-        calling `Secret.from_dotenv`.
+        With no `path`, searches from the current working directory (not the caller's file path).
+        With `path` set, walks upward from that file or directory to find `filename`.
 
-        If called with an argument, it will use that as a starting point for finding `.env` files.
-        In particular, you can call it like this:
-        ```python
-        @app.function(secrets=[modal.Secret.from_dotenv(__file__)])
-        def run():
-            print(os.environ["USERNAME"])  # Assumes USERNAME is defined in your .env file
-        ```
+        Args:
+            path: File or directory to search from; omit to search from the process cwd.
+            filename: Name of the env file to find (default ``.env``).
+            client: Modal client used when hydrating the Secret.
 
-        This will use the location of the script calling `modal.Secret.from_dotenv` as a
-        starting point for finding the `.env` file.
+        Examples:
+            ```python
+            @app.function(secrets=[modal.Secret.from_dotenv(__file__)])
+            def run():
+                print(os.environ["USERNAME"])  # Assumes USERNAME is defined in your .env file
+            ```
 
-        A file named `.env` is expected by default, but this can be overridden with the `filename`
-        keyword argument:
+            ```python
+            @app.function(secrets=[modal.Secret.from_dotenv(filename=".env-dev")])
+            def run():
+                ...
+            ```
 
-        ```python
-        @app.function(secrets=[modal.Secret.from_dotenv(filename=".env-dev")])
-        def run():
-            ...
-        ```
+        Returns:
+            A lazy `Secret` handle whose values are loaded from the resolved `.env` file.
         """
 
-        async def _load(
-            self: _Secret, resolver: Resolver, load_context: LoadContext, existing_object_id: Optional[str]
-        ):
+        async def _load(self: _Secret, resolver: Resolver, load_context: LoadContext, existing_object_id: str | None):
             try:
                 from dotenv import dotenv_values, find_dotenv
                 from dotenv.main import _walk_to_root
@@ -372,24 +401,34 @@ class _Secret(_Object, type_prefix="st"):
     def from_name(
         name: str,
         *,
-        environment_name: Optional[str] = None,
-        required_keys: list[str] = [],  # Optional list of required environment variables (asserted server-side)
-        client: Optional[_Client] = None,
+        environment_name: str | None = None,
+        required_keys: list[str] = [],
+        client: _Client | None = None,
     ) -> "_Secret":
-        """Reference a Secret by its name.
+        """Reference a deployed Secret by name.
 
-        ```python
-        secret = modal.Secret.from_name("my-secret")
+        Hydration is lazy until the Secret is used.
 
-        @app.function(secrets=[secret])
-        def run():
-           ...
-        ```
+        Args:
+            name: Deployment name of the Secret.
+            environment_name: Environment to resolve the name in; defaults to the active environment.
+            required_keys: If non-empty, the server asserts these keys exist on the Secret.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            A `Secret` handle (possibly not yet hydrated).
+
+        Examples:
+            ```python
+            secret = modal.Secret.from_name("my-secret")
+
+            @app.function(secrets=[secret])
+            def run():
+                ...
+            ```
         """
 
-        async def _load(
-            self: _Secret, resolver: Resolver, load_context: LoadContext, existing_object_id: Optional[str]
-        ):
+        async def _load(self: _Secret, resolver: Resolver, load_context: LoadContext, existing_object_id: str | None):
             req = api_pb2.SecretGetOrCreateRequest(
                 deployment_name=name,
                 environment_name=load_context.environment_name,
@@ -409,28 +448,11 @@ class _Secret(_Object, type_prefix="st"):
         )
 
     @staticmethod
-    async def create_deployed(
-        deployment_name: str,
-        env_dict: dict[str, str],
-        namespace=None,  # mdmd:line-hidden
-        client: Optional[_Client] = None,
-        environment_name: Optional[str] = None,
-        overwrite: bool = False,
-    ) -> str:
-        """mdmd:hidden"""
-        deprecation_warning(
-            (2025, 8, 13),
-            "The undocumented `modal.Secret.create_deployed` method is deprecated and will be removed "
-            "in a future release. It can be replaced with `modal.Secret.objects.create`.",
-        )
-        return await _Secret._create_deployed(deployment_name, env_dict, namespace, client, environment_name, overwrite)
-
-    @staticmethod
     async def _create_deployed(
         deployment_name: str,
         env_dict: dict[str, str],
-        client: Optional[_Client] = None,
-        environment_name: Optional[str] = None,
+        client: _Client | None = None,
+        environment_name: str | None = None,
         overwrite: bool = False,
     ) -> str:
         """mdmd:hidden"""

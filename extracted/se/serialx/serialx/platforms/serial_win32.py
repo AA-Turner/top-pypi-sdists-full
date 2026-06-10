@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import logging
 import os
 from typing import TYPE_CHECKING, Any, cast
@@ -109,13 +110,13 @@ WIN32_STOPBITS_MAP = {
 
 def _normalize_windows_port_path(path: os.PathLike[str] | str) -> str:
     """Normalize a Windows serial device path for CreateFile."""
-    path = str(path)
+    normalized = str(path)
 
     # COM ports >= 10 require the \\.\  prefix for CreateFile
-    if not path.startswith("\\\\.\\"):
-        path = "\\\\.\\" + path
+    if not normalized.startswith("\\\\.\\"):
+        normalized = "\\\\.\\" + normalized
 
-    return path
+    return normalized
 
 
 def _safe_close_handle(handle: int) -> None:
@@ -124,6 +125,31 @@ def _safe_close_handle(handle: int) -> None:
         CloseHandle(handle)
     except pywintypes.error:
         LOGGER.debug("Failed to close handle %r", handle, exc_info=True)
+
+
+def CreateFile_detached(
+    *,
+    file_name: str,
+    desired_access: int,
+    share_mode: int,
+    creation_disposition: int,
+    flags_and_attributes: int,
+) -> int:
+    """`CreateFile` returning a raw `int` HANDLE that the caller owns."""
+    handle = CreateFile(
+        file_name,
+        desired_access,
+        share_mode,
+        None,
+        creation_disposition,
+        flags_and_attributes,
+        None,
+    )
+
+    # `Detach()` is stubbed `-> Self` but actually returns the underlying int.
+    # Without `Detach()`, we would get a `PyHANDLE` object that closes the handle on
+    # `__del__`, masking bugs.
+    return cast(int, handle.Detach())
 
 
 class Win32Serial(BaseSerial):
@@ -160,17 +186,13 @@ class Win32Serial(BaseSerial):
         share_mode = 0 if self._exclusive else FILE_SHARE_READ | FILE_SHARE_WRITE
 
         try:
-            handle = CreateFile(
-                path,
-                GENERIC_READ | GENERIC_WRITE,
-                share_mode,
-                None,
-                OPEN_EXISTING,
-                FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
-                None,
+            self._handle = CreateFile_detached(
+                file_name=path,
+                desired_access=GENERIC_READ | GENERIC_WRITE,
+                share_mode=share_mode,
+                creation_disposition=OPEN_EXISTING,
+                flags_and_attributes=FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
             )
-
-            self._handle = cast(int, handle)
         except pywintypes.error as e:
             raise OSError(e.winerror, e.strerror, path) from e
 
@@ -429,9 +451,16 @@ class _MethodProxy:
         self._name = name
         self._mapping = mapping
 
+    def eof_received(self) -> bool:
+        """Handle EOF by signalling the transport to close."""
+        return False
+
     def __getattr__(self, name: str) -> Any:
         """Forward attribute access to the mapping."""
-        return self._mapping[name]
+        try:
+            return self._mapping[name]
+        except KeyError:
+            raise AttributeError(f"{self._name!r} has no attribute {name!r}") from None
 
 
 class Win32SerialTransport(BaseSerialTransport):
@@ -454,22 +483,38 @@ class Win32SerialTransport(BaseSerialTransport):
         self._close_future: asyncio.Future[None] | None = None
         self._closing: bool = False
         self._connect_in_progress: bool = False
+        self._connection_made_waiter: asyncio.Future[None] | None = None
+        self._pending_connection_lost_exc: Exception | None = None
 
     def serial_close(self) -> None:
-        """Close the serial port."""
+        """Release the handle off the event loop, then report connection lost."""
+        if self._close_future is not None:
+            return
 
-        def _close_then_notify() -> None:
-            assert self._serial is not None
-            exc = None
+        serial = self._serial
+        self._serial = None
+        self._handle = None
 
-            try:
-                self._serial.close()
-            except Exception as e:
-                exc = e
+        if serial is None:
+            self._call_protocol_connection_lost(self._pending_connection_lost_exc)
+            return
 
-            self._loop.call_soon_threadsafe(self._call_protocol_connection_lost, exc)
+        self._close_future = self._loop.run_in_executor(None, serial.close)
+        self._close_future.add_done_callback(self._on_serial_closed)
 
-        self._close_future = self._loop.run_in_executor(None, _close_then_notify)
+    def _on_serial_closed(self, fut: asyncio.Future[None]) -> None:
+        # Consume the future's exception so it does not surface later as a noisy warning
+        if (exc := fut.exception()) is not None:
+            self._loop.call_exception_handler(
+                {
+                    "message": "Unhandled exception while closing the serial port",
+                    "exception": exc,
+                    "transport": self,
+                    "protocol": self._protocol,
+                }
+            )
+
+        self._call_protocol_connection_lost(self._pending_connection_lost_exc)
 
     def serial_shutdown(self, how: int) -> None:
         """Shutdown the serial connection."""
@@ -488,11 +533,17 @@ class Win32SerialTransport(BaseSerialTransport):
         """Forward connection_made to the protocol."""
 
         # Ignore `transport` and pass self instead
-        self._protocol.connection_made(self)
+        self._call_protocol_connection_made()
+
+        if (
+            self._connection_made_waiter is not None
+            and not self._connection_made_waiter.done()
+        ):
+            self._connection_made_waiter.set_result(None)
 
     def protocol_connection_lost(self, exc: Exception | None) -> None:
-        """Forward connection_lost to the protocol."""
-        self._resolve_closed_waiter()
+        """Stash the connection-lost reason, `serial_close` dispatches it."""
+        self._pending_connection_lost_exc = exc
 
     def protocol_pause_writing(self) -> None:
         """Forward pause_writing to the protocol."""
@@ -526,10 +577,10 @@ class Win32SerialTransport(BaseSerialTransport):
         try:
             handle = open_fut.result()
         except BaseException:
-            self._maybe_resolve_closed_waiter()
-            return
+            pass
+        else:
+            _safe_close_handle(handle)
 
-        _safe_close_handle(handle)
         self._maybe_resolve_closed_waiter()
 
     async def _open(
@@ -542,22 +593,28 @@ class Win32SerialTransport(BaseSerialTransport):
         normalized_path = _normalize_windows_port_path(path)
         share_mode = 0 if exclusive else FILE_SHARE_READ | FILE_SHARE_WRITE
 
-        open_fut = self._loop.run_in_executor(
+        # Use `CreateFile_detached` so the future's result is a plain `int`,
+        # matching the shape of `os.open` on POSIX. The PyHANDLE wrapper
+        # never escapes the executor thread, so its `tp_dealloc` can't paper
+        # over a missing explicit close on cancel.
+        self._open_fut = self._loop.run_in_executor(
             None,
-            lambda: CreateFile(
-                normalized_path,
-                GENERIC_READ | GENERIC_WRITE,
-                share_mode,
-                None,
-                OPEN_EXISTING,
-                FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
-                None,
+            functools.partial(
+                CreateFile_detached,
+                file_name=normalized_path,
+                desired_access=GENERIC_READ | GENERIC_WRITE,
+                share_mode=share_mode,
+                creation_disposition=OPEN_EXISTING,
+                flags_and_attributes=FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
             ),
         )
-        self._open_fut = cast(asyncio.Future[int], open_fut)
 
         try:
-            handle = await self._open_fut
+            # Shield so a cancellation of the awaiting task doesn't cancel the
+            # executor future. Otherwise, when `CreateFile` completes after the
+            # cancel, `wrap_future` drops the result silently and the HANDLE
+            # is leaked.
+            handle = await asyncio.shield(self._open_fut)
         except asyncio.CancelledError:
             self._open_fut.add_done_callback(self._on_cancelled_open_done)
             raise
@@ -611,6 +668,7 @@ class Win32SerialTransport(BaseSerialTransport):
             # Use the internal _make_duplex_pipe_transport to create a true overlapping
             # bidirectional transport on the single handle.
             assert hasattr(self._loop, "_make_duplex_pipe_transport")
+            self._connection_made_waiter = self._loop.create_future()
             self._internal_transport = self._loop._make_duplex_pipe_transport(
                 # Proxy access to serial and protocol attributes through this instance
                 sock=_MethodProxy(
@@ -635,6 +693,11 @@ class Win32SerialTransport(BaseSerialTransport):
             )
             if self._closing:
                 self._internal_transport.close()  # type: ignore[unreachable]
+                return
+
+            # The internal duplex pipe transport schedules connection_made via
+            # call_soon. Wait for it so callers can assume MADE upon return.
+            await self._connection_made_waiter
         except BaseException:
             if self._handle is not None:
                 await self._loop.run_in_executor(None, _safe_close_handle, self._handle)

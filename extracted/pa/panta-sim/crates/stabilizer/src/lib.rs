@@ -431,27 +431,38 @@ pub fn sample_counts(
     shots: usize,
     seed: Option<u64>,
 ) -> Vec<Vec<u8>> {
-    use rand::rngs::StdRng;
-    use rand::SeedableRng;
+    use rayon::prelude::*;
 
+    // base state 를 1회 구성 후, shot 들을 **병렬** 로 (각자 base clone + 측정)
+    // 샘플링한다.  각 shot 은 독립 trajectory 라 안전하며, 결정론을 위해 RNG 를
+    // base seed + shot index 로 시드한다 (스레드 스케줄과 무관하게 재현 가능).
     let mut base = Tableau::new(n);
     for &op in ops {
         base.apply(op);
     }
-    let mut rng = match seed {
-        Some(s) => StdRng::seed_from_u64(s),
-        None => StdRng::from_entropy(),
-    };
-    let mut out = Vec::with_capacity(shots);
-    for _ in 0..shots {
-        let mut t = base.clone();
-        let mut bits = vec![0u8; n];
-        for (q, bit) in bits.iter_mut().enumerate() {
-            *bit = t.measure(q, &mut rng);
-        }
-        out.push(bits);
-    }
-    out
+    let base_seed = seed.unwrap_or_else(rand::random);
+    (0..shots)
+        .into_par_iter()
+        .map(|shot| {
+            let mut rng = shot_rng(base_seed, shot);
+            let mut t = base.clone();
+            let mut bits = vec![0u8; n];
+            for (q, bit) in bits.iter_mut().enumerate() {
+                *bit = t.measure(q, &mut rng);
+            }
+            bits
+        })
+        .collect()
+}
+
+/// shot 별 결정론적 독립 RNG (base seed 와 shot index 를 splitmix 식 혼합).
+fn shot_rng(base_seed: u64, shot: usize) -> rand::rngs::StdRng {
+    use rand::SeedableRng;
+    let s = base_seed
+        .wrapping_mul(0x9E37_79B9_7F4A_7C15)
+        .wrapping_add(shot as u64)
+        .wrapping_add(1);
+    rand::rngs::StdRng::seed_from_u64(s)
 }
 
 /// **Depolarizing 노이즈** trajectory 로 Clifford 회로를 샘플링한다.
@@ -468,36 +479,36 @@ pub fn sample_counts_depolarizing(
     seed: Option<u64>,
     p: f64,
 ) -> Vec<Vec<u8>> {
-    use rand::rngs::StdRng;
-    use rand::SeedableRng;
+    use rand::Rng;
+    use rayon::prelude::*;
     if p <= 0.0 {
         return sample_counts(n, ops, shots, seed);
     }
-    let mut rng = match seed {
-        Some(s) => StdRng::seed_from_u64(s),
-        None => StdRng::from_entropy(),
-    };
-    let mut out = Vec::with_capacity(shots);
-    for _ in 0..shots {
-        let mut t = Tableau::new(n);
-        for &op in ops {
-            t.apply(op);
-            for q in op.qubits() {
-                // I: 1-3p/4, X: p/4, Y: p/4, Z: p/4.
-                let r: f64 = rng.gen();
-                if r < p / 4.0 {
-                    t.x_gate(q);
-                } else if r < p / 2.0 {
-                    t.y_gate(q);
-                } else if r < 3.0 * p / 4.0 {
-                    t.z_gate(q);
+    // 노이즈는 shot 마다 달라 trajectory 를 공유할 수 없다 → shot 마다 회로+노이즈
+    // 를 독립 적용.  shot 들을 **병렬** 로 (결정론적 per-shot 시드).
+    let base_seed = seed.unwrap_or_else(rand::random);
+    (0..shots)
+        .into_par_iter()
+        .map(|shot| {
+            let mut rng = shot_rng(base_seed, shot);
+            let mut t = Tableau::new(n);
+            for &op in ops {
+                t.apply(op);
+                for q in op.qubits() {
+                    // I: 1-3p/4, X: p/4, Y: p/4, Z: p/4.
+                    let r: f64 = rng.gen();
+                    if r < p / 4.0 {
+                        t.x_gate(q);
+                    } else if r < p / 2.0 {
+                        t.y_gate(q);
+                    } else if r < 3.0 * p / 4.0 {
+                        t.z_gate(q);
+                    }
                 }
             }
-        }
-        let bits: Vec<u8> = (0..n).map(|q| t.measure(q, &mut rng)).collect();
-        out.push(bits);
-    }
-    out
+            (0..n).map(|q| t.measure(q, &mut rng)).collect()
+        })
+        .collect()
 }
 
 #[cfg(test)]

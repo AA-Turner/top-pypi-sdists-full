@@ -183,11 +183,19 @@ def test_clear_removes_declaration(tmp_path: Path) -> None:
 # --- apply: clean path (no contradicting evidence) ---------------------
 
 
-def _seed_evidence(root: Path, ksi_by_record: dict[str, list[str]]) -> None:
+def _seed_evidence(
+    root: Path,
+    ksi_by_record: dict[str, list[str]],
+    *,
+    boundary_state: str | None = None,
+) -> None:
     """Write evidence records into the store DB citing given KSIs.
 
     ksi_by_record maps a record id → ksis_evidenced list. Detector id is a
     normal scanner (NOT scope_inherited) so it counts as contradicting.
+    `boundary_state` (v0.1.222) optionally tags every record — used to
+    verify out_of_boundary evidence does NOT contradict an inheritance
+    declaration.
     """
     efterlev = root / ".efterlev"
     blob_dir = efterlev / "store"
@@ -203,18 +211,16 @@ def _seed_evidence(root: Path, ksi_by_record: dict[str, list[str]]) -> None:
         blob = f"{rid}.json"
         # iter_evidence's structural filter requires detector_id +
         # source_ref + timestamp to recognize a blob as Evidence.
-        (blob_dir / blob).write_text(
-            json.dumps(
-                {
-                    "evidence_id": f"sha256:{rid}",
-                    "detector_id": "scan_terraform",
-                    "ksis_evidenced": ksis,
-                    "source_ref": {"file": "infra/main.tf", "line_start": 1, "line_end": 2},
-                    "timestamp": "2026-05-20T00:00:00Z",
-                }
-            ),
-            encoding="utf-8",
-        )
+        payload: dict[str, object] = {
+            "evidence_id": f"sha256:{rid}",
+            "detector_id": "scan_terraform",
+            "ksis_evidenced": ksis,
+            "source_ref": {"file": "infra/main.tf", "line_start": 1, "line_end": 2},
+            "timestamp": "2026-05-20T00:00:00Z",
+        }
+        if boundary_state is not None:
+            payload["boundary_state"] = boundary_state
+        (blob_dir / blob).write_text(json.dumps(payload), encoding="utf-8")
         conn.execute(
             "INSERT OR REPLACE INTO provenance_records "
             "(record_id, record_type, content_ref, derived_from, primitive, timestamp, metadata) "
@@ -253,6 +259,24 @@ def test_apply_contradiction_flags_not_marks(tmp_path: Path) -> None:
     # The contradicted KSI is NOT inherited; the other 3 are.
     assert "KSI-CNA-MAT" not in inherited
     assert "KSI-CNA-IBP" in inherited
+
+
+def test_apply_out_of_boundary_evidence_does_not_contradict(tmp_path: Path) -> None:
+    """Out-of-boundary evidence must NOT contradict an inheritance declaration
+    (v0.1.222): a dev_sandbox resource citing KSI-CNA-MAT would otherwise block
+    "CNA-MAT inherited from platform" even though the in-boundary workspace has
+    no such config. Same boundary discipline as agent gap (v0.1.219)."""
+    _init_workspace(tmp_path)
+    runner.invoke(
+        app, ["scope", "declare", "--profile", "aws-serverless", "--target", str(tmp_path)]
+    )
+    # Same KSI as the contradiction test — but the evidence is out_of_boundary.
+    _seed_evidence(tmp_path, {"ev-mat-oob": ["KSI-CNA-MAT"]}, boundary_state="out_of_boundary")
+    result = runner.invoke(app, ["scope", "apply", "--target", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    # No contradiction — all profile KSIs inherited, CNA-MAT included.
+    assert "NOT marked" not in result.output
+    assert inherited_ksis_in_store(tmp_path) == set(profile_ksis("aws-serverless"))
 
 
 def test_apply_idempotent(tmp_path: Path) -> None:

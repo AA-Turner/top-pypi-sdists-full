@@ -118,11 +118,11 @@ def parse_pip(pip: Union[List[str], str, Path]) -> Tuple[List[PackageSchema], Li
         if req["is_editable"]:
             logger.warning(f"Editable requirement {raw_line!r} is not supported and will be ignored")
             continue
-        if req.get("is_local_path", False):
-            logger.warning(f"Local path requirement {raw_line!r} is not supported and will be ignored")
-            continue
         if req["is_vcs_url"]:
             raw_pip.append(raw_line)
+            continue
+        if req.get("is_local_path", False):
+            logger.warning(f"Local path requirement {raw_line!r} is not supported and will be ignored")
             continue
         raw_pip.append(raw_line)
         parsed_reqs.append({

@@ -425,6 +425,7 @@ def find(
                         install_scope=install_scope,
                         dry_run=False,
                         on_progress=on_progress,
+                        secret=credentials["secret"],
                     )
                     combined.installed.extend(result.installed)
                     combined.skipped.extend(result.skipped)
@@ -568,6 +569,7 @@ def add(
                 install_scope="global" if global_install else "project",
                 dry_run=dry_run,
                 on_progress=on_progress,
+                secret=credentials["secret"],
             )
 
         result = anyio.run(_run)
@@ -754,8 +756,10 @@ def update(
                 lockfile_path=lockfile,
                 client_name=resolved_client,
                 host=credentials["host"],
+                install_scope="global" if global_install else "project",
                 dry_run=dry_run,
                 on_progress=on_progress,
+                secret=credentials["secret"],
             )
 
         result = anyio.run(_run)

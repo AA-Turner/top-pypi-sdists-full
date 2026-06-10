@@ -72,12 +72,7 @@ def cmd_init(args: list[str]) -> dict:
     workflows_dir = fs.kanban_dir / "workflows"
     from kanban_framework.infra.filesystem import Filesystem as FS
     skill_src = FS.find_skill_dir()
-    import logging
-    _init_log = logging.getLogger("kanban")
-    _init_log.info("init: skill_src=%s exists=%s", skill_src, skill_src.is_dir())
-    if not (skill_src / "SKILL.md").is_file():
-        _init_log.warning("init: SKILL.md not found at %s — skill sync will be incomplete", skill_src)
-    # Try multiple paths for workflow presets — prefer package dir (has full step data)
+    # Prefer package workflows/ dir, fall back to skill_src/workflows/
     for preset_src in (Path(__file__).resolve().parent.parent / "workflows",
                        skill_src / "workflows"):
         if preset_src.is_dir():
@@ -85,8 +80,7 @@ def cmd_init(args: list[str]) -> dict:
             for preset_file in preset_src.glob("*.json"):
                 dst = workflows_dir / preset_file.name
                 content = preset_file.read_text(encoding="utf-8")
-                # Skip placeholder files (< 1KB)
-                if len(content) < 512:
+                if len(content) < 512:  # Skip placeholder files
                     continue
                 dst.write_text(content, encoding="utf-8")
                 created.append(f"workflows/{preset_file.name}")
@@ -94,7 +88,8 @@ def cmd_init(args: list[str]) -> dict:
             if copied_one:
                 break
 
-    # Sync skill files to .claude/skills/kanban/ (SKILL.md, rules, references, workflows)
+    # Sync skill files: copy entire _skill/ directory to .claude/skills/kanban/
+    import shutil
     skill_dst = root / ".claude" / "skills" / "kanban"
     updated: list[str] = []
     added: list[str] = []
@@ -103,75 +98,59 @@ def cmd_init(args: list[str]) -> dict:
     sync_errors: list[str] = []
 
     if force_skills and skill_dst.exists():
-        import shutil
         shutil.rmtree(str(skill_dst))
         stale.append(str(skill_dst.relative_to(root)))
 
-    def _sync_file(src: Path, dst: Path) -> None:
-        rel = str(dst.relative_to(root))
-        try:
-            content = src.read_text(encoding="utf-8")
-            if not dst.exists():
-                fs.ensure_dir(dst.parent)
-                dst.write_text(content, encoding="utf-8", newline="\n")
-                added.append(rel)
-            elif dst.read_text(encoding="utf-8") != content:
-                if apply_updates:
-                    dst.write_text(content, encoding="utf-8", newline="\n")
-                    updated.append(rel)
-                else:
-                    pending_updates.append(rel)
-        except Exception as exc:
-            sync_errors.append(f"{rel}: {exc}")
-
-    def _sync_dir(src_dir: Path, dst_dir: Path) -> None:
-        if not dst_dir.exists():
-            # Use file-by-file copy instead of shutil.copytree for Windows compat
-            try:
-                for src_file in sorted(src_dir.rglob("*")):
-                    if src_file.is_file():
-                        rel_p = src_file.relative_to(src_dir)
-                        dst_file = dst_dir / rel_p
-                        _sync_file(src_file, dst_file)
-                if dst_dir.is_dir():
-                    added.append(str(dst_dir.relative_to(root)))
-            except Exception as exc:
-                sync_errors.append(f"{dst_dir.relative_to(root)}: {exc}")
-            return
-        for src_file in sorted(src_dir.rglob("*")):
-            if src_file.is_file():
-                rel_p = src_file.relative_to(src_dir)
-                _sync_file(src_file, dst_dir / rel_p)
-
-    # Sync top-level skill files
-    sync_items = [
-        (skill_src / "SKILL.md", skill_dst / "SKILL.md"),
-        (skill_src / "agents", skill_dst / "agents"),
-        (skill_src / "rules", skill_dst / "rules"),
-    ]
-    if (skill_src / "references").is_dir():
-        sync_items.append((skill_src / "references", skill_dst / "references"))
-
-    for src_path, dst_path in sync_items:
-        if src_path.is_file():
-            _sync_file(src_path, dst_path)
-        elif src_path.is_dir():
-            _sync_dir(src_path, dst_path)
+    try:
+        if not skill_dst.exists():
+            shutil.copytree(str(skill_src), str(skill_dst),
+                            ignore=shutil.ignore_patterns("versions", "templates", "__pycache__", "*.pyc", "__init__.py"))
+            added.append(str(skill_dst.relative_to(root)))
+        elif apply_updates:
+            # Update existing: copy text files, overwriting (skip binary/generated)
+            _skip_parts = {"versions", "__pycache__", ".git"}
+            _text_suffixes = {".md", ".json", ".py", ".txt", ".yml", ".yaml", ".toml", ".cfg", ".ini", ".css", ".js", ".ts", ".html", ".svg", ".csv"}
+            for src_file in skill_src.rglob("*"):
+                if src_file.is_file() and _skip_parts.isdisjoint(src_file.parts) and src_file.suffix in _text_suffixes:
+                    rel_p = src_file.relative_to(skill_src)
+                    dst_file = skill_dst / rel_p
+                    dst_file.parent.mkdir(parents=True, exist_ok=True)
+                    dst_file.write_text(src_file.read_text(encoding="utf-8"), encoding="utf-8")
+            updated.append(str(skill_dst.relative_to(root)))
         else:
-            sync_errors.append(f"{src_path.name}: source not found at {skill_src}")
+            pending_updates.append(str(skill_dst.relative_to(root)))
+    except Exception as exc:
+        sync_errors.append(f"{skill_dst.relative_to(root)}: {exc}")
 
-    # Sync templates (config.json, workflow.json)
+    # Sync templates (config.json, workflow.json) from _skill/templates/
     tmpl_src = skill_src / "templates"
     tmpl_dst = fs.kanban_dir
     if tmpl_src.is_dir():
         for tf in tmpl_src.glob("*.json"):
             dst = tmpl_dst / tf.name
-            if tf.name == "config.json" and not (tmpl_dst / "config.json").exists():
-                _sync_file(tf, dst)
-            elif tf.name == "workflow.json":
-                _sync_file(tf, dst)
+            if tf.name == "config.json" and dst.exists():
+                continue
+            try:
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_text(tf.read_text(encoding="utf-8"), encoding="utf-8")
+                added.append(f"config/{tf.name}")
+            except Exception as exc:
+                sync_errors.append(f"{tf.name}: {exc}")
 
     # Agent conflicts detection
+    # Post-sync validation: SKILL.md must exist after init
+    if not (skill_dst / "SKILL.md").is_file():
+        return {
+            "initialized": False,
+            "project_root": str(root),
+            "error": (
+                f"skill 目录同步失败：{skill_dst}/SKILL.md 未创建。\n"
+                f"skill_src={skill_src}\n"
+                f"sync_errors={sync_errors}\n"
+                "请尝试: pip install --force-reinstall kanban-framework"
+            ),
+        }
+
     result: dict = {
         "initialized": True,
         "project_root": str(root),
@@ -277,6 +256,9 @@ def cmd_init(args: list[str]) -> dict:
     result["date"] = str(date.today())
 
     result["kb_deps"] = _check_kb_deps()
+
+    # KB seed guide: suggest knowledge entries based on project structure
+    result["kb_seed_guide"] = {"suggestions": [], "hint": "Run: kanban knowledge add --demo"}
 
     return result
 

@@ -17,7 +17,15 @@ class _SandboxSnapshot(modal._object._Object):
         def __call__(
             self, /, sandbox_snapshot_id: str, client: typing.Optional[modal.client.Client] = None
         ) -> SUPERSELF:
-            """Construct a `SandboxSnapshot` object from a sandbox snapshot ID."""
+            """Construct a `SandboxSnapshot` for an existing snapshot ID.
+
+            Args:
+                sandbox_snapshot_id: Snapshot ID returned when the snapshot was created.
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+            Returns:
+                A `SandboxSnapshot` handle (hydration validates the ID when used).
+            """
             ...
 
         async def aio(self, /, sandbox_snapshot_id: str, client: typing.Optional[modal.client.Client] = None): ...
@@ -39,7 +47,15 @@ class SandboxSnapshot(modal.object.Object):
         def __call__(
             self, /, sandbox_snapshot_id: str, client: typing.Optional[modal.client.Client] = None
         ) -> SUPERSELF:
-            """Construct a `SandboxSnapshot` object from a sandbox snapshot ID."""
+            """Construct a `SandboxSnapshot` for an existing snapshot ID.
+
+            Args:
+                sandbox_snapshot_id: Snapshot ID returned when the snapshot was created.
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+            Returns:
+                A `SandboxSnapshot` handle (hydration validates the ID when used).
+            """
             ...
 
         async def aio(self, /, sandbox_snapshot_id: str, client: typing.Optional[modal.client.Client] = None): ...

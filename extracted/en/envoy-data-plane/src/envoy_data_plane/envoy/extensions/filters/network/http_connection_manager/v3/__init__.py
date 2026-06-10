@@ -5,9 +5,12 @@
 
 __all__ = (
     "EnvoyMobileHttpConnectionManager",
+    "ForwardProtoConfig",
     "HttpConnectionManager",
     "HttpConnectionManagerCodecType",
+    "HttpConnectionManagerForwardClientCertConfig",
     "HttpConnectionManagerForwardClientCertDetails",
+    "HttpConnectionManagerForwardClientCertFormat",
     "HttpConnectionManagerHcmAccessLogOptions",
     "HttpConnectionManagerInternalAddressConfig",
     "HttpConnectionManagerPathNormalizationOptions",
@@ -112,6 +115,24 @@ class HttpConnectionManagerForwardClientCertDetails(betterproto2.Enum):
     """
 
 
+class HttpConnectionManagerForwardClientCertFormat(betterproto2.Enum):
+    """
+    The format to use when writing the
+    :ref:`config_http_conn_man_headers_x-forwarded-client-cert` (XFCC) header value.
+    """
+
+    TEXT = 0
+    """
+    Use the :ref:`text format <config_http_conn_man_headers_x-forwarded-client-cert_text>`.
+    This is the default.
+    """
+
+    JSON = 1
+    """
+    Use the :ref:`JSON format <config_http_conn_man_headers_x-forwarded-client-cert_json>`.
+    """
+
+
 class HttpConnectionManagerPathWithEscapedSlashesAction(betterproto2.Enum):
     """
     Determines the action for request that contain ``%2F``, ``%2f``, ``%5C`` or ``%5c`` sequences in the URI path.
@@ -183,6 +204,11 @@ class HttpConnectionManagerServerHeaderTransformation(betterproto2.Enum):
 
 
 class HttpConnectionManagerTracingOperationName(betterproto2.Enum):
+    """
+    This OperationName makes no sense and is unnecessary in the current tracing API.
+    [#not-implemented-hide:]
+    """
+
     INGRESS = 0
     """
     The HTTP listener is used for ingress/incoming requests.
@@ -219,13 +245,50 @@ default_message_pool.register_message(
 
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class ForwardProtoConfig(betterproto2.Message):
+    """
+    Configuration options for setting the ``x-forwarded-proto`` header.
+    This message provides flexibility for future enhancements to protocol inference.
+    """
+
+    https_destination_ports: "list[typing.Annotated[int, pydantic.Field(ge=0, le=2**32 - 1)]]" = betterproto2.field(
+        1, betterproto2.TYPE_UINT32, repeated=True
+    )
+    """
+    List of destination ports that should be treated as HTTPS.
+    When the PROXY protocol destination port matches one of these ports,
+    ``x-forwarded-proto`` will be set to ``https``.
+
+    Common values: 443, 8443
+    """
+
+    http_destination_ports: "list[typing.Annotated[int, pydantic.Field(ge=0, le=2**32 - 1)]]" = betterproto2.field(
+        2, betterproto2.TYPE_UINT32, repeated=True
+    )
+    """
+    List of destination ports that should be treated as HTTP.
+    When the PROXY protocol destination port matches one of these ports,
+    ``x-forwarded-proto`` will be set to ``http``.
+
+    Common values: 80, 8080
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.network.http_connection_manager.v3",
+    "ForwardProtoConfig",
+    ForwardProtoConfig,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class HttpConnectionManager(betterproto2.Message):
     """
     [#protodoc-title: HTTP connection manager]
     HTTP connection manager :ref:`configuration overview <config_http_conn_man>`.
     [#extension: envoy.filters.network.http_connection_manager]
 
-    [#next-free-field: 60]
+    [#next-free-field: 62]
 
     Oneofs:
         - route_specifier:
@@ -403,8 +466,10 @@ class HttpConnectionManager(betterproto2.Message):
 
       Currently some protocol codecs impose limits on the maximum size of a single header.
 
-      * HTTP/2 (when using nghttp2) limits a single header to around 100kb.
-      * HTTP/3 limits a single header to around 1024kb.
+      * HTTP/2 (when using nghttp2) limits a single header to around 100 KB by default. This can be
+        adjusted via :ref:`max_header_field_size_kb
+        <envoy_v3_api_field_config.core.v3.Http2ProtocolOptions.max_header_field_size_kb>`.
+      * HTTP/3 limits a single header to around 1024 KB.
     """
 
     stream_idle_timeout: "datetime.timedelta | None" = betterproto2.field(
@@ -415,7 +480,7 @@ class HttpConnectionManager(betterproto2.Message):
     )
     """
     The stream idle timeout for connections managed by the connection manager.
-    If not specified, this defaults to 5 minutes. The default value was selected
+    If not specified, this defaults to ``5 minutes``. The default value was selected
     so as not to interfere with any smaller configured timeouts that may have
     existed in configurations prior to the introduction of this feature, while
     introducing robustness to TCP connections that terminate without a FIN.
@@ -424,28 +489,29 @@ class HttpConnectionManager(betterproto2.Message):
     :ref:`route-level idle_timeout
     <envoy_v3_api_field_config.route.v3.RouteAction.idle_timeout>`. Even on a stream in
     which the override applies, prior to receipt of the initial request
-    headers, the :ref:`stream_idle_timeout
-    <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_idle_timeout>`
-    applies. Each time an encode/decode event for headers or data is processed
-    for the stream, the timer will be reset. If the timeout fires, the stream
-    is terminated with a 408 Request Timeout error code if no upstream response
-    header has been received, otherwise a stream reset occurs.
+    headers, the ``stream_idle_timeout`` applies. Each time an encode/decode event
+    for headers or data is processed for the stream, the timer will be reset. If the
+    timeout fires, the stream is terminated with a ``408 Request Timeout`` error code
+    if no upstream response header has been received, otherwise a stream reset occurs.
 
-    If the :ref:`overload action <config_overload_manager_overload_actions>` "envoy.overload_actions.reduce_timeouts"
-    is configured, this timeout is scaled according to the value for
+    If the :ref:`overload action <config_overload_manager_overload_actions>`
+    ``envoy.overload_actions.reduce_timeouts`` is configured, this timeout is scaled
+    according to the value for
     :ref:`HTTP_DOWNSTREAM_STREAM_IDLE <envoy_v3_api_enum_value_config.overload.v3.ScaleTimersOverloadActionConfig.TimerType.HTTP_DOWNSTREAM_STREAM_IDLE>`.
 
-    Note that it is possible to idle timeout even if the wire traffic for a stream is non-idle, due
-    to the granularity of events presented to the connection manager. For example, while receiving
-    very large request headers, it may be the case that there is traffic regularly arriving on the
-    wire while the connection manage is only able to observe the end-of-headers event, hence the
-    stream may still idle timeout.
+    .. note::
 
-    A value of 0 will completely disable the connection manager stream idle
+      It is possible to idle timeout even if the wire traffic for a stream is non-idle, due
+      to the granularity of events presented to the connection manager. For example, while receiving
+      very large request headers, it may be the case that there is traffic regularly arriving on the
+      wire while the connection manager is only able to observe the end-of-headers event, hence the
+      stream may still idle timeout.
+
+    A value of ``0`` will completely disable the connection manager stream idle
     timeout, although per-route idle timeout overrides will continue to apply.
 
-    This timeout is also used as the default value for :ref:`stream_flush_timeout
-    <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_flush_timeout>`.
+    This timeout is also used as the default value for
+    :ref:`stream_flush_timeout <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_flush_timeout>`.
     """
 
     stream_flush_timeout: "datetime.timedelta | None" = betterproto2.field(
@@ -784,6 +850,57 @@ class HttpConnectionManager(betterproto2.Message):
     value.
     """
 
+    forward_client_cert_matcher: "______xds__type__matcher__v3__.Matcher | None" = (
+        betterproto2.field(60, betterproto2.TYPE_MESSAGE, optional=True)
+    )
+    """
+    The matcher for forwarding client cert details. This allows per-request configuration
+    of forward client cert behavior based on request properties. If a matcher is configured
+    and matches a request, the matched action's forward client cert config will be used.
+    If the matcher is not configured or doesn't match, the static
+    :ref:`forward_client_cert_details
+    <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.forward_client_cert_details>`
+    and
+    :ref:`set_current_client_cert_details
+    <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.set_current_client_cert_details>`
+    config will be used as fallback.
+
+    Example: If the x-forwarded-client-cert header contains "trusted-client", use APPEND_FORWARD,
+    otherwise use SANITIZE_SET:
+
+    .. code-block:: yaml
+
+      forward_client_cert_matcher:
+        matcher_list:
+          matchers:
+          - predicate:
+              single_predicate:
+                input:
+                  name: envoy.matching.inputs.request_headers
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.type.matcher.v3.HttpRequestHeaderMatchInput
+                    header_name: "x-forwarded-client-cert"
+                value_match:
+                  string_match:
+                    contains: "trusted-client"
+            on_match:
+              action:
+                name: forward_client_cert
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ForwardClientCertConfig
+                  forward_client_cert_details: APPEND_FORWARD
+                  set_current_client_cert_details:
+                    uri: true
+        on_no_match:
+          action:
+            name: forward_client_cert
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ForwardClientCertConfig
+              forward_client_cert_details: SANITIZE_SET
+              set_current_client_cert_details:
+                uri: true
+    """
+
     proxy_100_continue: "bool" = betterproto2.field(18, betterproto2.TYPE_BOOL)
     """
     If proxy_100_continue is true, Envoy will proxy incoming "Expect:
@@ -1036,6 +1153,35 @@ class HttpConnectionManager(betterproto2.Message):
     actual client address, for example, if there's another proxy in front of the Envoy.
     """
 
+    forward_proto_config: "ForwardProtoConfig | None" = betterproto2.field(
+        61, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Configuration for controlling how the ``x-forwarded-proto`` header is set.
+    This allows customization of protocol inference, including support for inferring the original
+    protocol (HTTP or HTTPS) from the PROXY protocol destination port.
+
+    This is useful when a Layer 4 load balancer (such as AWS NLB) terminates TLS and uses
+    PROXY protocol to communicate with Envoy.
+
+    When configured and the local address was restored from PROXY protocol (indicating the
+    original destination address is available), the ``x-forwarded-proto`` header will be set
+    based on whether the destination port is in ``https_destination_ports`` or
+    ``http_destination_ports``.
+
+    Example configuration:
+
+    .. code-block:: yaml
+
+      http_connection_manager:
+        forward_proto_config:
+          https_destination_ports: [443, 8443]
+          http_destination_ports: [80, 8080]
+
+    If not configured, defaults to disabled and the standard behavior applies (using connection
+    TLS status or trusted downstream headers).
+    """
+
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.is_set("access_log_flush_interval"):
@@ -1058,6 +1204,43 @@ default_message_pool.register_message(
     "envoy.extensions.filters.network.http_connection_manager.v3",
     "HttpConnectionManager",
     HttpConnectionManager,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class HttpConnectionManagerForwardClientCertConfig(betterproto2.Message):
+    """
+    The configuration for forwarding client cert details, used as the action config in a
+    :ref:`forward_client_cert_matcher
+    <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.forward_client_cert_matcher>`.
+    """
+
+    forward_client_cert_details: "HttpConnectionManagerForwardClientCertDetails" = (
+        betterproto2.field(
+            1,
+            betterproto2.TYPE_ENUM,
+            default_factory=lambda: HttpConnectionManagerForwardClientCertDetails(0),
+        )
+    )
+    """
+    How to handle the XFCC header.
+    """
+
+    set_current_client_cert_details: "HttpConnectionManagerSetCurrentClientCertDetails | None" = betterproto2.field(
+        2, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    The fields in the client certificate to forward. See
+    :ref:`set_current_client_cert_details
+    <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.set_current_client_cert_details>`
+    for details.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.network.http_connection_manager.v3",
+    "HttpConnectionManager.ForwardClientCertConfig",
+    HttpConnectionManagerForwardClientCertConfig,
 )
 
 
@@ -1268,7 +1451,7 @@ default_message_pool.register_message(
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class HttpConnectionManagerSetCurrentClientCertDetails(betterproto2.Message):
     """
-    [#next-free-field: 7]
+    [#next-free-field: 8]
     """
 
     subject: "bool | None" = betterproto2.field(
@@ -1308,6 +1491,19 @@ class HttpConnectionManagerSetCurrentClientCertDetails(betterproto2.Message):
     false.
     """
 
+    format: "HttpConnectionManagerForwardClientCertFormat" = betterproto2.field(
+        7,
+        betterproto2.TYPE_ENUM,
+        default_factory=lambda: HttpConnectionManagerForwardClientCertFormat(0),
+    )
+    """
+    The format for the header. When the :ref:`forward_client_cert_details
+    <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.forward_client_cert_details>`
+    is APPEND_FORWARD and an existing XFCC header is present, the format of the existing header
+    is used. The configured format is used when there is no existing header value
+    (APPEND_FORWARD with no prior XFCC header, or SANITIZE_SET which always replaces the value).
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.filters.network.http_connection_manager.v3",
@@ -1319,7 +1515,7 @@ default_message_pool.register_message(
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class HttpConnectionManagerTracing(betterproto2.Message):
     """
-    [#next-free-field: 11]
+    [#next-free-field: 14]
     """
 
     client_sampling: "_____type__v3__.Percent | None" = betterproto2.field(
@@ -1418,6 +1614,52 @@ class HttpConnectionManagerTracing(betterproto2.Message):
       this flag should be set to true.
 
     The default value is false for now for backward compatibility.
+    """
+
+    operation: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        11, betterproto2.TYPE_STRING
+    )
+    """
+    The operation name of the span which will be used for tracing.
+
+    The same :ref:`format specifier <config_access_log_format>` as used for
+    :ref:`HTTP access logging <config_access_log>` applies here, however
+    unknown specifier values are replaced with the empty string instead of ``-``.
+
+    This field will take precedence over and make following settings ineffective:
+
+    * :ref:`route decorator <envoy_v3_api_field_config.route.v3.Route.decorator>` and
+    * :ref:`x-envoy-decorator-operation <config_http_filters_router_x-envoy-decorator-operation>`
+      header will be ignored.
+    """
+
+    upstream_operation: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        12, betterproto2.TYPE_STRING
+    )
+    """
+    The operation name of the upstream span which will be used for tracing.
+    This only takes effect when ``spawn_upstream_span`` is set to true and the upstream
+    span is created.
+
+    The same :ref:`format specifier <config_access_log_format>` as used for
+    :ref:`HTTP access logging <config_access_log>` applies here, however
+    unknown specifier values are replaced with the empty string instead of ``-``.
+    """
+
+    no_context_propagation: "bool" = betterproto2.field(13, betterproto2.TYPE_BOOL)
+    """
+    If set to true, trace context propagation is disabled, meaning that trace context headers
+    (e.g. ``traceparent``, ``tracestate`` for OpenTelemetry/W3C, or ``X-B3-*`` headers for Zipkin)
+    will not be injected when proxying requests to upstreams.
+
+    This is useful for scenarios where you want to report spans from a proxy (e.g., an egress
+    gateway) while preventing trace context from being propagated to external services,
+    effectively stopping the trace at the mesh boundary.
+
+    Note that span reporting is still performed when this is set to true - only context
+    propagation is disabled.
+
+    Default: false (context propagation is enabled)
     """
 
 
@@ -2003,6 +2245,7 @@ default_message_pool.register_message(
 
 
 from .......google import protobuf as ______google__protobuf__
+from .......xds.type.matcher import v3 as ______xds__type__matcher__v3__
 from ......config.accesslog import v3 as _____config__accesslog__v3__
 from ......config.core import v3 as _____config__core__v3__
 from ......config.route import v3 as _____config__route__v3__

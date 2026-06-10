@@ -9,6 +9,46 @@ use faer::Side;
 
 const BMS_PROBIT_SEPARATION_BETA_INF: f64 = 40.0;
 
+// ── Canonical-gauge priority ladder (issue #322) ─────────────────────────────
+//
+// The priority-ordered RRQR in `canonicalize_for_identifiability` presents
+// higher-priority blocks first and routes any shared cross-block alias drop
+// into the lowest-priority block that still spans the aliased direction. The
+// values below form a single ordered ladder so the relationships that the
+// architecture depends on (anchors > parametric surfaces > flex deviations,
+// marginal > logslope, score_warp > link_dev) are expressed once here rather
+// than re-derived from comments at each `gauge_priority:` site. The ladder
+// mirrors the survival marginal-slope entry (time=200 / marginal=150 /
+// logslope=120 / score_warp=80 / link_dev=60).
+
+/// Audit-only anchor blocks sit at the top of the ladder so the candidate
+/// flex block always yields to them in the cross-block identifiability audit.
+pub(super) const GAUGE_PRIORITY_ANCHOR: u8 = 200;
+/// Marginal surface: strictly above the logslope surface so a shared affine
+/// direction is demoted out of logslope, never out of marginal.
+pub(super) const GAUGE_PRIORITY_MARGINAL: u8 = 150;
+/// Logslope surface: one rung below the marginal surface.
+pub(super) const GAUGE_PRIORITY_LOGSLOPE: u8 = 120;
+/// Candidate flex block under audit: below every parametric anchor so the
+/// audit demotes the candidate when it aliases an anchor.
+pub(super) const GAUGE_PRIORITY_CANDIDATE_FLEX: u8 = 100;
+/// `score_warp_dev`: above `link_dev` because in mixed-flex configurations
+/// link_dev is the residualised block and should yield first.
+pub(super) const GAUGE_PRIORITY_SCORE_WARP_DEV: u8 = 80;
+/// Default for any deviation auxiliary block not otherwise named; below the
+/// parametric default so shared affine directions never demote a parametric
+/// block.
+pub(super) const GAUGE_PRIORITY_DEVIATION_DEFAULT: u8 = 70;
+/// `link_dev`: lowest rung, yields first among the flex deviation blocks.
+pub(super) const GAUGE_PRIORITY_LINK_DEV: u8 = 60;
+
+/// Floor on the relative outer tolerance used by the exact-joint spatial
+/// length-scale optimiser. The user's `rel_tol` drives most of the fit, but
+/// the exact spatial outer loop is a coarse 1-D search over a smooth profiled
+/// objective; tightening it below this floor only burns cycles on noise in the
+/// inner-solve-reported objective without moving the selected length scale.
+const EXACT_SPATIAL_OUTER_TOL_FLOOR: f64 = 1e-6;
+
 // ── BlockEffectiveJacobian impls for BMS ─────────────────────────────────────
 //
 // BMS has a single Bernoulli output per row (n_outputs = 1). The observed η is
@@ -364,11 +404,12 @@ impl ReducedLogslopeReparam {
 }
 
 /// Build the reduced-basis logslope reparameterization (see
-/// [`ReducedLogslopeReparam`]) from the rigid-pilot effective Jacobian geometry,
-/// in the PIRLS row metric `W`. Returns `Ok(None)` when there is no logslope
-/// span, no marginal span, or no confounded direction to remove (`r == p_g`):
-/// in those cases the raw design already is its own reduced basis and the caller
-/// keeps it unchanged.
+/// [`ReducedLogslopeReparam`]) from the rigid-pilot EFFECTIVE Jacobian geometry,
+/// in the PIRLS row metric `W`. Extracts the dense pilot designs and delegates
+/// the geometry to [`reduced_logslope_transform_effective`]. Returns `Ok(None)`
+/// when there is no logslope/marginal span, no effective-confounded direction to
+/// remove (`r == p_g`), or the whole effective logslope image is in the effective
+/// marginal span (`r == 0`); in those cases the caller keeps the raw design.
 fn build_reduced_logslope_reparam(
     marginal_design: &TermCollectionDesign,
     logslope_design: &TermCollectionDesign,
@@ -423,52 +464,133 @@ fn build_reduced_logslope_reparam(
         );
     }
 
-    // W-orthogonalize the RAW logslope design `G` against the RAW marginal
-    // design `M` in the PIRLS row metric `W` (the metric the joint Hessian
-    // sees), via the shared-solver primitive. `C̃ = G − M·B` with `Mᵀ W C̃ = 0`
-    // exactly — the released solver's pinned overlap ridge merely penalised this
-    // shared direction; here it is removed by construction. `C̃` is the SAME
-    // width `p_g` but rank-deficient by exactly the dimension of the
-    // marginal-overlapping subspace of `G`.
-    let reparam = crate::solver::orthogonal_reparam::OrthogonalReparam::build_unconditional(
+    // The joint Hessian the inner solve factorises is built from the EFFECTIVE
+    // BMS Jacobians, not the raw design. At the rigid pilot,
+    //   ∂η_i/∂β_m = c_i · M_i,   c_i = sqrt(1 + (s·g_i)²)
+    //   ∂η_i/∂β_s = f_i · G_i,   f_i = q_i·s²·g_i/c_i + s·z_i
+    // so a raw logslope direction `v` is rank-soft in the joint Hessian iff its
+    // EFFECTIVE image `diag(f)·G·v` is W-explained by `span(diag(c)·M)` — NOT iff
+    // raw `G·v` is W-explained by `span(M)`. Auditing the raw design removes the
+    // wrong directions; the reduced basis is built from the effective Schur Gram.
+    // The pure-array geometry lives in `reduced_logslope_transform_effective` so
+    // it can be unit-tested directly against the raw-vs-effective counterexample.
+    match reduced_logslope_transform_effective(
         marginal.view(),
         logslope.view(),
+        z,
         row_metric,
-    )?;
-    let c_tilde = reparam.reparameterized_confound().to_owned(); // n × p_g
-
-    // Build a FULL-RANK reduced basis `T` (p_g × r) of the column space of the
-    // raw-coordinate shear `(I − B-projection)` that produced `C̃`. Concretely
-    // `C̃ = G·E` where `E = I − Bᵀ·(Mᵀ ... )`… rather than reconstruct `E`
-    // algebraically, recover the raw-coordinate reduced basis directly from the
-    // W-Gram of `C̃` expressed in raw logslope coordinates:
-    //
-    //   Stt = C̃ᵀ W C̃   (p_g × p_g, PSD), the raw-coordinate Gram of the
-    //   W-orthogonal component of the logslope design.
-    //
-    // Its range = the logslope directions surviving the marginal-overlap
-    // removal; its null space = the directions `G` shares with `span_W(M)`. A
-    // direction `v` with `Stt v ≈ 0` is one whose raw logslope column `G·v` is
-    // (W-)explained by the marginal span — exactly the confounded direction the
-    // joint Hessian is rank-soft along. The reduced transform is the orthonormal
-    // eigenbasis of `Stt` for eigenvalues above a relative tolerance.
-    let stt = fast_xt_diag_x(&c_tilde, row_metric);
-    let stt = (&stt + &stt.t()) * 0.5;
-    if stt.iter().any(|v| !v.is_finite()) {
-        return Err("reduced logslope reparam: C̃ W-Gram produced non-finite entries".to_string());
+        marginal_offset,
+        logslope_offset,
+        marginal_baseline,
+        logslope_baseline,
+        probit_scale,
+    )? {
+        Some(transform) => Ok(Some(ReducedLogslopeReparam { transform })),
+        None => Ok(None),
     }
-    let raw_gram = fast_xt_diag_x(&logslope, row_metric);
-    let raw_scale = (0..p_g).map(|i| raw_gram[[i, i]]).fold(0.0_f64, f64::max);
+}
+
+/// Build the reduced logslope basis `T` (p_g × r) from the EFFECTIVE BMS pilot
+/// geometry, in the PIRLS row metric `W`. `T`'s columns span the raw logslope
+/// coefficient directions whose effective image `diag(f)·G·v` is NOT W-explained
+/// by `span(diag(c)·M)` — i.e. the directions the joint Hessian retains real
+/// curvature along. Returns `Ok(None)` when there is nothing to reduce
+/// (`r == p_g`) or when the entire effective logslope image collapses into the
+/// effective marginal span (`r == 0`); in both cases the caller keeps the raw
+/// design (a zero-width reduction would silently delete the score-effect surface,
+/// which is the estimand — the REML penalty regularises any residual softness).
+///
+/// At the rigid pilot the effective Jacobians are
+///     M_eff = diag(c) · M,   c_i = sqrt(1 + (s·g_i)²)
+///     G_eff = diag(f) · G,   f_i = q_i·s²·g_i/c_i + s·z_i
+/// and the raw-coordinate Gram of the logslope component W-orthogonal to
+/// `span(M_eff)` is the Schur complement
+///     Gtt = G_effᵀ W G_eff − (G_effᵀ W M_eff)(M_effᵀ W M_eff + εI)⁻¹(M_effᵀ W G_eff).
+/// `T` is the orthonormal eigenbasis of `Gtt` for eigenvalues above a tolerance
+/// relative to the effective logslope energy scale.
+fn reduced_logslope_transform_effective(
+    marginal: ArrayView2<'_, f64>,
+    logslope: ArrayView2<'_, f64>,
+    z: &Array1<f64>,
+    row_metric: &Array1<f64>,
+    marginal_offset: &Array1<f64>,
+    logslope_offset: &Array1<f64>,
+    marginal_baseline: f64,
+    logslope_baseline: f64,
+    probit_scale: f64,
+) -> Result<Option<Array2<f64>>, String> {
+    let n = marginal.nrows();
+    let p_m = marginal.ncols();
+    let p_g = logslope.ncols();
+    if p_m == 0 || p_g == 0 {
+        return Ok(None);
+    }
+
+    // Effective pilot Jacobians M_eff = diag(c)·M and G_eff = diag(f)·G.
+    let mut m_eff = Array2::<f64>::zeros((n, p_m));
+    let mut g_eff = Array2::<f64>::zeros((n, p_g));
+    for i in 0..n {
+        let q_i = marginal_offset[i] + marginal_baseline;
+        let g_i = logslope_offset[i] + logslope_baseline;
+        let sg = probit_scale * g_i;
+        let c_i = (1.0 + sg * sg).sqrt();
+        let f_i = q_i * probit_scale * probit_scale * g_i / c_i + probit_scale * z[i];
+        for j in 0..p_m {
+            m_eff[[i, j]] = c_i * marginal[[i, j]];
+        }
+        for j in 0..p_g {
+            g_eff[[i, j]] = f_i * logslope[[i, j]];
+        }
+    }
+
+    // C = G_effᵀ W G_eff (raw-coordinate effective logslope Gram); its diagonal
+    // sets the energy scale for the relative kept-direction tolerance.
+    let c_gram = fast_xt_diag_x(&g_eff, row_metric);
+    let energy_scale = (0..p_g).map(|i| c_gram[[i, i]]).fold(0.0_f64, f64::max);
+    if !energy_scale.is_finite() || energy_scale <= 0.0 {
+        return Ok(None);
+    }
+
+    // A = M_effᵀ W M_eff + εI (ridge relative to the marginal effective energy so
+    // the Schur solve is well-posed even when the marginal pilot Gram is
+    // rank-soft; the ridge only under-removes, i.e. is conservative).
+    let mut a_gram = fast_xt_diag_x(&m_eff, row_metric);
+    let a_scale = (0..p_m).map(|i| a_gram[[i, i]]).fold(0.0_f64, f64::max);
+    let a_ridge = (a_scale * LOGSLOPE_REDUCED_BASIS_RELATIVE_TOL).max(f64::EPSILON);
+    for i in 0..p_m {
+        a_gram[[i, i]] += a_ridge;
+    }
+
+    // B = M_effᵀ W G_eff (p_m × p_g);  Gtt = C − Bᵀ A⁻¹ B (p_g × p_g, PSD).
+    let b_cross = crate::faer_ndarray::fast_xt_diag_y(&m_eff, row_metric, &g_eff);
+    let a_view = crate::faer_ndarray::FaerArrayView::new(&a_gram);
+    let a_factor =
+        crate::faer_ndarray::factorize_symmetricwith_fallback(a_view.as_ref(), Side::Lower)
+            .map_err(|e| {
+                format!(
+                    "reduced logslope reparam: effective marginal Gram factorization failed: {e}"
+                )
+            })?;
+    let b_view = crate::faer_ndarray::FaerArrayView::new(&b_cross);
+    let solved = a_factor.solve(b_view.as_ref()); // A⁻¹ B  (p_m × p_g)
+    let a_inv_b = Array2::from_shape_fn((p_m, p_g), |(i, j)| solved[(i, j)]);
+    let schur = fast_atb(&b_cross, &a_inv_b); // Bᵀ A⁻¹ B  (p_g × p_g)
+    let mut stt = &c_gram - &schur;
+    stt = (&stt + &stt.t()) * 0.5;
+    if stt.iter().any(|v| !v.is_finite()) {
+        return Err(
+            "reduced logslope reparam: effective Schur Gram produced non-finite entries"
+                .to_string(),
+        );
+    }
+
     let (evals, evecs) = stt
         .eigh(Side::Lower)
         .map_err(|e| format!("reduced logslope reparam: eigendecomposition failed: {e:?}"))?;
-    // Tolerance relative to the RAW logslope self-Gram scale: a `C̃`-Gram
-    // eigenvalue far below the raw logslope energy scale means that direction's
-    // logslope column was almost entirely W-explained by the marginal span.
-    if !raw_scale.is_finite() || raw_scale <= 0.0 {
-        return Ok(None);
-    }
-    let tol = raw_scale * LOGSLOPE_REDUCED_BASIS_RELATIVE_TOL;
+    // A `Gtt` eigenvalue far below the effective logslope energy scale means that
+    // direction's effective logslope column is W-explained by the effective
+    // marginal span — exactly the joint-Hessian rank-soft confounded direction.
+    let tol = energy_scale * LOGSLOPE_REDUCED_BASIS_RELATIVE_TOL;
     let mut kept: Vec<usize> = (0..evals.len()).filter(|&i| evals[i] > tol).collect();
     kept.sort_by(|&a, &b| {
         evals[b]
@@ -476,8 +598,9 @@ fn build_reduced_logslope_reparam(
             .unwrap_or(std::cmp::Ordering::Equal)
     });
     let r = kept.len();
-    // No confounded direction to remove ⇒ the raw design already is full-rank
-    // and well-conditioned; keep it unchanged (byte-identical block geometry).
+    // r == p_g: no effective-confounded direction to remove. r == 0: the whole
+    // effective logslope image is in the effective marginal span. In both cases
+    // install no transform (see fn-level doc) and keep the raw design.
     if r == p_g || r == 0 {
         return Ok(None);
     }
@@ -490,7 +613,7 @@ fn build_reduced_logslope_reparam(
             "reduced logslope reparam: reduced transform produced non-finite entries".to_string(),
         );
     }
-    Ok(Some(ReducedLogslopeReparam { transform }))
+    Ok(Some(transform))
 }
 
 /// Apply a [`ReducedLogslopeReparam`] to a logslope `TermCollectionDesign`,
@@ -608,7 +731,7 @@ fn marginal_penalties_with_influence_ridge(
     let mut penalties: Vec<PenaltyMatrix> = design
         .penalties
         .iter()
-        .map(|bp| PenaltyMatrix::from_blockwise(bp.clone(), total_dim))
+        .map(|bp| bp.to_penalty_matrix(total_dim))
         .collect();
     let mut nullspace_dims = design.nullspace_dims.clone();
     let mut log_lambdas = rho_marginal.to_vec();
@@ -981,6 +1104,122 @@ mod runaway_tests {
         Ok(Some(penalty))
     }
 
+    // The raw-vs-effective counterexample. With q=g=0, s=1: c_i=1 (so M_eff=M)
+    // and f_i=z_i (so G_eff=diag(z)·G). Pick M=[1,1,1]ᵀ and a two-column logslope
+    // G whose RAW columns are both linearly independent of M (raw orthogonalising
+    // [M|G] would keep BOTH — the old code returned None, no reduction), but whose
+    // first EFFECTIVE column diag(z)·G[:,0] equals M_eff exactly. The effective
+    // audit must therefore drop exactly one direction (r=1), proving it removes
+    // the joint-Hessian rank-soft direction the raw audit could not see.
+    #[test]
+    fn effective_reduction_drops_score_weighted_confound_raw_audit_misses() {
+        // G col0 = [1,2,3], col1 = [1,2,9]  (row-major rows: [1,1],[2,2],[3,9]).
+        let m = Array2::<f64>::from_shape_vec((3, 1), vec![1.0, 1.0, 1.0]).unwrap();
+        let g = Array2::<f64>::from_shape_vec((3, 2), vec![1.0, 1.0, 2.0, 2.0, 3.0, 9.0]).unwrap();
+        let z = Array1::from_vec(vec![1.0, 0.5, 1.0 / 3.0]);
+        let w = Array1::<f64>::ones(3);
+        let zero = Array1::<f64>::zeros(3);
+
+        // diag(z)·G[:,0] = [1·1, 0.5·2, (1/3)·3] = [1,1,1] = M_eff (fully aliased);
+        // diag(z)·G[:,1] = [1·1, 0.5·2, (1/3)·9] = [1,1,3] (NOT in span([1,1,1])).
+        let reparam = reduced_logslope_transform_effective(
+            m.view(),
+            g.view(),
+            &z,
+            &w,
+            &zero,
+            &zero,
+            0.0,
+            0.0,
+            1.0,
+        )
+        .expect("effective reduction must succeed")
+        .expect("effective audit must reduce the score-weighted confound (raw audit would not)");
+        assert_eq!(
+            reparam.ncols(),
+            1,
+            "exactly one effective-identifiable logslope direction should survive"
+        );
+
+        // The surviving raw direction's EFFECTIVE image diag(z)·G·t must carry the
+        // non-constant ([1,1,3]) content — i.e. it is the identifiable direction,
+        // not the [1,1,1] confound. Its row variance must be clearly positive.
+        let g_eff = {
+            let mut e = Array2::<f64>::zeros((3, 2));
+            for i in 0..3 {
+                for j in 0..2 {
+                    e[[i, j]] = z[i] * g[[i, j]];
+                }
+            }
+            e
+        };
+        let img = g_eff.dot(&reparam.column(0));
+        let mean = img.iter().sum::<f64>() / 3.0;
+        let var = img.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / 3.0;
+        assert!(
+            var > 1.0e-6,
+            "kept direction must be the identifiable (non-constant) effective column, var={var}"
+        );
+    }
+
+    // The single-column fully-confounded case: G=[1,2,3]ᵀ, z=[1,1/2,1/3] gives
+    // G_eff=[1,1,1]=M_eff, so the entire effective logslope image is in the
+    // effective marginal span (r==0). The helper returns None (keep the raw
+    // design) rather than emitting a zero-width transform that would delete the
+    // score-effect surface.
+    #[test]
+    fn effective_reduction_fully_confounded_single_column_returns_none() {
+        let m = Array2::<f64>::from_shape_vec((3, 1), vec![1.0, 1.0, 1.0]).unwrap();
+        let g = Array2::<f64>::from_shape_vec((3, 1), vec![1.0, 2.0, 3.0]).unwrap();
+        let z = Array1::from_vec(vec![1.0, 0.5, 1.0 / 3.0]);
+        let w = Array1::<f64>::ones(3);
+        let zero = Array1::<f64>::zeros(3);
+        let reparam = reduced_logslope_transform_effective(
+            m.view(),
+            g.view(),
+            &z,
+            &w,
+            &zero,
+            &zero,
+            0.0,
+            0.0,
+            1.0,
+        )
+        .expect("effective reduction must succeed");
+        assert!(
+            reparam.is_none(),
+            "fully effective-confounded logslope must keep raw design (None), not a 0-width block"
+        );
+    }
+
+    // No effective confound: both effective logslope columns stay independent of
+    // M_eff, so nothing is reduced (r==p_g ⇒ None) and healthy fits are untouched.
+    #[test]
+    fn effective_reduction_no_confound_returns_none() {
+        let m = Array2::<f64>::from_shape_vec((3, 1), vec![1.0, 1.0, 1.0]).unwrap();
+        // diag(z)·col gives non-constant images for both columns under z below.
+        let g = Array2::<f64>::from_shape_vec((3, 2), vec![1.0, 0.0, 0.0, 1.0, 0.0, 0.0]).unwrap();
+        let z = Array1::from_vec(vec![1.0, 2.0, 3.0]);
+        let w = Array1::<f64>::ones(3);
+        let zero = Array1::<f64>::zeros(3);
+        let reparam = reduced_logslope_transform_effective(
+            m.view(),
+            g.view(),
+            &z,
+            &w,
+            &zero,
+            &zero,
+            0.0,
+            0.0,
+            1.0,
+        )
+        .expect("effective reduction must succeed");
+        assert!(
+            reparam.is_none(),
+            "no effective confound ⇒ no reduction (raw design kept unchanged)"
+        );
+    }
+
     #[test]
     fn spatial_joint_setup_counts_only_learned_penalties_in_rho() {
         let data = Array2::<f64>::zeros((3, 1));
@@ -1156,7 +1395,7 @@ fn build_marginal_blockspec_bms(
         // the spectral Newton solve refusing to step.  The values mirror
         // the canonical-gauge entry for survival marginal-slope
         // (marginal=150, logslope=120).
-        gauge_priority: 150,
+        gauge_priority: GAUGE_PRIORITY_MARGINAL,
         jacobian_callback: Some(callback),
         stacked_design: None,
         stacked_offset: None,
@@ -1215,7 +1454,7 @@ fn build_logslope_blockspec_bms(
         // value (marginal=150, logslope=120).  See the matching comment
         // on `build_marginal_blockspec_bms` for the failure mode this
         // resolves.
-        gauge_priority: 120,
+        gauge_priority: GAUGE_PRIORITY_LOGSLOPE,
         jacobian_callback: Some(callback),
         stacked_design: None,
         stacked_offset: None,
@@ -1245,17 +1484,18 @@ pub(crate) fn build_deviation_aux_blockspec(
     // (time / marginal / logslope) blocks. The canonical-gauge
     // selector drops shared directions from blocks with lower
     // gauge_priority first; assigning a value below the parametric
-    // default (100) realises that contract automatically.
+    // default (GAUGE_PRIORITY_CANDIDATE_FLEX) realises that contract
+    // automatically.
     spec.gauge_priority = match name {
-        "link_dev" => 60,
+        "link_dev" => GAUGE_PRIORITY_LINK_DEV,
         // score_warp_dev gets a slightly higher priority than link_dev
         // because in mixed-flex configurations (both blocks present)
         // link_dev is the residualised one (orthogonalised against the
         // parametric anchors PLUS the already-prepared score_warp
         // basis at construction time); link_dev should therefore yield
         // first when an alias still survives into the joint design.
-        "score_warp_dev" => 80,
-        _ => 70,
+        "score_warp_dev" => GAUGE_PRIORITY_SCORE_WARP_DEV,
+        _ => GAUGE_PRIORITY_DEVIATION_DEFAULT,
     };
     Ok(spec)
 }
@@ -2037,7 +2277,7 @@ pub fn fit_bernoulli_marginal_slope_terms(
         let psi_dim = setup.theta0().len() - setup.rho_dim();
         initial_family.outer_derivative_policy(&initial_blocks, psi_dim, options)
     };
-    let exact_spatial_outer_tol = kappa_options_ref.rel_tol.max(1e-6);
+    let exact_spatial_outer_tol = kappa_options_ref.rel_tol.max(EXACT_SPATIAL_OUTER_TOL_FLOOR);
     let solved = optimize_spatial_length_scale_exact_joint(
         data_view,
         &[marginalspec_boot.clone(), logslopespec_boot.clone()],

@@ -43,9 +43,9 @@ class MultiBackend:
             r["relevance"] = round(r.pop("_rrf_score") / max_rrf, 4)
         return merged[:limit]
 
-    def search(self, keyword, limit=20, *, biz_context=None):
-        primary = self._primary.search(keyword, limit=limit, biz_context=biz_context) if self._primary else []
-        secondary = self._secondary.search(keyword, limit=limit, biz_context=biz_context) if self._secondary else []
+    def search(self, keyword, limit=20, *, biz_context=None, status="active"):
+        primary = self._primary.search(keyword, limit=limit, biz_context=biz_context, status=status) if self._primary else []
+        secondary = self._secondary.search(keyword, limit=limit, biz_context=biz_context, status=status) if self._secondary else []
         return self._merge_dedup(primary, secondary, limit)
 
     def search_semantic(self, query, limit=20, *, biz_context=None):

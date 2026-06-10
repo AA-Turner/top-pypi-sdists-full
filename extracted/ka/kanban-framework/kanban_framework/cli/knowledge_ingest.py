@@ -38,6 +38,21 @@ def _title_similarity(a: str, b: str) -> float:
 
 
 def handle_add(km: KnowledgeManager, args: list[str]) -> dict:
+    # No arguments: show usage guide
+    if not args:
+        return {
+            "help": True,
+            "message": (
+                "直接用自然语言告诉 AI 你想记录什么，Agent 会自动录入。\n\n"
+                "示例:\n"
+                '  "帮我记录一下 combat 模块伤害溢出的踩坑，原因是 enemy.defense > spell_power 时 damage 溢出为负数"\n'
+                '  "记一条 Python 编码规范：所有公共函数必须有 type hints"\n'
+                '  "把 src/rpg/combat.py 的架构设计作为最佳实践写入知识库"\n\n'
+                "或直接传参数:\n"
+                "  kanban knowledge add --domain rpg --category 踩坑 --title '标题' --content '内容'"
+            ),
+        }
+
     kwargs: dict = {"domain": "infra", "category": "工具", "title": "", "content": "",
                      "code_example": "", "source": {}, "status": "pending"}
     ttl_days = None

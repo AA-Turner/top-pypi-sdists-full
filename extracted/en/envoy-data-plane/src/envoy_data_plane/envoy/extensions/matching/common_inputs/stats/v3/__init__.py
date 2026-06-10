@@ -3,7 +3,10 @@
 # plugin: python-betterproto2
 # This file has been @generated
 
-__all__ = ("StatFullNameMatchInput",)
+__all__ = (
+    "StatFullNameMatchInput",
+    "StatTagValueInput",
+)
 
 
 import betterproto2
@@ -30,4 +33,20 @@ default_message_pool.register_message(
     "envoy.extensions.matching.common_inputs.stats.v3",
     "StatFullNameMatchInput",
     StatFullNameMatchInput,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class StatTagValueInput(betterproto2.Message):
+    """
+    Specifies the way to match stat tags with value.
+    """
+
+    pass
+
+
+default_message_pool.register_message(
+    "envoy.extensions.matching.common_inputs.stats.v3",
+    "StatTagValueInput",
+    StatTagValueInput,
 )

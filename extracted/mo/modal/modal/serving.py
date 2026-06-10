@@ -4,7 +4,7 @@ import platform
 from collections.abc import AsyncGenerator
 from multiprocessing.context import SpawnProcess
 from multiprocessing.synchronize import Event
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from synchronicity.async_wrap import asynccontextmanager
 
@@ -45,7 +45,7 @@ async def _restart_serve(
     return p
 
 
-async def _terminate(proc: Optional[SpawnProcess], timeout: float = 5.0):
+async def _terminate(proc: SpawnProcess | None, timeout: float = 5.0):
     if proc is None:
         return
     output_mgr = OutputManager.get()
@@ -93,10 +93,22 @@ async def _serve_app(
     app: "modal.app._App",
     import_ref: ImportRef,
     *,
-    name: Optional[str] = None,
-    _watcher: Optional[AsyncGenerator[set[str], None]] = None,  # for testing
-    environment_name: Optional[str] = None,
+    name: str | None = None,
+    _watcher: AsyncGenerator[set[str], None] | None = None,  # for testing
+    environment_name: str | None = None,
 ) -> AsyncGenerator["modal.app._App", None]:
+    """Deploy an App in serve mode with file watching and live reload.
+
+    Yields the same ``App`` instance after deployment. While the context is active, changes under
+    watched mounts trigger a reload (see ``modal serve``).
+
+    Args:
+        app: The App to deploy.
+        import_ref: Import path used to reload the module when files change.
+        environment_name: Workspace environment; defaults to ``config[\"environment\"]``.
+        _watcher: For tests only. Supplies a custom async generator of changed file paths instead of
+            the default filesystem watcher.
+    """
     if environment_name is None:
         environment_name = config.get("environment")
 

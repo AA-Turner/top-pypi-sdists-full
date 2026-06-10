@@ -5858,6 +5858,782 @@ class PoliciesV1Api:
 
 
     @validate_call
+    def list_organization_compliance(
+        self,
+        compliance_status: Annotated[Optional[ComplianceRuleStatusFilter], Field(description="Filter by rule compliance status: 'COMPLIANT' or 'NON_COMPLIANT'.")] = None,
+        model_id: Annotated[Optional[StrictStr], Field(description="Filter to a specific model.")] = None,
+        policy_id: Annotated[Optional[StrictStr], Field(description="Filter to a specific policy.")] = None,
+        rule_type: Annotated[Optional[ComplianceRuleType], Field(description="Filter by rule type: 'alert_rule' or 'attestation_rule'.")] = None,
+        rule_id: Annotated[Optional[StrictStr], Field(description="Filter to rows for a specific rule.")] = None,
+        frequency: Annotated[Optional[StrictInt], Field(description="Filter attestation rules by validity period in days.")] = None,
+        search: Annotated[Optional[Annotated[str, Field(strict=True, max_length=200)]], Field(description="Search across rule, model, and policy names (case-insensitive).")] = None,
+        sort: Annotated[Optional[StrictStr], Field(description="Sort field: rule_name, rule_type, compliance_status, updated_at, created_at.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="Sort order: asc or desc.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ComplianceResponse:
+        """List Organization Compliance
+
+        Returns a flat compliance table with per-rule, per-model status across all policies in every workspace in the organization. Requires organization_list_policy_compliance permission.
+
+        :param compliance_status: Filter by rule compliance status: 'COMPLIANT' or 'NON_COMPLIANT'.
+        :type compliance_status: ComplianceRuleStatusFilter
+        :param model_id: Filter to a specific model.
+        :type model_id: str
+        :param policy_id: Filter to a specific policy.
+        :type policy_id: str
+        :param rule_type: Filter by rule type: 'alert_rule' or 'attestation_rule'.
+        :type rule_type: ComplianceRuleType
+        :param rule_id: Filter to rows for a specific rule.
+        :type rule_id: str
+        :param frequency: Filter attestation rules by validity period in days.
+        :type frequency: int
+        :param search: Search across rule, model, and policy names (case-insensitive).
+        :type search: str
+        :param sort: Sort field: rule_name, rule_type, compliance_status, updated_at, created_at.
+        :type sort: str
+        :param order: Sort order: asc or desc.
+        :type order: SortOrder
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_organization_compliance_serialize(
+            compliance_status=compliance_status,
+            model_id=model_id,
+            policy_id=policy_id,
+            rule_type=rule_type,
+            rule_id=rule_id,
+            frequency=frequency,
+            search=search,
+            sort=sort,
+            order=order,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ComplianceResponse",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_organization_compliance_with_http_info(
+        self,
+        compliance_status: Annotated[Optional[ComplianceRuleStatusFilter], Field(description="Filter by rule compliance status: 'COMPLIANT' or 'NON_COMPLIANT'.")] = None,
+        model_id: Annotated[Optional[StrictStr], Field(description="Filter to a specific model.")] = None,
+        policy_id: Annotated[Optional[StrictStr], Field(description="Filter to a specific policy.")] = None,
+        rule_type: Annotated[Optional[ComplianceRuleType], Field(description="Filter by rule type: 'alert_rule' or 'attestation_rule'.")] = None,
+        rule_id: Annotated[Optional[StrictStr], Field(description="Filter to rows for a specific rule.")] = None,
+        frequency: Annotated[Optional[StrictInt], Field(description="Filter attestation rules by validity period in days.")] = None,
+        search: Annotated[Optional[Annotated[str, Field(strict=True, max_length=200)]], Field(description="Search across rule, model, and policy names (case-insensitive).")] = None,
+        sort: Annotated[Optional[StrictStr], Field(description="Sort field: rule_name, rule_type, compliance_status, updated_at, created_at.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="Sort order: asc or desc.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[ComplianceResponse]:
+        """List Organization Compliance
+
+        Returns a flat compliance table with per-rule, per-model status across all policies in every workspace in the organization. Requires organization_list_policy_compliance permission.
+
+        :param compliance_status: Filter by rule compliance status: 'COMPLIANT' or 'NON_COMPLIANT'.
+        :type compliance_status: ComplianceRuleStatusFilter
+        :param model_id: Filter to a specific model.
+        :type model_id: str
+        :param policy_id: Filter to a specific policy.
+        :type policy_id: str
+        :param rule_type: Filter by rule type: 'alert_rule' or 'attestation_rule'.
+        :type rule_type: ComplianceRuleType
+        :param rule_id: Filter to rows for a specific rule.
+        :type rule_id: str
+        :param frequency: Filter attestation rules by validity period in days.
+        :type frequency: int
+        :param search: Search across rule, model, and policy names (case-insensitive).
+        :type search: str
+        :param sort: Sort field: rule_name, rule_type, compliance_status, updated_at, created_at.
+        :type sort: str
+        :param order: Sort order: asc or desc.
+        :type order: SortOrder
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_organization_compliance_serialize(
+            compliance_status=compliance_status,
+            model_id=model_id,
+            policy_id=policy_id,
+            rule_type=rule_type,
+            rule_id=rule_id,
+            frequency=frequency,
+            search=search,
+            sort=sort,
+            order=order,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ComplianceResponse",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_organization_compliance_without_preload_content(
+        self,
+        compliance_status: Annotated[Optional[ComplianceRuleStatusFilter], Field(description="Filter by rule compliance status: 'COMPLIANT' or 'NON_COMPLIANT'.")] = None,
+        model_id: Annotated[Optional[StrictStr], Field(description="Filter to a specific model.")] = None,
+        policy_id: Annotated[Optional[StrictStr], Field(description="Filter to a specific policy.")] = None,
+        rule_type: Annotated[Optional[ComplianceRuleType], Field(description="Filter by rule type: 'alert_rule' or 'attestation_rule'.")] = None,
+        rule_id: Annotated[Optional[StrictStr], Field(description="Filter to rows for a specific rule.")] = None,
+        frequency: Annotated[Optional[StrictInt], Field(description="Filter attestation rules by validity period in days.")] = None,
+        search: Annotated[Optional[Annotated[str, Field(strict=True, max_length=200)]], Field(description="Search across rule, model, and policy names (case-insensitive).")] = None,
+        sort: Annotated[Optional[StrictStr], Field(description="Sort field: rule_name, rule_type, compliance_status, updated_at, created_at.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="Sort order: asc or desc.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """List Organization Compliance
+
+        Returns a flat compliance table with per-rule, per-model status across all policies in every workspace in the organization. Requires organization_list_policy_compliance permission.
+
+        :param compliance_status: Filter by rule compliance status: 'COMPLIANT' or 'NON_COMPLIANT'.
+        :type compliance_status: ComplianceRuleStatusFilter
+        :param model_id: Filter to a specific model.
+        :type model_id: str
+        :param policy_id: Filter to a specific policy.
+        :type policy_id: str
+        :param rule_type: Filter by rule type: 'alert_rule' or 'attestation_rule'.
+        :type rule_type: ComplianceRuleType
+        :param rule_id: Filter to rows for a specific rule.
+        :type rule_id: str
+        :param frequency: Filter attestation rules by validity period in days.
+        :type frequency: int
+        :param search: Search across rule, model, and policy names (case-insensitive).
+        :type search: str
+        :param sort: Sort field: rule_name, rule_type, compliance_status, updated_at, created_at.
+        :type sort: str
+        :param order: Sort order: asc or desc.
+        :type order: SortOrder
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_organization_compliance_serialize(
+            compliance_status=compliance_status,
+            model_id=model_id,
+            policy_id=policy_id,
+            rule_type=rule_type,
+            rule_id=rule_id,
+            frequency=frequency,
+            search=search,
+            sort=sort,
+            order=order,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ComplianceResponse",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _list_organization_compliance_serialize(
+        self,
+        compliance_status,
+        model_id,
+        policy_id,
+        rule_type,
+        rule_id,
+        frequency,
+        search,
+        sort,
+        order,
+        page,
+        page_size,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if compliance_status is not None:
+            
+            _query_params.append(('compliance_status', compliance_status.value))
+            
+        if model_id is not None:
+            
+            _query_params.append(('model_id', model_id))
+            
+        if policy_id is not None:
+            
+            _query_params.append(('policy_id', policy_id))
+            
+        if rule_type is not None:
+            
+            _query_params.append(('rule_type', rule_type.value))
+            
+        if rule_id is not None:
+            
+            _query_params.append(('rule_id', rule_id))
+            
+        if frequency is not None:
+            
+            _query_params.append(('frequency', frequency))
+            
+        if search is not None:
+            
+            _query_params.append(('search', search))
+            
+        if sort is not None:
+            
+            _query_params.append(('sort', sort))
+            
+        if order is not None:
+            
+            _query_params.append(('order', order.value))
+            
+        if page is not None:
+            
+            _query_params.append(('page', page))
+            
+        if page_size is not None:
+            
+            _query_params.append(('page_size', page_size))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v1/organization/compliance',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def list_organization_policy_assignments(
+        self,
+        policy_id: Annotated[Optional[StrictStr], Field(description="Filter by policy ID.")] = None,
+        compliance_status: Annotated[Optional[ComplianceStatus], Field(description="Filter by compliance status.")] = None,
+        name: Annotated[Optional[StrictStr], Field(description="Filter by policy name (case-insensitive partial match).")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ResourceListPolicyAssignment:
+        """List Organization Policy Assignments
+
+        Lists all policy assignments across every workspace in the organization, filtered to applications the caller can access. Requires organization_list_policy_assignments permission.
+
+        :param policy_id: Filter by policy ID.
+        :type policy_id: str
+        :param compliance_status: Filter by compliance status.
+        :type compliance_status: ComplianceStatus
+        :param name: Filter by policy name (case-insensitive partial match).
+        :type name: str
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_organization_policy_assignments_serialize(
+            policy_id=policy_id,
+            compliance_status=compliance_status,
+            name=name,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListPolicyAssignment",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_organization_policy_assignments_with_http_info(
+        self,
+        policy_id: Annotated[Optional[StrictStr], Field(description="Filter by policy ID.")] = None,
+        compliance_status: Annotated[Optional[ComplianceStatus], Field(description="Filter by compliance status.")] = None,
+        name: Annotated[Optional[StrictStr], Field(description="Filter by policy name (case-insensitive partial match).")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[ResourceListPolicyAssignment]:
+        """List Organization Policy Assignments
+
+        Lists all policy assignments across every workspace in the organization, filtered to applications the caller can access. Requires organization_list_policy_assignments permission.
+
+        :param policy_id: Filter by policy ID.
+        :type policy_id: str
+        :param compliance_status: Filter by compliance status.
+        :type compliance_status: ComplianceStatus
+        :param name: Filter by policy name (case-insensitive partial match).
+        :type name: str
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_organization_policy_assignments_serialize(
+            policy_id=policy_id,
+            compliance_status=compliance_status,
+            name=name,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListPolicyAssignment",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_organization_policy_assignments_without_preload_content(
+        self,
+        policy_id: Annotated[Optional[StrictStr], Field(description="Filter by policy ID.")] = None,
+        compliance_status: Annotated[Optional[ComplianceStatus], Field(description="Filter by compliance status.")] = None,
+        name: Annotated[Optional[StrictStr], Field(description="Filter by policy name (case-insensitive partial match).")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """List Organization Policy Assignments
+
+        Lists all policy assignments across every workspace in the organization, filtered to applications the caller can access. Requires organization_list_policy_assignments permission.
+
+        :param policy_id: Filter by policy ID.
+        :type policy_id: str
+        :param compliance_status: Filter by compliance status.
+        :type compliance_status: ComplianceStatus
+        :param name: Filter by policy name (case-insensitive partial match).
+        :type name: str
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_organization_policy_assignments_serialize(
+            policy_id=policy_id,
+            compliance_status=compliance_status,
+            name=name,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListPolicyAssignment",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _list_organization_policy_assignments_serialize(
+        self,
+        policy_id,
+        compliance_status,
+        name,
+        page,
+        page_size,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if policy_id is not None:
+            
+            _query_params.append(('policy_id', policy_id))
+            
+        if compliance_status is not None:
+            
+            _query_params.append(('compliance_status', compliance_status.value))
+            
+        if name is not None:
+            
+            _query_params.append(('name', name))
+            
+        if page is not None:
+            
+            _query_params.append(('page', page))
+            
+        if page_size is not None:
+            
+            _query_params.append(('page_size', page_size))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v1/organization/policy_assignments',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
     def list_policies(
         self,
         sort: Annotated[Optional[PolicySort], Field(description="Override the field used for sorting the returned list.")] = None,

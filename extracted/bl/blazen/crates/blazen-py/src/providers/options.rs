@@ -416,9 +416,11 @@ impl PyBedrockOptions {
 /// Hardware device selection for compute backends.
 ///
 /// Example:
-///     >>> Device.Cpu
-///     >>> Device.Metal
-///     >>> Device.Cuda
+/// ```text
+///  >>> Device.Cpu
+///  >>> Device.Metal
+///  >>> Device.Cuda
+/// ```
 #[gen_stub_pyclass_enum]
 #[pyclass(name = "Device", eq, eq_int, from_py_object)]
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -449,8 +451,10 @@ impl From<PyDevice> for blazen_llm::Device {
 /// Options for the local embedding backend.
 ///
 /// Example:
-///     >>> opts = EmbedOptions(model_name="BGESmallENV15")
-///     >>> model = EmbeddingModel.local(options=opts)
+/// ```text
+///  >>> opts = EmbedOptions(model_name="BGESmallENV15")
+///  >>> model = EmbeddingModel.local(options=opts)
+/// ```
 #[cfg(feature = "embed")]
 #[gen_stub_pyclass]
 #[pyclass(name = "EmbedOptions", from_py_object)]
@@ -549,7 +553,9 @@ impl PyEmbedOptions {
 /// most popular GPU quantization schemes (GPTQ, AWQ).
 ///
 /// Example:
-///     >>> opts = MistralRsOptions("my-org/model", quantization=Quantization.Q4KM)
+/// ```text
+///  >>> opts = MistralRsOptions("my-org/model", quantization=Quantization.Q4KM)
+/// ```
 #[gen_stub_pyclass_enum]
 #[pyclass(name = "Quantization", eq, eq_int, from_py_object)]
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -599,8 +605,10 @@ impl From<PyQuantization> for blazen_llm::Quantization {
 /// path to a GGUF file). All other arguments are optional.
 ///
 /// Example:
-///     >>> opts = MistralRsOptions("mistralai/Mistral-7B-Instruct-v0.3")
-///     >>> model = Model.mistralrs(options=opts)
+/// ```text
+///  >>> opts = MistralRsOptions("mistralai/Mistral-7B-Instruct-v0.3")
+///  >>> model = Model.mistralrs(options=opts)
+/// ```
 #[cfg(feature = "mistralrs")]
 #[gen_stub_pyclass]
 #[pyclass(name = "MistralRsOptions", from_py_object)]
@@ -617,6 +625,8 @@ impl PyMistralRsOptions {
     ///
     /// Args:
     ///     model_id: HuggingFace model ID or local GGUF path (required).
+    ///     tokenizer_repo: Optional separate HF repo for tokenizer.json
+    ///         (no-op for mistralrs — accepted for cross-backend parity).
     ///     quantization: Quantization format enum value (e.g. ``Quantization.Q4KM``).
     ///     device: Hardware device enum value (e.g. ``Device.Cuda``).
     ///     context_length: Maximum context length in tokens.
@@ -624,9 +634,11 @@ impl PyMistralRsOptions {
     ///     chat_template: Jinja2 chat template override.
     ///     cache_dir: Path to cache downloaded models.
     #[new]
-    #[pyo3(signature = (model_id, *, quantization=None, device=None, context_length=None, max_batch_size=None, chat_template=None, cache_dir=None))]
+    #[pyo3(signature = (model_id, *, tokenizer_repo=None, quantization=None, device=None, context_length=None, max_batch_size=None, chat_template=None, cache_dir=None))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         model_id: String,
+        tokenizer_repo: Option<String>,
         quantization: Option<PyQuantization>,
         device: Option<PyDevice>,
         context_length: Option<usize>,
@@ -636,62 +648,74 @@ impl PyMistralRsOptions {
     ) -> Self {
         Self {
             inner: blazen_llm::MistralRsOptions {
-                model_id,
-                quantization: quantization.map(|q| {
-                    let core: blazen_llm::Quantization = q.into();
-                    core.as_gguf_str().to_owned()
-                }),
-                device: device.map(|d| {
-                    let core: blazen_llm::Device = d.into();
-                    core.to_string()
-                }),
-                context_length,
+                base: blazen_local_llm::LocalLlmOptions {
+                    model_id: Some(model_id),
+                    tokenizer_repo,
+                    quantization: quantization.map(|q| {
+                        let core: blazen_llm::Quantization = q.into();
+                        core.as_gguf_str().to_owned()
+                    }),
+                    device: device.map(|d| {
+                        let core: blazen_llm::Device = d.into();
+                        core.to_string()
+                    }),
+                    context_length,
+                    cache_dir: cache_dir.map(PathBuf::from),
+                    ..blazen_local_llm::LocalLlmOptions::default()
+                },
                 max_batch_size,
                 chat_template,
-                cache_dir: cache_dir.map(PathBuf::from),
                 // Vision input is not yet surfaced through the Python
                 // binding. Users must construct `MistralRsOptions`
                 // directly in Rust to enable vision mode.
                 vision: false,
-                initial_adapters: Vec::new(),
             },
         }
     }
 
     #[getter]
-    fn model_id(&self) -> &str {
-        &self.inner.model_id
+    fn model_id(&self) -> Option<String> {
+        self.inner.base.model_id.clone()
     }
     #[setter]
     fn set_model_id(&mut self, value: String) {
-        self.inner.model_id = value;
+        self.inner.base.model_id = Some(value);
+    }
+
+    #[getter]
+    fn tokenizer_repo(&self) -> Option<String> {
+        self.inner.base.tokenizer_repo.clone()
+    }
+    #[setter]
+    fn set_tokenizer_repo(&mut self, value: Option<String>) {
+        self.inner.base.tokenizer_repo = value;
     }
 
     #[getter]
     fn quantization(&self) -> Option<String> {
-        self.inner.quantization.clone()
+        self.inner.base.quantization.clone()
     }
     #[setter]
     fn set_quantization(&mut self, value: Option<String>) {
-        self.inner.quantization = value;
+        self.inner.base.quantization = value;
     }
 
     #[getter]
     fn device(&self) -> Option<String> {
-        self.inner.device.clone()
+        self.inner.base.device.clone()
     }
     #[setter]
     fn set_device(&mut self, value: Option<String>) {
-        self.inner.device = value;
+        self.inner.base.device = value;
     }
 
     #[getter]
     fn context_length(&self) -> Option<usize> {
-        self.inner.context_length
+        self.inner.base.context_length
     }
     #[setter]
     fn set_context_length(&mut self, value: Option<usize>) {
-        self.inner.context_length = value;
+        self.inner.base.context_length = value;
     }
 
     #[getter]
@@ -715,19 +739,20 @@ impl PyMistralRsOptions {
     #[getter]
     fn cache_dir(&self) -> Option<String> {
         self.inner
+            .base
             .cache_dir
             .as_ref()
             .map(|p: &PathBuf| p.display().to_string())
     }
     #[setter]
     fn set_cache_dir(&mut self, value: Option<String>) {
-        self.inner.cache_dir = value.map(PathBuf::from);
+        self.inner.base.cache_dir = value.map(PathBuf::from);
     }
 
     fn __repr__(&self) -> String {
         format!(
             "MistralRsOptions(model_id={:?}, quantization={:?}, device={:?})",
-            self.inner.model_id, self.inner.quantization, self.inner.device
+            self.inner.base.model_id, self.inner.base.quantization, self.inner.base.device
         )
     }
 }
@@ -749,8 +774,10 @@ impl PyMistralRsOptions {
 /// | LargeV3   | 1.5B   | ~10GB |
 ///
 /// Example:
-///     >>> WhisperModel.Base
-///     >>> opts = WhisperOptions(model=WhisperModel.Base)
+/// ```text
+///  >>> WhisperModel.Base
+///  >>> opts = WhisperOptions(model=WhisperModel.Base)
+/// ```
 #[cfg(feature = "whispercpp")]
 #[gen_stub_pyclass_enum]
 #[pyclass(name = "WhisperModel", eq, eq_int, from_py_object)]
@@ -787,9 +814,11 @@ impl From<PyWhisperModel> for blazen_llm::WhisperModel {
 /// will auto-detect the spoken language.
 ///
 /// Example:
-///     >>> opts = WhisperOptions()
-///     >>> opts = WhisperOptions(model=WhisperModel.Base, language="en")
-///     >>> transcriber = Transcription.whispercpp(options=opts)
+/// ```text
+///  >>> opts = WhisperOptions()
+///  >>> opts = WhisperOptions(model=WhisperModel.Base, language="en")
+///  >>> transcriber = Transcription.whispercpp(options=opts)
+/// ```
 #[cfg(feature = "whispercpp")]
 #[gen_stub_pyclass]
 #[pyclass(name = "WhisperOptions", from_py_object)]
@@ -890,8 +919,10 @@ impl PyWhisperOptions {
 /// Options for the local llama.cpp LLM backend.
 ///
 /// Example:
-///     >>> opts = LlamaCppOptions(model_path="/models/llama-3.2-1b-q4_k_m.gguf")
-///     >>> provider = LlamaCppProvider(options=opts)
+/// ```text
+///  >>> opts = LlamaCppOptions(model_path="/models/llama-3.2-1b-q4_k_m.gguf")
+///  >>> provider = LlamaCppProvider(options=opts)
+/// ```
 #[cfg(feature = "llamacpp")]
 #[gen_stub_pyclass]
 #[pyclass(name = "LlamaCppOptions", from_py_object)]
@@ -908,15 +939,18 @@ impl PyLlamaCppOptions {
     ///
     /// Args:
     ///     model_path: Path to a GGUF model file or HuggingFace model ID.
+    ///     tokenizer_repo: Accepted for cross-backend parity but unused —
+    ///         llama.cpp reads the tokenizer from inside the GGUF file.
     ///     device: Hardware device specifier (``"cpu"``, ``"cuda:0"``, ``"metal"``).
     ///     quantization: Quantization format string (e.g. ``"q4_k_m"``).
     ///     context_length: Maximum context length in tokens.
     ///     n_gpu_layers: Number of layers to offload to GPU.
     ///     cache_dir: Path to cache downloaded models.
     #[new]
-    #[pyo3(signature = (*, model_path=None, device=None, quantization=None, context_length=None, n_gpu_layers=None, cache_dir=None))]
+    #[pyo3(signature = (*, model_path=None, tokenizer_repo=None, device=None, quantization=None, context_length=None, n_gpu_layers=None, cache_dir=None))]
     fn new(
         model_path: Option<String>,
+        tokenizer_repo: Option<String>,
         device: Option<String>,
         quantization: Option<String>,
         context_length: Option<usize>,
@@ -925,51 +959,63 @@ impl PyLlamaCppOptions {
     ) -> Self {
         Self {
             inner: blazen_llm::LlamaCppOptions {
-                model_path,
-                device,
-                quantization,
-                context_length,
+                base: blazen_local_llm::LocalLlmOptions {
+                    model_id: model_path,
+                    tokenizer_repo,
+                    device,
+                    quantization,
+                    context_length,
+                    cache_dir: cache_dir.map(PathBuf::from),
+                    ..blazen_local_llm::LocalLlmOptions::default()
+                },
                 n_gpu_layers,
-                cache_dir: cache_dir.map(PathBuf::from),
-                initial_adapters: Vec::new(),
             },
         }
     }
 
     #[getter]
     fn model_path(&self) -> Option<String> {
-        self.inner.model_path.clone()
+        self.inner.base.model_id.clone()
     }
     #[setter]
     fn set_model_path(&mut self, value: Option<String>) {
-        self.inner.model_path = value;
+        self.inner.base.model_id = value;
+    }
+
+    #[getter]
+    fn tokenizer_repo(&self) -> Option<String> {
+        self.inner.base.tokenizer_repo.clone()
+    }
+    #[setter]
+    fn set_tokenizer_repo(&mut self, value: Option<String>) {
+        self.inner.base.tokenizer_repo = value;
     }
 
     #[getter]
     fn device(&self) -> Option<String> {
-        self.inner.device.clone()
+        self.inner.base.device.clone()
     }
     #[setter]
     fn set_device(&mut self, value: Option<String>) {
-        self.inner.device = value;
+        self.inner.base.device = value;
     }
 
     #[getter]
     fn quantization(&self) -> Option<String> {
-        self.inner.quantization.clone()
+        self.inner.base.quantization.clone()
     }
     #[setter]
     fn set_quantization(&mut self, value: Option<String>) {
-        self.inner.quantization = value;
+        self.inner.base.quantization = value;
     }
 
     #[getter]
     fn context_length(&self) -> Option<usize> {
-        self.inner.context_length
+        self.inner.base.context_length
     }
     #[setter]
     fn set_context_length(&mut self, value: Option<usize>) {
-        self.inner.context_length = value;
+        self.inner.base.context_length = value;
     }
 
     #[getter]
@@ -984,19 +1030,20 @@ impl PyLlamaCppOptions {
     #[getter]
     fn cache_dir(&self) -> Option<String> {
         self.inner
+            .base
             .cache_dir
             .as_ref()
             .map(|p: &PathBuf| p.display().to_string())
     }
     #[setter]
     fn set_cache_dir(&mut self, value: Option<String>) {
-        self.inner.cache_dir = value.map(PathBuf::from);
+        self.inner.base.cache_dir = value.map(PathBuf::from);
     }
 
     fn __repr__(&self) -> String {
         format!(
             "LlamaCppOptions(model_path={:?}, device={:?})",
-            self.inner.model_path, self.inner.device
+            self.inner.base.model_id, self.inner.base.device
         )
     }
 }
@@ -1008,8 +1055,10 @@ impl PyLlamaCppOptions {
 /// Options for the local candle LLM backend.
 ///
 /// Example:
-///     >>> opts = CandleLlmOptions(model_id="meta-llama/Llama-3.2-1B")
-///     >>> provider = CandleLlmProvider(options=opts)
+/// ```text
+///  >>> opts = CandleLlmOptions(model_id="meta-llama/Llama-3.2-1B")
+///  >>> provider = CandleLlmProvider(options=opts)
+/// ```
 #[cfg(feature = "candle-llm")]
 #[gen_stub_pyclass]
 #[pyclass(name = "CandleLlmOptions", from_py_object)]
@@ -1026,15 +1075,19 @@ impl PyCandleLlmOptions {
     ///
     /// Args:
     ///     model_id: HuggingFace model ID or local path to weights.
+    ///     tokenizer_repo: Optional separate HF repo for ``tokenizer.json``
+    ///         — required for GGUF-only repos that don't redistribute
+    ///         the tokenizer. Falls back to ``model_id``.
     ///     device: Hardware device specifier (``"cpu"``, ``"cuda:0"``, ``"metal"``).
     ///     quantization: Quantization format string (e.g. ``"q4_k_m"``).
     ///     revision: Model revision / branch on HuggingFace.
     ///     context_length: Maximum context length in tokens.
     ///     cache_dir: Path to cache downloaded models.
     #[new]
-    #[pyo3(signature = (*, model_id=None, device=None, quantization=None, revision=None, context_length=None, cache_dir=None))]
+    #[pyo3(signature = (*, model_id=None, tokenizer_repo=None, device=None, quantization=None, revision=None, context_length=None, cache_dir=None))]
     fn new(
         model_id: Option<String>,
+        tokenizer_repo: Option<String>,
         device: Option<String>,
         quantization: Option<String>,
         revision: Option<String>,
@@ -1043,13 +1096,16 @@ impl PyCandleLlmOptions {
     ) -> Self {
         Self {
             inner: blazen_llm::CandleLlmOptions {
-                model_id,
-                device,
-                quantization,
-                revision,
-                context_length,
-                cache_dir: cache_dir.map(PathBuf::from),
-                initial_adapters: Vec::new(),
+                base: blazen_local_llm::LocalLlmOptions {
+                    model_id,
+                    tokenizer_repo,
+                    device,
+                    quantization,
+                    revision,
+                    context_length,
+                    cache_dir: cache_dir.map(PathBuf::from),
+                    ..blazen_local_llm::LocalLlmOptions::default()
+                },
                 force_safetensors: false,
             },
         }
@@ -1057,65 +1113,75 @@ impl PyCandleLlmOptions {
 
     #[getter]
     fn model_id(&self) -> Option<String> {
-        self.inner.model_id.clone()
+        self.inner.base.model_id.clone()
     }
     #[setter]
     fn set_model_id(&mut self, value: Option<String>) {
-        self.inner.model_id = value;
+        self.inner.base.model_id = value;
+    }
+
+    #[getter]
+    fn tokenizer_repo(&self) -> Option<String> {
+        self.inner.base.tokenizer_repo.clone()
+    }
+    #[setter]
+    fn set_tokenizer_repo(&mut self, value: Option<String>) {
+        self.inner.base.tokenizer_repo = value;
     }
 
     #[getter]
     fn device(&self) -> Option<String> {
-        self.inner.device.clone()
+        self.inner.base.device.clone()
     }
     #[setter]
     fn set_device(&mut self, value: Option<String>) {
-        self.inner.device = value;
+        self.inner.base.device = value;
     }
 
     #[getter]
     fn quantization(&self) -> Option<String> {
-        self.inner.quantization.clone()
+        self.inner.base.quantization.clone()
     }
     #[setter]
     fn set_quantization(&mut self, value: Option<String>) {
-        self.inner.quantization = value;
+        self.inner.base.quantization = value;
     }
 
     #[getter]
     fn revision(&self) -> Option<String> {
-        self.inner.revision.clone()
+        self.inner.base.revision.clone()
     }
     #[setter]
     fn set_revision(&mut self, value: Option<String>) {
-        self.inner.revision = value;
+        self.inner.base.revision = value;
     }
 
     #[getter]
     fn context_length(&self) -> Option<usize> {
-        self.inner.context_length
+        self.inner.base.context_length
     }
     #[setter]
     fn set_context_length(&mut self, value: Option<usize>) {
-        self.inner.context_length = value;
+        self.inner.base.context_length = value;
     }
 
     #[getter]
     fn cache_dir(&self) -> Option<String> {
         self.inner
+            .base
             .cache_dir
             .as_ref()
             .map(|p: &PathBuf| p.display().to_string())
     }
     #[setter]
     fn set_cache_dir(&mut self, value: Option<String>) {
-        self.inner.cache_dir = value.map(PathBuf::from);
+        self.inner.base.cache_dir = value.map(PathBuf::from);
     }
 
     fn __repr__(&self) -> String {
         format!(
             "CandleLlmOptions(model_id={:?}, device={:?})",
-            self.inner.model_id, self.inner.device
+            self.inner.base.model_id, self.inner.base.device
         )
     }
 }
@@ -1127,8 +1193,10 @@ impl PyCandleLlmOptions {
 /// Options for the local candle embedding backend.
 ///
 /// Example:
-///     >>> opts = CandleEmbedOptions(model_id="BAAI/bge-small-en-v1.5")
-///     >>> model = CandleEmbedModel(options=opts)
+/// ```text
+///  >>> opts = CandleEmbedOptions(model_id="BAAI/bge-small-en-v1.5")
+///  >>> model = CandleEmbedModel(options=opts)
+/// ```
 #[cfg(feature = "candle-embed")]
 #[gen_stub_pyclass]
 #[pyclass(name = "CandleEmbedOptions", from_py_object)]
@@ -1221,8 +1289,10 @@ impl PyCandleEmbedOptions {
 /// Options for the local TTS backend (`any-tts`).
 ///
 /// Example:
-///     >>> opts = TtsOptions(model="kokoro82m", voice="af_bella")
-///     >>> provider = TtsProvider(options=opts)
+/// ```text
+///  >>> opts = TtsOptions(model="kokoro82m", voice="af_bella")
+///  >>> provider = TtsProvider(options=opts)
+/// ```
 #[cfg(feature = "tts")]
 #[gen_stub_pyclass]
 #[pyclass(name = "TtsOptions", from_py_object)]
@@ -1409,8 +1479,10 @@ impl From<blazen_llm::DiffusionScheduler> for PyDiffusionScheduler {
 /// Options for the local diffusion-rs image generation backend.
 ///
 /// Example:
-///     >>> opts = DiffusionOptions(model_id="stabilityai/stable-diffusion-2-1", width=768, height=768)
-///     >>> provider = DiffusionProvider(options=opts)
+/// ```text
+///  >>> opts = DiffusionOptions(model_id="stabilityai/stable-diffusion-2-1", width=768, height=768)
+///  >>> provider = DiffusionProvider(options=opts)
+/// ```
 #[cfg(feature = "diffusion")]
 #[gen_stub_pyclass]
 #[pyclass(name = "DiffusionOptions", from_py_object)]
@@ -1555,8 +1627,10 @@ impl PyDiffusionOptions {
 /// the Microsoft-prebuilt ONNX Runtime binaries can link.
 ///
 /// Example:
-///     >>> opts = FastEmbedOptions(model_name="BGESmallENV15")
-///     >>> model = FastEmbedModel(options=opts)
+/// ```text
+///  >>> opts = FastEmbedOptions(model_name="BGESmallENV15")
+///  >>> model = FastEmbedModel(options=opts)
+/// ```
 #[cfg(all(feature = "embed", not(target_env = "musl")))]
 #[gen_stub_pyclass]
 #[pyclass(name = "FastEmbedOptions", from_py_object)]
@@ -1650,8 +1724,10 @@ impl PyFastEmbedOptions {
 /// where fastembed's prebuilt ONNX Runtime binaries are unavailable.
 ///
 /// Example:
-///     >>> opts = TractOptions(model_name="BGESmallENV15")
-///     >>> model = TractEmbedModel(options=opts)
+/// ```text
+///  >>> opts = TractOptions(model_name="BGESmallENV15")
+///  >>> model = TractEmbedModel(options=opts)
+/// ```
 #[cfg(feature = "tract")]
 #[gen_stub_pyclass]
 #[pyclass(name = "TractOptions", from_py_object)]

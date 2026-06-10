@@ -19,11 +19,15 @@ install-test:
 	uvx --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ runlayer
 
 version-bump:
-	@if [ -z "$(VERSION)" ]; then \
-		echo "Error: VERSION not specified. Usage: make version-bump VERSION=0.1.1"; \
+	@if [ -z "$(VERSION)" ] && [ -z "$(BUMP)" ]; then \
+		echo "Error: specify VERSION or BUMP. Usage: make version-bump VERSION=0.1.1  |  make version-bump BUMP=patch|minor|major"; \
 		exit 1; \
 	fi
-	uv version $(VERSION)
+	@if [ -n "$(VERSION)" ]; then \
+		uv version "$(VERSION)"; \
+	else \
+		uv version --bump "$(BUMP)"; \
+	fi
 
 test:
 	uv run pytest

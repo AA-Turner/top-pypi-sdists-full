@@ -29,6 +29,7 @@ Logging:
 import logging as _logging
 
 from .client import CIRISVerify, MockCIRISVerify, verify_tree, DEFAULT_REGISTRY_URL
+from ._jcs import jcs_canonicalize
 from .types import (
     LicenseStatus,
     LicenseTier,
@@ -118,11 +119,12 @@ def get_library_version() -> str:
     return __version__
 
 
-__version__ = "4.11.0"
+__version__ = "5.0.0"
 __all__ = [
     "CIRISVerify",
     "MockCIRISVerify",
     "verify_tree",
+    "jcs_canonicalize",
     "DEFAULT_REGISTRY_URL",
     "TreeVerifyRequest",
     "TreeVerifyResult",

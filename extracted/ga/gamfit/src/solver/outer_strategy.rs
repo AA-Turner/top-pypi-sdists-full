@@ -562,26 +562,6 @@ impl DeclaredHessianForm {
     }
 }
 
-/// Bridge for the partial migration from the legacy `Derivative`-only
-/// declaration to the richer [`DeclaredHessianForm`] used by the
-/// outer-optimizer planner. Family call sites that still produce
-/// `Derivative` (the simple available/unavailable bit) lift through
-/// this `From` impl without each rewriting its capability probe:
-/// `Analytic` defaults to `Either` so the seed loop inspects the
-/// realized seed eval and locks the route at runtime, mirroring the
-/// historical seed-eval-branch behavior; `Unavailable` projects to
-/// `Unavailable`. New call sites that already know whether the
-/// Hessian is materialized as `Dense` or comes through an `Operator`
-/// can construct the richer variant directly.
-impl From<Derivative> for DeclaredHessianForm {
-    fn from(d: Derivative) -> Self {
-        match d {
-            Derivative::Analytic => DeclaredHessianForm::Either,
-            Derivative::Unavailable => DeclaredHessianForm::Unavailable,
-        }
-    }
-}
-
 /// Declares what a specific model path can provide to the outer optimizer.
 ///
 /// Each call site that optimizes smoothing parameters constructs one of these
@@ -1958,6 +1938,19 @@ pub trait OuterObjective {
     /// propagate `Err`.
     fn seed_inner_state(&mut self, beta: &Array1<f64>) -> Result<SeedOutcome, EstimationError>;
 
+    /// Whether the objective can benefit from continuation pre-warm before
+    /// the first solver eval at a candidate seed.
+    ///
+    /// Pre-warm is only correct for objectives with a real writable inner
+    /// state slot: it evaluates an oversmoothed rho path before the seed and
+    /// forwards non-empty `inner_beta_hint`s between steps. Generic synthetic
+    /// objectives and rho-only cache probes must start at the chosen seed
+    /// directly, otherwise the pre-warm becomes an observable extra eval and
+    /// can clobber seed-dispatch bookkeeping with empty beta seeds.
+    fn allow_continuation_prewarm(&self) -> bool {
+        false
+    }
+
     /// Optional opt-in to the device-resident outer REML BFGS-over-ρ driver
     /// (`crate::solver::gpu::reml_outer::run_reml_outer_on_device`). Returns
     /// `Some(adm)` when the objective is a REML evaluator whose
@@ -2265,6 +2258,10 @@ impl<'a> OuterObjective for CheckpointingObjective<'a> {
         result
     }
 
+    fn allow_continuation_prewarm(&self) -> bool {
+        self.inner.allow_continuation_prewarm()
+    }
+
     fn reset(&mut self) {
         self.inner.reset();
     }
@@ -2377,6 +2374,10 @@ where
             // event or a silent continuation-walk degradation.
             None => Ok(SeedOutcome::NoSlot),
         }
+    }
+
+    fn allow_continuation_prewarm(&self) -> bool {
+        self.seed_fn.is_some()
     }
 
     fn reset(&mut self) {
@@ -2529,10 +2530,24 @@ struct OuterFirstOrderBridge<'a> {
     layout: OuterThetaLayout,
     /// Outer-aware inner-PIRLS cap atomic. When `Some`, the bridge stores
     /// a coarsen-then-tighten cap into it on every accepted gradient eval
-    /// (see `first_order_inner_cap_schedule`). The cap is NEVER touched
-    /// in `eval_cost` so line-search probes within an outer iter see a
-    /// stable inner tolerance — Wolfe conditions assume constant cost
-    /// noise within a bracket.
+    /// (see `first_order_inner_cap_schedule`).
+    ///
+    /// The cap is a perf optimization for the GRADIENT inner solve only: at
+    /// the accepted ρ the warm-start is excellent, so a small cap converges
+    /// the inner Newton and a still-non-converged result is honestly rejected
+    /// as infeasible. But the line-search COST probe (`eval_cost`) evaluates a
+    /// DIFFERENT trial ρ whose warm-start is worse; the same small cap can stop
+    /// the inner solve short of its fixed point, returning a non-converged
+    /// `f64::INFINITY` cost for a point that is actually feasible. With every
+    /// trial step then reporting `∞`, no Wolfe/ARC step satisfies descent, the
+    /// optimizer never leaves the accepted ρ, and the gradient re-evaluated
+    /// there is identical iter after iter — the frozen-|g| outer stall in
+    /// gam#787 (bernoulli matern marginal-slope) and gam#808 (survival
+    /// marginal-slope). The line-search cost MUST be the same converged-inner
+    /// objective the analytic envelope gradient differentiates; a capped
+    /// surrogate is a different objective. So `eval_cost` UNCAPS the inner solve
+    /// (stores `0` = full `pirls_config.max_iterations`) before delegating, and
+    /// `eval_grad`/`eval_hessian` restore the scheduled cap on the next call.
     outer_inner_cap: Option<InnerProgressFeedback>,
     /// Counts gradient evaluations for logging only. Inner-PIRLS scheduling
     /// uses `InnerProgressFeedback.accepted_iter` so rejected line-search
@@ -2559,6 +2574,18 @@ impl ZerothOrderObjective for OuterFirstOrderBridge<'_> {
         // sentinel cost. This entry point can therefore stay honest: any
         // call that lands here is a real line-search probe, not a too-far
         // attempt the bridge needs to swat away.
+        //
+        // Uncap the inner solve for the line-search cost probe (see the field
+        // doc on `outer_inner_cap`): the deciding cost MUST be the true
+        // converged-inner objective the analytic gradient differentiates, not
+        // the scheduled gradient-path cap which can stop a trial-ρ inner solve
+        // short of its fixed point and report a spurious `∞`. `eval_grad`
+        // restores the scheduled cap on the next call.
+        if let Some(feedback) = self.outer_inner_cap.as_ref() {
+            feedback
+                .cap
+                .store(SEED_SCREENING_UNCAPPED, Ordering::Relaxed);
+        }
         self.layout
             .validate_point_len(x, "outer eval_cost failed")?;
         let cost = self
@@ -2658,6 +2685,20 @@ impl FirstOrderObjective for OuterFirstOrderBridge<'_> {
     }
 }
 
+/// Outer gradient-decay ratio `‖g_now‖/‖g_initial‖` below which the outer is
+/// treated as essentially converged: the inner cap is lifted entirely so the
+/// cached β reaches full inner tolerance before the convergence guard runs.
+const INNER_CAP_CONVERGENCE_OVERRIDE_RATIO: f64 = 0.01;
+
+/// Floor on the adaptive inner-PIRLS cap. Any cap below this is below the
+/// inner-Newton noise level and would reject usable warm-started steps.
+const INNER_CAP_FLOOR: usize = 3;
+
+/// Ceiling on the adaptive inner-PIRLS cap, set at the inner-Newton noise
+/// floor at biobank scale; further iterations are pure waste once the warm
+/// start is close.
+const INNER_CAP_CEILING: usize = 64;
+
 /// Adaptive inner-PIRLS cap schedule. Replaces the older hardcoded
 /// iter-tier (3/5/10/20) and ratio-tier (0.50/0.20/0.05/0.01) schedule
 /// with a cap driven by the inner solver's actual convergence behavior
@@ -2692,7 +2733,7 @@ fn first_order_inner_cap_schedule(
     // path is independent of inner-progress history because the outer
     // re-evaluation guard pays a full inner solve anyway — uncapping
     // here just avoids one wasted iter at low cap before the guard.
-    if matches!(g_ratio, Some(r) if r < 0.01) {
+    if matches!(g_ratio, Some(r) if r < INNER_CAP_CONVERGENCE_OVERRIDE_RATIO) {
         return 0;
     }
 
@@ -2753,7 +2794,7 @@ fn first_order_inner_cap_schedule(
                 .saturating_mul(multiplier)
                 .max(snap.last_iters.saturating_add(4))
         };
-        return next.clamp(3, 64);
+        return next.clamp(INNER_CAP_FLOOR, INNER_CAP_CEILING);
     }
 
     // No feedback yet (first outer iter, or right after a screening
@@ -3158,6 +3199,19 @@ struct OuterSecondOrderBridge<'a> {
 
 impl ZerothOrderObjective for OuterSecondOrderBridge<'_> {
     fn eval_cost(&mut self, x: &Array1<f64>) -> Result<f64, ObjectiveEvalError> {
+        // Uncap the inner solve for the ARC line-search / trial-acceptance cost
+        // probe. Identical rationale to `OuterFirstOrderBridge::eval_cost`: the
+        // deciding cost must be the true converged-inner objective the analytic
+        // gradient/Hessian differentiate, never the scheduled gradient-path cap
+        // (which at a trial ρ can stop the inner solve short and report a
+        // spurious `∞`, freezing the ARC at constant cost / |g| — gam#808
+        // survival marginal-slope, gam#787 bernoulli matern marginal-slope).
+        // `eval_grad`/`eval_hessian` restore the scheduled cap on the next call.
+        if let Some(feedback) = self.outer_inner_cap.as_ref() {
+            feedback
+                .cap
+                .store(SEED_SCREENING_UNCAPPED, Ordering::Relaxed);
+        }
         self.layout
             .validate_point_len(x, "outer eval_cost failed")?;
         let cost = self
@@ -3495,6 +3549,19 @@ struct OuterOperatorBridge<'a> {
 
 impl ZerothOrderObjective for OuterOperatorBridge<'_> {
     fn eval_cost(&mut self, x: &Array1<f64>) -> Result<f64, ObjectiveEvalError> {
+        // Uncap the inner solve for the matrix-free TR line-search cost probe.
+        // Identical rationale to the BFGS / ARC bridges: the deciding cost must
+        // be the true converged-inner objective the analytic gradient/operator
+        // Hessian differentiate, never the scheduled gradient-path cap (which at
+        // a trial ρ can stop the inner solve short and report a spurious `∞`,
+        // freezing the TR at constant cost / |g|). This is the route the
+        // ψ-bearing matern bernoulli marginal-slope fit takes (gam#787);
+        // `eval_value_grad_op` restores the scheduled cap on the next call.
+        if let Some(feedback) = self.outer_inner_cap.as_ref() {
+            feedback
+                .cap
+                .store(SEED_SCREENING_UNCAPPED, Ordering::Relaxed);
+        }
         self.layout
             .validate_point_len(x, "outer eval_cost failed")?;
         let cost = self
@@ -5555,7 +5622,7 @@ fn run_outer_with_plan(
         // there would route straight into that error stub and reject every
         // seed, so skip it: the direct search starts from `seed` directly,
         // exactly as its dispatch (`Solver::CompassSearch` arm below) expects.
-        if the_plan.solver != Solver::CompassSearch {
+        if the_plan.solver != Solver::CompassSearch && obj.allow_continuation_prewarm() {
             let prewarm_start = std::time::Instant::now();
             match crate::solver::estimate::reml::continuation::prime_outer_seed(
                 obj,
@@ -6006,8 +6073,6 @@ fn run_outer_with_plan(
                         max_iterations: config.max_iter,
                         axis_step_caps: axis_caps_dev,
                         admission,
-                        seed_penalised_hessian: ndarray::Array2::<f64>::zeros((0, 0)),
-                        seed_derivative_hessians: Vec::new(),
                         seed_objective: seed_eval_dev.cost,
                     };
                     // The per-step evaluator routes the on-device

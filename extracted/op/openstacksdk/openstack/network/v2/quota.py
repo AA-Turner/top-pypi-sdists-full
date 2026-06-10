@@ -51,6 +51,8 @@ class Quota(resource.Resource):
     project_id = resource.Body('tenant_id', alternate_id=True)
     #: The maximum amount of RBAC policies you can create. *Type: int*
     rbac_policies = resource.Body('rbac_policy', type=int)
+    #: The maximum amount of router routes you can create. *Type: int*
+    router_routes = resource.Body('router_route', type=int)
     #: The maximum amount of routers you can create. *Type: int*
     routers = resource.Body('router', type=int)
     #: The maximum amount of subnets you can create. *Type: int*
@@ -64,13 +66,13 @@ class Quota(resource.Resource):
 
     def _prepare_request(
         self,
-        requires_id=True,
-        prepend_key=False,
-        patch=False,
-        base_path=None,
-        *args,
-        **kwargs,
-    ):
+        requires_id: bool | None = True,
+        prepend_key: bool = False,
+        patch: bool = False,
+        base_path: str | None = None,
+        params: Any = None,
+        **kwargs: Any,
+    ) -> resource._Request:
         _request = super()._prepare_request(requires_id, prepend_key)
         _body = cast(dict[str, Any], _request.body)
         if self.resource_key in _body:
@@ -126,6 +128,8 @@ class QuotaDetails(Quota):
     project_id = resource.Body('project_id', alternate_id=True)
     #: The maximum amount of RBAC policies you can create. *Type: dict*
     rbac_policies = resource.Body('rbac_policy', type=dict)
+    #: The maximum amount of router routes you can create. *Type: dict*
+    router_routes = resource.Body('router_route', type=dict)
     #: The maximum amount of routers you can create. *Type: int*
     routers = resource.Body('router', type=dict)
     #: The maximum amount of subnets you can create. *Type: dict*

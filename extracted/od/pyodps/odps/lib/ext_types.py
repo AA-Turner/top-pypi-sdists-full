@@ -16,10 +16,10 @@
 import sys
 import re
 
-if sys.version_info[0] <= 2:
-    string_types = basestring
-else:
+if sys.version_info[0] >= 3:
     string_types = str
+else:
+    string_types = basestring
 
 _MD_PATTERNS = [
     re.compile(r'^(?P<month>(\d+|-\d+))$'),
@@ -30,7 +30,7 @@ _MD_PATTERNS = [
 ]
 
 
-class Monthdelta(object):
+class Monthdelta:
     __slots__ = '_total_months',
 
     def __init__(self, years=None, months=None):

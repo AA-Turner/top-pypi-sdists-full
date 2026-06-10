@@ -52,31 +52,37 @@ class _DictManager:
         environment_name: typing.Optional[str] = None,
         client: typing.Optional[modal.client._Client] = None,
     ) -> None:
-        """Create a new Dict object.
+        """Create a new named Dict in the workspace environment.
 
-        **Examples:**
-
-        ```python notest
-        modal.Dict.objects.create("my-dict")
-        ```
-
-        Dicts will be created in the active environment, or another one can be specified:
-
-        ```python notest
-        modal.Dict.objects.create("my-dict", environment_name="dev")
-        ```
-
-        By default, an error will be raised if the Dict already exists, but passing
-        `allow_existing=True` will make the creation attempt a no-op in this case.
-
-        ```python notest
-        modal.Dict.objects.create("my-dict", allow_existing=True)
-        ```
-
-        Note that this method does not return a local instance of the Dict. You can use
-        `modal.Dict.from_name` to perform a lookup after creation.
+        This does not return a local handle; use `modal.Dict.from_name` to look up the Dict after creation.
 
         Added in v1.1.2.
+
+        Args:
+            name: Name for the new Dict.
+            allow_existing: If True, do nothing when a Dict with this name already exists.
+            environment_name: Environment to create in; defaults to the active environment.
+            client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+        Examples:
+            ```python notest
+            modal.Dict.objects.create("my-dict")
+            ```
+
+            Dicts will be created in the active environment, or another one can be specified:
+
+            ```python notest
+            modal.Dict.objects.create("my-dict", environment_name="dev")
+            ```
+
+            By default, an error is raised if the Dict already exists; `allow_existing=True` makes that case a no-op:
+
+            ```python notest
+            modal.Dict.objects.create("my-dict", allow_existing=True)
+            ```
+
+            Note that this method does not return a local instance of the Dict. You can use
+            `modal.Dict.from_name` to perform a lookup after creation.
         """
         ...
 
@@ -88,29 +94,39 @@ class _DictManager:
         environment_name: str = "",
         client: typing.Optional[modal.client._Client] = None,
     ) -> list[_Dict]:
-        """Return a list of hydrated Dict objects.
+        """List named Dicts in the workspace environment as hydrated handles.
 
-        **Examples:**
-
-        ```python
-        dicts = modal.Dict.objects.list()
-        print([d.name for d in dicts])
-        ```
-
-        Dicts will be retreived from the active environment, or another one can be specified:
-
-        ```python notest
-        dev_dicts = modal.Dict.objects.list(environment_name="dev")
-        ```
-
-        By default, all named Dict are returned, newest to oldest. It's also possible to limit the
-        number of results and to filter by creation date:
-
-        ```python
-        dicts = modal.Dict.objects.list(max_objects=10, created_before="2025-01-01")
-        ```
+        Results are ordered newest to oldest. By default, all matching Dicts are returned.
 
         Added in v1.1.2.
+
+        Args:
+            max_objects: Maximum number of Dicts to return.
+            created_before: Only include Dicts created before this time (datetime or ISO date string).
+            environment_name: Environment to list from; defaults to the active environment.
+            client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            Hydrated `Dict` objects for each named Dict in the listing.
+
+        Examples:
+            ```python
+            dicts = modal.Dict.objects.list()
+            print([d.name for d in dicts])
+            ```
+
+            Dicts will be retrieved from the active environment, or another one can be specified:
+
+            ```python notest
+            dev_dicts = modal.Dict.objects.list(environment_name="dev")
+            ```
+
+            By default, all named Dicts are returned, newest to oldest. It's also possible to limit the
+            number of results and to filter by creation date:
+
+            ```python
+            dicts = modal.Dict.objects.list(max_objects=10, created_before="2025-01-01")
+            ```
         """
         ...
 
@@ -122,24 +138,28 @@ class _DictManager:
         environment_name: typing.Optional[str] = None,
         client: typing.Optional[modal.client._Client] = None,
     ):
-        """Delete a named Dict.
+        """Delete a named Dict entirely (not a single key).
 
-        Warning: This deletes an *entire Dict*, not just a specific key.
-        Deletion is irreversible and will affect any Apps currently using the Dict.
-
-        **Examples:**
-
-        ```python notest
-        await modal.Dict.objects.delete("my-dict")
-        ```
-
-        Dicts will be deleted from the active environment, or another one can be specified:
-
-        ```python notest
-        await modal.Dict.objects.delete("my-dict", environment_name="dev")
-        ```
+        Deletion is irreversible and affects any Apps using this Dict.
 
         Added in v1.1.2.
+
+        Args:
+            name: Name of the Dict to delete.
+            allow_missing: If True, do nothing when the Dict does not exist.
+            environment_name: Environment to delete from; defaults to the active environment.
+            client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+        Examples:
+            ```python notest
+            await modal.Dict.objects.delete("my-dict")
+            ```
+
+            Dicts will be deleted from the active environment, or another one can be specified:
+
+            ```python notest
+            await modal.Dict.objects.delete("my-dict", environment_name="dev")
+            ```
         """
         ...
 
@@ -159,31 +179,37 @@ class DictManager:
             environment_name: typing.Optional[str] = None,
             client: typing.Optional[modal.client.Client] = None,
         ) -> None:
-            """Create a new Dict object.
+            """Create a new named Dict in the workspace environment.
 
-            **Examples:**
-
-            ```python notest
-            modal.Dict.objects.create("my-dict")
-            ```
-
-            Dicts will be created in the active environment, or another one can be specified:
-
-            ```python notest
-            modal.Dict.objects.create("my-dict", environment_name="dev")
-            ```
-
-            By default, an error will be raised if the Dict already exists, but passing
-            `allow_existing=True` will make the creation attempt a no-op in this case.
-
-            ```python notest
-            modal.Dict.objects.create("my-dict", allow_existing=True)
-            ```
-
-            Note that this method does not return a local instance of the Dict. You can use
-            `modal.Dict.from_name` to perform a lookup after creation.
+            This does not return a local handle; use `modal.Dict.from_name` to look up the Dict after creation.
 
             Added in v1.1.2.
+
+            Args:
+                name: Name for the new Dict.
+                allow_existing: If True, do nothing when a Dict with this name already exists.
+                environment_name: Environment to create in; defaults to the active environment.
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+            Examples:
+                ```python notest
+                modal.Dict.objects.create("my-dict")
+                ```
+
+                Dicts will be created in the active environment, or another one can be specified:
+
+                ```python notest
+                modal.Dict.objects.create("my-dict", environment_name="dev")
+                ```
+
+                By default, an error is raised if the Dict already exists; `allow_existing=True` makes that case a no-op:
+
+                ```python notest
+                modal.Dict.objects.create("my-dict", allow_existing=True)
+                ```
+
+                Note that this method does not return a local instance of the Dict. You can use
+                `modal.Dict.from_name` to perform a lookup after creation.
             """
             ...
 
@@ -196,31 +222,37 @@ class DictManager:
             environment_name: typing.Optional[str] = None,
             client: typing.Optional[modal.client.Client] = None,
         ) -> None:
-            """Create a new Dict object.
+            """Create a new named Dict in the workspace environment.
 
-            **Examples:**
-
-            ```python notest
-            modal.Dict.objects.create("my-dict")
-            ```
-
-            Dicts will be created in the active environment, or another one can be specified:
-
-            ```python notest
-            modal.Dict.objects.create("my-dict", environment_name="dev")
-            ```
-
-            By default, an error will be raised if the Dict already exists, but passing
-            `allow_existing=True` will make the creation attempt a no-op in this case.
-
-            ```python notest
-            modal.Dict.objects.create("my-dict", allow_existing=True)
-            ```
-
-            Note that this method does not return a local instance of the Dict. You can use
-            `modal.Dict.from_name` to perform a lookup after creation.
+            This does not return a local handle; use `modal.Dict.from_name` to look up the Dict after creation.
 
             Added in v1.1.2.
+
+            Args:
+                name: Name for the new Dict.
+                allow_existing: If True, do nothing when a Dict with this name already exists.
+                environment_name: Environment to create in; defaults to the active environment.
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+            Examples:
+                ```python notest
+                modal.Dict.objects.create("my-dict")
+                ```
+
+                Dicts will be created in the active environment, or another one can be specified:
+
+                ```python notest
+                modal.Dict.objects.create("my-dict", environment_name="dev")
+                ```
+
+                By default, an error is raised if the Dict already exists; `allow_existing=True` makes that case a no-op:
+
+                ```python notest
+                modal.Dict.objects.create("my-dict", allow_existing=True)
+                ```
+
+                Note that this method does not return a local instance of the Dict. You can use
+                `modal.Dict.from_name` to perform a lookup after creation.
             """
             ...
 
@@ -236,29 +268,39 @@ class DictManager:
             environment_name: str = "",
             client: typing.Optional[modal.client.Client] = None,
         ) -> list[Dict]:
-            """Return a list of hydrated Dict objects.
+            """List named Dicts in the workspace environment as hydrated handles.
 
-            **Examples:**
-
-            ```python
-            dicts = modal.Dict.objects.list()
-            print([d.name for d in dicts])
-            ```
-
-            Dicts will be retreived from the active environment, or another one can be specified:
-
-            ```python notest
-            dev_dicts = modal.Dict.objects.list(environment_name="dev")
-            ```
-
-            By default, all named Dict are returned, newest to oldest. It's also possible to limit the
-            number of results and to filter by creation date:
-
-            ```python
-            dicts = modal.Dict.objects.list(max_objects=10, created_before="2025-01-01")
-            ```
+            Results are ordered newest to oldest. By default, all matching Dicts are returned.
 
             Added in v1.1.2.
+
+            Args:
+                max_objects: Maximum number of Dicts to return.
+                created_before: Only include Dicts created before this time (datetime or ISO date string).
+                environment_name: Environment to list from; defaults to the active environment.
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+            Returns:
+                Hydrated `Dict` objects for each named Dict in the listing.
+
+            Examples:
+                ```python
+                dicts = modal.Dict.objects.list()
+                print([d.name for d in dicts])
+                ```
+
+                Dicts will be retrieved from the active environment, or another one can be specified:
+
+                ```python notest
+                dev_dicts = modal.Dict.objects.list(environment_name="dev")
+                ```
+
+                By default, all named Dicts are returned, newest to oldest. It's also possible to limit the
+                number of results and to filter by creation date:
+
+                ```python
+                dicts = modal.Dict.objects.list(max_objects=10, created_before="2025-01-01")
+                ```
             """
             ...
 
@@ -271,29 +313,39 @@ class DictManager:
             environment_name: str = "",
             client: typing.Optional[modal.client.Client] = None,
         ) -> list[Dict]:
-            """Return a list of hydrated Dict objects.
+            """List named Dicts in the workspace environment as hydrated handles.
 
-            **Examples:**
-
-            ```python
-            dicts = modal.Dict.objects.list()
-            print([d.name for d in dicts])
-            ```
-
-            Dicts will be retreived from the active environment, or another one can be specified:
-
-            ```python notest
-            dev_dicts = modal.Dict.objects.list(environment_name="dev")
-            ```
-
-            By default, all named Dict are returned, newest to oldest. It's also possible to limit the
-            number of results and to filter by creation date:
-
-            ```python
-            dicts = modal.Dict.objects.list(max_objects=10, created_before="2025-01-01")
-            ```
+            Results are ordered newest to oldest. By default, all matching Dicts are returned.
 
             Added in v1.1.2.
+
+            Args:
+                max_objects: Maximum number of Dicts to return.
+                created_before: Only include Dicts created before this time (datetime or ISO date string).
+                environment_name: Environment to list from; defaults to the active environment.
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+            Returns:
+                Hydrated `Dict` objects for each named Dict in the listing.
+
+            Examples:
+                ```python
+                dicts = modal.Dict.objects.list()
+                print([d.name for d in dicts])
+                ```
+
+                Dicts will be retrieved from the active environment, or another one can be specified:
+
+                ```python notest
+                dev_dicts = modal.Dict.objects.list(environment_name="dev")
+                ```
+
+                By default, all named Dicts are returned, newest to oldest. It's also possible to limit the
+                number of results and to filter by creation date:
+
+                ```python
+                dicts = modal.Dict.objects.list(max_objects=10, created_before="2025-01-01")
+                ```
             """
             ...
 
@@ -309,24 +361,28 @@ class DictManager:
             environment_name: typing.Optional[str] = None,
             client: typing.Optional[modal.client.Client] = None,
         ):
-            """Delete a named Dict.
+            """Delete a named Dict entirely (not a single key).
 
-            Warning: This deletes an *entire Dict*, not just a specific key.
-            Deletion is irreversible and will affect any Apps currently using the Dict.
-
-            **Examples:**
-
-            ```python notest
-            await modal.Dict.objects.delete("my-dict")
-            ```
-
-            Dicts will be deleted from the active environment, or another one can be specified:
-
-            ```python notest
-            await modal.Dict.objects.delete("my-dict", environment_name="dev")
-            ```
+            Deletion is irreversible and affects any Apps using this Dict.
 
             Added in v1.1.2.
+
+            Args:
+                name: Name of the Dict to delete.
+                allow_missing: If True, do nothing when the Dict does not exist.
+                environment_name: Environment to delete from; defaults to the active environment.
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+            Examples:
+                ```python notest
+                await modal.Dict.objects.delete("my-dict")
+                ```
+
+                Dicts will be deleted from the active environment, or another one can be specified:
+
+                ```python notest
+                await modal.Dict.objects.delete("my-dict", environment_name="dev")
+                ```
             """
             ...
 
@@ -339,24 +395,28 @@ class DictManager:
             environment_name: typing.Optional[str] = None,
             client: typing.Optional[modal.client.Client] = None,
         ):
-            """Delete a named Dict.
+            """Delete a named Dict entirely (not a single key).
 
-            Warning: This deletes an *entire Dict*, not just a specific key.
-            Deletion is irreversible and will affect any Apps currently using the Dict.
-
-            **Examples:**
-
-            ```python notest
-            await modal.Dict.objects.delete("my-dict")
-            ```
-
-            Dicts will be deleted from the active environment, or another one can be specified:
-
-            ```python notest
-            await modal.Dict.objects.delete("my-dict", environment_name="dev")
-            ```
+            Deletion is irreversible and affects any Apps using this Dict.
 
             Added in v1.1.2.
+
+            Args:
+                name: Name of the Dict to delete.
+                allow_missing: If True, do nothing when the Dict does not exist.
+                environment_name: Environment to delete from; defaults to the active environment.
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+
+            Examples:
+                ```python notest
+                await modal.Dict.objects.delete("my-dict")
+                ```
+
+                Dicts will be deleted from the active environment, or another one can be specified:
+
+                ```python notest
+                await modal.Dict.objects.delete("my-dict", environment_name="dev")
+                ```
             """
             ...
 
@@ -381,27 +441,26 @@ class _Dict(modal._object._Object):
     last added. Additionally, contents are stored in memory on the Modal server and could be lost
     due to unexpected server restarts. Eventually, these Dicts will be fully sunset.
 
-    **Usage**
+    Examples:
+        ```python
+        from modal import Dict
 
-    ```python
-    from modal import Dict
+        my_dict = Dict.from_name("my-persisted_dict", create_if_missing=True)
 
-    my_dict = Dict.from_name("my-persisted_dict", create_if_missing=True)
+        my_dict["some key"] = "some value"
+        my_dict[123] = 456
 
-    my_dict["some key"] = "some value"
-    my_dict[123] = 456
+        assert my_dict["some key"] == "some value"
+        assert my_dict[123] == 456
+        ```
 
-    assert my_dict["some key"] == "some value"
-    assert my_dict[123] == 456
-    ```
+        The `Dict` class offers a few methods for operations that are usually accomplished
+        in Python with operators, such as `Dict.put` and `Dict.contains`. The advantage of
+        these methods is that they can be safely called in an asynchronous context by using
+        the `.aio` suffix on the method, whereas their operator-based analogues will always
+        run synchronously and block the event loop.
 
-    The `Dict` class offers a few methods for operations that are usually accomplished
-    in Python with operators, such as `Dict.put` and `Dict.contains`. The advantage of
-    these methods is that they can be safely called in an asynchronous context by using
-    the `.aio` suffix on the method, whereas their operator-based analogues will always
-    run synchronously and block the event loop.
-
-    For more examples, see the [guide](https://modal.com/docs/guide/dicts-and-queues#modal-dicts).
+        For more examples, see the [guide](https://modal.com/docs/guide/dicts-and-queues#modal-dicts).
     """
 
     _name: typing.Optional[str]
@@ -415,7 +474,17 @@ class _Dict(modal._object._Object):
     @classmethod
     def objects(cls) -> _DictManager: ...
     @property
-    def name(self) -> typing.Optional[str]: ...
+    def name(self) -> typing.Optional[str]:
+        """Name of the Dict object.
+
+        Examples:
+            ```python
+            d = modal.Dict.from_name("my-dict")
+            print(d.name)
+            ```
+        """
+        ...
+
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
     def _get_metadata(self) -> modal_proto.api_pb2.DictMetadata: ...
     @classmethod
@@ -426,20 +495,24 @@ class _Dict(modal._object._Object):
         environment_name: typing.Optional[str] = None,
         _heartbeat_sleep: float = 300,
     ) -> typing.AsyncContextManager[_Dict]:
-        """Creates a new ephemeral Dict within a context manager:
+        """Create an anonymous Dict that exists for the duration of the context manager.
 
-        Usage:
-        ```python
-        from modal import Dict
+        Args:
+            client: Modal client to use; defaults to `Client.from_env()` when omitted.
+            environment_name: Environment for the ephemeral Dict; defaults to the active environment.
 
-        with Dict.ephemeral() as d:
-            d["foo"] = "bar"
-        ```
+        Examples:
+            ```python
+            from modal import Dict
 
-        ```python notest
-        async with Dict.ephemeral() as d:
-            await d.put.aio("foo", "bar")
-        ```
+            with Dict.ephemeral() as d:
+                d["foo"] = "bar"
+            ```
+
+            ```python notest
+            async with Dict.ephemeral() as d:
+                await d.put.aio("foo", "bar")
+            ```
         """
         ...
 
@@ -451,16 +524,24 @@ class _Dict(modal._object._Object):
         create_if_missing: bool = False,
         client: typing.Optional[modal.client._Client] = None,
     ) -> _Dict:
-        """Reference a named Dict, creating if necessary.
+        """Reference a named Dict, optionally creating it on the server first.
 
-        This is a lazy method that defers hydrating the local
-        object with metadata from Modal servers until the first
-        time it is actually used.
+        Hydration is lazy: metadata is fetched from Modal the first time the handle is used.
 
-        ```python
-        d = modal.Dict.from_name("my-dict", create_if_missing=True)
-        d[123] = 456
-        ```
+        Args:
+            name: Deployment name of the Dict.
+            environment_name: Environment to resolve the name in; defaults to the active environment.
+            create_if_missing: If True, create the Dict when it does not already exist.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            A `Dict` handle (possibly not yet hydrated).
+
+        Examples:
+            ```python
+            d = modal.Dict.from_name("my-dict", create_if_missing=True)
+            d[123] = 456
+            ```
         """
         ...
 
@@ -474,36 +555,24 @@ class _Dict(modal._object._Object):
 
         The ID of a Dict object can be accessed using `.object_id`.
 
-        **Example:**
+        Args:
+            dict_id: Dict object ID to attach to.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
 
-        ```python notest
-        @app.function()
-        def my_worker(dict_id: str):
-            d = modal.Dict.from_id(dict_id)
-            d["key"] = "Hello from remote function!"
+        Returns:
+            A `Dict` handle (possibly not yet hydrated).
 
-        with modal.Dict.ephemeral() as d:
-            # Pass the dict ID to a remote function
-            my_worker.remote(d.object_id)
-            print(d["key"])  # "Hello from remote function!"
-        ```
-        """
-        ...
+        Examples:
+            ```python notest
+            @app.function()
+            def my_worker(dict_id: str):
+                d = modal.Dict.from_id(dict_id)
+                d["key"] = "Hello from remote function!"
 
-    @staticmethod
-    async def delete(
-        name: str,
-        *,
-        client: typing.Optional[modal.client._Client] = None,
-        environment_name: typing.Optional[str] = None,
-    ):
-        """mdmd:hidden
-        Delete a named Dict object.
-
-        Warning: This deletes an *entire Dict*, not just a specific key.
-        Deletion is irreversible and will affect any Apps currently using the Dict.
-
-        DEPRECATED: This method is deprecated; we recommend using `modal.Dict.objects.delete` instead.
+            with modal.Dict.ephemeral() as d:
+                my_worker.remote(d.object_id)
+                print(d["key"])  # "Hello from remote function!"
+            ```
         """
         ...
 
@@ -623,27 +692,26 @@ class Dict(modal.object.Object):
     last added. Additionally, contents are stored in memory on the Modal server and could be lost
     due to unexpected server restarts. Eventually, these Dicts will be fully sunset.
 
-    **Usage**
+    Examples:
+        ```python
+        from modal import Dict
 
-    ```python
-    from modal import Dict
+        my_dict = Dict.from_name("my-persisted_dict", create_if_missing=True)
 
-    my_dict = Dict.from_name("my-persisted_dict", create_if_missing=True)
+        my_dict["some key"] = "some value"
+        my_dict[123] = 456
 
-    my_dict["some key"] = "some value"
-    my_dict[123] = 456
+        assert my_dict["some key"] == "some value"
+        assert my_dict[123] == 456
+        ```
 
-    assert my_dict["some key"] == "some value"
-    assert my_dict[123] == 456
-    ```
+        The `Dict` class offers a few methods for operations that are usually accomplished
+        in Python with operators, such as `Dict.put` and `Dict.contains`. The advantage of
+        these methods is that they can be safely called in an asynchronous context by using
+        the `.aio` suffix on the method, whereas their operator-based analogues will always
+        run synchronously and block the event loop.
 
-    The `Dict` class offers a few methods for operations that are usually accomplished
-    in Python with operators, such as `Dict.put` and `Dict.contains`. The advantage of
-    these methods is that they can be safely called in an asynchronous context by using
-    the `.aio` suffix on the method, whereas their operator-based analogues will always
-    run synchronously and block the event loop.
-
-    For more examples, see the [guide](https://modal.com/docs/guide/dicts-and-queues#modal-dicts).
+        For more examples, see the [guide](https://modal.com/docs/guide/dicts-and-queues#modal-dicts).
     """
 
     _name: typing.Optional[str]
@@ -657,7 +725,17 @@ class Dict(modal.object.Object):
     @classmethod
     def objects(cls) -> DictManager: ...
     @property
-    def name(self) -> typing.Optional[str]: ...
+    def name(self) -> typing.Optional[str]:
+        """Name of the Dict object.
+
+        Examples:
+            ```python
+            d = modal.Dict.from_name("my-dict")
+            print(d.name)
+            ```
+        """
+        ...
+
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
     def _get_metadata(self) -> modal_proto.api_pb2.DictMetadata: ...
 
@@ -670,20 +748,24 @@ class Dict(modal.object.Object):
             environment_name: typing.Optional[str] = None,
             _heartbeat_sleep: float = 300,
         ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[Dict]:
-            """Creates a new ephemeral Dict within a context manager:
+            """Create an anonymous Dict that exists for the duration of the context manager.
 
-            Usage:
-            ```python
-            from modal import Dict
+            Args:
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+                environment_name: Environment for the ephemeral Dict; defaults to the active environment.
 
-            with Dict.ephemeral() as d:
-                d["foo"] = "bar"
-            ```
+            Examples:
+                ```python
+                from modal import Dict
 
-            ```python notest
-            async with Dict.ephemeral() as d:
-                await d.put.aio("foo", "bar")
-            ```
+                with Dict.ephemeral() as d:
+                    d["foo"] = "bar"
+                ```
+
+                ```python notest
+                async with Dict.ephemeral() as d:
+                    await d.put.aio("foo", "bar")
+                ```
             """
             ...
 
@@ -695,20 +777,24 @@ class Dict(modal.object.Object):
             environment_name: typing.Optional[str] = None,
             _heartbeat_sleep: float = 300,
         ) -> typing.AsyncContextManager[Dict]:
-            """Creates a new ephemeral Dict within a context manager:
+            """Create an anonymous Dict that exists for the duration of the context manager.
 
-            Usage:
-            ```python
-            from modal import Dict
+            Args:
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+                environment_name: Environment for the ephemeral Dict; defaults to the active environment.
 
-            with Dict.ephemeral() as d:
-                d["foo"] = "bar"
-            ```
+            Examples:
+                ```python
+                from modal import Dict
 
-            ```python notest
-            async with Dict.ephemeral() as d:
-                await d.put.aio("foo", "bar")
-            ```
+                with Dict.ephemeral() as d:
+                    d["foo"] = "bar"
+                ```
+
+                ```python notest
+                async with Dict.ephemeral() as d:
+                    await d.put.aio("foo", "bar")
+                ```
             """
             ...
 
@@ -722,16 +808,24 @@ class Dict(modal.object.Object):
         create_if_missing: bool = False,
         client: typing.Optional[modal.client.Client] = None,
     ) -> Dict:
-        """Reference a named Dict, creating if necessary.
+        """Reference a named Dict, optionally creating it on the server first.
 
-        This is a lazy method that defers hydrating the local
-        object with metadata from Modal servers until the first
-        time it is actually used.
+        Hydration is lazy: metadata is fetched from Modal the first time the handle is used.
 
-        ```python
-        d = modal.Dict.from_name("my-dict", create_if_missing=True)
-        d[123] = 456
-        ```
+        Args:
+            name: Deployment name of the Dict.
+            environment_name: Environment to resolve the name in; defaults to the active environment.
+            create_if_missing: If True, create the Dict when it does not already exist.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            A `Dict` handle (possibly not yet hydrated).
+
+        Examples:
+            ```python
+            d = modal.Dict.from_name("my-dict", create_if_missing=True)
+            d[123] = 456
+            ```
         """
         ...
 
@@ -745,60 +839,26 @@ class Dict(modal.object.Object):
 
         The ID of a Dict object can be accessed using `.object_id`.
 
-        **Example:**
+        Args:
+            dict_id: Dict object ID to attach to.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
 
-        ```python notest
-        @app.function()
-        def my_worker(dict_id: str):
-            d = modal.Dict.from_id(dict_id)
-            d["key"] = "Hello from remote function!"
+        Returns:
+            A `Dict` handle (possibly not yet hydrated).
 
-        with modal.Dict.ephemeral() as d:
-            # Pass the dict ID to a remote function
-            my_worker.remote(d.object_id)
-            print(d["key"])  # "Hello from remote function!"
-        ```
+        Examples:
+            ```python notest
+            @app.function()
+            def my_worker(dict_id: str):
+                d = modal.Dict.from_id(dict_id)
+                d["key"] = "Hello from remote function!"
+
+            with modal.Dict.ephemeral() as d:
+                my_worker.remote(d.object_id)
+                print(d["key"])  # "Hello from remote function!"
+            ```
         """
         ...
-
-    class __delete_spec(typing_extensions.Protocol):
-        def __call__(
-            self,
-            /,
-            name: str,
-            *,
-            client: typing.Optional[modal.client.Client] = None,
-            environment_name: typing.Optional[str] = None,
-        ):
-            """mdmd:hidden
-            Delete a named Dict object.
-
-            Warning: This deletes an *entire Dict*, not just a specific key.
-            Deletion is irreversible and will affect any Apps currently using the Dict.
-
-            DEPRECATED: This method is deprecated; we recommend using `modal.Dict.objects.delete` instead.
-            """
-            ...
-
-        async def aio(
-            self,
-            /,
-            name: str,
-            *,
-            client: typing.Optional[modal.client.Client] = None,
-            environment_name: typing.Optional[str] = None,
-        ):
-            """mdmd:hidden
-            Delete a named Dict object.
-
-            Warning: This deletes an *entire Dict*, not just a specific key.
-            Deletion is irreversible and will affect any Apps currently using the Dict.
-
-            DEPRECATED: This method is deprecated; we recommend using `modal.Dict.objects.delete` instead.
-            """
-            ...
-
-    delete: typing.ClassVar[__delete_spec]
 
     class __info_spec(typing_extensions.Protocol):
         def __call__(self, /) -> DictInfo:

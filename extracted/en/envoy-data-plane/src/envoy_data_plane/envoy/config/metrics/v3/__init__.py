@@ -199,7 +199,7 @@ class MetricsServiceConfig(betterproto2.Message):
               "@type": type.googleapis.com/envoy.config.metrics.v3.MetricsServiceConfig
 
     [#extension: envoy.stat_sinks.metrics_service]
-    [#next-free-field: 6]
+    [#next-free-field: 7]
     """
 
     grpc_service: "__core__v3__.GrpcService | None" = betterproto2.field(
@@ -244,6 +244,17 @@ class MetricsServiceConfig(betterproto2.Message):
     Specify which metrics types to emit for histograms. Defaults to SUMMARY_AND_HISTOGRAM.
     """
 
+    batch_size: "typing.Annotated[int, pydantic.Field(ge=0, le=2**32 - 1)]" = (
+        betterproto2.field(6, betterproto2.TYPE_UINT32)
+    )
+    """
+    The maximum number of metrics to send in a single gRPC message. If not set or set to 0,
+    all metrics will be sent in a single message (current behavior). When set to a positive value,
+    metrics will be batched into multiple messages, with each message containing at most batch_size
+    metric families. This helps avoid hitting gRPC message size limits (typically 4MB) when sending
+    large numbers of metrics.
+    """
+
 
 default_message_pool.register_message(
     "envoy.config.metrics.v3", "MetricsServiceConfig", MetricsServiceConfig
@@ -278,11 +289,6 @@ class StatsConfig(betterproto2.Message):
     custom tags specified in :ref:`stats_tags
     <envoy_v3_api_field_config.metrics.v3.StatsConfig.stats_tags>`. They will be processed before
     the custom tags.
-
-    .. note::
-
-      If any default tags are specified twice, the config will be considered
-      invalid.
 
     See :repo:`well_known_names.h <source/common/config/well_known_names.h>` for a list of the
     default tags in Envoy.

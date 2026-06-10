@@ -5,7 +5,7 @@ import warnings
 
 from envoy.service.health.v3 import hds_pb2 as envoy_dot_service_dot_health_dot_v3_dot_hds__pb2
 
-GRPC_GENERATED_VERSION = '1.76.0'
+GRPC_GENERATED_VERSION = '1.81.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -25,7 +25,7 @@ if _version_not_supported:
     )
 
 
-class HealthDiscoveryServiceStub(object):
+class HealthDiscoveryServiceStub:
     """[#protodoc-title: Health discovery service (HDS)]
 
     HDS is Health Discovery Service. It compliments Envoy’s health checking
@@ -53,7 +53,7 @@ class HealthDiscoveryServiceStub(object):
                 _registered_method=True)
 
 
-class HealthDiscoveryServiceServicer(object):
+class HealthDiscoveryServiceServicer:
     """[#protodoc-title: Health discovery service (HDS)]
 
     HDS is Health Discovery Service. It compliments Envoy’s health checking
@@ -133,7 +133,7 @@ def add_HealthDiscoveryServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class HealthDiscoveryService(object):
+class HealthDiscoveryService:
     """[#protodoc-title: Health discovery service (HDS)]
 
     HDS is Health Discovery Service. It compliments Envoy’s health checking

@@ -42,9 +42,11 @@ class StatefulSession(betterproto2.Message):
     strict: "bool" = betterproto2.field(2, betterproto2.TYPE_BOOL)
     """
     Determines whether the HTTP request must be strictly routed to the requested destination. When set to ``true``,
-    if the requested destination is unavailable, Envoy will return a 503 status code. The default value is ``false``,
-    which allows Envoy to fall back to its load balancing mechanism. In this case, if the requested destination is not
-    found, the request will be routed according to the load balancing algorithm.
+    if the requested destination is not found in the set of available endpoints, Envoy will return a status code
+    determined by ``status_on_strict_destination_not_found``. If the destination exists but is unhealthy, Envoy will
+    always return ``503`` regardless of ``status_on_strict_destination_not_found``. The default value is ``false``,
+    which allows Envoy to fall back to its load balancing mechanism and route the request according to the load
+    balancing algorithm.
     """
 
     stat_prefix: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -58,6 +60,16 @@ class StatefulSession(betterproto2.Message):
 
       Per-route configuration overrides do not support statistics and will not emit stats even if this field is set
       in the per-route config.
+    """
+
+    status_on_strict_destination_not_found: "typing.Annotated[int, pydantic.Field(ge=0, le=2**32 - 1)]" = betterproto2.field(
+        4, betterproto2.TYPE_UINT32
+    )
+    """
+    The HTTP status code to return when ``strict`` mode is enabled and the requested destination
+    is not found in the set of available endpoints. This does not apply when the destination exists
+    but is unhealthy. This field has no effect when ``strict`` is set to ``false`` and will be
+    ignored. Defaults to ``503`` (Service Unavailable) if not specified or set to ``0``.
     """
 
 

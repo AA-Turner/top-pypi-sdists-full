@@ -3,7 +3,6 @@ import json as json_mod
 import re
 import urllib.request
 from dataclasses import asdict, dataclass
-from typing import Optional
 
 import click
 
@@ -54,9 +53,9 @@ def _parse_entries(markdown: str) -> list[ChangelogEntry]:
 def _filter_entries(
     entries: list[ChangelogEntry],
     *,
-    last: Optional[int],
-    since: Optional[str],
-    for_version: Optional[str],
+    last: int | None,
+    since: str | None,
+    for_version: str | None,
     newer: bool,
     all: bool,
     current_version: Version,
@@ -103,9 +102,9 @@ def _format_entries(entries: list[ChangelogEntry], *, as_json: bool) -> str:
 @click.option("--all", "all", is_flag=True, default=False, help="Show all entries.")
 @click.option("--json", "json", is_flag=True, default=False, help="Output as JSON.")
 def changelog(
-    last: Optional[int],
-    since: Optional[str],
-    for_version: Optional[str],
+    last: int | None,
+    since: str | None,
+    for_version: str | None,
     newer: bool,
     all: bool,
     json: bool,
@@ -121,17 +120,17 @@ def changelog(
 
     Examples:
 
-    ```bash
-    modal changelog --since 1.2.0  # Show updates added after a specific version
+        ```bash
+        modal changelog --since 1.2.0  # Show updates added after a specific version
 
-    modal changelog --since 2026-01-01  # Show updates added after a specific date
+        modal changelog --since 2026-01-01  # Show updates added after a specific date
 
-    modal changelog --newer  # Show updates released after the currently installed version
+        modal changelog --newer  # Show updates released after the currently installed version
 
-    modal changelog --last 3  # Show updates included in the 3 most recent releases
+        modal changelog --last 3  # Show updates included in the 3 most recent releases
 
-    modal changelog --for 1.3.1  # Show the changelog for a specific release
-    ```
+        modal changelog --for 1.3.1  # Show the changelog for a specific release
+        ```
 
     Note: when using `--since` or `--last`, only changes up to the currently installed version are shown.
 

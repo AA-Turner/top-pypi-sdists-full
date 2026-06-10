@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "taktile-auth"
-version = "1.1.100"
+version = "1.2.1"
 description = "Auth Package for Taktile"
 readme = "PYPI.md"
 authors = ["Taktile GmbH <devops@taktile.com>"]
@@ -14,6 +14,9 @@ PyYAML = "^6.0"
 PyJWT = { version = ">=2.12.0", extras = ["crypto"] }
 requests = "^2.32"
 cryptography = ">=44.0.1"
+# UUIDv7 (RFC 9562) for the PEP-295 session prefix. Stdlib gains this
+# in Python 3.14; until then we depend on the uuid6 package.
+uuid6 = "^2025.0.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.2.0"

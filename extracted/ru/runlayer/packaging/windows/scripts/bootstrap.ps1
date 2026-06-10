@@ -12,9 +12,9 @@
 #   powershell -ExecutionPolicy Bypass -File bootstrap.ps1
 #
 # Exit codes mirror `aiwatch bootstrap`:
-#   0  fully bootstrapped (or already bootstrapped)
-#   1  enroll exchange failed or hooks-install reported a write failure
-#   2  required input missing (host or enrollment key)
+#   0  fully bootstrapped (or already bootstrapped / scan-only no-op)
+#   1  hooks-install reported a write failure
+#   2  required input missing (host)
 #   4  --check: missing credential / drift
 #
 # For automated SYSTEM-context MDM hook re-assertion use the Intune
@@ -24,11 +24,13 @@
 
 $ErrorActionPreference = "SilentlyContinue"
 
-# Scan-only fleets (no MDM-pushed EnrollmentKey) short-circuit silently here so
+# Unconfigured fleets (no MDM-pushed OrgApiKey) short-circuit silently here so
 # admins can push this logon script to the whole fleet without per-device-class
-# targeting. Mirrors `runlayer_cli/mdm_config.py:_read_windows` (HKLM hive).
-$EnrollmentKey = (Get-ItemProperty -Path "HKLM:\Software\Runlayer\AIWatch" -Name "EnrollmentKey" -ErrorAction SilentlyContinue).EnrollmentKey
-if ([string]::IsNullOrEmpty($EnrollmentKey)) {
+# targeting. Whether hooks actually install is decided downstream by the
+# Enforcement / Sessions managed-config keys. Mirrors
+# `runlayer_cli/mdm_config.py:_read_windows` (HKLM hive).
+$OrgApiKey = (Get-ItemProperty -Path "HKLM:\Software\Runlayer\AIWatch" -Name "OrgApiKey" -ErrorAction SilentlyContinue).OrgApiKey
+if ([string]::IsNullOrEmpty($OrgApiKey)) {
     exit 0
 }
 

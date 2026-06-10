@@ -5,7 +5,7 @@ import warnings
 
 from envoy.service.redis_auth.v3 import redis_external_auth_pb2 as envoy_dot_service_dot_redis__auth_dot_v3_dot_redis__external__auth__pb2
 
-GRPC_GENERATED_VERSION = '1.76.0'
+GRPC_GENERATED_VERSION = '1.81.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -25,7 +25,7 @@ if _version_not_supported:
     )
 
 
-class RedisProxyExternalAuthStub(object):
+class RedisProxyExternalAuthStub:
     """[#protodoc-title: Redis external authentication service]
 
     The messages used by the redis_proxy filter when performing external authentication.
@@ -46,7 +46,7 @@ class RedisProxyExternalAuthStub(object):
                 _registered_method=True)
 
 
-class RedisProxyExternalAuthServicer(object):
+class RedisProxyExternalAuthServicer:
     """[#protodoc-title: Redis external authentication service]
 
     The messages used by the redis_proxy filter when performing external authentication.
@@ -78,7 +78,7 @@ def add_RedisProxyExternalAuthServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class RedisProxyExternalAuth(object):
+class RedisProxyExternalAuth:
     """[#protodoc-title: Redis external authentication service]
 
     The messages used by the redis_proxy filter when performing external authentication.

@@ -10,7 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from typing import Any, Self
+from typing import Any, Self, cast
 import uuid
 
 from keystoneauth1 import adapter
@@ -22,6 +22,8 @@ from openstack import resource
 class Message(_base.MessageResource):
     resources_key = 'messages'
     base_path = '/queues/%(queue_name)s/messages'
+
+    create_opts = resource.CreateOpts(request_key=None)
 
     # capabilities
     allow_create = True
@@ -50,7 +52,7 @@ class Message(_base.MessageResource):
     # deletions and resource.delete doesn't respect these currently
     claim_id: str | None = None
 
-    def post(self, session, messages):
+    def post(self, session: adapter.Adapter, messages: list[Any]) -> list[Any]:
         request = self._prepare_request(requires_id=False, prepend_key=True)
         headers: dict[str, str] = {
             "Client-ID": self.client_id or str(uuid.uuid4()),
@@ -62,42 +64,16 @@ class Message(_base.MessageResource):
             request.url, json=request.body, headers=request.headers
         )
 
-        return response.json()['resources']
-
-    def create(
-        self,
-        session: adapter.Adapter,
-        prepend_key: bool = False,
-        base_path: str | None = None,
-        *,
-        resource_request_key: str | None = None,
-        resource_response_key: str | None = None,
-        microversion: str | None = None,
-        **params: Any,
-    ) -> Self:
-        request = self._prepare_request(
-            requires_id=False, prepend_key=prepend_key, base_path=base_path
-        )
-        headers: dict[str, str] = {
-            "Client-ID": self.client_id or str(uuid.uuid4()),
-            "X-PROJECT-ID": self.project_id or session.get_project_id() or "",
-        }
-        request.headers.update(headers)
-        response = session.post(
-            request.url, json=request.body, headers=request.headers
-        )
-
-        # For case no message was claimed successfully, 204 No Content
-        # message will be returned. In other cases, we translate response
-        # body which has `messages` field(list) included.
-        if response.status_code != 204:
-            self._translate_response(response)
-
-        return self
+        return cast(list[Any], response.json()['resources'])
 
     def delete(
-        self, session, error_message=None, *, microversion=None, **kwargs
-    ):
+        self,
+        session: adapter.Adapter,
+        error_message: str | None = None,
+        *,
+        microversion: str | None = None,
+        **kwargs: Any,
+    ) -> Self:
         request = self._prepare_request()
         headers: dict[str, str] = {
             "Client-ID": self.client_id or str(uuid.uuid4()),

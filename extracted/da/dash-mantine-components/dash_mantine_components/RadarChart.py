@@ -28,6 +28,10 @@ Keyword arguments:
 - id (string; optional):
     Unique ID to identify this component in Dash callbacks.
 
+- activeDotProps (dict; optional):
+    Props passed down to all active dots. Ignored if `withDots=False`
+    is set.
+
 - aria-* (string; optional):
     Wild card aria attributes.
 
@@ -95,6 +99,9 @@ Keyword arguments:
 
 - display (dict; optional):
     Display – Accepts CSS values or a dict for responsive styles.
+
+- dotProps (dict; optional):
+    Props passed down to all dots. Ignored if `withDots=False` is set.
 
 - ff (string | dict; optional):
     Font family – Accepts CSS values or a dict for responsive styles.
@@ -310,6 +317,12 @@ Keyword arguments:
     Controls color of all text elements. By default, color depends on
     the color scheme.
 
+- tooltipAnimationDuration (number; optional):
+    Tooltip position animation duration in ms.  Default 0.
+
+- tooltipProps (dict; optional):
+    Props passed down to recharts Tooltip component.
+
 - top (string | number | dict; optional):
     Top offset – Accepts CSS values or a dict for responsive styles.
 
@@ -331,6 +344,9 @@ Keyword arguments:
     Width – Accepts theme spacing keys, CSS values, or a dict for
     responsive styles.
 
+- withDots (boolean; optional):
+    Determines whether dots should be displayed. Default False.
+
 - withLegend (boolean; optional):
     Determines whether chart legend should be displayed, `False` by
     default.
@@ -345,7 +361,11 @@ Keyword arguments:
 
 - withPolarRadiusAxis (boolean; optional):
     Determines whether PolarRadiusAxisProps component should be
-    displayed, `False` by default."""
+    displayed, `False` by default.
+
+- withTooltip (boolean; optional):
+    Determines whether Tooltip component should be displayed. Default
+    False."""
     _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
@@ -390,6 +410,12 @@ Keyword arguments:
         polarAngleAxisProps: typing.Optional[dict] = None,
         polarRadiusAxisProps: typing.Optional[dict] = None,
         clickData: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
+        withTooltip: typing.Optional[bool] = None,
+        tooltipProps: typing.Optional[dict] = None,
+        tooltipAnimationDuration: typing.Optional[NumberType] = None,
+        withDots: typing.Optional[bool] = None,
+        dotProps: typing.Optional[dict] = None,
+        activeDotProps: typing.Optional[dict] = None,
         hiddenFrom: typing.Optional[str] = None,
         visibleFrom: typing.Optional[str] = None,
         mod: typing.Optional[typing.Union[str, dict, typing.Sequence[typing.Union[str, dict]]]] = None,
@@ -457,9 +483,9 @@ Keyword arguments:
         loading_state: typing.Optional["LoadingState"] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'darkHidden', 'data', 'data-*', 'dataKey', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'gridColor', 'h', 'hiddenFrom', 'inset', 'left', 'legendProps', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'polarAngleAxisProps', 'polarGridProps', 'polarRadiusAxisProps', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radarChartProps', 'radarProps', 'right', 'series', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textColor', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withLegend', 'withPolarAngleAxis', 'withPolarGrid', 'withPolarRadiusAxis']
+        self._prop_names = ['children', 'id', 'activeDotProps', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'darkHidden', 'data', 'data-*', 'dataKey', 'display', 'dotProps', 'ff', 'flex', 'fs', 'fw', 'fz', 'gridColor', 'h', 'hiddenFrom', 'inset', 'left', 'legendProps', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'polarAngleAxisProps', 'polarGridProps', 'polarRadiusAxisProps', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radarChartProps', 'radarProps', 'right', 'series', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textColor', 'tooltipAnimationDuration', 'tooltipProps', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withDots', 'withLegend', 'withPolarAngleAxis', 'withPolarGrid', 'withPolarRadiusAxis', 'withTooltip']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['children', 'id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'darkHidden', 'data', 'data-*', 'dataKey', 'display', 'ff', 'flex', 'fs', 'fw', 'fz', 'gridColor', 'h', 'hiddenFrom', 'inset', 'left', 'legendProps', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'polarAngleAxisProps', 'polarGridProps', 'polarRadiusAxisProps', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radarChartProps', 'radarProps', 'right', 'series', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textColor', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withLegend', 'withPolarAngleAxis', 'withPolarGrid', 'withPolarRadiusAxis']
+        self.available_properties = ['children', 'id', 'activeDotProps', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'clickData', 'darkHidden', 'data', 'data-*', 'dataKey', 'display', 'dotProps', 'ff', 'flex', 'fs', 'fw', 'fz', 'gridColor', 'h', 'hiddenFrom', 'inset', 'left', 'legendProps', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'opacity', 'p', 'pb', 'pe', 'pl', 'polarAngleAxisProps', 'polarGridProps', 'polarRadiusAxisProps', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'radarChartProps', 'radarProps', 'right', 'series', 'style', 'styles', 'ta', 'tabIndex', 'td', 'textColor', 'tooltipAnimationDuration', 'tooltipProps', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withDots', 'withLegend', 'withPolarAngleAxis', 'withPolarGrid', 'withPolarRadiusAxis', 'withTooltip']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

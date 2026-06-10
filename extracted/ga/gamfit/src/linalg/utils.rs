@@ -57,6 +57,39 @@ pub(crate) fn stack_offsets(blocks: &[&Array1<f64>]) -> Array1<f64> {
     out
 }
 
+/// Rows per streaming chunk so each `chunk_rows × p` `f64` tile stays near an
+/// 8 MiB working-set budget, clamped to `[256, 65_536]` and never exceeding
+/// `n`. Canonical home for the row-chunk heuristic that previously lived as
+/// byte-identical module-local copies in `solver/pirls` (sparse-native nnz
+/// counting) and `terms/smooth` (linear-fit column conditioning). With `p == 0`
+/// there is no per-row footprint, so the whole design is one chunk.
+pub(crate) fn row_chunk_for_byte_budget(n: usize, p: usize) -> usize {
+    const TARGET_BYTES: usize = 8 * 1024 * 1024;
+    const MIN_ROWS: usize = 256;
+    const MAX_ROWS: usize = 65_536;
+    if p == 0 {
+        return n.max(1);
+    }
+    (TARGET_BYTES / (p * 8))
+        .clamp(MIN_ROWS, MAX_ROWS)
+        .min(n.max(1))
+}
+
+/// Trace of the matrix product `tr(A·B) = Σ_{i,j} A[i,j]·B[j,i]`, computed
+/// without forming the product. `A` is `m×k`, `B` is `k×m`. Canonical home for
+/// the byte-identical double-loop reduction that lived as module-local copies
+/// (`trace_product_dense` in `solver/gaussian_reml`, `trace_projected_cross` in
+/// `solver/reml/unified`).
+pub(crate) fn trace_of_product(a: ArrayView2<'_, f64>, b: ArrayView2<'_, f64>) -> f64 {
+    let mut value = 0.0;
+    for i in 0..a.nrows() {
+        for j in 0..a.ncols() {
+            value += a[[i, j]] * b[[j, i]];
+        }
+    }
+    value
+}
+
 /// Numerically stable softplus `log(1 + exp(x))`.
 ///
 /// Uses the identity `softplus(x) = max(x, 0) + log1p(exp(-|x|))`, which
@@ -114,6 +147,16 @@ pub(crate) fn inf_norm<I: IntoIterator<Item = f64>>(values: I) -> f64 {
 const HESSIAN_CONDITION_TARGET: f64 = 1e10;
 const MAX_FACTORIZATION_ATTEMPTS: usize = 4;
 const MAX_SOLVE_RETRIES: usize = 8;
+
+/// Floor on the requested PCG relative tolerance. Asking for convergence tighter
+/// than this is below the achievable accuracy of the SPD energy minimization in
+/// `f64`, so we clamp the target to avoid iterating on numerical noise.
+const PCG_REL_TOL_FLOOR: f64 = 1e-12;
+
+/// Floor applied to each (already non-negative) preconditioner diagonal entry
+/// before reciprocation. Exactly-zero entries are treated as numerical noise and
+/// floored to this value rather than producing an infinite `1/m`.
+const PCG_PRECONDITIONER_FLOOR: f64 = 1e-12;
 
 #[derive(Default, Clone, Copy)]
 pub(crate) struct KahanSum {
@@ -734,7 +777,7 @@ where
         ));
     }
 
-    let tol = rel_tol.max(1e-12) * rhs_norm.max(1.0);
+    let tol = rel_tol.max(PCG_REL_TOL_FLOOR) * rhs_norm.max(1.0);
     let mut x = Array1::<f64>::zeros(p);
     let mut r = rhs.clone();
     let mut diagnostics = PcgDiagnostics::new(rhs_norm);
@@ -762,7 +805,7 @@ where
             bad_diag = true;
             break;
         }
-        *slot = 1.0 / m.max(1e-12);
+        *slot = 1.0 / m.max(PCG_PRECONDITIONER_FLOOR);
     }
     if bad_diag {
         log::warn!(
@@ -897,7 +940,7 @@ where
         ));
     }
 
-    let tol = rel_tol.max(1e-12) * rhs_norm.max(1.0);
+    let tol = rel_tol.max(PCG_REL_TOL_FLOOR) * rhs_norm.max(1.0);
     let mut x = Array1::<f64>::zeros(p);
     let mut r = rhs.clone();
     let mut diagnostics = PcgDiagnostics::new(rhs_norm);
@@ -912,7 +955,7 @@ where
     Zip::from(&mut inv_m)
         .and(preconditioner_diag)
         .par_for_each(|inv, &m| {
-            *inv = 1.0 / m.max(1e-12);
+            *inv = 1.0 / m.max(PCG_PRECONDITIONER_FLOOR);
         });
 
     let mut z = Array1::<f64>::zeros(p);

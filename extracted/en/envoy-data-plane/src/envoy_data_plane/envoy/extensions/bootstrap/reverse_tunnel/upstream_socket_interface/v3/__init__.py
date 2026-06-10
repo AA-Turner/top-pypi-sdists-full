@@ -24,6 +24,7 @@ class UpstreamReverseConnectionSocketInterface(betterproto2.Message):
     [#extension: envoy.bootstrap.reverse_tunnel.upstream_socket_interface]
 
     Configuration for the upstream reverse connection socket interface.
+    [#next-free-field: 6]
     """
 
     stat_prefix: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -51,6 +52,29 @@ class UpstreamReverseConnectionSocketInterface(betterproto2.Message):
     Defaults to false.
     """
 
+    reporter_config: "_____config__core__v3__.TypedExtensionConfig | None" = (
+        betterproto2.field(4, betterproto2.TYPE_MESSAGE, optional=True)
+    )
+    """
+    Optional configuration for a tunnel reporting extension. When provided,
+    the socket interface instantiates a reporter via the configured factory.
+    If unset, no reporting is done.
+    """
+
+    enable_tenant_isolation: "bool | None" = betterproto2.field(
+        5,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ______google__protobuf__.BoolValue,
+        optional=True,
+    )
+    """
+    Enables tenant-aware isolation for reverse connections. When set to ``true``, the socket
+    interface requires tenant identifiers in addition to node and cluster identifiers and derives
+    composite ``tenant:node`` and ``tenant:cluster`` keys for socket tracking. Identifiers
+    containing the ``:`` delimiter are rejected to avoid ambiguity.
+    Defaults to ``false`` for backwards compatibility.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.bootstrap.reverse_tunnel.upstream_socket_interface.v3",
@@ -60,3 +84,4 @@ default_message_pool.register_message(
 
 
 from .......google import protobuf as ______google__protobuf__
+from ......config.core import v3 as _____config__core__v3__

@@ -238,6 +238,11 @@ class Glean:
             ping_schedule={},
             ping_lifetime_threshold=0,
             ping_lifetime_max_time=0,
+            max_pending_pings_count=configuration.max_pending_pings_count,
+            max_pending_pings_directory_size=configuration.max_pending_pings_directory_size,
+            session_mode=configuration.session_mode,
+            session_sample_rate=configuration.session_sample_rate,
+            session_inactivity_timeout_ms=configuration.session_inactivity_timeout_ms,
         )
 
         _uniffi.glean_initialize(cfg, client_info, callbacks)
@@ -483,6 +488,30 @@ class Glean:
         _uniffi.glean_handle_client_inactive()
 
     @classmethod
+    def session_start(cls):
+        """
+        Starts a session manually.
+
+        Only has an effect when Glean is configured with `SessionMode.MANUAL`.
+        In `AUTO` or `LIFECYCLE` mode this is a no-op so automatic session
+        state isn't corrupted.
+        """
+        _uniffi.glean_session_start()
+
+    @classmethod
+    def session_end(cls, reason: Optional[str] = None):
+        """
+        Ends a session manually.
+
+        Only has an effect when Glean is configured with `SessionMode.MANUAL`.
+
+        Args:
+            reason (str): Optional application-provided string attached to the
+                `glean.session_end` boundary event for downstream analysis.
+        """
+        _uniffi.glean_session_end(reason)
+
+    @classmethod
     def shutdown(cls):
         """
         Shuts down Glean in an orderly fashion.
@@ -492,6 +521,14 @@ class Glean:
         # On top of the Glean shutdown
         # we also wait for the process dispatcher to finish.
         ProcessDispatcher._wait_for_last_process()
+
+    @classmethod
+    def clear_attribution(cls) -> None:
+        """
+        Clears the core attribution data.
+        Does not clear glean.attribution.ext (if present).
+        """
+        _uniffi.glean_clear_attribution()
 
     @classmethod
     def update_attribution(cls, attribution: "AttributionMetrics") -> None:
@@ -507,6 +544,14 @@ class Glean:
         Test-only method for getting the current attribution metrics.
         """
         return _uniffi.glean_test_get_attribution()
+
+    @classmethod
+    def clear_distribution(cls) -> None:
+        """
+        Clears the core distribution data.
+        Does not clear glean.distribution.ext (if present).
+        """
+        _uniffi.glean_clear_distribution()
 
     @classmethod
     def update_distribution(cls, distribution: "DistributionMetrics") -> None:

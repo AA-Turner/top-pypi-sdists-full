@@ -1,8 +1,9 @@
 """Strict-ordering credential gate shared by ``aiwatch setup`` + ``aiwatch bootstrap``.
 
-Both commands refuse to wire AI clients at the hook binary until enrollment
-has populated either a per-process keychain secret or (in MDM scope) the
-console user's enrollment marker file. See cli/AGENTS.md.
+Both commands refuse to wire AI clients at the hook binary until a credential
+is available: a managed org API key (the single AI Watch key, sufficient for
+hook auth), a per-process keychain secret, or (MDM scope only) the console
+user's enrollment marker file. See cli/AGENTS.md.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from runlayer_cli.hook_install.console_user import (
     has_enrolled_credential_for_host,
 )
 from runlayer_cli.hook_install.paths import InstallScope
+from runlayer_cli.mdm_config import read_managed_config
 
 
 def credential_present(
@@ -20,11 +22,16 @@ def credential_present(
 ) -> tuple[bool, str]:
     """Returns ``(present, human-readable detail)``.
 
-    ``present`` is True when either the current process can read a per-host
+    ``present`` is True when a managed ``OrgApiKey`` is pushed (hooks
+    authenticate with it directly; the backend resolves device identity from
+    the attached device context), or the current process can read a per-host
     secret, or (MDM scope only) the console user has dropped an enrollment
     marker for *host*. The marker is empty so root can ``stat()`` it without
     keychain access.
     """
+    if read_managed_config().get("org_api_key"):
+        return True, "managed org api key"
+
     if config.get_secret_for_host(host):
         return True, "current process credential"
 

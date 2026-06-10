@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: TheSilent
-Version: 0.1.25
-Summary: TheSilent allows you to hide CLI history!
+Version: 1.1
+Summary: TheSilent is a cross platform screen tool written in Python!
 Author: Invizabel
 Project-URL: Homepage, https://github.com/Invizabel/The-Silent
 Project-URL: Bug Tracker, https://github.com/Invizabel/The-Silent/issues
@@ -13,6 +13,6 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: license-file
 
-﻿# TheSilent allows you to hide CLI history!
-# 
-# python3 -m TheSilent
+﻿# TheSilent is a cross platform screen tool written in Python!
+
+# work in progress, will update pypi package when done :)

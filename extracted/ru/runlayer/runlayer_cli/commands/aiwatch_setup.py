@@ -19,7 +19,11 @@ from runlayer_cli.hook_install import (
     resolve_hook_command,
 )
 from runlayer_cli.install_window import InstallWindowState, install_window_state
-from runlayer_cli.mdm_config import read_managed_config, resolve_include_pipeline
+from runlayer_cli.mdm_config import (
+    read_managed_config,
+    resolve_include_pipeline,
+    resolve_install_hooks,
+)
 from runlayer_cli.symbols import FAIL, OK, WARN
 
 # Exit codes (in sync with Intune detect scripts; see cli/AGENTS.md):
@@ -104,6 +108,16 @@ def install(
         )
         raise typer.Exit(EXIT_MISCONFIG)
 
+    managed = read_managed_config()
+    if not all_events and not resolve_install_hooks(managed):
+        typer.secho(
+            f"{OK} scan-only deployment (Enforcement + Sessions disabled); "
+            "no hooks installed.",
+            fg=typer.colors.GREEN,
+            err=True,
+        )
+        raise typer.Exit(EXIT_OK)
+
     present, detail = credential_present(load_config(), effective_host, scope)
     if not present:
         typer.secho(
@@ -126,7 +140,7 @@ def install(
         )
         raise typer.Exit(EXIT_MISCONFIG) from None
 
-    include_pipeline = resolve_include_pipeline(all_events, read_managed_config())
+    include_pipeline = resolve_include_pipeline(all_events, managed)
 
     selected = _client_from_str(client)
     targets = (selected,) if selected else iter_supported_clients()
@@ -197,6 +211,16 @@ def check(
         typer.secho(f"{FAIL} no host configured.", fg=typer.colors.RED, err=True)
         raise typer.Exit(EXIT_MISCONFIG)
 
+    managed = read_managed_config()
+    if not resolve_install_hooks(managed):
+        typer.secho(
+            f"{OK} scan-only deployment (Enforcement + Sessions disabled); "
+            "no hooks to verify.",
+            fg=typer.colors.GREEN,
+            err=True,
+        )
+        raise typer.Exit(EXIT_OK)
+
     present, detail = credential_present(load_config(), effective_host, scope)
     if not present:
         typer.secho(
@@ -208,7 +232,7 @@ def check(
 
     results = check_all(
         scope=scope,
-        include_pipeline=resolve_include_pipeline(False, read_managed_config()),
+        include_pipeline=resolve_include_pipeline(False, managed),
     )
 
     if scope == InstallScope.USER:

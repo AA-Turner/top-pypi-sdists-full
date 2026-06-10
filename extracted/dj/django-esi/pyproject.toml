@@ -10,7 +10,7 @@ keywords = [
 ]
 license = { file = "LICENSE" }
 authors = [ { name = "Alliance Auth", email = "adarnof@gmail.com" } ]
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10,<3.15"
 classifiers = [
     "Environment :: Web Environment",
     "Framework :: Django",
@@ -25,12 +25,13 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
 ]
 dynamic = [ "description", "version" ]
 dependencies = [
-    "aiopenapi3",
+    "aiopenapi3>=0.10",
     "celery>=5.2,<6",
     "django>=5.2,<7",
     "django-redis>=5.2",

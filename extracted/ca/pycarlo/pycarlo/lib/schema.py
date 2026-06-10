@@ -19234,7 +19234,9 @@ class AgenticPlatformPipelineExecutionOutput(sgqlc.types.Type):
     """LangGraph run id for this execution."""
 
     last_heartbeat_at = sgqlc.types.Field(DateTime, graphql_name="lastHeartbeatAt")
-    """When the execution was last polled by the orchestrator monitor."""
+    """When the execution's agent thread last showed activity (used to
+    detect stalled runs).
+    """
 
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
     """When the execution row was created."""
@@ -23425,6 +23427,7 @@ class Conversation(sgqlc.types.Type):
         "duration_seconds",
         "status",
         "errors_count",
+        "eval_scores",
     )
     conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
     """Conversation identifier"""
@@ -23452,6 +23455,15 @@ class Conversation(sgqlc.types.Type):
     errors_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="errorsCount")
     """Number of spans across all traces in this conversation that
     errored (excluding LangGraph GraphInterrupt sentinels).
+    """
+
+    eval_scores = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("ConversationEvalScore"))),
+        graphql_name="evalScores",
+    )
+    """Latest stored eval score per (monitor, dimension) for this
+    conversation. Empty when the conversation has not been scored by
+    any conversation eval monitor.
     """
 
 
@@ -23511,6 +23523,34 @@ class ConversationEvalResult(sgqlc.types.Type):
         graphql_name="evalDimensions",
     )
     """One entry per requested eval dimension, in request order."""
+
+
+class ConversationEvalScore(sgqlc.types.Type):
+    """The latest stored eval score for one (monitor, dimension) on a
+    conversation.  Produced by agent evaluation monitors scoped to
+    conversations; surfaced so the list/detail can show per-dimension
+    scores. Only the most recent score per (monitor, dimension) is
+    returned.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("monitor_uuid", "eval_type", "score", "reasoning", "scored_at")
+    monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
+    """The evaluation monitor that produced this score"""
+
+    eval_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="evalType")
+    """The scored dimension (e.g. task_completion_score,
+    helpfulness_score)
+    """
+
+    score = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="score")
+    """Numeric score for the dimension"""
+
+    reasoning = sgqlc.types.Field(String, graphql_name="reasoning")
+    """The judge's short explanation for the score"""
+
+    scored_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="scoredAt")
+    """When this score was produced"""
 
 
 class ConversationExplanationResult(sgqlc.types.Type):
@@ -28396,6 +28436,31 @@ class DeleteEventOnboardingData(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
     """Indicates whether the event onboarding data was deleted
     successfully
+    """
+
+
+class DeleteFinding(sgqlc.types.Type):
+    """Permanently delete a finding and all of its child findings.
+    Restricted to Monte Carlo system users. Deletes the target finding
+    and every finding derived from it (its child-finding subtree),
+    along with each finding's monitor, deployed-monitor, alert, asset,
+    and feedback links.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("deleted_finding_count", "deleted_monitor_count")
+    deleted_finding_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="deletedFindingCount"
+    )
+    """Number of findings deleted, including the target and all child
+    findings.
+    """
+
+    deleted_monitor_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="deletedMonitorCount"
+    )
+    """Number of deployed monitors deleted (0 unless
+    deleteDeployedMonitors was set).
     """
 
 
@@ -37675,6 +37740,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_agentic_notification_route",
         "delete_agentic_notification_route",
         "submit_finding_feedback",
+        "delete_finding",
         "apply_monitor_findings",
         "enable_agent_assistance",
         "disable_agent_assistance",
@@ -37758,7 +37824,6 @@ class Mutation(sgqlc.types.Type):
         "switch_user_account",
         "delete_user_invite",
         "resend_user_invite",
-        "remove_user_from_account",
         "disable_user",
         "track_table",
         "upload_credentials",
@@ -52670,6 +52735,39 @@ class Mutation(sgqlc.types.Type):
     * `note` (`String`)None
     """
 
+    delete_finding = sgqlc.types.Field(
+        DeleteFinding,
+        graphql_name="deleteFinding",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "delete_deployed_monitors",
+                    sgqlc.types.Arg(Boolean, graphql_name="deleteDeployedMonitors", default=False),
+                ),
+                (
+                    "finding_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="findingUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete a finding and all of its child findings
+    (system users only). Optionally also delete the monitors those
+    findings deployed.
+
+    Arguments:
+
+    * `delete_deployed_monitors` (`Boolean`): Whether to also delete
+      the real monitors these findings deployed. `false` (default):
+      only the findings and their link records are removed; the
+      deployed monitors are left intact. `true`: the deployed monitors
+      are also deleted. `null` is treated as `false`. (default:
+      `false`)
+    * `finding_uuid` (`UUID!`)None
+    """
+
     apply_monitor_findings = sgqlc.types.Field(
         ApplyMonitorFindings,
         graphql_name="applyMonitorFindings",
@@ -55126,27 +55224,6 @@ class Mutation(sgqlc.types.Type):
 
     * `emails` (`[String]!`): List of email addresses to resend the
       invitation
-    """
-
-    remove_user_from_account = sgqlc.types.Field(
-        "RemoveUserFromAccount",
-        graphql_name="removeUserFromAccount",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "email",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="email", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """Remove user from account
-
-    Arguments:
-
-    * `email` (`String!`): Email address of user
     """
 
     disable_user = sgqlc.types.Field(
@@ -58214,7 +58291,7 @@ class Mutation(sgqlc.types.Type):
                 ),
                 (
                     "auto_prune_enabled",
-                    sgqlc.types.Arg(Boolean, graphql_name="autoPruneEnabled", default=True),
+                    sgqlc.types.Arg(Boolean, graphql_name="autoPruneEnabled", default=False),
                 ),
                 (
                     "description",
@@ -58239,7 +58316,7 @@ class Mutation(sgqlc.types.Type):
                 ),
                 (
                     "lineage_narrowing_enabled",
-                    sgqlc.types.Arg(Boolean, graphql_name="lineageNarrowingEnabled", default=True),
+                    sgqlc.types.Arg(Boolean, graphql_name="lineageNarrowingEnabled", default=False),
                 ),
                 (
                     "match_threshold",
@@ -58293,11 +58370,12 @@ class Mutation(sgqlc.types.Type):
     * `audiences` (`[String]`): Notification audiences
     * `auto_enable_table_monitoring` (`Boolean`): For CBPV1 accounts,
       automatically create or update a companion table monitor for the
-      selected root tables so PII scans can run. (default: `false`)
-    * `auto_prune_enabled` (`Boolean`): After each table's first scan
-      completes with no PII detected, automatically remove the child
-      monitor to reduce credit usage. Tables are re-scanned if new
-      TEXT columns are added. (default: `true`)
+      selected scan-scope tables so PII scans can run. (default:
+      `false`)
+    * `auto_prune_enabled` (`Boolean`): When true, automatically
+      remove the child monitor after each table's first scan completes
+      with no PII detected. Tables are re-scanned if new TEXT columns
+      are added. (default: `false`)
     * `description` (`String`): Human-readable description for the
       monitor. (default: `"PII Monitor"`)
     * `domain_restrictions` (`[String]`): Domain UUIDs restricting
@@ -58308,10 +58386,12 @@ class Mutation(sgqlc.types.Type):
       audiences
     * `field_pattern` (`String`): Glob pattern to match TEXT column
       names. Defaults to all TEXT columns. (default: `"*"`)
-    * `lineage_narrowing_enabled` (`Boolean`): Only create child
-      monitors for root tables — those with no upstream lineage within
-      the selected assets. Downstream tables inherit PII from their
-      sources and do not need independent scanning. (default: `true`)
+    * `lineage_narrowing_enabled` (`Boolean`): When true, only create
+      child monitors for root tables — those with no upstream lineage
+      within the selected assets. Downstream tables inherit PII from
+      their sources and do not need independent scanning. Defaults
+      false to run a full scan across every selected table. (default:
+      `false`)
     * `match_threshold` (`Float`): Alert threshold as a proportion
       (0–1). Defaults to 0.01 (1%). (default: `0.01`)
     * `mode` (`PiiMonitorMode`): ALERT creates threshold comparisons;
@@ -58323,7 +58403,8 @@ class Mutation(sgqlc.types.Type):
     * `priority` (`String`): Monitor priority (P1–P5)
     * `sampling_config` (`MonitorSamplingConfigInput`): Row sampling
       for child metric monitors.
-    * `schedule_config` (`ScheduleConfigInput!`): Collection schedule
+    * `schedule_config` (`ScheduleConfigInput!`): Collection schedule.
+      Weekly FIXED/10080 minutes is recommended.
     * `skip_classified_columns` (`Boolean`): Exclude columns already
       tagged via Snowflake auto-classification. Defaults to true for
       ALERT mode, false for SCAN mode.
@@ -58452,12 +58533,12 @@ class Mutation(sgqlc.types.Type):
     * `audiences` (`[String]`): Monitor audiences
     * `auto_enable_table_monitoring` (`Boolean`): For CBPV1 PII
       monitors, automatically create or update companion table
-      monitors for selected root tables so PII scans can run.
+      monitors for selected scan-scope tables so PII scans can run.
       (default: `false`)
     * `auto_prune_enabled` (`Boolean`): For PII monitors,
       automatically remove child monitors after a successful first
       scan with no PII detected. Omitted values preserve the existing
-      setting on update and default to true for new PII monitors.
+      setting on update and default to false for new PII monitors.
     * `collection_lag_hours` (`Int`): Time to offset the collection
       time bucket by in hours. Should be a multiple of 24 if
       agg_time_interval is DAY. Defaults to 0 (no lag). (default: `0`)
@@ -58473,7 +58554,8 @@ class Mutation(sgqlc.types.Type):
     * `lineage_narrowing_enabled` (`Boolean`): For PII monitors, only
       create child monitors for root tables in the selected lineage
       graph. Omitted values preserve the existing setting on update
-      and default to true for new PII monitors.
+      and default to false for new PII monitors, which scans every
+      selected table.
     * `monitor_type` (`BulkMonitorTypeEnum!`): Type of bulk monitor
     * `notes` (`String`): Notes for the monitor
     * `priority` (`String`): Priority of the monitor (P1-P5)
@@ -62364,6 +62446,7 @@ class Query(sgqlc.types.Type):
         "get_agent_span_groups",
         "get_agent_span_sample",
         "get_agent_span_sample_v2",
+        "get_agent_conversation_sample_v2",
         "evaluate_agent_monitor_data_source",
         "get_job_execution_history_logs",
         "get_job_executions",
@@ -71548,6 +71631,81 @@ class Query(sgqlc.types.Type):
       But we will return the columns based on the validity of the
       query.Not providing the select_expression_type will default to
       SPAN_TREE. (default: `"SPAN_TREE"`)
+    """
+
+    get_agent_conversation_sample_v2 = sgqlc.types.Field(
+        "SQLResponse",
+        graphql_name="getAgentConversationSampleV2",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                (
+                    "agent_span_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanFilterInput))
+                        ),
+                        graphql_name="agentSpanFilters",
+                        default=None,
+                    ),
+                ),
+                (
+                    "filters",
+                    sgqlc.types.Arg(FilterGroupInput, graphql_name="filters", default=None),
+                ),
+                (
+                    "transforms",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(TransformInput))
+                        ),
+                        graphql_name="transforms",
+                        default=None,
+                    ),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=10)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=0)),
+                ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
+                (
+                    "ingestion_start_time",
+                    sgqlc.types.Arg(DateTime, graphql_name="ingestionStartTime", default=None),
+                ),
+                (
+                    "ingestion_end_time",
+                    sgqlc.types.Arg(DateTime, graphql_name="ingestionEndTime", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Sample conversation-grain agent eval data: one row
+    per conversation (packed transcript + conversation-level columns)
+    scored by the supplied conversation eval transforms.
+
+    Arguments:
+
+    * `mcon` (`String!`): MCON of the table with agent observability
+      traces
+    * `agent_span_filters` (`[AgentSpanFilterInput!]!`): Filter by
+      agent span fields. Conversation eval monitors require exactly
+      one agent filter (agent, optionally scoped to a workflow).
+    * `filters` (`FilterGroupInput`): Conversation-level filtering
+      conditions (turn_count, duration_seconds, status).
+    * `transforms` (`[TransformInput!]!`): Conversation eval
+      transforms used to score each sampled conversation.
+    * `limit` (`Int`): Number of sample conversations to return (max
+      100) (default: `10`)
+    * `offset` (`Int`): Number of conversations to skip before
+      returning results (default: `0`)
+    * `connection_id` (`UUID`): Connection UUID
+    * `ingestion_start_time` (`DateTime`): Filter by conversation turn
+      start time (inclusive)
+    * `ingestion_end_time` (`DateTime`): Exclusive upper bound on
+      conversation turn time
     """
 
     evaluate_agent_monitor_data_source = sgqlc.types.Field(
@@ -85512,12 +85670,6 @@ class RemoveMonitorsLabels(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
-class RemoveUserFromAccount(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("user",)
-    user = sgqlc.types.Field("User", graphql_name="user")
-
-
 class Report(sgqlc.types.Type):
     """Available report for an insight"""
 
@@ -94854,6 +95006,7 @@ class AgentTraceTable(sgqlc.types.Type, Node):
         "schedule",
         "sql_tool_calls_schedule",
         "recommendations_generated_at",
+        "supports_conversation_eval",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -94884,6 +95037,14 @@ class AgentTraceTable(sgqlc.types.Type, Node):
     )
     """Timestamp when auto-recommended monitors were generated for this
     trace table.
+    """
+
+    supports_conversation_eval = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="supportsConversationEval"
+    )
+    """Whether conversation-level evaluation monitors can be configured
+    for this agent. When false, only span/trace-level eval scopes are
+    available.
     """
 
 
@@ -102504,6 +102665,7 @@ class PlatformAgent(sgqlc.types.Type, Node):
         "schedule",
         "sql_tool_calls_schedule",
         "recommendations_generated_at",
+        "supports_conversation_eval",
         "trace_table_mcon",
         "trace_table_ingested",
     )
@@ -102569,6 +102731,14 @@ class PlatformAgent(sgqlc.types.Type, Node):
     )
     """Timestamp when auto-recommended monitors were generated for this
     platform agent.
+    """
+
+    supports_conversation_eval = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="supportsConversationEval"
+    )
+    """Whether conversation-level evaluation monitors can be configured
+    for this agent. When false, only span/trace-level eval scopes are
+    available.
     """
 
     trace_table_mcon = sgqlc.types.Field(String, graphql_name="traceTableMcon")

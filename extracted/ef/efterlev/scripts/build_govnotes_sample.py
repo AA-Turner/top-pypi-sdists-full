@@ -46,7 +46,7 @@ def main() -> None:
         app,
         [
             "report", "run", "--target", str(ws),
-            "--skip-init", "--skip-document", "--skip-poam", "--skip-oscal",
+            "--skip-init", "--skip-document", "--skip-poam",
             "--skip-vdr", "--skip-inventory", "--skip-inspector",
         ],
     )  # fmt: skip

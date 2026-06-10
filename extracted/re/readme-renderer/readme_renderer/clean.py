@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict, Optional, Set
-
 import nh3
 
 
@@ -52,7 +50,7 @@ ALLOWED_ATTRIBUTES = {
     "h6": {"align"},
     "code": {"class"},
     "p": {"align", "class"},
-    "pre": {"lang"},
+    "pre": {"class", "lang"},
     "ol": {"start"},
     "input": {"type", "checked", "disabled"},
     "aside": {"class"},
@@ -67,9 +65,9 @@ ALLOWED_ATTRIBUTES = {
 
 def clean(
     html: str,
-    tags: Optional[Set[str]] = None,
-    attributes: Optional[Dict[str, Set[str]]] = None
-) -> Optional[str]:
+    tags: set[str] | None = None,
+    attributes: dict[str, set[str]] | None = None
+) -> str | None:
     if tags is None:
         tags = ALLOWED_TAGS
     if attributes is None:
@@ -78,12 +76,12 @@ def clean(
     try:
         cleaned = nh3.clean(
             html,
-            tags=ALLOWED_TAGS,
-            attributes=ALLOWED_ATTRIBUTES,
+            tags=tags,
+            attributes=attributes,
             link_rel="nofollow",
             url_schemes={"http", "https", "mailto"},
+            set_tag_attribute_values={"input": {"disabled": ""}},
         )
-
-        return cleaned
     except ValueError:
         return None
+    return cleaned

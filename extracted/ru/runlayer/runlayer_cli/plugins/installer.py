@@ -21,6 +21,7 @@ import yaml
 from pydantic import BaseModel, ValidationError
 
 from runlayer_cli.api import (
+    API_KEY_HEADER_NAME,
     PluginDetail,
     RunlayerClient,
     SkillDetail,
@@ -227,6 +228,7 @@ def _build_claude_code_plugin_manifest(
     plugin: PluginDetail,
     install_name: str,
     host: str | None,
+    secret: str | None = None,
 ) -> dict[str, Any]:
     manifest: dict[str, Any] = {
         "name": install_name,
@@ -236,7 +238,7 @@ def _build_claude_code_plugin_manifest(
     }
     if plugin.servers and host is not None:
         manifest["mcpServers"] = _build_plugin_proxy_servers(
-            plugin, host, "claude_code"
+            plugin, host, "claude_code", secret=secret
         )
     return manifest
 
@@ -310,11 +312,14 @@ def _native_build_plugin_manifest(
     plugin: PluginDetail,
     install_name: str,
     host: str | None,
+    secret: str | None = None,
 ) -> dict[str, Any]:
     if client_name == "codex":
         return _build_codex_plugin_manifest(plugin, install_name, host)
     if client_name == "claude_code":
-        return _build_claude_code_plugin_manifest(plugin, install_name, host)
+        return _build_claude_code_plugin_manifest(
+            plugin, install_name, host, secret=secret
+        )
     if client_name == "cursor":
         return _build_cursor_plugin_manifest(plugin, host)
     return _build_standard_native_plugin_manifest(plugin, install_name, host)
@@ -361,11 +366,14 @@ def _write_plugin_manifest(
     plugin: PluginDetail,
     client_name: str,
     host: str | None = None,
+    secret: str | None = None,
 ) -> None:
     _sanitize_name(plugin_name)
     plugin_dir = canonical_dir / plugin_name
     plugin_dir.mkdir(parents=True, exist_ok=True)
-    manifest = _native_build_plugin_manifest(client_name, plugin, plugin_name, host)
+    manifest = _native_build_plugin_manifest(
+        client_name, plugin, plugin_name, host, secret=secret
+    )
     _write_plugin_manifest_file(
         plugin_dir,
         _native_manifest_dir_name(client_name),
@@ -380,8 +388,9 @@ def _build_plugin_proxy_servers(
     plugin: PluginDetail,
     host: str,
     client_name: str,
-) -> dict[str, dict[str, str]]:
-    servers: dict[str, dict[str, str]] = {}
+    secret: str | None = None,
+) -> dict[str, dict[str, Any]]:
+    servers: dict[str, dict[str, Any]] = {}
 
     for srv in plugin.servers:
         srv_id = srv.get("server_id") or srv.get("id", "")
@@ -390,9 +399,11 @@ def _build_plugin_proxy_servers(
             continue
 
         key = normalize_server_name(srv_name)
-        entry: dict[str, str] = {"url": build_server_proxy_url(host, srv_id)}
+        entry: dict[str, Any] = {"url": build_server_proxy_url(host, srv_id)}
         if client_name in _PLUGIN_HTTP_TYPE_CLIENTS:
             entry["type"] = "http"
+        if secret:
+            entry["headers"] = {API_KEY_HEADER_NAME: secret}
         servers[key] = entry
 
     return servers
@@ -407,8 +418,9 @@ def _build_plugin_mcp_config(
     plugin: PluginDetail,
     host: str,
     client_name: str,
+    secret: str | None = None,
 ) -> dict[str, Any]:
-    servers = _build_plugin_proxy_servers(plugin, host, client_name)
+    servers = _build_plugin_proxy_servers(plugin, host, client_name, secret=secret)
     key = _PLUGIN_MCP_CONFIG_KEYS.get(client_name, "mcpServers")
     return {key: servers}
 
@@ -419,12 +431,13 @@ def _write_plugin_mcp_json(
     plugin: PluginDetail,
     host: str,
     client_name: str,
+    secret: str | None = None,
 ) -> None:
     _sanitize_name(plugin_name)
     plugin_dir = canonical_dir / plugin_name
     plugin_dir.mkdir(parents=True, exist_ok=True)
 
-    mcp_config = _build_plugin_mcp_config(plugin, host, client_name)
+    mcp_config = _build_plugin_mcp_config(plugin, host, client_name, secret=secret)
     (plugin_dir / ".mcp.json").write_text(
         json.dumps(mcp_config, indent=2) + "\n", encoding="utf-8"
     )
@@ -647,7 +660,11 @@ async def _materialize_native_plugin(
     install_scope: Literal["project", "global"],
     limiter: anyio.CapacityLimiter,
     claude_code_installed_at: str | None = None,
+    secret: str | None = None,
 ) -> None:
+    # Only embed the API key in global installs — project-level files
+    # live inside a git repo and could be committed by accident.
+    effective_secret = secret if install_scope == "global" else None
     install_name = _plugin_install_name(client_name, plugin)
     _write_plugin_manifest(
         canonical_dir,
@@ -655,6 +672,7 @@ async def _materialize_native_plugin(
         plugin,
         client_name,
         host,
+        secret=effective_secret,
     )
     _write_plugin_mcp_json(
         canonical_dir,
@@ -662,6 +680,7 @@ async def _materialize_native_plugin(
         plugin,
         host,
         client_name,
+        secret=effective_secret,
     )
 
     for skill_ref in plugin.skills:
@@ -871,6 +890,7 @@ def _install_plugin_mcp_fallback(
     plugin: PluginDetail,
     client_name: str,
     host: str,
+    secret: str | None = None,
 ) -> None:
     install_client = InstallClient(client_name)
 
@@ -888,12 +908,14 @@ def _install_plugin_mcp_fallback(
 
     proxy_url = build_plugin_proxy_url(host, plugin.id)
     proxy_name = normalize_server_name(plugin.name)
+    headers = {API_KEY_HEADER_NAME: secret} if secret else None
     spec = InstallServerSpec(
         server_id=plugin.id,
         name=plugin.name,
         proxy_url=proxy_url,
         host=host,
         is_local=False,
+        headers=headers,
     )
     config[servers_key][proxy_name] = _build_server_entry(install_client, spec)
 
@@ -1081,6 +1103,7 @@ async def install_plugins(
     install_scope: Literal["project", "global"] = "project",
     dry_run: bool = False,
     on_progress: Callable[[str, str], None] | None = None,
+    secret: str | None = None,
 ) -> PluginInstallResult:
     result = PluginInstallResult()
     lock_entries = read_plugin_lockfile(lockfile_path)
@@ -1239,9 +1262,15 @@ async def install_plugins(
                     host=host,
                     install_scope=install_scope,
                     limiter=limiter,
+                    secret=secret,
                 )
             else:
-                _install_plugin_mcp_fallback(plugin, client_name, host)
+                _install_plugin_mcp_fallback(
+                    plugin,
+                    client_name,
+                    host,
+                    secret=secret if install_scope == "global" else None,
+                )
 
             lock_entries.append(
                 PluginLockEntry(
@@ -1333,8 +1362,10 @@ async def update_plugins(
     lockfile_path: Path,
     client_name: str,
     host: str,
+    install_scope: Literal["project", "global"] = "project",
     dry_run: bool = False,
     on_progress: Callable[[str, str], None] | None = None,
+    secret: str | None = None,
 ) -> PluginUpdateResult:
     result = PluginUpdateResult()
     lock_entries = read_plugin_lockfile(lockfile_path)
@@ -1449,17 +1480,18 @@ async def update_plugins(
                     editor_dir=editor_dir,
                     client_name=client_name,
                     host=host,
-                    install_scope=(
-                        "global"
-                        if client_name == "claude_code"
-                        and editor_dir == _claude_code_plugins_root()
-                        else "project"
-                    ),
+                    install_scope=install_scope,
                     limiter=limiter,
                     claude_code_installed_at=claude_code_installed_at,
+                    secret=secret,
                 )
             else:
-                _install_plugin_mcp_fallback(remote, client_name, host)
+                _install_plugin_mcp_fallback(
+                    remote,
+                    client_name,
+                    host,
+                    secret=secret if install_scope == "global" else None,
+                )
 
             for le in lock_entries:
                 if le.client == entry.client and le.id == entry.id:

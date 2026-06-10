@@ -144,7 +144,12 @@ pub fn stable_polynomial_times_exp_neg(x: f64, coeffs: &[f64]) -> f64 {
     if coeffs.is_empty() || !x.is_finite() {
         return 0.0;
     }
-    if x <= 600.0 {
+    // Below this argument `(-x).exp()` is still well-resolved, so the direct
+    // Horner-times-exp form is both accurate and cheapest. Above it the factor
+    // underflows toward zero and we switch to the convergent asymptotic tail
+    // series to retain the leading significant digits.
+    const DIRECT_EXP_SWITCH: f64 = 600.0;
+    if x <= DIRECT_EXP_SWITCH {
         return horner_polynomial(x, coeffs) * (-x).exp();
     }
 
@@ -448,7 +453,12 @@ fn inverse_regularized_lower_gamma(p: f64, a: f64) -> f64 {
         (0.0, 0.0)
     };
 
-    for _ in 0..16 {
+    // Halley refinement of the seeded quantile. Halley's cubic convergence
+    // reaches `f64` accuracy from the standard Wilson-Hilferty / asymptotic seed
+    // in only a few steps; this cap is a generous safety bound, not the expected
+    // iteration count, and the loop also exits early via the in-loop tolerance.
+    const MAX_HALLEY_STEPS: usize = 16;
+    for _ in 0..MAX_HALLEY_STEPS {
         if x <= 0.0 {
             return 0.0;
         }
@@ -654,7 +664,10 @@ mod tests {
             gamma_moment_matched_interval(mu, total_var, normal_cdf(-z), normal_cdf(z)).unwrap();
 
         // Ordered, strictly positive, brackets the mean.
-        assert!(0.0 < lo && lo < mu && mu < hi, "interval [{lo}, {hi}] ∌ μ={mu}");
+        assert!(
+            0.0 < lo && lo < mu && mu < hi,
+            "interval [{lo}, {hi}] ∌ μ={mu}"
+        );
         // Right skew: the upper gap is the larger one.
         let lower_gap = mu - lo;
         let upper_gap = hi - mu;
@@ -683,8 +696,7 @@ mod tests {
         let mu = 5.0_f64;
         let obs_var = phi * mu * mu;
         let (lo0, hi0) = gamma_moment_matched_interval(mu, obs_var, 0.025, 0.975).unwrap();
-        let (lo1, hi1) =
-            gamma_moment_matched_interval(mu, obs_var + 4.0, 0.025, 0.975).unwrap();
+        let (lo1, hi1) = gamma_moment_matched_interval(mu, obs_var + 4.0, 0.025, 0.975).unwrap();
         assert!(
             lo1 < lo0 && hi1 > hi0,
             "estimation uncertainty must widen the band: [{lo0},{hi0}] -> [{lo1},{hi1}]"

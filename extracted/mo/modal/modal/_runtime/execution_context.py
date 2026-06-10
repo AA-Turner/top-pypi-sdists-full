@@ -1,12 +1,13 @@
 # Copyright Modal Labs 2024
+from collections.abc import Callable
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Callable, Optional
 
 from modal._utils.async_utils import synchronize_api
 from modal.exception import InvalidError
 
 from .container_io_manager import _ContainerIOManager
+from .task_lifecycle_manager import _TaskLifecycleManager
 
 
 def is_local() -> bool:
@@ -18,7 +19,7 @@ def is_local() -> bool:
     even though those processes are running on Modal hardware.
 
     """
-    return not _ContainerIOManager._singleton
+    return _TaskLifecycleManager._singleton is None
 
 
 async def _interact() -> None:
@@ -29,7 +30,7 @@ async def _interact() -> None:
     """
     container_io_manager = _ContainerIOManager._singleton
     if not container_io_manager:
-        raise InvalidError("Interactivity only works inside a Modal container.")
+        raise InvalidError("Interactivity only works inside a Modal Function's container.")
     else:
         await container_io_manager.interact()
 
@@ -37,7 +38,7 @@ async def _interact() -> None:
 interact = synchronize_api(_interact)
 
 
-def current_input_id() -> Optional[str]:
+def current_input_id() -> str | None:
     """Returns the input ID for the current input.
 
     Can only be called from Modal function (i.e. in a container context).
@@ -56,7 +57,7 @@ def current_input_id() -> Optional[str]:
         return None
 
 
-def current_function_call_id() -> Optional[str]:
+def current_function_call_id() -> str | None:
     """Returns the function call ID for the current input.
 
     Can only be called from Modal function (i.e. in a container context).
@@ -75,7 +76,7 @@ def current_function_call_id() -> Optional[str]:
         return None
 
 
-def current_attempt_token() -> Optional[str]:
+def current_attempt_token() -> str | None:
     # This ContextVar isn't useful to expose to users.
     try:
         return _current_attempt_token.get()

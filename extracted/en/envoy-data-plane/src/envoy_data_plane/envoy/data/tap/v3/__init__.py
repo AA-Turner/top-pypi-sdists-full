@@ -313,7 +313,7 @@ class SocketEvent(betterproto2.Message):
     sequences on a socket.
 
     Event in a socket trace.
-    [#next-free-field: 6]
+    [#next-free-field: 7]
 
     Oneofs:
         - event_selector: Read or write with content as bytes string.
@@ -346,6 +346,13 @@ class SocketEvent(betterproto2.Message):
     )
     """
     Connection information per event
+    """
+
+    seq_num: "typing.Annotated[int, pydantic.Field(ge=0, le=2**64 - 1)]" = (
+        betterproto2.field(6, betterproto2.TYPE_UINT64)
+    )
+    """
+    Data sequence number
     """
 
     @model_validator(mode="after")

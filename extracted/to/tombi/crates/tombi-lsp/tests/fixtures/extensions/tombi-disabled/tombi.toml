@@ -1,5 +1,0 @@
-[extensions]
-"tombi-toml/tombi" = {
-  lsp.document-link.path.enabled = false,
-  lsp.goto-definition.path.enabled = false,
-}

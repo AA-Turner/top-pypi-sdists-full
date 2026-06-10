@@ -445,30 +445,7 @@ class LeanLSPClient(LSPFileManager, BaseLeanLSPClient):
         Returns:
             list: Document symbols.
         """
-        path = self._normalize_local_path(path)
-
-        with self._opened_files_lock:
-            if path not in self.opened_files:
-                needs_open = True
-            else:
-                needs_open = False
-
-        if needs_open:
-            self.open_file(path)
-
-        # Wait for file to be processed if needed
-        with self._opened_files_lock:
-            state = self.opened_files[path]
-            uri = state.uri
-            version = state.version
-            need_wait = not state.complete
-
-        if need_wait:
-            self._wait_for_diagnostics([uri], inactivity_timeout=5.0)
-            with self._opened_files_lock:
-                version = self.opened_files[path].version
-
-        # Send request
+        uri, version = self._ensure_file_processed(path)
         params = {"textDocument": {"uri": uri, "version": version}}
         response = self._send_request_sync("textDocument/documentSymbol", params)
 
@@ -574,30 +551,7 @@ class LeanLSPClient(LSPFileManager, BaseLeanLSPClient):
         Returns:
             list: Folding ranges.
         """
-        path = self._normalize_local_path(path)
-
-        with self._opened_files_lock:
-            if path not in self.opened_files:
-                needs_open = True
-            else:
-                needs_open = False
-
-        if needs_open:
-            self.open_file(path)
-
-        # Wait for file to be processed if needed
-        with self._opened_files_lock:
-            state = self.opened_files[path]
-            uri = state.uri
-            version = state.version
-            need_wait = not state.complete
-
-        if need_wait:
-            self._wait_for_diagnostics([uri], inactivity_timeout=5.0)
-            with self._opened_files_lock:
-                version = self.opened_files[path].version
-
-        # Send request
+        uri, version = self._ensure_file_processed(path)
         params = {"textDocument": {"uri": uri, "version": version}}
         return self._send_request_sync("textDocument/foldingRange", params)
 
@@ -1142,9 +1096,21 @@ class LeanLSPClient(LSPFileManager, BaseLeanLSPClient):
         Returns:
             list: List of info trees as raw strings or parsed into structured data if `parse` is True.
         """
-        # Find the lines of all "method" symbols in the document (e.g. "theorem")
+        # Find the lines of all "method" symbols in the document (e.g. "theorem").
+        # Lean's module system nests declarations under `section`/namespace
+        # symbols, so recurse into children. get_document_symbols only maps
+        # top-level kinds to strings; nested symbols keep the raw int (6 = method).
         symbols = self.get_document_symbols(path)
-        lines = [s["range"]["start"]["line"] for s in symbols if s["kind"] == "method"]
+
+        def _method_lines(syms: list) -> list:
+            found = []
+            for s in syms:
+                if s.get("kind") in ("method", 6):
+                    found.append(s["range"]["start"]["line"])
+                found.extend(_method_lines(s.get("children") or []))
+            return found
+
+        lines = _method_lines(symbols)
 
         if not lines:
             return []

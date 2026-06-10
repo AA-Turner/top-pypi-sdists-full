@@ -14,13 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
-
 import itertools
 import weakref
 from collections import deque, defaultdict, OrderedDict
+from collections.abc import Iterable
 
-from ...compat import six, Iterable
 from ...dag import DAG, Queue
 from . import utils
 
@@ -56,7 +54,7 @@ class NodeMetaclass(type):
         return super(NodeMetaclass, self).__instancecheck__(instance)
 
 
-class Node(six.with_metaclass(NodeMetaclass)):
+class Node(metaclass=NodeMetaclass):
     __slots__ = '_args_indexes', '__weakref__'
     _args = ()  # the child(ren) of the current node
     _extra_args = ()
@@ -70,7 +68,7 @@ class Node(six.with_metaclass(NodeMetaclass)):
         for arg, value in zip(self._args, args):
             setattr(self, arg, value)
 
-        for key, value in six.iteritems(kwargs):
+        for key, value in kwargs.items():
             setattr(self, key, value)
 
     @property
@@ -381,7 +379,7 @@ def _extract_df_inputs(o):
     if isinstance(o, Node):
         yield o
     elif isinstance(o, dict):
-        for v in itertools.chain(*(_extract_df_inputs(dv) for dv in six.itervalues(o))):
+        for v in itertools.chain(*(_extract_df_inputs(dv) for dv in o.values())):
             if v is not None:
                 yield v
     elif isinstance(o, (list, set, tuple)):
@@ -392,7 +390,7 @@ def _extract_df_inputs(o):
         yield None
 
 
-class ExprProxy(object):
+class ExprProxy:
     def __init__(self, expr, d=None, compare=False):
         if d is not None:
             def callback(_):
@@ -482,7 +480,7 @@ class ExprDAG(DAG):
 
     def prune(self):
         while True:
-            nodes = [n for n, succ in six.iteritems(self._graph) if len(succ) == 0]
+            nodes = [n for n, succ in self._graph.items() if len(succ) == 0]
             if len(nodes) == 1 and nodes[0] is self.root:
                 break
             for node in nodes:
@@ -499,9 +497,30 @@ class ExprDAG(DAG):
 
 
 class ExprDictionary(dict):
+    def __init__(self, *args, **kwargs):
+        super(ExprDictionary, self).__init__(*args, **kwargs)
+        # cache for ExprProxy to make sure hashes are not recomputed
+        self._ref_cache_self = weakref.WeakKeyDictionary()
+        self._ref_cache_none = weakref.WeakKeyDictionary()
+
     def _ref(self, obj, ref_self=False):
-        r = self if ref_self else None
-        return obj if isinstance(obj, ExprProxy) else ExprProxy(obj, d=r)
+        if ref_self:
+            r = self
+            cache = self._ref_cache_self
+        else:
+            r = None
+            cache = self._ref_cache_none
+
+        if isinstance(obj, ExprProxy):
+            return obj
+        if obj in cache:
+            return cache[obj]
+        cache[obj] = ExprProxy(obj, d=r)
+        return cache[obj]
+
+    def _del_cache(self, obj):
+        self._ref_cache_none.pop(obj, None)
+        self._ref_cache_self.pop(obj, None)
 
     def __getitem__(self, item):
         if item is None:
@@ -520,6 +539,7 @@ class ExprDictionary(dict):
     def __delitem__(self, key):
         if key is None:
             raise KeyError
+        self._del_cache(key)
         return dict.__delitem__(self, self._ref(key))
 
     def __contains__(self, item):
@@ -527,23 +547,25 @@ class ExprDictionary(dict):
             return False
         return dict.__contains__(self, self._ref(item))
 
+    def clear(self):
+        self._ref_cache_none.clear()
+        self._ref_cache_self.clear()
+        dict.clear(self)
+
     def get(self, k, d=None):
         if k is None:
             return d
         return dict.get(self, self._ref(k), d)
 
-    def has_key(self, k):
-        if k is None:
-            return False
-        return dict.has_key(self, self._ref(k))
-
     def pop(self, k, d=None):
         if k is None:
             return False
+        self._del_cache(k)
         return dict.pop(self, self._ref(k), d)
 
     def popitem(self):
         k, v = dict.popitem(self)
+        self._del_cache(k)
         return k(), v
 
     def setdefault(self, k, d=None):
@@ -559,28 +581,18 @@ class ExprDictionary(dict):
             for k, v in E:
                 self[k] = v
         else:
-            for k, v in six.iteritems(F):
+            for k, v in F.items():
                 self[k] = v
 
-    if six.PY2:
-        def items(self):
-            return [(k(), v) for k, v in dict.items(self)]
+    # Python 3 uses native dict methods
+    def items(self):
+        for k, v in dict.items(self):
+            yield k(), v
 
-        def keys(self):
-            return [k() for k in dict.keys(self)]
+    def keys(self):
+        for k in dict.keys(self):
+            yield k()
 
-        def iteritems(self):
-            for k, v in dict.iteritems(self):
-                yield k(), v
-
-        def iterkeys(self):
-            for k in dict.iterkeys(self):
-                yield k()
-    else:
-        def items(self):
-            for k, v in dict.items(self):
-                yield k(), v
-
-        def keys(self):
-            for k in dict.keys(self):
-                yield k()
+    def values(self):
+        for v in dict.values(self):
+            yield v

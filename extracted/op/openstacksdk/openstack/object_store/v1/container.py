@@ -118,7 +118,7 @@ class Container(_base.BaseResource):
     meta_temp_url_key_2 = resource.Header("x-container-meta-temp-url-key-2")
 
     @classmethod
-    def new(cls, **kwargs):
+    def new(cls, **kwargs: Any) -> Self:
         # Container uses name as id. Proxy._get_resource calls
         # Resource.new(id=name) but then we need to do container.name
         # It's the same thing for Container - make it be the same.
@@ -127,52 +127,34 @@ class Container(_base.BaseResource):
             kwargs.setdefault('name', name)
         return cls(_synchronized=False, **kwargs)
 
-    def create(
+    @classmethod
+    def _transform_create_request(
+        cls,
+        session: adapter.Adapter,
+        request: resource._Request,
+        *,
+        microversion: str | None,
+    ) -> resource._Request:
+        request.body = None
+        return request
+
+    def set_temp_url_key(
         self,
         session: adapter.Adapter,
-        prepend_key: bool = True,
-        base_path: str | None = None,
-        *,
-        resource_request_key: str | None = None,
-        resource_response_key: str | None = None,
-        microversion: str | None = None,
-        **params: Any,
+        key: str,
+        secondary: bool = False,
     ) -> Self:
-        """Create a remote resource based on this instance.
-
-        :param session: The session to use for making this request.
-        :type session: :class:`~keystoneauth1.adapter.Adapter`
-        :param prepend_key: A boolean indicating whether the resource_key
-                            should be prepended in a resource creation
-                            request. Default to True.
-
-        :return: This :class:`Resource` instance.
-        :raises: :exc:`~openstack.exceptions.MethodNotSupported` if
-                 :data:`Resource.allow_create` is not set to ``True``.
-        """
-        request = self._prepare_request(
-            requires_id=True, prepend_key=prepend_key, base_path=base_path
-        )
-        response = session.put(request.url, headers=request.headers)
-
-        self._translate_response(response, has_body=False)
-        return self
-
-    def set_temp_url_key(self, proxy, key, secondary=False):
         """Set the temporary url key for a container.
 
-        :param proxy: The proxy to use for making this request.
-        :type proxy: :class:`~openstack.proxy.Proxy`
-        :param container:
-          The value can be the name of a container or a
+        :param session: The session to use for making this request.
+        :param container: The value can be the name of a container or a
           :class:`~openstack.object_store.v1.container.Container` instance.
-        :param key:
-          Text of the key to use.
-        :param bool secondary:
-          Whether this should set the second key. (defaults to False)
+        :param key: Text of the key to use.
+        :param secondary: Whether this should set the second key. (defaults to
+            False)
         """
         header = 'Temp-URL-Key'
         if secondary:
             header += '-2'
 
-        return self.set_metadata(proxy, {header: key})
+        return self.set_metadata(session, {header: key})

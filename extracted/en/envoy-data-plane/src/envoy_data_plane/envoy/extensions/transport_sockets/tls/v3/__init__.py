@@ -547,9 +547,13 @@ class CommonTlsContext(betterproto2.Message):
     """
     Custom TLS certificate selector.
 
-    Select TLS certificate based on TLS client hello.
-    If empty, defaults to native TLS certificate selection behavior:
-    DNS SANs or Subject Common Name in TLS certificates is extracted as server name pattern to match SNI.
+    For the downstream TLS socket, select a TLS certificate based on TLS client hello. If empty,
+    defaults to native TLS certificate selection behavior: DNS SANs or Subject Common Name in TLS
+    certificates is extracted as server name pattern to match SNI.
+
+    For the upstream TLS socket, select a TLS certificate based on TLS server hello and the
+    transport socket options.
+    [#extension-category: envoy.tls.certificate_selectors,envoy.tls.upstream_certificate_selectors]
     """
 
     tls_certificate_certificate_provider: "CommonTlsContextCertificateProvider | None" = betterproto2.field(
@@ -1137,6 +1141,11 @@ class SpiffeCertValidatorConfig(betterproto2.Message):
 
     - :ref:`allow_expired_certificate <envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.allow_expired_certificate>` to allow expired certificates.
     - :ref:`match_typed_subject_alt_names <envoy_v3_api_field_extensions.transport_sockets.tls.v3.CertificateValidationContext.match_typed_subject_alt_names>` to match **URI** SAN of certificates. Unlike the default validator, SPIFFE validator only matches **URI** SAN (which equals to SVID in SPIFFE terminology) and ignore other SAN types.
+
+    To support multi-tenant use cases, a filter state object ``envoy.tls.cert_validator.spiffe.workload_trust_domain``
+    should be used to define the per-connection workload trust domain. When matching a peer trust domain, both the
+    workload and the peer trust domains are used in selecting the validation certificate. The filter state object
+    should be shared with the upstream to be used in the upstream TLS context SPIFFE validation context.
     """
 
     trust_domains: "list[SpiffeCertValidatorConfigTrustDomain]" = betterproto2.field(
@@ -1180,6 +1189,15 @@ class SpiffeCertValidatorConfigTrustDomain(betterproto2.Message):
     )
     """
     Specify a data source holding x.509 trust bundle used for validating incoming SVID(s) in this trust domain.
+    """
+
+    workload_trust_domain: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        3, betterproto2.TYPE_STRING
+    )
+    """
+    Optional workload trust domain selection condition. The filter object
+    ``envoy.tls.cert_validator.spiffe.workload_trust_domain`` must match exactly the value of this field.
+    If not specified, the filter state object must be absent or be empty to match this trust domain.
     """
 
 
@@ -1668,11 +1686,19 @@ class UpstreamTlsContext(betterproto2.Message):
     the ``keyUsage`` is incompatible with TLS usage.
 
     .. note::
-      The default value is ``false`` (i.e., enforcement off). It is expected to change to ``true`` in a future release.
+      The default value is ``true`` (i.e., enforcement on).
 
     The ``ssl.was_key_usage_invalid`` in :ref:`listener metrics <config_listener_stats>` metric will be incremented
     for configurations that would fail if this option were enabled.
     """
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.is_set("enforce_rsa_key_usage"):
+            warnings.warn(
+                "UpstreamTlsContext.enforce_rsa_key_usage is deprecated",
+                DeprecationWarning,
+            )
 
 
 default_message_pool.register_message(

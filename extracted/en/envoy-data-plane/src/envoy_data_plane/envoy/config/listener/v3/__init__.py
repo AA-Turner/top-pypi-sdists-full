@@ -112,6 +112,18 @@ class AdditionalAddress(betterproto2.Message):
     it means no socket option will apply.
     """
 
+    tcp_keepalive: "__core__v3__.TcpKeepalive | None" = betterproto2.field(
+        3, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Configures TCP keepalive settings for the additional address.
+    If not set, the listener :ref:`tcp_keepalive <envoy_v3_api_field_config.listener.v3.Listener.tcp_keepalive>`
+    configuration is inherited. You can explicitly disable TCP keepalive for the additional address by setting any keepalive field
+    (:ref:`keepalive_probes <envoy_v3_api_field_config.core.v3.TcpKeepalive.keepalive_probes>`,
+    :ref:`keepalive_time <envoy_v3_api_field_config.core.v3.TcpKeepalive.keepalive_time>`, or
+    :ref:`keepalive_interval <envoy_v3_api_field_config.core.v3.TcpKeepalive.keepalive_interval>`) to ``0``.
+    """
+
 
 default_message_pool.register_message(
     "envoy.config.listener.v3", "AdditionalAddress", AdditionalAddress
@@ -295,9 +307,11 @@ class FilterChain(betterproto2.Message):
     )
     """
     The unique name (or empty) by which this filter chain is known.
-    Note: :ref:`filter_chain_matcher
-    <envoy_v3_api_field_config.listener.v3.Listener.filter_chain_matcher>`
-    requires that filter chains are uniquely named within a listener.
+
+    .. note::
+        :ref:`filter_chain_matcher
+        <envoy_v3_api_field_config.listener.v3.Listener.filter_chain_matcher>`
+        requires that filter chains are uniquely named within a listener.
     """
 
     def __post_init__(self) -> None:
@@ -506,7 +520,7 @@ default_message_pool.register_message(
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class Listener(betterproto2.Message):
     """
-    [#next-free-field: 37]
+    [#next-free-field: 39]
 
     Oneofs:
         - listener_specifier: The exclusive listener type and the corresponding config.
@@ -529,6 +543,12 @@ class Listener(betterproto2.Message):
     that is governed by the bind rules of the OS. E.g., multiple listeners can listen on port 0 on
     Linux as the actual port will be allocated by the OS.
     Required unless ``api_listener`` or ``listener_specifier`` is populated.
+
+    When the address contains a network namespace filepath (via
+    :ref:`network_namespace_filepath <envoy_v3_api_field_config.core.v3.SocketAddress.network_namespace_filepath>`),
+    Envoy automatically populates the filter state with key ``envoy.network.network_namespace``
+    when a connection is accepted. This provides read-only access to the network namespace for
+    filters, access logs, and other components.
     """
 
     additional_addresses: "list[AdditionalAddress]" = betterproto2.field(
@@ -627,11 +647,31 @@ class Listener(betterproto2.Message):
     If unspecified, an implementation defined default is applied (1MiB).
     """
 
+    per_connection_buffer_high_watermark_timeout: "datetime.timedelta | None" = (
+        betterproto2.field(
+            38,
+            betterproto2.TYPE_MESSAGE,
+            unwrap=lambda: ____google__protobuf__.Duration,
+            optional=True,
+        )
+    )
+    """
+    Optional timeout that controls how long a connection is allowed to stay above the configured
+    buffer high watermark before it is closed. If this timeout is not specified, or explicitly set
+    to 0, connections will not be closed due to buffer high watermark usage.
+    """
+
     metadata: "__core__v3__.Metadata | None" = betterproto2.field(
         6, betterproto2.TYPE_MESSAGE, optional=True
     )
     """
     Listener metadata.
+
+    The following pre-defined metadata could be used by Envoy to manipulate the listener behavior:
+
+    * ``envoy.stats_matcher``: this metadata could be used to customize the stats emitted by the
+      listener. See :ref:`well-known metadata <well_known_metadata_envoy_stats_matcher>` for more
+      details.
     """
 
     deprecated_v1: "ListenerDeprecatedV1 | None" = betterproto2.field(
@@ -948,6 +988,16 @@ class Listener(betterproto2.Message):
     bypass_overload_manager: "bool" = betterproto2.field(35, betterproto2.TYPE_BOOL)
     """
     Whether the listener bypasses configured overload manager actions.
+    """
+
+    tcp_keepalive: "__core__v3__.TcpKeepalive | None" = betterproto2.field(
+        37, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    If set, TCP keepalive settings are configured for the listener address and inherited by
+    additional addresses. If not set, TCP keepalive settings are not configured for the
+    listener address and additional addresses by default. See :ref:`tcp_keepalive <envoy_v3_api_field_config.listener.v3.AdditionalAddress.tcp_keepalive>`
+    to explicitly configure TCP keepalive settings for individual additional addresses.
     """
 
     def __post_init__(self) -> None:
@@ -1297,7 +1347,7 @@ class QuicProtocolOptions(betterproto2.Message):
     [#protodoc-title: QUIC listener config]
 
     Configuration specific to the UDP QUIC listener.
-    [#next-free-field: 14]
+    [#next-free-field: 15]
     """
 
     quic_protocol_options: "__core__v3__.QuicProtocolOptions | None" = (
@@ -1425,6 +1475,19 @@ class QuicProtocolOptions(betterproto2.Message):
     If true, the listener will reject connection-establishing packets at the
     QUIC layer by replying with an empty version negotiation packet to the
     client.
+    """
+
+    max_sessions_per_event_loop: "int | None" = betterproto2.field(
+        14,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ____google__protobuf__.UInt32Value,
+        optional=True,
+    )
+    """
+    Maximum number of QUIC sessions to create per event loop.
+    If not specified, the default value is 16.
+    This is an equivalent of the TCP listener option
+    max_connections_to_accept_per_socket_event.
     """
 
 

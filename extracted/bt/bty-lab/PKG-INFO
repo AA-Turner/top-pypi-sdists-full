@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bty-lab
-Version: 0.40.0
+Version: 0.42.0
 Summary: Flash images onto target disks, offline or networked with and without PXE
 Project-URL: Homepage, https://safl.dk/bty/
 Project-URL: Documentation, https://safl.dk/bty/
@@ -23,6 +23,7 @@ Requires-Dist: itsdangerous>=2.1; extra == 'all'
 Requires-Dist: jinja2>=3.1; extra == 'all'
 Requires-Dist: python-multipart>=0.0.9; extra == 'all'
 Requires-Dist: rich>=13; extra == 'all'
+Requires-Dist: tomlkit>=0.12; extra == 'all'
 Requires-Dist: uvicorn[standard]>=0.30; extra == 'all'
 Provides-Extra: tui
 Requires-Dist: rich>=13; extra == 'tui'
@@ -31,6 +32,7 @@ Requires-Dist: fastapi>=0.115; extra == 'web'
 Requires-Dist: itsdangerous>=2.1; extra == 'web'
 Requires-Dist: jinja2>=3.1; extra == 'web'
 Requires-Dist: python-multipart>=0.0.9; extra == 'web'
+Requires-Dist: tomlkit>=0.12; extra == 'web'
 Requires-Dist: uvicorn[standard]>=0.30; extra == 'web'
 Description-Content-Type: text/markdown
 

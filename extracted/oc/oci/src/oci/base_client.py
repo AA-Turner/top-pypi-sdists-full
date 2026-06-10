@@ -607,7 +607,8 @@ class BaseClient(object):
             self._endpoint = endpoint
 
     def get_endpoint(self):
-        return extract_service_endpoint(self._endpoint)
+        resolved_endpoint = self.update_endpoint_template_for_options()
+        return extract_service_endpoint(resolved_endpoint)
 
     def set_region(self, region):
         if self.regional_client:

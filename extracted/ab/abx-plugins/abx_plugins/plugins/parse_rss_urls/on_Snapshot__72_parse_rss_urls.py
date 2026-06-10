@@ -6,14 +6,13 @@
 Parse RSS/Atom feeds and extract URLs.
 
 This is a standalone extractor that can run without ArchiveBox.
-It reads feed content from a URL and extracts article URLs.
+It reads feed content from SNAP_DIR/staticfile/*.txt or an HTTP URL and extracts article URLs.
 
 Usage: ./on_Snapshot__72_parse_rss_urls.py --url=<url>
 Output: Appends discovered URLs to SNAP_DIR/parse_rss_urls/urls.jsonl
 
 Examples:
     ./on_Snapshot__72_parse_rss_urls.py --url=https://example.com/feed.rss
-    ./on_Snapshot__72_parse_rss_urls.py --url=file:///path/to/feed.xml
 """
 
 import json
@@ -25,7 +24,6 @@ from datetime import datetime, timezone
 from html import unescape
 from time import mktime
 from typing import Any
-from urllib.parse import urlparse
 
 from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
 from abx_plugins.plugins.base.utils import (
@@ -33,6 +31,7 @@ from abx_plugins.plugins.base.utils import (
     emit_snapshot_record,
     emit_tag_record,
     get_extra_context,
+    iter_staticfile_text_inputs,
     load_config,
     write_text_atomic,
 )
@@ -48,6 +47,13 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 os.chdir(OUTPUT_DIR)
 URLS_FILE = Path("urls.jsonl")
 NORESULTS_OUTPUT = "0 URLs parsed"
+UNSAFE_XML_MARKERS = (
+    "<!doctype",
+    "<!entity",
+    "<!notation",
+    "<xi:include",
+    "<xinclude:include",
+)
 
 feedparser: Any | None
 try:
@@ -57,22 +63,22 @@ except ModuleNotFoundError:
 
 
 def fetch_content(url: str) -> str:
-    """Fetch content from a URL (supports file:// and https://)."""
-    parsed = urlparse(url)
+    """Fetch content from snapshot source artifacts or an HTTP URL."""
+    source_paths = iter_staticfile_text_inputs(SNAP_DIR)
+    if source_paths:
+        return "\n".join(
+            path.read_text(encoding="utf-8", errors="replace") for path in source_paths
+        )
+    if not url.startswith(("http://", "https://")):
+        return ""
+    timeout = CONFIG.TIMEOUT
+    user_agent = CONFIG.USER_AGENT
 
-    if parsed.scheme == "file":
-        file_path = parsed.path
-        with open(file_path, encoding="utf-8", errors="replace") as f:
-            return f.read()
-    else:
-        timeout = CONFIG.TIMEOUT
-        user_agent = CONFIG.USER_AGENT
+    import urllib.request
 
-        import urllib.request
-
-        req = urllib.request.Request(url, headers={"User-Agent": user_agent})
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            return response.read().decode("utf-8", errors="replace")
+    req = urllib.request.Request(url, headers={"User-Agent": user_agent})
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        return response.read().decode("utf-8", errors="replace")
 
 
 def emit_result(status: str, output_str: str) -> None:
@@ -80,6 +86,14 @@ def emit_result(status: str, output_str: str) -> None:
     emit_archive_result_record(status, output_str)
     if output_str:
         click.echo(output_str, err=True)
+
+
+def reject_xml_file_loading_features(content: str) -> None:
+    lowered = content.lower()
+    if any(marker in lowered for marker in UNSAFE_XML_MARKERS):
+        raise ValueError(
+            "RSS/Atom input contains XML declarations that can reference external files",
+        )
 
 
 def persist_records(records: list[dict]) -> tuple[str, str]:
@@ -115,7 +129,16 @@ def main(
     print("parsing 1 files for urls...")
     try:
         content = fetch_content(url)
+        reject_xml_file_loading_features(content)
     except Exception as e:
+        if url.startswith(("http://", "https://")):
+            # Snapshot URL fetching is only a fallback when no staticfile import
+            # artifact exists. Normal webpages, blocked requests, or transient
+            # network errors should not make this parser hook look broken.
+            status, output_str = persist_records([])
+            print(output_str)
+            emit_result(status, output_str)
+            sys.exit(0)
         emit_result("failed", f"Failed to fetch {url}: {e}")
         sys.exit(1)
 

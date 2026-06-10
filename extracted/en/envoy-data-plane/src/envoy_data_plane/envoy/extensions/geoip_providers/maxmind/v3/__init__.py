@@ -29,9 +29,10 @@ class MaxMindConfig(betterproto2.Message):
     * :ref:`isp_db_path <envoy_v3_api_field_extensions.geoip_providers.maxmind.v3.MaxMindConfig.isp_db_path>`
     * :ref:`asn_db_path <envoy_v3_api_field_extensions.geoip_providers.maxmind.v3.MaxMindConfig.asn_db_path>`
     * :ref:`anon_db_path <envoy_v3_api_field_extensions.geoip_providers.maxmind.v3.MaxMindConfig.anon_db_path>`
+    * :ref:`country_db_path <envoy_v3_api_field_extensions.geoip_providers.maxmind.v3.MaxMindConfig.country_db_path>`
     [#extension: envoy.geoip_providers.maxmind]
 
-    [#next-free-field: 6]
+    [#next-free-field: 7]
     """
 
     city_db_path: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -67,6 +68,17 @@ class MaxMindConfig(betterproto2.Message):
     Database file is expected to have ``.mmdb`` extension.
     If ``asn_db_path`` is not defined, ASN information will be fetched from
     ``isp_db`` instead.
+    """
+
+    country_db_path: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        6, betterproto2.TYPE_STRING
+    )
+    """
+    Full file path to the MaxMind Country database, e.g., ``/etc/GeoLite2-Country.mmdb``.
+    Database file is expected to have ``.mmdb`` extension.
+
+    If ``country_db_path`` is not specified, country information will be fetched from
+    ``city_db`` if ``city_db`` is configured.
     """
 
     common_provider_config: "__common__v3__.CommonGeoipProviderConfig | None" = (

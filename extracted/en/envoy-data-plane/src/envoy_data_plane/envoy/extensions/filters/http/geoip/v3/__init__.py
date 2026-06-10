@@ -5,6 +5,7 @@
 
 __all__ = (
     "Geoip",
+    "GeoipCustomHeaderConfig",
     "GeoipXffConfig",
 )
 
@@ -32,10 +33,30 @@ class Geoip(betterproto2.Message):
         1, betterproto2.TYPE_MESSAGE, optional=True
     )
     """
-    If set, the :ref:`xff_num_trusted_hops <envoy_v3_api_field_extensions.filters.http.geoip.v3.Geoip.XffConfig.xff_num_trusted_hops>` field will be used to determine
-    trusted client address from ``x-forwarded-for`` header.
-    Otherwise, the immediate downstream connection source address will be used.
-    [#next-free-field: 2]
+    Configuration for extracting the client IP address from the
+    ``x-forwarded-for`` header. If set, the
+    :ref:`xff_num_trusted_hops <envoy_v3_api_field_extensions.filters.http.geoip.v3.Geoip.XffConfig.xff_num_trusted_hops>`
+    field will be used to determine the trusted client address from the ``x-forwarded-for`` header.
+    If not set, the immediate downstream connection source address will be used.
+
+    Only one of ``xff_config`` or
+    :ref:`custom_header_config <envoy_v3_api_field_extensions.filters.http.geoip.v3.Geoip.custom_header_config>`
+    can be set.
+    """
+
+    custom_header_config: "GeoipCustomHeaderConfig | None" = betterproto2.field(
+        4, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Configuration for extracting the client IP address from a custom request header.
+
+    If set, the
+    :ref:`header_name <envoy_v3_api_field_extensions.filters.http.geoip.v3.Geoip.CustomHeaderConfig.header_name>`
+    field will be used to extract the client IP address from the specified request header.
+
+    Only one of ``custom_header_config`` or
+    :ref:`xff_config <envoy_v3_api_field_extensions.filters.http.geoip.v3.Geoip.xff_config>`
+    can be set.
     """
 
     provider: "_____config__core__v3__.TypedExtensionConfig | None" = (
@@ -56,6 +77,27 @@ default_message_pool.register_message(
 
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class GeoipCustomHeaderConfig(betterproto2.Message):
+    header_name: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        1, betterproto2.TYPE_STRING
+    )
+    """
+    The name of the request header to extract the client IP address from.
+    The header value must contain a valid IP address (IPv4 or IPv6).
+
+    If the header is missing or contains an invalid IP address, the filter will fall back
+    to using the immediate downstream connection source address.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.geoip.v3",
+    "Geoip.CustomHeaderConfig",
+    GeoipCustomHeaderConfig,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class GeoipXffConfig(betterproto2.Message):
     xff_num_trusted_hops: "typing.Annotated[int, pydantic.Field(ge=0, le=2**32 - 1)]" = betterproto2.field(
         1, betterproto2.TYPE_UINT32
@@ -63,9 +105,10 @@ class GeoipXffConfig(betterproto2.Message):
     """
     The number of additional ingress proxy hops from the right side of the
     :ref:`config_http_conn_man_headers_x-forwarded-for` HTTP header to trust when
-    determining the origin client's IP address. The default is zero if this option
-    is not specified. See the documentation for
+    determining the origin client's IP address. See the documentation for
     :ref:`config_http_conn_man_headers_x-forwarded-for` for more information.
+
+    Defaults to ``0``.
     """
 
 

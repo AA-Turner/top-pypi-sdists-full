@@ -1,5 +1,5 @@
 import modal.client
-import typing
+import types
 import typing_extensions
 
 class ClusterInfo:
@@ -31,4 +31,4 @@ class __initialize_clustered_function_spec(typing_extensions.Protocol):
 
 initialize_clustered_function: __initialize_clustered_function_spec
 
-cluster_info: typing.Optional[ClusterInfo]
+cluster_info: ClusterInfo | None

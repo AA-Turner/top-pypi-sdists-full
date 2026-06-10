@@ -2,9 +2,9 @@
 import functools
 import os
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path, PurePosixPath
-from typing import Any, BinaryIO, Callable, Optional, Union
+from typing import Any, BinaryIO
 
 from synchronicity.async_wrap import asynccontextmanager
 
@@ -57,64 +57,71 @@ class _NetworkFileSystem(_Object, type_prefix="sv"):
 
     **Note: `NetworkFileSystem` has been deprecated and will be removed.**
 
-    **Usage**
+    Examples:
+        ```python
+        import modal
 
-    ```python
-    import modal
+        nfs = modal.NetworkFileSystem.from_name("my-nfs", create_if_missing=True)
+        app = modal.App()
 
-    nfs = modal.NetworkFileSystem.from_name("my-nfs", create_if_missing=True)
-    app = modal.App()
+        @app.function(network_file_systems={"/root/foo": nfs})
+        def f():
+            pass
 
-    @app.function(network_file_systems={"/root/foo": nfs})
-    def f():
-        pass
+        @app.function(network_file_systems={"/root/goo": nfs})
+        def g():
+            pass
+        ```
 
-    @app.function(network_file_systems={"/root/goo": nfs})
-    def g():
-        pass
-    ```
+        Also see the CLI methods for accessing network file systems:
 
-    Also see the CLI methods for accessing network file systems:
+        ```
+        modal nfs --help
+        ```
 
-    ```
-    modal nfs --help
-    ```
+        A `NetworkFileSystem` can also be useful for some local scripting scenarios, e.g.:
 
-    A `NetworkFileSystem` can also be useful for some local scripting scenarios, e.g.:
-
-    ```python notest
-    nfs = modal.NetworkFileSystem.from_name("my-network-file-system")
-    for chunk in nfs.read_file("my_db_dump.csv"):
-        ...
-    ```
+        ```python notest
+        nfs = modal.NetworkFileSystem.from_name("my-network-file-system")
+        for chunk in nfs.read_file("my_db_dump.csv"):
+            ...
+        ```
     """
 
     @staticmethod
     def from_name(
         name: str,
         *,
-        environment_name: Optional[str] = None,
+        environment_name: str | None = None,
         create_if_missing: bool = False,
-        client: Optional[_Client] = None,
+        client: _Client | None = None,
     ) -> "_NetworkFileSystem":
-        """Reference a NetworkFileSystem by its name, creating if necessary.
+        """Reference a NetworkFileSystem by name, optionally creating it on the server first.
 
-        This is a lazy method that defers hydrating the local object with
-        metadata from Modal servers until the first time it is actually
-        used.
+        Hydration is lazy: metadata is fetched from Modal the first time the handle is used.
 
-        ```python notest
-        nfs = NetworkFileSystem.from_name("my-nfs", create_if_missing=True)
+        Args:
+            name: Deployment name of the network file system.
+            environment_name: Environment to resolve the name in; defaults to the active environment.
+            create_if_missing: If True, create the object when it does not already exist.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
 
-        @app.function(network_file_systems={"/data": nfs})
-        def f():
-            pass
-        ```
+        Returns:
+            A `NetworkFileSystem` handle (possibly not yet hydrated).
+
+        Examples:
+            ```python notest
+            nfs = NetworkFileSystem.from_name("my-nfs", create_if_missing=True)
+
+            @app.function(network_file_systems={"/data": nfs})
+            def f():
+                pass
+            ```
         """
         check_object_name(name, "NetworkFileSystem")
 
         async def _load(
-            self: _NetworkFileSystem, resolver: Resolver, load_context: LoadContext, existing_object_id: Optional[str]
+            self: _NetworkFileSystem, resolver: Resolver, load_context: LoadContext, existing_object_id: str | None
         ):
             req = api_pb2.SharedVolumeGetOrCreateRequest(
                 deployment_name=name,
@@ -143,22 +150,26 @@ class _NetworkFileSystem(_Object, type_prefix="sv"):
     @asynccontextmanager
     async def ephemeral(
         cls: type["_NetworkFileSystem"],
-        client: Optional[_Client] = None,
-        environment_name: Optional[str] = None,
+        client: _Client | None = None,
+        environment_name: str | None = None,
         _heartbeat_sleep: float = EPHEMERAL_OBJECT_HEARTBEAT_SLEEP,  # mdmd:line-hidden
     ) -> AsyncIterator["_NetworkFileSystem"]:
-        """Creates a new ephemeral network filesystem within a context manager:
+        """Create an anonymous NetworkFileSystem that exists for the duration of the context manager.
 
-        Usage:
-        ```python
-        with modal.NetworkFileSystem.ephemeral() as nfs:
-            assert nfs.listdir("/") == []
-        ```
+        Args:
+            client: Modal client to use; defaults to `Client.from_env()` when omitted.
+            environment_name: Environment for the ephemeral object; defaults to the active environment.
 
-        ```python notest
-        async with modal.NetworkFileSystem.ephemeral() as nfs:
-            assert await nfs.listdir("/") == []
-        ```
+        Examples:
+            ```python
+            with modal.NetworkFileSystem.ephemeral() as nfs:
+                assert nfs.listdir("/") == []
+            ```
+
+            ```python notest
+            async with modal.NetworkFileSystem.ephemeral() as nfs:
+                assert await nfs.listdir("/") == []
+            ```
         """
         if client is None:
             client = await _Client.from_env()
@@ -181,8 +192,8 @@ class _NetworkFileSystem(_Object, type_prefix="sv"):
     @staticmethod
     async def create_deployed(
         deployment_name: str,
-        client: Optional[_Client] = None,
-        environment_name: Optional[str] = None,
+        client: _Client | None = None,
+        environment_name: str | None = None,
     ) -> str:
         """mdmd:hidden"""
         check_object_name(deployment_name, "NetworkFileSystem")
@@ -197,13 +208,13 @@ class _NetworkFileSystem(_Object, type_prefix="sv"):
         return resp.shared_volume_id
 
     @staticmethod
-    async def delete(name: str, client: Optional[_Client] = None, environment_name: Optional[str] = None):
+    async def delete(name: str, client: _Client | None = None, environment_name: str | None = None):
         obj = await _NetworkFileSystem.from_name(name, environment_name=environment_name).hydrate(client)
         req = api_pb2.SharedVolumeDeleteRequest(shared_volume_id=obj.object_id)
         await obj._client.stub.SharedVolumeDelete(req)
 
     @live_method
-    async def write_file(self, remote_path: str, fp: BinaryIO, progress_cb: Optional[Callable[..., Any]] = None) -> int:
+    async def write_file(self, remote_path: str, fp: BinaryIO, progress_cb: Callable[..., Any] | None = None) -> int:
         """Write from a file object to a path on the network file system, atomically.
 
         Will create any needed parent directories automatically.
@@ -280,9 +291,9 @@ class _NetworkFileSystem(_Object, type_prefix="sv"):
     @live_method
     async def add_local_file(
         self,
-        local_path: Union[Path, str],
-        remote_path: Optional[Union[str, PurePosixPath, None]] = None,
-        progress_cb: Optional[Callable[..., Any]] = None,
+        local_path: Path | str,
+        remote_path: str | PurePosixPath | None = None,
+        progress_cb: Callable[..., Any] | None = None,
     ):
         local_path = Path(local_path)
         if remote_path is None:
@@ -296,9 +307,9 @@ class _NetworkFileSystem(_Object, type_prefix="sv"):
     @live_method
     async def add_local_dir(
         self,
-        local_path: Union[Path, str],
-        remote_path: Optional[Union[str, PurePosixPath, None]] = None,
-        progress_cb: Optional[Callable[..., Any]] = None,
+        local_path: Path | str,
+        remote_path: str | PurePosixPath | None = None,
+        progress_cb: Callable[..., Any] | None = None,
     ):
         _local_path = Path(local_path)
         if remote_path is None:

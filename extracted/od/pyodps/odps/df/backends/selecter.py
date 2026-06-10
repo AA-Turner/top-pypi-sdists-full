@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
-
 try:
     import pandas as pd
     has_pandas = True
@@ -61,7 +59,7 @@ def available_engines(sources):
     return engines
 
 
-class EngineSelecter(object):
+class EngineSelecter:
     def __init__(self):
         self._node_engines = ExprDictionary()
         self.force_odps = False

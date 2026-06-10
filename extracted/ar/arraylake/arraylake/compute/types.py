@@ -63,10 +63,18 @@ class ServiceConfig(BaseModel):
     icechunk_cache_chunk_ref_count: int | None = 10_000_000
 
     # Optional zarr concurrency configuration, the number of concurrent reads zarr will use fulfilling requests
-    zarr_concurrency: int | None = 25
+    zarr_concurrency: int | None = 128
+
+    # Optional zarr threading configuration, the max number of worker threads zarr uses for codec
+    # encode/decode. If unset, zarr uses its default of min(32, os.cpu_count() + 4).
+    zarr_max_workers: int | None = None
 
     # Optional log level for the service
     log_level: LogLevel | None = LogLevel.info
+
+    # Optionally force-enable Dask (threaded scheduler, 2GB cache) for protocols
+    # other than DAP2. DAP2 always uses Dask regardless of this setting.
+    use_dask: bool = False
 
     @field_validator("deployment_name")
     @classmethod

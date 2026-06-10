@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: taktile-auth
-Version: 1.1.100
+Version: 1.2.1
 Summary: Auth Package for Taktile
 License: Apache-2.0
 Author: Taktile GmbH
@@ -17,6 +17,7 @@ Requires-Dist: PyYAML (>=6.0,<7.0)
 Requires-Dist: cryptography (>=44.0.1)
 Requires-Dist: pydantic (<3.0)
 Requires-Dist: requests (>=2.32,<3.0)
+Requires-Dist: uuid6 (>=2025.0.1,<2026.0.0)
 Description-Content-Type: text/markdown
 
 # Taktile Auth

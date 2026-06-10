@@ -1598,6 +1598,7 @@ async def test_update_claude_code_global_preserves_installed_at(
         lockfile_path=lockfile,
         client_name="claude_code",
         host="https://example.com",
+        install_scope="global",
     )
 
     assert result.updated == ["my-plugin"]

@@ -5,6 +5,7 @@
 
 __all__ = (
     "ClusterSpecifierPlugin",
+    "CookieMatcher",
     "CorsPolicy",
     "Decorator",
     "DirectResponseAction",
@@ -27,11 +28,13 @@ __all__ = (
     "RateLimitActionQueryParameterValueMatch",
     "RateLimitActionQueryParameters",
     "RateLimitActionRemoteAddress",
+    "RateLimitActionRemoteAddressMatch",
     "RateLimitActionRequestHeaders",
     "RateLimitActionSourceCluster",
     "RateLimitHitsAddend",
     "RateLimitOverride",
     "RateLimitOverrideDynamicMetadata",
+    "RateLimitXRateLimitOption",
     "RedirectAction",
     "RedirectActionRedirectResponseCode",
     "RetryPolicy",
@@ -98,6 +101,47 @@ class RateLimitActionMetaDataSource(betterproto2.Enum):
     ROUTE_ENTRY = 1
     """
     Query :ref:`route entry metadata <envoy_v3_api_field_config.route.v3.Route.metadata>`
+    """
+
+    CLUSTER_ENTRY = 2
+    """
+    Query :ref:`cluster metadata <envoy_v3_api_field_config.cluster.v3.Cluster.metadata>`
+    """
+
+    CLUSTER_LOCALITY_ENTRY = 3
+    """
+    Query :ref:`cluster locality metadata <envoy_v3_api_field_config.endpoint.v3.LbEndpoint.metadata>`
+    Cluster locality metadata is available after upstream host selection only. To populate descriptors
+    with cluster locality metadata it needs to be have the
+    :ref:`apply_on_stream_done field <envoy_v3_api_field_config.route.v3.RateLimit.apply_on_stream_done>`
+    set to ``true`` or host selection completed before the rate limit filter is executed.
+    """
+
+
+class RateLimitXRateLimitOption(betterproto2.Enum):
+    UNSPECIFIED = 0
+    """
+    X-RateLimit headers is not specified. When this enum is used at descriptor level,
+    the behavior is to inherit the setting from the filter.
+    """
+
+    OFF = 1
+    """
+    X-RateLimit headers disabled.
+    """
+
+    DRAFT_VERSION_03 = 2
+    """
+    Use `draft RFC Version 03 <https://tools.ietf.org/id/draft-polli-ratelimit-headers-03.html>`_
+    where 3 headers will be added:
+
+    * ``X-RateLimit-Limit`` - indicates the request-quota associated to the
+      client in the current time-window followed by the description of the
+      quota policy. The value is returned by the maximum tokens of the token bucket.
+    * ``X-RateLimit-Remaining`` - indicates the remaining requests in the
+      current time-window. The value is returned by the remaining tokens in the token bucket.
+    * ``X-RateLimit-Reset`` - indicates the number of seconds until reset of
+      the current time-window. The value is returned by the remaining fill interval of the token bucket.
     """
 
 
@@ -208,6 +252,39 @@ class ClusterSpecifierPlugin(betterproto2.Message):
 
 default_message_pool.register_message(
     "envoy.config.route.v3", "ClusterSpecifierPlugin", ClusterSpecifierPlugin
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class CookieMatcher(betterproto2.Message):
+    """
+    Cookie matching inspects individual name/value pairs parsed from the ``Cookie`` header.
+    """
+
+    name: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        1, betterproto2.TYPE_STRING
+    )
+    """
+    Specifies the cookie name to evaluate.
+    """
+
+    string_match: "___type__matcher__v3__.StringMatcher | None" = betterproto2.field(
+        2, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Match the cookie value using :ref:`StringMatcher
+    <envoy_v3_api_msg_type.matcher.v3.StringMatcher>` semantics.
+    """
+
+    invert_match: "bool" = betterproto2.field(3, betterproto2.TYPE_BOOL)
+    """
+    Invert the match result. If the cookie is not present, the match result is false, so
+    ``invert_match`` will cause the matcher to succeed when the cookie is absent.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.config.route.v3", "CookieMatcher", CookieMatcher
 )
 
 
@@ -387,6 +464,16 @@ class DirectResponseAction(betterproto2.Message):
       :ref:`envoy_v3_api_msg_config.route.v3.VirtualHost`.
     """
 
+    body_format: "__core__v3__.SubstitutionFormatString | None" = betterproto2.field(
+        3, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Specifies a format string for the response body. If present, the contents of
+    ``body_format`` will be formatted and used as the response body, where the
+    contents of ``body`` (may be empty) will be passed as the variable ``%LOCAL_REPLY_BODY%``.
+    If neither are provided, no body is included in the generated response.
+    """
+
 
 default_message_pool.register_message(
     "envoy.config.route.v3", "DirectResponseAction", DirectResponseAction
@@ -448,8 +535,6 @@ class FilterConfig(betterproto2.Message):
       And if the request is mutated later and re-match to another route, the disabled filter by the
       initial route will not be added back to the filter chain because the filter chain is already
       created and it is too late to change the chain.
-
-      This field only make sense for the downstream HTTP filters for now.
     """
 
 
@@ -879,7 +964,7 @@ class RateLimit(betterproto2.Message):
     """
     Global rate limiting :ref:`architecture overview <arch_overview_global_rate_limit>`.
     Also applies to Local rate limiting :ref:`using descriptors <config_http_filters_local_rate_limit_descriptors>`.
-    [#next-free-field: 7]
+    [#next-free-field: 8]
     """
 
     stage: "int | None" = betterproto2.field(
@@ -974,6 +1059,13 @@ class RateLimit(betterproto2.Message):
     Currently, this is only supported by the HTTP global rate filter.
     """
 
+    x_ratelimit_option: "RateLimitXRateLimitOption" = betterproto2.field(
+        7, betterproto2.TYPE_ENUM, default_factory=lambda: RateLimitXRateLimitOption(0)
+    )
+    """
+    Descriptor level X-RateLimit headers options which may override the filter level setting.
+    """
+
 
 default_message_pool.register_message("envoy.config.route.v3", "RateLimit", RateLimit)
 
@@ -981,7 +1073,7 @@ default_message_pool.register_message("envoy.config.route.v3", "RateLimit", Rate
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class RateLimitAction(betterproto2.Message):
     """
-    [#next-free-field: 13]
+    [#next-free-field: 14]
 
     Oneofs:
         - action_specifier:
@@ -1085,6 +1177,15 @@ class RateLimitAction(betterproto2.Message):
     )
     """
     Rate limit on the existence of query parameters.
+    """
+
+    remote_address_match: "RateLimitActionRemoteAddressMatch | None" = (
+        betterproto2.field(
+            13, betterproto2.TYPE_MESSAGE, optional=True, group="action_specifier"
+        )
+    )
+    """
+    Rate limit on remote address match.
     """
 
     def __post_init__(self) -> None:
@@ -1194,7 +1295,41 @@ class RateLimitActionGenericKey(betterproto2.Message):
         1, betterproto2.TYPE_STRING
     )
     """
-    The value to use in the descriptor entry.
+    Descriptor value of entry.
+
+    The same :ref:`format specifier <config_access_log_format>` as used for
+    :ref:`HTTP access logging <config_access_log>` applies here, however
+    unknown specifier values are replaced with the empty string instead of ``-``.
+
+    .. note::
+
+      Formatter parsing is controlled by the runtime feature flag
+      ``envoy.reloadable_features.enable_formatter_for_ratelimit_action_descriptor_value``
+      (disabled by default).
+
+      When enabled: The format string can contain multiple valid substitution
+      fields. If multiple substitution fields are present, their results will be concatenated
+      to form the final descriptor value. If it contains no substitution fields, the value
+      will be used as is. If the final concatenated result is empty and ``default_value`` is set,
+      the ``default_value`` will be used. If ``default_value`` is not set and the result is
+      empty, this descriptor will be skipped and not included in the rate limit call.
+
+      When disabled (default): The descriptor_value is used as a literal string without any formatter
+      parsing or substitution.
+
+    For example, ``static_value`` will be used as is since there are no substitution fields.
+    ``%REQ(:method)%`` will be replaced with the HTTP method, and
+    ``%REQ(:method)%%REQ(:path)%`` will be replaced with the concatenation of the HTTP method and path.
+    ``%CEL(request.headers['user-id'])%`` will use CEL to extract the user ID from request headers.
+    """
+
+    default_value: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        3, betterproto2.TYPE_STRING
+    )
+    """
+    An optional value to use if the final concatenated ``descriptor_value`` result is empty.
+    Only applicable when formatter parsing is enabled by the runtime feature flag
+    ``envoy.reloadable_features.enable_formatter_for_ratelimit_action_descriptor_value`` (disabled by default).
     """
 
     descriptor_key: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -1219,6 +1354,49 @@ class RateLimitActionHeaderValueMatch(betterproto2.Message):
     .. code-block:: cpp
 
       ("header_match", "<descriptor_value>")
+    [#next-free-field: 6]
+    """
+
+    descriptor_value: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        1, betterproto2.TYPE_STRING
+    )
+    """
+    Descriptor value of entry.
+
+    The same :ref:`format specifier <config_access_log_format>` as used for
+    :ref:`HTTP access logging <config_access_log>` applies here, however
+    unknown specifier values are replaced with the empty string instead of ``-``.
+
+    .. note::
+
+      Formatter parsing is controlled by the runtime feature flag
+      ``envoy.reloadable_features.enable_formatter_for_ratelimit_action_descriptor_value``
+      (disabled by default).
+
+      When enabled: The format string can contain multiple valid substitution
+      fields. If multiple substitution fields are present, their results will be concatenated
+      to form the final descriptor value. If it contains no substitution fields, the value
+      will be used as is. All substitution fields will be evaluated and their results
+      concatenated. If the final concatenated result is empty and ``default_value`` is set,
+      the ``default_value`` will be used. If ``default_value`` is not set and the result is
+      empty, this descriptor will be skipped and not included in the rate limit call.
+
+      When disabled (default): The descriptor_value is used as a literal string without any formatter
+      parsing or substitution.
+
+    For example, ``static_value`` will be used as is since there are no substitution fields.
+    ``%REQ(:method)%`` will be replaced with the HTTP method, and
+    ``%REQ(:method)%%REQ(:path)%`` will be replaced with the concatenation of the HTTP method and path.
+    ``%CEL(request.headers['user-id'])%`` will use CEL to extract the user ID from request headers.
+    """
+
+    default_value: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        5, betterproto2.TYPE_STRING
+    )
+    """
+    An optional value to use if the final concatenated ``descriptor_value`` result is empty.
+    Only applicable when formatter parsing is enabled by the runtime feature flag
+    ``envoy.reloadable_features.enable_formatter_for_ratelimit_action_descriptor_value`` (disabled by default).
     """
 
     descriptor_key: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -1228,13 +1406,6 @@ class RateLimitActionHeaderValueMatch(betterproto2.Message):
     The key to use in the descriptor entry.
 
     Defaults to ``header_match``.
-    """
-
-    descriptor_value: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
-        1, betterproto2.TYPE_STRING
-    )
-    """
-    The value to use in the descriptor entry.
     """
 
     expect_match: "bool | None" = betterproto2.field(
@@ -1255,7 +1426,7 @@ class RateLimitActionHeaderValueMatch(betterproto2.Message):
     )
     """
     Specifies a set of headers that the rate limit action should match
-    on. The action will check the request’s headers against all the
+    on. The action will check the request's headers against all the
     specified headers in the config. A match will happen if all the
     headers in the config are present in the request with the same values
     (or based on presence if the value field is not in the config).
@@ -1444,6 +1615,49 @@ class RateLimitActionQueryParameterValueMatch(betterproto2.Message):
     .. code-block:: cpp
 
       ("query_match", "<descriptor_value>")
+    [#next-free-field: 6]
+    """
+
+    descriptor_value: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        1, betterproto2.TYPE_STRING
+    )
+    """
+    Descriptor value of entry.
+
+    The same :ref:`format specifier <config_access_log_format>` as used for
+    :ref:`HTTP access logging <config_access_log>` applies here, however
+    unknown specifier values are replaced with the empty string instead of ``-``.
+
+    .. note::
+
+      Formatter parsing is controlled by the runtime feature flag
+      ``envoy.reloadable_features.enable_formatter_for_ratelimit_action_descriptor_value``
+      (disabled by default).
+
+      When enabled: The format string can contain multiple valid substitution
+      fields. If multiple substitution fields are present, their results will be concatenated
+      to form the final descriptor value. If it contains no substitution fields, the value
+      will be used as is. All substitution fields will be evaluated and their results
+      concatenated. If the final concatenated result is empty and ``default_value`` is set,
+      the ``default_value`` will be used. If ``default_value`` is not set and the result is
+      empty, this descriptor will be skipped and not included in the rate limit call.
+
+      When disabled (default): The descriptor_value is used as a literal string without any formatter
+      parsing or substitution.
+
+    For example, ``static_value`` will be used as is since there are no substitution fields.
+    ``%REQ(:method)%`` will be replaced with the HTTP method, and
+    ``%REQ(:method)%%REQ(:path)%`` will be replaced with the concatenation of the HTTP method and path.
+    ``%CEL(request.headers['user-id'])%`` will use CEL to extract the user ID from request headers.
+    """
+
+    default_value: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        5, betterproto2.TYPE_STRING
+    )
+    """
+    An optional value to use if the final concatenated ``descriptor_value`` result is empty.
+    Only applicable when formatter parsing is enabled by the runtime feature flag
+    ``envoy.reloadable_features.enable_formatter_for_ratelimit_action_descriptor_value`` (disabled by default).
     """
 
     descriptor_key: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -1453,13 +1667,6 @@ class RateLimitActionQueryParameterValueMatch(betterproto2.Message):
     The key to use in the descriptor entry.
 
     Defaults to ``query_match``.
-    """
-
-    descriptor_value: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
-        1, betterproto2.TYPE_STRING
-    )
-    """
-    The value to use in the descriptor entry.
     """
 
     expect_match: "bool | None" = betterproto2.field(
@@ -1480,7 +1687,7 @@ class RateLimitActionQueryParameterValueMatch(betterproto2.Message):
     )
     """
     Specifies a set of query parameters that the rate limit action should match
-    on. The action will check the request’s query parameters against all the
+    on. The action will check the request's query parameters against all the
     specified query parameters in the config. A match will happen if all the
     query parameters in the config are present in the request with the same values
     (or based on presence if the value field is not in the config).
@@ -1512,6 +1719,78 @@ default_message_pool.register_message(
     "envoy.config.route.v3",
     "RateLimit.Action.RemoteAddress",
     RateLimitActionRemoteAddress,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class RateLimitActionRemoteAddressMatch(betterproto2.Message):
+    """
+    The following descriptor entry is appended to the descriptor:
+
+    .. code-block:: cpp
+
+      ("remote_address_match", "<descriptor_value>")
+    """
+
+    descriptor_value: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        1, betterproto2.TYPE_STRING
+    )
+    """
+    Descriptor value of entry.
+
+    The same :ref:`format specifier <config_access_log_format>` as used for
+    :ref:`HTTP access logging <config_access_log>` applies here, however
+    unknown specifier values are replaced with the empty string instead of ``-``.
+
+    .. note::
+
+      The format string can contain multiple valid substitution fields. If multiple
+      substitution fields are present, their results will be concatenated to form the
+      final descriptor value. If it contains no substitution fields, the value will be
+      used as is. All substitution fields will be evaluated and their results concatenated.
+      If the final concatenated result is empty and ``default_value`` is set, the
+      ``default_value`` will be used. If ``default_value`` is not set and the result is
+      empty, this descriptor will be skipped and not included in the rate limit call.
+
+    For example, ``static_value`` will be used as is since there are no substitution fields.
+    ``%REQ(:method)%`` will be replaced with the HTTP method, and
+    ``%REQ(:method)%%REQ(:path)%`` will be replaced with the concatenation of the HTTP method and path.
+    ``%CEL(request.headers['user-id'])%`` will use CEL to extract the user ID from request headers.
+    """
+
+    descriptor_key: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        2, betterproto2.TYPE_STRING
+    )
+    """
+    The key to use in the descriptor entry.
+
+    Defaults to ``remote_address_match``.
+    """
+
+    default_value: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        3, betterproto2.TYPE_STRING
+    )
+    """
+    An optional value to use if the final concatenated ``descriptor_value`` result is empty.
+    """
+
+    address_matcher: "___type__matcher__v3__.AddressMatcher | None" = (
+        betterproto2.field(4, betterproto2.TYPE_MESSAGE, optional=True)
+    )
+    """
+    Specifies an address matcher that controls whether the rate limit action is applied.
+    The matcher checks the remote address (trusted address from
+    :ref:`x-forwarded-for <config_http_conn_man_headers_x-forwarded-for>`)
+    against the specified CIDR ranges. The rate limit action will be applied if
+    the remote address matches any of the CIDR ranges (or does not match any if
+    ``invert_match`` is set to true in the address matcher).
+    """
+
+
+default_message_pool.register_message(
+    "envoy.config.route.v3",
+    "RateLimit.Action.RemoteAddressMatch",
+    RateLimitActionRemoteAddressMatch,
 )
 
 
@@ -1623,6 +1902,13 @@ class RateLimitHitsAddend(betterproto2.Message):
     received in the request.
 
     One of the ``number`` or ``format`` fields should be set but not both.
+    """
+
+    is_negative_hits: "bool" = betterproto2.field(3, betterproto2.TYPE_BOOL)
+    """
+    If true, the hits addend value will be treated as negative, effectively adding to
+    the rate limit budget instead of consuming from it. This can be used to refill previously consumed
+    rate limit tokens.
     """
 
 
@@ -2419,7 +2705,7 @@ default_message_pool.register_message("envoy.config.route.v3", "Route", Route)
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class RouteAction(betterproto2.Message):
     """
-    [#next-free-field: 43]
+    [#next-free-field: 46]
 
     Oneofs:
         - cluster_specifier:
@@ -2527,9 +2813,11 @@ class RouteAction(betterproto2.Message):
     place the original path before rewrite into the :ref:`x-envoy-original-path
     <config_http_filters_router_x-envoy-original-path>` header.
 
-    Only one of :ref:`regex_rewrite <envoy_v3_api_field_config.route.v3.RouteAction.regex_rewrite>`
+    Only one of :ref:`regex_rewrite <envoy_v3_api_field_config.route.v3.RouteAction.regex_rewrite>`,
     :ref:`path_rewrite_policy <envoy_v3_api_field_config.route.v3.RouteAction.path_rewrite_policy>`,
-    or :ref:`prefix_rewrite <envoy_v3_api_field_config.route.v3.RouteAction.prefix_rewrite>` may be specified.
+    :ref:`path_rewrite <envoy_v3_api_field_config.route.v3.RouteAction.path_rewrite>`,
+    or :ref:`prefix_rewrite <envoy_v3_api_field_config.route.v3.RouteAction.prefix_rewrite>`
+    may be specified.
 
     .. attention::
 
@@ -2568,8 +2856,9 @@ class RouteAction(betterproto2.Message):
     <config_http_filters_router_x-envoy-original-path>` header.
 
     Only one of :ref:`regex_rewrite <envoy_v3_api_field_config.route.v3.RouteAction.regex_rewrite>`,
-    :ref:`prefix_rewrite <envoy_v3_api_field_config.route.v3.RouteAction.prefix_rewrite>`, or
-    :ref:`path_rewrite_policy <envoy_v3_api_field_config.route.v3.RouteAction.path_rewrite_policy>`]
+    :ref:`path_rewrite_policy <envoy_v3_api_field_config.route.v3.RouteAction.path_rewrite_policy>`,
+    :ref:`path_rewrite <envoy_v3_api_field_config.route.v3.RouteAction.path_rewrite>`,
+    or :ref:`prefix_rewrite <envoy_v3_api_field_config.route.v3.RouteAction.prefix_rewrite>`
     may be specified.
 
     Examples using Google's `RE2 <https://github.com/google/re2>`_ engine:
@@ -2595,6 +2884,36 @@ class RouteAction(betterproto2.Message):
     )
     """
     [#extension-category: envoy.path.rewrite]
+    """
+
+    path_rewrite: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        45, betterproto2.TYPE_STRING
+    )
+    """
+    Rewrites the whole path (without query parameters) with the given path value.
+    The router filter will
+    place the original path before rewrite into the :ref:`x-envoy-original-path
+    <config_http_filters_router_x-envoy-original-path>` header.
+
+    Only one of :ref:`regex_rewrite <envoy_v3_api_field_config.route.v3.RouteAction.regex_rewrite>`,
+    :ref:`path_rewrite_policy <envoy_v3_api_field_config.route.v3.RouteAction.path_rewrite_policy>`,
+    :ref:`path_rewrite <envoy_v3_api_field_config.route.v3.RouteAction.path_rewrite>`,
+    or :ref:`prefix_rewrite <envoy_v3_api_field_config.route.v3.RouteAction.prefix_rewrite>`
+    may be specified.
+
+    The :ref:`substitution format specifier <config_access_log_format>` could be applied here.
+    For example, with the following config:
+
+      .. code-block:: yaml
+
+        path_rewrite: "/new_path_prefix%REQ(custom-path-header-name)%"
+
+    Would rewrite the path to ``/new_path_prefix/some_value`` given the header
+    ``custom-path-header-name: some_value``. If the header is not present, the path will be
+    rewritten to ``/new_path_prefix``.
+
+    If the final output of the path rewrite is empty, then the update will be ignored and the
+    original path will be preserved.
     """
 
     host_rewrite_literal: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)] | None" = betterproto2.field(
@@ -2661,6 +2980,29 @@ class RouteAction(betterproto2.Message):
           substitution: \\1
 
     Would rewrite the host header to ``envoyproxy.io`` given the path ``/envoyproxy.io/some/path``.
+    """
+
+    host_rewrite: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)] | None" = betterproto2.field(
+        44, betterproto2.TYPE_STRING, optional=True, group="host_rewrite_specifier"
+    )
+    """
+    Rewrites the host header with the value of this field. The router filter will
+    place the original host header value before rewriting into the :ref:`x-envoy-original-host
+    <config_http_filters_router_x-envoy-original-host>` header.
+
+    The :ref:`substitution format specifier <config_access_log_format>` could be applied here.
+    For example, with the following config:
+
+      .. code-block:: yaml
+
+        host_rewrite: "prefix-%REQ(custom-host-header-name)%"
+
+    Would rewrite the host header to ``prefix-some_value`` given the header
+    ``custom-host-header-name: some_value``. If the header is not present, the host header will
+    be rewritten to an value of ``prefix-``.
+
+    If the final output of the host rewrite is empty, then the update will be ignored and the
+    original host header will be preserved.
     """
 
     append_x_forwarded_host: "bool" = betterproto2.field(38, betterproto2.TYPE_BOOL)
@@ -3503,7 +3845,7 @@ class RouteConfiguration(betterproto2.Message):
     * Routing :ref:`architecture overview <arch_overview_http_routing>`
     * HTTP :ref:`router filter <config_http_filters_router>`
 
-    [#next-free-field: 18]
+    [#next-free-field: 19]
     """
 
     name: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -3660,8 +4002,19 @@ class RouteConfiguration(betterproto2.Message):
     """
     By default, port in :authority header (if any) is used in host matching.
     With this option enabled, Envoy will ignore the port number in the :authority header (if any) when picking VirtualHost.
-    NOTE: this option will not strip the port number (if any) contained in route config
-    :ref:`envoy_v3_api_msg_config.route.v3.VirtualHost`.domains field.
+
+    .. note::
+        This option will not strip the port number (if any) contained in route config
+        :ref:`envoy_v3_api_msg_config.route.v3.VirtualHost`.domains field.
+    """
+
+    vhost_header: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        18, betterproto2.TYPE_STRING
+    )
+    """
+    Normally, virtual host matching is done using the :authority (or
+    Host: in HTTP < 2) HTTP header. Setting this will instead, use a
+    different HTTP header for this purpose.
     """
 
     ignore_path_parameters_in_path_matching: "bool" = betterproto2.field(
@@ -3732,7 +4085,7 @@ default_message_pool.register_message("envoy.config.route.v3", "RouteList", Rout
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class RouteMatch(betterproto2.Message):
     """
-    [#next-free-field: 17]
+    [#next-free-field: 18]
 
     Oneofs:
         - path_specifier:
@@ -3870,6 +4223,15 @@ class RouteMatch(betterproto2.Message):
        is used, the transcoded message fields may be different. The query parameters are
        URL-encoded, but the message fields are not. For example, if a query
        parameter is "foo%20bar", the message field will be "foo bar".
+    """
+
+    cookies: "list[CookieMatcher]" = betterproto2.field(
+        17, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+    """
+    Specifies a set of cookies on which the route should match. The router parses the ``Cookie``
+    header and evaluates the named cookie against each matcher. If the number of specified cookie
+    matchers is nonzero, they all must match for the route to be selected.
     """
 
     grpc: "RouteMatchGrpcRouteMatchOptions | None" = betterproto2.field(
@@ -4154,6 +4516,10 @@ default_message_pool.register_message(
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class Tracing(betterproto2.Message):
+    """
+    [#next-free-field: 7]
+    """
+
     client_sampling: "___type__v3__.FractionalPercent | None" = betterproto2.field(
         1, betterproto2.TYPE_MESSAGE, optional=True
     )
@@ -4201,6 +4567,42 @@ class Tracing(betterproto2.Message):
     configured in the HTTP connection manager. If two tags with the same name are configured
     each in the HTTP connection manager and the route level, the one configured here takes
     priority.
+    """
+
+    operation: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        5, betterproto2.TYPE_STRING
+    )
+    """
+    The operation name of the span which will be used for tracing.
+
+    The same :ref:`format specifier <config_access_log_format>` as used for
+    :ref:`HTTP access logging <config_access_log>` applies here, however
+    unknown specifier values are replaced with the empty string instead of ``-``.
+
+    This field will take precedence over and make following settings ineffective:
+
+    * :ref:`route decorator <envoy_v3_api_field_config.route.v3.Route.decorator>`.
+    * :ref:`x-envoy-decorator-operation <config_http_filters_router_x-envoy-decorator-operation>`.
+    * :ref:`HCM tracing operation
+      <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.operation>`.
+    """
+
+    upstream_operation: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        6, betterproto2.TYPE_STRING
+    )
+    """
+    The operation name of the upstream span which will be used for tracing.
+    This only takes effect when ``spawn_upstream_span`` is set to true and the upstream
+    span is created.
+
+    The same :ref:`format specifier <config_access_log_format>` as used for
+    :ref:`HTTP access logging <config_access_log>` applies here, however
+    unknown specifier values are replaced with the empty string instead of ``-``.
+
+    This field will take precedence over and make following settings ineffective:
+
+    * :ref:`HCM tracing upstream operation
+      <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.upstream_operation>`
     """
 
 

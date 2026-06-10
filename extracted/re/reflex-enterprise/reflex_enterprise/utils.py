@@ -74,6 +74,55 @@ def check_config_option_in_tier(
         config._set_persistent(**{option_name: fallback_value})
 
 
+#: Tiers that are allowed to export the app or run it in production mode.
+PAID_TIERS = ("pro", "team", "enterprise")
+
+
+def check_paid_tier_for_command():
+    """Restrict `reflex export` and `reflex run --env prod` to paid tiers.
+
+    `reflex-enterprise` is free to use during development, but exporting the app
+    or running it in production mode requires a paid subscription (Pro, Team, or
+    Enterprise).
+
+    Deploying to Reflex Cloud is handled separately and is not restricted here.
+    """
+    from reflex.constants import CompileContext
+    from reflex.utils.exec import get_compile_context, is_in_app_harness, is_prod_mode
+
+    # Don't interfere with reflex's own app harness integration tests.
+    if is_in_app_harness():
+        return
+
+    compile_context = get_compile_context()
+    if compile_context == CompileContext.EXPORT:
+        command = "reflex export"
+    elif compile_context == CompileContext.RUN and is_prod_mode():
+        command = "reflex run --env prod"
+    else:
+        # Development (`reflex run`) and cloud deploy are not restricted here.
+        return
+
+    current_tier = get_user_tier()
+    if current_tier in PAID_TIERS:
+        return
+
+    if current_tier == "anonymous":
+        remedy = "You are currently logged out. Run `reflex login` to authenticate."
+    else:
+        remedy = (
+            f"Your current subscription tier is `{current_tier}`. "
+            "Please upgrade to use this command."
+        )
+
+    console.error(
+        f"`{command}` requires a paid Reflex subscription "
+        f"(one of {', '.join(PAID_TIERS)}). {remedy} "
+        "See https://reflex.dev/pricing/ for more information."
+    )
+    exit()
+
+
 def is_deploy_context():
     """Check if the current context is a deploy context.
 

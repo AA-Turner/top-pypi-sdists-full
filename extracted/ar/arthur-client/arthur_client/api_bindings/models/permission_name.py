@@ -220,6 +220,9 @@ class PermissionName(str, Enum):
     WORKSPACE_LIST_POLICY_ASSIGNMENTS = 'workspace_list_policy_assignments'
     WORKSPACE_LIST_POLICY_COMPLIANCE = 'workspace_list_policy_compliance'
     WORKSPACE_CHECK_ALL_POLICIES_COMPLIANCE = 'workspace_check_all_policies_compliance'
+    ORGANIZATION_LIST_POLICY_ASSIGNMENTS = 'organization_list_policy_assignments'
+    ORGANIZATION_LIST_POLICY_COMPLIANCE = 'organization_list_policy_compliance'
+    ORGANIZATION_LIST_UNREGISTERED_AGENTS = 'organization_list_unregistered_agents'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

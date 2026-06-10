@@ -16,6 +16,7 @@ from instagrapi.exceptions import (
     ClientConnectionError,
     ClientError,
     ClientForbiddenError,
+    ClientIncompleteReadError,
     ClientJSONDecodeError,
     ClientNotFoundError,
     ClientRequestTimeout,
@@ -383,8 +384,13 @@ class PrivateRequestMixin:
         self.last_response = None
         self.last_json = last_json = {}  # for Sentry context in traceback
         self.private.headers.update(self.base_headers)
-        if headers:
-            self.private.headers.update(headers)
+        # Per-request overrides (caller headers such as X-FB-Friendly-Name, and the
+        # Host override used for domain routing) must not be merged into the
+        # persistent session headers: doing so leaks e.g. a Bloks async-action
+        # friendly name onto every later unrelated request. Send them per-request.
+        request_headers = dict(headers) if headers else {}
+        if domain:
+            request_headers["Host"] = domain
         if not login:
             time.sleep(self.request_timeout)
         # if self.user_id and login:
@@ -407,10 +413,21 @@ class PrivateRequestMixin:
                     data = generate_signature(dumps(data))
                     if extra_sig:
                         data += "&".join(extra_sig)
-                response = self.private.post(api_url, data=data, params=params, proxies=self.private.proxies)
+                response = self.private.post(
+                    api_url,
+                    data=data,
+                    params=params,
+                    headers=request_headers or None,
+                    proxies=self.private.proxies,
+                )
             else:  # GET
                 self.private.headers.pop("Content-Type", None)
-                response = self.private.get(api_url, params=params, proxies=self.private.proxies)
+                response = self.private.get(
+                    api_url,
+                    params=params,
+                    headers=request_headers or None,
+                    proxies=self.private.proxies,
+                )
             self.logger.debug(
                 "private_request %s: %s (%s)",
                 response.status_code,
@@ -547,6 +564,8 @@ class PrivateRequestMixin:
                 self.logger.warning("Status 408: Request Timeout")
                 raise ClientRequestTimeout(e, response=e.response, **last_json)
             raise ClientError(e, response=e.response, **last_json)
+        except requests.exceptions.ChunkedEncodingError as e:
+            raise ClientIncompleteReadError("{} {}".format(e.__class__.__name__, str(e))) from e
         except requests.ConnectionError as e:
             raise ClientConnectionError("{e.__class__.__name__} {e}".format(e=e))
         if last_json.get("status") == "fail":
@@ -614,6 +633,10 @@ class PrivateRequestMixin:
         except ClientRequestTimeout:
             self.logger.info("Wait 60 seconds and try one more time (ClientRequestTimeout)")
             time.sleep(60)
+            return self._send_private_request(endpoint, **kwargs)
+        except ClientIncompleteReadError:
+            self.logger.info("Wait 2 seconds and try one more time (ClientIncompleteReadError)")
+            time.sleep(2)
             return self._send_private_request(endpoint, **kwargs)
         # except BadPassword as e:
         #     raise e

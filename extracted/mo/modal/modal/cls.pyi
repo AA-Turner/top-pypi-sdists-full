@@ -79,18 +79,23 @@ class _Obj:
         Note: When calling this method on a Cls that is defined locally, static type checkers will
         issue an error, because the object will appear to have the user-defined type.
 
+        Args:
+            min_containers: Minimum containers to keep warm; omit to leave unchanged.
+            max_containers: Maximum concurrent containers; omit to leave unchanged.
+            scaledown_window: Idle seconds before scaling down a container; omit to leave unchanged.
+            buffer_containers: Extra idle containers under load; omit to leave unchanged.
+
         Examples:
+            ```python notest
+            Model = modal.Cls.from_name("my-app", "Model")
+            model = Model()  # This method is called on an *instance* of the class
 
-        ```python notest
-        Model = modal.Cls.from_name("my-app", "Model")
-        model = Model()  # This method is called on an *instance* of the class
+            # Always have at least 2 containers running, with an extra buffer when the Function is active
+            model.update_autoscaler(min_containers=2, buffer_containers=1)
 
-        # Always have at least 2 containers running, with an extra buffer when the Function is active
-        model.update_autoscaler(min_containers=2, buffer_containers=1)
-
-        # Limit this Function to avoid spinning up more than 5 containers
-        f.update_autoscaler(max_containers=5)
-        ```
+            # Limit this Function to avoid spinning up more than 5 containers
+            f.update_autoscaler(max_containers=5)
+            ```
         """
         ...
 
@@ -157,18 +162,23 @@ class Obj:
             Note: When calling this method on a Cls that is defined locally, static type checkers will
             issue an error, because the object will appear to have the user-defined type.
 
+            Args:
+                min_containers: Minimum containers to keep warm; omit to leave unchanged.
+                max_containers: Maximum concurrent containers; omit to leave unchanged.
+                scaledown_window: Idle seconds before scaling down a container; omit to leave unchanged.
+                buffer_containers: Extra idle containers under load; omit to leave unchanged.
+
             Examples:
+                ```python notest
+                Model = modal.Cls.from_name("my-app", "Model")
+                model = Model()  # This method is called on an *instance* of the class
 
-            ```python notest
-            Model = modal.Cls.from_name("my-app", "Model")
-            model = Model()  # This method is called on an *instance* of the class
+                # Always have at least 2 containers running, with an extra buffer when the Function is active
+                model.update_autoscaler(min_containers=2, buffer_containers=1)
 
-            # Always have at least 2 containers running, with an extra buffer when the Function is active
-            model.update_autoscaler(min_containers=2, buffer_containers=1)
-
-            # Limit this Function to avoid spinning up more than 5 containers
-            f.update_autoscaler(max_containers=5)
-            ```
+                # Limit this Function to avoid spinning up more than 5 containers
+                f.update_autoscaler(max_containers=5)
+                ```
             """
             ...
 
@@ -192,18 +202,23 @@ class Obj:
             Note: When calling this method on a Cls that is defined locally, static type checkers will
             issue an error, because the object will appear to have the user-defined type.
 
+            Args:
+                min_containers: Minimum containers to keep warm; omit to leave unchanged.
+                max_containers: Maximum concurrent containers; omit to leave unchanged.
+                scaledown_window: Idle seconds before scaling down a container; omit to leave unchanged.
+                buffer_containers: Extra idle containers under load; omit to leave unchanged.
+
             Examples:
+                ```python notest
+                Model = modal.Cls.from_name("my-app", "Model")
+                model = Model()  # This method is called on an *instance* of the class
 
-            ```python notest
-            Model = modal.Cls.from_name("my-app", "Model")
-            model = Model()  # This method is called on an *instance* of the class
+                # Always have at least 2 containers running, with an extra buffer when the Function is active
+                model.update_autoscaler(min_containers=2, buffer_containers=1)
 
-            # Always have at least 2 containers running, with an extra buffer when the Function is active
-            model.update_autoscaler(min_containers=2, buffer_containers=1)
-
-            # Limit this Function to avoid spinning up more than 5 containers
-            f.update_autoscaler(max_containers=5)
-            ```
+                # Limit this Function to avoid spinning up more than 5 containers
+                f.update_autoscaler(max_containers=5)
+                ```
             """
             ...
 
@@ -276,6 +291,7 @@ class _Cls(modal._object._Object):
         app_name: str,
         name: str,
         *,
+        version: typing.Optional[int] = None,
         environment_name: typing.Optional[str] = None,
         client: typing.Optional[modal.client._Client] = None,
     ) -> _Cls:
@@ -285,9 +301,25 @@ class _Cls(modal._object._Object):
         object with metadata from Modal servers until the first
         time it is actually used.
 
-        ```python
-        Model = modal.Cls.from_name("other-app", "Model")
-        ```
+        Args:
+            app_name: Name of the deployed App that defines this class.
+            name: Object tag of the Cls within that App.
+            environment_name: Workspace environment for the lookup; defaults to the active environment.
+            client: Optional Modal client; defaults to the process client.
+
+        Returns:
+            A ``Cls`` reference that hydrates on first use.
+
+        Examples:
+            ```python
+            Model = modal.Cls.from_name("other-app", "Model")
+            ```
+
+            The `version` parameter constructs a version-pinned Cls:
+
+            ```python
+            Modelv3 = modal.Cls.from_name("other-app", "Model", version=3)
+            ```
         """
         ...
 
@@ -308,7 +340,7 @@ class _Cls(modal._object._Object):
         buffer_containers: typing.Optional[int] = None,
         scaledown_window: typing.Optional[int] = None,
         timeout: typing.Optional[int] = None,
-        region: typing.Union[str, typing.Sequence[str], None] = None,
+        region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         cloud: typing.Optional[str] = None,
     ) -> _Cls:
         """Override the static Cls configuration with invocation-specific values.
@@ -319,56 +351,92 @@ class _Cls(modal._object._Object):
         Note that options cannot be "unset" with this method (i.e., if a GPU is configured in the
         `@app.cls()` decorator, passing `gpu=None` here will not create a CPU-only instance).
 
-        **Usage:**
+        Container arguments (``volumes`` and ``secrets``) from later calls replace earlier values; they are not merged.
 
-        You can use this method after looking up the Cls from a deployed App or if you have a
-        direct reference to a Cls from another Function or local entrypoint on its App:
+        Args:
+            cpu: CPU cores for instances created from this Cls (see ``@app.function`` / ``@app.cls`` resource options).
+            memory: Memory in MiB, or min/max pair, for those instances.
+            gpu: GPU type string, for example ``A100``.
+            env: Environment variables merged into a temporary secret for this configuration.
+            secrets: Additional secrets attached to the service function.
+            volumes: Volume and cloud-bucket mounts (paths to ``Volume`` or ``CloudBucketMount``).
+            retries: Retry policy or count for invocations.
+            max_containers: Cap on concurrently running containers for this Cls configuration.
+            buffer_containers: Extra idle containers kept warm while the Function is active.
+            scaledown_window: Seconds a container may stay idle before scaling down.
+            timeout: Function timeout in seconds.
+            region: One region or a list of regions to schedule on.
+            cloud: Cloud provider (for example ``aws``, ``gcp``, ``oci``, or ``auto``).
 
-        ```python notest
-        Model = modal.Cls.from_name("my_app", "Model")
-        ModelUsingGPU = Model.with_options(gpu="A100")
-        ModelUsingGPU().generate.remote(input_prompt)  # Run with an A100 GPU
-        ```
+        Returns:
+            A new ``Cls`` with the merged options.
 
-        The method can be called multiple times to "stack" updates:
+        Examples:
+            You can use this method after looking up the Cls from a deployed App or if you have a
+            direct reference to a Cls from another Function or local entrypoint on its App:
 
-        ```python notest
-        Model.with_options(gpu="A100").with_options(scaledown_window=300)  # Use an A100 with slow scaledown
-        ```
+            ```python notest
+            Model = modal.Cls.from_name("my_app", "Model")
+            ModelUsingGPU = Model.with_options(gpu="A100")
+            ModelUsingGPU().generate.remote(input_prompt)  # Run with an A100 GPU
+            ```
 
-        Note that container arguments (i.e. `volumes` and `secrets`) passed in subsequent calls
-        will not be merged.
+            The method can be called multiple times to "stack" updates:
+
+            ```python notest
+            Model.with_options(gpu="A100").with_options(scaledown_window=300)  # Use an A100 with slow scaledown
+            ```
         """
         ...
 
     def with_concurrency(self: _Cls, *, max_inputs: int, target_inputs: typing.Optional[int] = None) -> _Cls:
         """Override the static Cls configuration with invocation-specific input concurrency settings.
 
-        **Usage:**
+        Args:
+            max_inputs: Maximum number of inputs processed concurrently per container.
+            target_inputs: Optional target concurrency; see ``@app.cls`` / Function concurrency docs.
 
-        ```python notest
-        Model = modal.Cls.from_name("my_app", "Model")
-        ModelUsingGPU = Model.with_options(gpu="A100").with_concurrency(max_inputs=100)
-        ModelUsingGPU().generate.remote(42)  # will run on an A100 GPU with input concurrency enabled
-        ```
+        Returns:
+            A new ``Cls`` with the merged concurrency settings.
+
+        Examples:
+            ```python notest
+            Model = modal.Cls.from_name("my_app", "Model")
+            ModelUsingGPU = Model.with_options(gpu="A100").with_concurrency(max_inputs=100)
+            ModelUsingGPU().generate.remote(42)  # will run on an A100 GPU with input concurrency enabled
+            ```
         """
         ...
 
     def with_batching(self: _Cls, *, max_batch_size: int, wait_ms: int) -> _Cls:
         """Override the static Cls configuration with invocation-specific dynamic batching settings.
 
-        **Usage:**
+        Args:
+            max_batch_size: Maximum batch size for dynamic batching.
+            wait_ms: Maximum time to wait to fill a batch, in milliseconds.
 
-        ```python notest
-        Model = modal.Cls.from_name("my_app", "Model")
-        ModelUsingGPU = Model.with_options(gpu="A100").with_batching(max_batch_size=100, batch_wait_ms=1000)
-        ModelUsingGPU().generate.remote(42)  # will run on an A100 GPU with input concurrency enabled
-        ```
+        Returns:
+            A new ``Cls`` with the merged batching settings.
+
+        Examples:
+            ```python notest
+            Model = modal.Cls.from_name("my_app", "Model")
+            ModelUsingGPU = Model.with_options(gpu="A100").with_batching(max_batch_size=100, wait_ms=1000)
+            ModelUsingGPU().generate.remote(42)  # A100 with dynamic batching
+            ```
         """
         ...
 
     def __call__(self, *args, **kwargs) -> _Obj:
-        """This acts as the class constructor."""
+        """Construct a parameterized class instance (``Obj``) for remote or local use.
+
+        Args:
+            *args: Positional arguments passed to your class constructor or ``modal.parameter`` bindings.
+            **kwargs: Keyword arguments for the constructor or parameters.
+
+        Returns:
+            An ``Obj`` bound to this ``Cls`` and the given arguments.
+        """
         ...
 
     def __getattr__(self, k): ...
@@ -437,6 +505,7 @@ class Cls(modal.object.Object):
         app_name: str,
         name: str,
         *,
+        version: typing.Optional[int] = None,
         environment_name: typing.Optional[str] = None,
         client: typing.Optional[modal.client.Client] = None,
     ) -> Cls:
@@ -446,9 +515,25 @@ class Cls(modal.object.Object):
         object with metadata from Modal servers until the first
         time it is actually used.
 
-        ```python
-        Model = modal.Cls.from_name("other-app", "Model")
-        ```
+        Args:
+            app_name: Name of the deployed App that defines this class.
+            name: Object tag of the Cls within that App.
+            environment_name: Workspace environment for the lookup; defaults to the active environment.
+            client: Optional Modal client; defaults to the process client.
+
+        Returns:
+            A ``Cls`` reference that hydrates on first use.
+
+        Examples:
+            ```python
+            Model = modal.Cls.from_name("other-app", "Model")
+            ```
+
+            The `version` parameter constructs a version-pinned Cls:
+
+            ```python
+            Modelv3 = modal.Cls.from_name("other-app", "Model", version=3)
+            ```
         """
         ...
 
@@ -469,7 +554,7 @@ class Cls(modal.object.Object):
         buffer_containers: typing.Optional[int] = None,
         scaledown_window: typing.Optional[int] = None,
         timeout: typing.Optional[int] = None,
-        region: typing.Union[str, typing.Sequence[str], None] = None,
+        region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         cloud: typing.Optional[str] = None,
     ) -> Cls:
         """Override the static Cls configuration with invocation-specific values.
@@ -480,56 +565,92 @@ class Cls(modal.object.Object):
         Note that options cannot be "unset" with this method (i.e., if a GPU is configured in the
         `@app.cls()` decorator, passing `gpu=None` here will not create a CPU-only instance).
 
-        **Usage:**
+        Container arguments (``volumes`` and ``secrets``) from later calls replace earlier values; they are not merged.
 
-        You can use this method after looking up the Cls from a deployed App or if you have a
-        direct reference to a Cls from another Function or local entrypoint on its App:
+        Args:
+            cpu: CPU cores for instances created from this Cls (see ``@app.function`` / ``@app.cls`` resource options).
+            memory: Memory in MiB, or min/max pair, for those instances.
+            gpu: GPU type string, for example ``A100``.
+            env: Environment variables merged into a temporary secret for this configuration.
+            secrets: Additional secrets attached to the service function.
+            volumes: Volume and cloud-bucket mounts (paths to ``Volume`` or ``CloudBucketMount``).
+            retries: Retry policy or count for invocations.
+            max_containers: Cap on concurrently running containers for this Cls configuration.
+            buffer_containers: Extra idle containers kept warm while the Function is active.
+            scaledown_window: Seconds a container may stay idle before scaling down.
+            timeout: Function timeout in seconds.
+            region: One region or a list of regions to schedule on.
+            cloud: Cloud provider (for example ``aws``, ``gcp``, ``oci``, or ``auto``).
 
-        ```python notest
-        Model = modal.Cls.from_name("my_app", "Model")
-        ModelUsingGPU = Model.with_options(gpu="A100")
-        ModelUsingGPU().generate.remote(input_prompt)  # Run with an A100 GPU
-        ```
+        Returns:
+            A new ``Cls`` with the merged options.
 
-        The method can be called multiple times to "stack" updates:
+        Examples:
+            You can use this method after looking up the Cls from a deployed App or if you have a
+            direct reference to a Cls from another Function or local entrypoint on its App:
 
-        ```python notest
-        Model.with_options(gpu="A100").with_options(scaledown_window=300)  # Use an A100 with slow scaledown
-        ```
+            ```python notest
+            Model = modal.Cls.from_name("my_app", "Model")
+            ModelUsingGPU = Model.with_options(gpu="A100")
+            ModelUsingGPU().generate.remote(input_prompt)  # Run with an A100 GPU
+            ```
 
-        Note that container arguments (i.e. `volumes` and `secrets`) passed in subsequent calls
-        will not be merged.
+            The method can be called multiple times to "stack" updates:
+
+            ```python notest
+            Model.with_options(gpu="A100").with_options(scaledown_window=300)  # Use an A100 with slow scaledown
+            ```
         """
         ...
 
     def with_concurrency(self: Cls, *, max_inputs: int, target_inputs: typing.Optional[int] = None) -> Cls:
         """Override the static Cls configuration with invocation-specific input concurrency settings.
 
-        **Usage:**
+        Args:
+            max_inputs: Maximum number of inputs processed concurrently per container.
+            target_inputs: Optional target concurrency; see ``@app.cls`` / Function concurrency docs.
 
-        ```python notest
-        Model = modal.Cls.from_name("my_app", "Model")
-        ModelUsingGPU = Model.with_options(gpu="A100").with_concurrency(max_inputs=100)
-        ModelUsingGPU().generate.remote(42)  # will run on an A100 GPU with input concurrency enabled
-        ```
+        Returns:
+            A new ``Cls`` with the merged concurrency settings.
+
+        Examples:
+            ```python notest
+            Model = modal.Cls.from_name("my_app", "Model")
+            ModelUsingGPU = Model.with_options(gpu="A100").with_concurrency(max_inputs=100)
+            ModelUsingGPU().generate.remote(42)  # will run on an A100 GPU with input concurrency enabled
+            ```
         """
         ...
 
     def with_batching(self: Cls, *, max_batch_size: int, wait_ms: int) -> Cls:
         """Override the static Cls configuration with invocation-specific dynamic batching settings.
 
-        **Usage:**
+        Args:
+            max_batch_size: Maximum batch size for dynamic batching.
+            wait_ms: Maximum time to wait to fill a batch, in milliseconds.
 
-        ```python notest
-        Model = modal.Cls.from_name("my_app", "Model")
-        ModelUsingGPU = Model.with_options(gpu="A100").with_batching(max_batch_size=100, batch_wait_ms=1000)
-        ModelUsingGPU().generate.remote(42)  # will run on an A100 GPU with input concurrency enabled
-        ```
+        Returns:
+            A new ``Cls`` with the merged batching settings.
+
+        Examples:
+            ```python notest
+            Model = modal.Cls.from_name("my_app", "Model")
+            ModelUsingGPU = Model.with_options(gpu="A100").with_batching(max_batch_size=100, wait_ms=1000)
+            ModelUsingGPU().generate.remote(42)  # A100 with dynamic batching
+            ```
         """
         ...
 
     def __call__(self, *args, **kwargs) -> Obj:
-        """This acts as the class constructor."""
+        """Construct a parameterized class instance (``Obj``) for remote or local use.
+
+        Args:
+            *args: Positional arguments passed to your class constructor or ``modal.parameter`` bindings.
+            **kwargs: Keyword arguments for the constructor or parameters.
+
+        Returns:
+            An ``Obj`` bound to this ``Cls`` and the given arguments.
+        """
         ...
 
     def __getattr__(self, k): ...

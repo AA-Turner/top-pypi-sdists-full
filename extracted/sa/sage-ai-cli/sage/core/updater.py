@@ -138,15 +138,24 @@ class CLIAutoUpdater:
         self._lock = threading.Lock()
 
     def get_current_version(self) -> str:
-        """Get the installed package version for the active Python env."""
-
+        """Get the installed package version for the active Python env.
+        
+        Prefer local source version (__version__) if it is newer than the installed package version.
+        """
+        pkg_ver = None
         try:
-            return package_version(self.PACKAGE_NAME)
-        except PackageNotFoundError:
-            return __version__
-        except Exception as exc:
-            logger.warning("Failed to read installed SAGE version: %s", exc)
-            return __version__
+            pkg_ver = package_version(self.PACKAGE_NAME)
+        except Exception:
+            pass
+
+        if pkg_ver:
+            try:
+                if self._compare_versions(pkg_ver, __version__) < 0:
+                    return __version__
+                return pkg_ver
+            except Exception:
+                return pkg_ver
+        return __version__
 
     def get_latest_version(self) -> str:
         """Check PyPI for the newest published version.

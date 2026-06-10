@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xorq
-Version: 0.3.28
+Version: 0.3.29
 Summary: Data processing library built on top of Ibis and DataFusion to write multi-engine data workflows.
 Project-URL: Homepage, https://www.xorq.dev/
 Project-URL: Repository, https://github.com/xorq-labs/xorq/

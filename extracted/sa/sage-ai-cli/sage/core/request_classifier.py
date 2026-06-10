@@ -430,7 +430,7 @@ class RequestClassifier:
     ]
 
     IMPLEMENTATION_PATTERNS: ClassVar[list[str]] = [
-        r"\b(fix|implement|add|create|build|write|develop|make|code)\b(?!.*\b(list|roadmap|plan)\b)",
+        r"\b(fix|implement|add|create|build|write|develop|make|code|generate|translate)\b(?!.*\b(list|roadmap|plan)\b)",
         r"\b(refactor|restructure|reorganize|rewrite|redesign)\b",
         r"\b(update|modify|change|edit|patch|alter)\b",
         r"\b(apply|execute|do)\s+(?:the\s+)?(?:changes?|fixes?|improvements?)\b",

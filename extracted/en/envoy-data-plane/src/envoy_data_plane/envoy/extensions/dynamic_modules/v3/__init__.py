@@ -20,45 +20,130 @@ betterproto2.check_compiler_version(_COMPILER_VERSION)
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class DynamicModuleConfig(betterproto2.Message):
     """
-    [#protodoc-title: Dynamic Modules common configuration]
+    [#protodoc-title: Dynamic Modules Common Configuration]
 
-    Configuration of a dynamic module. A dynamic module is a shared object file that can be loaded via dlopen
-    by various Envoy extension points. Currently, only HTTP filter (envoy.filters.http.dynamic_modules) is supported.
+    Configuration of a dynamic module. A dynamic module is a shared object file that can be loaded via
+    ``dlopen`` by various Envoy extension points.
 
-    How a module is loaded is determined by the extension point that uses it. For example, the HTTP filter
-    loads the module with dlopen when Envoy receives a configuration that references the module at load time.
-    If loading the module fails, the configuration will be rejected.
+    How a module is loaded is determined by the extension point that uses it. For example, the HTTP
+    filter loads the module when Envoy receives a configuration that references the module. If loading
+    the module fails, the configuration will be rejected.
 
-    Whether or not the shared object is the same is determined by the file path as well as the file's inode depending
-    on the platform. Notably, if the file path and the content of the file are the same, the shared object will be reused.
+    A module is uniquely identified by its file path and the file's inode, depending on the platform.
+    Notably, if the file path and the content of the file are the same, the shared object will be
+    reused.
 
-    A module must be compatible with the ABI specified in :repo:`abi.h <source/extensions/dynamic_modules/abi.h>`.
-    Currently, compatibility is only guaranteed by an exact version match between the Envoy
-    codebase and the dynamic module SDKs. In the future, after the ABI is stabilized, we will revisit
-    this restriction and hopefully provide a wider compatibility guarantee. Until then, Envoy
-    checks the hash of the ABI header files to ensure that the dynamic modules are built against the
-    same version of the ABI.
+    A module must be compatible with the ABI specified in :repo:`abi.h
+    <source/extensions/dynamic_modules/abi/abi.h>`. Currently, compatibility is only guaranteed by an
+    exact version match between the Envoy codebase and the dynamic module SDKs. In the future, after
+    the ABI is stabilized, this restriction will be revisited. Until then, Envoy checks the hash of
+    the ABI header files to ensure that the dynamic modules are built against the same version of the
+    ABI.
+    [#next-free-field: 8]
     """
 
     name: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
         1, betterproto2.TYPE_STRING
     )
     """
-    The name of the dynamic module. The client is expected to have some configuration indicating where to search for the module.
-    In Envoy, the search path can only be configured via the environment variable ``ENVOY_DYNAMIC_MODULES_SEARCH_PATH``.
-    The actual search path is ``${ENVOY_DYNAMIC_MODULES_SEARCH_PATH}/lib${name}.so``. TODO: make the search path configurable via
-    command line options.
+    The name of the dynamic module.
+
+    The client is expected to have some configuration indicating where to search for the module. In
+    Envoy, the search path can be configured via the environment variable
+    ``ENVOY_DYNAMIC_MODULES_SEARCH_PATH``. The actual search path is
+    ``${ENVOY_DYNAMIC_MODULES_SEARCH_PATH}/lib${name}.so``. If not set, the current working directory is
+    used as the search path. After Envoy fails to find the module in the search path, it will also
+    try to find the module from a standard system library path (e.g., ``/usr/lib``) following the
+    platform's default behavior for ``dlopen``.
+
+    This field is optional if the ``module`` field is set. When both ``name`` and ``module`` are
+    specified, the ``module`` field takes precedence.
+
+    .. note::
+      There is some remaining work to make the search path configurable via command line options.
     """
 
     do_not_close: "bool" = betterproto2.field(3, betterproto2.TYPE_BOOL)
     """
-    Set true to prevent the module from being unloaded with dlclose.
-    This is useful for modules that have global state that should not be unloaded.
-    A module is closed when no more references to it exist in the process. For example,
-    no HTTP filters are using the module (e.g. after configuration update).
+    If true, prevents the module from being unloaded with ``dlclose``.
+
+    This is useful for modules that have global state that should not be unloaded. A module is
+    closed when no more references to it exist in the process. For example, no HTTP filters are
+    using the module (e.g. after configuration update).
+
+    Defaults to ``false``.
+    """
+
+    load_globally: "bool" = betterproto2.field(4, betterproto2.TYPE_BOOL)
+    """
+    If ``true``, the dynamic module is loaded with the ``RTLD_GLOBAL`` flag.
+
+    The dynamic module is loaded with the ``RTLD_LOCAL`` flag by default to avoid symbol conflicts
+    when multiple modules are loaded. Set this to ``true`` to load the module with the
+    ``RTLD_GLOBAL`` flag. This is useful for modules that need to share symbols with other dynamic
+    libraries. For example, a module X may load another shared library Y that depends on some
+    symbols defined in module X. In this case, module X must be loaded with the ``RTLD_GLOBAL``
+    flag so that the symbols defined in module X are visible to library Y.
+
+    .. warning::
+      Use this option with caution as it may lead to symbol conflicts and undefined behavior if
+      multiple modules define the same symbols and are loaded globally.
+
+    Defaults to ``false``.
+    """
+
+    metrics_namespace: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        5, betterproto2.TYPE_STRING
+    )
+    """
+    The namespace prefix for metrics emitted by this dynamic module.
+
+    This allows users to customize the prefix used for all metrics created by the dynamic module.
+    The prefix is prepended to all metric names. In prometheus output, metrics will appear with
+    the standard ``envoy_`` prefix followed by this namespace. For example, if this is set to
+    ``myapp``, a counter ``requests`` would appear as ``envoy_myapp_requests_total``.
+
+    Defaults to ``dynamicmodulescustom``.
+    """
+
+    module: "___config__core__v3__.AsyncDataSource | None" = betterproto2.field(
+        6, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    The dynamic module binary to load. Supports local file paths via ``local.filename``
+    and remote HTTP sources via ``remote``.
+
+    When using ``remote``, the module is fetched asynchronously during listener initialization.
+    If the fetch fails (network error, SHA256 mismatch, invalid binary, etc.), the filter
+    is **not installed** and requests pass through unfiltered (fail-open).
+
+    When both ``name`` and ``module`` are set, ``module`` takes precedence.
+    """
+
+    nack_on_cache_miss: "bool" = betterproto2.field(7, betterproto2.TYPE_BOOL)
+    """
+    Controls how a cache miss for a remote module is handled.
+
+    When true (NACK mode), a cache miss causes an immediate NACK of the xDS config update.
+    A background fetch is started and the module will be available on the next config push if
+    the fetch succeeds.
+
+    When false (default, warming mode), the server blocks during initialization until the fetch
+    completes or exhausts retries. This mode requires an init manager and is not available in
+    ECDS or per-route configurations.
+
+    When using ``module.remote`` with ECDS or per-route configurations, this must be set to
+    ``true``.
+
+    Only applies when ``module.remote`` is set.
+
+    Defaults to ``false``.
     """
 
 
 default_message_pool.register_message(
     "envoy.extensions.dynamic_modules.v3", "DynamicModuleConfig", DynamicModuleConfig
 )
+
+
+from ....config.core import v3 as ___config__core__v3__

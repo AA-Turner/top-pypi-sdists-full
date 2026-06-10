@@ -5,6 +5,7 @@
 
 __all__ = (
     "Composite",
+    "CompositePerRoute",
     "DynamicConfig",
     "ExecuteFilterAction",
     "FilterChainConfiguration",
@@ -41,11 +42,55 @@ class Composite(betterproto2.Message):
     which filter configuration to create and delegate to.
     """
 
-    pass
+    named_filter_chains: "dict[str, FilterChainConfiguration]" = betterproto2.field(
+        1,
+        betterproto2.TYPE_MAP,
+        map_meta=betterproto2.map_meta(
+            betterproto2.TYPE_STRING, betterproto2.TYPE_MESSAGE
+        ),
+    )
+    """
+    Named filter chain definitions that can be referenced from
+    :ref:`ExecuteFilterAction.filter_chain_name
+    <envoy_v3_api_field_extensions.filters.http.composite.v3.ExecuteFilterAction.filter_chain_name>`.
+    The filter chains are compiled at configuration time and can be referenced by name.
+    This is useful when the same filter chain needs to be applied across many routes,
+    as it avoids duplicating the filter chain configuration.
+    """
+
+    matcher: "______xds__type__matcher__v3__.Matcher | None" = betterproto2.field(
+        2, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    [#not-implemented-hide:]
+    The match tree that will be used to select an action to execute. The action type should be
+    :ref:`ExecuteFilterAction
+    <envoy_v3_api_msg_extensions.filters.http.composite.v3.ExecuteFilterAction>`.
+    """
 
 
 default_message_pool.register_message(
     "envoy.extensions.filters.http.composite.v3", "Composite", Composite
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class CompositePerRoute(betterproto2.Message):
+    """
+    Per-route configuration for the Composite filter.
+    [#not-implemented-hide:]
+    """
+
+    matcher: "______xds__type__matcher__v3__.Matcher | None" = betterproto2.field(
+        1, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Override of the match tree for this route.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.composite.v3", "CompositePerRoute", CompositePerRoute
 )
 
 
@@ -84,6 +129,7 @@ class ExecuteFilterAction(betterproto2.Message):
     """
     Composite match action (see :ref:`matching docs <arch_overview_matching_api>` for more info on match actions).
     This specifies the filter configuration of the filter that the composite filter should delegate filter interactions to.
+    [#next-free-field: 6]
     """
 
     typed_config: "_____config__core__v3__.TypedExtensionConfig | None" = (
@@ -92,8 +138,8 @@ class ExecuteFilterAction(betterproto2.Message):
     """
     Filter specific configuration which depends on the filter being
     instantiated. See the supported filters for further documentation.
-    Only one of ``typed_config`` or ``dynamic_config`` can be set.
-    Ignored if ``filter_chain`` is set.
+    Only one of ``typed_config``, ``dynamic_config``, ``filter_chain``, or ``filter_chain_name``
+    can be set.
     [#extension-category: envoy.filters.http]
     """
 
@@ -102,8 +148,8 @@ class ExecuteFilterAction(betterproto2.Message):
     )
     """
     Dynamic configuration of filter obtained via extension configuration discovery service.
-    Only one of ``typed_config`` or ``dynamic_config`` can be set.
-    Ignored if ``filter_chain`` is set.
+    Only one of ``typed_config``, ``dynamic_config``, ``filter_chain``, or ``filter_chain_name``
+    can be set.
     """
 
     filter_chain: "FilterChainConfiguration | None" = betterproto2.field(
@@ -111,7 +157,21 @@ class ExecuteFilterAction(betterproto2.Message):
     )
     """
     An inlined list of filter configurations. The specified filters will be executed in order.
-    [#not-implemented-hide:]
+    Only one of ``typed_config``, ``dynamic_config``, ``filter_chain``, or ``filter_chain_name``
+    can be set.
+    """
+
+    filter_chain_name: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        5, betterproto2.TYPE_STRING
+    )
+    """
+    The name of a filter chain defined in
+    :ref:`Composite.named_filter_chains
+    <envoy_v3_api_field_extensions.filters.http.composite.v3.Composite.named_filter_chains>`.
+    At runtime, if the named filter chain is not found in the Composite filter's configuration,
+    no filter will be applied for this match (the action is silently skipped).
+    Only one of ``typed_config``, ``dynamic_config``, ``filter_chain``, or ``filter_chain_name``
+    can be set.
     """
 
     sample_percent: "_____config__core__v3__.RuntimeFractionalPercent | None" = (
@@ -158,4 +218,5 @@ default_message_pool.register_message(
 )
 
 
+from .......xds.type.matcher import v3 as ______xds__type__matcher__v3__
 from ......config.core import v3 as _____config__core__v3__

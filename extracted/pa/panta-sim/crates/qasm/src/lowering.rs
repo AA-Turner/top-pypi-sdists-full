@@ -340,7 +340,7 @@ fn lower_stmt_into(
             col,
         } => {
             let q = resolve_qarg_in_env(qubit, qregs, env).map_err(|e| with_loc(e, *line, *col))?;
-            let c = resolve_carg(cbit, cregs).map_err(|e| with_loc(e, *line, *col))?;
+            let c = resolve_carg_in_env(cbit, cregs, env).map_err(|e| with_loc(e, *line, *col))?;
             if q.len() != c.len() {
                 return Err(QasmError::Lower {
                     message: format!(
@@ -507,6 +507,34 @@ fn lower_def_call(
                 }
                 env.insert_qubit_array(param.name.clone(), qs);
             }
+            (DefParamKind::Bit, DefArg::Cbit(carg)) => {
+                let cs = resolve_carg(carg, cregs).map_err(|e| with_loc(e, line, col))?;
+                if cs.len() != 1 {
+                    return Err(QasmError::Lower {
+                        message: format!(
+                            "def {name:?} 의 bit 인자는 단일 bit 여야 합니다 ({} bit)",
+                            cs.len()
+                        ),
+                    });
+                }
+                env.insert_cbit(param.name.clone(), cs[0]);
+            }
+            (DefParamKind::BitArray, DefArg::Cbit(carg)) => {
+                let cs = resolve_carg(carg, cregs).map_err(|e| with_loc(e, line, col))?;
+                if let Some(decl_size) = param.size {
+                    if cs.len() != decl_size {
+                        return Err(QasmError::Lower {
+                            message: format!(
+                                "def {name:?} 의 bit 배열 파라미터 {:?} 는 크기 \
+                                 {decl_size} 인데 {} bit 가 전달되었습니다",
+                                param.name,
+                                cs.len()
+                            ),
+                        });
+                    }
+                }
+                env.insert_cbit_array(param.name.clone(), cs);
+            }
             (DefParamKind::Classical, DefArg::Qubit(_)) => {
                 return Err(QasmError::Lower {
                     message: format!(
@@ -515,11 +543,15 @@ fn lower_def_call(
                     ),
                 });
             }
-            (DefParamKind::Qubit, DefArg::Classical(_))
-            | (DefParamKind::QubitArray, DefArg::Classical(_)) => {
+            // 파라미터/인자 종류 불일치 (qubit↔classical/bit, bit↔classical/qubit 등).
+            (DefParamKind::Qubit, _)
+            | (DefParamKind::QubitArray, _)
+            | (DefParamKind::Bit, _)
+            | (DefParamKind::BitArray, _)
+            | (DefParamKind::Classical, DefArg::Cbit(_)) => {
                 return Err(QasmError::Lower {
                     message: format!(
-                        "def {name:?}: qubit 파라미터 {:?} 에 classical 인자 전달",
+                        "def {name:?}: 파라미터 {:?} 에 인자 종류 불일치",
                         param.name
                     ),
                 });
@@ -875,6 +907,10 @@ struct Env {
     /// def 의 qubit 배열 파라미터 (`qubit[N] q`) → 바인딩된 큐비트 인덱스들.
     /// body 에서 `q[i]` 인덱싱으로 해석된다 (v0.7.3).
     qubit_arrays: HashMap<String, Vec<usize>>,
+    /// def 의 bit 파라미터 (`bit b`) → 바인딩된 호출자 cbit 인덱스 (v1.3.2).
+    cbits: HashMap<String, usize>,
+    /// def 의 bit 배열 파라미터 (`bit[N] b`) → 바인딩된 cbit 인덱스들 (v1.3.2).
+    cbit_arrays: HashMap<String, Vec<usize>>,
 }
 
 impl Env {
@@ -889,6 +925,12 @@ impl Env {
     }
     fn insert_qubit_array(&mut self, name: String, qubits: Vec<usize>) {
         self.qubit_arrays.insert(name, qubits);
+    }
+    fn insert_cbit(&mut self, name: String, idx: usize) {
+        self.cbits.insert(name, idx);
+    }
+    fn insert_cbit_array(&mut self, name: String, cbits: Vec<usize>) {
+        self.cbit_arrays.insert(name, cbits);
     }
 }
 
@@ -949,8 +991,35 @@ fn resolve_qarg_in_env(
 }
 
 fn resolve_carg(c: &CArg, cregs: &HashMap<String, RegInfo>) -> QasmResult<Vec<usize>> {
+    resolve_carg_in_env(c, cregs, &Env::empty())
+}
+
+/// def body 내 cbit 참조 해석 — def 의 bit 파라미터 이름이면 바인딩된 cbit
+/// 인덱스 (v1.3.2), 아니면 creg lookup.  `resolve_qarg_in_env` 의 cbit 대응.
+fn resolve_carg_in_env(
+    c: &CArg,
+    cregs: &HashMap<String, RegInfo>,
+    env: &Env,
+) -> QasmResult<Vec<usize>> {
     match c {
         CArg::Indexed { reg, idx } => {
+            // bit[N] 파라미터 `b[i]` → 바인딩된 cbit.
+            if let Some(arr) = env.cbit_arrays.get(reg) {
+                if *idx >= arr.len() {
+                    return Err(QasmError::CbitOutOfRange {
+                        cbit: *idx,
+                        n_cbits: arr.len(),
+                    });
+                }
+                return Ok(vec![arr[*idx]]);
+            }
+            if env.cbits.contains_key(reg) {
+                return Err(QasmError::Lower {
+                    message: format!(
+                        "indexed bit '{reg}[{idx}]' — 단일 bit 파라미터는 인덱싱 불가"
+                    ),
+                });
+            }
             let info = cregs.get(reg).ok_or_else(|| QasmError::Lower {
                 message: format!("undefined creg/bit register {reg:?}"),
             })?;
@@ -963,6 +1032,14 @@ fn resolve_carg(c: &CArg, cregs: &HashMap<String, RegInfo>) -> QasmResult<Vec<us
             Ok(vec![info.offset + idx])
         }
         CArg::Whole { reg } => {
+            // 단일 bit 파라미터 (`b`).
+            if let Some(ci) = env.cbits.get(reg) {
+                return Ok(vec![*ci]);
+            }
+            // bit[N] 파라미터 전체 (`b`).
+            if let Some(arr) = env.cbit_arrays.get(reg) {
+                return Ok(arr.clone());
+            }
             let info = cregs.get(reg).ok_or_else(|| QasmError::Lower {
                 message: format!("undefined creg/bit register {reg:?}"),
             })?;
@@ -1119,6 +1196,70 @@ mod tests {
              def f(qubit a, angle t, qubit b) { rz(t) a; cx a, b; } f(q[0], 0.5, q[1]);",
         );
         assert_eq!(c.instructions().len(), 2);
+    }
+
+    /// def body 의 Measure 명령이 기록하는 (qubit, cbit) 쌍을 수집.
+    fn measures(c: &Circuit) -> Vec<(usize, usize)> {
+        c.instructions()
+            .iter()
+            .filter_map(|i| match i {
+                qsim_simulator::Instruction::Measure { qubit, cbit } => Some((*qubit, *cbit)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_def_bit_param_measure_writes_caller_cbit() {
+        // v1.3.2: def 가 bit 파라미터로 받은 호출자 cbit 에 측정 결과를 기록.
+        let c = lower(
+            "OPENQASM 3.0; include \"stdgates.inc\"; qubit[1] q; bit[2] c; \
+             def meas(qubit a, bit b) { h a; measure a -> b; } meas(q[0], c[1]);",
+        );
+        // measure 가 호출자 cbit c[1] (= index 1) 에 기록되어야.
+        assert_eq!(measures(&c), vec![(0, 1)]);
+    }
+
+    #[test]
+    fn test_def_bit_array_param_broadcast() {
+        // bit[2] 배열 파라미터: `measure a -> b` 가 두 cbit 으로 broadcast.
+        let c = lower(
+            "OPENQASM 3.0; include \"stdgates.inc\"; qubit[2] q; bit[2] c; \
+             def measall(qubit[2] a, bit[2] b) { h a[0]; cx a[0], a[1]; measure a -> b; } \
+             measall(q, c);",
+        );
+        assert_eq!(measures(&c), vec![(0, 0), (1, 1)]);
+    }
+
+    #[test]
+    fn test_def_bit_array_indexed() {
+        // bit[2] b 의 b[0] 인덱싱 → 호출자 creg 의 해당 cbit.
+        let c = lower(
+            "OPENQASM 3.0; include \"stdgates.inc\"; qubit[1] q; bit[2] c; \
+             def f(qubit a, bit[2] b) { measure a -> b[0]; } f(q[0], c);",
+        );
+        assert_eq!(measures(&c), vec![(0, 0)]);
+    }
+
+    #[test]
+    fn test_def_bit_array_size_mismatch_errors() {
+        // bit[2] 파라미터에 크기 3 creg 전달 → 거부.
+        let src = "OPENQASM 3.0; include \"stdgates.inc\"; qubit[1] q; bit[3] c; \
+             def f(qubit a, bit[2] b) { measure a -> b[0]; } f(q[0], c);";
+        let toks = Lexer::new(src).tokenize().unwrap();
+        let prog = Parser::new(toks).parse_program().unwrap();
+        assert!(lower_program(prog).is_err());
+    }
+
+    #[test]
+    fn test_def_bit_param_type_mismatch_errors() {
+        // bit 파라미터에 qubit 인자 전달 → 거부 (call-site 가 carg 를 파싱하므로
+        // 실제로는 파싱 단계에서 qubit ref 를 carg 로 읽어 lower 에서 미정의 creg).
+        let src = "OPENQASM 3.0; include \"stdgates.inc\"; qubit[2] q; bit[1] c; \
+             def f(qubit a, bit b) { measure a -> b; } f(q[0], q[1]);";
+        let toks = Lexer::new(src).tokenize().unwrap();
+        let prog = Parser::new(toks).parse_program().unwrap();
+        assert!(lower_program(prog).is_err());
     }
 
     #[test]

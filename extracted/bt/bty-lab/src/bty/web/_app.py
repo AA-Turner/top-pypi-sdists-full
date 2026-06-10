@@ -1,6 +1,6 @@
 """FastAPI application for bty-web.
 
-``create_app(state_path, service_user, image_root)`` returns a fully
+``create_app(state_path, service_user, secret_key, boot_root)`` returns a fully
 wired FastAPI instance. Tests construct one with a tmp_path SQLite +
 a fixture service user (PAM gets monkeypatched in those tests).
 ``main()`` (in :mod:`bty.web.__init__`) builds one from environment
@@ -53,7 +53,7 @@ from bty.web import (
     _ui,
     _withcache,
 )
-from bty.web._auth import SESSION_COOKIE, auth_enabled, require_auth
+from bty.web._auth import SESSION_COOKIE, require_auth, using_default_password
 from bty.web._events import (
     WORKER_STATE_CHANGED,
     MachineEvent,
@@ -88,41 +88,55 @@ def create_app(
     service_user: str,
     secret_key: str,
     boot_root: Path | None = None,
-    image_root: Path | None = None,
 ) -> FastAPI:
     """Build the FastAPI app. All config flows through this function.
 
+    Re-resolves the active config from the current environment before
+    building the app. ``main()`` already calls ``set_active_config``
+    upstream; the re-load here is idempotent for production AND lets
+    tests monkeypatch ``BTY_*`` env vars after the conftest's default
+    install: their changes show up because we re-read on every
+    ``create_app`` call.
+
     ``service_user`` is the Linux account bty-web runs as (resolved from
     ``geteuid`` in :func:`bty.web.main`), shown in the UI for context.
-    ``POST /ui/login`` is gated by ``$BTY_ADMIN_PASSWORD`` (open when unset);
-    tests set that env var.
+    ``POST /ui/login`` is gated by ``cfg.admin.password`` (default
+    ``"bty"``, env override ``BTY_ADMIN_PASSWORD``).
 
     ``secret_key`` is the per-server random key used by Starlette's
     :class:`SessionMiddleware` to sign session cookies. It must persist
     across bty-web restarts (otherwise every restart logs everyone out)
     and must be unique per server (otherwise a cookie minted by one
     server is valid on another). bty-web generates a 32-byte random key
-    at ``/var/lib/bty/session-secret`` on first start when none is
-    supplied via ``$BTY_SESSION_SECRET`` or an existing file.
+    at ``<state_dir>/session-secret`` on first start when none is
+    supplied via ``cfg.server.session_secret`` (TOML or env) or an
+    existing file.
 
     ``boot_root`` is where the live-env artifacts (kernel + initrd +
     squashfs) live for the ``GET /boot/{name}`` endpoint; defaults to
     ``state_path.parent / "boot"`` (i.e. ``/var/lib/bty/boot`` in the
     default layout).
     """
-    # ``image_root`` is accepted for backwards compatibility with callers
-    # that still pass it (the test fixture is the main one); v0.40 took
-    # bty-web out of the bytes path entirely, so the value is no longer
-    # read anywhere. Slated for removal once the test fixture stops
-    # threading it through.
-    del image_root
+    from bty.web import _config as _config_mod
+
+    _config_mod.set_active_config(_config_mod.load_config(None))
+
     resolved_boot_root: Path = boot_root or (state_path.parent / "boot")
     # Scheduled + on-demand backups land under ``backups/`` next to
     # state.db so they survive the same migrate-the-state-dir flow as
     # the image cache. Operators wanting them off the OS disk override
-    # via ``BTY_BACKUP_DIR``.
-    resolved_backups_root: Path = Path(
-        os.environ.get("BTY_BACKUP_DIR") or (state_path.parent / "backups")
+    # via ``[paths] backup_dir`` in bty.toml (env override:
+    # ``BTY_PATHS_BACKUP_DIR`` / legacy ``BTY_BACKUP_DIR``). The cfg
+    # field's blank-default resolves to ``<state_dir>/backups`` but
+    # state_path here may diverge from cfg.state_dir (test fixtures
+    # pass a temp state_path without setting cfg.state_dir), so honour
+    # the explicit cfg override iff set; else hang the dir off
+    # state_path's parent (the caller's actual state dir).
+    from bty.web._config import cfg as _cfg
+
+    _cfg_backup = _cfg().paths.backup_dir
+    resolved_backups_root: Path = (
+        Path(_cfg_backup) if _cfg_backup else (state_path.parent / "backups")
     )
 
     # v0.33.0+: schema mismatches are handled by ``_db.init_db``
@@ -134,17 +148,17 @@ def create_app(
 
     event_bus = MachineEventBus()
 
-    # Optional catalog file. ``BTY_CATALOG_FILE`` overrides the default
-    # derived from ``BTY_STATE_DIR``. The catalog path is treated as
-    # the "always this file" location so the UI can write a fresh
-    # ``catalog.toml`` to it and reload in-process. When
-    # ``$BTY_CATALOG_FILE`` is unset and the default file doesn't
+    # Optional catalog file. ``[paths] catalog_file`` (env override
+    # ``BTY_PATHS_CATALOG_FILE``) wins over the ``<state_dir>/catalog.toml``
+    # default. The catalog path is treated as the "always this file"
+    # location so the UI can write a fresh ``catalog.toml`` to it and
+    # reload in-process. When unset and the default file doesn't
     # exist yet, we still pin the default path so a
     # ``/ui/catalog/upload`` upload knows where to land.
     manifest_path = _catalog.default_manifest_path()
     if manifest_path is None:
-        state_dir = Path(os.environ.get("BTY_STATE_DIR", "/var/lib/bty"))
-        manifest_path = state_dir / "catalog.toml"
+        _cfg_catalog = _cfg().paths.catalog_file
+        manifest_path = Path(_cfg_catalog) if _cfg_catalog else (state_path.parent / "catalog.toml")
 
     # Mutable holder so a runtime reload (operator uploads a new
     # catalog.toml from /ui/images) propagates to every closure-
@@ -174,10 +188,11 @@ def create_app(
         import logging as _logging
 
         _lifespan_log = _logging.getLogger(__name__)
-        if not auth_enabled():
+        if using_default_password():
             _lifespan_log.warning(
-                "BTY_ADMIN_PASSWORD is not set - the operator UI is OPEN "
-                "(unauthenticated). Set it to gate /ui."
+                "BTY_ADMIN_PASSWORD is not set - using the well-known default "
+                "password 'bty'. Change it via $BTY_ADMIN_PASSWORD for any "
+                "deploy reachable beyond localhost."
             )
         # The SSE event bus accepts publishes from worker threads -
         # capture the loop now so cross-thread publishes can hop in
@@ -2175,28 +2190,6 @@ def create_app(
             for row in rows
         )
 
-    def _lookup_db_catalog_entry(name: str) -> _catalog.CatalogEntry | None:
-        """DB-only ``CatalogEntry`` lookup by name. Returns ``None`` if no
-        catalog_entries row has that name. Used by the DownloadManager
-        as a fallback when an entry is in the DB but not in the parsed
-        ``catalog.toml`` (the Add-image-from-URL form path)."""
-        with _db.open_db(state_path) as conn:
-            row = conn.execute(
-                "SELECT disk_image_sha, name, src, format, size_bytes, description "
-                "FROM catalog_entries WHERE name = ? LIMIT 1",
-                (name,),
-            ).fetchone()
-        if row is None:
-            return None
-        return _catalog.CatalogEntry(
-            name=row["name"],
-            src=row["src"],
-            sha256=row["disk_image_sha"],
-            format=row["format"],
-            size_bytes=row["size_bytes"],
-            description=row["description"],
-        )
-
     def _list_unified_images() -> list[images.UnifiedImage]:
         """Build the unified image listing from ``catalog_entries`` rows.
 
@@ -2238,9 +2231,8 @@ def create_app(
     # ``catalog_entries`` table in state.db backs a UI form where the
     # operator pastes ``image-url`` + optional ``sha-url`` and hits
     # Add. The shape mirrors a catalog.toml manifest entry, so once
-    # written the row flows through ``merge_with_catalog`` and shows
-    # in the operator's catalog page like any other entry. No
-    # filesystem dance; no TOML editing.
+    # written the row appears on the operator's catalog page like any
+    # other entry. No filesystem dance; no TOML editing.
 
     @app.post(
         "/catalog/entries",
@@ -2855,10 +2847,8 @@ def create_app(
         # Parse the uploaded TOML and import each entry into the
         # ``catalog_entries`` DB so the table on /ui/images picks
         # the rows up. Also persist the bytes to ``manifest_path``
-        # and reload the in-process catalog so the DownloadManager
-        # binds to it -- without that step the "Fetch" buttons on
-        # the resulting rows fall through to ``/catalog/downloads``
-        # and get a 404 "no catalog manifest configured".
+        # so the import is durable across restarts (the lifespan
+        # auto-import seeds the DB from this file on the next boot).
         try:
             parsed = _catalog.load_bytes(content, source="<upload>")
         except _catalog.CatalogError as exc:
@@ -2936,11 +2926,9 @@ def create_app(
                 status_code=status.HTTP_303_SEE_OTHER,
             )
         # Import rows into the ``catalog_entries`` DB AND persist
-        # the bytes to ``manifest_path`` + reload, so the
-        # DownloadManager binds and the "Fetch" buttons on the
-        # imported rows actually work. Without the write+reload,
-        # ``POST /catalog/downloads`` 404s with "no catalog
-        # configured" right after a successful import.
+        # the bytes to ``manifest_path`` so the import is durable
+        # across restarts (the lifespan auto-import seeds the DB
+        # from this file on the next boot).
         _import_parsed_catalog(parsed, source=catalog_url, source_ip=None)
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
         manifest_path.write_bytes(content)
@@ -3066,14 +3054,16 @@ def _client_ip(request: Request) -> str | None:
     connects) collapses to the bare v4 form. Without this, the
     same client shows up as two distinct rows in the audit log.
 
-    When ``BTY_TRUSTED_PROXY`` is set in the environment (any
-    truthy value), the leftmost ``X-Forwarded-For`` entry takes
-    precedence so audit rows reflect the real client IP rather
-    than the reverse-proxy's loopback. Off by default because
-    the header is client-spoofable: only enable it when bty-web
-    is configured behind a proxy that strips inbound X-F-F.
+    When ``[server] trusted_proxy`` is set (env override
+    ``BTY_SERVER_TRUSTED_PROXY``), the leftmost ``X-Forwarded-For``
+    entry takes precedence so audit rows reflect the real client
+    IP rather than the reverse-proxy's loopback. Off by default
+    because the header is client-spoofable: only enable it when
+    bty-web is configured behind a proxy that strips inbound X-F-F.
     """
-    if os.environ.get("BTY_TRUSTED_PROXY"):
+    from bty.web._config import cfg as _cfg
+
+    if _cfg().server.trusted_proxy:
         xff = request.headers.get("x-forwarded-for")
         if xff:
             # X-F-F is a comma-separated chain (proxy-near-client
@@ -3172,14 +3162,13 @@ _CATALOG_UPLOAD_MAX_BYTES = 1 * 1024 * 1024
 
 
 def _max_upload_bytes() -> int:
-    """Resolve the upload size cap from ``BTY_MAX_UPLOAD_BYTES`` or default."""
-    raw = os.environ.get("BTY_MAX_UPLOAD_BYTES")
-    if raw is None:
-        return _DEFAULT_MAX_UPLOAD_BYTES
-    try:
-        value = int(raw)
-    except ValueError:
-        return _DEFAULT_MAX_UPLOAD_BYTES
+    """Resolve the upload size cap from ``[tuning] max_upload_bytes``
+    (env override ``BTY_TUNING_MAX_UPLOAD_BYTES``) or the schema
+    default. Non-positive values clamp to the default -- a
+    pathological ``0`` would otherwise reject every upload."""
+    from bty.web._config import cfg as _cfg
+
+    value = _cfg().tuning.max_upload_bytes
     return value if value > 0 else _DEFAULT_MAX_UPLOAD_BYTES
 
 

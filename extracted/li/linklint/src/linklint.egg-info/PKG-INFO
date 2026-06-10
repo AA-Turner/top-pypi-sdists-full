@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: linklint
-Version: 1.0.0
-Summary: A Sphinx extension to remove needless links
+Version: 1.0.1
+Summary: A Sphinx extension to omit needless links
 Author-email: Ned Batchelder <ned@nedbatchelder.com>
 License-Expression: Apache-2.0
 Project-URL: Source, https://github.com/nedbat/linklint
@@ -104,6 +104,21 @@ To try local changes in the CPython docs::
 
 Changes
 =======
+
+v1.0.1 (2026-06-09)
+-------------------
+
+Fix: references that are fully qualified when they don't need to be are now
+recognized and will be unlinked.
+
+Fix: references to functions that incorrectly use the ``:meth:`` role are
+recognized by Sphinx anyway, so now linklint also recognizes and unlinks
+them. Fixes `issue 13`_.
+
+These fixes change the CPython docs build from 1579 self-references unlinked to
+1649.
+
+.. _issue 13: https://github.com/nedbat/linklint/issues/13
 
 v1.0.0 (2026-05-02)
 -------------------

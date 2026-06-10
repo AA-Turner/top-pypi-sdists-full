@@ -23,7 +23,7 @@ class CaresDnsResolverConfig(betterproto2.Message):
     [#extension: envoy.network.dns_resolver.cares]
 
     Configuration for c-ares DNS resolver.
-    [#next-free-field: 11]
+    [#next-free-field: 12]
     """
 
     resolvers: "list[_____config__core__v3__.Address]" = betterproto2.field(
@@ -145,6 +145,22 @@ class CaresDnsResolverConfig(betterproto2.Message):
     better load distribution across UDP ports.
 
     If not specified, no periodic refresh will be performed.
+    """
+
+    reinit_channel_on_timeout: "bool" = betterproto2.field(11, betterproto2.TYPE_BOOL)
+    """
+    If true, reinitialize the c-ares channel when a DNS query fails with ``ARES_ETIMEOUT``.
+
+    This can help recover from rare cases where the UDP sockets held by the c-ares
+    channel become unusable after timeouts, causing subsequent queries to fail or
+    Envoy to keep serving stale DNS results. When enabled, a timeout-triggered
+    reinitialization attempts to restore healthy state quickly. In environments
+    where timeouts are caused by intermittent network issues, enabling this may
+    increase channel churn; consider using
+    :ref:`max_udp_channel_duration <envoy_v3_api_field_extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig.max_udp_channel_duration>`
+    for periodic refresh instead.
+
+    Default is false.
     """
 
 

@@ -100,6 +100,9 @@ class Recon(ABC):
         if use_ROI:
             self.experiment.OpticImage.find_ROI()
             global_mask = np.logical_or.reduce(self.experiment.OpticImage.maskList)
+        if len(global_mask) == 0:
+            print("No ROIs found in the phantom. Computing global CRC instead.")
+            use_ROI = False
 
         # Analytic reconstruction case
         if self.reconType is ReconType.Analytic:
@@ -114,7 +117,7 @@ class Recon(ABC):
 
         # Iterative reconstruction case
         else:
-            iterations = range(len(self.reconPhantom))
+            iterations = range(np.min([len(self.reconPhantom), len(self.reconLaser)]))
 
             crc_list = []
             for it in iterations:

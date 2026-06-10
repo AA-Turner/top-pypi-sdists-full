@@ -26,7 +26,7 @@ import icechunk
 from icechunk import IcechunkError, RepositoryConfig
 from icechunk import Repository as IcechunkRepository
 
-from arraylake._credential_cache import CredentialCacheKey, get_or_refresh
+from arraylake._credential_cache import CredentialCacheKey, get_or_refresh, populate
 from arraylake.asyn import async_gather_tasks, asyncio_run, sync
 from arraylake.compute.services import AsyncComputeClient, ComputeClient
 from arraylake.config import config as arraylake_config
@@ -66,10 +66,12 @@ from arraylake.types import (
     ExplicitVirtualChunkAccessPolicyResponse,
     GSCredentials,
     NewBucket,
+    OpenRepoResponse,
     OptimizationConfig,
     OrgActions,
     OrgAndRepoName,
     OrgName,
+    Platform,
     RepoActions,
     RepoKind,
     RepoMetadataT,
@@ -79,6 +81,7 @@ from arraylake.types import (
     S3Credentials,
     StorageOptions,
     TempCredentials,
+    VirtualChunkCredentials,
     validate_name,
     validate_org_and_repo_name,
 )
@@ -213,6 +216,25 @@ class AsyncClient:
                 break
             page += 1
 
+    def _credential_cache_key(
+        self,
+        *,
+        scope: Literal["repo", "bucket", "vcc"],
+        org: OrgName,
+        identifier: str,
+        platform: Platform,
+        access: Literal["read", "write"] = "read",
+    ) -> CredentialCacheKey:
+        return CredentialCacheKey(
+            api_url=self.service_uri,
+            auth_key=hash(self.token),
+            scope=scope,
+            org=org,
+            identifier=identifier,
+            platform=platform,
+            access=access,
+        )
+
     async def _get_s3_delegated_credentials_from_repo(self, org: OrgName, repo_name: RepoName) -> S3Credentials:
         """Get delegated credentials for a repo's S3 bucket.
 
@@ -223,14 +245,7 @@ class AsyncClient:
         Returns:
             S3Credentials: Temporary credentials for the S3 bucket.
         """
-        key = CredentialCacheKey(
-            api_url=self.service_uri,
-            auth_key=hash(self.token),
-            scope="repo",
-            org=org,
-            identifier=repo_name,
-            platform="s3",
-        )
+        key = self._credential_cache_key(scope="repo", org=org, identifier=repo_name, platform="s3")
 
         async def fetch() -> S3Credentials:
             mstore = self._metastore_for_org(org)
@@ -250,14 +265,7 @@ class AsyncClient:
         Returns:
             GSCredentials: Temporary credentials for the GCS bucket.
         """
-        key = CredentialCacheKey(
-            api_url=self.service_uri,
-            auth_key=hash(self.token),
-            scope="repo",
-            org=org,
-            identifier=repo_name,
-            platform="gs",
-        )
+        key = self._credential_cache_key(scope="repo", org=org, identifier=repo_name, platform="gs")
 
         async def fetch() -> GSCredentials:
             mstore = self._metastore_for_org(org)
@@ -277,14 +285,7 @@ class AsyncClient:
         Returns:
             AzureCredentials: Temporary credentials for the Azure Blob Storage container.
         """
-        key = CredentialCacheKey(
-            api_url=self.service_uri,
-            auth_key=hash(self.token),
-            scope="repo",
-            org=org,
-            identifier=repo_name,
-            platform="azure",
-        )
+        key = self._credential_cache_key(scope="repo", org=org, identifier=repo_name, platform="azure")
 
         async def fetch() -> AzureCredentials:
             mstore = self._metastore_for_org(org)
@@ -310,15 +311,7 @@ class AsyncClient:
         Returns:
             S3Credentials: Temporary credentials for the S3 bucket.
         """
-        key = CredentialCacheKey(
-            api_url=self.service_uri,
-            auth_key=hash(self.token),
-            scope="bucket",
-            org=org,
-            identifier=nickname,
-            platform="s3",
-            access=access,
-        )
+        key = self._credential_cache_key(scope="bucket", org=org, identifier=nickname, platform="s3", access=access)
 
         async def fetch() -> S3Credentials:
             mstore = self._metastore_for_org(org)
@@ -345,15 +338,7 @@ class AsyncClient:
         Returns:
             GSCredentials: Temporary credentials for the GCS bucket.
         """
-        key = CredentialCacheKey(
-            api_url=self.service_uri,
-            auth_key=hash(self.token),
-            scope="bucket",
-            org=org,
-            identifier=nickname,
-            platform="gs",
-            access=access,
-        )
+        key = self._credential_cache_key(scope="bucket", org=org, identifier=nickname, platform="gs", access=access)
 
         async def fetch() -> GSCredentials:
             mstore = self._metastore_for_org(org)
@@ -380,15 +365,7 @@ class AsyncClient:
         Returns:
             AzureCredentials: Temporary credentials for the Azure Blob Storage container.
         """
-        key = CredentialCacheKey(
-            api_url=self.service_uri,
-            auth_key=hash(self.token),
-            scope="bucket",
-            org=org,
-            identifier=nickname,
-            platform="azure",
-            access=access,
-        )
+        key = self._credential_cache_key(scope="bucket", org=org, identifier=nickname, platform="azure", access=access)
 
         async def fetch() -> AzureCredentials:
             mstore = self._metastore_for_org(org)
@@ -413,12 +390,13 @@ class AsyncClient:
         Returns:
             Callable: Function that returns a S3StaticCredentials object.
         """
-        s3_credentials = asyncio_run(self._get_s3_delegated_credentials_from_repo(org, repo_name), timeout=None)
+        credentials = asyncio_run(self._refresh_repo_bucket_credentials(org, repo_name, "s3"), timeout=None)
+        assert isinstance(credentials, S3Credentials)
         return icechunk.S3StaticCredentials(
-            access_key_id=s3_credentials.aws_access_key_id,
-            secret_access_key=s3_credentials.aws_secret_access_key,
-            session_token=s3_credentials.aws_session_token,
-            expires_after=s3_credentials.expiration,
+            access_key_id=credentials.aws_access_key_id,
+            secret_access_key=credentials.aws_secret_access_key,
+            session_token=credentials.aws_session_token,
+            expires_after=credentials.expiration,
         )
 
     def _get_icechunk_gcs_credentials_refresh_function_for_repo(self, org: OrgName, repo_name: RepoName) -> icechunk.GcsBearerCredential:
@@ -435,10 +413,11 @@ class AsyncClient:
         Returns:
             Callable: Function that returns a GcsBearerCredential object.
         """
-        gcs_credentials = asyncio_run(self._get_gcs_delegated_credentials_from_repo(org, repo_name), timeout=None)
+        credentials = asyncio_run(self._refresh_repo_bucket_credentials(org, repo_name, "gs"), timeout=None)
+        assert isinstance(credentials, GSCredentials)
         return icechunk.GcsBearerCredential(
-            bearer=gcs_credentials.access_token,
-            expires_after=gcs_credentials.expiration.replace(tzinfo=UTC) if gcs_credentials.expiration else None,
+            bearer=credentials.access_token,
+            expires_after=credentials.expiration.replace(tzinfo=UTC) if credentials.expiration else None,
         )
 
     def _get_icechunk_azure_credentials_refresh_function_for_repo(
@@ -497,6 +476,138 @@ class AsyncClient:
     ) -> icechunk.AzureStaticCredentials:
         raise NotImplementedError("Azure credential refreshes not implemented in Icechunk.")
 
+    def _populate_credential_cache(self, org: OrgName, repo_name: RepoName, response: OpenRepoResponse) -> None:
+        """Seed the credential cache with every delegated credential from an open-repo response.
+
+        A single ``/open`` returns fresh credentials for the repo's own bucket and for all of
+        its virtual chunk containers, so we cache them all (each keyed independently and honoring
+        its own expiry). The next refresh of any one of them is then served from the cache until
+        it individually expires, rather than each triggering its own ``/open``.
+        """
+        if not self._cache_credentials:
+            return
+        if response.repo_credentials is not None:
+            platform = self._delegated_credential_platform(response.repo_bucket)
+            if platform is not None:
+                populate(
+                    self._credential_cache_key(scope="repo", org=org, identifier=repo_name, platform=platform),
+                    response.repo_credentials,
+                )
+        for vcc_prefix, vcc_creds in response.virtual_chunk_credentials.items():
+            if vcc_creds.credentials is not None and vcc_creds.credentials.expiration is not None:
+                populate(
+                    self._credential_cache_key(scope="vcc", org=org, identifier=vcc_prefix, platform=vcc_creds.platform),
+                    vcc_creds.credentials,
+                )
+
+    async def _open_repo_and_cache(self, org: OrgName, repo_name: RepoName) -> OpenRepoResponse:
+        """Open the repo once and seed the credential cache with all of its delegated credentials."""
+        mstore = self._metastore_for_org(org)
+        response = await mstore.open_repo(repo_name)
+        self._populate_credential_cache(org, repo_name, response)
+        return response
+
+    async def _refresh_repo_bucket_credentials(self, org: OrgName, repo_name: RepoName, platform: Platform) -> TempCredentials:
+        """Refresh the repo's own bucket credentials via ``/open``, going through the cache.
+
+        Because ``/open`` also seeds the virtual chunk container credentials, a single repo-bucket
+        refresh lands fresh credentials for the repo bucket and every virtual bucket at once.
+        """
+        key = self._credential_cache_key(scope="repo", org=org, identifier=repo_name, platform=platform)
+
+        async def fetch() -> TempCredentials:
+            response = await self._open_repo_and_cache(org, repo_name)
+            if response.repo_credentials is None:
+                raise ValueError(f"Repo '{org}/{repo_name}' returned no refreshable credentials.")
+            return response.repo_credentials
+
+        return await get_or_refresh(key, fetch, use_cache=self._cache_credentials)
+
+    async def _get_vcc_credentials_from_repo(
+        self, org: OrgName, repo_name: RepoName, vcc_prefix: BucketPrefix, platform: Platform
+    ) -> TempCredentials:
+        """Re-fetch credentials for a single virtual chunk container, going through the cache.
+
+        On a cache miss this re-opens the repo, which both refreshes the requested container's
+        credentials and seeds the cache for the repo bucket and all other containers. Reusing the
+        repo-open path means refreshes inherit the same authorization and resolution as the initial
+        open, including cross-org (filtered subscription / marketplace) virtual chunks — the server
+        never exposes the provider's org or bucket to us, only the credentials.
+        """
+        key = self._credential_cache_key(scope="vcc", org=org, identifier=vcc_prefix, platform=platform)
+
+        async def fetch() -> TempCredentials:
+            response = await self._open_repo_and_cache(org, repo_name)
+            vcc_creds = response.virtual_chunk_credentials.get(vcc_prefix)
+            if vcc_creds is None or vcc_creds.credentials is None:
+                raise ValueError(
+                    f"Could not refresh credentials for virtual chunk container prefix {vcc_prefix!r} in repo "
+                    f"'{org}/{repo_name}'; the repo may no longer authorize access to it."
+                )
+            return vcc_creds.credentials
+
+        return await get_or_refresh(key, fetch, use_cache=self._cache_credentials)
+
+    def _get_icechunk_s3_vcc_credentials_refresh_function(
+        self, org: OrgName, repo_name: RepoName, vcc_prefix: BucketPrefix, platform: Platform
+    ) -> icechunk.S3StaticCredentials:
+        """Synchronous, no-arg S3 refresh function for a virtual chunk container.
+
+        Icechunk calls this (synchronously, with no event loop) when the container's
+        credentials expire, so it bridges to the async fetch via ``asyncio_run``.
+        """
+        credentials = asyncio_run(self._get_vcc_credentials_from_repo(org, repo_name, vcc_prefix, platform), timeout=None)
+        assert isinstance(credentials, S3Credentials)
+        return icechunk.S3StaticCredentials(
+            access_key_id=credentials.aws_access_key_id,
+            secret_access_key=credentials.aws_secret_access_key,
+            session_token=credentials.aws_session_token,
+            expires_after=credentials.expiration,
+        )
+
+    def _get_icechunk_gcs_vcc_credentials_refresh_function(
+        self, org: OrgName, repo_name: RepoName, vcc_prefix: BucketPrefix, platform: Platform
+    ) -> icechunk.GcsBearerCredential:
+        """Synchronous, no-arg GCS refresh function for a virtual chunk container.
+
+        Icechunk calls this (synchronously, with no event loop) when the container's
+        credentials expire, so it bridges to the async fetch via ``asyncio_run``.
+        """
+        credentials = asyncio_run(self._get_vcc_credentials_from_repo(org, repo_name, vcc_prefix, platform), timeout=None)
+        assert isinstance(credentials, GSCredentials)
+        return icechunk.GcsBearerCredential(
+            bearer=credentials.access_token,
+            expires_after=credentials.expiration.replace(tzinfo=UTC) if credentials.expiration else None,
+        )
+
+    def _maybe_get_vcc_credential_refresh_func(
+        self, vcc_creds: VirtualChunkCredentials, org: OrgName, repo_name: RepoName, vcc_prefix: BucketPrefix
+    ) -> Callable | None:
+        """Build a refresh closure for a server-provided virtual chunk container, if its
+        credentials are refreshable.
+
+        Delegated/temporary credentials carry an expiration; static (long-lived), anonymous,
+        and bucket-policy credentials do not and are left as-is. Azure is not yet supported by
+        Icechunk so it never gets a refresh function.
+        """
+        credentials = vcc_creds.credentials
+        if credentials is None or credentials.expiration is None:
+            return None
+        if vcc_creds.platform in ("s3", "s3-compatible", "minio"):
+            return partial(self._get_icechunk_s3_vcc_credentials_refresh_function, org, repo_name, vcc_prefix, vcc_creds.platform)
+        elif vcc_creds.platform == "gs":
+            return partial(self._get_icechunk_gcs_vcc_credentials_refresh_function, org, repo_name, vcc_prefix, vcc_creds.platform)
+        return None
+
+    def _delegated_credential_platform(self, bucket: BucketResponse) -> Platform | None:
+        if bucket.platform == "s3" or _is_r2_bucket(bucket):
+            return "s3"
+        if bucket.platform == "gs":
+            return "gs"
+        if bucket.platform == "azure":
+            return "azure"
+        return None
+
     async def _maybe_get_credentials_for_icechunk(
         self,
         bucket: BucketResponse,
@@ -513,17 +624,18 @@ class AsyncClient:
         repo-scoped credential fetches always inherit the caller's permissions on the repo.
         """
         if _use_delegated_credentials(bucket):
-            if bucket.platform == "s3" or _is_r2_bucket(bucket):
+            platform = self._delegated_credential_platform(bucket)
+            if platform == "s3":
                 if repo_name:
                     return await self._get_s3_delegated_credentials_from_repo(org, repo_name)
                 else:
                     return await self._get_s3_delegated_credentials_from_bucket(org, bucket.nickname, access=bucket_access)
-            elif bucket.platform == "gs":
+            elif platform == "gs":
                 if repo_name:
                     return await self._get_gcs_delegated_credentials_from_repo(org, repo_name)
                 else:
                     return await self._get_gcs_delegated_credentials_from_bucket(org, bucket.nickname, access=bucket_access)
-            elif bucket.platform == "azure":
+            elif platform == "azure":
                 if repo_name:
                     return await self._get_azure_delegated_credentials_from_repo(org, repo_name)
                 else:
@@ -543,17 +655,18 @@ class AsyncClient:
         Returns None if delegated credentials are not configured for the bucket.
         """
         if _use_delegated_credentials(bucket):
-            if bucket.platform == "s3" or _is_r2_bucket(bucket):
+            platform = self._delegated_credential_platform(bucket)
+            if platform == "s3":
                 if repo_name:
                     return partial(self._get_icechunk_s3_credentials_refresh_function_for_repo, org, repo_name)
                 else:
                     return partial(self._get_icechunk_s3_credentials_refresh_function_for_bucket, org, bucket.nickname)
-            elif bucket.platform == "gs":
+            elif platform == "gs":
                 if repo_name:
                     return partial(self._get_icechunk_gcs_credentials_refresh_function_for_repo, org, repo_name)
                 else:
                     return partial(self._get_icechunk_gcs_credentials_refresh_function_for_bucket, org, bucket.nickname)
-            elif bucket.platform == "azure":
+            elif platform == "azure":
                 # Credential refreshes currently not implemented in Icechunk, return None
                 return None
             else:
@@ -630,6 +743,9 @@ class AsyncClient:
             bucket=response.repo_bucket, org=org, repo_name=repo_name
         )
         credentials = response.repo_credentials if credential_refresh_func is None else None
+        # Seed the cache with the repo bucket credentials and every virtual chunk container's
+        # credentials, so the first refresh of any of them is served from this single open.
+        self._populate_credential_cache(org, repo_name, response)
         icechunk_storage = _get_icechunk_storage_obj(
             bucket_config=response.repo_bucket,
             prefix=response.repo_prefix,
@@ -682,17 +798,18 @@ class AsyncClient:
                         container.name = vcc_creds.runtime_vcc_name
                     config.set_virtual_chunk_container(container)
 
-                    # TODO: build refresh closures here using vcc_creds.org, vcc_creds.bucket_nickname,
-                    # and vcc_creds.platform so that credentials can be refreshed when they expire. (See https://github.com/earth-mover/arraylake/issues/5122)
                     # TODO: support Azure virtual chunk credentials
                     if isinstance(vcc_creds.credentials, AzureCredentials):
                         raise NotImplementedError(f"Azure virtual chunk credentials are not yet supported. (prefix: {vcc_prefix}).")
+                    # Refresh delegated/temporary credentials by re-opening the repo; pass static
+                    # credentials only when they aren't refreshable (icechunk forbids supplying both).
+                    refresh_func = self._maybe_get_vcc_credential_refresh_func(vcc_creds, org, repo_name, vcc_prefix)
                     # TODO: fix return type of get_icechunk_container_credentials (returns GcsBearerCredential
                     # which is not in icechunk's AnyGcsCredential union — icechunk typing gap)
                     credentials_map[vcc_prefix] = get_icechunk_container_credentials(  # type: ignore[assignment]
                         bucket_platform=vcc_creds.platform,
-                        credentials=vcc_creds.credentials,
-                        credential_refresh_func=None,
+                        credentials=None if refresh_func is not None else vcc_creds.credentials,
+                        credential_refresh_func=refresh_func,
                     )
                 vcc_credentials = icechunk.containers_credentials(credentials_map)
 

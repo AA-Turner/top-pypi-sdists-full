@@ -175,6 +175,330 @@ pub enum TopologyScoreScale {
     PerEffectiveDim,
 }
 
+/// Convergence controls for stacking retained topology predictive densities.
+#[derive(Debug, Clone, Copy)]
+pub struct StackingConfig {
+    pub max_iter: usize,
+    pub weight_tol: f64,
+}
+
+impl Default for StackingConfig {
+    fn default() -> Self {
+        Self {
+            max_iter: 1000,
+            weight_tol: 1e-10,
+        }
+    }
+}
+
+/// Simplex weights for retained topology candidates plus the achieved held-out
+/// mean log-score.
+#[derive(Debug, Clone)]
+pub struct StackingWeights {
+    pub weights: Array1<f64>,
+    pub mean_log_score: f64,
+    pub iterations: usize,
+}
+
+/// Solve the stacking-of-predictive-distributions weight problem from a
+/// per-observation held-out log-density table `log_density[i, k] = log p_k(y_i)`.
+///
+/// This belongs on the evidence surface rather than in a separate solver: it is
+/// the topology/evidence consumer that replaces winner-take-all only when the
+/// caller has retained candidate fits and per-point held-out densities.
+pub fn solve_stacking_weights(
+    log_density: ArrayView2<'_, f64>,
+    config: StackingConfig,
+) -> Result<StackingWeights, String> {
+    let n_obs = log_density.nrows();
+    let n_cand = log_density.ncols();
+    if n_cand == 0 {
+        return Err("stacking requires at least one candidate column".to_string());
+    }
+    if n_obs == 0 {
+        return Err("stacking requires at least one held-out observation row".to_string());
+    }
+
+    let kept_cols: Vec<usize> = (0..n_cand)
+        .filter(|&k| (0..n_obs).any(|i| log_density[[i, k]].is_finite()))
+        .collect();
+    if kept_cols.is_empty() {
+        return Err("stacking found no candidate with any finite held-out density".to_string());
+    }
+    let rows: Vec<usize> = (0..n_obs)
+        .filter(|&i| kept_cols.iter().any(|&k| log_density[[i, k]].is_finite()))
+        .collect();
+    if rows.is_empty() {
+        return Err("stacking found no held-out row with a finite density".to_string());
+    }
+
+    let kept = kept_cols.len();
+    let mut weights = Array1::<f64>::from_elem(kept, 1.0 / kept as f64);
+    let mut next = Array1::<f64>::zeros(kept);
+    let mut iterations = 0usize;
+    for _ in 0..config.max_iter {
+        iterations += 1;
+        next.fill(0.0);
+        let mut active_rows = 0usize;
+        for &row in &rows {
+            let mut row_max = f64::NEG_INFINITY;
+            for (local_col, &source_col) in kept_cols.iter().enumerate() {
+                let log_p = log_density[[row, source_col]];
+                if log_p.is_finite() && weights[local_col] > 0.0 {
+                    row_max = row_max.max(weights[local_col].ln() + log_p);
+                }
+            }
+            if !row_max.is_finite() {
+                continue;
+            }
+            let mut denom = 0.0_f64;
+            for (local_col, &source_col) in kept_cols.iter().enumerate() {
+                let log_p = log_density[[row, source_col]];
+                if log_p.is_finite() && weights[local_col] > 0.0 {
+                    denom += (weights[local_col].ln() + log_p - row_max).exp();
+                }
+            }
+            if denom <= 0.0 {
+                continue;
+            }
+            active_rows += 1;
+            let log_mix = row_max + denom.ln();
+            for (local_col, &source_col) in kept_cols.iter().enumerate() {
+                let log_p = log_density[[row, source_col]];
+                if log_p.is_finite() && weights[local_col] > 0.0 {
+                    next[local_col] += (weights[local_col].ln() + log_p - log_mix).exp();
+                }
+            }
+        }
+        if active_rows == 0 {
+            break;
+        }
+        next.mapv_inplace(|value| value / active_rows as f64);
+        let total = next.sum();
+        if total > 0.0 {
+            next.mapv_inplace(|value| value / total);
+        }
+        let delta = next
+            .iter()
+            .zip(weights.iter())
+            .fold(0.0_f64, |acc, (a, b)| acc.max((a - b).abs()));
+        weights.assign(&next);
+        if delta <= config.weight_tol {
+            break;
+        }
+    }
+
+    let mean_log_score = stacking_mean_log_score(log_density, &rows, &kept_cols, weights.view());
+    let mut full = Array1::<f64>::zeros(n_cand);
+    for (local_col, &source_col) in kept_cols.iter().enumerate() {
+        full[source_col] = weights[local_col];
+    }
+    Ok(StackingWeights {
+        weights: full,
+        mean_log_score,
+        iterations,
+    })
+}
+
+fn stacking_mean_log_score(
+    log_density: ArrayView2<'_, f64>,
+    rows: &[usize],
+    kept_cols: &[usize],
+    weights: ArrayView1<'_, f64>,
+) -> f64 {
+    let mut score_sum = 0.0_f64;
+    let mut counted = 0usize;
+    for &row in rows {
+        let mut row_max = f64::NEG_INFINITY;
+        for (local_col, &source_col) in kept_cols.iter().enumerate() {
+            let log_p = log_density[[row, source_col]];
+            if log_p.is_finite() && weights[local_col] > 0.0 {
+                row_max = row_max.max(weights[local_col].ln() + log_p);
+            }
+        }
+        if !row_max.is_finite() {
+            continue;
+        }
+        let mut denom = 0.0_f64;
+        for (local_col, &source_col) in kept_cols.iter().enumerate() {
+            let log_p = log_density[[row, source_col]];
+            if log_p.is_finite() && weights[local_col] > 0.0 {
+                denom += (weights[local_col].ln() + log_p - row_max).exp();
+            }
+        }
+        if denom > 0.0 {
+            score_sum += row_max + denom.ln();
+            counted += 1;
+        }
+    }
+    if counted == 0 {
+        f64::NEG_INFINITY
+    } else {
+        score_sum / counted as f64
+    }
+}
+
+/// Combine retained candidate response-scale means with stacking weights.
+pub fn stacked_predictive_mean(
+    weights: &Array1<f64>,
+    candidate_means: &[Array1<f64>],
+) -> Result<Array1<f64>, String> {
+    if candidate_means.len() != weights.len() {
+        return Err(format!(
+            "stacked_predictive_mean: {} weights but {} candidate mean vectors",
+            weights.len(),
+            candidate_means.len()
+        ));
+    }
+    let Some(first) = candidate_means.first() else {
+        return Err("stacked_predictive_mean requires at least one candidate".to_string());
+    };
+    let n_rows = first.len();
+    if candidate_means.iter().any(|means| means.len() != n_rows) {
+        return Err(
+            "stacked_predictive_mean: candidate mean vectors disagree on row count".to_string(),
+        );
+    }
+    let mut out = Array1::<f64>::zeros(n_rows);
+    for (weight, means) in weights.iter().zip(candidate_means) {
+        if *weight != 0.0 {
+            out.scaled_add(*weight, means);
+        }
+    }
+    Ok(out)
+}
+
+/// One fitted model in a REML/LAML evidence comparison.
+#[derive(Clone, Debug)]
+pub struct RemlCandidate {
+    pub index: usize,
+    pub name: String,
+    /// Minimised REML/LAML cost. Lower is better.
+    pub score: f64,
+    pub edf: Option<f64>,
+}
+
+#[derive(Clone, Debug)]
+pub struct RemlComparison {
+    pub ranking: Vec<RankedRow>,
+    pub winner: String,
+    pub evidence_summary: String,
+    pub score_table: Vec<ScoreRow>,
+}
+
+#[derive(Clone, Debug)]
+pub struct RankedRow {
+    pub name: String,
+    pub score: f64,
+    /// Cost gap from the winning model: `score - best_score`.
+    pub delta: f64,
+    pub bayes_factor: f64,
+    pub edf: Option<f64>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ScoreRow {
+    pub name: String,
+    pub reml_score: f64,
+    pub delta_reml: f64,
+    pub bayes_factor_best_over_model: f64,
+    pub effective_dof: Option<f64>,
+}
+
+/// Log Bayes factor of model `a` over model `b` from minimised REML/LAML costs.
+#[inline]
+pub fn log_bayes_factor(reml_score_a: f64, reml_score_b: f64) -> f64 {
+    reml_score_b - reml_score_a
+}
+
+/// Compare fitted models by the single evidence ordering contract used by
+/// topology ranking and seed screening: lower finite cost wins, with stable
+/// original-order tie handling.
+pub fn compare_reml_fits(mut candidates: Vec<RemlCandidate>) -> Result<RemlComparison, String> {
+    if candidates.is_empty() {
+        return Err("compare_models requires at least one fit".to_string());
+    }
+    candidates = rank_priority_candidates(
+        candidates
+            .into_iter()
+            .enumerate()
+            .map(|(idx, row)| {
+                let score = row.score;
+                PriorityCandidate::new(row, idx, score, 0)
+            })
+            .collect(),
+    )
+    .into_iter()
+    .map(|row| row.item)
+    .collect();
+
+    let best_score = candidates[0].score;
+    let winner = candidates[0].name.clone();
+    let mut ranking = Vec::with_capacity(candidates.len());
+    let mut score_table = Vec::with_capacity(candidates.len());
+    for row in &candidates {
+        let delta = log_bayes_factor(best_score, row.score);
+        let bayes_factor = delta.exp();
+        ranking.push(RankedRow {
+            name: row.name.clone(),
+            score: row.score,
+            delta,
+            bayes_factor,
+            edf: row.edf,
+        });
+        score_table.push(ScoreRow {
+            name: row.name.clone(),
+            reml_score: row.score,
+            delta_reml: delta,
+            bayes_factor_best_over_model: bayes_factor,
+            effective_dof: row.edf,
+        });
+    }
+    let evidence_summary = if let Some(runner_up) = candidates.get(1) {
+        format!(
+            "{} wins by Bayes factor {} over {}",
+            winner,
+            format_bayes_factor(log_bayes_factor(best_score, runner_up.score)),
+            runner_up.name
+        )
+    } else {
+        format!("{winner} (single fit; no comparison)")
+    };
+    Ok(RemlComparison {
+        ranking,
+        winner,
+        evidence_summary,
+        score_table,
+    })
+}
+
+pub fn format_bayes_factor(log_bf: f64) -> String {
+    if !log_bf.is_finite() {
+        return "inf".to_string();
+    }
+    if log_bf.abs() >= std::f64::consts::LN_10 * 3.0 {
+        return format!("1e{:+.1}", log_bf / std::f64::consts::LN_10);
+    }
+    format_three_significant(log_bf.exp())
+}
+
+pub fn format_three_significant(value: f64) -> String {
+    if value == 0.0 {
+        return "0".to_string();
+    }
+    if !value.is_finite() {
+        return format!("{value}");
+    }
+    let exponent = value.abs().log10().floor() as i32;
+    if exponent >= 3 {
+        return format!("{value:.2e}");
+    }
+    let decimals = (2 - exponent).max(0) as usize;
+    let scale = 10f64.powi(decimals as i32);
+    let rounded = (value * scale).abs().round() / scale * value.signum();
+    format!("{rounded:.decimals$}")
+}
+
 impl Default for TopologySelectOptions {
     fn default() -> Self {
         Self {
@@ -578,6 +902,183 @@ pub fn ift_du_dbeta(cache: &ArrowFactorCache) -> Array2<f64> {
         }
     }
     out
+}
+
+/// Coupling components of a symmetric coefficient Hessian: the connected
+/// components of the graph whose vertices are coefficient indices `0..p` and
+/// whose edges are the structurally nonzero off-diagonal entries of `H` (#779).
+///
+/// Returns a length-`p` vector of component labels in `0..num_components`,
+/// where two indices share a label iff they are connected through a chain of
+/// nonzero `H[i,j]` couplings. This is the exact structural partition the
+/// cone-of-influence sensitivity reuse is keyed on: a smoothing-parameter move
+/// whose stationarity-gradient derivative `∂g/∂ρ` is supported only inside one
+/// component can change `β = -H⁻¹ ∂g/∂ρ` only inside that same component, so
+/// the sensitivity of every *other* component is provably unchanged and may be
+/// reused unrecomputed (lazy/local propagation).
+///
+/// The nonzero test is exact (`!= 0.0`), matching the structural-coupling gate
+/// used elsewhere for the joint inner Hessian: a tolerance would risk dropping a
+/// genuine (small) coupling edge and silently biasing the propagated sensitivity
+/// — the failure mode #779/#740 explicitly guard against. A block-diagonal `H`
+/// yields the all-singletons partition (one component per block-decoupled
+/// coordinate); a fully coupled `H` yields a single component (no shortcut, the
+/// full joint solve is required — and is what the non-coned path performs).
+pub fn coupling_components(hessian: ArrayView2<'_, f64>) -> Vec<usize> {
+    let p = hessian.nrows();
+    if p == 0 || hessian.ncols() != p {
+        return Vec::new();
+    }
+    // Union-find with path compression and union by size.
+    let mut parent: Vec<usize> = (0..p).collect();
+    let mut size: Vec<usize> = vec![1; p];
+
+    fn find(parent: &mut [usize], mut x: usize) -> usize {
+        while parent[x] != x {
+            parent[x] = parent[parent[x]];
+            x = parent[x];
+        }
+        x
+    }
+
+    for i in 0..p {
+        for j in (i + 1)..p {
+            // Symmetric structure: an edge exists if either triangle is nonzero,
+            // so a numerically one-sided fill still couples the two indices.
+            if hessian[[i, j]] != 0.0 || hessian[[j, i]] != 0.0 {
+                let (ri, rj) = (find(&mut parent, i), find(&mut parent, j));
+                if ri != rj {
+                    let (small, large) = if size[ri] < size[rj] {
+                        (ri, rj)
+                    } else {
+                        (rj, ri)
+                    };
+                    parent[small] = large;
+                    size[large] += size[small];
+                }
+            }
+        }
+    }
+
+    // Relabel roots to a dense `0..num_components` range, preserving
+    // first-seen order so labels are deterministic.
+    let mut label_of_root: Vec<Option<usize>> = vec![None; p];
+    let mut next_label = 0usize;
+    let mut labels = vec![0usize; p];
+    for idx in 0..p {
+        let root = find(&mut parent, idx);
+        let label = match label_of_root[root] {
+            Some(l) => l,
+            None => {
+                let l = next_label;
+                label_of_root[root] = Some(l);
+                next_label += 1;
+                l
+            }
+        };
+        labels[idx] = label;
+    }
+    labels
+}
+
+/// The cone of influence of a single stationarity-gradient derivative column
+/// whose support (the coefficient indices where `∂g/∂ρ_k` is nonzero) lies in
+/// `support`: the set of coefficient indices in the same coupling component(s)
+/// as that support, given precomputed `labels` from [`coupling_components`].
+///
+/// `β_k = -H⁻¹ ∂g/∂ρ_k` is exactly zero outside this cone, so a confined solve
+/// (or reuse of a cached zero) is exact, not an approximation. An empty support
+/// (a structurally inactive `ρ_k`, e.g. a rank-0 or out-of-range penalty block)
+/// yields an empty cone: the sensitivity is identically zero and no solve is
+/// needed at all.
+pub fn cone_of_influence(labels: &[usize], support: &[usize]) -> Vec<usize> {
+    if support.is_empty() {
+        return Vec::new();
+    }
+    let mut in_cone_labels: Vec<usize> = support
+        .iter()
+        .filter_map(|&idx| labels.get(idx).copied())
+        .collect();
+    in_cone_labels.sort_unstable();
+    in_cone_labels.dedup();
+    if in_cone_labels.is_empty() {
+        return Vec::new();
+    }
+    (0..labels.len())
+        .filter(|idx| in_cone_labels.binary_search(&labels[*idx]).is_ok())
+        .collect()
+}
+
+/// Lazy/local cone-of-influence variant of [`ift_dbeta_drho_from_solver`]
+/// (#779). Each column `q_k = ∂g/∂ρ_k` of `dg_drho` is structurally
+/// supported only within one penalty block (`col_supports[k]` gives that
+/// block's coefficient range `[start, end)`), so the coefficient sensitivity
+/// `β_k = -H⁻¹ q_k` is nonzero only inside the coupling component containing
+/// that block.
+///
+/// This solves the full system as `ift_dbeta_drho_from_solver` does (the solve
+/// itself is delegated to the caller's factor and is not block-local — `β_k` is
+/// defined by the *full* joint `H⁻¹`), then **confines the result to the cone**:
+/// entries outside the moved block's coupling component are set to exactly zero.
+/// On a block-decoupled `H` the confined output bit-matches the structural
+/// support of the exact solution while eliminating cross-block numerical fill
+/// from the dense factor; on a fully coupled `H` the cone is the whole space and
+/// the result is identical to the non-coned solve. Columns with empty support
+/// are skipped entirely (left zero, no solve). The partition is computed once
+/// from `hessian` and shared across all columns.
+///
+/// `hessian` must be the same operator the `solve_beta_hessian` closure factors;
+/// a mismatch is rejected (returns `None`) rather than silently propagating a
+/// wrong locality assumption.
+pub(crate) fn ift_dbeta_drho_coned(
+    hessian: ArrayView2<'_, f64>,
+    dg_drho: ArrayView2<'_, f64>,
+    col_supports: &[std::ops::Range<usize>],
+    mut solve_beta_hessian: impl FnMut(&Array1<f64>) -> Array1<f64>,
+) -> Option<Array2<f64>> {
+    let beta_dim = dg_drho.nrows();
+    let r = dg_drho.ncols();
+    if hessian.nrows() != beta_dim
+        || hessian.ncols() != beta_dim
+        || col_supports.len() != r
+    {
+        return None;
+    }
+    let labels = coupling_components(hessian);
+    if labels.len() != beta_dim {
+        return None;
+    }
+
+    let mut out = Array2::<f64>::zeros((beta_dim, r));
+    let mut rhs = Array1::<f64>::zeros(beta_dim);
+    for a in 0..r {
+        let support_range = &col_supports[a];
+        // Materialize the support indices, clamped to the coefficient space.
+        let support: Vec<usize> = (support_range.start..support_range.end)
+            .filter(|idx| *idx < beta_dim)
+            .filter(|idx| dg_drho[[*idx, a]] != 0.0)
+            .collect();
+        let cone = cone_of_influence(&labels, &support);
+        if cone.is_empty() {
+            // Structurally inactive ρ_a: sensitivity is identically zero, no
+            // solve needed (lazy skip).
+            continue;
+        }
+        for row in 0..beta_dim {
+            rhs[row] = dg_drho[[row, a]];
+        }
+        let solved = solve_beta_hessian(&rhs);
+        if solved.len() != beta_dim || solved.iter().any(|value| !value.is_finite()) {
+            return None;
+        }
+        // Confine to the cone: entries outside the moved block's coupling
+        // component are exactly zero for an exact solve, so writing only the
+        // cone rows is the exact local sensitivity.
+        for &row in &cone {
+            out[[row, a]] = -solved[row];
+        }
+    }
+    Some(out)
 }
 
 /// Tier-2 IFT sensitivity `∂β*/∂ρ = -A⁻¹ ∂g_red/∂ρ` (proposal §2.4 /
@@ -1130,6 +1631,204 @@ pub fn cache_matches_system(cache: &ArrowFactorCache, sys: &ArrowSchurSystem) ->
 mod tests {
     use super::*;
 
+    // Dense `H⁻¹` apply via explicit inverse (test-only reference solver).
+    fn dense_inverse(h: &Array2<f64>) -> Array2<f64> {
+        let p = h.nrows();
+        let mut aug = Array2::<f64>::zeros((p, 2 * p));
+        for i in 0..p {
+            for j in 0..p {
+                aug[[i, j]] = h[[i, j]];
+            }
+            aug[[i, p + i]] = 1.0;
+        }
+        for col in 0..p {
+            let mut pivot = col;
+            for row in (col + 1)..p {
+                if aug[[row, col]].abs() > aug[[pivot, col]].abs() {
+                    pivot = row;
+                }
+            }
+            if pivot != col {
+                for j in 0..(2 * p) {
+                    aug.swap([col, j], [pivot, j]);
+                }
+            }
+            let d = aug[[col, col]];
+            for j in 0..(2 * p) {
+                aug[[col, j]] /= d;
+            }
+            for row in 0..p {
+                if row == col {
+                    continue;
+                }
+                let f = aug[[row, col]];
+                if f != 0.0 {
+                    for j in 0..(2 * p) {
+                        aug[[row, j]] -= f * aug[[col, j]];
+                    }
+                }
+            }
+        }
+        let mut inv = Array2::<f64>::zeros((p, p));
+        for i in 0..p {
+            for j in 0..p {
+                inv[[i, j]] = aug[[i, p + j]];
+            }
+        }
+        inv
+    }
+
+    #[test]
+    fn coupling_components_block_diagonal_is_all_singletons_by_block() {
+        // Two decoupled 2x2 blocks: {0,1} and {2,3}.
+        let mut h = Array2::<f64>::eye(4);
+        h[[0, 1]] = 0.3;
+        h[[1, 0]] = 0.3;
+        h[[2, 3]] = 0.7;
+        h[[3, 2]] = 0.7;
+        let labels = coupling_components(h.view());
+        assert_eq!(labels[0], labels[1]);
+        assert_eq!(labels[2], labels[3]);
+        assert_ne!(labels[0], labels[2]);
+        // Exactly two components.
+        let mut uniq = labels.clone();
+        uniq.sort_unstable();
+        uniq.dedup();
+        assert_eq!(uniq.len(), 2);
+    }
+
+    #[test]
+    fn coupling_components_fully_coupled_is_one_component() {
+        let mut h = Array2::<f64>::eye(3);
+        for i in 0..3 {
+            for j in 0..3 {
+                if i != j {
+                    h[[i, j]] = 0.1;
+                }
+            }
+        }
+        let labels = coupling_components(h.view());
+        assert!(labels.iter().all(|&l| l == labels[0]));
+    }
+
+    #[test]
+    fn coupling_components_transitive_chain_merges() {
+        // 0-1 and 1-2 coupled (but no direct 0-2 edge) must form one component.
+        let mut h = Array2::<f64>::eye(3);
+        h[[0, 1]] = 0.5;
+        h[[1, 0]] = 0.5;
+        h[[1, 2]] = 0.5;
+        h[[2, 1]] = 0.5;
+        let labels = coupling_components(h.view());
+        assert_eq!(labels[0], labels[1]);
+        assert_eq!(labels[1], labels[2]);
+    }
+
+    #[test]
+    fn cone_of_influence_empty_support_is_empty() {
+        let labels = vec![0usize, 0, 1, 1];
+        assert!(cone_of_influence(&labels, &[]).is_empty());
+    }
+
+    #[test]
+    fn cone_of_influence_returns_full_component() {
+        let labels = vec![0usize, 0, 1, 1];
+        // Support in component 0 -> cone is {0,1}.
+        assert_eq!(cone_of_influence(&labels, &[0]), vec![0, 1]);
+        // Support spanning both -> cone is everything.
+        assert_eq!(cone_of_influence(&labels, &[1, 2]), vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn coned_matches_full_solve_on_fully_coupled_hessian() {
+        // Fully coupled SPD H: cone is the whole space, result must equal the
+        // unconfined ift_dbeta_drho_from_solver bit-for-bit.
+        let h = Array2::from_shape_vec(
+            (3, 3),
+            vec![4.0, 1.0, 0.5, 1.0, 3.0, 0.8, 0.5, 0.8, 2.5],
+        )
+        .unwrap();
+        let inv = dense_inverse(&h);
+        // Two ρ-columns, each supported on a single coefficient.
+        let mut dg = Array2::<f64>::zeros((3, 2));
+        dg[[0, 0]] = 1.3;
+        dg[[2, 1]] = -0.7;
+        let supports = vec![0..1usize, 2..3usize];
+
+        let full =
+            ift_dbeta_drho_from_solver(3, dg.view(), |rhs| inv.dot(rhs)).unwrap();
+        let coned =
+            ift_dbeta_drho_coned(h.view(), dg.view(), &supports, |rhs| inv.dot(rhs)).unwrap();
+        for i in 0..3 {
+            for a in 0..2 {
+                assert!(
+                    (full[[i, a]] - coned[[i, a]]).abs() < 1e-12,
+                    "fully-coupled mismatch at ({i},{a}): {} vs {}",
+                    full[[i, a]],
+                    coned[[i, a]]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn coned_confines_to_component_on_decoupled_hessian() {
+        // Block-decoupled H: blocks {0,1} and {2,3}. A column supported only in
+        // block {0,1} must produce sensitivity zero in block {2,3}, and match
+        // the exact solution within its own block.
+        let mut h = Array2::<f64>::zeros((4, 4));
+        // Block A.
+        h[[0, 0]] = 4.0;
+        h[[1, 1]] = 3.0;
+        h[[0, 1]] = 1.0;
+        h[[1, 0]] = 1.0;
+        // Block B.
+        h[[2, 2]] = 2.0;
+        h[[3, 3]] = 5.0;
+        h[[2, 3]] = 0.6;
+        h[[3, 2]] = 0.6;
+        let inv = dense_inverse(&h);
+
+        let mut dg = Array2::<f64>::zeros((4, 1));
+        dg[[0, 0]] = 0.9;
+        dg[[1, 0]] = -0.4;
+        let supports = vec![0..2usize];
+
+        let coned =
+            ift_dbeta_drho_coned(h.view(), dg.view(), &supports, |rhs| inv.dot(rhs)).unwrap();
+        // Exact reference: -H⁻¹ q. Off-block entries are exactly zero already
+        // (decoupled inverse), and the cone must preserve the in-block ones.
+        let q = dg.column(0).to_owned();
+        let exact = inv.dot(&q).mapv(|v| -v);
+        for i in 0..4 {
+            assert!(
+                (coned[[i, 0]] - exact[[i]]).abs() < 1e-12,
+                "decoupled mismatch at {i}: {} vs {}",
+                coned[[i, 0]],
+                exact[[i]]
+            );
+        }
+        // Block B is outside the cone -> exactly zero.
+        assert_eq!(coned[[2, 0]], 0.0);
+        assert_eq!(coned[[3, 0]], 0.0);
+    }
+
+    #[test]
+    fn coned_skips_inactive_column_with_empty_support() {
+        let h = Array2::<f64>::eye(2);
+        let dg = Array2::<f64>::zeros((2, 1));
+        let supports = vec![0..0usize]; // inactive ρ
+        let coned = ift_dbeta_drho_coned(h.view(), dg.view(), &supports, |rhs| {
+            // An empty-support column must be skipped without solving. If the
+            // solver is ever invoked it returns NaN, which the zero-assertions
+            // below would catch — so the closure observably uses its argument.
+            Array1::<f64>::from_elem(rhs.len(), f64::NAN)
+        })
+        .unwrap();
+        assert_eq!(coned[[0, 0]], 0.0);
+        assert_eq!(coned[[1, 0]], 0.0);
+    }
+
     fn make_minimal_cache() -> ArrowFactorCache {
         // d = 1, k = 1, n = 1, H_uu_1 = [[2.0]] => L = [[sqrt(2)]],
         // H_uβ_1 = [[0.5]], A = 2 - 0.5 * 0.5 / 2 = 1.875.
@@ -1295,5 +1994,151 @@ mod tests {
         let sel = select_topology(&candidates, TopologySelectOptions::default());
         assert_eq!(sel.winner, TopologyKind::Flat);
         assert!(sel.tie);
+    }
+
+    fn gaussian_logpdf(y: f64, mean: f64, sd: f64) -> f64 {
+        let z = (y - mean) / sd;
+        -0.5 * (2.0 * std::f64::consts::PI).ln() - sd.ln() - 0.5 * z * z
+    }
+
+    #[test]
+    fn stacking_single_candidate_gets_full_weight() {
+        let log_density = Array2::from_shape_vec((3, 1), vec![-1.0, -2.0, -0.5]).unwrap();
+        let out = solve_stacking_weights(log_density.view(), StackingConfig::default()).unwrap();
+        assert!((out.weights[0] - 1.0).abs() < 1e-12);
+        assert_eq!(out.weights.len(), 1);
+    }
+
+    #[test]
+    fn stacking_dominant_candidate_attracts_nearly_all_weight() {
+        let mut log_density = Array2::<f64>::zeros((50, 2));
+        for i in 0..50 {
+            log_density[[i, 0]] = -0.1;
+            log_density[[i, 1]] = -5.0;
+        }
+        let out = solve_stacking_weights(log_density.view(), StackingConfig::default()).unwrap();
+        assert!(out.weights[0] > 0.99, "w0 = {}", out.weights[0]);
+        assert!(out.weights[1] < 0.01, "w1 = {}", out.weights[1]);
+    }
+
+    #[test]
+    fn stacking_complementary_candidates_share_weight() {
+        // Each candidate is the better predictor on its own half of the data;
+        // stacking keeps both, unlike winner-take-all.
+        let n = 40;
+        let mut log_density = Array2::<f64>::zeros((n, 2));
+        for i in 0..n {
+            if i < n / 2 {
+                log_density[[i, 0]] = gaussian_logpdf(0.0, 0.0, 0.5);
+                log_density[[i, 1]] = gaussian_logpdf(0.0, 1.5, 0.5);
+            } else {
+                log_density[[i, 0]] = gaussian_logpdf(0.0, 1.5, 0.5);
+                log_density[[i, 1]] = gaussian_logpdf(0.0, 0.0, 0.5);
+            }
+        }
+        let out = solve_stacking_weights(log_density.view(), StackingConfig::default()).unwrap();
+        assert!(
+            out.weights[0] > 0.2 && out.weights[0] < 0.8,
+            "w0 = {}",
+            out.weights[0]
+        );
+        assert!((out.weights.sum() - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn stacking_weights_stay_on_the_simplex() {
+        let log_density = Array2::from_shape_vec(
+            (3, 3),
+            vec![-1.0, -2.0, -3.0, -2.5, -1.0, -2.0, -3.0, -2.0, -1.0],
+        )
+        .unwrap();
+        let out = solve_stacking_weights(log_density.view(), StackingConfig::default()).unwrap();
+        assert!((out.weights.sum() - 1.0).abs() < 1e-9);
+        assert!(out.weights.iter().all(|&w| w >= -1e-12));
+    }
+
+    #[test]
+    fn stacking_mean_log_score_is_monotone_under_more_iterations() {
+        // The EM ascent is monotone in the held-out mean log-score, so allowing
+        // more iterations never lowers it.
+        let log_density =
+            Array2::from_shape_vec((4, 2), vec![-0.2, -3.0, -3.0, -0.2, -0.5, -1.5, -1.5, -0.5])
+                .unwrap();
+        let mut prev = f64::NEG_INFINITY;
+        for max_iter in [1usize, 2, 4, 8, 32] {
+            let out = solve_stacking_weights(
+                log_density.view(),
+                StackingConfig {
+                    max_iter,
+                    weight_tol: 0.0,
+                },
+            )
+            .unwrap();
+            assert!(
+                out.mean_log_score >= prev - 1e-12,
+                "log-score decreased at max_iter={max_iter}: {prev} -> {}",
+                out.mean_log_score
+            );
+            prev = out.mean_log_score;
+        }
+    }
+
+    #[test]
+    fn stacking_dead_candidate_column_is_rejected_and_zero_weighted() {
+        let log_density = Array2::from_shape_vec(
+            (3, 2),
+            vec![
+                -1.0,
+                f64::NEG_INFINITY,
+                -2.0,
+                f64::NAN,
+                -0.5,
+                f64::NEG_INFINITY,
+            ],
+        )
+        .unwrap();
+        let out = solve_stacking_weights(log_density.view(), StackingConfig::default()).unwrap();
+        assert_eq!(out.weights[1], 0.0);
+        assert!((out.weights[0] - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn stacking_rows_with_no_finite_density_are_dropped() {
+        let log_density = Array2::from_shape_vec(
+            (3, 2),
+            vec![-1.0, -2.0, f64::NAN, f64::NEG_INFINITY, -2.0, -1.0],
+        )
+        .unwrap();
+        let out = solve_stacking_weights(log_density.view(), StackingConfig::default()).unwrap();
+        assert!((out.weights.sum() - 1.0).abs() < 1e-9);
+        assert!(out.mean_log_score.is_finite());
+    }
+
+    #[test]
+    fn stacking_all_dead_table_errors() {
+        let log_density = Array2::from_elem((2, 2), f64::NEG_INFINITY);
+        assert!(solve_stacking_weights(log_density.view(), StackingConfig::default()).is_err());
+    }
+
+    #[test]
+    fn stacked_mean_is_weighted_combination() {
+        let weights = Array1::from_vec(vec![0.25, 0.75]);
+        let means = vec![
+            Array1::from_vec(vec![1.0, 2.0, 3.0]),
+            Array1::from_vec(vec![5.0, 6.0, 7.0]),
+        ];
+        let out = stacked_predictive_mean(&weights, &means).unwrap();
+        assert!((out[0] - (0.25 * 1.0 + 0.75 * 5.0)).abs() < 1e-12);
+        assert!((out[2] - (0.25 * 3.0 + 0.75 * 7.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn stacked_mean_rejects_shape_mismatch() {
+        let weights = Array1::from_vec(vec![0.5, 0.5]);
+        let means = vec![
+            Array1::from_vec(vec![1.0, 2.0]),
+            Array1::from_vec(vec![3.0]),
+        ];
+        assert!(stacked_predictive_mean(&weights, &means).is_err());
     }
 }

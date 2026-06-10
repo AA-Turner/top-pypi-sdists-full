@@ -609,7 +609,7 @@ default_message_pool.register_message("envoy.admin.v3", "ClusterStatus", Cluster
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class CommandLineOptions(betterproto2.Message):
     """
-    [#next-free-field: 42]
+    [#next-free-field: 43]
     """
 
     base_id: "typing.Annotated[int, pydantic.Field(ge=0, le=2**64 - 1)]" = (
@@ -768,6 +768,13 @@ class CommandLineOptions(betterproto2.Message):
     )
     """
     See :option:`--file-flush-interval-msec` for details.
+    """
+
+    file_flush_min_size: "typing.Annotated[int, pydantic.Field(ge=0, le=2**32 - 1)]" = (
+        betterproto2.field(42, betterproto2.TYPE_UINT32)
+    )
+    """
+    See :option:`--file-flush-min-size-kb` for details.
     """
 
     drain_time: "datetime.timedelta | None" = betterproto2.field(
@@ -1116,7 +1123,7 @@ default_message_pool.register_message(
 class HostHealthStatus(betterproto2.Message):
     """
     Health status for a host.
-    [#next-free-field: 9]
+    [#next-free-field: 10]
     """
 
     failed_active_health_check: "bool" = betterproto2.field(1, betterproto2.TYPE_BOOL)
@@ -1156,6 +1163,13 @@ class HostHealthStatus(betterproto2.Message):
     active_hc_timeout: "bool" = betterproto2.field(8, betterproto2.TYPE_BOOL)
     """
     The host failed active health check due to timeout.
+    """
+
+    failed_degraded_outlier_detection: "bool" = betterproto2.field(
+        9, betterproto2.TYPE_BOOL
+    )
+    """
+    The host is currently being marked as degraded through outlier detection.
     """
 
     eds_health_status: "__config__core__v3__.HealthStatus" = betterproto2.field(
@@ -1999,7 +2013,7 @@ class ServerInfo(betterproto2.Message):
 
     Proto representation of the value returned by /server_info, containing
     server version/server status information.
-    [#next-free-field: 8]
+    [#next-free-field: 9]
     """
 
     version: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -2055,6 +2069,11 @@ class ServerInfo(betterproto2.Message):
     )
     """
     Populated node identity of this server.
+    """
+
+    hot_restart_initializing: "bool" = betterproto2.field(8, betterproto2.TYPE_BOOL)
+    """
+    Whether the server is currently initializing during a hot restart.
     """
 
 

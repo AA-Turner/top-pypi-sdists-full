@@ -361,6 +361,7 @@ from .literals import (
     SubnetStateType,
     SummaryStatusType,
     SupportedAdditionalProcessorFeatureType,
+    TaggableResourceTypeType,
     TargetCapacityUnitTypeType,
     TelemetryStatusType,
     TenancyType,
@@ -3016,6 +3017,8 @@ __all__ = (
     "SuccessfulQueuedPurchaseDeletionTypeDef",
     "SupportedRegionDetailTypeDef",
     "TagDescriptionTypeDef",
+    "TagFieldSpecificationRequestTypeDef",
+    "TagFieldSpecificationResponseTypeDef",
     "TagSpecificationOutputTypeDef",
     "TagSpecificationTypeDef",
     "TagSpecificationUnionTypeDef",
@@ -4231,6 +4234,10 @@ class DestinationOptionsRequestTypeDef(TypedDict):
     HiveCompatiblePartitions: NotRequired[bool]
     PerHourPartition: NotRequired[bool]
 
+class TagFieldSpecificationRequestTypeDef(TypedDict):
+    ResourceType: NotRequired[TaggableResourceTypeType]
+    TagKeys: NotRequired[Sequence[str]]
+
 class StorageLocationTypeDef(TypedDict):
     Bucket: NotRequired[str]
     Key: NotRequired[str]
@@ -5426,6 +5433,24 @@ class DescribeVolumeAttributeRequestVolumeDescribeAttributeTypeDef(TypedDict):
     Attribute: VolumeAttributeNameType
     DryRun: NotRequired[bool]
 
+class VolumeModificationTypeDef(TypedDict):
+    VolumeId: NotRequired[str]
+    ModificationState: NotRequired[VolumeModificationStateType]
+    StatusMessage: NotRequired[str]
+    TargetSize: NotRequired[int]
+    TargetIops: NotRequired[int]
+    TargetVolumeType: NotRequired[VolumeTypeType]
+    TargetThroughput: NotRequired[int]
+    TargetMultiAttachEnabled: NotRequired[bool]
+    OriginalSize: NotRequired[int]
+    OriginalIops: NotRequired[int]
+    OriginalVolumeType: NotRequired[VolumeTypeType]
+    OriginalThroughput: NotRequired[int]
+    OriginalMultiAttachEnabled: NotRequired[bool]
+    Progress: NotRequired[int]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+
 class DescribeVpcAttributeRequestTypeDef(TypedDict):
     Attribute: VpcAttributeNameType
     VpcId: str
@@ -6119,6 +6144,10 @@ class FleetSpotCapacityRebalanceRequestTypeDef(TypedDict):
 class FleetSpotCapacityRebalanceTypeDef(TypedDict):
     ReplacementStrategy: NotRequired[FleetReplacementStrategyType]
     TerminationDelay: NotRequired[int]
+
+class TagFieldSpecificationResponseTypeDef(TypedDict):
+    ResourceType: NotRequired[TaggableResourceTypeType]
+    TagKeys: NotRequired[list[str]]
 
 class FpgaDeviceMemoryInfoTypeDef(TypedDict):
     SizeInMiB: NotRequired[int]
@@ -13772,6 +13801,15 @@ class DescribeTagsResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class DescribeVolumesModificationsResultTypeDef(TypedDict):
+    VolumesModifications: list[VolumeModificationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ModifyVolumeResultTypeDef(TypedDict):
+    VolumeModification: VolumeModificationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DescribeVpcBlockPublicAccessOptionsResultTypeDef(TypedDict):
     VpcBlockPublicAccessOptions: VpcBlockPublicAccessOptionsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -13779,24 +13817,6 @@ class DescribeVpcBlockPublicAccessOptionsResultTypeDef(TypedDict):
 class ModifyVpcBlockPublicAccessOptionsResultTypeDef(TypedDict):
     VpcBlockPublicAccessOptions: VpcBlockPublicAccessOptionsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-
-class FlowLogTypeDef(TypedDict):
-    CreationTime: NotRequired[datetime]
-    DeliverLogsErrorMessage: NotRequired[str]
-    DeliverLogsPermissionArn: NotRequired[str]
-    DeliverCrossAccountRole: NotRequired[str]
-    DeliverLogsStatus: NotRequired[str]
-    FlowLogId: NotRequired[str]
-    FlowLogStatus: NotRequired[str]
-    LogGroupName: NotRequired[str]
-    ResourceId: NotRequired[str]
-    TrafficType: NotRequired[TrafficTypeType]
-    LogDestinationType: NotRequired[LogDestinationTypeType]
-    LogDestination: NotRequired[str]
-    LogFormat: NotRequired[str]
-    Tags: NotRequired[list[TagTypeDef]]
-    MaxAggregationInterval: NotRequired[int]
-    DestinationOptions: NotRequired[DestinationOptionsResponseTypeDef]
 
 class DisableFastSnapshotRestoreStateErrorItemTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
@@ -13955,25 +13975,6 @@ class PlacementGroupTypeDef(TypedDict):
     LinkedGroupId: NotRequired[str]
     Operator: NotRequired[OperatorResponseTypeDef]
 
-class VolumeModificationTypeDef(TypedDict):
-    VolumeId: NotRequired[str]
-    ModificationState: NotRequired[VolumeModificationStateType]
-    StatusMessage: NotRequired[str]
-    TargetSize: NotRequired[int]
-    TargetIops: NotRequired[int]
-    TargetVolumeType: NotRequired[VolumeTypeType]
-    TargetThroughput: NotRequired[int]
-    TargetMultiAttachEnabled: NotRequired[bool]
-    OriginalSize: NotRequired[int]
-    OriginalIops: NotRequired[int]
-    OriginalVolumeType: NotRequired[VolumeTypeType]
-    OriginalThroughput: NotRequired[int]
-    OriginalMultiAttachEnabled: NotRequired[bool]
-    Progress: NotRequired[int]
-    StartTime: NotRequired[datetime]
-    EndTime: NotRequired[datetime]
-    Operator: NotRequired[OperatorResponseTypeDef]
-
 class VolumeRecycleBinInfoTypeDef(TypedDict):
     VolumeId: NotRequired[str]
     VolumeType: NotRequired[VolumeTypeType]
@@ -14109,6 +14110,25 @@ class FleetSpotMaintenanceStrategiesRequestTypeDef(TypedDict):
 
 class FleetSpotMaintenanceStrategiesTypeDef(TypedDict):
     CapacityRebalance: NotRequired[FleetSpotCapacityRebalanceTypeDef]
+
+class FlowLogTypeDef(TypedDict):
+    CreationTime: NotRequired[datetime]
+    DeliverLogsErrorMessage: NotRequired[str]
+    DeliverLogsPermissionArn: NotRequired[str]
+    DeliverCrossAccountRole: NotRequired[str]
+    DeliverLogsStatus: NotRequired[str]
+    FlowLogId: NotRequired[str]
+    FlowLogStatus: NotRequired[str]
+    LogGroupName: NotRequired[str]
+    ResourceId: NotRequired[str]
+    TrafficType: NotRequired[TrafficTypeType]
+    LogDestinationType: NotRequired[LogDestinationTypeType]
+    LogDestination: NotRequired[str]
+    LogFormat: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
+    MaxAggregationInterval: NotRequired[int]
+    DestinationOptions: NotRequired[DestinationOptionsResponseTypeDef]
+    TagFieldSpecifications: NotRequired[list[TagFieldSpecificationResponseTypeDef]]
 
 class FpgaDeviceInfoTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -16730,11 +16750,6 @@ class DescribeFastLaunchImagesResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
-class DescribeFlowLogsResultTypeDef(TypedDict):
-    FlowLogs: list[FlowLogTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
 class DisableFastSnapshotRestoreErrorItemTypeDef(TypedDict):
     SnapshotId: NotRequired[str]
     FastSnapshotRestoreStateErrors: NotRequired[
@@ -16819,15 +16834,6 @@ class CreatePlacementGroupResultTypeDef(TypedDict):
 
 class DescribePlacementGroupsResultTypeDef(TypedDict):
     PlacementGroups: list[PlacementGroupTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class DescribeVolumesModificationsResultTypeDef(TypedDict):
-    VolumesModifications: list[VolumeModificationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-class ModifyVolumeResultTypeDef(TypedDict):
-    VolumeModification: VolumeModificationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListVolumesInRecycleBinResultTypeDef(TypedDict):
@@ -17061,6 +17067,11 @@ class SpotOptionsTypeDef(TypedDict):
     SingleAvailabilityZone: NotRequired[bool]
     MinTargetCapacity: NotRequired[int]
     MaxTotalPrice: NotRequired[str]
+
+class DescribeFlowLogsResultTypeDef(TypedDict):
+    FlowLogs: list[FlowLogTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class FpgaInfoTypeDef(TypedDict):
     Fpgas: NotRequired[list[FpgaDeviceInfoTypeDef]]
@@ -18357,10 +18368,10 @@ class CreateCapacityReservationCancellationQuoteRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 class CreateCapacityReservationFleetRequestTypeDef(TypedDict):
-    InstanceTypeSpecifications: Sequence[ReservationFleetInstanceSpecificationTypeDef]
     TotalTargetCapacity: int
     AllocationStrategy: NotRequired[str]
     ClientToken: NotRequired[str]
+    InstanceTypeSpecifications: NotRequired[Sequence[ReservationFleetInstanceSpecificationTypeDef]]
     Tenancy: NotRequired[Literal["default"]]
     EndDate: NotRequired[TimestampTypeDef]
     InstanceMatchCriteria: NotRequired[Literal["open"]]
@@ -18477,6 +18488,7 @@ class CreateFlowLogsRequestTypeDef(TypedDict):
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
     MaxAggregationInterval: NotRequired[int]
     DestinationOptions: NotRequired[DestinationOptionsRequestTypeDef]
+    TagFieldSpecifications: NotRequired[Sequence[TagFieldSpecificationRequestTypeDef]]
 
 class CreateFpgaImageRequestTypeDef(TypedDict):
     InputStorageLocation: StorageLocationTypeDef

@@ -3,7 +3,12 @@
 # plugin: python-betterproto2
 # This file has been @generated
 
-__all__ = ("OAuth2", "OAuth2AuthType", "OAuth2ClientCredentials")
+__all__ = (
+    "OAuth2",
+    "OAuth2AuthType",
+    "OAuth2ClientCredentials",
+    "OAuth2EndpointParameter",
+)
 
 import datetime
 import typing
@@ -42,6 +47,7 @@ class OAuth2(betterproto2.Message):
     proxied requests.
     Currently, only the Client Credentials Grant flow is supported.
     The access token will be injected into the request headers using the ``Authorization`` header as a bearer token.
+    [#next-free-field: 6]
 
     Oneofs:
         - flow_type:
@@ -80,6 +86,14 @@ class OAuth2(betterproto2.Message):
     """
     The interval between two successive retries to fetch token from Identity Provider. Default is 2 secs.
     The interval must be at least 1 second.
+    """
+
+    endpoint_params: "list[OAuth2EndpointParameter]" = betterproto2.field(
+        5, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+    """
+    Optional list of additional parameters to send to the token endpoint.
+    These parameters will be URL-encoded and included in the token request body.
     """
 
     @model_validator(mode="after")
@@ -128,6 +142,36 @@ default_message_pool.register_message(
     "envoy.extensions.http.injected_credentials.oauth2.v3",
     "OAuth2.ClientCredentials",
     OAuth2ClientCredentials,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class OAuth2EndpointParameter(betterproto2.Message):
+    """
+    Optional additional parameters to include in the token endpoint request body.
+    These parameters will be URL-encoded and added to the request body along with the standard OAuth2 parameters.
+    Refer to your authorization server's documentation for supported parameters.
+    """
+
+    name: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        1, betterproto2.TYPE_STRING
+    )
+    """
+    Parameter name.
+    """
+
+    value: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        2, betterproto2.TYPE_STRING
+    )
+    """
+    Parameter value.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.http.injected_credentials.oauth2.v3",
+    "OAuth2.EndpointParameter",
+    OAuth2EndpointParameter,
 )
 
 

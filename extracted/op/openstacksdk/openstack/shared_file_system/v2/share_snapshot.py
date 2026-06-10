@@ -10,10 +10,18 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from typing import Any, Self
+
+from keystoneauth1 import adapter
+import requests
+
+from openstack.common import metadata
+from openstack import exceptions
 from openstack import resource
+from openstack import utils
 
 
-class ShareSnapshot(resource.Resource):
+class ShareSnapshot(resource.Resource, metadata.MetadataMixin):
     resource_key = "snapshot"
     resources_key = "snapshots"
     base_path = "/snapshots"
@@ -53,3 +61,89 @@ class ShareSnapshot(resource.Resource):
     status = resource.Body("status", type=str)
     #: ID of the user that the snapshot was created by.
     user_id = resource.Body("user_id", type=str)
+
+    def _action(
+        self,
+        session: adapter.Adapter,
+        body: dict[str, Any],
+        microversion: str | None = None,
+    ) -> requests.Response:
+        url = utils.urljoin(self.base_path, self.id, 'action')
+        headers = {'Accept': ''}
+
+        if microversion is None:
+            microversion = self._get_microversion(session)
+
+        response = session.post(
+            url, json=body, headers=headers, microversion=microversion
+        )
+
+        exceptions.raise_from_response(response)
+        return response
+
+    def reset_status(self, session: adapter.Adapter, status: str) -> None:
+        """Reset the snapshot to the given status.
+
+        :param status: The status of the share to reset to.
+        :returns: ``None``
+        """
+        body = {'reset_status': {'status': status}}
+        self._action(session, body)
+
+    def force_delete(self, session: adapter.Adapter) -> None:
+        """Force delete the snapshot.
+
+        :returns: ``None``
+        """
+        body = {'force_delete': None}
+        self._action(session, body)
+
+    def manage(
+        self,
+        session: adapter.Adapter,
+        share_id: str,
+        provider_location: str,
+        **params: Any,
+    ) -> Self:
+        """Manage a share snapshot.
+
+        :param session: A session object used for sending request.
+        :param share_id: The UUID of the share that has snapshot which
+            should be managed.
+        :param provider_location: Provider location of the snapshot on the
+            backend.
+        :param params: Optional parameters to be sent. Available
+            parameters include:
+
+            * name: The user defined name of the resource.
+            * display_name: The user defined name of the resource. This field
+              sets the name parameter.
+            * description: The user defined description of the resource.
+            * display_description: The user defined description of the
+              resource. This field sets the description parameter.
+            * driver_options: A set of one or more key and value pairs, as a
+              dictionary of strings, that describe driver options.
+
+        :returns: The share snapshot that was managed.
+        """
+        attrs = {
+            'snapshot': {
+                'share_id': share_id,
+                'provider_location': provider_location,
+            }
+        }
+        attrs['snapshot'].update(params)
+
+        url = utils.urljoin(self.base_path, 'manage')
+        resp = session.post(url, json=attrs)
+        self._translate_response(resp)
+        return self
+
+    def unmanage(self, session: adapter.Adapter) -> None:
+        """Unmanage a share snapshot.
+
+        :param session: A session object used for sending request.
+        :returns: ``None``
+        """
+        body = {'unmanage': None}
+        self._action(session, body)

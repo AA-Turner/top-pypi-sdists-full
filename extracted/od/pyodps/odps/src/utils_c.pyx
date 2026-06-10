@@ -62,14 +62,15 @@ cdef extern from "timegm.c":
     tm* localtime_safe(time_t* timer, tm* buf) noexcept nogil
 
 cdef bint _is_windows = sys.platform.lower().startswith("win")
-cdef bint _is_py3 = sys.version_info[0] == 3
-cdef bint _datetime_inited = False
-cdef object _time_init_lock = threading.Lock()
+cdef int64_t _antique_mills, _min_datetime_mills
+cdef object _py_local_epoch
+cdef object _pd_type_import_lock = threading.Lock()
+cdef dict _pd_type_cache = {}
+cdef object _np_import_lock = threading.Lock()
+cdef object _np_module = None
 
 import_datetime()
 
-cdef int64_t _antique_mills, _min_datetime_mills
-cdef object _py_local_epoch
 
 try:
     _py_local_epoch = datetime.fromtimestamp(0)
@@ -115,15 +116,6 @@ cdef class CMillisecondsConverter:
             return tz
 
     def __init__(self, local_tz=None, is_dst=False):
-        global _datetime_inited
-
-        if not _is_py3 and not _datetime_inited:
-            # due to cython implementations, make sure the line below is always invoked
-            with _time_init_lock:
-                if not _datetime_inited:
-                    import_datetime()
-                    _datetime_inited = True
-
         self._local_tz = local_tz if local_tz is not None else options.local_timezone
         if self._local_tz is None:
             self._local_tz = True
@@ -274,7 +266,7 @@ cdef to_date(int32_t days):
 
 
 cpdef inline str to_str(s, encoding="utf-8"):
-    return <str>to_text(s, encoding) if _is_py3 else <str>to_binary(s, encoding)
+    return <str>to_text(s, encoding)
 
 
 cpdef inline bytes to_binary(s, encoding="utf-8"):
@@ -288,7 +280,7 @@ cpdef inline bytes to_binary(s, encoding="utf-8"):
     elif s is None:
         return None
     else:
-        return str(s).encode(encoding) if _is_py3 else bytes(s)
+        return str(s).encode(encoding)
 
 
 cpdef inline unicode to_text(s, encoding="utf-8"):
@@ -302,19 +294,52 @@ cpdef inline unicode to_text(s, encoding="utf-8"):
     elif s is None:
         return None
     else:
-        return str(s) if _is_py3 else str(s).decode(encoding)
+        return str(s)
 
 
 cpdef str to_lower_str(s, encoding="utf-8"):
     if s is None:
         return None
-    if _is_py3:
-        return <str>(to_text(s, encoding).lower())
-    else:
-        return <str>(to_binary(s, encoding).lower())
+    return <str>(to_text(s, encoding).lower())
 
 
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cpdef long long ceildiv(long long x, long long y) nogil:
     return x // y + (x % y != 0)
+
+
+cdef object _load_pandas_type(str type_name, str error_msg=None):
+    global _pd_type_import_lock, _pd_type_cache
+
+    if type_name in _pd_type_cache:
+        return _pd_type_cache[type_name]
+
+    with _pd_type_import_lock:
+        if type_name in _pd_type_cache:
+            return _pd_type_cache[type_name]
+
+        try:
+            import pandas as pd
+            pd_type = getattr(pd, type_name)
+            _pd_type_cache[type_name] = pd_type
+            return pd_type
+        except (ImportError, ValueError, AttributeError):
+            if error_msg is None:
+                error_msg = f"To use {type_name.upper()} in pyodps, you need to install pandas."
+            raise ImportError(error_msg)
+
+
+cdef object _load_numpy():
+    global _np_import_lock, _np_module
+
+    if _np_module is not None:
+        return _np_module
+
+    with _np_import_lock:
+        if _np_module is not None:
+            return _np_module
+
+        import numpy as np
+        _np_module = np
+        return np

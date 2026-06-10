@@ -13,9 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
-
 import collections
+import inspect
 import re
 import logging
 import time
@@ -25,9 +24,9 @@ from copy import deepcopy
 from functools import partial
 from threading import Thread
 from collections import namedtuple
+from collections.abc import Iterable
 
 from .. import options
-from ..compat import six, getargspec, Iterable
 from ..types import Partition
 from ..utils import camel_to_underline, TEMP_TABLE_PREFIX
 from .enums import FieldContinuity, FieldRole
@@ -44,7 +43,7 @@ ML_ARG_PREFIX = '_mlattr_'
 logger = logging.getLogger(__name__)
 
 
-class KVConfig(object):
+class KVConfig:
     def __init__(self, kv=':', item=','):
         self.kv_delimiter = kv
         self.item_delimiter = item
@@ -75,7 +74,7 @@ class MLFields(list):
         return html
 
 
-class MLField(object):
+class MLField:
     """
     Represent table field definition
 
@@ -160,7 +159,7 @@ def get_function_args(func):
     elif not isinstance(func, (MethodType, FunctionType)) and hasattr(func, '__call__'):
         return get_function_args(getattr(func, '__call__'))
     else:
-        return list(getargspec(func).args)
+        return list(inspect.getfullargspec(func).args)
 
 
 def import_class_member(path):

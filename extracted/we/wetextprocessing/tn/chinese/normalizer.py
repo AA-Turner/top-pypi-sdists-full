@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from tn.processor import Processor
+from importlib_resources import files
+from pynini.lib.pynutil import add_weight, delete
+
 from tn.chinese.rules.cardinal import Cardinal
 from tn.chinese.rules.char import Char
 from tn.chinese.rules.date import Date
@@ -25,23 +27,23 @@ from tn.chinese.rules.preprocessor import PreProcessor
 from tn.chinese.rules.sport import Sport
 from tn.chinese.rules.time import Time
 from tn.chinese.rules.whitelist import Whitelist
-
-from pynini.lib.pynutil import add_weight, delete
-from importlib_resources import files
+from tn.processor import Processor
 
 
 class Normalizer(Processor):
 
-    def __init__(self,
-                 cache_dir=None,
-                 overwrite_cache=False,
-                 remove_interjections=True,
-                 remove_erhua=True,
-                 traditional_to_simple=True,
-                 remove_puncts=False,
-                 full_to_half=True,
-                 tag_oov=False):
-        super().__init__(name='zh_normalizer')
+    def __init__(
+        self,
+        cache_dir=None,
+        overwrite_cache=False,
+        remove_interjections=True,
+        remove_erhua=True,
+        traditional_to_simple=True,
+        remove_puncts=False,
+        full_to_half=True,
+        tag_oov=False,
+    ):
+        super().__init__(name="zh_normalizer")
         self.remove_interjections = remove_interjections
         self.remove_erhua = remove_erhua
         self.traditional_to_simple = traditional_to_simple
@@ -50,47 +52,53 @@ class Normalizer(Processor):
         self.tag_oov = tag_oov
         if cache_dir is None:
             cache_dir = files("tn")
-        self.build_fst('zh_tn', cache_dir, overwrite_cache)
+        self.build_fst("zh_tn", cache_dir, overwrite_cache)
 
-    def build_tagger(self):
-        processor = PreProcessor(
-            traditional_to_simple=self.traditional_to_simple).processor
+    def build_tagger_and_verbalizer(self):
+        processor = PreProcessor(traditional_to_simple=self.traditional_to_simple).processor
+        cardinal = Cardinal()
+        date = Date()
+        whitelist = Whitelist(remove_erhua=self.remove_erhua)
+        sport = Sport(cardinal=cardinal)
+        fraction = Fraction(cardinal=cardinal)
+        measure = Measure(cardinal=cardinal)
+        money = Money(cardinal=cardinal)
+        time = Time()
+        math = Math(cardinal=cardinal)
+        char = Char()
 
-        date = add_weight(Date().tagger, 1.02)
-        whitelist = add_weight(Whitelist().tagger, 1.03)
-        sport = add_weight(Sport().tagger, 1.04)
-        fraction = add_weight(Fraction().tagger, 1.05)
-        measure = add_weight(Measure().tagger, 1.05)
-        money = add_weight(Money().tagger, 1.05)
-        time = add_weight(Time().tagger, 1.05)
-        cardinal = add_weight(Cardinal().tagger, 1.06)
-        math = add_weight(Math().tagger, 90)
-        char = add_weight(Char().tagger, 100)
-
-        tagger = (date | whitelist | sport | fraction | measure | money | time
-                  | cardinal | math | char).optimize()
+        tagger = (
+            add_weight(date.tagger, 1.02)
+            | add_weight(whitelist.tagger, 1.03)
+            | add_weight(sport.tagger, 1.04)
+            | add_weight(fraction.tagger, 1.05)
+            | add_weight(measure.tagger, 1.05)
+            | add_weight(money.tagger, 1.05)
+            | add_weight(time.tagger, 1.05)
+            | add_weight(cardinal.tagger, 1.06)
+            | add_weight(math.tagger, 90)
+            | add_weight(char.tagger, 100)
+        ).optimize()
         tagger = (processor @ tagger).star
-        # delete the last space
-        self.tagger = tagger @ self.build_rule(delete(' '), r='[EOS]')
+        self.tagger = tagger @ self.build_rule(delete(" "), r="[EOS]")
 
-    def build_verbalizer(self):
-        cardinal = Cardinal().verbalizer
-        char = Char().verbalizer
-        date = Date().verbalizer
-        fraction = Fraction().verbalizer
-        math = Math().verbalizer
-        measure = Measure().verbalizer
-        money = Money().verbalizer
-        sport = Sport().verbalizer
-        time = Time().verbalizer
-        whitelist = Whitelist(remove_erhua=self.remove_erhua).verbalizer
+        verbalizer = (
+            cardinal.verbalizer
+            | char.verbalizer
+            | date.verbalizer
+            | fraction.verbalizer
+            | math.verbalizer
+            | measure.verbalizer
+            | money.verbalizer
+            | sport.verbalizer
+            | time.verbalizer
+            | whitelist.verbalizer
+        ).optimize()
 
-        verbalizer = (cardinal | char | date | fraction | math | measure
-                      | money | sport | time | whitelist).optimize()
-
-        processor = PostProcessor(
+        postprocessor = PostProcessor(
             remove_interjections=self.remove_interjections,
             remove_puncts=self.remove_puncts,
             full_to_half=self.full_to_half,
-            tag_oov=self.tag_oov).processor
-        self.verbalizer = (verbalizer @ processor).star
+            tag_oov=self.tag_oov,
+        ).processor
+        self.verbalizer = (verbalizer @ postprocessor).star

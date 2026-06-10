@@ -19,6 +19,7 @@ import pytest
 import yaml
 
 from arraylake import AsyncClient, config
+from arraylake._credential_cache import clear as clear_credential_cache
 from arraylake.api_utils import ArraylakeHttpClient
 from arraylake.token import TokenHandler
 from arraylake.types import (
@@ -36,6 +37,15 @@ from arraylake.types import (
     RepoOperationMode,
     UserInfo,
 )
+
+
+@pytest.fixture(autouse=True)
+def reset_credential_cache():
+    """The delegated-credential cache is process-wide module state; reset it around every
+    test so cached credentials never leak between tests."""
+    clear_credential_cache()
+    yield
+    clear_credential_cache()
 
 
 # Configured not to run slow tests by default

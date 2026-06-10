@@ -108,6 +108,14 @@ class OutlierEjectionType(betterproto2.Enum):
     cluster and selects hosts for which ratio of failed replies is above configured value.
     """
 
+    DEGRADED = 7
+    """
+    Host is detected as degraded via passive health checking (outlier detection).
+    The host returns responses with the x-envoy-degraded header, indicating it is under stress
+    but still able to serve traffic. Degraded hosts are deprioritized in load balancing but not
+    fully ejected.
+    """
+
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class OutlierDetectionEvent(betterproto2.Message):

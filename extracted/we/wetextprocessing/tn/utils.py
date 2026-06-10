@@ -15,6 +15,7 @@
 
 import csv
 import os
+
 import pynini
 
 
@@ -27,7 +28,7 @@ def get_abs_path(rel_path):
 
     Returns absolute path
     """
-    return os.path.dirname(os.path.abspath(__file__)) + '/' + rel_path
+    return os.path.dirname(os.path.abspath(__file__)) + "/" + rel_path
 
 
 def load_labels(abs_path):
@@ -71,22 +72,23 @@ def get_formats(input_f, input_case="cased", is_default=True):
     for x, y in multiple_formats:
         if input_case == "lower_cased":
             x = x.lower()
-        additional_options.append((
-            f"{x}.",
-            y))  # default "dr" -> doctor, this includes period "dr." -> doctor
-        additional_options.append(
-            (f"{x[0].upper() + x[1:]}",
-             f"{y[0].upper() + y[1:]}"))  # "Dr" -> Doctor
-        additional_options.append(
-            (f"{x[0].upper() + x[1:]}.",
-             f"{y[0].upper() + y[1:]}"))  # "Dr." -> Doctor
+        additional_options.append((f"{x}.", y))  # default "dr" -> doctor, this includes period "dr." -> doctor
+        additional_options.append((f"{x[0].upper() + x[1:]}", f"{y[0].upper() + y[1:]}"))  # "Dr" -> Doctor
+        additional_options.append((f"{x[0].upper() + x[1:]}.", f"{y[0].upper() + y[1:]}"))  # "Dr." -> Doctor
     multiple_formats.extend(additional_options)
 
     if not is_default:
-        multiple_formats = [
-            (x, f"|raw_start|{x}|raw_end||norm_start|{y}|norm_end|")
-            for (x, y) in multiple_formats
-        ]
+        multiple_formats = [(x, f"|raw_start|{x}|raw_end||norm_start|{y}|norm_end|") for (x, y) in multiple_formats]
 
     multiple_formats = pynini.string_map(multiple_formats)
     return multiple_formats
+
+
+def str2bool(s, default=False):
+    s = s.lower()
+    if s == "true":
+        return True
+    elif s == "false":
+        return False
+    else:
+        return default

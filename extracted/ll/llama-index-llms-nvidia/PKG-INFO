@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: llama-index-llms-nvidia
-Version: 0.5.0
+Version: 0.5.1
 Summary: llama-index llms nvidia api catalog integration
 Author-email: Chris Alexiuk <calexiuk@nvidia.com>
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: <4.0,>=3.10
-Requires-Dist: llama-index-llms-openai-like<0.6,>=0.5.0
+Requires-Dist: llama-index-llms-openai-like<0.8,>=0.6.0
 Description-Content-Type: text/markdown
 
 # LlamaIndex LLMs Integration: NVIDIA NIM for LLMs

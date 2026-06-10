@@ -69,6 +69,8 @@ class SerializedObject(google.protobuf.message.Message):
     DEFINITION_FIELD_NUMBER: builtins.int
     WAS_IT_RAISED_FIELD_NUMBER: builtins.int
     STRINGIZED_TRACEBACK_FIELD_NUMBER: builtins.int
+    EXCEPTION_TYPE_NAME_FIELD_NUMBER: builtins.int
+    EXCEPTION_MESSAGE_FIELD_NUMBER: builtins.int
     method: builtins.str
     """The serialization method used to serialize the the raw_object. Must be
     present in the environment that is running the agent itself.
@@ -81,6 +83,10 @@ class SerializedObject(google.protobuf.message.Message):
     """
     stringized_traceback: builtins.str
     """The stringized version of the traceback, if it was raised."""
+    exception_type_name: builtins.str
+    """The remote exception type name, if it was raised."""
+    exception_message: builtins.str
+    """The remote exception message, if it was raised."""
     def __init__(
         self,
         *,
@@ -88,9 +94,16 @@ class SerializedObject(google.protobuf.message.Message):
         definition: builtins.bytes = ...,
         was_it_raised: builtins.bool = ...,
         stringized_traceback: builtins.str | None = ...,
+        exception_type_name: builtins.str | None = ...,
+        exception_message: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["_stringized_traceback", b"_stringized_traceback", "stringized_traceback", b"stringized_traceback"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_stringized_traceback", b"_stringized_traceback", "definition", b"definition", "method", b"method", "stringized_traceback", b"stringized_traceback", "was_it_raised", b"was_it_raised"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_exception_message", b"_exception_message", "_exception_type_name", b"_exception_type_name", "_stringized_traceback", b"_stringized_traceback", "exception_message", b"exception_message", "exception_type_name", b"exception_type_name", "stringized_traceback", b"stringized_traceback"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_exception_message", b"_exception_message", "_exception_type_name", b"_exception_type_name", "_stringized_traceback", b"_stringized_traceback", "definition", b"definition", "exception_message", b"exception_message", "exception_type_name", b"exception_type_name", "method", b"method", "stringized_traceback", b"stringized_traceback", "was_it_raised", b"was_it_raised"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_exception_message", b"_exception_message"]) -> typing_extensions.Literal["exception_message"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_exception_type_name", b"_exception_type_name"]) -> typing_extensions.Literal["exception_type_name"] | None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_stringized_traceback", b"_stringized_traceback"]) -> typing_extensions.Literal["stringized_traceback"] | None: ...
 
 global___SerializedObject = SerializedObject

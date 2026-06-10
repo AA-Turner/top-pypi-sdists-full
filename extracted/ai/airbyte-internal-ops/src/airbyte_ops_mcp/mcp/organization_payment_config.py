@@ -19,8 +19,9 @@ __all__: list[str] = []
 import logging
 import re
 from datetime import date, datetime, timedelta, timezone
-from typing import Annotated
+from typing import Annotated, Literal
 
+import requests
 from airbyte import constants
 from fastmcp import Context, FastMCP
 from fastmcp_extensions import get_mcp_config, mcp_tool, register_mcp_tools
@@ -35,10 +36,24 @@ from airbyte_ops_mcp.cloud_admin.auth import (
     CloudAuthError,
     require_internal_admin_flag_only,
 )
+from airbyte_ops_mcp.cloud_admin.entitlements import (
+    WAIVER_TYPE_TO_ENTITLEMENT_PLAN,
+    EntitlementAPIError,
+    update_entitlement_plan,
+)
 from airbyte_ops_mcp.cloud_admin.models import (
+    OrbSubscriptionInfo,
     OrganizationInfo,
     OrganizationPaymentConfigInfo,
     OrganizationPaymentConfigUpdateResult,
+)
+from airbyte_ops_mcp.cloud_admin.orb_billing import (
+    OrbAPIError,
+    _get_orb_api_key,
+    _resolve_plan_id,
+    extract_subscription_summary,
+    get_active_subscription,
+    schedule_plan_change,
 )
 from airbyte_ops_mcp.cloud_admin.payment_config import (
     PaymentConfigAPIError,
@@ -81,6 +96,45 @@ def _resolve_cloud_auth(ctx: Context) -> tuple[str | None, str | None, str | Non
     client_id = get_mcp_config(ctx, ServerConfigKey.CLIENT_ID)
     client_secret = get_mcp_config(ctx, ServerConfigKey.CLIENT_SECRET)
     return None, client_id, client_secret
+
+
+def _fetch_orb_subscription_info(
+    organization_id: str,
+) -> OrbSubscriptionInfo | None:
+    """Try to fetch the active Orb subscription for an organization.
+
+    Returns `None` silently if the Orb API key is not configured or if no
+    active subscription is found. Logs warnings on API errors but does not
+    raise — Orb data is supplemental, not required.
+    """
+    orb_api_key = _get_orb_api_key()
+    if not orb_api_key:
+        return None
+
+    try:
+        active_sub = get_active_subscription(organization_id, orb_api_key)
+    except (OrbAPIError, requests.RequestException):
+        logger.warning(
+            "Failed to fetch Orb subscription for org %s",
+            organization_id,
+            exc_info=True,
+        )
+        return None
+
+    if active_sub is None:
+        return None
+
+    summary = extract_subscription_summary(active_sub)
+    return OrbSubscriptionInfo(
+        subscription_id=summary["subscription_id"],
+        status=summary["status"],
+        plan_name=summary.get("plan_name"),
+        plan_id=summary.get("plan_id"),
+        external_plan_id=summary.get("external_plan_id"),
+        start_date=summary.get("start_date"),
+        end_date=summary.get("end_date"),
+        orb_customer_id=summary.get("orb_customer_id"),
+    )
 
 
 def _validate_organization_name(
@@ -239,7 +293,8 @@ def get_organization_payment_config(
     """Get the current payment configuration for an organization.
 
     Returns payment status, subscription status, grace period info,
-    and usage category override. No PII or sensitive payment details
+    usage category override, and current Orb billing plan (when
+    `ORB_API_KEY` is configured). No PII or sensitive payment details
     are included in the response.
 
     Authentication credentials are resolved in priority order:
@@ -262,6 +317,9 @@ def get_organization_payment_config(
     tier_result = get_org_tier(organization_id)
     tier_warning = _build_tier_warning(tier_result.customer_tier)
 
+    # Enrich with Orb subscription info (best-effort)
+    orb_subscription = _fetch_orb_subscription_info(organization_id)
+
     return OrganizationPaymentConfigInfo(
         organization_id=data["organizationId"],
         payment_status=data["paymentStatus"],
@@ -271,6 +329,7 @@ def get_organization_payment_config(
         usage_category_overwrite=data.get("usageCategoryOverwrite"),
         customer_tier=tier_result.customer_tier,
         tier_warning=tier_warning,
+        orb_subscription=orb_subscription,
     )
 
 
@@ -324,6 +383,25 @@ def update_organization_payment_config(
             default=None,
         ),
     ] = None,
+    set_permanent_waiver_type: Annotated[
+        Literal["free", "internal", "none"] | None,
+        Field(
+            description="Set a permanent billing waiver for the organization. "
+            "Use `'free'` for partner accounts that should not be billed, "
+            "`'internal'` for Airbyte-internal organizations, "
+            "or `'none'` to remove an existing waiver. "
+            "Mutually exclusive with `set_grace_period`.",
+            default=None,
+        ),
+    ] = None,
+    set_permanent_waiver_reason: Annotated[
+        str | None,
+        Field(
+            description="Reason for setting the permanent billing waiver. "
+            "Required when `set_permanent_waiver_type` is provided.",
+            default=None,
+        ),
+    ] = None,
     config_api_root: Annotated[
         str | None,
         Field(
@@ -343,17 +421,54 @@ def update_organization_payment_config(
     If the org is not already in `manual` status, the tool automatically
     transitions to `manual` first before setting the grace period.
 
+    Use `set_permanent_waiver_type` to mark an organization as a partner (`free`)
+    or internal (`internal`) account. This is mutually exclusive with
+    `set_grace_period` — only one may be provided per call. Setting the waiver
+    type to `free` or `internal` also changes the Orb billing plan (`free` →
+    Airbyte Partner, `internal` → Airbyte Internal). The `ORB_API_KEY`
+    environment variable must be configured for waiver type changes.
+
     The `organization_name` parameter is a safety check: the tool looks up the
     organization via the Config API and verifies that the provided name, email, or
     email domain matches. If omitted or mismatched, the tool returns the valid
     identifiers so the caller can verify and retry.
     """
     # --- Validate that an action was specified ---
-    if set_grace_period is None:
+    if set_grace_period is None and set_permanent_waiver_type is None:
         return OrganizationPaymentConfigUpdateResult(
             success=False,
             message="No action specified. Provide `set_grace_period` with a date "
-            "(YYYY-MM-DD), number of days (1-90), or 'cancel'.",
+            "(YYYY-MM-DD), number of days (1-90), or 'cancel'; or "
+            "`set_permanent_waiver_type` with 'free' (partner) or 'internal'.",
+            organization_id=organization_id,
+        )
+
+    # --- Validate mutual exclusivity ---
+    if set_grace_period is not None and set_permanent_waiver_type is not None:
+        return OrganizationPaymentConfigUpdateResult(
+            success=False,
+            message="`set_grace_period` and `set_permanent_waiver_type` are "
+            "mutually exclusive. Provide only one per call.",
+            organization_id=organization_id,
+        )
+
+    # --- Validate waiver reason is provided when waiver type is set ---
+    if set_permanent_waiver_type is not None and not set_permanent_waiver_reason:
+        return OrganizationPaymentConfigUpdateResult(
+            success=False,
+            message="`set_permanent_waiver_reason` is required when "
+            "`set_permanent_waiver_type` is provided.",
+            organization_id=organization_id,
+        )
+
+    # --- Validate ORB_API_KEY is configured for waiver type changes ---
+    if set_permanent_waiver_type in ("free", "internal") and not _get_orb_api_key():
+        return OrganizationPaymentConfigUpdateResult(
+            success=False,
+            message="`ORB_API_KEY` environment variable is not configured. "
+            "It is required when setting `set_permanent_waiver_type` to "
+            "'free' or 'internal' because the Orb billing plan must also "
+            "be changed.",
             organization_id=organization_id,
         )
 
@@ -420,6 +535,170 @@ def update_organization_payment_config(
     tier_result = get_org_tier(organization_id)
     customer_tier = tier_result.customer_tier
     tier_warning = _build_tier_warning(customer_tier)
+
+    # --- Permanent-waiver-only path (no grace period change) ---
+    #
+    # Statuses that the API cannot set back: uninitialized, okay, disabled.
+    # If the org is in one of these, we transition to 'manual' first (same
+    # pattern the grace-period path uses).
+    _api_nonsettable_statuses = ("uninitialized", "okay", "disabled")
+
+    if set_grace_period is None:
+        # Only set_permanent_waiver_type was requested
+        assert set_permanent_waiver_type is not None
+        try:
+            current_config = _get_organization_payment_config(
+                organization_id=organization_id,
+                config_api_root=resolved_api_root,
+                client_id=client_id,
+                client_secret=client_secret,
+                bearer_token=bearer_token,
+            )
+        except PaymentConfigAPIError as e:
+            return OrganizationPaymentConfigUpdateResult(
+                success=False,
+                message=f"Failed to fetch current config: {e}",
+                organization_id=organization_id,
+                customer_tier=customer_tier,
+                tier_warning=tier_warning,
+            )
+        current_status = current_config["paymentStatus"]
+
+        # Transition to 'manual' if current status is not API-settable
+        target_status = current_status
+        if current_status in _api_nonsettable_statuses:
+            try:
+                _update_organization_payment_config(
+                    organization_id=organization_id,
+                    payment_status="manual",
+                    config_api_root=resolved_api_root,
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    bearer_token=bearer_token,
+                    new_grace_period_reason=(
+                        f"Transitioned to manual for permanent waiver: "
+                        f"{set_permanent_waiver_reason}"
+                    ),
+                )
+                target_status = "manual"
+            except PaymentConfigAPIError as e:
+                return OrganizationPaymentConfigUpdateResult(
+                    success=False,
+                    message=f"Failed to transition from '{current_status}' "
+                    f"to 'manual': {e}",
+                    organization_id=organization_id,
+                    payment_status=current_status,
+                    customer_tier=customer_tier,
+                    tier_warning=tier_warning,
+                )
+
+        try:
+            data = _update_organization_payment_config(
+                organization_id=organization_id,
+                payment_status=target_status,
+                config_api_root=resolved_api_root,
+                client_id=client_id,
+                client_secret=client_secret,
+                bearer_token=bearer_token,
+                usage_category_overwrite=(
+                    set_permanent_waiver_type
+                    if set_permanent_waiver_type != "none"
+                    else ""
+                ),
+            )
+        except PaymentConfigAPIError as e:
+            return OrganizationPaymentConfigUpdateResult(
+                success=False,
+                message=f"Failed to set permanent waiver type: {e}",
+                organization_id=organization_id,
+                payment_status=target_status,
+                customer_tier=customer_tier,
+                tier_warning=tier_warning,
+            )
+        parts = [
+            f"Permanent waiver type set to '{set_permanent_waiver_type}' "
+            f"for org {organization_id}.",
+        ]
+        if current_status in _api_nonsettable_statuses:
+            parts.append(
+                f"Payment status transitioned from '{current_status}' to 'manual'."
+            )
+
+        # --- Orb plan change (required for "free" / "internal") ---
+        orb_plan_change_result: str | None = None
+        if set_permanent_waiver_type in ("free", "internal"):
+            # ORB_API_KEY is validated at the top of the function, so this
+            # is guaranteed to be non-None here.
+            orb_api_key = _get_orb_api_key()
+            assert orb_api_key, "ORB_API_KEY should have been validated earlier"
+            try:
+                active_sub = get_active_subscription(organization_id, orb_api_key)
+                if active_sub is None:
+                    parts.append(
+                        "Orb plan change skipped: no active subscription "
+                        "found for this organization in Orb."
+                    )
+                    orb_plan_change_result = "Skipped: no active Orb subscription"
+                else:
+                    target_plan_id = _resolve_plan_id(set_permanent_waiver_type)
+                    current_plan_id = (active_sub.get("plan") or {}).get("id")
+                    current_plan_name = (active_sub.get("plan") or {}).get(
+                        "name", current_plan_id or "unknown"
+                    )
+                    if current_plan_id == target_plan_id:
+                        orb_plan_change_result = (
+                            f"Already on plan '{current_plan_name}'"
+                        )
+                        parts.append(f"Orb plan already set to '{current_plan_name}'.")
+                    else:
+                        schedule_plan_change(
+                            subscription_id=active_sub["id"],
+                            plan_id=target_plan_id,
+                            api_key=orb_api_key,
+                        )
+                        orb_plan_change_result = (
+                            f"Changed from '{current_plan_name}' to '{target_plan_id}'"
+                        )
+                        parts.append(f"Orb plan changed to '{target_plan_id}'.")
+            except (OrbAPIError, requests.RequestException) as e:
+                parts.append(f"Orb plan change failed: {e}")
+                orb_plan_change_result = f"Failed: {e}"
+
+        # --- Entitlement plan update (Stigg) ---
+        entitlement_plan_change_result: str | None = None
+        target_entitlement_plan = WAIVER_TYPE_TO_ENTITLEMENT_PLAN.get(
+            set_permanent_waiver_type
+        )
+        if target_entitlement_plan:
+            try:
+                update_entitlement_plan(
+                    organization_id=organization_id,
+                    plan_name=target_entitlement_plan,
+                    config_api_root=resolved_api_root,
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    bearer_token=bearer_token,
+                )
+                entitlement_plan_change_result = f"Changed to {target_entitlement_plan}"
+                parts.append(
+                    f"Entitlement plan updated to '{target_entitlement_plan}'."
+                )
+            except EntitlementAPIError as e:
+                parts.append(f"Entitlement plan update failed: {e}")
+                entitlement_plan_change_result = f"Failed: {e}"
+
+        return OrganizationPaymentConfigUpdateResult(
+            success=True,
+            message=" ".join(parts),
+            organization_id=organization_id,
+            payment_status=data["paymentStatus"],
+            grace_period_end_at=data.get("gracePeriodEndAt"),
+            permanent_waiver_type=data.get("usageCategoryOverwrite"),
+            customer_tier=customer_tier,
+            tier_warning=tier_warning,
+            orb_plan_change=orb_plan_change_result,
+            entitlement_plan_change=entitlement_plan_change_result,
+        )
 
     # --- Parse grace period value ---
     parsed_value, parse_error = _parse_grace_period_value(set_grace_period)
@@ -497,6 +776,7 @@ def update_organization_payment_config(
             organization_id=organization_id,
             payment_status=data["paymentStatus"],
             grace_period_end_at=data.get("gracePeriodEndAt"),
+            permanent_waiver_type=data.get("usageCategoryOverwrite"),
             customer_tier=customer_tier,
             tier_warning=tier_warning,
         )
@@ -577,6 +857,7 @@ def update_organization_payment_config(
         organization_id=organization_id,
         payment_status=data["paymentStatus"],
         grace_period_end_at=data.get("gracePeriodEndAt"),
+        permanent_waiver_type=data.get("usageCategoryOverwrite"),
         customer_tier=customer_tier,
         tier_warning=tier_warning,
     )

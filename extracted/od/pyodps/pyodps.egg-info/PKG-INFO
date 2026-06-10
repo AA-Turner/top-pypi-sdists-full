@@ -1,31 +1,29 @@
 Metadata-Version: 2.1
 Name: pyodps
-Version: 0.12.6
+Version: 0.13.0
 Summary: ODPS Python SDK and data analysis framework
-Home-page: http://github.com/aliyun/aliyun-odps-python-sdk
-Author: Wu Wei
-Author-email: weiwu@cacheme.net
-Maintainer: Wenjun Si
-Maintainer-email: wenjun.swj@alibaba-inc.com
+Author-email: Wu Wei <weiwu@cacheme.net>
+Maintainer-email: Wenjun Si <wenjun.swj@alibaba-inc.com>
 License: Apache License 2.0
+Project-URL: Repository, http://github.com/aliyun/aliyun-odps-python-sdk
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 1 - Unstable
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.7
+Description-Content-Type: text/x-rst
 Provides-Extra: full
-Provides-Extra: mars
 
 ODPS Python SDK
 ===============
@@ -61,7 +59,7 @@ Or from source code (not recommended for production use):
 Dependencies
 ------------
 
-- Python (>=2.7), including Python 3+, pypy, Python 3.7 recommended
+- Python (>=3.7), pypy, Python 3.11 recommended
 - setuptools (>=3.0)
 
 Run Tests
@@ -151,7 +149,7 @@ Python UDF Debugging Tool
    from odps.udf import annotate
 
    @annotate('bigint,bigint->bigint')
-   class Plus(object):
+   class Plus:
        def evaluate(self, a, b):
            return a + b
 
@@ -174,7 +172,7 @@ source:
 
    git clone https://github.com/aliyun/aliyun-odps-python-sdk.git
    cd pyodps
-   pip install -r requirements.txt -e .
+   pip install -e .
 
 License
 -------

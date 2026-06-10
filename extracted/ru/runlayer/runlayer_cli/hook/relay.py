@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
@@ -74,6 +75,13 @@ def _load_credentials() -> tuple[str, str]:
         # MDM ``Host`` skips ``set_host_credentials`` normalization; strip
         # trailing slash so ``_post`` doesn't build double-slash URLs.
         host = normalize_url(raw_host)
+        # Org-key hook mode: when MDM ships an ``OrgApiKey`` (the single key used
+        # for all of AI Watch), authenticate hooks with it and let the backend
+        # resolve identity from the device context we attach in ``_post``.
+        # Per-user enrollment stays the fallback when no org key is present.
+        org_api_key = managed.get("org_api_key")
+        if org_api_key:
+            return host, org_api_key
         secret = config.get_secret_for_host(host)
         if secret:
             return host, secret
@@ -164,6 +172,76 @@ def _touch_enrollment_attempt() -> None:
         pass
 
 
+def _maybe_attach_device(payload: str) -> str:
+    """In org-key hook mode, add a top-level ``device`` block to the request.
+
+    Org-key mode is active whenever MDM ships an ``OrgApiKey`` (the single AI
+    Watch key). Backend resolves identity from ``device_id`` + OS ``username``
+    server-side. No-op (returns the payload unchanged) when there's no org key,
+    so the legacy per-user path is byte-for-byte unchanged.
+    """
+    managed = read_managed_config()
+    if not managed.get("org_api_key"):
+        return payload
+    try:
+        obj = json.loads(payload)
+    except (json.JSONDecodeError, ValueError):
+        return payload
+    if not isinstance(obj, dict) or "device" in obj:
+        return payload
+    device = _build_device_context()
+    if device is None:
+        return payload
+    obj["device"] = device
+    return json.dumps(obj)
+
+
+def _build_device_context() -> dict[str, Any] | None:
+    """Collect device id + metadata for org-key hook requests.
+
+    The same persisted ``~/.runlayer/device_id`` that scans use is reused so the
+    backend can join hook events to existing ``AIWatchUserDevice`` mappings.
+    """
+    try:
+        # Local import: keep the scan module chain out of the legacy per-user
+        # hook closure; only pay its import cost when org-key mode is active.
+        from runlayer_cli.scan.device import (
+            get_device_metadata,
+            get_or_create_device_id,
+        )
+
+        # Hook stdout is a strict protocol channel (the decision/empty object).
+        # The CLI doesn't configure logging in the hook path, so structlog's
+        # default sink is stdout; redirect to stderr while scan code runs so its
+        # device-id logging can't corrupt the hook response.
+        with contextlib.redirect_stdout(sys.stderr):
+            metadata = get_device_metadata()
+            device_id = get_or_create_device_id()
+        device: dict[str, Any] = {
+            "device_id": device_id,
+            "hostname": metadata.get("hostname"),
+            "os": metadata.get("os"),
+            "os_version": metadata.get("os_version"),
+            "username": metadata.get("username"),
+        }
+        if metadata.get("is_wsl"):
+            device["is_wsl"] = True
+        return device
+    except Exception as exc:
+        # Org-key mode relies on this block for server-side device attribution.
+        # On failure the hook still 200s but identity degrades to buffer/park
+        # with nothing visible client-side, so surface the cause on stderr
+        # (stdout is the protocol channel) to help MDM rollouts spot broken
+        # scan imports or permission issues. Type/message only, no secrets.
+        with contextlib.suppress(Exception):
+            print(
+                f"aiwatch: device context unavailable for org-key hook: "
+                f"{type(exc).__name__}: {exc}",
+                file=sys.stderr,
+            )
+        return None
+
+
 def _post(
     host: str,
     secret: str,
@@ -175,6 +253,7 @@ def _post(
 ) -> str:
     spec = HOOK_RELAY_TARGETS[target]
     url = f"{host}{spec.endpoint}"
+    payload = _maybe_attach_device(payload)
     client = HookAPIClient(
         host,
         headers={

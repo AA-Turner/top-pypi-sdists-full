@@ -39,7 +39,6 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
         state_path=state,
         service_user=TEST_SERVICE_USER,
         secret_key=TEST_SECRET_KEY,
-        image_root=image_root,
     )
     app.state.state_path = state  # let tests seed the DB directly
 
@@ -200,7 +199,6 @@ def test_ui_dashboard_renders_with_zero_state(
         state_path=state,
         service_user=TEST_SERVICE_USER,
         secret_key=TEST_SECRET_KEY,
-        image_root=image_root,
     )
 
     with TestClient(fresh_app, follow_redirects=False) as c:
@@ -326,59 +324,63 @@ def test_ui_dashboard_state_row_green_when_migrated_and_valid(
 
 
 def test_ui_images_is_catalog_listing_only(client: TestClient) -> None:
-    """``/ui/images`` is purely the catalog listing now: catalog
-    actions in the list header (Fetch latest catalog + Upload catalog),
-    the merged table, and the activity card. Per-image Add forms +
-    live job tables both moved to ``/ui/downloads`` / ``/ui/hashing``."""
+    """``/ui/images`` is the catalog listing plus three add-paths in
+    the header: Add image (URL), Upload catalog, Fetch latest catalog."""
     _login(client)
     body = client.get("/ui/images").text
     assert 'aria-label="Section sub-navigation"' in body
     assert 'href="#images-list"' in body
     assert 'href="#images-activity"' in body
-    # Catalog actions in the list header.
+    # Catalog actions in the list header: all three add-paths live here.
+    assert 'action="/ui/catalog/entries"' in body
     assert 'action="/ui/catalog/fetch-release"' in body
     assert 'action="/ui/catalog/upload"' in body
     assert 'accept=".toml"' in body
-    # Add forms are NOT here any more (moved to /ui/downloads).
-    assert 'id="image_url"' not in body
-    assert 'id="upload-file"' not in body
-    assert 'id="add-image"' not in body
-    # Live job tables MOVED to /ui/downloads + /ui/hashing.
+    assert 'id="image_url"' in body
+    # No live job tables on this page (those live on /ui/netboot for
+    # release fetches and /ui/backups for backups).
     assert "bty-downloads-tbody" not in body
     assert "bty-hashes-tbody" not in body
 
 
 def test_worker_pages_exist_separately(client: TestClient) -> None:
-    """Two separate worker pages: Downloads, Backups. Each renders
-    standalone with its own active-jobs section + recent activity
-    card. (Hashing went away in v0.40; no merged /ui/workers page.)"""
+    """v0.41.2+: ``/ui/backups`` is the only standalone worker page.
+    The release-fetch workload moved into ``/ui/netboot``; the merged
+    ``/ui/workers`` page and the legacy ``/ui/downloads`` / ``/ui/hashing``
+    / ``/ui/fetches`` / ``/ui/hashes`` routes all return 404."""
     _login(client)
-    for url in ("/ui/downloads", "/ui/backups"):
-        r = client.get(url)
-        assert r.status_code == 200, f"{url} should render, got {r.status_code}"
-    # The previous merged page is gone.
-    assert client.get("/ui/workers").status_code == 404
-    # And the previously-removed legacy URLs that the workers reshape
-    # removed: /ui/hashes (now /ui/hashing) and /ui/fetches (now folded
-    # into /ui/downloads). /ui/hashing itself went away in v0.40 (no
-    # more HashManager).
-    assert client.get("/ui/hashes").status_code == 404
-    assert client.get("/ui/hashing").status_code == 404
-    assert client.get("/ui/fetches").status_code == 404
+    assert client.get("/ui/backups").status_code == 200
+    assert client.get("/ui/netboot").status_code == 200
+    # Removed routes.
+    for legacy in (
+        "/ui/workers",
+        "/ui/downloads",
+        "/ui/hashes",
+        "/ui/hashing",
+        "/ui/fetches",
+    ):
+        assert client.get(legacy).status_code == 404, legacy
 
 
-def test_ui_images_list_header_has_fetch_and_upload_catalog(client: TestClient) -> None:
-    """The Images table header carries the Fetch (release catalog.toml)
-    button + the Upload-catalog file form, separated by a rule."""
+def test_ui_images_list_header_has_all_three_add_paths(client: TestClient) -> None:
+    """The Images table header carries the three add-paths in
+    order: Add image (URL), Upload catalog, Fetch latest catalog."""
     _login(client)
     body = client.get("/ui/images").text
-    assert 'action="/ui/catalog/fetch-release"' in body
-    assert "Fetch latest catalog" in body
+    # All three forms.
+    assert 'action="/ui/catalog/entries"' in body
+    assert 'id="image_url"' in body
+    assert "Add image" in body
     assert 'action="/ui/catalog/upload"' in body
     assert "Upload catalog" in body
     assert 'accept=".toml"' in body
-    # The add-by-URL form lives on /ui/downloads now; not on this page.
-    assert 'id="image_url"' not in body
+    assert 'action="/ui/catalog/fetch-release"' in body
+    assert "Fetch latest catalog" in body
+    # Ordering: Add image is first, then Upload catalog, then Fetch.
+    pos_add = body.index('action="/ui/catalog/entries"')
+    pos_upload = body.index('action="/ui/catalog/upload"')
+    pos_fetch = body.index('action="/ui/catalog/fetch-release"')
+    assert pos_add < pos_upload < pos_fetch
 
 
 def test_top_level_nav_highlights_active_page(client: TestClient) -> None:
@@ -461,14 +463,13 @@ def test_subnavs_drop_the_redundant_list_pill(client: TestClient) -> None:
 
     # Every content page carries the section-jump sub-nav strip with
     # in-page anchor links (no aria-current pills -- those were the old
-    # ?section= page links). The worker pages are now individual
-    # (Downloads / Backups; Hashing went away in v0.40).
+    # ?section= page links). Release-fetch UI moved onto /ui/netboot in
+    # v0.41.2; Backups is the only standalone worker page now.
     for path in (
         "/ui/images",
         "/ui/netboot",
         "/ui/machines",
         "/ui/events",
-        "/ui/downloads",
         "/ui/backups",
         "/ui/dashboard",
     ):
@@ -476,8 +477,7 @@ def test_subnavs_drop_the_redundant_list_pill(client: TestClient) -> None:
         assert 'aria-label="Section sub-navigation"' in body, path
         assert _aria_current_hrefs(body) == [], path
 
-    # Each worker page lights ONLY its own navbar indicator.
-    assert client.get("/ui/downloads").text.count("nav-worker active") == 1
+    # The Backups page lights ONLY its own navbar indicator.
     assert client.get("/ui/backups").text.count("nav-worker active") == 1
 
     # Settings carries its own section-jump sub-nav (anchor links + rules).
@@ -489,51 +489,34 @@ def test_subnavs_drop_the_redundant_list_pill(client: TestClient) -> None:
 
 def test_ui_images_ignores_unknown_query_params(client: TestClient) -> None:
     """``?section=...`` was the old per-tab selector. With the page
-    merged into the simple catalog list, query params are ignored: a
-    bookmark / typo / scripted call must NOT 500 the page."""
+    merged into the simple catalog list + three add-paths, query
+    params are ignored: a bookmark / typo / scripted call must NOT
+    500 the page."""
     _login(client)
     r = client.get("/ui/images?section=garbage")
     assert r.status_code == 200
     body = r.text
-    # No more add-form (lives on /ui/downloads).
-    assert 'id="image_url"' not in body
+    # The header add-form is still rendered.
+    assert 'id="image_url"' in body
     assert 'aria-label="Section sub-navigation"' in body
 
 
-def test_ui_boot_renders_without_fetch_trigger(client: TestClient) -> None:
-    """Bare ``GET /ui/netboot`` lands on the artifacts inventory.
-    Fetching moved to /ui/downloads, so the per-button trigger
-    (``enqueue-fetch-btn``) is NOT on this view -- only a link to
-    /ui/downloads."""
+def test_ui_netboot_has_fetch_trigger_and_jobs_tbody(client: TestClient) -> None:
+    """v0.41.2+: ``/ui/netboot`` hosts both the artifacts inventory AND
+    the release-fetch workload (Fetch artifacts button + active-jobs
+    tbody + the polling JS). The old ``/ui/downloads`` page is gone."""
     _login(client)
     r = client.get("/ui/netboot")
     assert r.status_code == 200
     body = r.text
     assert 'aria-label="Section sub-navigation"' in body
     assert "<th>File</th>" in body
-    # No Fetch trigger / live jobs on this page.
-    assert 'id="enqueue-fetch-btn"' not in body
-    assert "bty-fetches-tbody" not in body
-    # Link over to /ui/downloads is present.
-    assert 'href="/ui/downloads"' in body
-
-
-def test_ui_downloads_has_all_three_triggers(client: TestClient) -> None:
-    """``/ui/downloads`` carries all three operator-add triggers:
-    Fetch artifacts (netboot trio + sha), Upload image (local file),
-    Add image from URL. The active-downloads table renders below; the
-    activity card with recent download events is at the bottom."""
-    _login(client)
-    body = client.get("/ui/downloads").text
-    # Three trigger controls.
+    # Release-fetch trigger + the active-jobs tbody both live here now.
     assert 'id="bty-downloads-fetch-artifacts-btn"' in body
-    assert 'id="image_url"' in body
-    assert 'action="/ui/catalog/entries"' in body
-    assert 'id="upload-file"' in body
-    # Active-jobs tbody.
     assert "bty-workers-downloads-tbody" in body
-    # Activity card at the bottom (recent download-related events).
-    assert 'id="downloads-activity"' in body
+    # The legacy /ui/downloads route is gone -- no link should still
+    # point at it from the netboot page.
+    assert 'href="/ui/downloads"' not in body
 
 
 def test_ui_backups_has_back_up_now_and_activity(client: TestClient) -> None:
@@ -732,18 +715,20 @@ def test_ui_settings_shows_dhcp_pxe_cheatsheet(client: TestClient) -> None:
 
 
 def test_ui_boot_shows_tftp_daemon_status(client: TestClient) -> None:
-    """The TFTP daemon control moved onto the Netboot list view (below
-    the artifacts table) -- the operator's "take PXE offline briefly"
-    surface. Renders the dnsmasq.service status badge + Start/Stop/
-    Restart controls (or the no-helper hint when the container can't
-    supervise the daemon)."""
+    """The Netboot page surfaces the dnsmasq.service status as a
+    pure observation -- no Start/Stop/Restart buttons (lifecycle is
+    a systemd/Podman concern, not an operator click target)."""
     _login(client)
     r = client.get("/ui/netboot")
     assert r.status_code == 200
     body = r.text
     assert "TFTP daemon" in body
-    assert "serves the TFTP root" in body
     assert "dnsmasq.service" in body
+    # No control surface: the form + buttons are gone.
+    assert 'action="/ui/settings/tftp-control"' not in body
+    assert "Start</button>" not in body
+    assert "Stop</button>" not in body
+    assert "Restart</button>" not in body
     # The router cheatsheet is on Settings now, not here.
     assert "Router-side configuration" not in body
 
@@ -755,12 +740,11 @@ def test_ui_layout_renders_top_level_live_indicator(client: TestClient) -> None:
     _login(client)
     body = client.get("/ui/dashboard").text
     assert 'id="nav-live"' in body
-    assert "nav-live-sep" in body  # divider after downloads/hashes/artifacts
+    assert "nav-live-sep" in body  # divider after the backups indicator
     assert "function setLive" in body
-    # The poller it rides on targets all three worker endpoints.
-    assert "/catalog/downloads" in body
-    assert "/catalog/hashes" in body
-    assert "/boot/releases" in body
+    # The poller targets the only surviving navbar-tracked worker
+    # endpoint (release-fetches now live inline on /ui/netboot).
+    assert "/workers/backups" in body
 
 
 def test_ui_layout_renders_version_in_navbar_outside_brand(client: TestClient) -> None:
@@ -1693,13 +1677,11 @@ def test_ui_boot_page_renders_with_artifact_state(client: TestClient) -> None:
     # Empty boot dir => four "missing" badges (warning kind).
     assert body.count("missing</span>") == 4
     assert body.count('class="badge bg-warning text-dark"') >= 4
-    # The Fetch trigger moved to /ui/downloads; this page links over
-    # to it but does NOT carry the enqueue button itself.
-    assert 'id="enqueue-fetch-btn"' not in body
-    assert "bty-fetches-tbody" not in body
-    downloads_body = client.get("/ui/downloads").text
-    assert "/boot/releases" in downloads_body
-    assert "bty-workers-downloads-tbody" in downloads_body
+    # v0.41.2+: the Fetch-artifacts trigger + the active-jobs tbody both
+    # live on /ui/netboot directly (the old /ui/downloads page is gone).
+    assert 'id="bty-downloads-fetch-artifacts-btn"' in body
+    assert "/boot/releases" in body
+    assert "bty-workers-downloads-tbody" in body
 
 
 # ---------- Phase E: settings page ----------------------------------------
@@ -1718,15 +1700,20 @@ def test_ui_settings_renders_when_authed(client: TestClient) -> None:
     r = client.get("/ui/settings")
     assert r.status_code == 200
     body = r.text
-    # Editable upstream card: all three fields + the save form.
+    # Editable upstream card: release repo + the two tag fields +
+    # the save form. (v0.41.3+: catalog URL became a derived view of
+    # repo + catalog_tag; the form-field id is gone.)
     assert "Upstream sources" in body
     assert 'action="/ui/settings/upstream"' in body
     assert 'id="release_repo"' in body
-    assert 'id="catalog_url"' in body
-    assert 'id="release_tag"' in body
+    assert 'id="catalog_tag"' in body
+    assert 'id="netboot_tag"' in body
     # Read-only config groups: storage + the Identity magic values.
     assert "Storage paths" in body
-    assert "BTY_STATE_DIR" in body
+    # v0.42+: the convention is BTY_<SECTION>_<KEY>; the legacy
+    # BTY_STATE_DIR alias still works but the page surfaces the
+    # canonical name.
+    assert "BTY_PATHS_STATE_DIR" in body
     assert "Service user" in body
     assert "github.com/safl/bty" in body  # project URL listed as a magic value
     assert f"{bty.__version__}" in body
@@ -1752,17 +1739,154 @@ def test_ui_account_holds_authentication(client: TestClient) -> None:
     assert 'href="/ui/settings"' in body
 
 
+def test_ui_settings_config_edit_writes_to_primary_toml(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Per-row inline edit form on /ui/settings posts to
+    /ui/settings/config/edit, which writes the new value into
+    cfg.primary_toml via _config.save_value. The next page render
+    reads it back out (the handler also reloads the active config
+    in-process so the operator doesn't have to restart bty-web)."""
+    from bty.web import _config
+
+    bty_toml = tmp_path / "bty.toml"
+    bty_toml.write_text('[server]\nhost = "0.0.0.0"\n', encoding="utf-8")
+    monkeypatch.setenv("BTY_CONFIG_FILE", str(bty_toml))
+    _config.set_active_config(_config.load_config(None))
+
+    _login(client)
+    r = client.post(
+        "/ui/settings/config/edit",
+        data={"section": "server", "key": "host", "value": "192.168.1.5"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert r.headers["location"] == "/ui/settings?saved=config"
+    # File round-trip.
+    new = bty_toml.read_text(encoding="utf-8")
+    assert 'host = "192.168.1.5"' in new
+    # Active config reloaded in-process.
+    assert _config.cfg().server.host == "192.168.1.5"
+
+
+def test_ui_settings_config_edit_clear_removes_the_key(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An empty value clears the override -- the TOML key is removed
+    so the schema default takes over."""
+    from bty.web import _config
+
+    bty_toml = tmp_path / "bty.toml"
+    bty_toml.write_text('[server]\nhost = "192.168.1.5"\n', encoding="utf-8")
+    monkeypatch.setenv("BTY_CONFIG_FILE", str(bty_toml))
+    _config.set_active_config(_config.load_config(None))
+
+    _login(client)
+    r = client.post(
+        "/ui/settings/config/edit",
+        data={"section": "server", "key": "host", "value": ""},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    # Key gone from the file; default ("0.0.0.0") takes over in the
+    # reloaded active config.
+    assert "host = " not in bty_toml.read_text(encoding="utf-8")
+    assert _config.cfg().server.host == "0.0.0.0"
+
+
+def test_ui_settings_config_edit_refuses_env_overridden_key(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When a key is currently env-overridden, the TOML write would
+    silently no-op (env wins). The handler refuses with an explicit
+    flash so the operator doesn't think the edit took effect."""
+    from bty.web import _config
+
+    bty_toml = tmp_path / "bty.toml"
+    bty_toml.write_text("[server]\n", encoding="utf-8")
+    monkeypatch.setenv("BTY_CONFIG_FILE", str(bty_toml))
+    monkeypatch.setenv("BTY_SERVER_HOST", "10.0.0.1")
+    _config.set_active_config(_config.load_config(None))
+
+    _login(client)
+    r = client.post(
+        "/ui/settings/config/edit",
+        data={"section": "server", "key": "host", "value": "192.168.1.5"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert "error=env+override" in r.headers["location"]
+    # File untouched.
+    assert "192.168.1.5" not in bty_toml.read_text(encoding="utf-8")
+
+
+def test_ui_settings_config_edit_rejects_unknown_section_or_key(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A hand-crafted POST that targets a section / key the schema
+    doesn't know returns 303 with an error flash rather than
+    writing arbitrary TOML."""
+    from bty.web import _config
+
+    bty_toml = tmp_path / "bty.toml"
+    bty_toml.write_text("", encoding="utf-8")
+    monkeypatch.setenv("BTY_CONFIG_FILE", str(bty_toml))
+    _config.set_active_config(_config.load_config(None))
+
+    _login(client)
+    r = client.post(
+        "/ui/settings/config/edit",
+        data={"section": "rogue", "key": "host", "value": "x"},
+        follow_redirects=False,
+    )
+    assert r.headers["location"] == "/ui/settings?error=unknown+section"
+    r = client.post(
+        "/ui/settings/config/edit",
+        data={"section": "server", "key": "rogue_key", "value": "x"},
+        follow_redirects=False,
+    )
+    assert r.headers["location"] == "/ui/settings?error=unknown+key"
+    # File still empty -- no rogue keys written.
+    assert "rogue" not in bty_toml.read_text(encoding="utf-8")
+
+
+def test_ui_settings_renders_inline_edit_forms_for_editable_rows(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The Settings page renders an inline edit form for each
+    Config-backed row + a save button. Env-overridden rows render
+    a disabled input instead."""
+    from bty.web import _config
+
+    bty_toml = tmp_path / "bty.toml"
+    bty_toml.write_text("", encoding="utf-8")
+    monkeypatch.setenv("BTY_CONFIG_FILE", str(bty_toml))
+    monkeypatch.setenv("BTY_SERVER_HOST", "10.0.0.1")  # env-override on host
+    _config.set_active_config(_config.load_config(None))
+
+    _login(client)
+    body = client.get("/ui/settings").text
+    # Editable row (server.port -- not env-overridden) has an edit form.
+    assert 'action="/ui/settings/config/edit"' in body
+    assert 'name="section" value="server"' in body
+    assert 'name="key" value="port"' in body
+    # Env-overridden row (server.host) renders a disabled input,
+    # NOT an edit form for that specific key.
+    assert 'name="key" value="host"' not in body
+
+
 def test_ui_settings_upstream_override_round_trips(client: TestClient) -> None:
     """Saving an upstream override persists it; the Settings page then
     shows it as the override value, and clearing the field reverts to
     the default."""
     _login(client)
-    # Save both overrides.
+    # Save repo + catalog tag overrides.
     r = client.post(
         "/ui/settings/upstream",
         data={
             "release_repo": "acme/bty-fork",
-            "catalog_url": "https://example.invalid/catalog.toml",
+            "catalog_tag": "v1.2.3",
+            "netboot_tag": "v1.2.3",
         },
         follow_redirects=False,
     )
@@ -1770,11 +1894,15 @@ def test_ui_settings_upstream_override_round_trips(client: TestClient) -> None:
     assert r.headers["location"] == "/ui/settings?saved=upstream"
     body = client.get("/ui/settings").text
     assert "acme/bty-fork" in body
-    assert "https://example.invalid/catalog.toml" in body
-    # Clearing the repo field reverts it to the default repo.
-    client.post("/ui/settings/upstream", data={"release_repo": "", "catalog_url": ""})
+    assert "v1.2.3" in body
+    # The derived catalog URL uses the explicit-tag form.
+    assert "releases/download/v1.2.3/catalog.toml" in body
+    # Clearing every field reverts to defaults.
+    client.post(
+        "/ui/settings/upstream",
+        data={"release_repo": "", "catalog_tag": "", "netboot_tag": ""},
+    )
     body2 = client.get("/ui/settings").text
-    # The override value is gone; the default repo drives the page.
     assert "acme/bty-fork" not in body2
     assert "safl/bty" in body2
 
@@ -1783,20 +1911,18 @@ def test_ui_settings_upstream_audit_event_captures_old_and_new(
     client: TestClient,
 ) -> None:
     """v0.33.28+: settings.upstream.updated event details carries
-    both ``old`` and ``new`` for each of the three knobs. Pre-fix
-    the event only had the summary string with the new values; an
-    operator auditing "what was the catalog URL before this change?"
-    or a drift-tracking script comparing successive events had no
-    before/after visibility. Now details has the structured
-    {release_repo, catalog_url, release_tag} -> {old, new} shape."""
+    both ``old`` and ``new`` for each of the three knobs. v0.41.3+
+    the third knob is ``netboot_tag`` (the old ``catalog_url``
+    standalone override is gone -- it's derived from repo + catalog
+    tag now)."""
     _login(client)
     # Initial save: olds are all None (defaults in effect).
     r1 = client.post(
         "/ui/settings/upstream",
         data={
             "release_repo": "acme/bty-fork",
-            "catalog_url": "https://first.invalid/catalog.toml",
-            "release_tag": "v1.0.0",
+            "catalog_tag": "v1.0.0",
+            "netboot_tag": "v1.0.0",
         },
         follow_redirects=False,
     )
@@ -1806,8 +1932,8 @@ def test_ui_settings_upstream_audit_event_captures_old_and_new(
         "/ui/settings/upstream",
         data={
             "release_repo": "acme/bty-fork",  # unchanged
-            "catalog_url": "https://second.invalid/catalog.toml",
-            "release_tag": "",  # cleared
+            "catalog_tag": "v1.1.0",  # changed
+            "netboot_tag": "",  # cleared
         },
         follow_redirects=False,
     )
@@ -1822,11 +1948,8 @@ def test_ui_settings_upstream_audit_event_captures_old_and_new(
     newest = events[0]
     d = newest["details"]
     assert d["release_repo"] == {"old": "acme/bty-fork", "new": "acme/bty-fork"}
-    assert d["catalog_url"] == {
-        "old": "https://first.invalid/catalog.toml",
-        "new": "https://second.invalid/catalog.toml",
-    }
-    assert d["release_tag"] == {"old": "v1.0.0", "new": None}
+    assert d["catalog_tag"] == {"old": "v1.0.0", "new": "v1.1.0"}
+    assert d["netboot_tag"] == {"old": "v1.0.0", "new": None}
 
 
 def test_ui_settings_renders_backup_schedule_card(client: TestClient) -> None:
@@ -1926,14 +2049,19 @@ def test_settings_upstream_override_drives_catalog_fetch_url(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The catalog-fetch handler resolves its URL from the override at
-    request time, so a saved Catalog URL is what gets fetched."""
+    request time. v0.41.3+: a saved repo + catalog tag together build
+    the URL (there's no separate URL override any more)."""
     import urllib.error
     import urllib.request
 
     _login(client)
     client.post(
         "/ui/settings/upstream",
-        data={"release_repo": "", "catalog_url": "https://example.invalid/custom.toml"},
+        data={
+            "release_repo": "acme/widgets",
+            "catalog_tag": "v9.9.9",
+            "netboot_tag": "",
+        },
     )
     seen: list[str] = []
 
@@ -1943,7 +2071,7 @@ def test_settings_upstream_override_drives_catalog_fetch_url(
 
     monkeypatch.setattr(urllib.request, "urlopen", _fake_urlopen)
     client.post("/ui/catalog/fetch-release", follow_redirects=False)
-    assert seen == ["https://example.invalid/custom.toml"]
+    assert seen == ["https://github.com/acme/widgets/releases/download/v9.9.9/catalog.toml"]
 
 
 def test_ui_settings_requires_auth(client: TestClient) -> None:
@@ -2201,7 +2329,6 @@ def test_ui_machine_detail_dropdown_lists_manifest_entry_after_upload(
         state_path=tmp_path / "state.db",
         service_user=TEST_SERVICE_USER,
         secret_key=TEST_SECRET_KEY,
-        image_root=image_root,
     )
 
     with TestClient(fresh_app, follow_redirects=False) as c:
@@ -2329,112 +2456,6 @@ def test_ui_images_renders(client: TestClient) -> None:
     # v0.40: catalog page renders even with no entries; no fixture-
     # seeded local file gets surfaced (bty-web is out of the bytes
     # path).
-
-
-# ---------- /ui/settings/tftp-control --------------------------------------
-
-
-def test_ui_settings_tftp_control_requires_auth(client: TestClient) -> None:
-    """Unauthed POST bounces to /ui/login like the rest of the UI;
-    no TFTP daemon action is taken."""
-    r = client.post("/ui/settings/tftp-control", data={"action": "restart"})
-    assert r.status_code == 303
-    assert r.headers["location"] == "/ui/login"
-
-
-def test_ui_settings_tftp_control_success_renders_green_flash(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """``control_tftp`` returning cleanly produces a 200 with a
-    success flash on the Netboot page (the TFTP daemon panel
-    lives under /ui/netboot now; the POST URL is unchanged for
-    backwards compat but the response is the boot template,
-    not settings). The handler also records a
-    ``netboot.tftp.controlled`` event."""
-    from bty.web import _sysconfig
-
-    seen: list[str] = []
-    monkeypatch.setattr(_sysconfig, "control_tftp", lambda action: seen.append(action))
-    _login(client)
-    r = client.post("/ui/settings/tftp-control", data={"action": "restart"})
-    assert r.status_code == 200
-    assert seen == ["restart"]
-    # Green flash on the rendered Netboot page.
-    body = r.text
-    assert "alert-success" in body
-    assert "Restarted TFTP" in body
-    # Page-level marker: the netboot artifact filename only renders
-    # on /ui/netboot, not on /ui/settings -- proves the response came
-    # from _render_netboot_page.
-    assert ARTIFACT_NAMES[0] in body
-    # Event recorded.
-    events = client.get(
-        "/events",
-        params={"subject_kind": "netboot", "subject_id": "tftp"},
-        cookies=AUTH,
-    ).json()["events"]
-    assert any(e["kind"] == "netboot.tftp.controlled" for e in events)
-
-
-def test_ui_settings_tftp_control_failure_renders_red_flash_and_logs_event(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A ``SysConfigError`` from the helper bounces back to the
-    Netboot page (the TFTP panel's home now) with a red flash
-    AND a ``netboot.tftp.control.failed`` event so the operator
-    sees the systemctl exit code in the audit log without
-    having to ssh in."""
-    from bty.web import _sysconfig
-
-    def _raise(action: str) -> None:
-        raise _sysconfig.SysConfigError("dnsmasq.service is masked")
-
-    monkeypatch.setattr(_sysconfig, "control_tftp", _raise)
-    _login(client)
-    r = client.post("/ui/settings/tftp-control", data={"action": "start"})
-    assert r.status_code == 200
-    body = r.text
-    assert "alert-danger" in body
-    assert "dnsmasq.service is masked" in body
-    events = client.get(
-        "/events",
-        params={"subject_kind": "netboot", "subject_id": "tftp"},
-        cookies=AUTH,
-    ).json()["events"]
-    failed = [e for e in events if e["kind"] == "netboot.tftp.control.failed"]
-    assert len(failed) == 1
-    assert failed[0]["details"]["action"] == "start"
-
-
-def test_ui_settings_tftp_control_unknown_action_surfaces_clear_error(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Bad ``action`` value (typo from a hand-crafted form post or
-    a stale page) hits the allowlist check in ``control_tftp`` and
-    renders the failure on the settings page."""
-    # No monkeypatch needed for this path -- ``control_tftp`` raises
-    # before reaching subprocess.
-    _login(client)
-    r = client.post("/ui/settings/tftp-control", data={"action": "explode"})
-    assert r.status_code == 200
-    assert "alert-danger" in r.text
-    assert "unknown action" in r.text
-
-
-def test_ui_settings_tftp_control_empty_action_surfaces_clear_error(
-    client: TestClient,
-) -> None:
-    """Form posted without an action field: the handler still
-    renders cleanly and the operator sees a "no action specified"
-    flash instead of a 500."""
-    _login(client)
-    r = client.post("/ui/settings/tftp-control", data={})
-    assert r.status_code == 200
-    assert "alert-danger" in r.text
-    assert "no action specified" in r.text
 
 
 # ---------- /ui/netboot/fetch-release ------------------------------------------
@@ -2758,17 +2779,12 @@ def test_layout_opens_shared_worker_events_source(client: TestClient) -> None:
 def test_polling_pages_listen_for_sse_events(client: TestClient) -> None:
     """Each worker page listens for the shared CustomEvent (instead of
     opening its own EventSource) AND filters by kind so it only
-    re-fetches when relevant. (v0.40: /ui/hashing went away with
-    HashManager.)"""
+    re-fetches when relevant. v0.41.2+: Backups + Netboot are the
+    surviving polling pages; /ui/downloads and /ui/hashing are gone."""
     _login(client)
 
     backups = client.get("/ui/backups").text
     assert 'e.detail.kind === "backup"' in backups
-
-    downloads = client.get("/ui/downloads").text
-    # Downloads tracks both kinds.
-    assert 'e.detail.kind === "download"' in downloads
-    assert 'e.detail.kind === "release"' in downloads
 
     netboot = client.get("/ui/netboot").text
     assert 'e.detail.kind === "release"' in netboot

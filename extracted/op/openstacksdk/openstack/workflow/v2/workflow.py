@@ -52,7 +52,11 @@ class Workflow(resource.Resource):
     #: The time at which the workflow was created
     updated_at = resource.Body("updated_at")
 
-    def _request_kwargs(self, prepend_key=True, base_path=None):
+    def _request_kwargs(
+        self,
+        prepend_key: bool = True,
+        base_path: str | None = None,
+    ) -> dict[str, Any]:
         request = self._prepare_request(
             requires_id=False, prepend_key=prepend_key, base_path=base_path
         )
@@ -68,15 +72,15 @@ class Workflow(resource.Resource):
         request.headers.update(headers)
         return dict(url=uri, json=None, headers=request.headers, **kwargs)
 
+    # TODO(stephenfin): Migrate to _transform_create_request once _Request
+    # gains a 'data' field for non-JSON request bodies. Currently the override
+    # sends the workflow definition as text/plain via data=self.definition with
+    # json=None, which cannot be expressed through the standard request object.
     def create(
         self,
         session: adapter.Adapter,
         prepend_key: bool = True,
         base_path: str | None = None,
-        *,
-        resource_request_key: str | None = None,
-        resource_response_key: str | None = None,
-        microversion: str | None = None,
         **params: Any,
     ) -> Self:
         kwargs = self._request_kwargs(
@@ -88,18 +92,18 @@ class Workflow(resource.Resource):
 
     def commit(
         self,
-        session,
-        prepend_key=True,
-        has_body=True,
-        retry_on_conflict=None,
-        base_path=None,
+        session: adapter.Adapter,
+        prepend_key: bool = True,
+        has_body: bool = True,
+        retry_on_conflict: bool | None = None,
+        base_path: str | None = None,
         *,
-        microversion=None,
-        **kwargs,
-    ):
-        kwargs = self._request_kwargs(
+        microversion: str | None = None,
+        **kwargs: Any,
+    ) -> Self:
+        request_kwargs = self._request_kwargs(
             prepend_key=prepend_key, base_path=base_path
         )
-        response = session.put(**kwargs)
+        response = session.put(**request_kwargs)
         self._translate_response(response, has_body=False)
         return self

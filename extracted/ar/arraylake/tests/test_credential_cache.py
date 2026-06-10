@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 import threading
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -13,9 +15,10 @@ from arraylake._credential_cache import (
     CredentialCacheKey,
     clear,
     get_or_refresh,
+    populate,
 )
 from arraylake.asyn import asyncio_run
-from arraylake.types import GSCredentials, S3Credentials
+from arraylake.types import BucketResponse, GSCredentials, S3Credentials, VirtualChunkCredentials
 
 
 def _key(identifier: str = "repo-a", auth_key: int = 1) -> CredentialCacheKey:
@@ -36,13 +39,6 @@ def _creds(remaining: timedelta | None = timedelta(hours=1)) -> S3Credentials:
         aws_session_token="token",
         expiration=datetime.now(UTC) + remaining if remaining is not None else None,
     )
-
-
-@pytest.fixture(autouse=True)
-def _reset_cache():
-    clear()
-    yield
-    clear()
 
 
 def test_validity_boundary():
@@ -181,6 +177,45 @@ def test_fetcher_exception_does_not_poison_cache():
     assert attempts == 2
 
 
+def test_populate_serves_subsequent_lookup_without_fetch():
+    calls = 0
+
+    async def fetch() -> S3Credentials:
+        nonlocal calls
+        calls += 1
+        return _creds()
+
+    async def body() -> None:
+        populate(_key(), _creds())
+        creds = await get_or_refresh(_key(), fetch)
+        assert creds.aws_access_key_id == "AKIA"
+
+    asyncio_run(body())
+    assert calls == 0
+
+
+def test_populate_skips_expired_creds():
+    populate(_key(), _creds(remaining=timedelta(seconds=-5)))
+    calls = 0
+
+    async def fetch() -> S3Credentials:
+        nonlocal calls
+        calls += 1
+        return _creds()
+
+    asyncio_run(get_or_refresh(_key(), fetch))
+    assert calls == 1
+
+
+def test_populate_does_not_clobber_fresher_entry():
+    async def fetch() -> S3Credentials:
+        return _creds(remaining=timedelta(hours=2))
+
+    asyncio_run(get_or_refresh(_key(), fetch))
+    populate(_key(), _creds(remaining=timedelta(seconds=45)))
+    assert _credential_cache._CACHE[_key()].expires_at > datetime.now(UTC) + timedelta(hours=1)
+
+
 def test_clear_drops_entries():
     calls = 0
 
@@ -198,6 +233,67 @@ def test_clear_drops_entries():
 
     asyncio_run(body())
     assert calls == 2
+
+
+VCC_PREFIX_A = "s3://provider-bucket/a/"
+VCC_PREFIX_B = "s3://provider-bucket/b/"
+
+
+def _vcc(access_key: str, expiry: datetime) -> VirtualChunkCredentials:
+    return VirtualChunkCredentials(
+        credentials=S3Credentials(
+            aws_access_key_id=access_key, aws_secret_access_key="secret", aws_session_token="token", expiration=expiry
+        ),
+        org="org-a",
+        bucket_nickname="provider-bucket",
+        platform="s3",
+    )
+
+
+def _open_response(expiry: datetime) -> SimpleNamespace:
+    """A minimal stand-in for OpenRepoResponse with repo + two VCC credentials."""
+    return SimpleNamespace(
+        repo_bucket=BucketResponse(
+            id=uuid4(), platform="s3", nickname="repo-bucket", name="repo-bucket", is_default=False, extra_config={}
+        ),
+        repo_credentials=_creds().model_copy(update={"aws_access_key_id": "REPOKEY", "expiration": expiry}),
+        virtual_chunk_credentials={VCC_PREFIX_A: _vcc("AKEY", expiry), VCC_PREFIX_B: _vcc("BKEY", expiry)},
+    )
+
+
+def test_vcc_credentials_are_process_cached():
+    """Two back-to-back refreshes of the same virtual chunk container hit /open once."""
+    client = AsyncClient("https://test.example", token="ema_fake_token")
+    expiry = datetime.now(UTC) + timedelta(hours=1)
+    mstore = MagicMock()
+    mstore.open_repo = AsyncMock(return_value=_open_response(expiry))
+
+    with patch.object(AsyncClient, "_metastore_for_org", return_value=mstore):
+        client._get_icechunk_s3_vcc_credentials_refresh_function("org-a", "repo-a", VCC_PREFIX_A, "s3")
+        client._get_icechunk_s3_vcc_credentials_refresh_function("org-a", "repo-a", VCC_PREFIX_A, "s3")
+
+    assert mstore.open_repo.await_count == 1
+
+
+def test_single_open_refreshes_repo_and_all_vccs():
+    """One /open seeds the repo bucket and every virtual chunk container, so refreshing the
+    other VCC and the repo bucket afterwards is served from cache without another /open."""
+    client = AsyncClient("https://test.example", token="ema_fake_token")
+    expiry = datetime.now(UTC) + timedelta(hours=1)
+    mstore = MagicMock()
+    mstore.open_repo = AsyncMock(return_value=_open_response(expiry))
+
+    with patch.object(AsyncClient, "_metastore_for_org", return_value=mstore):
+        # First refresh of one VCC triggers the single /open.
+        a = client._get_icechunk_s3_vcc_credentials_refresh_function("org-a", "repo-a", VCC_PREFIX_A, "s3")
+        # The other VCC and the repo bucket are now served from the cache it seeded.
+        b = client._get_icechunk_s3_vcc_credentials_refresh_function("org-a", "repo-a", VCC_PREFIX_B, "s3")
+        repo = client._get_icechunk_s3_credentials_refresh_function_for_repo("org-a", "repo-a")
+
+    assert mstore.open_repo.await_count == 1
+    assert a.access_key_id == "AKEY"
+    assert b.access_key_id == "BKEY"
+    assert repo.access_key_id == "REPOKEY"
 
 
 def test_delegated_credentials_are_process_cached():

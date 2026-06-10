@@ -187,11 +187,12 @@ def _is_rc(version: semver.Version) -> bool:
 
 def _rc_number(version: semver.Version) -> int:
     """Extract the RC number from an RC version (e.g., rc.3 -> 3)."""
-    if not _is_rc(version):
+    prerelease = version.prerelease
+    if prerelease is None or not prerelease.startswith("rc."):
         raise InvalidVersionError("Version is not a release candidate.")
 
     try:
-        rc_num = int(version.prerelease.split(".", 1)[1])
+        rc_num = int(prerelease.split(".", 1)[1])
     except (IndexError, ValueError) as e:
         raise InvalidVersionError(
             "Release candidate version has an invalid rc suffix."

@@ -143,7 +143,6 @@ class ClientSideWeightedRoundRobin(betterproto2.Message):
     """
     Configuration for slow start mode.
     If this configuration is not set, slow start will not be not enabled.
-    [#not-implemented-hide:]
     """
 
 

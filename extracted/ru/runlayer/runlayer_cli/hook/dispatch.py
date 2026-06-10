@@ -270,21 +270,22 @@ def _check_tool_lifecycle(
 
 
 def _resolve_enforcement() -> bool:
-    """Strict-on enforcement gate.
+    """Enforcement gate.
 
     Frozen ``aiwatch hook`` binary (MDM-deployed): read the ``Enforcement`` bool
     from MDM-managed config (``com.runlayer.aiwatch`` plist on macOS,
     ``HKLM\\Software\\Runlayer\\AIWatch`` on Windows). Absent / non-bool ->
-    enforce.
+    monitor (forward events, never block); set ``Enforcement=true`` to block.
 
     Unfrozen ``python -m runlayer_cli.hook`` (CLI / pip / dev): preserve the
     legacy ``sys.argv[0]``-adjacent ``runlayer-config.json`` lookup so the
-    ``runlayer setup hooks --install`` bash-shim path keeps working unchanged.
+    ``runlayer setup hooks --install`` bash-shim path keeps working unchanged
+    (still enforce-by-default there).
     """
     if getattr(sys, "frozen", False):
         from runlayer_cli.mdm_config import read_managed_config  # noqa: PLC0415
 
-        return read_managed_config().get("enforcement", True)
+        return read_managed_config().get("enforcement", False)
 
     config_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
     config_file = os.path.join(config_dir, "runlayer-config.json")

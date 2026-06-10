@@ -34,6 +34,7 @@ build-backend = "hatchling.build"
 [tool.hatch]
 version.source = "uv-dynamic-versioning"
 build.hooks.custom = {}
+build.targets.wheel.force-include."CHANGELOG.md" = "reflex_enterprise/CHANGELOG.md"
 
 [tool.uv-dynamic-versioning]
 vcs = "git"

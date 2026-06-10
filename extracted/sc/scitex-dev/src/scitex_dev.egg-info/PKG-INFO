@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scitex-dev
-Version: 0.17.7
+Version: 0.17.10
 Summary: Shared developer utilities for the SciTeX ecosystem
 Author-email: Yusuke Watanabe <ywatanabe@scitex.ai>
 License-Expression: AGPL-3.0-only
@@ -13,26 +13,23 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: scitex-config>=0.3.0
 Requires-Dist: scitex-logging>=0.1.0
-Requires-Dist: newb>=0.3.0
+Requires-Dist: click>=8.0.0
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: tomli>=2.0; python_version < "3.11"
 Provides-Extra: cli
-Requires-Dist: click>=8.0.0; extra == "cli"
 Provides-Extra: mcp
 Requires-Dist: fastmcp>=2.0.0; extra == "mcp"
+Provides-Extra: skills
+Requires-Dist: newb>=0.3.0; extra == "skills"
 Provides-Extra: dev
-Requires-Dist: click>=8.0.0; extra == "dev"
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
 Requires-Dist: fastmcp>=2.0.0; extra == "dev"
-Requires-Dist: pyyaml>=6.0; extra == "dev"
 Requires-Dist: textual>=0.50.0; extra == "dev"
+Requires-Dist: newb>=0.3.0; extra == "dev"
 Requires-Dist: tomlkit>=0.12.0; extra == "dev"
 Provides-Extra: cli-audit
-Requires-Dist: click>=8.0.0; extra == "cli-audit"
-Requires-Dist: pyyaml>=6.0; extra == "cli-audit"
 Provides-Extra: umbrella-regen
-Requires-Dist: click>=8.0.0; extra == "umbrella-regen"
 Requires-Dist: tomlkit>=0.12.0; extra == "umbrella-regen"
 Provides-Extra: tui
 Requires-Dist: textual>=0.50.0; extra == "tui"
@@ -43,11 +40,10 @@ Requires-Dist: myst-parser>=2.0; extra == "docs"
 Requires-Dist: sphinx-copybutton>=0.5; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints>=1.25; extra == "docs"
 Provides-Extra: all
-Requires-Dist: scitex-dev[cli]; extra == "all"
 Requires-Dist: scitex-dev[mcp]; extra == "all"
+Requires-Dist: scitex-dev[skills]; extra == "all"
 Requires-Dist: scitex-dev[dev]; extra == "all"
 Requires-Dist: scitex-dev[docs]; extra == "all"
-Requires-Dist: scitex-dev[cli-audit]; extra == "all"
 Requires-Dist: scitex-dev[umbrella-regen]; extra == "all"
 Requires-Dist: scitex-dev[tui]; extra == "all"
 Dynamic: license-file

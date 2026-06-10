@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openapi-generator-cli
-Version: 7.22.0
+Version: 7.23.0
 Summary: CLI for openapi generator
 Project-URL: Documentation, https://github.com/OpenAPITools/openapi-generator#3---usage
 Project-URL: Homepage, https://openapi-generator.tech
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Typing :: Typed
 Requires-Python: <4,>=3.10
 Provides-Extra: jdk4py
-Requires-Dist: jdk4py<22,>=21.0.4.1; (python_version >= '3.10') and extra == 'jdk4py'
+Requires-Dist: jdk4py<26,>=21.0.4.1; (python_version >= '3.10') and extra == 'jdk4py'
 Description-Content-Type: text/markdown
 
 # OpenAPI Generator in Package Installer for Python (PIP)

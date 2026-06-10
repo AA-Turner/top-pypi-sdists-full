@@ -644,6 +644,25 @@ def test_promote_preserves_registry_overrides():
 
 
 @pytest.mark.unit
+def test_promote_ga_progressive_rollout_fails():
+    """Promote is only defined for release candidates."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        extra = (
+            "  releases:\n"
+            "    rolloutConfiguration:\n"
+            "      enableProgressiveRollout: true\n"
+        )
+        _make_connector(tmpdir, version="2.4.0", extra_metadata=extra)
+
+        with pytest.raises(InvalidVersionError, match="not a release candidate"):
+            bump_connector_version(
+                repo_path=tmpdir,
+                connector_name="source-test",
+                bump_type="promote",
+            )
+
+
+@pytest.mark.unit
 def test_rc_bump_preserves_metadata_formatting():
     """RC bump should only change relevant fields, not reformat the entire file.
 

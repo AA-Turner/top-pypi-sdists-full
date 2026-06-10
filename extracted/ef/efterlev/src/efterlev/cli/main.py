@@ -3599,6 +3599,7 @@ def agent_remediate(
         RemediationAgent,
         RemediationAgentInput,
         count_duplicate_classification_runs,
+        in_scope_evidence,
         reconstruct_classifications_from_store,
     )
     from efterlev.agents.cost_summary import summarize_run_cost
@@ -3674,7 +3675,15 @@ def agent_remediate(
                 typer.echo(f"{ksi} is classified as `not_applicable`. No remediation needed.")
                 raise typer.Exit(code=0)
 
-            all_evidence = [Evidence.model_validate(p) for _rid, p in store.iter_evidence()]
+            # Boundary enforcement at the agent-input layer (v0.1.222): same
+            # filter as `agent gap` (v0.1.219). Without it, out-of-boundary
+            # evidence attributed to the target KSI flows into the prompt AND
+            # the excluded `.tf` source files below get read and diffed — the
+            # agent could propose a remediation against a file the user
+            # explicitly scoped out. No-op when no boundary is declared.
+            all_evidence = in_scope_evidence(
+                [Evidence.model_validate(p) for _rid, p in store.iter_evidence()]
+            )
             ksi_evidence = [ev for ev in all_evidence if ksi in ev.ksis_evidenced]
 
             # Manifest-sourced Evidence is human-signed procedural attestation;
@@ -5628,14 +5637,27 @@ def report_run(
             "POA&M remains program-current until RFC-0012 standardizes."
         ),
     ),
+    with_oscal: bool = typer.Option(
+        False,
+        "--with-oscal",
+        help=(
+            "Also emit OSCAL 1.0.4 POA&M + Component-Definition artifacts. "
+            "OFF by default since v0.1.223: FedRAMP 20x does not require "
+            "OSCAL (the ADS standard is format-agnostic; no 20x pilot "
+            "participant used OSCAL; FedRAMP recommends implementing from "
+            "the FRMR JSON, which Efterlev produces natively). OSCAL export "
+            "remains available — here and via `efterlev oscal export` — for "
+            "Rev5-ecosystem / GRC-tool interop."
+        ),
+    ),
     skip_oscal: bool = typer.Option(
         False,
         "--skip-oscal",
+        hidden=True,
         help=(
-            "Skip the OSCAL POA&M + Component-Definition emit stages. OSCAL "
-            "graduated to default-on at v0.1.111 alongside the markdown "
-            "POA&M; pass this flag to opt out (e.g., for fast iteration loops "
-            "where OSCAL output isn't needed)."
+            "Deprecated no-op (v0.1.223): OSCAL stages no longer run by "
+            "default, so there is nothing to skip. Use --with-oscal to "
+            "opt in. This flag will be removed in a future release."
         ),
     ),
     skip_inspector: bool = typer.Option(
@@ -5803,11 +5825,24 @@ def report_run(
             # which remains program-current until the RFC standardizes.
             # `--format both` (the command default) emits JSON + markdown.
             stages.append(("vdr", ["vdr", "--target", target_str]))
-        if not skip_oscal:
-            # v0.1.111 doc graduation: OSCAL POA&M + CD ship by default.
-            # Both are deterministic (no LLM cost) and complete in <1s
-            # against typical fixtures. Customers who don't need OSCAL
-            # can pass --skip-oscal.
+        if skip_oscal:
+            # Deprecated at v0.1.223 (OSCAL flipped default-on -> opt-in,
+            # so skipping is the default). Warn-and-ignore mirrors the
+            # --allow-cfn deprecation pattern (v0.1.99 -> v0.1.102).
+            typer.echo(
+                "warning: --skip-oscal is deprecated and a no-op since "
+                "v0.1.223 — OSCAL stages no longer run by default. Use "
+                "--with-oscal to opt in. The flag will be removed in a "
+                "future release.",
+                err=True,
+            )
+        if with_oscal:
+            # Opt-in since v0.1.223 (default-on v0.1.111 -> v0.1.222).
+            # FedRAMP 20x does not require OSCAL: the ADS standard is
+            # format-agnostic, no 20x pilot participant used OSCAL, and
+            # FedRAMP recommends implementing from the FRMR JSON. The
+            # export stays for Rev5-ecosystem / GRC interop. DECISIONS
+            # 2026-06-09. Both stages are deterministic (no LLM cost).
             stages.append(
                 ("oscal poam", ["oscal", "export", "--kind", "poam", "--target", target_str])
             )

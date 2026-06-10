@@ -21,6 +21,8 @@ class TlsInspector(betterproto2.Message):
     [#protodoc-title: TLS Inspector Filter]
     Allows detecting whether the transport appears to be TLS or plaintext.
     [#extension: envoy.filters.listener.tls_inspector]
+
+    [#next-free-field: 6]
     """
 
     enable_ja3_fingerprinting: "bool | None" = betterproto2.field(
@@ -72,6 +74,19 @@ class TlsInspector(betterproto2.Message):
     Setting this to true will cause connections to be terminated and the ``client_hello_too_large``
     counter to be incremented if the ClientHello message is over implementation defined limit
     (currently 16Kb).
+    """
+
+    max_client_hello_size: "int | None" = betterproto2.field(
+        5,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ______google__protobuf__.UInt32Value,
+        optional=True,
+    )
+    """
+    The maximum size in bytes of the ClientHello that the tls_inspector will
+    process. If the ClientHello is larger than this size, the tls_inspector
+    will stop processing and indicate failure. If not defined, defaults to
+    16KiB.
     """
 
 

@@ -20,6 +20,14 @@ class _Proxy(modal._object._Object):
 
         In contrast to most other Modal objects, new Proxy objects must be
         provisioned via the Dashboard and cannot be created on the fly from code.
+
+        Args:
+            name: Name of the Proxy in the target environment.
+            environment_name: Environment to resolve the name in; defaults to the active environment.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            A lazy `Proxy` handle.
         """
         ...
 
@@ -41,5 +49,13 @@ class Proxy(modal.object.Object):
 
         In contrast to most other Modal objects, new Proxy objects must be
         provisioned via the Dashboard and cannot be created on the fly from code.
+
+        Args:
+            name: Name of the Proxy in the target environment.
+            environment_name: Environment to resolve the name in; defaults to the active environment.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            A lazy `Proxy` handle.
         """
         ...

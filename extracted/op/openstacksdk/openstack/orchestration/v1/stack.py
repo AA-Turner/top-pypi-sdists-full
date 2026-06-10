@@ -33,6 +33,8 @@ class Stack(resource.Resource):
     allow_commit = True
     allow_delete = True
 
+    create_opts = resource.CreateOpts(request_key=None)
+
     _query_mapping = resource.QueryParameters(
         'action',
         'name',
@@ -117,41 +119,18 @@ class Stack(resource.Resource):
     #: The ID of the user project created for this stack.
     user_project_id = resource.Body('stack_user_project_id')
 
-    def create(
-        self,
-        session: adapter.Adapter,
-        prepend_key: bool = False,
-        base_path: str | None = None,
-        *,
-        resource_request_key: str | None = None,
-        resource_response_key: str | None = None,
-        microversion: str | None = None,
-        **params: Any,
-    ) -> Self:
-        # This overrides the default behavior of resource creation because
-        # heat doesn't accept resource_key in its request.
-        return super().create(
-            session,
-            prepend_key=prepend_key,
-            base_path=base_path,
-            resource_request_key=resource_request_key,
-            resource_response_key=resource_response_key,
-            microversion=microversion,
-            **params,
-        )
-
     def commit(
         self,
-        session,
-        prepend_key=True,
-        has_body=True,
-        retry_on_conflict=None,
-        base_path=None,
+        session: adapter.Adapter,
+        prepend_key: bool = True,
+        has_body: bool = True,
+        retry_on_conflict: bool | None = None,
+        base_path: str | None = None,
         *,
-        microversion=None,
-        preview=False,
-        **kwargs,
-    ):
+        microversion: str | None = None,
+        preview: bool = False,
+        **kwargs: Any,
+    ) -> Self:
         # This overrides the default behavior of resource update because
         # we need to use other endpoint for update preview.
         self._body._dirty.discard("id")
@@ -183,24 +162,24 @@ class Stack(resource.Resource):
         self._translate_response(response, has_body=True)
         return self
 
-    def _action(self, session, body):
+    def _action(self, session: adapter.Adapter, body: dict[str, Any]) -> Any:
         """Perform stack actions"""
         url = utils.urljoin(self.base_path, self._get_id(self), 'actions')
         resp = session.post(url, json=body, microversion=self.microversion)
         exceptions.raise_from_response(resp)
         return resp
 
-    def check(self, session):
+    def check(self, session: adapter.Adapter) -> Any:
         return self._action(session, {'check': ''})
 
-    def abandon(self, session):
+    def abandon(self, session: adapter.Adapter) -> dict[str, Any]:
         url = utils.urljoin(
             self.base_path, self.name, self._get_id(self), 'abandon'
         )
         resp = session.delete(url)
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
-    def export(self, session):
+    def export(self, session: adapter.Adapter) -> dict[str, Any]:
         """Export a stack data
 
         :param session: The session to use for making this request.
@@ -211,9 +190,9 @@ class Stack(resource.Resource):
         )
         resp = session.get(url)
         exceptions.raise_from_response(resp)
-        return resp.json()
+        return resp.json()  # type: ignore[no-any-return]
 
-    def suspend(self, session):
+    def suspend(self, session: adapter.Adapter) -> None:
         """Suspend a stack
 
         :param session: The session to use for making this request
@@ -222,7 +201,7 @@ class Stack(resource.Resource):
         body = {"suspend": None}
         self._action(session, body)
 
-    def resume(self, session):
+    def resume(self, session: adapter.Adapter) -> None:
         """Resume a stack
 
         :param session: The session to use for making this request
@@ -233,15 +212,15 @@ class Stack(resource.Resource):
 
     def fetch(
         self,
-        session,
-        requires_id=True,
-        base_path=None,
-        error_message=None,
-        skip_cache=False,
+        session: adapter.Adapter,
+        requires_id: bool = True,
+        base_path: str | None = None,
+        error_message: str | None = None,
+        skip_cache: bool = False,
         *,
-        resolve_outputs=True,
-        **params,
-    ):
+        resolve_outputs: bool = True,
+        **params: Any,
+    ) -> Self:
         if not self.allow_fetch:
             raise exceptions.MethodNotSupported(self, "fetch")
 
@@ -259,7 +238,7 @@ class Stack(resource.Resource):
         response = session.get(
             request.url, microversion=microversion, skip_cache=skip_cache
         )
-        kwargs = {}
+        kwargs: dict[str, Any] = {}
         if error_message:
             kwargs['error_message'] = error_message
 

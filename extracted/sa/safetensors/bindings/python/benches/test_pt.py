@@ -64,6 +64,18 @@ def test_pt_sf_load_cpu(benchmark):
         assert torch.allclose(v, tv)
 
 
+def test_pt_sf_load_cpu_pread(benchmark):
+    weights = create_gpt2(12)
+    with tempfile.NamedTemporaryFile(delete=False) as f:
+        save_file(weights, f.name)
+        result = benchmark(load_file, f.name, backend="pread")
+    os.unlink(f.name)
+
+    for k, v in weights.items():
+        tv = result[k]
+        assert torch.allclose(v, tv)
+
+
 def test_pt_pt_load_cpu_small(benchmark):
     weights = create_lora(500)
     with tempfile.NamedTemporaryFile(delete=False) as f:
@@ -78,9 +90,23 @@ def test_pt_pt_load_cpu_small(benchmark):
 
 def test_pt_sf_load_cpu_small(benchmark):
     weights = create_lora(500)
+
     with tempfile.NamedTemporaryFile(delete=False) as f:
         save_file(weights, f.name)
         result = benchmark(load_file, f.name)
+    os.unlink(f.name)
+
+    for k, v in weights.items():
+        tv = result[k]
+        assert torch.allclose(v, tv)
+
+
+def test_pt_sf_load_cpu_small_pread(benchmark):
+    weights = create_lora(500)
+
+    with tempfile.NamedTemporaryFile(delete=False) as f:
+        save_file(weights, f.name)
+        result = benchmark(load_file, f.name, backend="pread")
     os.unlink(f.name)
 
     for k, v in weights.items():
@@ -110,6 +136,20 @@ def test_pt_sf_load_gpu(benchmark):
     with tempfile.NamedTemporaryFile(delete=False) as f:
         save_file(weights, f.name)
         result = benchmark(load_file, f.name, device="cuda:0")
+    os.unlink(f.name)
+
+    for k, v in weights.items():
+        v = v.cuda()
+        tv = result[k]
+        assert torch.allclose(v, tv)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="requires cuda")
+def test_pt_sf_load_gpu_pread(benchmark):
+    weights = create_gpt2(12)
+    with tempfile.NamedTemporaryFile(delete=False) as f:
+        save_file(weights, f.name)
+        result = benchmark(load_file, f.name, device="cuda:0", backend="pread")
     os.unlink(f.name)
 
     for k, v in weights.items():
@@ -152,3 +192,45 @@ def test_pt_sf_load_mps(benchmark):
         v = v.to(device="mps")
         tv = result[k]
         assert torch.allclose(v, tv)
+
+
+@pytest.mark.skipif(
+    not hasattr(torch.backends, "mps") or not torch.backends.mps.is_available(),
+    reason="requires mps",
+)
+def test_pt_sf_load_mps_pread(benchmark):
+    # On Apple-silicon MPS, get_tensors() allocates Shared MTLBuffers and
+    # parallel-preads into them, then hands off via DLPack. The `backend`
+    # kwarg selects how bytes are sourced (pread here).
+    weights = create_gpt2(12)
+    with tempfile.NamedTemporaryFile(delete=False) as f:
+        save_file(weights, f.name)
+        result = benchmark(load_file, f.name, device="mps", backend="pread")
+    os.unlink(f.name)
+
+    for k, v in weights.items():
+        v = v.to(device="mps")
+        tv = result[k]
+        assert torch.allclose(v, tv)
+
+
+def test_pt_sf_save_cpu(benchmark):
+    weights = create_gpt2(12)
+
+    filename = "tmp.safetensors"
+
+    # XXX: On some platforms (tested on Linux x86_64 ext4), writing to an already existing file is slower than creating a new one.
+    # On others, such as MacOS (APFS), it's the opposite. To have more consistent benchmarks,
+    # we ensure the file does not exist before each write, which is also closer to real world usage.
+    def setup():
+        try:
+            os.unlink(filename)
+        except Exception:
+            pass
+
+    benchmark.pedantic(
+        save_file, args=(weights, filename), setup=setup, iterations=1, rounds=5
+    )
+
+    # Clean up files
+    os.unlink(filename)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulpcore
-Version: 3.113.0
+Version: 3.114.0
 Summary: Pulp Django Application and Related Modules
 Author-email: Pulp Team <pulp-list@redhat.com>
 License-Expression: GPL-2.0-or-later
@@ -19,7 +19,6 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aiodns<3.7,>=3.3.0
 Requires-Dist: aiofiles<=25.1.0,>=22.1
 Requires-Dist: aiohttp<3.15,>=3.10.10
 Requires-Dist: asyncio-throttle<=1.0.2,>=1.0

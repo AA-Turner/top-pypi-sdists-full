@@ -41,9 +41,22 @@ class ExpressionFilter(betterproto2.Message):
     * ``(connection.mtls && request.headers['x-log-mtls'] == 'true') || request.url_path.contains('v1beta3')``
     """
 
+    cel_config: "_____config__core__v3__.CelExpressionConfig | None" = (
+        betterproto2.field(2, betterproto2.TYPE_MESSAGE, optional=True)
+    )
+    """
+    CEL expression configuration that modifies the evaluation behavior of the ``expression`` field.
+    If specified, string conversion, concatenation, and manipulation functions may be enabled
+    for the filter expression. See :ref:`CelExpressionConfig <envoy_v3_api_msg_config.core.v3.CelExpressionConfig>`
+    for more details.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.access_loggers.filters.cel.v3",
     "ExpressionFilter",
     ExpressionFilter,
 )
+
+
+from ......config.core import v3 as _____config__core__v3__

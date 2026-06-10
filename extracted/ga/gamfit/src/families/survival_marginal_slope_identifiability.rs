@@ -32,13 +32,20 @@ use ndarray::{Array1, Array2, Array3};
 
 use crate::families::custom_family::{FamilyChannelHessian, PenaltyMatrix};
 use crate::families::identifiability_compiler::{
-    AnchorRowEvaluator, BlockOrder, RowHessian, RowJacobianOperator,
+    AnchorRowEvaluator, BlockOrder, RowHessian, RowJacobianOperator, scale_jacobian_by_sqrt_h_with,
 };
 use crate::linalg::faer_ndarray::{FaerEigh, fast_ab};
 use crate::linalg::matrix::{CoefficientTransformOperator, DenseDesignMatrix, DesignMatrix};
 use faer::Side;
 
 const K_SURVIVAL: usize = 4;
+
+/// Threshold below which a coefficient vector is treated as the trivial
+/// (all-zero) pilot point in the drift-detection audit. At β ≈ 0 the
+/// primary-state coupling g vanishes (c ≡ 1), so the frozen pilot W is exact;
+/// any |β_j| above this is "non-trivial" and requires the family scalars to
+/// re-evaluate W(β). The bound is well below any meaningful fitted coefficient.
+const BETA_NONTRIVIAL_ABS_THRESHOLD: f64 = 1e-12;
 
 /// Per-row 4×4 row Hessian for the survival marginal-slope likelihood at a
 /// pilot `β`. The pilot supplies the primary-state vector
@@ -218,8 +225,9 @@ impl FamilyChannelHessian for SurvivalRowHessian {
             family_scalars.and_then(|a| a.downcast_ref::<SurvivalMarginalSlopeFamilyScalars>());
 
         // Determine whether beta is non-trivial (any |β_j| > ε).
-        // Threshold: 1e-12 (well below any meaningful coefficient).
-        let beta_nontrivial = beta.iter().any(|&b| b.abs() > 1e-12);
+        let beta_nontrivial = beta
+            .iter()
+            .any(|&b| b.abs() > BETA_NONTRIVIAL_ABS_THRESHOLD);
 
         match scalars_opt {
             None if beta_nontrivial => {
@@ -281,11 +289,11 @@ impl FamilyChannelHessian for SurvivalRowHessian {
                     let g = sc.g_i[i];
                     let z = sc.z_i[i];
                     // Use unit weight and d=1 (event indicator 1) for the audit path.
-                    // The derivative_guard is small but non-zero; use 1e-6.
+                    // The derivative_guard is the family default (small but non-zero).
                     match crate::families::survival_marginal_slope::row_primary_for_compiler(
                         q0, q1, qd1, g, z, 1.0,  // w = unit weight
                         1.0,  // d = event
-                        1e-6, // derivative_guard
+                        crate::families::survival_marginal_slope::DEFAULT_SURVIVAL_MARGINAL_SLOPE_DERIVATIVE_GUARD,
                         sc.s, // probit_scale from scalars
                     ) {
                         Ok((_nll, _grad, hess)) => {
@@ -431,6 +439,21 @@ impl RowJacobianOperator for TimeBlockOperator {
         }
         out
     }
+    fn scaled_design_by_sqrt_h(&self, h_full: &Array3<f64>) -> Array2<f64> {
+        // Scale straight out of the three compact `(n, p)` channel designs —
+        // the compiler consumes the `(n·K, p)` sqrt(H)-scaled design, so the
+        // dense `(n, p, K)` tensor (3 of its 4 channels held explicitly, the
+        // 4th identically zero) that `evaluate_full()` builds is never needed.
+        // (#738: a capability is not a representation.)
+        let n = self.dq0.nrows();
+        let p = self.dq0.ncols();
+        scale_jacobian_by_sqrt_h_with(n, p, K_SURVIVAL, h_full, |i, a, c| match c {
+            0 => self.dq0[[i, a]],
+            1 => self.dq1[[i, a]],
+            2 => self.dqd1[[i, a]],
+            _ => 0.0,
+        })
+    }
 }
 
 /// Row Jacobian operator for a block whose contribution flows into the
@@ -487,6 +510,18 @@ impl RowJacobianOperator for QChannelBlockOperator {
         }
         out
     }
+    fn scaled_design_by_sqrt_h(&self, h_full: &Array3<f64>) -> Array2<f64> {
+        // q0 and q1 share `dq`; qd1 is `dqd1`; the g channel is identically
+        // zero. Scale directly from the compact `(n, p)` designs, skipping the
+        // dense `(n, p, K)` tensor `evaluate_full()` would build. (#738.)
+        let n = self.dq.nrows();
+        let p = self.dq.ncols();
+        scale_jacobian_by_sqrt_h_with(n, p, K_SURVIVAL, h_full, |i, a, c| match c {
+            0 | 1 => self.dq[[i, a]],
+            2 => self.dqd1[[i, a]],
+            _ => 0.0,
+        })
+    }
 }
 
 /// Row Jacobian operator for the survival logslope block: contribution
@@ -533,6 +568,17 @@ impl RowJacobianOperator for LogslopeBlockOperator {
             }
         }
         out
+    }
+    fn scaled_design_by_sqrt_h(&self, h_full: &Array3<f64>) -> Array2<f64> {
+        // The logslope contribution lives entirely on the g channel (3); the
+        // other three channels are identically zero. Scale directly from the
+        // compact `(n, p)` design, skipping the mostly-zero dense `(n, p, K)`
+        // tensor `evaluate_full()` would build. (#738.)
+        let n = self.dg.nrows();
+        let p = self.dg.ncols();
+        scale_jacobian_by_sqrt_h_with(n, p, K_SURVIVAL, h_full, |i, a, c| {
+            if c == 3 { self.dg[[i, a]] } else { 0.0 }
+        })
     }
 }
 
@@ -644,101 +690,6 @@ pub struct SurvivalParametricCompiled {
     pub drops_by_block: (usize, usize, usize),
 }
 
-/// Survival parametric block designs and penalties after applying the
-/// per-block V reparameterisation matrices from
-/// [`compile_survival_parametric_designs`]. Each design is wrapped via
-/// [`CoefficientTransformOperator`] so the operator interface is
-/// preserved (sparse / lazy inner designs stay sparse / lazy; the V
-/// multiplication is applied lazily per row chunk with an Arc-cached
-/// dense materialisation when affordable).
-///
-/// **Time block**: three designs (entry, exit, derivative_exit) share a
-/// single β, so they each get the same `V_time` applied. Their
-/// penalties are pulled back jointly because the time penalty matrices
-/// are over the shared β coordinate.
-///
-/// **Marginal / logslope**: one design + their respective penalty list,
-/// each independently V-transformed and Vᵀ-S-V-pulled-back.
-///
-/// The construction site replaces the raw `marginal_design`,
-/// `logslope_design`, and time-block triplet with these compiled
-/// variants, and uses the pulled-back penalty matrices in the
-/// `ParameterBlockSpec` list. The family's captured
-/// `marginal_design` / `logslope_design` / time triplet then carry the
-/// compiled widths too — so `evaluate_blockwise_exact_newton`'s
-/// `syr_row_into_view` / `row_outer_into_view` assertions remain
-/// width-consistent without further family-level changes.
-pub struct CompiledSurvivalDesigns {
-    pub time_design_entry: DesignMatrix,
-    pub time_design_exit: DesignMatrix,
-    pub time_design_derivative_exit: DesignMatrix,
-    pub marginal_design: DesignMatrix,
-    pub logslope_design: DesignMatrix,
-    pub time_penalties: Vec<PenaltyMatrix>,
-    pub marginal_penalties: Vec<PenaltyMatrix>,
-    pub logslope_penalties: Vec<PenaltyMatrix>,
-}
-
-/// Apply `compiled.v_*` to the raw survival parametric designs and pull
-/// back the per-block penalties as `Vᵀ S V`. Returns
-/// [`CompiledSurvivalDesigns`] ready to thread through
-/// `make_family` / `build_blocks` at the SMGS construction site.
-///
-/// Sparse designs are wrapped through `CoefficientTransformOperator`,
-/// which composes lazily by default and materialises the `(n × p_kept)`
-/// dense block on first hot use (gated by
-/// `CoefficientTransformOperator::MATERIALIZE_MAX_BYTES = 1 GiB`).
-/// For biobank-scale survival shapes (`n ≈ 320 k`, `p_kept ≤ 50`) this
-/// is ≤ 130 MiB — well within budget and reused across PIRLS / outer
-/// iterations.
-///
-/// The penalty pullback `Vᵀ S V` is exact for selection-T (V is a
-/// column selector, so Vᵀ S V is just the slice of S to the kept
-/// rows / cols) and for rotation-V (V is a general orthogonal-
-/// complement basis from the compiler's eigendecomposition).
-pub fn apply_survival_parametric_compile_to_designs(
-    compiled: &SurvivalParametricCompiled,
-    time_design_entry: DesignMatrix,
-    time_design_exit: DesignMatrix,
-    time_design_derivative_exit: DesignMatrix,
-    marginal_design: DesignMatrix,
-    logslope_design: DesignMatrix,
-    time_penalties: &[PenaltyMatrix],
-    marginal_penalties: &[PenaltyMatrix],
-    logslope_penalties: &[PenaltyMatrix],
-) -> Result<CompiledSurvivalDesigns, String> {
-    Ok(CompiledSurvivalDesigns {
-        time_design_entry: wrap_design_with_transform(
-            time_design_entry,
-            &compiled.v_time,
-            "survival time block design_entry",
-        )?,
-        time_design_exit: wrap_design_with_transform(
-            time_design_exit,
-            &compiled.v_time,
-            "survival time block design_exit",
-        )?,
-        time_design_derivative_exit: wrap_design_with_transform(
-            time_design_derivative_exit,
-            &compiled.v_time,
-            "survival time block design_derivative_exit",
-        )?,
-        marginal_design: wrap_design_with_transform(
-            marginal_design,
-            &compiled.v_marginal,
-            "survival marginal block design",
-        )?,
-        logslope_design: wrap_design_with_transform(
-            logslope_design,
-            &compiled.v_logslope,
-            "survival logslope block design",
-        )?,
-        time_penalties: pull_back_penalties(time_penalties, &compiled.v_time),
-        marginal_penalties: pull_back_penalties(marginal_penalties, &compiled.v_marginal),
-        logslope_penalties: pull_back_penalties(logslope_penalties, &compiled.v_logslope),
-    })
-}
-
 fn wrap_design_with_transform(
     raw: DesignMatrix,
     v: &Array2<f64>,
@@ -765,35 +716,6 @@ fn wrap_design_with_transform(
     let op = CoefficientTransformOperator::new(inner_dense, v.clone())
         .map_err(|reason| format!("{context}: CoefficientTransformOperator::new: {reason}"))?;
     Ok(DesignMatrix::Dense(DenseDesignMatrix::from(Arc::new(op))))
-}
-
-fn pull_back_penalties(penalties: &[PenaltyMatrix], v: &Array2<f64>) -> Vec<PenaltyMatrix> {
-    penalties
-        .iter()
-        .map(|p| {
-            let label = p.precision_label().map(|s| s.to_string());
-            let s_dense = p.as_dense_cow();
-            // Vᵀ S V. With V as a selection matrix this collapses to
-            // S[kept, kept]; with V as a rotation (general orthogonal
-            // complement) this is the full pullback. Either way the
-            // result is (p_kept × p_kept) symmetric (modulo numerical
-            // noise — symmetrise explicitly).
-            let s_view = s_dense.view();
-            let s_v = fast_ab(&s_view.to_owned(), v);
-            let vt_s_v = fast_ab(&v.t().to_owned(), &s_v);
-            let mut sym = Array2::<f64>::zeros(vt_s_v.dim());
-            for i in 0..sym.nrows() {
-                for j in 0..sym.ncols() {
-                    sym[[i, j]] = 0.5 * (vt_s_v[[i, j]] + vt_s_v[[j, i]]);
-                }
-            }
-            let base = PenaltyMatrix::Dense(sym);
-            match label {
-                Some(lbl) => base.with_precision_label(lbl),
-                None => base,
-            }
-        })
-        .collect()
 }
 
 /// Per-term V reparameterisation matrices for the three parametric
@@ -1355,10 +1277,9 @@ pub fn pull_back_penalty_through_t(
 /// coordinate `θ_b`. The cross-block residualisation `R_{a→b}` carried
 /// in T's strict-upper triangle is absorbed into the *design* columns
 /// (the residualised emitted design `C_b V_b − A_{<b} R_b`), not into
-/// the penalty — exactly as the sibling per-block compile path
-/// [`apply_survival_parametric_compile_to_designs`] does via
-/// [`pull_back_penalties`]. Pulling the penalty back through the full
-/// joint T instead would yield a `(p_compiled × p_compiled)` dense
+/// the penalty — exactly as the VM-exact compile-map path
+/// [`apply_compiled_map_to_designs`] does. Pulling the penalty back
+/// through the full joint T instead would yield a `(p_compiled × p_compiled)` dense
 /// matrix that cannot live in a single block's `penalties` slot and
 /// would violate the `p_b × p_b` block-spec validation.
 pub fn pull_back_blockwise_penalty_through_block_v(
@@ -1499,6 +1420,67 @@ pub fn apply_per_term_survival_parametric_compile_to_designs(
         v_marginal,
         v_logslope,
     })
+}
+
+/// Assemble a 3-block [`CompiledMap`] (time, marginal, logslope) from a
+/// [`SurvivalParametricCompiledPerTerm`] produced by the full 4×4 row-Hessian
+/// driver [`compile_survival_parametric_designs_per_term`].
+///
+/// The full global triangular `T` is built from the per-term `V`/`R` blocks
+/// (diagonal `V_b`, strict-upper `−R_{a→b}` — identical to the matrix the
+/// result-time lift [`SmgsLiftViaT::from_v_and_r`] uses), then partitioned
+/// into the three *block* ranges (raw = summed per-term raw widths, compiled =
+/// summed per-term kept widths). The resulting `CompiledMap` is interchangeable
+/// with one from
+/// [`crate::families::identifiability_compiler::compile_from_raw_grams`], so the
+/// existing [`apply_compiled_map_to_designs`] +
+/// [`SmgsLiftViaT::from_compiled_map`] machinery consumes it unchanged.
+///
+/// This is the seam that lets the survival closed-form fast path engage on the
+/// *correct* identifiable quotient: the cheap η₁-only rawstack metric can
+/// falsely collapse a whole channel (marginal/logslope share a PC surface in
+/// the η₁ row curvature), but the full survival row Hessian is 4×4 in
+/// `(q0, q1, qd1, g)` and chains differently into each block, so it keeps the
+/// channels distinct when no *true* alias exists. The reduced basis it emits
+/// goes to Newton in place of the rank-deficient raw basis.
+pub fn compiled_map_from_per_term(
+    compiled: &SurvivalParametricCompiledPerTerm,
+) -> crate::families::identifiability_compiler::CompiledMap {
+    // Per-term V's and R's in global compile order: time terms, then marginal,
+    // then logslope — exactly the order `r_lw_per_term` is stored in.
+    let mut v_all: Vec<Array2<f64>> = Vec::new();
+    v_all.extend(compiled.v_time_per_term.iter().cloned());
+    v_all.extend(compiled.v_marginal_per_term.iter().cloned());
+    v_all.extend(compiled.v_logslope_per_term.iter().cloned());
+
+    let t_full = build_full_t_matrix(&v_all, &compiled.r_lw_per_term);
+
+    // Per-block raw / compiled widths = summed per-term widths within the block.
+    let raw_w = |terms: &[Array2<f64>]| -> usize { terms.iter().map(|v| v.nrows()).sum() };
+    let kept_w = |terms: &[Array2<f64>]| -> usize { terms.iter().map(|v| v.ncols()).sum() };
+    let raw_time = raw_w(&compiled.v_time_per_term);
+    let raw_marg = raw_w(&compiled.v_marginal_per_term);
+    let raw_log = raw_w(&compiled.v_logslope_per_term);
+    let kept_time = kept_w(&compiled.v_time_per_term);
+    let kept_marg = kept_w(&compiled.v_marginal_per_term);
+    let kept_log = kept_w(&compiled.v_logslope_per_term);
+
+    let raw_block_ranges = vec![
+        0..raw_time,
+        raw_time..(raw_time + raw_marg),
+        (raw_time + raw_marg)..(raw_time + raw_marg + raw_log),
+    ];
+    let compiled_block_ranges = vec![
+        0..kept_time,
+        kept_time..(kept_time + kept_marg),
+        (kept_time + kept_marg)..(kept_time + kept_marg + kept_log),
+    ];
+
+    crate::families::identifiability_compiler::CompiledMap {
+        raw_from_compiled: t_full,
+        compiled_block_ranges,
+        raw_block_ranges,
+    }
 }
 
 /// Per-block V matrices for the SMGS result-time β lift. The block
@@ -1827,9 +1809,7 @@ pub fn apply_compiled_map_to_designs(
     // penalty: in raw coords the model penalises `γ_bᵀ S_b γ_b` on block
     // b's own coefficients, and under the residualised reparameterisation
     // the cross-block carry `R_{a→b}` lives entirely in the *design*
-    // columns (`C_b V_b − A_{<b} R_b`), not in the penalty. This matches
-    // the sibling per-block compile path
-    // (`apply_survival_parametric_compile_to_designs` → `pull_back_penalties`).
+    // columns (`C_b V_b − A_{<b} R_b`), not in the penalty.
     //
     // Pulling penalties back through the full joint triangular T instead
     // (`pull_back_penalty_through_t`) yields a `(p_compiled × p_compiled)`
@@ -2739,146 +2719,6 @@ mod tests {
         assert!(validate_partition(&[0..5], 5, "test").is_ok());
     }
 
-    /// Phase-4b application step: take the V matrices from
-    /// `compile_survival_parametric_designs` and apply them to raw
-    /// designs + penalties via
-    /// `apply_survival_parametric_compile_to_designs`. Verify the
-    /// produced `CompiledSurvivalDesigns` has consistent widths
-    /// across the time triplet, the marginal/logslope singletons,
-    /// and their pulled-back penalty matrices.
-    #[test]
-    fn apply_compile_produces_width_consistent_designs_and_penalties() {
-        use crate::families::custom_family::PenaltyMatrix;
-        use crate::linalg::matrix::DenseDesignMatrix;
-
-        let n = 16;
-        let p_time = 3;
-        let p_marginal = 3;
-        let p_logslope = 2;
-        let x: Vec<f64> = (0..n)
-            .map(|i| -1.0 + 2.0 * (i as f64) / (n as f64 - 1.0))
-            .collect();
-        let mut time_dq0 = Array2::<f64>::zeros((n, p_time));
-        let mut time_dq1 = Array2::<f64>::zeros((n, p_time));
-        let mut time_dqd1 = Array2::<f64>::zeros((n, p_time));
-        let mut marg_dq = Array2::<f64>::zeros((n, p_marginal));
-        let marg_dqd1 = Array2::<f64>::zeros((n, p_marginal));
-        let mut log_dg = Array2::<f64>::zeros((n, p_logslope));
-        for i in 0..n {
-            time_dq0[[i, 0]] = 1.0;
-            time_dq0[[i, 1]] = x[i];
-            time_dq0[[i, 2]] = x[i] * x[i];
-            time_dq1[[i, 0]] = 1.0;
-            time_dq1[[i, 1]] = x[i];
-            time_dq1[[i, 2]] = x[i] * x[i];
-            time_dqd1[[i, 0]] = 0.0;
-            time_dqd1[[i, 1]] = 1.0;
-            time_dqd1[[i, 2]] = 2.0 * x[i];
-            marg_dq[[i, 0]] = 1.0;
-            marg_dq[[i, 1]] = x[i] * x[i] * x[i];
-            marg_dq[[i, 2]] = x[i].sin();
-            log_dg[[i, 0]] = (2.0 * x[i]).cos();
-            log_dg[[i, 1]] = x[i].tanh();
-        }
-        let mut h_full = Array3::<f64>::zeros((n, K_SURVIVAL, K_SURVIVAL));
-        for i in 0..n {
-            for k in 0..K_SURVIVAL {
-                h_full[[i, k, k]] = 1.0;
-            }
-        }
-        let row_hess = SurvivalRowHessian::from_full(h_full);
-        let compiled = compile_survival_parametric_designs(
-            time_dq0.clone(),
-            time_dq1.clone(),
-            time_dqd1.clone(),
-            marg_dq.clone(),
-            marg_dqd1.clone(),
-            log_dg.clone(),
-            &row_hess,
-        )
-        .expect("compile must succeed");
-
-        // Build raw DesignMatrix wrappers around the same dense data
-        // for the apply step (in production these come from the
-        // family's design accumulation; here we re-use the dense
-        // matrices we already built for the operator construction).
-        let raw_time_entry = DesignMatrix::Dense(DenseDesignMatrix::from(time_dq0.clone()));
-        let raw_time_exit = DesignMatrix::Dense(DenseDesignMatrix::from(time_dq1.clone()));
-        let raw_time_deriv = DesignMatrix::Dense(DenseDesignMatrix::from(time_dqd1.clone()));
-        let raw_marg = DesignMatrix::Dense(DenseDesignMatrix::from(marg_dq.clone()));
-        let raw_log = DesignMatrix::Dense(DenseDesignMatrix::from(log_dg.clone()));
-
-        // Penalties: simple diagonal placeholders at raw width so we
-        // can verify the pulled-back result has the expected shape.
-        let time_pens = vec![PenaltyMatrix::Dense(Array2::<f64>::from_shape_fn(
-            (p_time, p_time),
-            |(i, j)| if i == j { (i + 1) as f64 } else { 0.0 },
-        ))];
-        let marg_pens = vec![PenaltyMatrix::Dense(Array2::<f64>::from_shape_fn(
-            (p_marginal, p_marginal),
-            |(i, j)| if i == j { (i + 1) as f64 } else { 0.0 },
-        ))];
-        let log_pens = vec![PenaltyMatrix::Dense(Array2::<f64>::from_shape_fn(
-            (p_logslope, p_logslope),
-            |(i, j)| if i == j { (i + 1) as f64 } else { 0.0 },
-        ))];
-
-        let out = apply_survival_parametric_compile_to_designs(
-            &compiled,
-            raw_time_entry,
-            raw_time_exit,
-            raw_time_deriv,
-            raw_marg,
-            raw_log,
-            &time_pens,
-            &marg_pens,
-            &log_pens,
-        )
-        .expect("apply must succeed");
-
-        // Time triplet: all three designs share V_time, so all three
-        // have the same compiled width = V_time.ncols() = p_time (no
-        // drops on time block in this scenario).
-        assert_eq!(out.time_design_entry.ncols(), compiled.v_time.ncols());
-        assert_eq!(out.time_design_exit.ncols(), compiled.v_time.ncols());
-        assert_eq!(
-            out.time_design_derivative_exit.ncols(),
-            compiled.v_time.ncols()
-        );
-
-        // Marginal / logslope: widths equal their V's column count.
-        assert_eq!(out.marginal_design.ncols(), compiled.v_marginal.ncols());
-        assert_eq!(out.logslope_design.ncols(), compiled.v_logslope.ncols());
-
-        // Penalty pullbacks: each penalty matrix is (p_kept × p_kept).
-        for s in &out.time_penalties {
-            let dense = s.as_dense_cow();
-            assert_eq!(
-                dense.dim(),
-                (compiled.v_time.ncols(), compiled.v_time.ncols())
-            );
-        }
-        for s in &out.marginal_penalties {
-            let dense = s.as_dense_cow();
-            assert_eq!(
-                dense.dim(),
-                (compiled.v_marginal.ncols(), compiled.v_marginal.ncols())
-            );
-        }
-        for s in &out.logslope_penalties {
-            let dense = s.as_dense_cow();
-            assert_eq!(
-                dense.dim(),
-                (compiled.v_logslope.ncols(), compiled.v_logslope.ncols())
-            );
-        }
-
-        // Row count of every design must equal n.
-        assert_eq!(out.time_design_entry.nrows(), n);
-        assert_eq!(out.marginal_design.nrows(), n);
-        assert_eq!(out.logslope_design.nrows(), n);
-    }
-
     /// Regression for #368: the phase-4b compiled-map penalty pullback must
     /// emit a PER-BLOCK-WIDTH penalty for every block (sized to that block's
     /// COMPILED design width), even when a block drops columns and the
@@ -3748,5 +3588,80 @@ mod tests {
             "q0-only-H marg drops expected 1, got {:?}",
             compiled_q0.drops_by_block,
         );
+    }
+
+    #[test]
+    fn compiled_map_from_per_term_partitions_and_lift_round_trip() {
+        // Build a per-term compile by hand: time has one term (raw 2, kept 2),
+        // marginal one term (raw 2, kept 1 — a drop), logslope one term
+        // (raw 1, kept 1). No required channel is fully collapsed.
+        let v_time = Array2::<f64>::eye(2);
+        let mut v_marg = Array2::<f64>::zeros((2, 1));
+        v_marg[[0, 0]] = 1.0;
+        v_marg[[1, 0]] = 0.5;
+        let v_log = Array2::<f64>::eye(1);
+        // R for the marginal block (anchor = time, raw width 2) and logslope
+        // block (anchors = time + marginal, raw width 2 + 2 = 4).
+        let r_marg = Array2::<f64>::from_shape_fn((2, 1), |(i, _)| 0.25 + i as f64);
+        let r_log = Array2::<f64>::from_shape_fn((4, 1), |(i, _)| 0.1 * (i as f64 + 1.0));
+        let per_term = SurvivalParametricCompiledPerTerm {
+            v_time_per_term: vec![v_time.clone()],
+            v_marginal_per_term: vec![v_marg.clone()],
+            v_logslope_per_term: vec![v_log.clone()],
+            r_lw_per_term: vec![None, Some(r_marg.clone()), Some(r_log.clone())],
+            drops_by_block: (0, 1, 0),
+        };
+
+        let map = compiled_map_from_per_term(&per_term);
+
+        // Raw block ranges: time 0..2, marginal 2..4, logslope 4..5.
+        assert_eq!(map.raw_block_ranges, vec![0..2, 2..4, 4..5]);
+        // Compiled block ranges: time 0..2, marginal 2..3, logslope 3..4.
+        assert_eq!(map.compiled_block_ranges, vec![0..2, 2..3, 3..4]);
+        assert_eq!(map.raw_from_compiled.dim(), (5, 4));
+
+        // The block-diagonal slices recovered by apply_compiled_map_to_designs
+        // must equal the per-term V's exactly.
+        let v_time_slice = map
+            .raw_from_compiled
+            .slice(ndarray::s![0..2, 0..2])
+            .to_owned();
+        let v_marg_slice = map
+            .raw_from_compiled
+            .slice(ndarray::s![2..4, 2..3])
+            .to_owned();
+        let v_log_slice = map
+            .raw_from_compiled
+            .slice(ndarray::s![4..5, 3..4])
+            .to_owned();
+        for i in 0..2 {
+            for j in 0..2 {
+                assert!((v_time_slice[[i, j]] - v_time[[i, j]]).abs() < 1e-14);
+            }
+            assert!((v_marg_slice[[i, 0]] - v_marg[[i, 0]]).abs() < 1e-14);
+        }
+        assert!((v_log_slice[[0, 0]] - v_log[[0, 0]]).abs() < 1e-14);
+
+        // The cross-block carry (-R) must sit in the strict upper triangle, so
+        // the map agrees with the lift assembled directly from V and R.
+        let ordering = [
+            crate::families::identifiability_compiler::BlockOrder::Time,
+            crate::families::identifiability_compiler::BlockOrder::Marginal,
+            crate::families::identifiability_compiler::BlockOrder::Logslope,
+        ];
+        let lift_from_map = SmgsLiftViaT::from_compiled_map(&map, &ordering);
+        let v_all = vec![v_time, v_marg, v_log];
+        let lift_direct = SmgsLiftViaT::from_v_and_r(&v_all, &[None, Some(r_marg), Some(r_log)]);
+        assert_eq!(lift_from_map.t_full.dim(), lift_direct.t_full.dim());
+        for i in 0..lift_from_map.t_full.nrows() {
+            for j in 0..lift_from_map.t_full.ncols() {
+                assert!(
+                    (lift_from_map.t_full[[i, j]] - lift_direct.t_full[[i, j]]).abs() < 1e-14,
+                    "T mismatch at ({i},{j}): map={} direct={}",
+                    lift_from_map.t_full[[i, j]],
+                    lift_direct.t_full[[i, j]],
+                );
+            }
+        }
     }
 }

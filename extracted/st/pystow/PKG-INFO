@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pystow
-Version: 0.8.15
+Version: 0.8.16
 Summary: Easily pick a place to store data for your Python code
 Keywords: snekpack,cookiecutter,caching,file management
 Author: Charles Tapley Hoyt
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Typing :: Typed
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions
+Requires-Dist: backports-zstd ; python_full_version < '3.14'
 Requires-Dist: boto3 ; extra == 'aws'
 Requires-Dist: bs4 ; extra == 'bs4'
 Requires-Dist: requests ; extra == 'bs4'

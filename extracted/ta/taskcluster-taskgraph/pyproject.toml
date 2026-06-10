@@ -1,7 +1,7 @@
 ### Project
 [project]
 name = "taskcluster-taskgraph"
-version = "24.0.0"
+version = "24.1.0"
 description = "Build taskcluster taskgraphs"
 readme = "README.rst"
 authors = [
@@ -42,6 +42,7 @@ dev = [
   "pre-commit>=4.3.0",
   "pyright>=1.1.406",
   "pytest>=8.4.2",
+  "pytest-codspeed>=3.2.0",
   "pytest-mock>=3.15.1",
   "pytest-taskgraph>=0.2.0",
   "responses>=0.25.8",

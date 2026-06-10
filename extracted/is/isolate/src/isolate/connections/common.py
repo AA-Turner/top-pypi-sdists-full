@@ -36,6 +36,11 @@ class ExceptionDeserializationError(SerializationError):
 
     original_traceback: TracebackType | None
     original_stringized_traceback: str | None
+    # Display-only simple type name, matching traceback text (for example,
+    # "RemoteOnlyError").
+    original_exception_type_name: str | None = None
+    # Display-only str() of the remote exception.
+    original_exception_message: str | None = None
 
 
 # NOTE: tblib's install() will search for BaseException subclasses,
@@ -76,6 +81,8 @@ def load_serialized_object(
     *,
     was_it_raised: bool = False,
     stringized_traceback: str | None = None,
+    exception_type_name: str | None = None,
+    exception_message: str | None = None,
 ) -> Any:
     """Load the given serialized object using the given serialization method. If
     anything fails, then a SerializationError will be raised. If the was_it_raised
@@ -101,6 +108,8 @@ def load_serialized_object(
                 exc.message,
                 original_traceback=_prepare_traceback(stringized_traceback),
                 original_stringized_traceback=stringized_traceback,
+                original_exception_type_name=exception_type_name,
+                original_exception_message=exception_message,
             ) from exc.__cause__
         raise
 

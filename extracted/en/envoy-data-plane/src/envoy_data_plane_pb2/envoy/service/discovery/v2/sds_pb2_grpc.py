@@ -5,7 +5,7 @@ import warnings
 
 from envoy.api.v2 import discovery_pb2 as envoy_dot_api_dot_v2_dot_discovery__pb2
 
-GRPC_GENERATED_VERSION = '1.76.0'
+GRPC_GENERATED_VERSION = '1.81.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -25,7 +25,7 @@ if _version_not_supported:
     )
 
 
-class SecretDiscoveryServiceStub(object):
+class SecretDiscoveryServiceStub:
     """[#protodoc-title: Secret Discovery Service (SDS)]
 
     """
@@ -53,7 +53,7 @@ class SecretDiscoveryServiceStub(object):
                 _registered_method=True)
 
 
-class SecretDiscoveryServiceServicer(object):
+class SecretDiscoveryServiceServicer:
     """[#protodoc-title: Secret Discovery Service (SDS)]
 
     """
@@ -102,7 +102,7 @@ def add_SecretDiscoveryServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class SecretDiscoveryService(object):
+class SecretDiscoveryService:
     """[#protodoc-title: Secret Discovery Service (SDS)]
 
     """

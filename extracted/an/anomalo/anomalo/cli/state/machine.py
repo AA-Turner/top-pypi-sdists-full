@@ -25,7 +25,12 @@ class StateMachine:
         self.client = client
 
     @handle_state_errors
-    def pull(self, filename: str, table_refs: Sequence[str]) -> None:
+    def pull(
+        self,
+        filename: str,
+        table_refs: Sequence[str],
+        exclude_labels: Sequence[str] | None = None,
+    ) -> None:
         api_state = APIDriver(self.client)
         if not table_refs:
             table_refs = sorted(api_state.table_refs)
@@ -34,6 +39,20 @@ class StateMachine:
             api_state.load_non_system_checks(table_ref)
             api_state.load_system_checks(table_ref)
             print(f"Loaded table {table_ref}")
+        if exclude_labels:
+            exclude_set = set(exclude_labels)
+            for table_ref in table_refs:
+                table = api_state.state.tables[table_ref]
+                table.checks = {
+                    ref: check
+                    for ref, check in table.checks.items()
+                    if not check.labels or not exclude_set.intersection(check.labels)
+                }
+                table.system_checks = {
+                    ref: check
+                    for ref, check in table.system_checks.items()
+                    if not check.labels or not exclude_set.intersection(check.labels)
+                }
         output_file = FileDriver(api_state.state)
         output_file.write_file(filename)
         print(f'Configuration saved to "{filename}"')

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright 1999-2025 Alibaba Group Holding Ltd.
+# Copyright 1999-2026 Alibaba Group Holding Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import enum
 import json
 import warnings
 
 from .. import errors, serializers, utils
-from ..compat import Enum, six
 from ..errors import InternalServerError
 from .cache import cache
 from .core import XMLIterable, XMLLazyLoad
@@ -32,11 +32,15 @@ class Volume(XMLLazyLoad):
     EXTERNAL_VOLUME_LOCATION_KEY = "external.location"
     EXTERNAL_VOLUME_ROLEARN_KEY = "odps.properties.rolearn"
 
-    class Type(Enum):
+    class Type(enum.Enum):
         NEW = "NEW"
         OLD = "OLD"
         EXTERNAL = "EXTERNAL"
         UNKNOWN = "UNKNOWN"
+
+        @classmethod
+        def _missing_(cls, _value):
+            return cls.UNKNOWN
 
     _root = "Meta"
     _type_indicator = "type"
@@ -65,7 +69,7 @@ class Volume(XMLLazyLoad):
     def _get_cls(cls, typo):
         if typo is None:
             return cls
-        if isinstance(typo, six.string_types):
+        if isinstance(typo, str):
             typo = Volume.Type(typo.upper())
 
         if typo == Volume.Type.OLD:
@@ -99,9 +103,7 @@ class Volume(XMLLazyLoad):
             obj.reload()
             return Volume(**obj.extract())
         except InternalServerError as ex:
-            warnings.warn(
-                "Cannot reload volume %s due to error %s" % (obj.name, str(ex))
-            )
+            warnings.warn(f"Cannot reload volume {obj.name} due to error {ex}")
             return obj
 
     def __init__(self, **kwargs):
@@ -117,7 +119,7 @@ class Volume(XMLLazyLoad):
         if properties:
             kwargs["properties"] = properties
 
-        if isinstance(typo, six.string_types):
+        if isinstance(typo, str):
             kwargs["type"] = Volume.Type(typo.upper())
         super(Volume, self).__init__(**kwargs)
 
@@ -148,7 +150,7 @@ class Volumes(XMLIterable):
         )
 
     def __contains__(self, item):
-        if isinstance(item, six.string_types):
+        if isinstance(item, str):
             try:
                 # as reload() will be done in constructor of Volume, we return directly.
                 return self._get(item)

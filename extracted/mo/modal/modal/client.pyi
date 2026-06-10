@@ -31,14 +31,21 @@ class _Client:
     client_type: int
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.4.3"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.5.0"
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.
         """
         ...
 
-    def is_closed(self) -> bool: ...
+    def is_closed(self) -> bool:
+        """Check if the client is closed.
+
+        Returns:
+            True if the client is closed, False otherwise.
+        """
+        ...
+
     @property
     def _is_localhost(self) -> bool:
         """Returns True if the server URL points to localhost."""
@@ -70,7 +77,14 @@ class _Client:
     async def _open(self): ...
     async def _close(self, prep_for_restore: bool = False): ...
     async def hello(self):
-        """Connect to server and retrieve version information; raise appropriate error for various failures."""
+        """Connect to server and retrieve version information; raise appropriate error for various failures.
+
+        Examples:
+            ```python
+            client = modal.Client.from_env()
+            client.hello()
+            ```
+        """
         ...
 
     async def __aenter__(self): ...
@@ -97,13 +111,19 @@ class _Client:
         (e.g. when running Modal in a forked subprocess) — see
         [troubleshooting](/docs/guide/troubleshooting#connection-issues-in-forked-processes).
 
-        **Usage:**
+        Args:
+            token_id: API token ID.
+            token_secret: API token secret.
 
-        ```python notest
-        client = modal.Client.from_credentials("my_token_id", "my_token_secret")
+        Returns:
+            An authenticated `Client` with its connection opened.
 
-        modal.Sandbox.create("echo", "hi", client=client, app=app)
-        ```
+        Examples:
+            ```python notest
+            client = modal.Client.from_credentials("my_token_id", "my_token_secret")
+
+            modal.Sandbox.create("echo", "hi", client=client, app=app)
+            ```
         """
         ...
 
@@ -119,7 +139,17 @@ class _Client:
         """mdmd:hidden"""
         ...
 
-    async def get_input_plane_metadata(self, input_plane_region: str) -> list[tuple[str, str]]: ...
+    async def get_input_plane_metadata(self, input_plane_region: str) -> list[tuple[str, str]]:
+        """Get the metadata for the input plane.
+
+        Args:
+            input_plane_region: The region of the input plane.
+
+        Returns:
+            The metadata for the input plane as a list of header/value tuples.
+        """
+        ...
+
     async def _call_safely(self, coro, readable_method: str):
         """Runs coroutine wrapped in a task that's part of the client's task context
 
@@ -167,14 +197,21 @@ class Client:
     client_type: int
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.4.3"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.5.0"
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.
         """
         ...
 
-    def is_closed(self) -> bool: ...
+    def is_closed(self) -> bool:
+        """Check if the client is closed.
+
+        Returns:
+            True if the client is closed, False otherwise.
+        """
+        ...
+
     @property
     def _is_localhost(self) -> bool:
         """Returns True if the server URL points to localhost."""
@@ -231,11 +268,25 @@ class Client:
 
     class __hello_spec(typing_extensions.Protocol):
         def __call__(self, /):
-            """Connect to server and retrieve version information; raise appropriate error for various failures."""
+            """Connect to server and retrieve version information; raise appropriate error for various failures.
+
+            Examples:
+                ```python
+                client = modal.Client.from_env()
+                client.hello()
+                ```
+            """
             ...
 
         async def aio(self, /):
-            """Connect to server and retrieve version information; raise appropriate error for various failures."""
+            """Connect to server and retrieve version information; raise appropriate error for various failures.
+
+            Examples:
+                ```python
+                client = modal.Client.from_env()
+                client.hello()
+                ```
+            """
             ...
 
     hello: __hello_spec
@@ -283,13 +334,19 @@ class Client:
             (e.g. when running Modal in a forked subprocess) — see
             [troubleshooting](/docs/guide/troubleshooting#connection-issues-in-forked-processes).
 
-            **Usage:**
+            Args:
+                token_id: API token ID.
+                token_secret: API token secret.
 
-            ```python notest
-            client = modal.Client.from_credentials("my_token_id", "my_token_secret")
+            Returns:
+                An authenticated `Client` with its connection opened.
 
-            modal.Sandbox.create("echo", "hi", client=client, app=app)
-            ```
+            Examples:
+                ```python notest
+                client = modal.Client.from_credentials("my_token_id", "my_token_secret")
+
+                modal.Sandbox.create("echo", "hi", client=client, app=app)
+                ```
             """
             ...
 
@@ -300,13 +357,19 @@ class Client:
             (e.g. when running Modal in a forked subprocess) — see
             [troubleshooting](/docs/guide/troubleshooting#connection-issues-in-forked-processes).
 
-            **Usage:**
+            Args:
+                token_id: API token ID.
+                token_secret: API token secret.
 
-            ```python notest
-            client = modal.Client.from_credentials("my_token_id", "my_token_secret")
+            Returns:
+                An authenticated `Client` with its connection opened.
 
-            modal.Sandbox.create("echo", "hi", client=client, app=app)
-            ```
+            Examples:
+                ```python notest
+                client = modal.Client.from_credentials("my_token_id", "my_token_secret")
+
+                modal.Sandbox.create("echo", "hi", client=client, app=app)
+                ```
             """
             ...
 
@@ -333,8 +396,27 @@ class Client:
         ...
 
     class __get_input_plane_metadata_spec(typing_extensions.Protocol):
-        def __call__(self, /, input_plane_region: str) -> list[tuple[str, str]]: ...
-        async def aio(self, /, input_plane_region: str) -> list[tuple[str, str]]: ...
+        def __call__(self, /, input_plane_region: str) -> list[tuple[str, str]]:
+            """Get the metadata for the input plane.
+
+            Args:
+                input_plane_region: The region of the input plane.
+
+            Returns:
+                The metadata for the input plane as a list of header/value tuples.
+            """
+            ...
+
+        async def aio(self, /, input_plane_region: str) -> list[tuple[str, str]]:
+            """Get the metadata for the input plane.
+
+            Args:
+                input_plane_region: The region of the input plane.
+
+            Returns:
+                The metadata for the input plane as a list of header/value tuples.
+            """
+            ...
 
     get_input_plane_metadata: __get_input_plane_metadata_spec
 

@@ -1,5 +1,7 @@
 import json
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -16,8 +18,10 @@ from arraylake.api_utils import ArraylakeHttpClient
 from arraylake.exceptions import ArraylakeClientError
 from arraylake.types import (
     Author,
+    AzureCredentials,
     BucketResponse,
     ExplicitVirtualChunkAccessPolicyResponse,
+    GSCredentials,
     OpenRepoResponse,
     S3Credentials,
     VirtualChunkCredentials,
@@ -1215,3 +1219,95 @@ class TestSubscriptionToRepoContainingVirtualChunks:
                 # VCC name persistence requires icechunk 2.x
                 if icechunk.__version__.startswith("2."):
                     assert vccs[chunks_vcc_url_prefix].name == "__al_source"
+
+
+REFRESH_PREFIX = "s3://bucket/prefix/"
+REFRESH_EXPIRY = datetime(2099, 1, 1, tzinfo=UTC)
+
+
+def _delegated_s3_vcc(expiration=REFRESH_EXPIRY):
+    return VirtualChunkCredentials(
+        credentials=S3Credentials(
+            aws_access_key_id="key", aws_secret_access_key="secret", aws_session_token="token", expiration=expiration
+        ),
+        org="myorg",
+        bucket_nickname="mybucket",
+        platform="s3",
+    )
+
+
+def _delegated_gs_vcc():
+    return VirtualChunkCredentials(
+        credentials=GSCredentials(access_token="atoken", principal="p", expiration=REFRESH_EXPIRY),
+        org="myorg",
+        bucket_nickname="mybucket",
+        platform="gs",
+    )
+
+
+def _patched_metastore(client, vcc_credentials):
+    mstore = MagicMock()
+    mstore.open_repo = AsyncMock(return_value=SimpleNamespace(virtual_chunk_credentials=vcc_credentials, repo_credentials=None))
+    return patch.object(client, "_metastore_for_org", return_value=mstore), mstore
+
+
+class TestVirtualChunkCredentialRefresh:
+    def test_refresh_func_built_for_delegated_s3(self, test_token):
+        client = AsyncClient(token=test_token)
+        func = client._maybe_get_vcc_credential_refresh_func(_delegated_s3_vcc(), "myorg", "myrepo", REFRESH_PREFIX)
+        assert func is not None
+        assert func.func == client._get_icechunk_s3_vcc_credentials_refresh_function
+        assert func.args == ("myorg", "myrepo", REFRESH_PREFIX, "s3")
+
+    def test_refresh_func_built_for_delegated_gs(self, test_token):
+        client = AsyncClient(token=test_token)
+        func = client._maybe_get_vcc_credential_refresh_func(_delegated_gs_vcc(), "myorg", "myrepo", REFRESH_PREFIX)
+        assert func is not None
+        assert func.func == client._get_icechunk_gcs_vcc_credentials_refresh_function
+        assert func.args == ("myorg", "myrepo", REFRESH_PREFIX, "gs")
+
+    def test_no_refresh_func_for_anonymous_creds(self, test_token):
+        client = AsyncClient(token=test_token)
+        vcc = VirtualChunkCredentials(credentials=None, org="myorg", bucket_nickname="mybucket", platform="s3")
+        assert client._maybe_get_vcc_credential_refresh_func(vcc, "myorg", "myrepo", REFRESH_PREFIX) is None
+
+    def test_no_refresh_func_for_non_expiring_creds(self, test_token):
+        client = AsyncClient(token=test_token)
+        vcc = _delegated_s3_vcc(expiration=None)
+        assert client._maybe_get_vcc_credential_refresh_func(vcc, "myorg", "myrepo", REFRESH_PREFIX) is None
+
+    def test_no_refresh_func_for_azure(self, test_token):
+        client = AsyncClient(token=test_token)
+        vcc = VirtualChunkCredentials(
+            credentials=AzureCredentials(sas_token="sas", storage_account="acct", expiration=REFRESH_EXPIRY),
+            org="myorg",
+            bucket_nickname="mybucket",
+            platform="azure",
+        )
+        assert client._maybe_get_vcc_credential_refresh_func(vcc, "myorg", "myrepo", REFRESH_PREFIX) is None
+
+    def test_s3_refresh_function_reopens_repo(self, test_token):
+        client = AsyncClient(token=test_token)
+        patcher, mstore = _patched_metastore(client, {REFRESH_PREFIX: _delegated_s3_vcc()})
+        with patcher:
+            result = client._get_icechunk_s3_vcc_credentials_refresh_function("myorg", "myrepo", REFRESH_PREFIX, "s3")
+        assert isinstance(result, icechunk.S3StaticCredentials)
+        assert result.access_key_id == "key"
+        assert result.session_token == "token"
+        mstore.open_repo.assert_awaited_once_with("myrepo")
+
+    def test_gcs_refresh_function_reopens_repo(self, test_token):
+        client = AsyncClient(token=test_token)
+        patcher, mstore = _patched_metastore(client, {REFRESH_PREFIX: _delegated_gs_vcc()})
+        with patcher:
+            result = client._get_icechunk_gcs_vcc_credentials_refresh_function("myorg", "myrepo", REFRESH_PREFIX, "gs")
+        assert isinstance(result, icechunk.GcsBearerCredential)
+        assert result.bearer == "atoken"
+        mstore.open_repo.assert_awaited_once_with("myrepo")
+
+    @pytest.mark.asyncio
+    async def test_refresh_raises_when_prefix_no_longer_authorized(self, test_token):
+        client = AsyncClient(token=test_token)
+        patcher, _ = _patched_metastore(client, {})
+        with patcher, pytest.raises(ValueError, match="Could not refresh credentials"):
+            await client._get_vcc_credentials_from_repo("myorg", "myrepo", REFRESH_PREFIX, "s3")

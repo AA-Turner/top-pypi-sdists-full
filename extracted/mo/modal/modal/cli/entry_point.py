@@ -1,6 +1,5 @@
 # Copyright Modal Labs 2022
 import subprocess
-from typing import Optional
 
 import click
 from rich.rule import Rule
@@ -20,12 +19,14 @@ from .container import container_cli
 from .dashboard import dashboard
 from .dict import dict_cli
 from .environment import environment_cli
+from .image import image_cli
 from .launch import launch_cli
 from .logo import print_logo
 from .network_file_system import nfs_cli
 from .profile import profile_cli
 from .queues import queue_cli
 from .secret import secret_cli
+from .skills import skills_cli
 from .token import _new_token, token_cli
 from .volume import volume_cli
 
@@ -86,7 +87,7 @@ def check_path():
 @click.command("setup", cls=ModalCommand, help="Bootstrap Modal's configuration.")
 @click.option("--profile", default=None)
 @synchronizer.create_blocking
-async def setup(profile: Optional[str] = None):
+async def setup(profile: str | None = None):
     check_path()
     print_logo()
 
@@ -106,6 +107,7 @@ entrypoint_cli.add_command(container_cli, panel="Deployments")
 # cluster is hidden while multi-node is in beta/experimental
 entrypoint_cli.add_command(cluster_cli, panel="Deployments", hidden=True)
 
+entrypoint_cli.add_command(image_cli, panel="Storage")
 entrypoint_cli.add_command(dict_cli, panel="Storage")
 entrypoint_cli.add_command(nfs_cli, panel="Storage")
 entrypoint_cli.add_command(secret_cli, panel="Storage")
@@ -118,6 +120,7 @@ entrypoint_cli.add_command(bootstrap, panel="Onboarding")
 entrypoint_cli.add_command(config_cli, panel="Configuration")
 entrypoint_cli.add_command(environment_cli, panel="Configuration")
 entrypoint_cli.add_command(profile_cli, panel="Configuration")
+entrypoint_cli.add_command(skills_cli, panel="Configuration")
 entrypoint_cli.add_command(token_cli, panel="Configuration")
 
 entrypoint_cli.add_command(billing_cli, panel="Observability")

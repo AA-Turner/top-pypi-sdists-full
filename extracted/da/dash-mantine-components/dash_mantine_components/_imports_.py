@@ -3,6 +3,8 @@ from .BarChart import BarChart
 from .BubbleChart import BubbleChart
 from .CompositeChart import CompositeChart
 from .DonutChart import DonutChart
+from .FunnelChart import FunnelChart
+from .Heatmap import Heatmap
 from .LineChart import LineChart
 from .PieChart import PieChart
 from .RadarChart import RadarChart
@@ -13,6 +15,8 @@ from .BarChart import BarChart
 from .BubbleChart import BubbleChart
 from .CompositeChart import CompositeChart
 from .DonutChart import DonutChart
+from .FunnelChart import FunnelChart
+from .Heatmap import Heatmap
 from .LineChart import LineChart
 from .PieChart import PieChart
 from .RadarChart import RadarChart
@@ -203,6 +207,8 @@ __all__ = [
     "BubbleChart",
     "CompositeChart",
     "DonutChart",
+    "FunnelChart",
+    "Heatmap",
     "LineChart",
     "PieChart",
     "RadarChart",
@@ -213,6 +219,8 @@ __all__ = [
     "BubbleChart",
     "CompositeChart",
     "DonutChart",
+    "FunnelChart",
+    "Heatmap",
     "LineChart",
     "PieChart",
     "RadarChart",

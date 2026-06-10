@@ -468,8 +468,8 @@ def create_app(kanban_dir: str | Path | None = None) -> FastAPI:
         try:
             km = _get_km()
             if q:
-                # search_hybrid returns top-K by relevance; use small limit for search
-                results = km.search_hybrid(q, limit=20, relevance_threshold=0)
+                # Use same search method as CLI `kanban knowledge list --query`
+                results = km.search(q, limit=20, status=status or "active")
                 matched_ids = {r["id"] for r in results}
                 if matched_ids:
                     entries = km.list_entries(domain=domain, status=status or "active", limit=500)

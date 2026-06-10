@@ -180,8 +180,19 @@ def _build_parser(program_name: str, *, program_mode: str) -> argparse.ArgumentP
     return parser
 
 
-def _resolve_legacy_args(argv: list[str] | None, *, program_mode: str) -> list[str] | None:
+def _is_hol_guard_program(program_name: str) -> bool:
+    return Path(program_name).stem.lower() == "hol-guard"
+
+
+def _resolve_legacy_args(
+    argv: list[str] | None,
+    *,
+    program_mode: str,
+    program_name: str = "",
+) -> list[str] | None:
     if not argv:
+        if program_mode == "combined" and _is_hol_guard_program(program_name):
+            return ["guard"]
         return argv
     if program_mode == "guard":
         if argv[0] == "guard":
@@ -235,6 +246,7 @@ def _resolve_legacy_args(argv: list[str] | None, *, program_mode: str) -> list[s
         "preflight",
         "diff",
         "receipts",
+        "history",
         "inventory",
         "abom",
         "approvals",
@@ -242,16 +254,29 @@ def _resolve_legacy_args(argv: list[str] | None, *, program_mode: str) -> list[s
         "allow",
         "deny",
         "policies",
+        "settings",
         "exceptions",
         "advisories",
         "events",
+        "doctor",
         "connect",
+        "remote-pair",
         "disconnect",
         "login",
         "sync",
         "device",
         "bridge",
+        "daemon",
         "hook",
+        "admin",
+        "cloud",
+        "supply-chain",
+        "service",
+        "codex-mcp-proxy",
+        "opencode-mcp-proxy",
+        "copilot-mcp-proxy",
+        "cursor-mcp-proxy",
+        "hermes-mcp-proxy",
     }
     if program_mode == "combined" and argv[0] in _guard_subcommands and "--format" not in argv:
         return ["guard", *argv]
@@ -543,7 +568,11 @@ def main(argv: list[str] | None = None) -> int:
     else:
         program_mode = "combined"
     parser = _build_parser(program_name, program_mode=program_mode)
-    resolved_argv = _resolve_legacy_args(argv or sys.argv[1:], program_mode=program_mode)
+    resolved_argv = _resolve_legacy_args(
+        argv or sys.argv[1:],
+        program_mode=program_mode,
+        program_name=program_name,
+    )
     args = parser.parse_args(resolved_argv)
     if getattr(args, "list_ecosystems", False):
         for ecosystem in list_supported_ecosystems():

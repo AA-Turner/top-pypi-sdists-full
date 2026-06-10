@@ -7,6 +7,7 @@ __all__ = (
     "ProxyProtocol",
     "ProxyProtocolKeyValuePair",
     "ProxyProtocolRule",
+    "ProxyProtocolTlvLocation",
 )
 
 import typing
@@ -21,6 +22,22 @@ _COMPILER_VERSION = "0.9.0"
 betterproto2.check_compiler_version(_COMPILER_VERSION)
 
 
+class ProxyProtocolTlvLocation(betterproto2.Enum):
+    """
+    Controls where TLV values are stored when rules match.
+    """
+
+    DYNAMIC_METADATA = 0
+    """
+    Store TLV values in dynamic metadata.
+    """
+
+    FILTER_STATE = 1
+    """
+    Store TLV values in filter state as a single map-like object.
+    """
+
+
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class ProxyProtocol(betterproto2.Message):
     """
@@ -28,7 +45,7 @@ class ProxyProtocol(betterproto2.Message):
     PROXY protocol listener filter.
     [#extension: envoy.filters.listener.proxy_protocol]
 
-    [#next-free-field: 6]
+    [#next-free-field: 7]
     """
 
     rules: "list[ProxyProtocolRule]" = betterproto2.field(
@@ -100,6 +117,13 @@ class ProxyProtocol(betterproto2.Message):
     If not configured, statistics will be emitted without the prefix segment.
     See the :ref:`filter's statistics documentation <config_listener_filters_proxy_protocol>` for
     more information.
+    """
+
+    tlv_location: "ProxyProtocolTlvLocation" = betterproto2.field(
+        6, betterproto2.TYPE_ENUM, default_factory=lambda: ProxyProtocolTlvLocation(0)
+    )
+    """
+    Controls where TLV values are stored when rules match. Defaults to DYNAMIC_METADATA.
     """
 
 

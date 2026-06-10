@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arraylake
-Version: 1.0.3
+Version: 1.1.0
 Summary: Python client for ArrayLake
 Project-URL: Documentation, https://docs.earthmover.io/
 Project-URL: Changelog, https://docs.earthmover.io/changelog

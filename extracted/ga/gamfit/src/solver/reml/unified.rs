@@ -213,6 +213,32 @@ pub struct StochasticTraceState {
 /// - `DenseSpectralOperator`: eigendecomposition of dense H
 /// - Sparse Cholesky operators (external implementations)
 /// - `BlockCoupledOperator`: eigendecomposition of joint multi-block H
+/// Minimum operator dimension at which the Hutch++ stochastic trace estimator is
+/// preferred over materializing an implicit operator densely. Below this, the
+/// `2·m_s + m_h` Hutch++ matvecs do not beat `dim` dense H⁻¹ HVPs, so the dense
+/// fallback is cheaper.
+const HUTCHPP_TRACE_MIN_DIM: usize = 128;
+
+/// Build the Hutch++ stochastic-trace configuration for an operator of the given
+/// dimension. The sketch dimension grows with `dim` (one column per 32 of
+/// dimension, bounded to `[4, 16]`), and the probe budget tracks the sketch so
+/// the estimator's variance and cost stay balanced across problem sizes. Shared
+/// by every implicit-operator trace path so they cannot drift apart.
+fn hutchpp_config_for_dim(dim: usize) -> StochasticTraceConfig {
+    const SKETCH_DIM_PER: usize = 32;
+    const SKETCH_DIM_MIN: usize = 4;
+    const SKETCH_DIM_MAX: usize = 16;
+    const PROBES_PER_SKETCH: usize = 4;
+    const PROBES_MAX_FLOOR: usize = 32;
+    const PROBES_MIN_FLOOR: usize = 8;
+    let sketch = (dim / SKETCH_DIM_PER).clamp(SKETCH_DIM_MIN, SKETCH_DIM_MAX);
+    let mut config = StochasticTraceConfig::default();
+    config.hutchpp_sketch_dim = Some(sketch);
+    config.n_probes_max = (sketch * PROBES_PER_SKETCH).max(PROBES_MAX_FLOOR);
+    config.n_probes_min = sketch.max(PROBES_MIN_FLOOR);
+    config
+}
+
 pub trait HessianOperator: Send + Sync {
     /// log|H|₊ — pseudo-logdet using only active eigenvalues/pivots.
     fn logdet(&self) -> f64;
@@ -255,12 +281,8 @@ pub trait HessianOperator: Send + Sync {
         // an implicit operator (so materialization is expensive) and a
         // moderately-large dim (so 2 m_s + m_h matvecs beats `dim`
         // dense HVPs).
-        if op.is_implicit() && self.dim() >= 128 {
-            let mut config = StochasticTraceConfig::default();
-            let sketch = (self.dim() / 32).clamp(4, 16);
-            config.hutchpp_sketch_dim = Some(sketch);
-            config.n_probes_max = (sketch * 4).max(32);
-            config.n_probes_min = sketch.max(8);
+        if op.is_implicit() && self.dim() >= HUTCHPP_TRACE_MIN_DIM {
+            let config = hutchpp_config_for_dim(self.dim());
             return hutchpp_estimate_trace_hinv_operator(self, op, &config);
         }
         if op.is_implicit() {
@@ -374,12 +396,8 @@ pub trait HessianOperator: Send + Sync {
         matrix: &Array2<f64>,
         op: &dyn HyperOperator,
     ) -> f64 {
-        if op.is_implicit() && self.dim() >= 128 {
-            let mut config = StochasticTraceConfig::default();
-            let sketch = (self.dim() / 32).clamp(4, 16);
-            config.hutchpp_sketch_dim = Some(sketch);
-            config.n_probes_max = (sketch * 4).max(32);
-            config.n_probes_min = sketch.max(8);
+        if op.is_implicit() && self.dim() >= HUTCHPP_TRACE_MIN_DIM {
+            let config = hutchpp_config_for_dim(self.dim());
             // Wrap the dense LHS in a matrix-backed HyperOperator so the
             // shared cross routine can call mul_vec_into on it.
             let lhs = DenseMatrixHyperOperator {
@@ -407,12 +425,8 @@ pub trait HessianOperator: Send + Sync {
     ) -> f64 {
         let l_implicit = left.is_implicit();
         let r_implicit = right.is_implicit();
-        if (l_implicit || r_implicit) && self.dim() >= 128 {
-            let mut config = StochasticTraceConfig::default();
-            let sketch = (self.dim() / 32).clamp(4, 16);
-            config.hutchpp_sketch_dim = Some(sketch);
-            config.n_probes_max = (sketch * 4).max(32);
-            config.n_probes_min = sketch.max(8);
+        if (l_implicit || r_implicit) && self.dim() >= HUTCHPP_TRACE_MIN_DIM {
+            let config = hutchpp_config_for_dim(self.dim());
             // Same-operator self-cross is PSD; the squared form is the
             // exact algorithm for that case (lower variance, no sign).
             if std::ptr::eq(
@@ -499,12 +513,11 @@ pub trait HessianOperator: Send + Sync {
     /// regularized eigenvalue weights, not `H⁻¹`), so they keep the
     /// materialize path or provide their own override.
     fn trace_logdet_operator(&self, op: &dyn HyperOperator) -> f64 {
-        if op.is_implicit() && self.dim() >= 128 && self.logdet_traces_match_hinv_kernel() {
-            let mut config = StochasticTraceConfig::default();
-            let sketch = (self.dim() / 32).clamp(4, 16);
-            config.hutchpp_sketch_dim = Some(sketch);
-            config.n_probes_max = (sketch * 4).max(32);
-            config.n_probes_min = sketch.max(8);
+        if op.is_implicit()
+            && self.dim() >= HUTCHPP_TRACE_MIN_DIM
+            && self.logdet_traces_match_hinv_kernel()
+        {
+            let config = hutchpp_config_for_dim(self.dim());
             return hutchpp_estimate_trace_hinv_operator(self, op, &config);
         }
         if op.is_implicit() {
@@ -1263,6 +1276,67 @@ impl ExactJeffreysTerm {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  Guarded scalar correction (value + ρ-gradient under ONE include flag)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// A scalar objective correction whose VALUE and analytic ρ-GRADIENT are
+/// carried together and applied through a SINGLE site under a SINGLE guard.
+///
+/// This is the structural cure for the recurring objective↔gradient desync
+/// bug class (issues #752/#748/#808 and the latent Tierney–Kadane desync):
+/// when a correction's value and its derivative are added to the cost and the
+/// ρ-gradient in physically separate statements — each with its own
+/// hand-written `if include_logdet_h { … }` guard — the two drift apart. Here
+/// the `include` flag is read ONCE and gates BOTH contributions in
+/// [`GuardedCorrection::apply`], so a future edit cannot re-introduce the
+/// half-applied/half-omitted state by construction.
+///
+/// Mirrors the already-paired `PenaltyLogdetDerivs` / `joint_jeffreys_term`
+/// objects, which return value+derivative together for exactly this reason.
+pub(crate) struct GuardedCorrection {
+    /// Scalar contribution to the outer REML/LAML cost.
+    value: f64,
+    /// Contribution to the ρ-gradient (one entry per active ρ coordinate),
+    /// `None` when the correction is value-only (derivative-free regime).
+    gradient: Option<Array1<f64>>,
+    /// The SINGLE guard. When `false`, NEITHER the value nor the gradient is
+    /// applied; when `true`, BOTH are.
+    include: bool,
+}
+
+impl GuardedCorrection {
+    /// Construct a guarded correction from a loose `(value, gradient)` pair and
+    /// the include flag that must gate both.
+    pub(crate) fn new(value: f64, gradient: Option<Array1<f64>>, include: bool) -> Self {
+        Self {
+            value,
+            gradient,
+            include,
+        }
+    }
+
+    /// Apply the VALUE contribution to `cost` under the single `include` guard.
+    pub(crate) fn apply_value(&self, cost: &mut f64) {
+        if self.include {
+            *cost += self.value;
+        }
+    }
+
+    /// Apply the ρ-GRADIENT contribution to the leading entries of `rho_grad`
+    /// under the SAME single `include` guard read from `self`.
+    pub(crate) fn apply_gradient(&self, rho_grad: &mut Array1<f64>) {
+        if !self.include {
+            return;
+        }
+        if let Some(grad) = self.gradient.as_ref() {
+            let k = grad.len();
+            let mut sl = rho_grad.slice_mut(ndarray::s![..k]);
+            sl += grad;
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 //  Log-barrier support for constrained coefficients
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1293,6 +1367,15 @@ impl BarrierConfig {
     pub fn from_constraints(
         constraints: Option<&crate::pirls::LinearInequalityConstraints>,
     ) -> Option<Self> {
+        // Tolerance for recognizing a constraint-matrix entry as exactly 0 or
+        // exactly ±1, so a row qualifies as a simple coordinate bound. The
+        // constraint rows are assembled exactly, so any nonzero deviation this
+        // large is a genuine multi-coefficient constraint, not round-off.
+        const SIMPLE_BOUND_ENTRY_TOL: f64 = 1e-14;
+        // Default log-barrier strength τ used when a simple-bound BarrierConfig
+        // is synthesized from constraints (a weak barrier that keeps β strictly
+        // feasible without materially perturbing an interior optimum).
+        const DEFAULT_BARRIER_TAU: f64 = 1e-6;
         let constraints = constraints?;
         let mut indices = Vec::new();
         let mut lower_bounds = Vec::new();
@@ -1303,10 +1386,12 @@ impl BarrierConfig {
             let mut single_sign = 0.0_f64;
             let mut is_simple = true;
             for (j, &val) in row.iter().enumerate() {
-                if val.abs() < 1e-14 {
+                if val.abs() < SIMPLE_BOUND_ENTRY_TOL {
                     continue;
                 }
-                if ((val - 1.0).abs() < 1e-14 || (val + 1.0).abs() < 1e-14) && single_col.is_none()
+                if ((val - 1.0).abs() < SIMPLE_BOUND_ENTRY_TOL
+                    || (val + 1.0).abs() < SIMPLE_BOUND_ENTRY_TOL)
+                    && single_col.is_none()
                 {
                     single_col = Some(j);
                     single_sign = if val > 0.0 { 1.0 } else { -1.0 };
@@ -1325,7 +1410,7 @@ impl BarrierConfig {
             return None;
         }
         Some(BarrierConfig {
-            tau: 1e-6,
+            tau: DEFAULT_BARRIER_TAU,
             constrained_indices: indices,
             lower_bounds,
             bound_signs,
@@ -3613,6 +3698,19 @@ impl HyperOperator for ImplicitHyperOperator {
     }
 }
 
+/// Row-block size that keeps each streamed `n × cols` chunk near an 8 MiB
+/// working set, with a 512-row floor so a wide design still makes useful BLAS-3
+/// progress per block, capped at the total row count. Shared by the implicit
+/// operator's row-streaming kernels so they cannot drift apart.
+fn byte_balanced_row_chunk(cols: usize, n_rows: usize) -> usize {
+    const TARGET_BYTES: usize = 8 * 1024 * 1024;
+    const MIN_CHUNK_ROWS: usize = 512;
+    let bytes_per_row = cols.max(1) * std::mem::size_of::<f64>();
+    (TARGET_BYTES / bytes_per_row)
+        .max(MIN_CHUNK_ROWS)
+        .min(n_rows)
+}
+
 impl ImplicitHyperOperator {
     /// Chunked `X · F` via faer SIMD-parallel GEMM. The chunk-row sizing
     /// targets ~8 MiB live blocks so the (chunk_n × p) row slice and
@@ -3625,10 +3723,7 @@ impl ImplicitHyperOperator {
         let n_obs = self.w_diag.len();
         let rank = factor.ncols();
         let mut xf = Array2::<f64>::zeros((n_obs, rank));
-        const TARGET_BYTES: usize = 8 * 1024 * 1024;
-        let chunk_rows = (TARGET_BYTES / ((self.p + rank).max(1) * 8))
-            .max(512)
-            .min(n_obs);
+        let chunk_rows = byte_balanced_row_chunk(self.p + rank, n_obs);
         let mut start = 0usize;
         while start < n_obs {
             let end = (start + chunk_rows).min(n_obs);
@@ -3682,10 +3777,7 @@ impl ImplicitHyperOperator {
 
         // Match the chunk sizing `xt_logdet_kernel_x_diagonal` uses so the
         // live block stays in L2/L3 across realistic biobank shapes.
-        const TARGET_BYTES: usize = 8 * 1024 * 1024;
-        let chunk_rows = (TARGET_BYTES / ((self.p + rank).max(1) * 8))
-            .max(512)
-            .min(n_obs);
+        let chunk_rows = byte_balanced_row_chunk(self.p + rank, n_obs);
 
         let w = self.w_diag.as_ref();
         let c_opt = self.c_x_psi_beta.as_ref().map(|arc| arc.as_ref());
@@ -3750,10 +3842,7 @@ impl ImplicitHyperOperator {
 
         let u_knot = self.implicit_deriv.unproject_matrix(&factor.view());
 
-        const TARGET_BYTES: usize = 8 * 1024 * 1024;
-        let chunk_rows = (TARGET_BYTES / ((self.p + rank).max(1) * 8))
-            .max(512)
-            .min(n_obs.max(1));
+        let chunk_rows = byte_balanced_row_chunk(self.p + rank, n_obs.max(1));
 
         let w = self.w_diag.as_ref();
         let mut design_totals = vec![0.0_f64; axes.len()];
@@ -4687,111 +4776,6 @@ impl PenaltyCoordinate {
     }
 }
 
-/// Compute the exact dimension of the intersection ∩_k N(S_k) for PSD penalties.
-///
-/// For a single penalty, this is just `nullspace_dims[0]`. For multiple
-/// penalties, eigendecomposes each S_k individually, extracts its nullspace
-/// basis (bottom `nullspace_dims[k]` eigenvectors), and iteratively
-/// intersects the subspaces via SVD.
-///
-/// Returns 0 if any penalty is full rank (nullspace_dims[k] == 0).
-pub(crate) fn exact_intersection_nullity(
-    penalties: &[Array2<f64>],
-    nullspace_dims: &[usize],
-) -> usize {
-    if penalties.is_empty() || nullspace_dims.is_empty() {
-        return 0;
-    }
-    if penalties.len() != nullspace_dims.len() {
-        return 0;
-    }
-    // If any penalty is full rank, the intersection nullspace is {0}.
-    if nullspace_dims.contains(&0) {
-        return 0;
-    }
-
-    // Single penalty: nullity is exact from structural info.
-    if penalties.len() == 1 {
-        return nullspace_dims[0];
-    }
-
-    // Multiple penalties: intersect nullspace bases iteratively.
-    // Eigendecompose S_1, get its nullspace basis (bottom m_1 eigenvectors).
-    let p = penalties[0].nrows();
-    let (_, vecs0) = match penalties[0].eigh(faer::Side::Lower) {
-        Ok(ev) => ev,
-        Err(_) => return 0,
-    };
-    let m0 = nullspace_dims[0].min(p);
-    // Null basis: bottom m0 eigenvectors (ascending order from eigh).
-    // N has shape (p, current_dim).
-    let mut n_basis = Array2::<f64>::zeros((p, m0));
-    for col in 0..m0 {
-        for row in 0..p {
-            n_basis[[row, col]] = vecs0[[row, col]];
-        }
-    }
-    const SHARED_DIR_THRESHOLD: f64 = 0.99;
-
-    for k in 1..penalties.len() {
-        let current_dim = n_basis.ncols();
-        if current_dim == 0 {
-            return 0;
-        }
-
-        // Eigendecompose S_k, get its nullspace basis.
-        let (_, vecs_k) = match penalties[k].eigh(faer::Side::Lower) {
-            Ok(ev) => ev,
-            Err(_) => return 0,
-        };
-        let mk = nullspace_dims[k].min(p);
-        let mut nk_basis = Array2::<f64>::zeros((p, mk));
-        for col in 0..mk {
-            for row in 0..p {
-                nk_basis[[row, col]] = vecs_k[[row, col]];
-            }
-        }
-
-        // Intersect: M = N^T N_k (current_dim × mk).
-        // SVD of M: singular values near 1 indicate shared directions.
-        let m_mat = crate::faer_ndarray::fast_atb(&n_basis, &nk_basis);
-        let (u_opt, s, _) = match crate::faer_ndarray::FaerSvd::svd(&m_mat, true, false) {
-            Ok(usv) => usv,
-            Err(_) => return 0,
-        };
-        let Some(u) = u_opt else {
-            return 0;
-        };
-
-        // Count singular values ≈ 1 (shared directions).
-        let shared: Vec<usize> = s
-            .iter()
-            .enumerate()
-            .filter(|(_, sv)| **sv > SHARED_DIR_THRESHOLD)
-            .map(|(i, _)| i)
-            .collect();
-
-        if shared.is_empty() {
-            return 0;
-        }
-
-        // Update basis to the shared directions: N_new = N * u_shared.
-        let mut n_new = Array2::<f64>::zeros((p, shared.len()));
-        for (new_col, &orig_col) in shared.iter().enumerate() {
-            for row in 0..p {
-                let mut val = 0.0;
-                for j in 0..current_dim {
-                    val += n_basis[[row, j]] * u[[j, orig_col]];
-                }
-                n_new[[row, new_col]] = val;
-            }
-        }
-        n_basis = n_new;
-    }
-
-    n_basis.ncols()
-}
-
 /// Positive-eigenvalue threshold for a given eigenspectrum.
 ///
 /// For a p×p PSD matrix, eigendecomposition introduces errors of order
@@ -4817,9 +4801,10 @@ pub(crate) fn positive_eigenvalue_threshold(eigenvalues: &[f64]) -> f64 {
         .iter()
         .copied()
         .fold(0.0_f64, |a, b| a.max(b.abs()));
-    // Safety factor of 100 above the theoretical noise floor p × ε_mach × ‖S‖.
-    let safety = 100.0;
-    safety * (p as f64) * f64::EPSILON * max_ev
+    // Safety factor above the theoretical noise floor p × ε_mach × ‖S‖, so a
+    // genuine small positive mode is never misclassified as numerical zero.
+    const SAFETY_FACTOR: f64 = 100.0;
+    SAFETY_FACTOR * (p as f64) * f64::EPSILON * max_ev
 }
 
 /// Exact pseudo-logdet on the positive eigenspace: L = Σ_{σ_i > threshold} log σ_i.
@@ -5320,9 +5305,14 @@ impl ProjectedKktResidual {
                     .iter()
                     .map(|value| value.abs())
                     .fold(0.0_f64, f64::max);
+                // Default mixed absolute/relative tolerance for the dropped-mass
+                // gate when the caller supplies no explicit `residual_tol`:
+                // ~1e-10 scaled by `1 + ‖r‖∞` so it degrades gracefully with the
+                // residual magnitude.
+                const DEFAULT_KKT_RESIDUAL_REL_TOL: f64 = 1e-10;
                 let tol = self
                     .residual_tol
-                    .unwrap_or_else(|| 1e-10 * (1.0 + residual_inf));
+                    .unwrap_or_else(|| DEFAULT_KKT_RESIDUAL_REL_TOL * (1.0 + residual_inf));
                 let gate = tol;
                 if dropped_inf > gate {
                     return Err(format!(
@@ -5504,6 +5494,29 @@ pub struct InnerSolution<'dp> {
     /// M_p: dimension of the penalty null space (unpenalized coefficients).
     pub nullspace_dim: f64,
 
+    /// ½·Σᵢ log(wᵢ) — half the sum of log prior weights.
+    ///
+    /// This is the per-observation Gaussian normalization constant that the
+    /// `log_likelihood` (computed by
+    /// [`calculate_loglikelihood_omitting_constants`]) deliberately drops. The
+    /// full weighted-Gaussian negative log-likelihood normalization is
+    ///   ½·Σᵢ log(2π·φ/wᵢ) = (n/2)·log(2πφ) − ½·Σᵢ log(wᵢ),
+    /// because `Var(yᵢ) = φ/wᵢ` under inverse-variance prior weights.
+    ///
+    /// Dropping `−½·Σ log(wᵢ)` does not move the ρ-argmin in exact arithmetic
+    /// (it is constant in ρ), but it makes the ProfiledGaussian objective VALUE
+    /// scale-dependent: under a global rescale `w → c·w` the invariance-
+    /// preserving smoothing `λ → c·λ` leaves the cost SHAPE fixed but inflates
+    /// its absolute value by `(n/2)·log c`. That inflation breaks the exact
+    /// weight-scale invariance of the selected λ̂ / EDF / fit (issue #877).
+    /// Restoring this term makes the ProfiledGaussian cost value exactly
+    /// invariant to `w → c·w` (with σ̂² absorbing the c factor), matching mgcv.
+    ///
+    /// Only consumed by the `ProfiledGaussian` arm; the `Fixed`-dispersion arm
+    /// already omits the Gaussian normalization constant by design and is not
+    /// affected.
+    pub gaussian_weight_log_sum_half: f64,
+
     /// How the dispersion parameter is handled.
     pub dispersion: DispersionHandling,
 
@@ -5601,6 +5614,7 @@ pub struct InnerSolutionBuilder<'dp> {
     barrier_config: Option<BarrierConfig>,
     kkt_residual: Option<ProjectedKktResidual>,
     active_constraints: Option<Arc<ActiveLinearConstraintBlock>>,
+    gaussian_weight_log_sum_half: f64,
 }
 
 impl<'dp> InnerSolutionBuilder<'dp> {
@@ -5640,6 +5654,7 @@ impl<'dp> InnerSolutionBuilder<'dp> {
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,
+            gaussian_weight_log_sum_half: 0.0,
         }
     }
 
@@ -5858,6 +5873,7 @@ impl<'dp> InnerSolutionBuilder<'dp> {
             rho_prior: self.rho_prior,
             n_observations: self.n_observations,
             nullspace_dim,
+            gaussian_weight_log_sum_half: self.gaussian_weight_log_sum_half,
             dispersion: self.dispersion,
             ext_coords: self.ext_coords,
             ext_coord_pair_fn: self.ext_coord_pair_fn,
@@ -7091,6 +7107,7 @@ fn try_tangent_projected_evaluate(
         rho_prior: solution.rho_prior.clone(),
         n_observations: solution.n_observations,
         nullspace_dim: solution.nullspace_dim,
+        gaussian_weight_log_sum_half: solution.gaussian_weight_log_sum_half,
         dispersion: solution.dispersion.clone(),
         // ext_coord g/drift pass-through: projection is applied by the
         // tangent hessian wrapper's trace and solve methods.
@@ -7214,8 +7231,23 @@ pub fn reml_laml_evaluate(
     let (cost, profiled_scale, dp_cgrad, _dp_cgrad2) = match &solution.dispersion {
         DispersionHandling::ProfiledGaussian => {
             // Gaussian REML with profiled scale:
-            //   V(ρ) = D_p/(2φ̂) + ½ log|H| − ½ log|S|₊ + ((n−M_p)/2) log(2πφ̂)
+            //   V(ρ) = D_p/(2φ̂) + ½ log|H| − ½ log|S|₊
+            //          + ((n−M_p)/2) log(2πφ̂) − ½ Σᵢ log(wᵢ)
             // where D_p = deviance + penalty, φ̂ = D_p/(n−M_p).
+            //
+            // The final `− ½ Σ log(wᵢ)` is the per-observation Gaussian
+            // normalization constant that the log-likelihood deliberately
+            // drops (`Var(yᵢ) = φ/wᵢ` ⇒ ½ Σ log(2π φ/wᵢ) =
+            // (n/2) log(2πφ) − ½ Σ log wᵢ). It is constant in ρ — it does NOT
+            // move the argmin — but WITHOUT it the cost VALUE is not invariant
+            // to a global prior-weight rescale `w → c·w`: the invariance-
+            // preserving smoothing `λ → c·λ` keeps the cost shape fixed yet
+            // inflates its value by `(n/2) log c`, and that inflation breaks
+            // the exact weight-scale invariance of λ̂ / EDF / fit (issue #877).
+            // Adding `−½ Σ log(wᵢ)` (which contributes `−(n/2) log c` under the
+            // rescale) cancels the inflation, so the ProfiledGaussian cost
+            // VALUE — not just its argmin — is exactly invariant, matching mgcv
+            // (the profiled σ̂² absorbs the c factor).
             let dp_raw = -2.0 * solution.log_likelihood + solution.penalty_quadratic;
             let (dp_c, dp_cgrad, dp_cgrad2) = smooth_floor_dp(dp_raw);
             let denom = (solution.n_observations as f64 - solution.nullspace_dim).max(DENOM_RIDGE);
@@ -7223,7 +7255,8 @@ pub fn reml_laml_evaluate(
 
             let cost = dp_c / (2.0 * phi)
                 + 0.5 * (log_det_h - log_det_s)
-                + (denom / 2.0) * (2.0 * std::f64::consts::PI * phi).ln();
+                + (denom / 2.0) * (2.0 * std::f64::consts::PI * phi).ln()
+                - solution.gaussian_weight_log_sum_half;
 
             (cost, phi, dp_cgrad, dp_cgrad2)
         }
@@ -7258,11 +7291,18 @@ pub fn reml_laml_evaluate(
             let mut cost =
                 cost_logdet_diff + (-solution.log_likelihood) + 0.5 * solution.penalty_quadratic;
             if *include_logdet_h {
-                cost += solution.tk_correction
-                    - solution
-                        .firth
-                        .as_ref()
-                        .map_or(0.0, ExactJeffreysTerm::value);
+                // Firth `−½ log|J|`: VALUE here, ρ-DERIVATIVE folded into the
+                // per-coordinate LAML trace (`a_i`) below — already paired by
+                // construction, so it is NOT routed through `GuardedCorrection`.
+                // The Tierney–Kadane correction, by contrast, is a genuinely
+                // loose `(tk_correction, tk_gradient)` pair; it flows through a
+                // single `GuardedCorrection` object (built below) whose one
+                // `include` guard gates BOTH its value and its ρ-gradient, so
+                // the two can never desync.
+                cost -= solution
+                    .firth
+                    .as_ref()
+                    .map_or(0.0, ExactJeffreysTerm::value);
             }
             (cost, *phi, 0.0, 0.0)
         }
@@ -7401,6 +7441,34 @@ pub fn reml_laml_evaluate(
         }
     }
 
+    // Extract logdet flags once (same for all coordinates) — needed here for
+    // the guarded TK correction, and reused for the gradient/Hessian below.
+    let (incl_logdet_h, incl_logdet_s) = match &solution.dispersion {
+        DispersionHandling::ProfiledGaussian => (true, true),
+        DispersionHandling::Fixed {
+            include_logdet_h,
+            include_logdet_s,
+            ..
+        } => (*include_logdet_h, *include_logdet_s),
+    };
+
+    // Build the Tierney–Kadane frozen-curvature correction as ONE object that
+    // owns the single `include` guard. Its VALUE must land on the cost before
+    // the `EvalMode::ValueOnly` early return below, and its ρ-GRADIENT lands on
+    // `grad` further down — but BOTH read `include` from this same object, so
+    // the two contributions cannot desync (the structural cure for the
+    // objective↔gradient drift class behind #752/#748/#808). Historically the
+    // value was added inside the dispersion match and the gradient added at the
+    // gradient site, each under an independently hand-written
+    // `if include_logdet_h { … }` guard — exactly the divergence shape this
+    // type makes impossible.
+    let tk_correction = GuardedCorrection::new(
+        solution.tk_correction,
+        solution.tk_gradient.clone(),
+        incl_logdet_h,
+    );
+    tk_correction.apply_value(&mut cost);
+
     if !cost.is_finite() {
         return Err(RemlError::NonFiniteValue {
             reason: format!(
@@ -7453,15 +7521,8 @@ pub fn reml_laml_evaluate(
         None => &*solution.deriv_provider,
     };
 
-    // Extract logdet flags once (same for all coordinates).
-    let (incl_logdet_h, incl_logdet_s) = match &solution.dispersion {
-        DispersionHandling::ProfiledGaussian => (true, true),
-        DispersionHandling::Fixed {
-            include_logdet_h,
-            include_logdet_s,
-            ..
-        } => (*include_logdet_h, *include_logdet_s),
-    };
+    // `incl_logdet_h` / `incl_logdet_s` were extracted once above (before the
+    // value-only early return) and are reused here for the gradient/Hessian.
 
     let ext_dim = solution.ext_coords.len();
     let mut grad = Array1::zeros(k + ext_dim);
@@ -7511,43 +7572,53 @@ pub fn reml_laml_evaluate(
             Vec::new(),
         )
     } else {
-        // Per-coordinate `v_k = H⁻¹ · a_k` mode responses. When the
-        // rank-deficient LAML fix is active (`penalty_subspace_trace =
-        // Some`), the full `hop.solve_multi` path amplifies any component
-        // of `a_k` outside `range(H_free)` by `1/σ_min(H_active_normal)`
-        // — which on biobank-scale survival marginal-slope is ~10¹² and
-        // propagates into family-correction terms with magnitude 10¹⁴,
-        // tripping the envelope-consistency check downstream and killing
-        // every seed. The projected pseudo-inverse `K = U_S · H_proj⁻¹ ·
-        // U_Sᵀ` is the principled stand-in for `H⁻¹` on the constrained
-        // manifold — it returns the minimum-norm solution of `H v = a`
-        // restricted to `range(S₊)`, matches the derivative of the
-        // projected `log|U_Sᵀ H U_S|` cost term, and is bounded
-        // regardless of `σ_min(H)`. Route every v_k / v_i through the
-        // kernel when it is installed; fall back to the full solve only
-        // when no kernel is available.
+        // Per-coordinate `v = H⁻¹ · a` mode responses for the IFT chain
+        // rule (β̂_ψ = −H⁻¹ · g_ψ). Choice of solve:
+        //
+        //   * Active inequality constraints recorded → use the lifted
+        //     kernel `K_T = K_S − K_S Aᵀ (A K_S Aᵀ)⁻¹ A K_S`. The inner
+        //     SCOP solver clamps β̂(ψ) onto the manifold
+        //     `T = range(S₊) ∩ ker(A_act)`, so its true IFT derivative
+        //     lives in T and the lifted kernel gives the minimum-norm
+        //     solution there. The full `hop.solve_multi` amplifies any
+        //     component of `a` outside `range(H_free)` by
+        //     `1/σ_min(H_active_normal)` — which on biobank-scale
+        //     survival marginal-slope (commit d6b17a7f) is ~10¹² and
+        //     trips the envelope-consistency check downstream; the
+        //     lifted kernel drops that null-space contribution by
+        //     construction and stays bounded.
+        //
+        //   * Otherwise (no active constraints) → use the full
+        //     `hop.solve_multi`. The inner solver converges β̂ ∈ R^p in
+        //     the unconstrained full space, so the IFT derivative is
+        //     `β̂_ψ = −H⁻¹ · g_ψ` with the FULL Hessian, even when the
+        //     LAML cost surface itself uses the projected logdet
+        //     `½ log|U_Sᵀ H U_S|`. Projecting `v` through bare K_S
+        //     = U_S·(U_Sᵀ H U_S)⁻¹·U_Sᵀ here would discard the
+        //     `null(S₊)` component of dβ̂/dψ, which is non-zero for any
+        //     family whose `X` has columns living in `null(S₊)` (e.g.,
+        //     an intercept under a wiggle smoothing penalty under
+        //     Probit / Logit / cloglog, where the working weight
+        //     `W(η(β̂))` changes with ψ and pushes the intercept along
+        //     with β̂); on near-separable data the projected
+        //     `(U_Sᵀ H U_S)⁻¹` then over-amplifies that component and
+        //     blows the analytic ψ-gradient to O(1e6) vs the FD ≈ −1.
+        //     The penalty-subspace projection on the TRACE side (the
+        //     outer `tr[K · …]` contraction with K_S) is unchanged —
+        //     that is what the projected LAML cost identity demands —
+        //     only the IFT *direction* `v` is the full solve, which the
+        //     kernel `duchon_probit_per_row_dnu_dpsi_fd_vs_analytic`
+        //     pins via the FD reference `c · dη/dψ_total = c · (η_+ − η_−)/2h`.
         let kernel = solution.penalty_subspace_trace.as_ref();
-        if let Some(kernel) = kernel {
-            // Lift to a *constraint-aware* kernel when the inner solver
-            // recorded active inequality constraints. The Schur-complement
-            // formula
-            //   K_T = K_S − K_S Aᵀ (A K_S Aᵀ)⁻¹ A K_S
-            // returns the minimum-norm IFT mode response inside
-            // T = range(S₊) ∩ ker(A_act) — the smooth manifold the inner
-            // is genuinely moving on — and matches the derivative of the
-            // projected Laplace cost log|U_Tᵀ H U_T|. When no active
-            // constraints are present the helper degrades to bare K_S
-            // with zero overhead.
-            let constrained = solution
-                .active_constraints
-                .as_ref()
-                .map(|block| kernel.with_active_constraints(block.a.view()));
-            let apply = |v: &Array1<f64>| -> Array1<f64> {
-                match constrained.as_ref() {
-                    Some(ck) if ck.has_active_constraints() => ck.apply_pseudo_inverse(v),
-                    _ => kernel.apply_pseudo_inverse(v),
-                }
-            };
+        let constrained_kernel = match (kernel, solution.active_constraints.as_ref()) {
+            (Some(kernel), Some(block)) => {
+                let ck = kernel.with_active_constraints(block.a.view());
+                ck.has_active_constraints().then_some(ck)
+            }
+            _ => None,
+        };
+        if let Some(ck) = constrained_kernel.as_ref() {
+            let apply = |v: &Array1<f64>| -> Array1<f64> { ck.apply_pseudo_inverse(v) };
             let rho_v_ks = if need_rho_mode_responses {
                 Some(
                     rho_curvature_a_k_betas
@@ -8280,13 +8351,15 @@ pub fn reml_laml_evaluate(
         debug_stash::store_terms(stash);
     }
 
-    // Add correction gradients (ρ-only).
-    if let Some(tk_grad) = &solution.tk_gradient {
-        {
-            let mut sl = grad.slice_mut(ndarray::s![..k]);
-            sl += tk_grad;
-        }
-    }
+    // Apply the ρ-GRADIENT half of the guarded Tierney–Kadane correction built
+    // above (its VALUE half was applied to `cost` before the value-only early
+    // return). Both halves read the SAME `include` guard from the SAME
+    // `tk_correction` object, so the value and derivative cannot desync — a
+    // `MaxPenalizedLikelihood`-style assembly (`include_logdet_h = false`)
+    // carrying a nonzero `tk_correction` omits BOTH, never one without the
+    // other. (The runtime `apply_tk_to_result` path is independently paired —
+    // it always applies value+gradient+hessian together.)
+    tk_correction.apply_gradient(&mut grad);
 
     // Add prior gradient (ρ-only).
     if let Some((_, ref pg, _)) = prior_cost_gradient {
@@ -8656,6 +8729,18 @@ pub(crate) const MATRIX_FREE_OUTER_HESSIAN_K_THRESHOLD: usize = 32;
 /// because the dominant work is not `p x p` algebra; it is repeated row-kernel
 /// contractions over the upper-triangular coordinate pairs.
 pub(crate) const CALLBACK_OUTER_HESSIAN_ROW_PAIR_WORK_THRESHOLD: usize = 25_000_000;
+
+/// Coefficient-dimension threshold above which a stochastic (Hutch++) trace
+/// kernel is preferred over the exact dense trace for the logdet-H⁻¹ and ψ-Gram
+/// paths. Below this the exact dense O(p³) work is cheap enough that the
+/// estimator's variance is not worth trading for; above it the stochastic
+/// estimator's O(p²·m) cost wins.
+const STOCHASTIC_TRACE_DIM_THRESHOLD: usize = 500;
+
+/// Elapsed-time (ms) above which a sparse-Cholesky trace path emits a timing
+/// diagnostic. Purely observational — surfaces slow per-eval trace solves to the
+/// bench runner without affecting the fit.
+const REML_TRACE_SLOW_LOG_MS: f64 = 100.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct OuterHessianRoutePlan {
@@ -9294,7 +9379,7 @@ fn can_use_stochastic_logdet_hinv_kernel(
     total_p: usize,
     incl_logdet_h: bool,
 ) -> bool {
-    total_p > 500
+    total_p > STOCHASTIC_TRACE_DIM_THRESHOLD
         && hop.prefers_stochastic_trace_estimation()
         && hop.logdet_traces_match_hinv_kernel()
         && incl_logdet_h
@@ -9622,12 +9707,27 @@ fn compute_outer_hessian(
     let v_ks_storage: Option<Vec<Array1<f64>>> = match workspace.and_then(|ws| ws.rho_v_ks) {
         Some(_) => None,
         None => {
+            // IFT mode responses: use the lifted kernel `K_T` ONLY when active
+            // inequality constraints clamp the inner solution onto a smooth
+            // sub-manifold (`T = range(S₊) ∩ ker(A_act)`). Otherwise use the
+            // full `hop.solve` — the inner solver converges β̂ ∈ R^p in the
+            // unconstrained full space and the IFT identity demands the full
+            // Hessian solve `β̂_ψ = −H⁻¹ g_ψ`, even when the LAML cost surface
+            // uses the projected logdet `½ log|U_Sᵀ H U_S|`. Routing `v`
+            // through bare K_S here would discard the `null(S₊)` component of
+            // dβ̂/dρ (over-amplified on near-separable data), desyncing this
+            // Hessian-path mode response from the gradient site. See the
+            // parallel comment at the gradient site (`ext_v_is` / `rho_v_ks`
+            // construction in `reml_laml_evaluate`).
             let subspace = solution.penalty_subspace_trace.as_deref();
-            if let Some(kernel) = subspace {
-                let constrained = solution
-                    .active_constraints
-                    .as_ref()
-                    .map(|block| kernel.with_active_constraints(block.a.view()));
+            let constrained_kernel = match (subspace, solution.active_constraints.as_ref()) {
+                (Some(kernel), Some(block)) => {
+                    let ck = kernel.with_active_constraints(block.a.view());
+                    ck.has_active_constraints().then_some(ck)
+                }
+                _ => None,
+            };
+            if let Some(ck) = constrained_kernel.as_ref() {
                 Some(
                     curvature_a_k_betas
                         .iter()
@@ -9636,13 +9736,7 @@ fn compute_outer_hessian(
                             if upper_active_rho[idx] {
                                 Array1::<f64>::zeros(hop.dim())
                             } else {
-                                // WS1a fallback: projected kernel for rank-deficient LAML path.
-                                match constrained.as_ref() {
-                                    Some(ck) if ck.has_active_constraints() => {
-                                        ck.apply_pseudo_inverse(a_k_beta)
-                                    }
-                                    _ => kernel.apply_pseudo_inverse(a_k_beta),
-                                }
+                                ck.apply_pseudo_inverse(a_k_beta)
                             }
                         })
                         .collect(),
@@ -9794,22 +9888,27 @@ fn compute_outer_hessian(
             None
         }
         None => {
+            // IFT mode responses for ext (ψ/τ) coordinates: lifted kernel `K_T`
+            // ONLY under active inequality constraints; otherwise the full
+            // `hop.solve` (`β̂_ψ = −H⁻¹ g_ψ`). Mirrors the gradient site and the
+            // rho mode-response storage above so the Hessian path and the
+            // gradient path take the SAME solve in the no-constraint regime
+            // (the projected `(U_Sᵀ H U_S)⁻¹` would discard / over-amplify the
+            // `null(S₊)` component of dβ̂/dψ on near-separable data).
             let subspace = solution.penalty_subspace_trace.as_deref();
-            if let Some(kernel) = subspace {
-                let constrained = solution
-                    .active_constraints
-                    .as_ref()
-                    .map(|block| kernel.with_active_constraints(block.a.view()));
+            let constrained_kernel = match (subspace, solution.active_constraints.as_ref()) {
+                (Some(kernel), Some(block)) => {
+                    let ck = kernel.with_active_constraints(block.a.view());
+                    ck.has_active_constraints().then_some(ck)
+                }
+                _ => None,
+            };
+            if let Some(ck) = constrained_kernel.as_ref() {
                 Some(
                     solution
                         .ext_coords
                         .iter()
-                        .map(|coord| match constrained.as_ref() {
-                            Some(ck) if ck.has_active_constraints() => {
-                                ck.apply_pseudo_inverse(&coord.g)
-                            }
-                            _ => kernel.apply_pseudo_inverse(&coord.g),
-                        })
+                        .map(|coord| ck.apply_pseudo_inverse(&coord.g))
                         .collect(),
                 )
             } else {
@@ -10852,7 +10951,27 @@ struct UnifiedOuterHessianOperator {
 }
 
 impl UnifiedOuterHessianOperator {
-    fn signed_mode_combo_for_correction(&self, alpha: &Array1<f64>) -> Array1<f64> {
+    /// Exact implicit-function-theorem mode response of the inner coefficient
+    /// solution along a θ-direction `α = (α_ρ, α_ψ)` (#740 primitive).
+    ///
+    /// At the inner optimum `g(β̂(θ), θ) = ∇_β F = 0`, differentiating gives
+    /// `β̇_j = −H⁻¹ ∂g/∂θ_j` for each coordinate j; the response along a θ
+    /// direction is the linear combination `β̇(α) = Σ_j α_j β̇_j`. Each
+    /// per-coordinate `coord.v = H⁻¹ a_j` is precomputed exactly via the shared
+    /// inner mode inverse `hop.solve_multi` (see `build_outer_hessian_operator`),
+    /// so this combination is the EXACT directional `β̇(α)` with no
+    /// finite-difference or low-rank approximation — the same object the profiled
+    /// θ-HVP needs as `β̇ = −H⁻¹ ∂g/∂θ·v`. Extended (ψ) coordinates carry the
+    /// opposite drift sign, matching the `b_depends_on_beta` convention.
+    ///
+    /// This is the reusable matrix-free primitive an O(K)-build θ-HVP matvec is
+    /// organized around (one IFT solve per applied direction instead of the K²
+    /// coordinate-pair assembly). The current `matvec` still consumes the
+    /// precomputed pair traces; this primitive is the exact directional β̇ those
+    /// pair traces are a (K²-amortized) re-expression of, exposed so the
+    /// pair-assembly precompute can be replaced incrementally without changing
+    /// the IFT mathematics.
+    pub(crate) fn theta_direction_mode_response(&self, alpha: &Array1<f64>) -> Array1<f64> {
         let mut out = Array1::<f64>::zeros(self.hop.dim());
         for (j, coord) in self.coords.iter().enumerate() {
             if alpha[j] == 0.0 {
@@ -11084,7 +11203,7 @@ impl crate::solver::outer_strategy::OuterHessianOperator for UnifiedOuterHessian
                 a_alpha += alpha[idx] * coord.a;
             }
         }
-        let correction_m_alpha = self.signed_mode_combo_for_correction(alpha);
+        let correction_m_alpha = self.theta_direction_mode_response(alpha);
         let callback_neg_m_alpha =
             matches!(self.kernel, OuterHessianDerivativeKernel::Callback { .. })
                 .then(|| -&correction_m_alpha);
@@ -11143,7 +11262,7 @@ impl crate::solver::outer_strategy::OuterHessianOperator for UnifiedOuterHessian
                 a_alpha += alpha[idx] * coord.a;
             }
         }
-        let correction_m_alpha = self.signed_mode_combo_for_correction(alpha);
+        let correction_m_alpha = self.theta_direction_mode_response(alpha);
         let callback_neg_m_alpha =
             matches!(self.kernel, OuterHessianDerivativeKernel::Callback { .. })
                 .then(|| -&correction_m_alpha);
@@ -11225,23 +11344,29 @@ fn build_outer_hessian_operator(
         .collect();
     // Mode responses are fixed-β stationarity derivatives. The main
     // evaluator passes precomputed responses so gradient and Hessian share
-    // the same solve kernel, including projected kernels in rank-deficient
-    // LAML. The standalone path below must mirror `compute_outer_hessian`'s
-    // kernel selection exactly: when `penalty_subspace_trace` is installed
-    // (rank-deficient LAML fix active), the per-coordinate mode response
-    // `v = -H^{-1} g` is replaced by the projected pseudo-inverse
-    // `v = K · g = U_S · H_proj^{-1} · U_S^T · g`, lifted to the
-    // active-constraint manifold via the Schur-complement
-    // `K_T = K_S − K_S A^T (A K_S A^T)^{-1} A K_S` when an active block is
-    // present. The dense gradient path applies the same selection at the
-    // gradient site (line ~7480) and the dense Hessian path uses it at
-    // line ~9585; if this fallback routes through `hop.solve_multi` instead,
-    // the operator-form Hessian computes `H^{-1} g` while the dense path
-    // computes `K g`, and the two materializations disagree on every entry
-    // whose row or column lives outside `range(U_S)`. The test
+    // the same solve kernel; when none are provided this standalone path
+    // must mirror the dense evaluator's selection exactly, otherwise the
+    // operator-form Hessian and dense materialization disagree on every
+    // entry whose row or column lives outside `range(U_S)`. The test
     // `projected_operator_hessian_matches_dense_subspace_trace` exercises
-    // exactly that disagreement.
+    // that disagreement.
+    //
+    // Selection rule (same as the gradient and dense-Hessian sites — see
+    // their comments in `reml_laml_evaluate` / `compute_outer_hessian` for
+    // the math):
+    //   * Active inequality constraints present → lifted kernel
+    //     `K_T = K_S − K_S Aᵀ (A K_S Aᵀ)⁻¹ A K_S` (β̂ constrained to T).
+    //   * Otherwise → full `hop.solve_multi` (IFT chain rule with the
+    //     full Hessian; LAML projection on the trace contraction side
+    //     only).
     let subspace = solution.penalty_subspace_trace.as_deref();
+    let constrained_kernel_for_v = match (subspace, solution.active_constraints.as_ref()) {
+        (Some(kernel), Some(block)) => {
+            let ck = kernel.with_active_constraints(block.a.view());
+            ck.has_active_constraints().then_some(ck)
+        }
+        _ => None,
+    };
     let coord_vs_storage;
     let coord_vs: &[Array1<f64>] = if let Some(precomputed) = precomputed_coord_vs {
         if precomputed.len() != total {
@@ -11258,17 +11383,8 @@ fn build_outer_hessian_operator(
     } else {
         let owned = if total == 0 {
             Vec::new()
-        } else if let Some(kernel) = subspace {
-            let constrained = solution
-                .active_constraints
-                .as_ref()
-                .map(|block| kernel.with_active_constraints(block.a.view()));
-            let apply = |v: &Array1<f64>| -> Array1<f64> {
-                match constrained.as_ref() {
-                    Some(ck) if ck.has_active_constraints() => ck.apply_pseudo_inverse(v),
-                    _ => kernel.apply_pseudo_inverse(v),
-                }
-            };
+        } else if let Some(ck) = constrained_kernel_for_v.as_ref() {
+            let apply = |v: &Array1<f64>| -> Array1<f64> { ck.apply_pseudo_inverse(v) };
             let mut vs = Vec::with_capacity(total);
             for idx in 0..k {
                 vs.push(apply(&rho_curvature_a_k_betas[idx]));
@@ -12470,8 +12586,9 @@ pub fn compute_hybrid_efs_update(
             let drift = &solution.ext_coords[li].drift;
             drift.uses_operator_fast_path()
         });
-        let use_stochastic_psi_gram =
-            any_psi_operator && total_p > 500 && hop.prefers_stochastic_trace_estimation();
+        let use_stochastic_psi_gram = any_psi_operator
+            && total_p > STOCHASTIC_TRACE_DIM_THRESHOLD
+            && hop.prefers_stochastic_trace_estimation();
 
         // Step 1: Build the trace Gram matrix
         //   G_{de} = tr(H⁻¹ B_d H⁻¹ B_e).
@@ -12756,11 +12873,19 @@ fn symmetric_eigen(a: &ndarray::Array2<f64>) -> (Vec<f64>, ndarray::Array2<f64>)
     let mut v = ndarray::Array2::<f64>::eye(n);
 
     // Jacobi iteration: sweep through all off-diagonal pairs, zeroing them.
-    let max_sweeps = 100;
-    let tol = 1e-15;
+    // The off-diagonal Frobenius norm converges quadratically, so a near-machine
+    // `tol` is reached in a handful of sweeps for the small matrices this serves;
+    // `MAX_SWEEPS` is a generous safety cap that the convergence test hits first.
+    const MAX_SWEEPS: usize = 100;
+    const TOL: f64 = 1e-15;
+    // Skip a pair whose off-diagonal magnitude is already two orders below `TOL`
+    // (rotating it would only add round-off), and skip a rotation whose `τ`
+    // magnitude is so large the pair is numerically diagonal already.
+    const PAIR_SKIP_TOL: f64 = TOL * 0.01;
+    const TAU_DIAGONAL_THRESHOLD: f64 = 1e15;
 
     let mut sweep = 0;
-    while sweep < max_sweeps {
+    while sweep < MAX_SWEEPS {
         // Check convergence: sum of squares of off-diagonal elements.
         let mut off_diag_sq = 0.0;
         for i in 0..n {
@@ -12768,14 +12893,14 @@ fn symmetric_eigen(a: &ndarray::Array2<f64>) -> (Vec<f64>, ndarray::Array2<f64>)
                 off_diag_sq += work[[i, j]] * work[[i, j]];
             }
         }
-        if off_diag_sq < tol * tol {
+        if off_diag_sq < TOL * TOL {
             break;
         }
 
         for p in 0..n {
             for q in (p + 1)..n {
                 let apq = work[[p, q]];
-                if apq.abs() < tol * 0.01 {
+                if apq.abs() < PAIR_SKIP_TOL {
                     continue;
                 }
 
@@ -12784,7 +12909,7 @@ fn symmetric_eigen(a: &ndarray::Array2<f64>) -> (Vec<f64>, ndarray::Array2<f64>)
                 let tau = (aqq - app) / (2.0 * apq);
 
                 // Stable computation of t = sign(τ) / (|τ| + sqrt(1 + τ²))
-                let t = if tau.abs() > 1e15 {
+                let t = if tau.abs() > TAU_DIAGONAL_THRESHOLD {
                     // Nearly diagonal: skip.
                     continue;
                 } else {
@@ -12940,11 +13065,13 @@ fn detect_active_theta_bounds(theta: Option<&[f64]>, q: usize) -> Vec<usize> {
         return Vec::new();
     }
     let bound = crate::solver::estimate::RHO_BOUND;
-    let tol = 1e-8;
+    // Same active-bound tolerance the outer optimizer uses, so this active-set
+    // view agrees with the optimizer's at the reported optimum.
+    const ACTIVE_THETA_BOUND_TOL: f64 = 1e-8;
     theta
         .iter()
         .enumerate()
-        .filter_map(|(i, &v)| (v.abs() >= bound - tol).then_some(i))
+        .filter_map(|(i, &v)| (v.abs() >= bound - ACTIVE_THETA_BOUND_TOL).then_some(i))
         .collect()
 }
 
@@ -13995,10 +14122,7 @@ impl HessianOperator for DenseSpectralOperator {
         if n == 0 || p == 0 || rank == 0 {
             return h;
         }
-        let chunk_rows = {
-            const TARGET_BYTES: usize = 8 * 1024 * 1024;
-            (TARGET_BYTES / ((p + rank).max(1) * 8)).max(512).min(n)
-        };
+        let chunk_rows = byte_balanced_row_chunk(p + rank, n);
         let mut start = 0usize;
         while start < n {
             let end = (start + chunk_rows).min(n);
@@ -14445,7 +14569,7 @@ impl SparseCholeskyOperator {
         }
 
         let elapsed_ms = t_start.elapsed().as_secs_f64() * 1000.0;
-        if elapsed_ms > 100.0 {
+        if elapsed_ms > REML_TRACE_SLOW_LOG_MS {
             log::info!(
                 "[REML-trace] block_local_exact | n_dim={} | block={} | {:.1}ms",
                 self.n_dim,
@@ -14533,7 +14657,7 @@ impl SparseCholeskyOperator {
             });
         let result = trace_matrix_product(&solved, &solved);
         let elapsed_ms = t_start.elapsed().as_secs_f64() * 1000.0;
-        if elapsed_ms > 100.0 {
+        if elapsed_ms > REML_TRACE_SLOW_LOG_MS {
             log::info!(
                 "[REML-trace] block_local_cross_exact | n_dim={} | block={} | {:.1}ms",
                 self.n_dim,
@@ -14672,7 +14796,7 @@ impl SparseCholeskyOperator {
         }
 
         let elapsed_ms = t_start.elapsed().as_secs_f64() * 1000.0;
-        if elapsed_ms > 100.0 {
+        if elapsed_ms > REML_TRACE_SLOW_LOG_MS {
             log::info!(
                 "[REML-trace] matrix_block_op_cross_exact | n_dim={} | block={} | {:.1}ms",
                 self.n_dim,
@@ -17273,6 +17397,60 @@ mod tests {
     use approx::assert_relative_eq;
     use ndarray::array;
 
+    // ─── Can't-desync invariant for GuardedCorrection ────────────────────
+    //
+    // A `GuardedCorrection` carries a scalar VALUE and its analytic ρ-GRADIENT
+    // under ONE `include` flag. The invariant this pins: the SAME flag gates
+    // BOTH contributions, so the value and the gradient can never be
+    // half-applied (the objective↔gradient desync class behind #752/#748/#808
+    // and the latent Tierney–Kadane correction desync). With `include = false`
+    // NEITHER the cost nor the ρ-gradient moves; with `include = true` BOTH do —
+    // and because `apply_value` + `apply_gradient` (the split the evaluator
+    // uses across the value-only early return) read the SAME guard from the
+    // SAME object, the two sides cannot drift.
+    #[test]
+    fn guarded_correction_include_false_applies_neither() {
+        let value = 3.5_f64;
+        let gradient = array![0.25, -0.75, 1.5];
+        let correction =
+            GuardedCorrection::new(value, Some(gradient.clone()), /* include = */ false);
+
+        // Split apply (the value-only-early-return path): no-op guarantee on
+        // both sides under the single `include = false` guard.
+        let mut cost_split = 10.0;
+        let mut grad_split = array![0.0, 0.0, 0.0];
+        correction.apply_value(&mut cost_split);
+        correction.apply_gradient(&mut grad_split);
+        assert_eq!(cost_split, 10.0, "apply_value must respect include=false");
+        assert_eq!(
+            grad_split,
+            array![0.0, 0.0, 0.0],
+            "apply_gradient must respect include=false"
+        );
+    }
+
+    #[test]
+    fn guarded_correction_include_true_applies_both() {
+        let value = 3.5_f64;
+        let gradient = array![0.25, -0.75, 1.5];
+        let correction =
+            GuardedCorrection::new(value, Some(gradient.clone()), /* include = */ true);
+
+        // Split apply: both sides must move under the single `include = true`
+        // guard, and the gradient is added only to the LEADING entries (extra
+        // ρ-coordinates untouched).
+        let mut cost_split = 10.0;
+        let mut grad_split = array![0.0, 0.0, 0.0, 42.0];
+        correction.apply_value(&mut cost_split);
+        correction.apply_gradient(&mut grad_split);
+        assert_eq!(cost_split, 13.5);
+        assert_eq!(
+            grad_split,
+            array![0.25, -0.75, 1.5, 42.0],
+            "gradient applies to leading entries; trailing ext coords untouched"
+        );
+    }
+
     // ─── Regression for #376 ─────────────────────────────────────────────
     //
     // When a linear-inequality active set (from a `monotone_decreasing` /
@@ -18173,6 +18351,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: 2,
             nullspace_dim: 0.0,
+            gaussian_weight_log_sum_half: 0.0,
             dispersion,
             ext_coords: Vec::new(),
             ext_coord_pair_fn: None,
@@ -18255,6 +18434,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: 2,
             nullspace_dim: 0.0,
+            gaussian_weight_log_sum_half: 0.0,
             // Profiled Gaussian does not satisfy the fixed-dispersion IFT
             // identity used by the projected KKT residual correction, so an
             // inconsistent envelope gradient remains a soft "unavailable
@@ -18863,6 +19043,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: 3,
             nullspace_dim: 0.0,
+            gaussian_weight_log_sum_half: 0.0,
             dispersion: DispersionHandling::Fixed {
                 phi: 1.0,
                 include_logdet_h: true,
@@ -19158,6 +19339,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: 4,
             nullspace_dim: 2.0,
+            gaussian_weight_log_sum_half: 0.0,
             dispersion: DispersionHandling::Fixed {
                 phi: 1.0,
                 include_logdet_h: true,
@@ -19253,6 +19435,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: 4,
             nullspace_dim: 1.0,
+            gaussian_weight_log_sum_half: 0.0,
             dispersion: DispersionHandling::Fixed {
                 phi: 1.0,
                 include_logdet_h: true,
@@ -19398,6 +19581,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: 4,
             nullspace_dim: 1.0,
+            gaussian_weight_log_sum_half: 0.0,
             dispersion: DispersionHandling::Fixed {
                 phi: 1.0,
                 include_logdet_h: true,
@@ -19578,6 +19762,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: 320_000,
             nullspace_dim: 1.0,
+            gaussian_weight_log_sum_half: 0.0,
             dispersion: DispersionHandling::ProfiledGaussian,
             ext_coords: Vec::new(),
             ext_coord_pair_fn: None,
@@ -19648,6 +19833,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: 10,
             nullspace_dim: 0.0,
+            gaussian_weight_log_sum_half: 0.0,
             // Use Fixed dispersion so the gradient is exactly the
             // Laplace/REML form `½(λβ̂²S β̂ + tr(H⁻¹λS) − tr(S⁺λS))`
             // without the smooth-floor / profiling factors the test
@@ -19820,6 +20006,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: 100,
             nullspace_dim: 0.0,
+            gaussian_weight_log_sum_half: 0.0,
             dispersion: DispersionHandling::ProfiledGaussian,
             ext_coords: Vec::new(),
             ext_coord_pair_fn: None,
@@ -19884,6 +20071,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: x.nrows(),
             nullspace_dim: 0.0,
+            gaussian_weight_log_sum_half: 0.0,
             dispersion: DispersionHandling::Fixed {
                 phi: 1.0,
                 include_logdet_h: true,
@@ -19995,6 +20183,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: 1,
             nullspace_dim: 0.0,
+            gaussian_weight_log_sum_half: 0.0,
             dispersion: DispersionHandling::Fixed {
                 phi: 1.0,
                 include_logdet_h: true,
@@ -20075,6 +20264,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: 10,
             nullspace_dim: 1.0,
+            gaussian_weight_log_sum_half: 0.0,
             dispersion: DispersionHandling::Fixed {
                 phi: 1.0,
                 include_logdet_h: true,
@@ -20296,6 +20486,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: n,
             nullspace_dim: 0.0,
+            gaussian_weight_log_sum_half: 0.0,
             dispersion: DispersionHandling::ProfiledGaussian,
             ext_coords: Vec::new(),
             ext_coord_pair_fn: None,
@@ -20350,6 +20541,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: n,
             nullspace_dim: 0.0,
+            gaussian_weight_log_sum_half: 0.0,
             dispersion: DispersionHandling::ProfiledGaussian,
             ext_coords: Vec::new(),
             ext_coord_pair_fn: None,
@@ -22150,6 +22342,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: n,
             nullspace_dim: (p - r_rank) as f64,
+            gaussian_weight_log_sum_half: 0.0,
             dispersion: DispersionHandling::Fixed {
                 phi: 1.0,
                 include_logdet_h: true,
@@ -22411,6 +22604,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: n,
             nullspace_dim: 0.0,
+            gaussian_weight_log_sum_half: 0.0,
             dispersion: DispersionHandling::ProfiledGaussian,
             ext_coords: Vec::new(),
             ext_coord_pair_fn: None,
@@ -22975,6 +23169,7 @@ mod tests {
             rho_prior: crate::types::RhoPrior::Flat,
             n_observations: 10,
             nullspace_dim: 0.0,
+            gaussian_weight_log_sum_half: 0.0,
             // Fixed-dispersion with logdet_h on, logdet_s off makes the
             // cost reduce to `0.5 · (hop.logdet() + correction)` plus
             // ρ-independent constants.  Pure log|H| derivative test.

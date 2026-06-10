@@ -1,5 +1,9 @@
 [build-system]
-requires = ["setuptools>=80", "setuptools-scm[simple]>=8", "setuptools-rust"]
+requires = [
+  "setuptools>=80",
+  "setuptools-scm[simple]>=8",
+  "setuptools-rust>=1.7.0",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -11,8 +15,8 @@ readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
 dependencies = [
-  "typing-extensions",
-  "async-timeout; python_version < '3.12'",
+  "typing-extensions>=4.13.0",
+  "async-timeout>=3.0.0; python_version < '3.11'",
   "pywin32; platform_system == 'Windows'",
 ]
 
@@ -23,18 +27,22 @@ documentation = "https://puddly.github.io/serialx/"
 [project.optional-dependencies]
 esphome = ["aioesphomeapi>=44.17.0; python_version >= '3.11'"]
 dev = [
-  "ruff",
-  "mypy",
-  "pytest",
-  "prek",
-  "pytest-asyncio",
-  "pytest-timeout",
-  "pytest-xdist",
-  "psutil",
-  "async-timeout",
-  "types-psutil",
-  "types-pywin32",
-  "types-setuptools",
+  "uv>=0.11.14",
+  "ruff>=0.14.6",
+  "mypy>=2.1.0",
+  "pylint>=3.3.0",
+  "codespell>=2.4.2",
+  "tomli>=2.3.0 ; python_version < '3.11'",
+  "pytest>=9.0.1",
+  "prek>=0.3.11",
+  "pytest-asyncio>=1.3.0",
+  "pytest-timeout>=2.4.0",
+  "pytest-xdist>=3.8.0",
+  "psutil>=7.2.2",
+  "async-timeout>=5.0.1",
+  "types-psutil>=7.2.2.20260508",
+  "types-pywin32>=311.0.0.20260508",
+  "types-setuptools>=82.0.0.20260508",
   "aioesphomeapi>=44.17.0 ; python_version >= '3.11'",
 ]
 docs = [
@@ -170,6 +178,10 @@ disable_error_code = [
   "untyped-decorator",
 ]
 
+[[tool.mypy.overrides]]
+module = ["astroid.*"]
+ignore_missing_imports = true
+
 
 [tool.coverage.run]
 source = ["serialx"]
@@ -177,6 +189,14 @@ relative_files = true
 
 [tool.coverage.paths]
 source = ["serialx/", "serialx\\"]
+
+[tool.pylint.MAIN]
+init-hook = "import sys; sys.path.append('pylint/plugins')"
+load-plugins = ["pylint_serialx"]
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = ["all"]
+enable = ["serialx-reassigned-parameter"]
 
 [tool.ruff]
 target-version = "py310"
@@ -316,6 +336,7 @@ max-complexity = 25
 
 [tool.codespell]
 skip = "tests/data/*"
+ignore-words-list = "astroid"
 
 [tool.coverage.report]
 show_missing = true

@@ -1,12 +1,13 @@
 [project]
 name = "readme_renderer"
-version = "44.0"
+version = "45.0"
 description = "readme_renderer is a library for rendering readme descriptions for Warehouse"
 authors = [
   {name = "The Python Packaging Authority", email = "admin@mail.pypi.org"}
 ]
 readme = "README.rst"
-license = {text = "Apache License, Version 2.0"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 dependencies = [
   "nh3>=0.2.14",
   "docutils>=0.21.2",
@@ -14,7 +15,6 @@ dependencies = [
 ]
 classifiers = [
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
   "Natural Language :: English",
   "Operating System :: MacOS :: MacOS X",
   "Operating System :: POSIX",
@@ -24,35 +24,63 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Typing :: Typed"
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 [project.optional-dependencies]
-md = ["cmarkgfm>=0.8.0"]
+md = ["comrak>=0.0.11"]
 
 [tool.setuptools]
 include-package-data = true
 
 [tool.setuptools.packages.find]
-exclude = ["tests", "tests.*"]
+include = ["readme_renderer*"]
 
 [project.urls]
-Home-page = "https://github.com/pypa/readme_renderer"
+Homepage = "https://github.com/pypa/readme_renderer"
 
 [build-system]
-requires = ["setuptools>=40.8.0"]
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
+[tool.check-manifest]
+ignore = [
+  ".devcontainer/*",
+  ".vscode/*",
+]
+
+[tool.ruff.lint]
+extend-select = [
+  "B",
+  "C4",
+  "FLY",
+  "FURB",
+  "ISC",
+  "N",
+  "PERF",
+  "PGH",
+  "PIE",
+  "PYI",
+  "RUF",
+  "SIM",
+  "UP",
+  "W",
+]
+ignore = [
+  "B028",   # No explicit `stacklevel` keyword argument found
+]
 
 [tool.coverage.run]
 branch = true
+source = ["readme_renderer"]
 
 [tool.mypy]
 strict = true
@@ -65,6 +93,6 @@ enable_error_code = [
 [[tool.mypy.overrides]]
 # These modules do not yet have types available.
 module = [
-    "cmarkgfm.*"
+    "comrak.*"
 ]
 ignore_missing_imports = true

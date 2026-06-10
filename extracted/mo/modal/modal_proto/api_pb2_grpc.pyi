@@ -265,6 +265,14 @@ class ModalClientStub:
         modal_proto.api_pb2.EndpointCreateResponse,
     ]
     """Endpoints"""
+    EndpointList: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.EndpointListRequest,
+        modal_proto.api_pb2.EndpointListResponse,
+    ]
+    EndpointStop: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.EndpointStopRequest,
+        modal_proto.api_pb2.EndpointStopResponse,
+    ]
     EnvironmentCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.EnvironmentCreateRequest,
         google.protobuf.empty_pb2.Empty,
@@ -425,6 +433,10 @@ class ModalClientStub:
         modal_proto.api_pb2.ImageFromIdRequest,
         modal_proto.api_pb2.ImageFromIdResponse,
     ]
+    ImageGetByTag: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.ImageGetByTagRequest,
+        modal_proto.api_pb2.ImageGetByTagResponse,
+    ]
     ImageGetOrCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.ImageGetOrCreateRequest,
         modal_proto.api_pb2.ImageGetOrCreateResponse,
@@ -432,6 +444,18 @@ class ModalClientStub:
     ImageJoinStreaming: grpc.UnaryStreamMultiCallable[
         modal_proto.api_pb2.ImageJoinStreamingRequest,
         modal_proto.api_pb2.ImageJoinStreamingResponse,
+    ]
+    ImageListTags: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.ImageListTagsRequest,
+        modal_proto.api_pb2.ImageListTagsResponse,
+    ]
+    ImagePublish: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.ImagePublishRequest,
+        modal_proto.api_pb2.ImagePublishResponse,
+    ]
+    ImageTagRevisions: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.ImageTagRevisionsRequest,
+        modal_proto.api_pb2.ImageTagRevisionsResponse,
     ]
     MapAwait: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.MapAwaitRequest,
@@ -577,6 +601,10 @@ class ModalClientStub:
         modal_proto.api_pb2.SandboxGetTunnelsResponse,
     ]
     SandboxList: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxListRequest,
+        modal_proto.api_pb2.SandboxListResponse,
+    ]
+    SandboxListV2: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxListRequest,
         modal_proto.api_pb2.SandboxListResponse,
     ]
@@ -1221,6 +1249,18 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
     ) -> modal_proto.api_pb2.EndpointCreateResponse:
         """Endpoints"""
     @abc.abstractmethod
+    def EndpointList(
+        self,
+        request: modal_proto.api_pb2.EndpointListRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.EndpointListResponse: ...
+    @abc.abstractmethod
+    def EndpointStop(
+        self,
+        request: modal_proto.api_pb2.EndpointStopRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.EndpointStopResponse: ...
+    @abc.abstractmethod
     def EnvironmentCreate(
         self,
         request: modal_proto.api_pb2.EnvironmentCreateRequest,
@@ -1457,6 +1497,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.ImageFromIdResponse: ...
     @abc.abstractmethod
+    def ImageGetByTag(
+        self,
+        request: modal_proto.api_pb2.ImageGetByTagRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.ImageGetByTagResponse: ...
+    @abc.abstractmethod
     def ImageGetOrCreate(
         self,
         request: modal_proto.api_pb2.ImageGetOrCreateRequest,
@@ -1468,6 +1514,24 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.ImageJoinStreamingRequest,
         context: grpc.ServicerContext,
     ) -> collections.abc.Iterator[modal_proto.api_pb2.ImageJoinStreamingResponse]: ...
+    @abc.abstractmethod
+    def ImageListTags(
+        self,
+        request: modal_proto.api_pb2.ImageListTagsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.ImageListTagsResponse: ...
+    @abc.abstractmethod
+    def ImagePublish(
+        self,
+        request: modal_proto.api_pb2.ImagePublishRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.ImagePublishResponse: ...
+    @abc.abstractmethod
+    def ImageTagRevisions(
+        self,
+        request: modal_proto.api_pb2.ImageTagRevisionsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.ImageTagRevisionsResponse: ...
     @abc.abstractmethod
     def MapAwait(
         self,
@@ -1681,6 +1745,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
     ) -> modal_proto.api_pb2.SandboxGetTunnelsResponse: ...
     @abc.abstractmethod
     def SandboxList(
+        self,
+        request: modal_proto.api_pb2.SandboxListRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxListResponse: ...
+    @abc.abstractmethod
+    def SandboxListV2(
         self,
         request: modal_proto.api_pb2.SandboxListRequest,
         context: grpc.ServicerContext,

@@ -314,6 +314,7 @@ class Policy(betterproto2.Message):
     A policy matches if and only if at least one of its permissions match the
     action taking place AND at least one of its principals match the downstream
     AND the condition is true if specified.
+    [#next-free-field: 6]
     """
 
     permissions: "list[Permission]" = betterproto2.field(
@@ -352,6 +353,16 @@ class Policy(betterproto2.Message):
     [#not-implemented-hide:]
     An optional symbolic expression that has been successfully type checked.
     Only be used when condition is not used.
+    """
+
+    cel_config: "__core__v3__.CelExpressionConfig | None" = betterproto2.field(
+        5, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    CEL expression configuration that modifies the evaluation behavior of the ``condition`` field.
+    If specified, string conversion, concatenation, and manipulation functions may be enabled
+    for the CEL expression. See :ref:`CelExpressionConfig <envoy_v3_api_msg_config.core.v3.CelExpressionConfig>`
+    for more details.
     """
 
 

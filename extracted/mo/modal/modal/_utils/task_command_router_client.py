@@ -8,8 +8,9 @@ import time
 import typing
 import urllib.parse
 import weakref
+from collections.abc import AsyncGenerator, Callable
 from contextlib import suppress
-from typing import AsyncGenerator, Optional
+from typing import TypeVar
 
 import grpclib.client
 import grpclib.config
@@ -46,7 +47,7 @@ def _b64url_decode(data: str) -> bytes:
     return base64.urlsafe_b64decode(data + padding)
 
 
-def _parse_jwt_expiration(jwt_token: str) -> Optional[float]:
+def _parse_jwt_expiration(jwt_token: str) -> float | None:
     """Parse exp from a JWT without verification. Returns UNIX time seconds or None.
 
     This is best-effort; if parsing fails or claim missing, returns None.
@@ -72,9 +73,9 @@ async def call_with_retries_on_transient_errors(
     *,
     base_delay_secs: float = 0.01,
     delay_factor: float = 2,
-    max_retries: Optional[int] = 10,
-    exclude_status_codes: Optional[list[Status]] = None,
-    timeout_deadline: Optional[float] = None,
+    max_retries: int | None = 10,
+    exclude_status_codes: list[Status] | None = None,
+    timeout_deadline: float | None = None,
 ):
     """Call func() with transient error retries and exponential backoff.
 
@@ -146,6 +147,10 @@ async def call_with_retries_on_transient_errors(
             await sleep_and_advance(e)
 
 
+_StdioReq = TypeVar("_StdioReq")
+_StdioResp = TypeVar("_StdioResp", sr_pb2.TaskExecStdioReadResponse, sr_pb2.SandboxStdioReadV2Response)
+
+
 async def fetch_command_router_access(server_client, task_id: str) -> api_pb2.TaskGetCommandRouterAccessResponse:
     """Fetch direct command router access info from Modal server."""
     return await server_client.stub.TaskGetCommandRouterAccess(
@@ -189,22 +194,29 @@ class TaskCommandRouterClient:
         url: str,
         jwt: str,
         *,
-        sandbox_id: Optional[str] = None,
+        sandbox_id: str | None = None,
     ) -> "TaskCommandRouterClient":
         """Build a connected client from a jwt and url."""
         o = urllib.parse.urlparse(url)
-        if o.scheme != "https":
+        is_localhost_client = server_client._is_localhost
+        if o.scheme == "http":
+            # plain http serving should only be used for unit tests
+            if not is_localhost_client:
+                raise ValueError(f"Task router URL must be https, got: {url}")
+            ssl_context = None
+        elif o.scheme == "https":
+            ssl_context = ssl.create_default_context()
+            if is_localhost_client:
+                # Allow insecure TLS when the Modal server client points to localhost
+                # This is typically triggered from local e2e testing
+                logger.warning("Using insecure TLS for task command router because server client points to localhost")
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+        else:
             raise ValueError(f"Task router URL must be https, got: {url}")
 
         host, _, port_str = o.netloc.partition(":")
-        port = int(port_str) if port_str else 443
-        ssl_context = ssl.create_default_context()
-
-        # Allow insecure TLS when explicitly enabled via config.
-        if server_client._is_localhost:
-            logger.warning("Using insecure TLS for task command router because server client points to localhost")
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_NONE
+        port = int(port_str) if port_str else (443 if o.scheme == "https" else 80)
 
         channel = PermanentCloseableChannel(
             host,
@@ -218,7 +230,7 @@ class TaskCommandRouterClient:
         )
 
         async def send_request(event: grpclib.events.SendRequest) -> None:
-            idempotency_key = typing.cast(Optional[str], event.metadata.get("x-idempotency-key"))
+            idempotency_key = typing.cast(str | None, event.metadata.get("x-idempotency-key"))
             if idempotency_key is None:
                 logger.debug(f"Sending request to {event.method_name}")
             else:
@@ -267,7 +279,7 @@ class TaskCommandRouterClient:
         loop: asyncio.AbstractEventLoop,
         jwt_refresh_lock: asyncio.Lock,
         *,
-        sandbox_id: Optional[str] = None,
+        sandbox_id: str | None = None,
         stream_stdio_retry_delay_secs: float = 0.01,
         stream_stdio_retry_delay_factor: float = 2,
         stream_stdio_max_retries: int = 10,
@@ -290,7 +302,7 @@ class TaskCommandRouterClient:
         self.stream_stdio_max_retries = stream_stdio_max_retries
 
         # JWT refresh coordination
-        self._jwt_exp: Optional[float] = _parse_jwt_expiration(jwt)
+        self._jwt_exp: float | None = _parse_jwt_expiration(jwt)
         # This is passed in as an argument to ensure it's created from within the correct event loop.
         self._jwt_refresh_lock = jwt_refresh_lock
 
@@ -374,9 +386,9 @@ class TaskCommandRouterClient:
         exec_id: str,
         # Quotes around the type required for protobuf 3.19.
         file_descriptor: "api_pb2.FileDescriptor.ValueType",
-        deadline: Optional[float] = None,
+        deadline: float | None = None,
     ) -> AsyncGenerator[sr_pb2.TaskExecStdioReadResponse, None]:
-        """Stream stdout/stderr batches from the task, properly retrying on transient errors.
+        """Stream stdout/stderr batches from an exec'd command, retrying on transient errors.
 
         Args:
             task_id: The task ID of the task running the exec'd command.
@@ -406,6 +418,39 @@ class TaskCommandRouterClient:
                 async for item in stream:
                     yield item
 
+    async def sandbox_stdio_read(
+        self,
+        task_id: str,
+        # Quotes around the type required for protobuf 3.19.
+        file_descriptor: "api_pb2.FileDescriptor.ValueType",
+    ) -> AsyncGenerator[sr_pb2.SandboxStdioReadV2Response, None]:
+        """Stream stdout/stderr batches from a V2 sandbox.
+
+        Serves both live reads and post-exit reads.
+
+        Args:
+            task_id: The task ID hosting the V2 sandbox.
+            file_descriptor: The file descriptor to read from (stdout or stderr).
+        Returns:
+            AsyncGenerator[sr_pb2.SandboxStdioReadV2Response, None]: A stream of stdout/stderr batches.
+        Raises:
+            Errors: If retries are exhausted on transient errors or if there is
+              an error from the RPC itself.
+        """
+        if file_descriptor == api_pb2.FILE_DESCRIPTOR_STDOUT:
+            sr_fd = sr_pb2.SANDBOX_STDIO_FILE_DESCRIPTOR_STDOUT
+        elif file_descriptor == api_pb2.FILE_DESCRIPTOR_STDERR:
+            sr_fd = sr_pb2.SANDBOX_STDIO_FILE_DESCRIPTOR_STDERR
+        elif file_descriptor == api_pb2.FILE_DESCRIPTOR_INFO or file_descriptor == api_pb2.FILE_DESCRIPTOR_UNSPECIFIED:
+            raise ValueError(f"Unsupported file descriptor: {file_descriptor}")
+        else:
+            raise ValueError(f"Invalid file descriptor: {file_descriptor}")
+
+        with grpc_error_converter():
+            async with aclosing(self._stream_sandbox_stdio(task_id, sr_fd)) as stream:
+                async for item in stream:
+                    yield item
+
     async def exec_stdin_write(
         self, task_id: str, exec_id: str, offset: int, data: bytes, eof: bool
     ) -> sr_pb2.TaskExecStdinWriteResponse:
@@ -427,9 +472,26 @@ class TaskCommandRouterClient:
                 lambda: self._call_with_auth_retry(self._stub.TaskExecStdinWrite, request)
             )
 
-    async def exec_poll(
-        self, task_id: str, exec_id: str, deadline: Optional[float] = None
-    ) -> sr_pb2.TaskExecPollResponse:
+    async def sandbox_stdin_write_v2(
+        self, task_id: str, offset: int, data: bytes, eof: bool
+    ) -> sr_pb2.SandboxStdinWriteV2Response:
+        """Write to the stdin stream of a V2 sandbox's entrypoint process.
+
+        Args:
+            task_id: The task ID of the V2 sandbox.
+            offset: The offset to start writing to.
+            eof: Whether to close the stdin stream after writing the data.
+        Raises:
+            Other errors: If retries are exhausted on transient errors or if there's an error
+              from the RPC itself.
+        """
+        request = sr_pb2.SandboxStdinWriteV2Request(task_id=task_id, offset=offset, data=data, eof=eof)
+        with grpc_error_converter():
+            return await call_with_retries_on_transient_errors(
+                lambda: self._call_with_auth_retry(self._stub.SandboxStdinWriteV2, request)
+            )
+
+    async def exec_poll(self, task_id: str, exec_id: str, deadline: float | None = None) -> sr_pb2.TaskExecPollResponse:
         """Poll for the exit status of an exec'd command, properly retrying on transient errors.
 
         Args:
@@ -465,7 +527,7 @@ class TaskCommandRouterClient:
         self,
         task_id: str,
         exec_id: str,
-        deadline: Optional[float] = None,
+        deadline: float | None = None,
     ) -> sr_pb2.TaskExecWaitResponse:
         """Wait for an exec'd command to exit and return the exit code, properly retrying on transient errors.
 
@@ -551,16 +613,23 @@ class TaskCommandRouterClient:
                 return await func(*args, **kwargs, metadata=self._get_metadata())
             raise
 
-    async def _stream_stdio(
+    async def _stream_stdio_with_retries(
         self,
-        task_id: str,
-        exec_id: str,
-        # Quotes around the type required for protobuf 3.19.
-        file_descriptor: "sr_pb2.TaskExecStdioFileDescriptor.ValueType",
-        deadline: Optional[float] = None,
-    ) -> AsyncGenerator[sr_pb2.TaskExecStdioReadResponse, None]:
-        """Stream stdio from the task, properly updating the offset and retrying on transient errors.
-        Raises ExecTimeoutError if the deadline is exceeded.
+        *,
+        stub_method: "grpclib.client.UnaryStreamMethod[_StdioReq, _StdioResp]",
+        request_factory: Callable[[int], _StdioReq],
+        deadline_label: str,
+        deadline: float | None = None,
+    ) -> AsyncGenerator[_StdioResp, None]:
+        """Drive a streaming-stdio RPC with offset bookkeeping, transient-error
+        retries, and JWT-refresh auth retries.
+
+        Shared by [`_stream_stdio`] (exec stdio) and [`_stream_sandbox_stdio`]
+        (V2 sandbox top-level stdio); both response types have a ``bytes data``
+        field that this helper uses to advance the offset. For V2 sandbox
+        responses (which carry ``starting_offset``), the offset is rebased off
+        the first chunk of each attempt so transient reconnects don't miss
+        bytes.
         """
         offset = 0
         delay_secs = self.stream_stdio_retry_delay_secs
@@ -574,7 +643,7 @@ class TaskCommandRouterClient:
             nonlocal delay_secs, num_retries_remaining
             logger.debug(f"Retrying stdio read with delay {delay_secs}s due to error: {e}")
             if deadline is not None and deadline - time.monotonic() <= delay_secs:
-                raise ExecTimeoutError(f"Deadline exceeded while streaming stdio for exec {exec_id}")
+                raise ExecTimeoutError(f"Deadline exceeded while streaming stdio for {deadline_label}")
 
             await asyncio.sleep(delay_secs)
             delay_secs *= delay_factor
@@ -583,18 +652,14 @@ class TaskCommandRouterClient:
         while True:
             timeout = max(0, deadline - time.monotonic()) if deadline is not None else None
             try:
-                stream = self._stub.TaskExecStdioRead.open(timeout=timeout, metadata=self._get_metadata())
+                stream = stub_method.open(timeout=timeout, metadata=self._get_metadata())
                 async with stream as s:
-                    req = sr_pb2.TaskExecStdioReadRequest(
-                        task_id=task_id,
-                        exec_id=exec_id,
-                        offset=offset,
-                        file_descriptor=file_descriptor,
-                    )
+                    req = request_factory(offset)
 
                     # Auth retry is scoped to a single refresh per streaming attempt. While auth metadata is
                     # sent on request start, UNAUTHENTICATED may sometimes surface during iteration,
                     # so we handle it at both send and receive boundaries.
+                    is_first_chunk_of_attempt = True
                     try:
                         await s.send_message(req, end=True)
                         async for item in s:
@@ -603,6 +668,11 @@ class TaskCommandRouterClient:
                                 did_auth_retry = False
                             # Reset retry backoff after any successful chunk.
                             delay_secs = self.stream_stdio_retry_delay_secs
+                            # Track it so transient reconnects request the
+                            # correct next byte.
+                            if is_first_chunk_of_attempt and isinstance(item, sr_pb2.SandboxStdioReadV2Response):
+                                offset = item.starting_offset
+                            is_first_chunk_of_attempt = False
                             offset += len(item.data)
                             yield item
                     except GRPCError as exc:
@@ -645,6 +715,63 @@ class TaskCommandRouterClient:
                 else:
                     raise ConnectionError(str(e))
 
+    async def _stream_stdio(
+        self,
+        task_id: str,
+        exec_id: str,
+        # Quotes around the type required for protobuf 3.19.
+        file_descriptor: "sr_pb2.TaskExecStdioFileDescriptor.ValueType",
+        deadline: float | None = None,
+    ) -> AsyncGenerator[sr_pb2.TaskExecStdioReadResponse, None]:
+        """Stream exec stdio from the task, retrying on transient errors.
+        Raises ExecTimeoutError if the deadline is exceeded.
+        """
+
+        def request_factory(offset: int) -> sr_pb2.TaskExecStdioReadRequest:
+            return sr_pb2.TaskExecStdioReadRequest(
+                task_id=task_id,
+                exec_id=exec_id,
+                offset=offset,
+                file_descriptor=file_descriptor,
+            )
+
+        async with aclosing(
+            self._stream_stdio_with_retries(
+                stub_method=self._stub.TaskExecStdioRead,
+                request_factory=request_factory,
+                deadline_label=f"exec {exec_id}",
+                deadline=deadline,
+            )
+        ) as stream:
+            async for item in stream:
+                yield item
+
+    async def _stream_sandbox_stdio(
+        self,
+        task_id: str,
+        # Quotes around the type required for protobuf 3.19.
+        file_descriptor: "sr_pb2.SandboxStdioFileDescriptor.ValueType",
+    ) -> AsyncGenerator[sr_pb2.SandboxStdioReadV2Response, None]:
+        """Stream V2 sandbox top-level stdio from the task, retrying on transient errors."""
+
+        def request_factory(offset: int) -> sr_pb2.SandboxStdioReadV2Request:
+            return sr_pb2.SandboxStdioReadV2Request(
+                task_id=task_id,
+                offset=offset,
+                file_descriptor=file_descriptor,
+            )
+
+        async with aclosing(
+            self._stream_stdio_with_retries(
+                stub_method=self._stub.SandboxStdioReadV2,
+                request_factory=request_factory,
+                deadline_label=f"sandbox {task_id}",
+                deadline=None,
+            )
+        ) as stream:
+            async for item in stream:
+                yield item
+
     async def mount_image(self, request: sr_pb2.TaskMountDirectoryRequest):
         with grpc_error_converter():
             return await call_with_retries_on_transient_errors(
@@ -657,21 +784,10 @@ class TaskCommandRouterClient:
                 lambda: self._call_with_auth_retry(self._stub.TaskUnmountDirectory, request)
             )
 
-    async def snapshot_directory(
-        self, request: sr_pb2.TaskSnapshotDirectoryRequest, **kwargs
-    ) -> sr_pb2.TaskSnapshotDirectoryResponse:
-        with grpc_error_converter():
-            return await call_with_retries_on_transient_errors(
-                lambda: self._call_with_auth_retry(self._stub.TaskSnapshotDirectory, request, **kwargs)
-            )
-
-    async def snapshot_filesystem(
-        self, request: sr_pb2.TaskSnapshotFilesystemRequest, *, timeout: float, **kwargs
-    ) -> sr_pb2.TaskSnapshotFilesystemResponse:
-        # Compute the overall deadline once; each retry attempt passes the
-        # remaining budget as the per-call gRPC timeout so we honor the
-        # caller-specified `timeout` across retries instead of giving each
-        # attempt a fresh full window.
+    async def _snapshot_with_deadline(self, rpc, request, *, timeout: float, **kwargs):
+        # helper method for snapshot_directory and snapshot_filesystem to handle grpc
+        # deadlines in a consistent way, converting any error to TimeoutError after passing
+        # the total deadline budget
         timeout_deadline = time.monotonic() + timeout
 
         def call():
@@ -680,12 +796,8 @@ class TaskCommandRouterClient:
                 # doesn't matter which exception type this is
                 # as it will be caught by the catch all below
                 raise ModalTimeoutError("Timeout expired")
+            return self._call_with_auth_retry(rpc, request, timeout=call_timeout, **kwargs)
 
-            return self._call_with_auth_retry(
-                self._stub.TaskSnapshotFilesystem, request, timeout=call_timeout, **kwargs
-            )
-
-        # Any failure observed at or after the deadline is treated as a timeout
         try:
             with grpc_error_converter():
                 return await call_with_retries_on_transient_errors(
@@ -697,3 +809,13 @@ class TaskCommandRouterClient:
             if time.monotonic() >= timeout_deadline:
                 raise ModalTimeoutError("Timeout expired")
             raise
+
+    async def snapshot_directory(
+        self, request: sr_pb2.TaskSnapshotDirectoryRequest, *, timeout: float, **kwargs
+    ) -> sr_pb2.TaskSnapshotDirectoryResponse:
+        return await self._snapshot_with_deadline(self._stub.TaskSnapshotDirectory, request, timeout=timeout, **kwargs)
+
+    async def snapshot_filesystem(
+        self, request: sr_pb2.TaskSnapshotFilesystemRequest, *, timeout: float, **kwargs
+    ) -> sr_pb2.TaskSnapshotFilesystemResponse:
+        return await self._snapshot_with_deadline(self._stub.TaskSnapshotFilesystem, request, timeout=timeout, **kwargs)

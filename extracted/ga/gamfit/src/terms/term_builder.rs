@@ -33,6 +33,31 @@ use crate::smooth::{
 };
 use crate::types::ColIdx;
 
+/// Fraction of the data bounding-box diameter used as the default Matérn
+/// length scale when the user does not supply one. A length scale near a small
+/// fraction of the domain extent puts the kernel's correlation range at the
+/// scale of local structure rather than the whole domain.
+const DEFAULT_MATERN_LENGTH_SCALE_DIAMETER_FRACTION: f64 = 0.15;
+
+/// Floor on the derived default Matérn length scale, guarding against a zero or
+/// vanishingly small scale when the data span is degenerate.
+const DEFAULT_MATERN_LENGTH_SCALE_FLOOR: f64 = 1e-6;
+
+/// Default B-spline degree when a smooth's `degree=` option is absent. Cubic
+/// (degree 3) is the standard GAM convention: C² continuity with a low knot
+/// count.
+const DEFAULT_BSPLINE_DEGREE: usize = 3;
+
+/// Default difference-penalty order when a smooth's `penalty_order=` (alias
+/// `m=`) option is absent. Second-order (curvature) is the standard P-spline
+/// convention.
+const DEFAULT_PENALTY_ORDER: usize = 2;
+
+/// Default row-chunk size for the out-of-core PCA-basis smooth when the
+/// `chunk_size=` option is absent. Streams the design in row blocks to bound
+/// peak memory independent of the dataset row count.
+const DEFAULT_PCA_CHUNK_SIZE: usize = 4096;
+
 fn default_matern_length_scale(ds: &Dataset, cols: &[usize]) -> f64 {
     let mut diameter2 = 0.0_f64;
     for &col in cols {
@@ -50,7 +75,8 @@ fn default_matern_length_scale(ds: &Dataset, cols: &[usize]) -> f64 {
     }
     let diameter = diameter2.sqrt();
     if diameter.is_finite() && diameter > 0.0 {
-        (0.15 * diameter).max(1e-6)
+        (DEFAULT_MATERN_LENGTH_SCALE_DIAMETER_FRACTION * diameter)
+            .max(DEFAULT_MATERN_LENGTH_SCALE_FLOOR)
     } else {
         1.0
     }
@@ -1060,10 +1086,7 @@ fn parse_tensor_k_list(
         .or_else(|| options.get("basis-dim"))
         .or_else(|| options.get("basisdim"));
     let Some(raw) = raw else {
-        let inferred = cols
-            .iter()
-            .map(|&c| heuristic_knots_for_column(ds.values.column(c)))
-            .collect();
+        let inferred = heuristic_tensor_margin_knots(cols, ds);
         return Ok((inferred, true));
     };
     let entries = split_list_option(raw);
@@ -1399,7 +1422,7 @@ pub fn build_smooth_basis(
         let degree = if type_opt == "re" {
             1
         } else {
-            option_usize(options, "degree").unwrap_or(3)
+            option_usize(options, "degree").unwrap_or(DEFAULT_BSPLINE_DEGREE)
         };
         // For a factor smooth every group's curve is fit from THAT group's rows
         // alone, so the marginal's flexibility must respect the least-resolved
@@ -1468,7 +1491,9 @@ pub fn build_smooth_basis(
         };
         let flavour = match type_opt.as_str() {
             "fs" => FactorSmoothFlavour::Fs {
-                m_null_penalty_orders: vec![option_usize(options, "m").unwrap_or(2)],
+                m_null_penalty_orders: vec![
+                    option_usize(options, "m").unwrap_or(DEFAULT_PENALTY_ORDER),
+                ],
             },
             "sz" => FactorSmoothFlavour::Sz,
             "re" => FactorSmoothFlavour::Re,
@@ -1531,7 +1556,7 @@ pub fn build_smooth_basis(
             }
             let c = cols[0];
             let (minv, maxv) = col_minmax(ds.values.column(c))?;
-            let degree = option_usize(options, "degree").unwrap_or(3);
+            let degree = option_usize(options, "degree").unwrap_or(DEFAULT_BSPLINE_DEGREE);
             let mut default_internal = heuristic_knots_for_column(ds.values.column(c));
             if ds.values.nrows() <= 32 && smooth_coordinate_count >= 5 {
                 default_internal = default_internal.min(1);
@@ -1569,7 +1594,8 @@ pub fn build_smooth_basis(
                 feature_col: c,
                 spec: BSplineBasisSpec {
                     degree,
-                    penalty_order: option_usize(options, "penalty_order").unwrap_or(2),
+                    penalty_order: option_usize(options, "penalty_order")
+                        .unwrap_or(DEFAULT_PENALTY_ORDER),
                     knotspec: BSplineKnotSpec::PeriodicUniform {
                         data_range: (domain_start, domain_start + period),
                         num_basis,
@@ -1642,7 +1668,7 @@ pub fn build_smooth_basis(
             }
             let c = cols[0];
             let (minv, maxv) = col_minmax(ds.values.column(c))?;
-            let degree = option_usize(options, "degree").unwrap_or(3);
+            let degree = option_usize(options, "degree").unwrap_or(DEFAULT_BSPLINE_DEGREE);
             let default_internal = heuristic_knots_for_column(ds.values.column(c));
             let (mut n_knots, inferred) =
                 parse_ps_internal_knots(options, degree, default_internal)?;
@@ -1711,7 +1737,8 @@ pub fn build_smooth_basis(
                 feature_col: c,
                 spec: BSplineBasisSpec {
                     degree,
-                    penalty_order: option_usize(options, "penalty_order").unwrap_or(2),
+                    penalty_order: option_usize(options, "penalty_order")
+                        .unwrap_or(DEFAULT_PENALTY_ORDER),
                     knotspec,
                     double_penalty: smooth_double_penalty,
                     identifiability: BSplineIdentifiability::default(),
@@ -1884,7 +1911,7 @@ pub fn build_smooth_basis(
                     center_strategy,
                     penalty_order: option_usize(options, "penalty_order")
                         .or_else(|| option_usize(options, "m"))
-                        .unwrap_or(2),
+                        .unwrap_or(DEFAULT_PENALTY_ORDER),
                     double_penalty: smooth_double_penalty,
                     radians,
                     method,
@@ -1978,6 +2005,11 @@ pub fn build_smooth_basis(
                     identifiability: parse_matern_identifiability(options)
                         .map_err(|e| e.to_string())?,
                     aniso_log_scales,
+                    // Cold build: let the bootstrap-κ spectral test decide whether
+                    // the double-penalty nullspace shrinkage survives; the freeze
+                    // step then pins that decision into the FrozenTransform so the
+                    // κ-optimizer's rebuilds keep the count invariant (gam#787/#860).
+                    nullspace_shrinkage_survived: None,
                 },
                 input_scales: None,
             })
@@ -2245,7 +2277,7 @@ pub fn build_smooth_basis(
             let periodic_axes = parse_tensor_periodic_axes(options, dim)?;
             let periods_opt = parse_periods(options, &periodic_axes)?;
             let origins_opt = parse_period_origins(options, &periodic_axes)?;
-            let degree = option_usize(options, "degree").unwrap_or(3);
+            let degree = option_usize(options, "degree").unwrap_or(DEFAULT_BSPLINE_DEGREE);
             let penalty_order =
                 option_usize(options, "penalty_order").unwrap_or(if degree > 1 { 2 } else { 1 });
             let (mut k_list, k_inferred) = parse_tensor_k_list(options, cols, ds)?;
@@ -2257,7 +2289,9 @@ pub fn build_smooth_basis(
             if k_inferred {
                 inference_notes.push(format!(
                     "Automatically set per-margin basis sizes {:?} for tensor smooth '{}' \
-                     (unique/4 rule per column, clamped to [4, cbrt(unique).max(20)]). \
+                     (dimension-aware tensor budget: total ∏k kept near the mgcv-te default \
+                     and within the data support, distributed geometrically across margins and \
+                     capped per margin by each column's resolution). \
                      Override with k=<int> or k=[k0,k1,...].",
                     k_list,
                     vars.join(",")
@@ -2402,7 +2436,7 @@ pub fn build_smooth_basis(
             };
             let k = option_usize_any(options, &["k", "basis_dim", "basis-dim", "basisdim"])
                 .unwrap_or(0);
-            let chunk_size = option_usize(options, "chunk_size").unwrap_or(4096);
+            let chunk_size = option_usize(options, "chunk_size").unwrap_or(DEFAULT_PCA_CHUNK_SIZE);
             Ok(SmoothBasisSpec::Pca {
                 feature_cols: cols.to_vec(),
                 basis_matrix: Array2::<f64>::zeros((cols.len(), k)),
@@ -2528,6 +2562,91 @@ pub fn heuristic_knots_for_column(col: ArrayView1<'_, f64>) -> usize {
     let unique = unique_count_column(col);
     let ceiling = ((unique as f64).cbrt() as usize).max(20);
     (unique / 4).clamp(4, ceiling)
+}
+
+/// Per-margin basis sizes for a tensor-product smooth (`te`/`ti`/`t2`).
+///
+/// The 1-D heuristic [`heuristic_knots_for_column`] is calibrated for an
+/// *additive* margin: a column with ~80 unique values asks for ~20 basis
+/// functions, which is sensible for a single `s(x)` term (≈20 coefficients).
+/// A tensor product, however, multiplies the per-margin sizes:
+/// `p = ∏_d k_d`. Reusing the 1-D rule per margin makes `p` explode with the
+/// tensor dimension — a 3-D `te(x,y,z)` at the 1-D ceiling of 20/margin is
+/// `20³ = 8000` columns, and every REML evaluation pays an O(p³) dense
+/// penalty reparameterization (the full-tensor sum-to-zero constraint is not
+/// Kronecker-factorable), turning model selection over tensor candidates into
+/// a multi-minute single-threaded stall (gam#813). It also requests far more
+/// coefficients than the data can identify whenever `p ≫ n`.
+///
+/// mgcv's `te(...)` uses a small per-margin default (`k = 5`, i.e. `5^d`).
+/// We match that spirit while staying data-adaptive: budget the *total* tensor
+/// column count `p_target` and distribute it geometrically across the margins
+/// so `∏ k_d ≈ p_target`, never asking a margin for more functions than its
+/// own unique values (and the data set) can support.
+fn heuristic_tensor_margin_knots(cols: &[usize], ds: &Dataset) -> Vec<usize> {
+    let d = cols.len().max(1);
+    let degree = DEFAULT_BSPLINE_DEGREE;
+    let min_k = degree + 2; // smallest margin that carries a difference penalty
+    let n = ds.values.nrows();
+
+    // Per-margin 1-D ceiling: never request more basis functions than the
+    // margin's own resolution (unique values) supports. This caps each axis
+    // independently before the joint budget is applied.
+    let per_margin_cap: Vec<usize> = cols
+        .iter()
+        .map(|&c| heuristic_knots_for_column(ds.values.column(c)).max(min_k))
+        .collect();
+
+    // Total-basis budget. A tensor with ∏k ≫ n coefficients is rank-deficient
+    // and pure REML cost; cap the product at a generous fraction of n while
+    // honoring mgcv's small default for the common small-d case. The budget
+    // grows with n but the geometric split below keeps each margin modest.
+    //   d=2 → up to ~7²=49 (mgcv-`te`-like), d=3 → ~5³=125, larger d shrinks
+    // per-margin further so the product never blows past the data support.
+    let mgcv_like_per_margin = match d {
+        2 => 7usize,
+        3 => 5usize,
+        _ => 4usize,
+    };
+    let mgcv_like_total = (mgcv_like_per_margin as f64).powi(d as i32);
+    let data_budget = (n as f64) * 0.8;
+    let p_target = mgcv_like_total
+        .max(min_k.pow(d as u32) as f64)
+        .min(data_budget);
+
+    // Geometric per-margin target so ∏k ≈ p_target, then clamp each margin to
+    // its own 1-D resolution cap and the difference-penalty floor.
+    let geo_per_margin = p_target.powf(1.0 / d as f64).round() as usize;
+    let unclamped: Vec<usize> = per_margin_cap
+        .iter()
+        .map(|&cap| geo_per_margin.clamp(min_k, cap))
+        .collect();
+
+    // The per-margin clamps can pull some axes below `geo_per_margin` (a
+    // low-resolution column), leaving headroom in the joint budget. Redistribute
+    // that headroom to the margins that can still grow, so the realized ∏k stays
+    // close to p_target instead of systematically under-shooting it.
+    let mut k_list = unclamped;
+    loop {
+        let product: f64 = k_list.iter().map(|&k| k as f64).product();
+        if product >= p_target {
+            break;
+        }
+        // Grow the axis with the most remaining headroom (cap − current),
+        // breaking ties toward the largest cap. Stop when none can grow.
+        let Some(idx) = k_list
+            .iter()
+            .zip(per_margin_cap.iter())
+            .enumerate()
+            .filter(|&(_, (k, cap))| k < cap)
+            .max_by_key(|&(_, (k, cap))| (cap - k, *cap))
+            .map(|(i, _)| i)
+        else {
+            break;
+        };
+        k_list[idx] += 1;
+    }
+    k_list
 }
 
 pub fn heuristic_centers(n: usize, d: usize) -> usize {
@@ -3699,6 +3818,65 @@ mod tests {
         assert_eq!(
             unique_basis, repeated_basis,
             "duplicating existing tensor coordinates must not inflate inferred basis width"
+        );
+    }
+
+    #[test]
+    fn inferred_three_dim_tensor_basis_stays_bounded_for_reml_selection() {
+        // Regression for gam#813: the inferred per-margin k must be
+        // dimension-aware so the 3-D tensor width p = ∏ k_d does not explode.
+        // With the old 1-D-per-margin rule a 3-D `te` defaulted to 7³=343 at
+        // small n and 20³=8000 at larger n, making the (non-Kronecker-factorable)
+        // full-tensor sum-to-zero penalty's O(p³) REML reparameterization a
+        // multi-minute stall. The dimension-aware budget keeps the product near
+        // mgcv's te default (≈5³=125) regardless of n.
+        let make = |n: usize| -> usize {
+            let mut rows = Vec::with_capacity(n);
+            for i in 0..n {
+                let f = i as f64 / n as f64;
+                rows.push(vec![f.sin(), f, (2.0 * f).cos(), (3.0 * f) % 1.0]);
+            }
+            let ds = continuous_dataset(&["y", "x1", "x2", "x3"], rows);
+            let parsed = parse_formula("y ~ te(x1, x2, x3)").expect("parse 3-D tensor");
+            let col_map = ds.column_map();
+            let mut notes = Vec::new();
+            let terms = build_termspec(
+                &parsed.terms,
+                &ds,
+                &col_map,
+                &mut notes,
+                &ResourcePolicy::default_library(),
+            )
+            .expect("build 3-D tensor termspec");
+            let SmoothBasisSpec::TensorBSpline { spec, .. } = &terms.smooth_terms[0].basis else {
+                panic!("expected tensor smooth");
+            };
+            spec.marginalspecs
+                .iter()
+                .map(|m| match m.knotspec {
+                    BSplineKnotSpec::Generate {
+                        num_internal_knots, ..
+                    } => num_internal_knots + m.degree + 1,
+                    BSplineKnotSpec::Automatic {
+                        num_internal_knots: Some(num_internal_knots),
+                        ..
+                    } => num_internal_knots + m.degree + 1,
+                    _ => panic!("unexpected tensor margin knotspec"),
+                })
+                .product()
+        };
+
+        // n=30 (the issue's data): was 7³=343, must now be modest.
+        assert!(
+            make(60) <= 216,
+            "3-D te at small n must stay near the mgcv te default, got {}",
+            make(60)
+        );
+        // Larger n must NOT grow the product toward n³ (was 20³=8000).
+        assert!(
+            make(2000) <= 216,
+            "3-D te at large n must not blow ∏k toward the data size, got {}",
+            make(2000)
         );
     }
 

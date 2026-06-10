@@ -895,39 +895,71 @@ def test_every_boot_mode_is_handled_by_the_pxe_decision_tree() -> None:
     )
 
 
-def test_bty_web_help_documents_every_env_var() -> None:
-    """Every ``BTY_*`` env var the bty-web runtime reads from
-    ``os.environ`` must be documented in the argparse description
-    that ``bty-web --help`` prints. Without this pin a future
-    "read BTY_FOO_BAR" addition can land without the operator-
-    facing surface picking it up, and the only way to discover
-    the knob is grep-the-source.
+def test_bty_web_env_vars_are_covered_by_config_schema() -> None:
+    """v0.42+: every ``BTY_*`` env var that bty-web reads from
+    ``os.environ`` must either:
 
-    Scans ``__init__.py`` (the entry point), ``_app.py`` and
-    ``_ui.py`` (which read e.g. ``BTY_TRUSTED_PROXY`` /
-    ``BTY_BOOT_RELEASE_REPO`` directly) for the read sites, and
-    asserts each name appears in the ``--help`` description block
-    that lives in ``__init__.py``.
+    * follow the ``BTY_<SECTION>_<KEY>`` convention and map to a
+      field in :mod:`bty.web._config` (the Config dataclass IS the
+      schema; the env layer is just a per-key override on top of
+      the TOML), OR
+    * appear in a small allow-list of legacy / not-yet-migrated
+      names below.
+
+    The allow-list shrinks toward zero as the v0.42 migration
+    progresses; removing an entry here is the canonical way to
+    enforce "this knob now lives in bty.toml".
     """
+    from dataclasses import fields
+    from typing import get_type_hints
+
+    from bty.web._config import Config
+
     web = REPO_ROOT / "src" / "bty" / "web"
-    help_body = (web / "__init__.py").read_text()
-    # Read sites across the runtime modules.
     env_keys: set[str] = set()
-    for name in ("__init__.py", "_app.py", "_ui.py"):
+    for name in ("__init__.py", "_app.py", "_ui.py", "_db.py", "_auth.py"):
         src = (web / name).read_text()
         env_keys.update(re.findall(r'os\.environ\.get\(\s*"(BTY_[A-Z0-9_]+)"', src))
         env_keys.update(re.findall(r'os\.environ\[\s*"(BTY_[A-Z0-9_]+)"', src))
     assert env_keys, "scan should find at least one BTY_* lookup"
 
-    # The name must appear in the --help description block (we
-    # approximate "in user-facing help" as "present in __init__.py
-    # outside its own os.environ read line").
-    help_outside = re.sub(r"os\.environ(?:\.get)?[\[(][^\])]*[\])]", "", help_body)
-    missing = sorted(k for k in env_keys if k not in help_outside)
+    # Names that follow the convention map to a Config field.
+    schema_keys: set[str] = {"BTY_CONFIG_FILE", "BTY_CONFIG_DIR"}
+    for section_name, section_cls in get_type_hints(Config).items():
+        for fld in fields(section_cls):
+            schema_keys.add(f"BTY_{section_name.upper()}_{fld.name.upper()}")
+
+    # Legacy names still read directly by call sites pending
+    # migration to ``cfg.*``. Each entry should map to a Config
+    # field via the section/key convention; removing it from this
+    # list is how the migration is enforced.
+    legacy_pending_migration: set[str] = {
+        # _db.default_state_path falls back to the legacy env name
+        # when no active config is installed (direct-call paths --
+        # test fixtures, the inventory CLI). The legacy alias also
+        # wires the env into cfg.paths.state_dir at load_config time,
+        # so this remains a soft alias.
+        "BTY_STATE_DIR",
+        # _init.py's _resolve_secret_key falls back to the legacy
+        # env name when no active config is installed.
+        "BTY_SESSION_SECRET",
+        # _backup.py's _resolve_max_parallel falls back the same way.
+        "BTY_BACKUP_MAX_PARALLEL",
+        # _app.py only consults this on startup to seed boot artifacts
+        # into BTY_BOOT_DIR if the container shipped baked ones; not
+        # an operator-facing config knob.
+        "BTY_BOOT_SEED_DIR",
+    }
+
+    allowed = schema_keys | legacy_pending_migration
+    missing = sorted(k for k in env_keys if k not in allowed)
     assert not missing, (
-        f"bty-web --help is missing env-var documentation for: {missing}. "
-        f"Add a line under the argparse description in "
-        f"src/bty/web/__init__.py."
+        f"bty-web reads env vars that aren't in the Config schema and "
+        f"aren't on the legacy allow-list: {missing}. Either add them "
+        f"as fields under the matching section in src/bty/web/_config.py "
+        f"OR migrate the call sites to cfg.* and add the name to the "
+        f"legacy allow-list in this test (then drop the allow-list "
+        f"entry once migrated)."
     )
 
 

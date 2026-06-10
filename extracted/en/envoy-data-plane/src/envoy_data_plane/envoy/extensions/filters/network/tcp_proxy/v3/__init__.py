@@ -4,12 +4,14 @@
 # This file has been @generated
 
 __all__ = (
+    "ProxyProtocolTlvMergePolicy",
     "TcpProxy",
     "TcpProxyOnDemand",
     "TcpProxyTcpAccessLogOptions",
     "TcpProxyTunnelingConfig",
     "TcpProxyWeightedCluster",
     "TcpProxyWeightedClusterClusterWeight",
+    "UpstreamConnectMode",
 )
 
 import datetime
@@ -27,14 +29,83 @@ _COMPILER_VERSION = "0.9.0"
 betterproto2.check_compiler_version(_COMPILER_VERSION)
 
 
-@dataclass(eq=False, repr=False, config={"extra": "forbid"})
-class TcpProxy(betterproto2.Message):
+class ProxyProtocolTlvMergePolicy(betterproto2.Enum):
+    """
+    Specifies how TLVs in ``proxy_protocol_tlvs`` are merged with existing PROXY protocol state
+    (e.g., downstream TLVs parsed by the proxy_protocol listener filter).
+    """
+
+    ADD_IF_ABSENT = 0
+    """
+    Add configured TLVs only if no PROXY protocol state exists (e.g., no downstream TLVs).
+    If state exists, ignore configured TLVs and use only the existing TLVs.
+    This is the default for backward compatibility.
+    """
+
+    OVERWRITE_BY_TYPE_IF_EXISTS_OR_ADD = 1
+    """
+    Overwrite existing TLVs (e.g., downstream TLVs) by type with configured TLVs.
+    Non-conflicting TLVs from both sources are preserved.
+    If no state exists, add all configured TLVs.
+    Source/destination addresses from existing state are preserved.
+    """
+
+    APPEND_IF_EXISTS_OR_ADD = 2
+    """
+    Append configured TLVs to existing TLVs (e.g., downstream TLVs), preserving all TLVs
+    from both sources (PROXY protocol v2 allows duplicate types).
+    If no state exists, add all configured TLVs.
+    Source/destination addresses from existing state are preserved.
+    """
+
+
+class UpstreamConnectMode(betterproto2.Enum):
     """
     [#protodoc-title: TCP Proxy]
     TCP Proxy :ref:`configuration overview <config_network_filters_tcp_proxy>`.
     [#extension: envoy.filters.network.tcp_proxy]
 
-    [#next-free-field: 21]
+    Specifies when the TCP proxy establishes the upstream connection.
+    """
+
+    IMMEDIATE = 0
+    """
+    Establish the upstream connection immediately when the downstream connection is accepted.
+    This is the default behavior and provides the lowest latency.
+    """
+
+    ON_DOWNSTREAM_DATA = 1
+    """
+    Wait for initial data from the downstream connection before establishing the upstream connection.
+    This allows preceding filters to inspect the initial data (e.g., extracting SNI from TLS ClientHello)
+    before the upstream connection is established.
+
+    This mode requires ``max_early_data_bytes`` to be set.
+
+    .. warning::
+      This mode is not suitable for server-first protocols (e.g., SMTP, MySQL, POP3) where the
+      server sends the initial greeting. For such protocols, use ``IMMEDIATE`` mode.
+    """
+
+    ON_DOWNSTREAM_TLS_HANDSHAKE = 2
+    """
+    Wait for the downstream TLS handshake to complete before establishing the upstream connection.
+    This allows access to the full TLS connection information, including client certificates
+    and negotiated parameters, which can be used for routing decisions or passed as metadata
+    to the upstream.
+
+    This mode requires ``max_early_data_bytes`` to be set (can be zero to disable buffering).
+
+    .. note::
+      This mode is only effective when the downstream connection uses TLS. For non-TLS
+      connections, it behaves the same as ``IMMEDIATE``.
+    """
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class TcpProxy(betterproto2.Message):
+    """
+    [#next-free-field: 24]
 
     Oneofs:
         - cluster_specifier:
@@ -235,21 +306,63 @@ class TcpProxy(betterproto2.Message):
         19, betterproto2.TYPE_MESSAGE, repeated=True
     )
     """
-    If set, the specified ``PROXY`` protocol TLVs (Type-Length-Value) are added to the ``PROXY`` protocol state
-    created by the TCP proxy filter. These TLVs are sent in the PROXY protocol v2 header to the upstream.
-
-    This field only takes effect when the TCP proxy filter is creating new ``PROXY`` protocol state and an
-    upstream proxy protocol transport socket is configured in the cluster. If the connection already
-    contains ``PROXY`` protocol state (including any TLVs) parsed by a downstream proxy protocol listener
-    upstream proxy protocol transport socket is configured in the cluster. If the connection already
-    contains PROXY protocol state (including any TLVs) parsed by a downstream proxy protocol listener
-    filter, the TLVs specified here are ignored.
+    TLVs to add to the PROXY protocol header sent upstream. Behavior when PROXY protocol
+    state already exists (e.g., downstream TLVs from proxy_protocol listener filter) is
+    controlled by ``proxy_protocol_tlv_merge_policy``.
 
     .. note::
-      To ensure the specified TLVs are allowed in the upstream ``PROXY`` protocol header, you must also
-      configure passthrough TLVs on the upstream proxy protocol transport. See
-      :ref:`core.v3.ProxyProtocolConfig.pass_through_tlvs <envoy_v3_api_field_config.core.v3.ProxyProtocolConfig.pass_through_tlvs>`
-      for details.
+      To ensure the TLVs are allowed upstream, configure passthrough TLVs on the upstream
+      proxy protocol transport. See :ref:`core.v3.ProxyProtocolConfig.pass_through_tlvs
+      <envoy_v3_api_field_config.core.v3.ProxyProtocolConfig.pass_through_tlvs>` for details.
+    """
+
+    proxy_protocol_tlv_merge_policy: "ProxyProtocolTlvMergePolicy" = betterproto2.field(
+        23,
+        betterproto2.TYPE_ENUM,
+        default_factory=lambda: ProxyProtocolTlvMergePolicy(0),
+    )
+    """
+    Specifies how TLVs in ``proxy_protocol_tlvs`` are merged with existing PROXY protocol state
+    (e.g., downstream TLVs from the proxy_protocol listener filter). See
+    :ref:`ProxyProtocolTlvMergePolicy
+    <envoy_v3_api_enum_extensions.filters.network.tcp_proxy.v3.ProxyProtocolTlvMergePolicy>`.
+    """
+
+    upstream_connect_mode: "UpstreamConnectMode" = betterproto2.field(
+        21, betterproto2.TYPE_ENUM, default_factory=lambda: UpstreamConnectMode(0)
+    )
+    """
+    Specifies when to establish the upstream connection.
+
+    When not specified, defaults to ``IMMEDIATE`` for backward compatibility.
+
+    .. attention::
+      Server-first protocols (e.g., SMTP, MySQL, POP3) require ``IMMEDIATE`` mode.
+    """
+
+    max_early_data_bytes: "int | None" = betterproto2.field(
+        22,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ______google__protobuf__.UInt32Value,
+        optional=True,
+    )
+    """
+    Maximum bytes of early data to buffer from the downstream connection before
+    the upstream connection is established.
+
+    If not set, the TCP proxy will read-disable the downstream connection until the
+    upstream connection is established (legacy behavior).
+
+    If set, enables ``receive_before_connect`` mode where the filter allows the filter
+    chain to read downstream data before the upstream connection exists. The data is
+    buffered and forwarded once the upstream connection is ready. When the buffer exceeds
+    this limit, the downstream connection is read-disabled to prevent excessive memory usage.
+
+    This field is required when ``upstream_connect_mode`` is not ``IMMEDIATE``.
+
+    .. note::
+      Use this carefully with server-first protocols. The upstream may send data before
+      receiving anything from downstream, which could fill the early data buffer.
     """
 
     def __post_init__(self) -> None:
@@ -333,8 +446,13 @@ class TcpProxyTcpAccessLogOptions(betterproto2.Message):
         2, betterproto2.TYPE_BOOL
     )
     """
-    If set to true, the access log is flushed when the TCP proxy successfully establishes a
+    If set to ``true``, the access log is flushed when the TCP proxy successfully establishes a
     connection with the upstream. If the connection fails, the access log is not flushed.
+    """
+
+    flush_access_log_on_start: "bool" = betterproto2.field(3, betterproto2.TYPE_BOOL)
+    """
+    If set to ``true``, the access log is flushed when the TCP proxy accepts a connection.
     """
 
 
@@ -406,7 +524,7 @@ class TcpProxyTunnelingConfig(betterproto2.Message):
     """
     The path used with the POST method. The default path is ``/``. If this field is specified and
     :ref:`use_post field <envoy_v3_api_field_extensions.filters.network.tcp_proxy.v3.TcpProxy.TunnelingConfig.use_post>`
-    is not set to true, the configuration will be rejected.
+    is not set to ``true``, the configuration will be rejected.
     """
 
     propagate_response_trailers: "bool" = betterproto2.field(6, betterproto2.TYPE_BOOL)

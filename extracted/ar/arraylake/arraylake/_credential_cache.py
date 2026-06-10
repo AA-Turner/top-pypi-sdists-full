@@ -41,7 +41,7 @@ CLOCK_SKEW_SAFETY = timedelta(seconds=30)
 class CredentialCacheKey:
     api_url: str
     auth_key: int
-    scope: Literal["repo", "bucket"]
+    scope: Literal["repo", "bucket", "vcc"]
     org: OrgName
     identifier: str
     platform: Platform
@@ -111,6 +111,15 @@ async def get_or_refresh(
         raise
     finally:
         _INFLIGHT.pop(key, None)
+
+
+def populate(key: CredentialCacheKey, creds: TempCredentials) -> None:
+    exp = creds.expiration
+    if exp is not None and exp.tzinfo is None:
+        exp = exp.replace(tzinfo=UTC)
+    if _fresh(_CACHE.get(key), datetime.now(UTC)) is not None:
+        return
+    _CACHE[key] = _Entry(creds=creds, expires_at=exp)
 
 
 def clear() -> None:

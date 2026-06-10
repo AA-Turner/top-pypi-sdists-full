@@ -129,6 +129,11 @@ class Edition(betterproto2.Enum):
 
     _2024 = 1001
 
+    UNSTABLE = 9999
+    """
+    A placeholder edition for developing and testing unscheduled features.
+    """
+
     _1_TEST_ONLY = 1
     """
     Placeholder editions for testing feature resolution.  These should not be
@@ -159,6 +164,7 @@ class Edition(betterproto2.Enum):
             999: "EDITION_PROTO3",
             1000: "EDITION_2023",
             1001: "EDITION_2024",
+            9999: "EDITION_UNSTABLE",
             1: "EDITION_1_TEST_ONLY",
             2: "EDITION_2_TEST_ONLY",
             99997: "EDITION_99997_TEST_ONLY",
@@ -176,6 +182,7 @@ class Edition(betterproto2.Enum):
             "EDITION_PROTO3": 999,
             "EDITION_2023": 1000,
             "EDITION_2024": 1001,
+            "EDITION_UNSTABLE": 9999,
             "EDITION_1_TEST_ONLY": 1,
             "EDITION_2_TEST_ONLY": 2,
             "EDITION_99997_TEST_ONLY": 99997,
@@ -1854,6 +1861,7 @@ class FieldOptions(betterproto2.Message):
 
     weak: "bool" = betterproto2.field(10, betterproto2.TYPE_BOOL)
     """
+    DEPRECATED. DO NOT USE!
     For Google-internal migration only. Do not use.
     """
 
@@ -1897,6 +1905,11 @@ class FieldOptions(betterproto2.Message):
     """
     The parser stores options it doesn't recognize here. See above.
     """
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.is_set("weak"):
+            warnings.warn("FieldOptions.weak is deprecated", DeprecationWarning)
 
 
 default_message_pool.register_message("google.protobuf", "FieldOptions", FieldOptions)
@@ -3232,18 +3245,19 @@ class Timestamp(betterproto2.Message):
         betterproto2.field(1, betterproto2.TYPE_INT64)
     )
     """
-    Represents seconds of UTC time since Unix epoch
-    1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
-    9999-12-31T23:59:59Z inclusive.
+    Represents seconds of UTC time since Unix epoch 1970-01-01T00:00:00Z. Must
+    be between -315576000000 and 315576000000 inclusive (which corresponds to
+    0001-01-01T00:00:00Z to 9999-12-31T23:59:59Z).
     """
 
     nanos: "typing.Annotated[int, pydantic.Field(ge=-2**31, le=2**31 - 1)]" = (
         betterproto2.field(2, betterproto2.TYPE_INT32)
     )
     """
-    Non-negative fractions of a second at nanosecond resolution. Negative
-    second values with fractions must still have non-negative nanos values
-    that count forward in time. Must be from 0 to 999,999,999
+    Non-negative fractions of a second at nanosecond resolution. This field is
+    the nanosecond portion of the duration, not an alternative to seconds.
+    Negative second values with fractions must still have non-negative nanos
+    values that count forward in time. Must be between 0 and 999,999,999
     inclusive.
     """
 

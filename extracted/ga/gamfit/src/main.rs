@@ -346,7 +346,6 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Command {
     /// Fit a model from a dataset + formula and persist it to disk.
-    #[command(alias = "train")]
     Fit(FitArgs),
     /// Build an HTML report (coefficients, smooths, optional diagnostics).
     Report(ReportArgs),
@@ -357,7 +356,6 @@ enum Command {
     /// Posterior-sample (NUTS where available, Laplace fallback otherwise).
     Sample(SampleArgs),
     /// Draw synthetic responses from the fitted model for given covariates.
-    #[command(alias = "simulate")]
     Generate(GenerateArgs),
 }
 
@@ -378,7 +376,7 @@ struct FitArgs {
     /// location-scale mode. Pass terms like `smooth(x)` or `1`, not `y ~ ...`.
     /// This does not change the base mean link; use `link(type=...)` when you
     /// want a non-default binomial link.
-    #[arg(long = "predict-noise", alias = "predict-variance")]
+    #[arg(long = "predict-noise")]
     predict_noise: Option<String>,
     /// Secondary RHS-only formula for ancestry-varying log-slope surface(s)
     /// in the Bernoulli marginal-slope family. Pass terms only, not `y ~ ...`.
@@ -426,7 +424,7 @@ struct FitArgs {
     #[arg(long = "family", value_enum, default_value_t = FamilyArg::Auto)]
     family: FamilyArg,
     /// Fixed size/overdispersion parameter for `--family negative-binomial`.
-    #[arg(long = "negative-binomial-theta", alias = "nb-theta", value_parser = parse_positive_f64_cli)]
+    #[arg(long = "negative-binomial-theta", value_parser = parse_positive_f64_cli)]
     negative_binomial_theta: Option<f64>,
     /// Survival likelihood mode for Surv(...) formulas.
     #[arg(long = "survival-likelihood", default_value = "transformation", value_parser = parse_survival_likelihood_cli)]
@@ -1335,6 +1333,36 @@ fn run_fit(args: FitArgs) -> Result<(), String> {
         is_survival: false,
         link_choice: link_choice.as_ref(),
     })?;
+    // `--firth` with `bounded()` is *redundant*, not unsupported. Firth
+    // bias-reduction is exactly penalized maximum likelihood with Jeffreys'
+    // prior `½ log|I(β)|`, and that prior is reparameterization-INVARIANT: its
+    // MAP is equivariant under any smooth change of coordinates. Bounded terms
+    // fit through the custom-family blockwise solver
+    // (`fit_bounded_term_collection_with_design` -> `fit_custom_family`), whose
+    // inner/outer joint Newton ALWAYS carries the full-span Jeffreys curvature
+    // `H_Φ` and score `∇Φ` (its `joint_jeffreys_term_required()` is the trait
+    // default `true`; `BoundedLinearFamily` does not opt out). That term is the
+    // Jeffreys prior on the bounded LATENT coordinates `θ`, whose log-det
+    // already threads the interval reparameterization's log-Jacobian
+    // (`½ log|I_θ| = ½ log|I_β| + log|det J|`), so the latent MAP maps back
+    // through the interval transform to the exact user-scale Firth estimate.
+    // The explicit `--firth` branch below instead fits through
+    // `optimize_external_design` on the raw unconstrained design and would
+    // silently DROP the bounds — wrong for a bounded model. We therefore keep
+    // bounded models on the standard branch (which is already Firth-equivalent)
+    // and record the redundancy, rather than refusing the combination.
+    let firth_redundant_for_bounded = args.firth && has_bounded_terms;
+    if firth_redundant_for_bounded {
+        inference_notes.push(
+            "--firth is redundant for bounded() coefficients: the bounded custom-family solver \
+             already installs the reparameterization-invariant Jeffreys/Firth bias-reduction in \
+             the bounded latent coordinates, which is the exact Firth estimate on the user scale."
+                .to_string(),
+        );
+        print_inference_summary(std::slice::from_ref(
+            inference_notes.last().expect("note just pushed is present"),
+        ));
+    }
     let fit_max_iter = 200usize;
     let fit_tol = 1e-6f64;
     let weights = resolve_weight_column(&ds, &col_map, args.weights_column.as_deref())?;
@@ -1456,7 +1484,7 @@ fn run_fit(args: FitArgs) -> Result<(), String> {
         Option<gam::smooth::AdaptiveRegularizationDiagnostics>,
         FittedLinkState,
         Option<(Vec<f64>, usize)>,
-    ) = if args.firth {
+    ) = if args.firth && !firth_redundant_for_bounded {
         let design = build_term_collection_design(ds.values.view(), &spec)
             .map_err(|e| format!("failed to build term collection design: {e}"))?;
         progress.set_stage("fit", "optimizing penalized likelihood");
@@ -2197,6 +2225,11 @@ fn run_fitwith_predict_noise(
             (Some(knots), Some(degree), Some(beta)) => Some((knots, degree, beta)),
             _ => None,
         };
+        // Capture the response standardization factor before moving `solved.fit`
+        // out below; the Gaussian σ floor is persisted at
+        // `response_scale·LOGB_SIGMA_FLOOR` so prediction stays
+        // response-scale-equivariant (#884).
+        let gaussian_response_scale = solved.response_scale;
         let BlockwiseTermFitResult {
             fit,
             meanspec_resolved,
@@ -2223,10 +2256,12 @@ fn run_fitwith_predict_noise(
             // `fit` already carries raw-unit coefficients, covariance, and a
             // raw-unit residual-scale summary (the standardization and its
             // inverse remap live in `fit_gaussian_location_scale_model`), so the
-            // save path persists them verbatim and records
-            // `gaussian_response_scale = 1.0` — predict reconstructs raw σ as
-            // `0.01 + exp(Xβ)` with no further multiply, applying the response
-            // scale exactly once (inside the fit).
+            // save path persists them verbatim and records the actual
+            // `gaussian_response_scale` — predict reconstructs raw σ as
+            // `response_scale·0.01 + exp(Xβ)`, scaling the σ floor with the
+            // response so predictive σ is response-scale-equivariant (#884). The
+            // unrelated `compact_saved_multiblock_fit_result` scalar below is the
+            // fit's dispersion summary (1.0 for Gaussian), not the response scale.
             let fit_result = compact_saved_multiblock_fit_result(
                 fit.blocks.clone(),
                 fit.lambdas.clone(),
@@ -2262,7 +2297,7 @@ fn run_fitwith_predict_noise(
                     wiggle,
                 },
                 LocationScaleResponse::Gaussian {
-                    response_scale: 1.0,
+                    response_scale: gaussian_response_scale,
                     base_link: resolved_base_link,
                 },
                 SavedModelSourceMetadata {
@@ -2385,6 +2420,10 @@ fn run_fitwith_predict_noise(
         }
         _ => None,
     };
+    // The binomial location-scale path links through a probit/threshold scale,
+    // not a standardized response, so there is no `response_scale` to persist
+    // (unlike the Gaussian path's #884 σ-floor factor). The σ contribution rides
+    // entirely on the persisted noise transform below.
     let fit = solved.fit.fit;
     let frozen_meanspec =
         freeze_term_collection_from_design(&solved.fit.meanspec_resolved, &solved.fit.mean_design)
@@ -2515,6 +2554,37 @@ fn report_offset_for(
         saved_offset_column,
         saved_noise_offset_column,
     )
+}
+
+/// Dispersion φ to feed the geometry-based ALO path for a saved model.
+///
+/// The PIRLS-backed ALO path (`compute_alo_diagnostics_from_pirls`) keys φ on
+/// the link: Identity (Gaussian) gets the estimated dispersion `RSS/(n−edf)`,
+/// every other link gets 1.0. The saved-model geometry path was instead
+/// hard-coding φ = 1.0, so for any Gaussian fit `diagnose --alo` / `report`
+/// reported `se_bayes` / `se_sandwich` wrong by exactly `√φ̂` relative to the
+/// refit fallback path — the two ALO routes disagreed on the SE scale for the
+/// same model. The model already stores its converged dispersion as the
+/// residual standard deviation `σ̂` (`UnifiedFitResult::standard_deviation`,
+/// set to `√(weighted_rss / (n−edf))` for Gaussian), so φ̂ = σ̂² reproduces the
+/// PIRLS formula exactly and keeps the geometry and refit SE columns identical.
+fn geometry_alo_phi(unified: &UnifiedFitResult, link: LinkFunction) -> f64 {
+    match link {
+        LinkFunction::Identity => {
+            let sigma = unified.standard_deviation;
+            if sigma.is_finite() && sigma > 0.0 {
+                sigma * sigma
+            } else {
+                1.0
+            }
+        }
+        LinkFunction::Log
+        | LinkFunction::Logit
+        | LinkFunction::Probit
+        | LinkFunction::CLogLog
+        | LinkFunction::Sas
+        | LinkFunction::BetaLogistic => 1.0,
+    }
 }
 
 fn resolve_predict_offsets(
@@ -3358,7 +3428,7 @@ fn run_predict_survival(
     {
         require_structural_survival_time_basis(&time_build.basisname, "saved survival sampling")?;
     }
-    let baseline_cfg = saved_survival_runtime_baseline_config(model, saved_likelihood_mode)?;
+    let baseline_cfg = saved_survival_runtime_baseline_config(model)?;
     if matches!(
         saved_likelihood_mode,
         SurvivalLikelihoodMode::Latent | SurvivalLikelihoodMode::LatentBinary
@@ -3752,9 +3822,11 @@ fn run_predict_survival(
     }
     if p_cov > 0 {
         let cov_start = p_time + p_timewiggle;
-        let chunk_rows = (8 * 1024 * 1024 / (p_cov.max(1) * std::mem::size_of::<f64>()))
-            .max(1)
-            .min(n.max(1));
+        let chunk_rows = gam::resource::rows_for_target_bytes(
+            gam::resource::ResourcePolicy::default_library().row_chunk_target_bytes,
+            p_cov,
+        )
+        .min(n.max(1));
         for start in (0..n).step_by(chunk_rows) {
             let end = (start + chunk_rows).min(n);
             let chunk = cov_design
@@ -3887,7 +3959,7 @@ fn run_diagnose(args: DiagnoseArgs) -> Result<(), String> {
         ));
     }
     progress.set_stage("diagnose", "loading diagnostic dataset");
-    let ds = load_datasetwith_model_schema_extra(&args.data, &model, &[parsed.response.clone()])?;
+    let ds = load_datasetwith_model_schema_for_diagnostics(&args.data, &model)?;
     require_dataset_rows("diagnose", &args.data, ds.values.nrows())?;
     progress.advance_workflow(2);
     let col_map = ds.column_map();
@@ -3909,21 +3981,41 @@ fn run_diagnose(args: DiagnoseArgs) -> Result<(), String> {
 
     let link = family.link_function();
     let weights = Array1::ones(ds.values.nrows());
-    let offset = Array1::zeros(ds.values.nrows());
+    // Re-apply the offset the model was fit with, resolved by the saved offset
+    // column name exactly as the predict path does. Diagnose is Standard-only
+    // (non-standard classes are rejected above), so the noise-offset slot is
+    // always zero here. Hard-coding `offset = 0` made every ALO diagnostic
+    // (eta_tilde / leverage / alo_se) wrong by the entire offset for any
+    // `--offset-column` fit (#881): the saved working response is offset-
+    // inclusive, so a zero offset broke the `eta − offset` centering in
+    // `alo_eta_update`. `report_offset_for` reads the saved offset column and
+    // returns a zero noise-offset for standard models.
+    let (offset, _noise_offset) = report_offset_for(&model, &ds, &col_map)?;
 
     // Try geometry-based ALO from the unified result first (avoids refit).
-    let alo = if let Some(geom) = model.unified().and_then(|u| u.geometry.as_ref()) {
+    let alo = if let Some((unified, geom)) = model
+        .unified()
+        .and_then(|u| u.geometry.as_ref().map(|g| (u, g)))
+    {
         progress.set_stage("diagnose", "computing alo from saved geometry");
         let fit_saved = fit_result_from_saved_model_for_prediction(&model)?;
-        let eta = design.design.dot(&fit_saved.beta);
+        // ALO's `from_geometry` expects the *full* linear predictor (offset
+        // included); it re-centres internally via the separate `offset` arg to
+        // match the offset-inclusive saved working response. The refit branch
+        // below already adds `offset` here — the geometry path must too (#881).
+        let eta = &design.design.dot(&fit_saved.beta) + &offset;
         // ALO needs a dense X — materialize from row chunks when the design
         // is an operator-backed (lazy) one. `as_dense_cow` panicked on lazy
         // designs ("called on operator-backed design; use row chunks or
         // matrix-vector products"), which broke `diagnose --alo` for every
         // matern/duchon/sphere fit since those default to lazy storage.
         let alo_design_dense = design.design.to_dense();
+        // φ must match the PIRLS-backed refit fallback: Gaussian (Identity) uses
+        // the model's estimated dispersion σ̂², not a hard-coded 1.0 (#881-class
+        // SE-scale bug). `geometry_alo_phi` reads the saved σ̂.
+        let phi = geometry_alo_phi(unified, link);
         let input =
-            gam::alo::AloInput::from_geometry(geom, &alo_design_dense, &eta, &offset, link, 1.0);
+            gam::alo::AloInput::from_geometry(geom, &alo_design_dense, &eta, &offset, link, phi);
         progress.advance_workflow(4);
         gam::alo::compute_alo_from_input(&input)
             .map_err(|e| format!("compute_alo_from_input (geometry path) failed: {e}"))?
@@ -3963,13 +4055,18 @@ fn run_diagnose(args: DiagnoseArgs) -> Result<(), String> {
                 })?;
                 let eta = &fitted.design.design.dot(&fitted.fit.beta) + &offset;
                 let dense_alo_design = fitted.design.design.to_dense();
+                // φ for Gaussian (Identity) is the estimated dispersion σ̂², not
+                // 1.0 — same SE-scale bug as the geometry path. Mirrors the
+                // StandardGam sibling route, which computes φ inside
+                // compute_alo_diagnostics_from_fit.
+                let phi = geometry_alo_phi(&fitted.fit, link);
                 gam::alo::compute_alo_diagnostics_from_unified(
                     &fitted.fit,
                     &dense_alo_design,
                     &eta,
                     &offset,
                     link,
-                    1.0,
+                    phi,
                 )
                 .map_err(|e| {
                     format!(
@@ -4081,7 +4178,24 @@ fn build_survival_time_initial_beta(
     )
 }
 
-fn fitted_weibull_baseline_from_linear_time_beta(beta: &Array1<f64>) -> Option<(f64, f64)> {
+/// Recover the fitted Weibull `(scale, shape)` baseline from the anchor-CENTERED
+/// linear `[1, log t]` time-basis coefficients.
+///
+/// The fit centers the time basis at the survival time anchor
+/// (`center_survival_time_designs_at_anchor`), which zeroes the constant column,
+/// so the constant-column coefficient `beta[0]` is UNIDENTIFIED (left at its
+/// stale seed). The identified baseline the model actually carries is
+/// `eta(t) = beta[1] * (log t - log anchor)`, exactly the Weibull form
+/// `eta(t) = shape * (log t - log scale)` with `shape = beta[1]` and
+/// `scale = anchor`. Reconstructing `scale` from `beta[0]` (the old
+/// `exp(-beta[0]/shape)`) reads the stale constant column and produces a wrong
+/// scale, so any consumer that rebuilds `H0(t) = (t/scale)^shape` from the saved
+/// scale (e.g. competing-risks CIF) is misled. Recover `scale` from the
+/// identified anchor instead (issue #899).
+fn fitted_weibull_baseline_from_linear_time_beta(
+    beta: &Array1<f64>,
+    anchor: f64,
+) -> Option<(f64, f64)> {
     if beta.len() < 2 {
         return None;
     }
@@ -4089,16 +4203,36 @@ fn fitted_weibull_baseline_from_linear_time_beta(beta: &Array1<f64>) -> Option<(
     if !shape.is_finite() || shape <= 0.0 {
         return None;
     }
-    let log_scale = -beta[0] / shape;
-    let scale = log_scale.exp();
-    if !scale.is_finite() || scale <= 0.0 {
+    if !anchor.is_finite() || anchor <= 0.0 {
         return None;
     }
+    let scale = anchor;
     Some((scale, shape))
 }
 
 fn baseline_timewiggle_is_present(model: &SavedModel) -> bool {
     model.has_baseline_time_wiggle()
+}
+
+/// Inner-PIRLS options shared by both survival-baseline fit sites (the
+/// per-candidate trial fit and the final baseline fit). Centralised so the two
+/// call sites cannot drift in their convergence policy: a generous 400-iter /
+/// 40-halving budget with a 1e-6 coefficient-change tolerance and a 1e-12
+/// step-size floor, matching the survival baseline's BFGS envelope solver.
+fn survival_baseline_pirls_options() -> gam::pirls::WorkingModelPirlsOptions {
+    gam::pirls::WorkingModelPirlsOptions {
+        max_iterations: 400,
+        convergence_tolerance: 1e-6,
+        adaptive_kkt_tolerance: None,
+        max_step_halving: 40,
+        min_step_size: 1e-12,
+        firth_bias_reduction: false,
+        coefficient_lower_bounds: None,
+        linear_constraints: None,
+        initial_lm_lambda: None,
+        geodesic_acceleration: false,
+        arrow_schur: None,
+    }
 }
 
 fn run_survival(args: SurvivalArgs) -> Result<(), String> {
@@ -5715,19 +5849,7 @@ fn run_survival(args: SurvivalArgs) -> Result<(), String> {
             |candidate| {
                 let (_, _, _, beta0, structural_lower_bounds, mut model) =
                     build_working_model(candidate)?;
-                let pirls_opts = gam::pirls::WorkingModelPirlsOptions {
-                    max_iterations: 400,
-                    convergence_tolerance: 1e-6,
-                    adaptive_kkt_tolerance: None,
-                    max_step_halving: 40,
-                    min_step_size: 1e-12,
-                    firth_bias_reduction: false,
-                    coefficient_lower_bounds: None,
-                    linear_constraints: None,
-                    initial_lm_lambda: None,
-                    geodesic_acceleration: false,
-                    arrow_schur: None,
-                };
+                let pirls_opts = survival_baseline_pirls_options();
                 let state = if likelihood_mode == SurvivalLikelihoodMode::Weibull {
                     let summary = gam::pirls::runworking_model_pirls(
                         &mut model,
@@ -5769,19 +5891,7 @@ fn run_survival(args: SurvivalArgs) -> Result<(), String> {
         build_working_model(&baseline_cfg)?;
     let beta0_norm = beta0.dot(&beta0).sqrt();
     progress.set_stage("fit", "running survival pirls");
-    let pirls_opts = gam::pirls::WorkingModelPirlsOptions {
-        max_iterations: 400,
-        convergence_tolerance: 1e-6,
-        adaptive_kkt_tolerance: None,
-        max_step_halving: 40,
-        min_step_size: 1e-12,
-        firth_bias_reduction: false,
-        coefficient_lower_bounds: None,
-        linear_constraints: None,
-        initial_lm_lambda: None,
-        geodesic_acceleration: false,
-        arrow_schur: None,
-    };
+    let pirls_opts = survival_baseline_pirls_options();
     let pirls_start = std::time::Instant::now();
     let pirls_callback = |info: &gam::pirls::WorkingModelIterationInfo| {
         let elapsed = pirls_start.elapsed().as_secs_f64();
@@ -5920,7 +6030,7 @@ fn run_survival(args: SurvivalArgs) -> Result<(), String> {
     let fitted_baseline_cfg =
         if likelihood_mode == SurvivalLikelihoodMode::Weibull && !learn_timewiggle {
             let time_beta = beta.slice(s![..p_time_total]).to_owned();
-            let (scale, shape) = fitted_weibull_baseline_from_linear_time_beta(&time_beta)
+            let (scale, shape) = fitted_weibull_baseline_from_linear_time_beta(&time_beta, time_anchor)
                 .ok_or_else(|| {
                     "failed to recover fitted Weibull scale/shape from the linear time coefficients"
                         .to_string()
@@ -6028,7 +6138,7 @@ fn run_sample(args: SampleArgs) -> Result<(), String> {
     let model = SavedModel::load_from_path(&args.model)?;
     progress.advance_workflow(1);
     progress.set_stage("sample", "loading sampling data");
-    let ds = load_datasetwith_model_schema(&args.data, &model)?;
+    let ds = load_datasetwith_model_schema_for_diagnostics(&args.data, &model)?;
     require_dataset_rows("sample", &args.data, ds.values.nrows())?;
     progress.advance_workflow(2);
     let col_map = ds.column_map();
@@ -6402,7 +6512,7 @@ fn run_report(args: ReportArgs) -> Result<(), String> {
 
     if let Some(data_path) = args.data.as_ref() {
         progress.set_stage("report", "loading report dataset");
-        let ds = load_datasetwith_model_schema(data_path, &model)?;
+        let ds = load_datasetwith_model_schema_for_diagnostics(data_path, &model)?;
         require_dataset_rows("report", data_path, ds.values.nrows())?;
         progress.advance_workflow(2);
 
@@ -6608,13 +6718,17 @@ fn run_report(args: ReportArgs) -> Result<(), String> {
                             report_offset_for(&model, &ds, &col_map)?;
                         let eta = &design.design.dot(&fit.beta) + &report_offset;
                         let dense_alo_design = design.design.to_dense();
+                        // φ must match the PIRLS-backed refit fallback: Gaussian
+                        // (Identity) uses σ̂², not a hard-coded 1.0, or the
+                        // reported ALO SEs are off by √φ̂ (#881-class).
+                        let phi = geometry_alo_phi(unified, link);
                         gam::alo::compute_alo_diagnostics_from_unified(
                             unified,
                             &dense_alo_design,
                             &eta,
                             &report_offset,
                             link,
-                            1.0,
+                            phi,
                         )
                     } else {
                         compute_alo_diagnostics_from_fit(&fit, y.view(), link)
@@ -6699,6 +6813,20 @@ fn run_report(args: ReportArgs) -> Result<(), String> {
     progress.advance_workflow(report_total_steps);
     progress.finish_progress("report complete");
     cli_out!("wrote report: {}", out.display());
+
+    // Terminal quick-look: a unicode sparkline of each smooth term's fitted
+    // partial effect, straight from the values we already computed for the
+    // HTML. This is purely a rendering of `input.smooth_plots` — it reads the
+    // fitted contributions and touches no fit/REML/prediction value.
+    if !input.smooth_plots.is_empty() {
+        cli_out!("smooth terms:");
+        for sp in &input.smooth_plots {
+            cli_out!(
+                "{}",
+                gam::sparkline::render_smooth_line(&sp.name, &sp.x, &sp.y)
+            );
+        }
+    }
     Ok(())
 }
 
@@ -8156,6 +8284,25 @@ fn load_dataset_projected(
 
 fn load_datasetwith_model_schema(path: &Path, model: &SavedModel) -> Result<Dataset, String> {
     load_datasetwith_model_schema_extra(path, model, &[])
+}
+
+/// Load a dataset for a *post-fit diagnostic* command (diagnose / sample /
+/// report) against a fitted model's schema.
+///
+/// Unlike prediction, diagnostics need the observed response column: residuals,
+/// R², posterior likelihoods, and leave-one-out are all statements *about* it.
+/// The prediction loader deliberately drops a standard GAM's bare response
+/// (#840 / #864), so this variant folds the model's diagnostic-required
+/// response back in via [`SavedModel::diagnostic_extra_columns`]. Routing every
+/// diagnostic command through here makes it structurally impossible to silently
+/// drop the response — the #864 / #882 / #883 failure mode — rather than relying
+/// on each command to remember an `extra_required` argument.
+fn load_datasetwith_model_schema_for_diagnostics(
+    path: &Path,
+    model: &SavedModel,
+) -> Result<Dataset, String> {
+    let extras = model.diagnostic_extra_columns()?;
+    load_datasetwith_model_schema_extra(path, model, &extras)
 }
 
 /// Load a new-data file against a fitted model's schema, keeping only the

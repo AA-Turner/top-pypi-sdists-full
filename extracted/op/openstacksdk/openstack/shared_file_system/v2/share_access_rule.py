@@ -10,7 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from typing import Any, Self
+from typing import Any
 
 from keystoneauth1 import adapter
 
@@ -35,6 +35,10 @@ class ShareAccessRule(resource.Resource):
 
     # Restricted access rules became available in 2.82
     _max_microversion = '2.82'
+
+    create_opts = resource.CreateOpts(
+        request_key='allow_access', response_key='access'
+    )
 
     #: Properties
     #: The access credential of the entity granted share access.
@@ -67,7 +71,13 @@ class ShareAccessRule(resource.Resource):
     #: Reason for placing the loc
     lock_reason = resource.Body("lock_reason", type=bool)
 
-    def _action(self, session, body, url, microversion=None):
+    def _action(
+        self,
+        session: adapter.Adapter,
+        body: dict[str, Any],
+        url: str,
+        microversion: str | None = None,
+    ) -> Any:
         headers = {'Accept': ''}
 
         if microversion is None:
@@ -77,36 +87,15 @@ class ShareAccessRule(resource.Resource):
             url, json=body, headers=headers, microversion=microversion
         )
 
-    def create(
-        self,
-        session: adapter.Adapter,
-        prepend_key: bool = True,
-        base_path: str | None = None,
-        *,
-        resource_request_key: str | None = 'allow_access',
-        resource_response_key: str | None = 'access',
-        microversion: str | None = None,
-        **params: Any,
-    ) -> Self:
-        return super().create(
-            session,
-            prepend_key=prepend_key,
-            base_path=base_path,
-            resource_request_key=resource_request_key,
-            resource_response_key=resource_response_key,
-            microversion=microversion,
-            **params,
-        )
-
     def delete(
         self,
-        session,
-        error_message=None,
+        session: adapter.Adapter,
+        error_message: str | None = None,
         *,
-        microversion=None,
-        unrestrict=False,
-        **kwargs,
-    ):
+        microversion: str | None = None,
+        unrestrict: bool = False,
+        **kwargs: Any,
+    ) -> Any:
         body: dict[str, Any] = {'deny_access': {'access_id': self.id}}
         if unrestrict:
             body['deny_access']['unrestrict'] = True

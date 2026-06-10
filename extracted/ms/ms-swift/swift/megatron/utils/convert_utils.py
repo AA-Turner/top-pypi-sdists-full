@@ -7,6 +7,7 @@ import torch.nn as nn
 from contextlib import contextmanager, nullcontext
 from megatron.core import mpu
 from megatron.core.extensions.transformer_engine import TEDotProductAttention
+from megatron.core.ssm.mamba_context_parallel import _undo_attention_load_balancing
 from megatron.core.tensor_parallel import VocabParallelEmbedding
 from megatron.core.tensor_parallel.mappings import (gather_from_sequence_parallel_region,
                                                     gather_from_tensor_model_parallel_region)
@@ -254,6 +255,9 @@ def test_convert_precision(args, hf_model, mg_model, template, test_convert_dtyp
         for n, m in mg_language_model.named_modules():
             if n.endswith('router'):
                 m.to(mg_dtype)
+    if getattr(config, 'enable_hyper_connections', False):
+        for param in mg_language_model.decoder.parameters(recurse=False):
+            param.data = param.data.cuda()
     attention_context = (
         _patch_attention_fp32(mg_dtype) if args.attention_backend.name in {'flash', 'fused'} else nullcontext())
     with torch.inference_mode(), _model_cpu_forward_context(
@@ -264,7 +268,6 @@ def test_convert_precision(args, hf_model, mg_model, template, test_convert_dtyp
             if mg_logits is not None:
                 mg_logits = gather_from_tensor_model_parallel_region(mg_logits)
         if args.context_parallel_size > 1:
-            from megatron.core.ssm.mamba_context_parallel import _undo_attention_load_balancing
             if mg_logits is not None:
                 mg_logits = gather_from_sequence_parallel_region(
                     mg_logits.transpose(0, 1), group=mpu.get_context_parallel_group())

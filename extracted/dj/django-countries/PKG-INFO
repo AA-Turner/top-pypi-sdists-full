@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: django-countries
-Version: 8.2.0
+Version: 9.0.0
 Summary: Provides a country field for Django models.
 Keywords: django,countries,flags
 Author: Chris Beaven
@@ -13,26 +13,21 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.0
-Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Requires-Dist: asgiref
 Requires-Dist: typing-extensions
 Requires-Dist: pyuca ; extra == 'pyuca'
-Requires-Python: >=3.8
-Project-URL: Change Log, https://github.com/SmileyChris/django-countries/blob/main/CHANGES.md
+Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/SmileyChris/django-countries/
+Project-URL: Change Log, https://github.com/SmileyChris/django-countries/blob/main/CHANGES.md
 Project-URL: Source Code, https://github.com/SmileyChris/django-countries
 Project-URL: Translations, https://explore.transifex.com/smileychris/django-countries/
 Provides-Extra: pyuca
@@ -89,9 +84,9 @@ class Person(models.Model):
 
 ## Support
 
-- **Python**: 3.8, 3.9, 3.10, 3.11, 3.12, 3.13
-- **Django**: 3.2 (LTS), 4.2 (LTS), 5.0, 5.1, 5.2
-- **Django REST Framework**: 3.11+
+- **Python**: 3.10, 3.11, 3.12, 3.13, 3.14
+- **Django**: 4.2 (LTS), 5.2 (LTS), 6.0
+- **Django REST Framework**: 3.14+
 
 ## Contributing
 

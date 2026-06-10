@@ -185,6 +185,8 @@ __all__ = [
     'FutureReservationAutoCreatedReservationsDurationArgsDict',
     'FutureReservationCommitmentInfoArgs',
     'FutureReservationCommitmentInfoArgsDict',
+    'FutureReservationParamsArgs',
+    'FutureReservationParamsArgsDict',
     'FutureReservationShareSettingsArgs',
     'FutureReservationShareSettingsArgsDict',
     'FutureReservationShareSettingsProjectMapArgs',
@@ -319,6 +321,8 @@ __all__ = [
     'InstanceFromMachineImageNetworkInterfaceAccessConfigArgsDict',
     'InstanceFromMachineImageNetworkInterfaceAliasIpRangeArgs',
     'InstanceFromMachineImageNetworkInterfaceAliasIpRangeArgsDict',
+    'InstanceFromMachineImageNetworkInterfaceAliasIpv6RangeArgs',
+    'InstanceFromMachineImageNetworkInterfaceAliasIpv6RangeArgsDict',
     'InstanceFromMachineImageNetworkInterfaceIpv6AccessConfigArgs',
     'InstanceFromMachineImageNetworkInterfaceIpv6AccessConfigArgsDict',
     'InstanceFromMachineImageNetworkPerformanceConfigArgs',
@@ -377,6 +381,8 @@ __all__ = [
     'InstanceFromTemplateNetworkInterfaceAccessConfigArgsDict',
     'InstanceFromTemplateNetworkInterfaceAliasIpRangeArgs',
     'InstanceFromTemplateNetworkInterfaceAliasIpRangeArgsDict',
+    'InstanceFromTemplateNetworkInterfaceAliasIpv6RangeArgs',
+    'InstanceFromTemplateNetworkInterfaceAliasIpv6RangeArgsDict',
     'InstanceFromTemplateNetworkInterfaceIpv6AccessConfigArgs',
     'InstanceFromTemplateNetworkInterfaceIpv6AccessConfigArgsDict',
     'InstanceFromTemplateNetworkPerformanceConfigArgs',
@@ -465,6 +471,8 @@ __all__ = [
     'InstanceNetworkInterfaceAccessConfigArgsDict',
     'InstanceNetworkInterfaceAliasIpRangeArgs',
     'InstanceNetworkInterfaceAliasIpRangeArgsDict',
+    'InstanceNetworkInterfaceAliasIpv6RangeArgs',
+    'InstanceNetworkInterfaceAliasIpv6RangeArgsDict',
     'InstanceNetworkInterfaceIpv6AccessConfigArgs',
     'InstanceNetworkInterfaceIpv6AccessConfigArgsDict',
     'InstanceNetworkPerformanceConfigArgs',
@@ -523,6 +531,8 @@ __all__ = [
     'InstanceTemplateNetworkInterfaceAccessConfigArgsDict',
     'InstanceTemplateNetworkInterfaceAliasIpRangeArgs',
     'InstanceTemplateNetworkInterfaceAliasIpRangeArgsDict',
+    'InstanceTemplateNetworkInterfaceAliasIpv6RangeArgs',
+    'InstanceTemplateNetworkInterfaceAliasIpv6RangeArgsDict',
     'InstanceTemplateNetworkInterfaceIpv6AccessConfigArgs',
     'InstanceTemplateNetworkInterfaceIpv6AccessConfigArgsDict',
     'InstanceTemplateNetworkPerformanceConfigArgs',
@@ -957,6 +967,8 @@ __all__ = [
     'RegionInstanceTemplateNetworkInterfaceAccessConfigArgsDict',
     'RegionInstanceTemplateNetworkInterfaceAliasIpRangeArgs',
     'RegionInstanceTemplateNetworkInterfaceAliasIpRangeArgsDict',
+    'RegionInstanceTemplateNetworkInterfaceAliasIpv6RangeArgs',
+    'RegionInstanceTemplateNetworkInterfaceAliasIpv6RangeArgsDict',
     'RegionInstanceTemplateNetworkInterfaceIpv6AccessConfigArgs',
     'RegionInstanceTemplateNetworkInterfaceIpv6AccessConfigArgsDict',
     'RegionInstanceTemplateNetworkPerformanceConfigArgs',
@@ -10621,6 +10633,41 @@ class FutureReservationCommitmentInfoArgs:
         pulumi.set(self, "previous_commitment_terms", value)
 
 
+class FutureReservationParamsArgsDict(TypedDict):
+    resource_manager_tags: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
+    """
+    Resource manager tags to be bound to the future reservation. Tag keys and values have the
+    same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+    and values are in the format tagValues/456.
+    """
+
+@pulumi.input_type
+class FutureReservationParamsArgs:
+    def __init__(__self__, *,
+                 resource_manager_tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+        """
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] resource_manager_tags: Resource manager tags to be bound to the future reservation. Tag keys and values have the
+               same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+               and values are in the format tagValues/456.
+        """
+        if resource_manager_tags is not None:
+            pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        Resource manager tags to be bound to the future reservation. Tag keys and values have the
+        same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+        and values are in the format tagValues/456.
+        """
+        return pulumi.get(self, "resource_manager_tags")
+
+    @resource_manager_tags.setter
+    def resource_manager_tags(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "resource_manager_tags", value)
+
+
 class FutureReservationShareSettingsArgsDict(TypedDict):
     project_maps: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['FutureReservationShareSettingsProjectMapArgsDict']]]]]
     """
@@ -17582,6 +17629,10 @@ class InstanceFromMachineImageNetworkInterfaceArgsDict(TypedDict):
     """
     An array of alias IP ranges for this network interface.
     """
+    alias_ipv6_ranges: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['InstanceFromMachineImageNetworkInterfaceAliasIpv6RangeArgsDict']]]]]
+    """
+    An array of IPv6 alias IP ranges for this network interface.
+    """
     igmp_query: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     Indicates whether igmp query is enabled on the network interface or not. If enabled, also indicates the version of IGMP supported.
@@ -17661,6 +17712,7 @@ class InstanceFromMachineImageNetworkInterfaceArgs:
     def __init__(__self__, *,
                  access_configs: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceFromMachineImageNetworkInterfaceAccessConfigArgs']]]] = None,
                  alias_ip_ranges: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceFromMachineImageNetworkInterfaceAliasIpRangeArgs']]]] = None,
+                 alias_ipv6_ranges: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceFromMachineImageNetworkInterfaceAliasIpv6RangeArgs']]]] = None,
                  igmp_query: pulumi.Input[Optional[_builtins.str]] = None,
                  internal_ipv6_prefix_length: pulumi.Input[Optional[_builtins.int]] = None,
                  ipv6_access_configs: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceFromMachineImageNetworkInterfaceIpv6AccessConfigArgs']]]] = None,
@@ -17682,6 +17734,7 @@ class InstanceFromMachineImageNetworkInterfaceArgs:
         """
         :param pulumi.Input[Sequence[pulumi.Input['InstanceFromMachineImageNetworkInterfaceAccessConfigArgs']]] access_configs: Access configurations, i.e. IPs via which this instance can be accessed via the Internet.
         :param pulumi.Input[Sequence[pulumi.Input['InstanceFromMachineImageNetworkInterfaceAliasIpRangeArgs']]] alias_ip_ranges: An array of alias IP ranges for this network interface.
+        :param pulumi.Input[Sequence[pulumi.Input['InstanceFromMachineImageNetworkInterfaceAliasIpv6RangeArgs']]] alias_ipv6_ranges: An array of IPv6 alias IP ranges for this network interface.
         :param pulumi.Input[_builtins.str] igmp_query: Indicates whether igmp query is enabled on the network interface or not. If enabled, also indicates the version of IGMP supported.
         :param pulumi.Input[_builtins.int] internal_ipv6_prefix_length: The prefix length of the primary internal IPv6 range.
         :param pulumi.Input[Sequence[pulumi.Input['InstanceFromMachineImageNetworkInterfaceIpv6AccessConfigArgs']]] ipv6_access_configs: An array of IPv6 access configurations for this interface. Currently, only one IPv6 access config, DIRECT_IPV6, is supported. If there is no ipv6AccessConfig specified, then this instance will have no external IPv6 Internet access.
@@ -17706,6 +17759,8 @@ class InstanceFromMachineImageNetworkInterfaceArgs:
             pulumi.set(__self__, "access_configs", access_configs)
         if alias_ip_ranges is not None:
             pulumi.set(__self__, "alias_ip_ranges", alias_ip_ranges)
+        if alias_ipv6_ranges is not None:
+            pulumi.set(__self__, "alias_ipv6_ranges", alias_ipv6_ranges)
         if igmp_query is not None:
             pulumi.set(__self__, "igmp_query", igmp_query)
         if internal_ipv6_prefix_length is not None:
@@ -17766,6 +17821,18 @@ class InstanceFromMachineImageNetworkInterfaceArgs:
     @alias_ip_ranges.setter
     def alias_ip_ranges(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceFromMachineImageNetworkInterfaceAliasIpRangeArgs']]]]):
         pulumi.set(self, "alias_ip_ranges", value)
+
+    @_builtins.property
+    @pulumi.getter(name="aliasIpv6Ranges")
+    def alias_ipv6_ranges(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['InstanceFromMachineImageNetworkInterfaceAliasIpv6RangeArgs']]]]:
+        """
+        An array of IPv6 alias IP ranges for this network interface.
+        """
+        return pulumi.get(self, "alias_ipv6_ranges")
+
+    @alias_ipv6_ranges.setter
+    def alias_ipv6_ranges(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceFromMachineImageNetworkInterfaceAliasIpv6RangeArgs']]]]):
+        pulumi.set(self, "alias_ipv6_ranges", value)
 
     @_builtins.property
     @pulumi.getter(name="igmpQuery")
@@ -18102,6 +18169,54 @@ class InstanceFromMachineImageNetworkInterfaceAliasIpRangeArgs:
     def ip_cidr_range(self) -> pulumi.Input[_builtins.str]:
         """
         The IP CIDR range represented by this alias IP range.
+        """
+        return pulumi.get(self, "ip_cidr_range")
+
+    @ip_cidr_range.setter
+    def ip_cidr_range(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "ip_cidr_range", value)
+
+    @_builtins.property
+    @pulumi.getter(name="subnetworkRangeName")
+    def subnetwork_range_name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IP range.
+        """
+        return pulumi.get(self, "subnetwork_range_name")
+
+    @subnetwork_range_name.setter
+    def subnetwork_range_name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "subnetwork_range_name", value)
+
+
+class InstanceFromMachineImageNetworkInterfaceAliasIpv6RangeArgsDict(TypedDict):
+    ip_cidr_range: pulumi.Input[_builtins.str]
+    """
+    The IPv6 CIDR range represented by this alias IP range.
+    """
+    subnetwork_range_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IP range.
+    """
+
+@pulumi.input_type
+class InstanceFromMachineImageNetworkInterfaceAliasIpv6RangeArgs:
+    def __init__(__self__, *,
+                 ip_cidr_range: pulumi.Input[_builtins.str],
+                 subnetwork_range_name: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] ip_cidr_range: The IPv6 CIDR range represented by this alias IP range.
+        :param pulumi.Input[_builtins.str] subnetwork_range_name: The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IP range.
+        """
+        pulumi.set(__self__, "ip_cidr_range", ip_cidr_range)
+        if subnetwork_range_name is not None:
+            pulumi.set(__self__, "subnetwork_range_name", subnetwork_range_name)
+
+    @_builtins.property
+    @pulumi.getter(name="ipCidrRange")
+    def ip_cidr_range(self) -> pulumi.Input[_builtins.str]:
+        """
+        The IPv6 CIDR range represented by this alias IP range.
         """
         return pulumi.get(self, "ip_cidr_range")
 
@@ -20669,6 +20784,10 @@ class InstanceFromTemplateNetworkInterfaceArgsDict(TypedDict):
     """
     An array of alias IP ranges for this network interface.
     """
+    alias_ipv6_ranges: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['InstanceFromTemplateNetworkInterfaceAliasIpv6RangeArgsDict']]]]]
+    """
+    An array of IPv6 alias IP ranges for this network interface.
+    """
     igmp_query: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     Indicates whether igmp query is enabled on the network interface or not. If enabled, also indicates the version of IGMP supported.
@@ -20748,6 +20867,7 @@ class InstanceFromTemplateNetworkInterfaceArgs:
     def __init__(__self__, *,
                  access_configs: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceFromTemplateNetworkInterfaceAccessConfigArgs']]]] = None,
                  alias_ip_ranges: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceFromTemplateNetworkInterfaceAliasIpRangeArgs']]]] = None,
+                 alias_ipv6_ranges: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceFromTemplateNetworkInterfaceAliasIpv6RangeArgs']]]] = None,
                  igmp_query: pulumi.Input[Optional[_builtins.str]] = None,
                  internal_ipv6_prefix_length: pulumi.Input[Optional[_builtins.int]] = None,
                  ipv6_access_configs: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceFromTemplateNetworkInterfaceIpv6AccessConfigArgs']]]] = None,
@@ -20769,6 +20889,7 @@ class InstanceFromTemplateNetworkInterfaceArgs:
         """
         :param pulumi.Input[Sequence[pulumi.Input['InstanceFromTemplateNetworkInterfaceAccessConfigArgs']]] access_configs: Access configurations, i.e. IPs via which this instance can be accessed via the Internet.
         :param pulumi.Input[Sequence[pulumi.Input['InstanceFromTemplateNetworkInterfaceAliasIpRangeArgs']]] alias_ip_ranges: An array of alias IP ranges for this network interface.
+        :param pulumi.Input[Sequence[pulumi.Input['InstanceFromTemplateNetworkInterfaceAliasIpv6RangeArgs']]] alias_ipv6_ranges: An array of IPv6 alias IP ranges for this network interface.
         :param pulumi.Input[_builtins.str] igmp_query: Indicates whether igmp query is enabled on the network interface or not. If enabled, also indicates the version of IGMP supported.
         :param pulumi.Input[_builtins.int] internal_ipv6_prefix_length: The prefix length of the primary internal IPv6 range.
         :param pulumi.Input[Sequence[pulumi.Input['InstanceFromTemplateNetworkInterfaceIpv6AccessConfigArgs']]] ipv6_access_configs: An array of IPv6 access configurations for this interface. Currently, only one IPv6 access config, DIRECT_IPV6, is supported. If there is no ipv6AccessConfig specified, then this instance will have no external IPv6 Internet access.
@@ -20793,6 +20914,8 @@ class InstanceFromTemplateNetworkInterfaceArgs:
             pulumi.set(__self__, "access_configs", access_configs)
         if alias_ip_ranges is not None:
             pulumi.set(__self__, "alias_ip_ranges", alias_ip_ranges)
+        if alias_ipv6_ranges is not None:
+            pulumi.set(__self__, "alias_ipv6_ranges", alias_ipv6_ranges)
         if igmp_query is not None:
             pulumi.set(__self__, "igmp_query", igmp_query)
         if internal_ipv6_prefix_length is not None:
@@ -20853,6 +20976,18 @@ class InstanceFromTemplateNetworkInterfaceArgs:
     @alias_ip_ranges.setter
     def alias_ip_ranges(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceFromTemplateNetworkInterfaceAliasIpRangeArgs']]]]):
         pulumi.set(self, "alias_ip_ranges", value)
+
+    @_builtins.property
+    @pulumi.getter(name="aliasIpv6Ranges")
+    def alias_ipv6_ranges(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['InstanceFromTemplateNetworkInterfaceAliasIpv6RangeArgs']]]]:
+        """
+        An array of IPv6 alias IP ranges for this network interface.
+        """
+        return pulumi.get(self, "alias_ipv6_ranges")
+
+    @alias_ipv6_ranges.setter
+    def alias_ipv6_ranges(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceFromTemplateNetworkInterfaceAliasIpv6RangeArgs']]]]):
+        pulumi.set(self, "alias_ipv6_ranges", value)
 
     @_builtins.property
     @pulumi.getter(name="igmpQuery")
@@ -21189,6 +21324,54 @@ class InstanceFromTemplateNetworkInterfaceAliasIpRangeArgs:
     def ip_cidr_range(self) -> pulumi.Input[_builtins.str]:
         """
         The IP CIDR range represented by this alias IP range.
+        """
+        return pulumi.get(self, "ip_cidr_range")
+
+    @ip_cidr_range.setter
+    def ip_cidr_range(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "ip_cidr_range", value)
+
+    @_builtins.property
+    @pulumi.getter(name="subnetworkRangeName")
+    def subnetwork_range_name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IP range.
+        """
+        return pulumi.get(self, "subnetwork_range_name")
+
+    @subnetwork_range_name.setter
+    def subnetwork_range_name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "subnetwork_range_name", value)
+
+
+class InstanceFromTemplateNetworkInterfaceAliasIpv6RangeArgsDict(TypedDict):
+    ip_cidr_range: pulumi.Input[_builtins.str]
+    """
+    The IPv6 CIDR range represented by this alias IP range.
+    """
+    subnetwork_range_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IP range.
+    """
+
+@pulumi.input_type
+class InstanceFromTemplateNetworkInterfaceAliasIpv6RangeArgs:
+    def __init__(__self__, *,
+                 ip_cidr_range: pulumi.Input[_builtins.str],
+                 subnetwork_range_name: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] ip_cidr_range: The IPv6 CIDR range represented by this alias IP range.
+        :param pulumi.Input[_builtins.str] subnetwork_range_name: The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IP range.
+        """
+        pulumi.set(__self__, "ip_cidr_range", ip_cidr_range)
+        if subnetwork_range_name is not None:
+            pulumi.set(__self__, "subnetwork_range_name", subnetwork_range_name)
+
+    @_builtins.property
+    @pulumi.getter(name="ipCidrRange")
+    def ip_cidr_range(self) -> pulumi.Input[_builtins.str]:
+        """
+        The IPv6 CIDR range represented by this alias IP range.
         """
         return pulumi.get(self, "ip_cidr_range")
 
@@ -23873,6 +24056,12 @@ class InstanceNetworkInterfaceArgsDict(TypedDict):
     array of alias IP ranges for this network interface. Can only be specified for network
     interfaces on subnet-mode networks. Structure documented below.
     """
+    alias_ipv6_ranges: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['InstanceNetworkInterfaceAliasIpv6RangeArgsDict']]]]]
+    """
+    [Beta] An
+    array of alias IPv6 ranges for this network interface. Can only be specified for network
+    interfaces on subnet-mode networks. Structure documented below.
+    """
     igmp_query: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     Indicates whether igmp query is enabled on the network interface or not. If enabled, also indicates the version of IGMP supported.
@@ -23967,6 +24156,7 @@ class InstanceNetworkInterfaceArgs:
     def __init__(__self__, *,
                  access_configs: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceNetworkInterfaceAccessConfigArgs']]]] = None,
                  alias_ip_ranges: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceNetworkInterfaceAliasIpRangeArgs']]]] = None,
+                 alias_ipv6_ranges: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceNetworkInterfaceAliasIpv6RangeArgs']]]] = None,
                  igmp_query: pulumi.Input[Optional[_builtins.str]] = None,
                  internal_ipv6_prefix_length: pulumi.Input[Optional[_builtins.int]] = None,
                  ipv6_access_configs: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceNetworkInterfaceIpv6AccessConfigArgs']]]] = None,
@@ -23994,6 +24184,9 @@ class InstanceNetworkInterfaceArgs:
                This block can be specified once per `network_interface`. Structure documented below.
         :param pulumi.Input[Sequence[pulumi.Input['InstanceNetworkInterfaceAliasIpRangeArgs']]] alias_ip_ranges: An
                array of alias IP ranges for this network interface. Can only be specified for network
+               interfaces on subnet-mode networks. Structure documented below.
+        :param pulumi.Input[Sequence[pulumi.Input['InstanceNetworkInterfaceAliasIpv6RangeArgs']]] alias_ipv6_ranges: [Beta] An
+               array of alias IPv6 ranges for this network interface. Can only be specified for network
                interfaces on subnet-mode networks. Structure documented below.
         :param pulumi.Input[_builtins.str] igmp_query: Indicates whether igmp query is enabled on the network interface or not. If enabled, also indicates the version of IGMP supported.
         :param pulumi.Input[_builtins.int] internal_ipv6_prefix_length: The prefix length of the primary internal IPv6 range.
@@ -24034,6 +24227,8 @@ class InstanceNetworkInterfaceArgs:
             pulumi.set(__self__, "access_configs", access_configs)
         if alias_ip_ranges is not None:
             pulumi.set(__self__, "alias_ip_ranges", alias_ip_ranges)
+        if alias_ipv6_ranges is not None:
+            pulumi.set(__self__, "alias_ipv6_ranges", alias_ipv6_ranges)
         if igmp_query is not None:
             pulumi.set(__self__, "igmp_query", igmp_query)
         if internal_ipv6_prefix_length is not None:
@@ -24101,6 +24296,20 @@ class InstanceNetworkInterfaceArgs:
     @alias_ip_ranges.setter
     def alias_ip_ranges(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceNetworkInterfaceAliasIpRangeArgs']]]]):
         pulumi.set(self, "alias_ip_ranges", value)
+
+    @_builtins.property
+    @pulumi.getter(name="aliasIpv6Ranges")
+    def alias_ipv6_ranges(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['InstanceNetworkInterfaceAliasIpv6RangeArgs']]]]:
+        """
+        [Beta] An
+        array of alias IPv6 ranges for this network interface. Can only be specified for network
+        interfaces on subnet-mode networks. Structure documented below.
+        """
+        return pulumi.get(self, "alias_ipv6_ranges")
+
+    @alias_ipv6_ranges.setter
+    def alias_ipv6_ranges(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceNetworkInterfaceAliasIpv6RangeArgs']]]]):
+        pulumi.set(self, "alias_ipv6_ranges", value)
 
     @_builtins.property
     @pulumi.getter(name="igmpQuery")
@@ -24488,6 +24697,54 @@ class InstanceNetworkInterfaceAliasIpRangeArgs:
         The subnetwork secondary range name specifying
         the secondary range from which to allocate the IP CIDR range for this alias IP
         range. If left unspecified, the primary range of the subnetwork will be used.
+        """
+        return pulumi.get(self, "subnetwork_range_name")
+
+    @subnetwork_range_name.setter
+    def subnetwork_range_name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "subnetwork_range_name", value)
+
+
+class InstanceNetworkInterfaceAliasIpv6RangeArgsDict(TypedDict):
+    ip_cidr_range: pulumi.Input[_builtins.str]
+    """
+    The IPv6 CIDR range represented by this alias IP range.
+    """
+    subnetwork_range_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IP range.
+    """
+
+@pulumi.input_type
+class InstanceNetworkInterfaceAliasIpv6RangeArgs:
+    def __init__(__self__, *,
+                 ip_cidr_range: pulumi.Input[_builtins.str],
+                 subnetwork_range_name: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] ip_cidr_range: The IPv6 CIDR range represented by this alias IP range.
+        :param pulumi.Input[_builtins.str] subnetwork_range_name: The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IP range.
+        """
+        pulumi.set(__self__, "ip_cidr_range", ip_cidr_range)
+        if subnetwork_range_name is not None:
+            pulumi.set(__self__, "subnetwork_range_name", subnetwork_range_name)
+
+    @_builtins.property
+    @pulumi.getter(name="ipCidrRange")
+    def ip_cidr_range(self) -> pulumi.Input[_builtins.str]:
+        """
+        The IPv6 CIDR range represented by this alias IP range.
+        """
+        return pulumi.get(self, "ip_cidr_range")
+
+    @ip_cidr_range.setter
+    def ip_cidr_range(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "ip_cidr_range", value)
+
+    @_builtins.property
+    @pulumi.getter(name="subnetworkRangeName")
+    def subnetwork_range_name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IP range.
         """
         return pulumi.get(self, "subnetwork_range_name")
 
@@ -27087,6 +27344,12 @@ class InstanceTemplateNetworkInterfaceArgsDict(TypedDict):
     array of alias IP ranges for this network interface. Can only be specified for network
     interfaces on subnet-mode networks. Structure documented below.
     """
+    alias_ipv6_ranges: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['InstanceTemplateNetworkInterfaceAliasIpv6RangeArgsDict']]]]]
+    """
+    [Beta] An
+    array of alias IPv6 ranges for this network interface. Can only be specified for network
+    interfaces on subnet-mode networks. Structure documented below.
+    """
     igmp_query: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     Indicates whether igmp query is enabled on the network interface or not. If enabled, also indicates the version of IGMP supported.
@@ -27166,6 +27429,7 @@ class InstanceTemplateNetworkInterfaceArgs:
     def __init__(__self__, *,
                  access_configs: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceTemplateNetworkInterfaceAccessConfigArgs']]]] = None,
                  alias_ip_ranges: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceTemplateNetworkInterfaceAliasIpRangeArgs']]]] = None,
+                 alias_ipv6_ranges: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceTemplateNetworkInterfaceAliasIpv6RangeArgs']]]] = None,
                  igmp_query: pulumi.Input[Optional[_builtins.str]] = None,
                  internal_ipv6_prefix_length: pulumi.Input[Optional[_builtins.int]] = None,
                  ipv6_access_configs: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceTemplateNetworkInterfaceIpv6AccessConfigArgs']]]] = None,
@@ -27191,6 +27455,9 @@ class InstanceTemplateNetworkInterfaceArgs:
                on that network). This block can be specified once per `network_interface`. Structure documented below.
         :param pulumi.Input[Sequence[pulumi.Input['InstanceTemplateNetworkInterfaceAliasIpRangeArgs']]] alias_ip_ranges: An
                array of alias IP ranges for this network interface. Can only be specified for network
+               interfaces on subnet-mode networks. Structure documented below.
+        :param pulumi.Input[Sequence[pulumi.Input['InstanceTemplateNetworkInterfaceAliasIpv6RangeArgs']]] alias_ipv6_ranges: [Beta] An
+               array of alias IPv6 ranges for this network interface. Can only be specified for network
                interfaces on subnet-mode networks. Structure documented below.
         :param pulumi.Input[_builtins.str] igmp_query: Indicates whether igmp query is enabled on the network interface or not. If enabled, also indicates the version of IGMP supported.
         :param pulumi.Input[_builtins.int] internal_ipv6_prefix_length: The prefix length of the primary internal IPv6 range.
@@ -27222,6 +27489,8 @@ class InstanceTemplateNetworkInterfaceArgs:
             pulumi.set(__self__, "access_configs", access_configs)
         if alias_ip_ranges is not None:
             pulumi.set(__self__, "alias_ip_ranges", alias_ip_ranges)
+        if alias_ipv6_ranges is not None:
+            pulumi.set(__self__, "alias_ipv6_ranges", alias_ipv6_ranges)
         if igmp_query is not None:
             pulumi.set(__self__, "igmp_query", igmp_query)
         if internal_ipv6_prefix_length is not None:
@@ -27285,6 +27554,20 @@ class InstanceTemplateNetworkInterfaceArgs:
     @alias_ip_ranges.setter
     def alias_ip_ranges(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceTemplateNetworkInterfaceAliasIpRangeArgs']]]]):
         pulumi.set(self, "alias_ip_ranges", value)
+
+    @_builtins.property
+    @pulumi.getter(name="aliasIpv6Ranges")
+    def alias_ipv6_ranges(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['InstanceTemplateNetworkInterfaceAliasIpv6RangeArgs']]]]:
+        """
+        [Beta] An
+        array of alias IPv6 ranges for this network interface. Can only be specified for network
+        interfaces on subnet-mode networks. Structure documented below.
+        """
+        return pulumi.get(self, "alias_ipv6_ranges")
+
+    @alias_ipv6_ranges.setter
+    def alias_ipv6_ranges(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['InstanceTemplateNetworkInterfaceAliasIpv6RangeArgs']]]]):
+        pulumi.set(self, "alias_ipv6_ranges", value)
 
     @_builtins.property
     @pulumi.getter(name="igmpQuery")
@@ -27621,6 +27904,54 @@ class InstanceTemplateNetworkInterfaceAliasIpRangeArgs:
         The subnetwork secondary range name specifying
         the secondary range from which to allocate the IP CIDR range for this alias IP
         range. If left unspecified, the primary range of the subnetwork will be used.
+        """
+        return pulumi.get(self, "subnetwork_range_name")
+
+    @subnetwork_range_name.setter
+    def subnetwork_range_name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "subnetwork_range_name", value)
+
+
+class InstanceTemplateNetworkInterfaceAliasIpv6RangeArgsDict(TypedDict):
+    ip_cidr_range: pulumi.Input[_builtins.str]
+    """
+    The IP CIDR range represented by this alias IPv6 range. This IP CIDR range must belong to the specified subnetwork and cannot contain IP addresses reserved by system or used by other network interfaces. At the time of writing only a netmask (e.g. /96) may be supplied, with a CIDR format resulting in an API error.
+    """
+    subnetwork_range_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IPv6 range. If left unspecified, the primary range of the subnetwork will be used.
+    """
+
+@pulumi.input_type
+class InstanceTemplateNetworkInterfaceAliasIpv6RangeArgs:
+    def __init__(__self__, *,
+                 ip_cidr_range: pulumi.Input[_builtins.str],
+                 subnetwork_range_name: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] ip_cidr_range: The IP CIDR range represented by this alias IPv6 range. This IP CIDR range must belong to the specified subnetwork and cannot contain IP addresses reserved by system or used by other network interfaces. At the time of writing only a netmask (e.g. /96) may be supplied, with a CIDR format resulting in an API error.
+        :param pulumi.Input[_builtins.str] subnetwork_range_name: The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IPv6 range. If left unspecified, the primary range of the subnetwork will be used.
+        """
+        pulumi.set(__self__, "ip_cidr_range", ip_cidr_range)
+        if subnetwork_range_name is not None:
+            pulumi.set(__self__, "subnetwork_range_name", subnetwork_range_name)
+
+    @_builtins.property
+    @pulumi.getter(name="ipCidrRange")
+    def ip_cidr_range(self) -> pulumi.Input[_builtins.str]:
+        """
+        The IP CIDR range represented by this alias IPv6 range. This IP CIDR range must belong to the specified subnetwork and cannot contain IP addresses reserved by system or used by other network interfaces. At the time of writing only a netmask (e.g. /96) may be supplied, with a CIDR format resulting in an API error.
+        """
+        return pulumi.get(self, "ip_cidr_range")
+
+    @ip_cidr_range.setter
+    def ip_cidr_range(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "ip_cidr_range", value)
+
+    @_builtins.property
+    @pulumi.getter(name="subnetworkRangeName")
+    def subnetwork_range_name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IPv6 range. If left unspecified, the primary range of the subnetwork will be used.
         """
         return pulumi.get(self, "subnetwork_range_name")
 
@@ -31707,6 +32038,7 @@ class MachineImageMachineImageEncryptionKeyArgsDict(TypedDict):
     """
     Specifies a 256-bit customer-supplied encryption key, encoded in
     RFC 4648 base64 to either encrypt or decrypt this resource.
+    **Note**: This property is sensitive and will not be displayed in the plan.
     """
     sha256: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -31728,6 +32060,7 @@ class MachineImageMachineImageEncryptionKeyArgs:
                If absent, the Compute Engine Service Agent service account is used.
         :param pulumi.Input[_builtins.str] raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in
                RFC 4648 base64 to either encrypt or decrypt this resource.
+               **Note**: This property is sensitive and will not be displayed in the plan.
         :param pulumi.Input[_builtins.str] sha256: (Output)
                The RFC 4648 base64 encoded SHA-256 hash of the
                customer-supplied encryption key that protects this resource.
@@ -31772,6 +32105,7 @@ class MachineImageMachineImageEncryptionKeyArgs:
         """
         Specifies a 256-bit customer-supplied encryption key, encoded in
         RFC 4648 base64 to either encrypt or decrypt this resource.
+        **Note**: This property is sensitive and will not be displayed in the plan.
         """
         return pulumi.get(self, "raw_key")
 
@@ -47162,6 +47496,12 @@ class RegionInstanceTemplateNetworkInterfaceArgsDict(TypedDict):
     array of alias IP ranges for this network interface. Can only be specified for network
     interfaces on subnet-mode networks. Structure documented below.
     """
+    alias_ipv6_ranges: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['RegionInstanceTemplateNetworkInterfaceAliasIpv6RangeArgsDict']]]]]
+    """
+    [Beta] An
+    array of alias IPv6 ranges for this network interface. Can only be specified for network
+    interfaces on subnet-mode networks. Structure documented below.
+    """
     igmp_query: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     Indicates whether igmp query is enabled on the network interface or not. If enabled, also indicates the version of IGMP supported.
@@ -47241,6 +47581,7 @@ class RegionInstanceTemplateNetworkInterfaceArgs:
     def __init__(__self__, *,
                  access_configs: pulumi.Input[Optional[Sequence[pulumi.Input['RegionInstanceTemplateNetworkInterfaceAccessConfigArgs']]]] = None,
                  alias_ip_ranges: pulumi.Input[Optional[Sequence[pulumi.Input['RegionInstanceTemplateNetworkInterfaceAliasIpRangeArgs']]]] = None,
+                 alias_ipv6_ranges: pulumi.Input[Optional[Sequence[pulumi.Input['RegionInstanceTemplateNetworkInterfaceAliasIpv6RangeArgs']]]] = None,
                  igmp_query: pulumi.Input[Optional[_builtins.str]] = None,
                  internal_ipv6_prefix_length: pulumi.Input[Optional[_builtins.int]] = None,
                  ipv6_access_configs: pulumi.Input[Optional[Sequence[pulumi.Input['RegionInstanceTemplateNetworkInterfaceIpv6AccessConfigArgs']]]] = None,
@@ -47266,6 +47607,9 @@ class RegionInstanceTemplateNetworkInterfaceArgs:
                on that network). This block can be specified once per `network_interface`. Structure documented below.
         :param pulumi.Input[Sequence[pulumi.Input['RegionInstanceTemplateNetworkInterfaceAliasIpRangeArgs']]] alias_ip_ranges: An
                array of alias IP ranges for this network interface. Can only be specified for network
+               interfaces on subnet-mode networks. Structure documented below.
+        :param pulumi.Input[Sequence[pulumi.Input['RegionInstanceTemplateNetworkInterfaceAliasIpv6RangeArgs']]] alias_ipv6_ranges: [Beta] An
+               array of alias IPv6 ranges for this network interface. Can only be specified for network
                interfaces on subnet-mode networks. Structure documented below.
         :param pulumi.Input[_builtins.str] igmp_query: Indicates whether igmp query is enabled on the network interface or not. If enabled, also indicates the version of IGMP supported.
         :param pulumi.Input[_builtins.int] internal_ipv6_prefix_length: The prefix length of the primary internal IPv6 range.
@@ -47297,6 +47641,8 @@ class RegionInstanceTemplateNetworkInterfaceArgs:
             pulumi.set(__self__, "access_configs", access_configs)
         if alias_ip_ranges is not None:
             pulumi.set(__self__, "alias_ip_ranges", alias_ip_ranges)
+        if alias_ipv6_ranges is not None:
+            pulumi.set(__self__, "alias_ipv6_ranges", alias_ipv6_ranges)
         if igmp_query is not None:
             pulumi.set(__self__, "igmp_query", igmp_query)
         if internal_ipv6_prefix_length is not None:
@@ -47360,6 +47706,20 @@ class RegionInstanceTemplateNetworkInterfaceArgs:
     @alias_ip_ranges.setter
     def alias_ip_ranges(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['RegionInstanceTemplateNetworkInterfaceAliasIpRangeArgs']]]]):
         pulumi.set(self, "alias_ip_ranges", value)
+
+    @_builtins.property
+    @pulumi.getter(name="aliasIpv6Ranges")
+    def alias_ipv6_ranges(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['RegionInstanceTemplateNetworkInterfaceAliasIpv6RangeArgs']]]]:
+        """
+        [Beta] An
+        array of alias IPv6 ranges for this network interface. Can only be specified for network
+        interfaces on subnet-mode networks. Structure documented below.
+        """
+        return pulumi.get(self, "alias_ipv6_ranges")
+
+    @alias_ipv6_ranges.setter
+    def alias_ipv6_ranges(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['RegionInstanceTemplateNetworkInterfaceAliasIpv6RangeArgs']]]]):
+        pulumi.set(self, "alias_ipv6_ranges", value)
 
     @_builtins.property
     @pulumi.getter(name="igmpQuery")
@@ -47696,6 +48056,54 @@ class RegionInstanceTemplateNetworkInterfaceAliasIpRangeArgs:
         The subnetwork secondary range name specifying
         the secondary range from which to allocate the IP CIDR range for this alias IP
         range. If left unspecified, the primary range of the subnetwork will be used.
+        """
+        return pulumi.get(self, "subnetwork_range_name")
+
+    @subnetwork_range_name.setter
+    def subnetwork_range_name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "subnetwork_range_name", value)
+
+
+class RegionInstanceTemplateNetworkInterfaceAliasIpv6RangeArgsDict(TypedDict):
+    ip_cidr_range: pulumi.Input[_builtins.str]
+    """
+    The IP CIDR range represented by this alias IPv6 range. This IP CIDR range must belong to the specified subnetwork and cannot contain IP addresses reserved by system or used by other network interfaces. At the time of writing only a netmask (e.g. /96) may be supplied, with a CIDR format resulting in an API error.
+    """
+    subnetwork_range_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IPv6 range. If left unspecified, the primary range of the subnetwork will be used.
+    """
+
+@pulumi.input_type
+class RegionInstanceTemplateNetworkInterfaceAliasIpv6RangeArgs:
+    def __init__(__self__, *,
+                 ip_cidr_range: pulumi.Input[_builtins.str],
+                 subnetwork_range_name: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] ip_cidr_range: The IP CIDR range represented by this alias IPv6 range. This IP CIDR range must belong to the specified subnetwork and cannot contain IP addresses reserved by system or used by other network interfaces. At the time of writing only a netmask (e.g. /96) may be supplied, with a CIDR format resulting in an API error.
+        :param pulumi.Input[_builtins.str] subnetwork_range_name: The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IPv6 range. If left unspecified, the primary range of the subnetwork will be used.
+        """
+        pulumi.set(__self__, "ip_cidr_range", ip_cidr_range)
+        if subnetwork_range_name is not None:
+            pulumi.set(__self__, "subnetwork_range_name", subnetwork_range_name)
+
+    @_builtins.property
+    @pulumi.getter(name="ipCidrRange")
+    def ip_cidr_range(self) -> pulumi.Input[_builtins.str]:
+        """
+        The IP CIDR range represented by this alias IPv6 range. This IP CIDR range must belong to the specified subnetwork and cannot contain IP addresses reserved by system or used by other network interfaces. At the time of writing only a netmask (e.g. /96) may be supplied, with a CIDR format resulting in an API error.
+        """
+        return pulumi.get(self, "ip_cidr_range")
+
+    @ip_cidr_range.setter
+    def ip_cidr_range(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "ip_cidr_range", value)
+
+    @_builtins.property
+    @pulumi.getter(name="subnetworkRangeName")
+    def subnetwork_range_name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The subnetwork secondary range name specifying the secondary range from which to allocate the IP CIDR range for this alias IPv6 range. If left unspecified, the primary range of the subnetwork will be used.
         """
         return pulumi.get(self, "subnetwork_range_name")
 
@@ -73978,6 +74386,20 @@ class SubnetworkSecondaryIpRangeArgsDict(TypedDict):
     secondary IP ranges within a network. Only IPv4 is supported.
     Field is optional when `reserved_internal_range` is defined, otherwise required.
     """
+    ip_collection: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (Optional, Beta)
+    Reference to a Public Delegated Prefix (PDP) for BYOIP.
+    This field should be specified for configuring BYOGUA internal IPv6 secondary range.
+    When specified along with the ip_cidr_range, the ip_cidr_range must lie within the PDP referenced by the `ipCollection` field.
+    When specified without the ip_cidr_range, the range is auto-allocated from the PDP referenced by the `ipCollection` field.
+    """
+    ip_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (Optional, Beta)
+    The IP version of the secondary range. If not specified, IPV4 is used.
+    Possible values are: `IPV4`, `IPV6`.
+    """
     reserved_internal_range: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The ID of the reserved internal range. Must be prefixed with `networkconnectivity.googleapis.com`
@@ -73989,6 +74411,8 @@ class SubnetworkSecondaryIpRangeArgs:
     def __init__(__self__, *,
                  range_name: pulumi.Input[_builtins.str],
                  ip_cidr_range: pulumi.Input[Optional[_builtins.str]] = None,
+                 ip_collection: pulumi.Input[Optional[_builtins.str]] = None,
+                 ip_version: pulumi.Input[Optional[_builtins.str]] = None,
                  reserved_internal_range: pulumi.Input[Optional[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.str] range_name: The name associated with this subnetwork secondary range, used
@@ -74000,12 +74424,24 @@ class SubnetworkSecondaryIpRangeArgs:
                Ranges must be unique and non-overlapping with all primary and
                secondary IP ranges within a network. Only IPv4 is supported.
                Field is optional when `reserved_internal_range` is defined, otherwise required.
+        :param pulumi.Input[_builtins.str] ip_collection: (Optional, Beta)
+               Reference to a Public Delegated Prefix (PDP) for BYOIP.
+               This field should be specified for configuring BYOGUA internal IPv6 secondary range.
+               When specified along with the ip_cidr_range, the ip_cidr_range must lie within the PDP referenced by the `ipCollection` field.
+               When specified without the ip_cidr_range, the range is auto-allocated from the PDP referenced by the `ipCollection` field.
+        :param pulumi.Input[_builtins.str] ip_version: (Optional, Beta)
+               The IP version of the secondary range. If not specified, IPV4 is used.
+               Possible values are: `IPV4`, `IPV6`.
         :param pulumi.Input[_builtins.str] reserved_internal_range: The ID of the reserved internal range. Must be prefixed with `networkconnectivity.googleapis.com`
                E.g. `networkconnectivity.googleapis.com/projects/{project}/locations/global/internalRanges/{rangeId}`
         """
         pulumi.set(__self__, "range_name", range_name)
         if ip_cidr_range is not None:
             pulumi.set(__self__, "ip_cidr_range", ip_cidr_range)
+        if ip_collection is not None:
+            pulumi.set(__self__, "ip_collection", ip_collection)
+        if ip_version is not None:
+            pulumi.set(__self__, "ip_version", ip_version)
         if reserved_internal_range is not None:
             pulumi.set(__self__, "reserved_internal_range", reserved_internal_range)
 
@@ -74039,6 +74475,36 @@ class SubnetworkSecondaryIpRangeArgs:
     @ip_cidr_range.setter
     def ip_cidr_range(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "ip_cidr_range", value)
+
+    @_builtins.property
+    @pulumi.getter(name="ipCollection")
+    def ip_collection(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (Optional, Beta)
+        Reference to a Public Delegated Prefix (PDP) for BYOIP.
+        This field should be specified for configuring BYOGUA internal IPv6 secondary range.
+        When specified along with the ip_cidr_range, the ip_cidr_range must lie within the PDP referenced by the `ipCollection` field.
+        When specified without the ip_cidr_range, the range is auto-allocated from the PDP referenced by the `ipCollection` field.
+        """
+        return pulumi.get(self, "ip_collection")
+
+    @ip_collection.setter
+    def ip_collection(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "ip_collection", value)
+
+    @_builtins.property
+    @pulumi.getter(name="ipVersion")
+    def ip_version(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (Optional, Beta)
+        The IP version of the secondary range. If not specified, IPV4 is used.
+        Possible values are: `IPV4`, `IPV6`.
+        """
+        return pulumi.get(self, "ip_version")
+
+    @ip_version.setter
+    def ip_version(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "ip_version", value)
 
     @_builtins.property
     @pulumi.getter(name="reservedInternalRange")

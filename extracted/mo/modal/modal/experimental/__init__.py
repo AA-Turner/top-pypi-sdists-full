@@ -1,11 +1,17 @@
 # Copyright Modal Labs 2025
 from dataclasses import dataclass
-from typing import Optional, Union
+from datetime import datetime, timezone
 
 from modal_proto import api_pb2
 
 from .._clustered_functions import ClusterInfo, get_cluster_info as _get_cluster_info
 from .._functions import _Function
+from .._image import (
+    DockerfileSpec as DockerfileSpec,
+    ImageBuilderVersion as ImageBuilderVersion,
+    _Image as _Image,
+    _ImageRegistryConfig as _ImageRegistryConfig,
+)
 from .._object import _get_environment_name
 from .._partial_function import _clustered
 from .._runtime.container_io_manager import _ContainerIOManager
@@ -14,12 +20,6 @@ from ..app import _App
 from ..client import _Client
 from ..cls import _Cls
 from ..exception import InvalidError as InvalidError
-from ..image import (
-    DockerfileSpec as DockerfileSpec,
-    ImageBuilderVersion as ImageBuilderVersion,
-    _Image as _Image,
-    _ImageRegistryConfig as _ImageRegistryConfig,
-)
 from ..secret import _Secret as _Secret
 from .flash import (  # noqa: F401
     flash_forward,
@@ -64,7 +64,7 @@ class AppInfo:
 
 
 @synchronizer.create_blocking
-async def list_deployed_apps(environment_name: str = "", client: Optional[_Client] = None) -> list[AppInfo]:
+async def list_deployed_apps(environment_name: str = "", client: _Client | None = None) -> list[AppInfo]:
     """List deployed Apps along with the number of containers currently running."""
     # This function exists to provide backwards compatibility for some users who had been
     # calling into the private function that previously backed the `modal app list` CLI command.
@@ -92,8 +92,48 @@ async def list_deployed_apps(environment_name: str = "", client: Optional[_Clien
     return app_infos
 
 
+@dataclass
+class AppLifecycle:
+    """Lifecycle information about an App."""
+
+    created_at: datetime  # Time the App was initially created
+    created_by: str  # User or service user name
+    deployed_at: datetime | None  # Time of the most recent deployment event, if ever deployed
+    deployed_by: str | None  # User or service user name, if ever deployed
+    stopped_at: datetime | None  # None when the App is still running
+    stopped_by: str | None  # User or service user name; None if still running or finished normally
+
+
+def _timestamp_to_datetime(ts: float) -> datetime | None:
+    # Unset timestamps come back from the server as 0.
+    return datetime.fromtimestamp(ts, timezone.utc) if ts else None
+
+
 @synchronizer.create_blocking
-async def stop_app(name: str, *, environment_name: Optional[str] = None, client: Optional[_Client] = None) -> None:
+async def get_app_lifecycle(app_id: str, *, client: _Client | None = None) -> AppLifecycle:
+    """Get lifecycle information about an App.
+
+    This interface is experimental. This information will continue to be available in the future,
+    but it may be accessed via a different interface, and the return value may have a different shape.
+    """
+    client = client or await _Client.from_env()
+
+    resp: api_pb2.AppGetLifecycleResponse = await client.stub.AppGetLifecycle(
+        api_pb2.AppGetLifecycleRequest(app_id=app_id)
+    )
+    lifecycle = resp.lifecycle
+    return AppLifecycle(
+        created_at=datetime.fromtimestamp(lifecycle.created_at, timezone.utc),
+        created_by=lifecycle.created_by,
+        deployed_at=_timestamp_to_datetime(lifecycle.deployed_at),
+        deployed_by=lifecycle.deployed_by or None,
+        stopped_at=_timestamp_to_datetime(lifecycle.stopped_at),
+        stopped_by=lifecycle.stopped_by or None,
+    )
+
+
+@synchronizer.create_blocking
+async def stop_app(name: str, *, environment_name: str | None = None, client: _Client | None = None) -> None:
     """Stop a deployed App.
 
     This interface is experimental and may change in the future,
@@ -107,8 +147,8 @@ async def stop_app(name: str, *, environment_name: Optional[str] = None, client:
 
 @synchronizer.create_blocking
 async def get_app_objects(
-    app_name: str, *, environment_name: Optional[str] = None, client: Optional[_Client] = None
-) -> dict[str, Union[_Function, _Cls]]:
+    app_name: str, *, environment_name: str | None = None, client: _Client | None = None
+) -> dict[str, _Function | _Cls]:
     """Experimental interface for retrieving a dictionary of the Functions / Clses in an App.
 
     The return value is a dictionary mapping names to unhydrated Function or Cls objects.
@@ -137,7 +177,7 @@ async def get_app_objects(
     req = api_pb2.AppGetLayoutRequest(app_id=app.app_id)
     app_layout_resp = await client.stub.AppGetLayout(req)
 
-    app_objects: dict[str, Union[_Function, _Cls]] = {}
+    app_objects: dict[str, _Function | _Cls] = {}
 
     for cls_name in app_layout_resp.app_layout.class_ids:
         app_objects[cls_name] = _Cls.from_name(app_name, cls_name, environment_name=environment_name)
@@ -154,7 +194,7 @@ async def get_app_objects(
 async def image_delete(
     image_id: str,
     *,
-    client: Optional[_Client] = None,
+    client: _Client | None = None,
 ) -> None:
     """Delete an Image by its ID.
 

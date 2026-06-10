@@ -23,36 +23,35 @@ class _NetworkFileSystem(modal._object._Object):
 
     **Note: `NetworkFileSystem` has been deprecated and will be removed.**
 
-    **Usage**
+    Examples:
+        ```python
+        import modal
 
-    ```python
-    import modal
+        nfs = modal.NetworkFileSystem.from_name("my-nfs", create_if_missing=True)
+        app = modal.App()
 
-    nfs = modal.NetworkFileSystem.from_name("my-nfs", create_if_missing=True)
-    app = modal.App()
+        @app.function(network_file_systems={"/root/foo": nfs})
+        def f():
+            pass
 
-    @app.function(network_file_systems={"/root/foo": nfs})
-    def f():
-        pass
+        @app.function(network_file_systems={"/root/goo": nfs})
+        def g():
+            pass
+        ```
 
-    @app.function(network_file_systems={"/root/goo": nfs})
-    def g():
-        pass
-    ```
+        Also see the CLI methods for accessing network file systems:
 
-    Also see the CLI methods for accessing network file systems:
+        ```
+        modal nfs --help
+        ```
 
-    ```
-    modal nfs --help
-    ```
+        A `NetworkFileSystem` can also be useful for some local scripting scenarios, e.g.:
 
-    A `NetworkFileSystem` can also be useful for some local scripting scenarios, e.g.:
-
-    ```python notest
-    nfs = modal.NetworkFileSystem.from_name("my-network-file-system")
-    for chunk in nfs.read_file("my_db_dump.csv"):
-        ...
-    ```
+        ```python notest
+        nfs = modal.NetworkFileSystem.from_name("my-network-file-system")
+        for chunk in nfs.read_file("my_db_dump.csv"):
+            ...
+        ```
     """
     @staticmethod
     def from_name(
@@ -62,19 +61,27 @@ class _NetworkFileSystem(modal._object._Object):
         create_if_missing: bool = False,
         client: typing.Optional[modal.client._Client] = None,
     ) -> _NetworkFileSystem:
-        """Reference a NetworkFileSystem by its name, creating if necessary.
+        """Reference a NetworkFileSystem by name, optionally creating it on the server first.
 
-        This is a lazy method that defers hydrating the local object with
-        metadata from Modal servers until the first time it is actually
-        used.
+        Hydration is lazy: metadata is fetched from Modal the first time the handle is used.
 
-        ```python notest
-        nfs = NetworkFileSystem.from_name("my-nfs", create_if_missing=True)
+        Args:
+            name: Deployment name of the network file system.
+            environment_name: Environment to resolve the name in; defaults to the active environment.
+            create_if_missing: If True, create the object when it does not already exist.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
 
-        @app.function(network_file_systems={"/data": nfs})
-        def f():
-            pass
-        ```
+        Returns:
+            A `NetworkFileSystem` handle (possibly not yet hydrated).
+
+        Examples:
+            ```python notest
+            nfs = NetworkFileSystem.from_name("my-nfs", create_if_missing=True)
+
+            @app.function(network_file_systems={"/data": nfs})
+            def f():
+                pass
+            ```
         """
         ...
 
@@ -85,18 +92,22 @@ class _NetworkFileSystem(modal._object._Object):
         environment_name: typing.Optional[str] = None,
         _heartbeat_sleep: float = 300,
     ) -> typing.AsyncContextManager[_NetworkFileSystem]:
-        """Creates a new ephemeral network filesystem within a context manager:
+        """Create an anonymous NetworkFileSystem that exists for the duration of the context manager.
 
-        Usage:
-        ```python
-        with modal.NetworkFileSystem.ephemeral() as nfs:
-            assert nfs.listdir("/") == []
-        ```
+        Args:
+            client: Modal client to use; defaults to `Client.from_env()` when omitted.
+            environment_name: Environment for the ephemeral object; defaults to the active environment.
 
-        ```python notest
-        async with modal.NetworkFileSystem.ephemeral() as nfs:
-            assert await nfs.listdir("/") == []
-        ```
+        Examples:
+            ```python
+            with modal.NetworkFileSystem.ephemeral() as nfs:
+                assert nfs.listdir("/") == []
+            ```
+
+            ```python notest
+            async with modal.NetworkFileSystem.ephemeral() as nfs:
+                assert await nfs.listdir("/") == []
+            ```
         """
         ...
 
@@ -176,36 +187,35 @@ class NetworkFileSystem(modal.object.Object):
 
     **Note: `NetworkFileSystem` has been deprecated and will be removed.**
 
-    **Usage**
+    Examples:
+        ```python
+        import modal
 
-    ```python
-    import modal
+        nfs = modal.NetworkFileSystem.from_name("my-nfs", create_if_missing=True)
+        app = modal.App()
 
-    nfs = modal.NetworkFileSystem.from_name("my-nfs", create_if_missing=True)
-    app = modal.App()
+        @app.function(network_file_systems={"/root/foo": nfs})
+        def f():
+            pass
 
-    @app.function(network_file_systems={"/root/foo": nfs})
-    def f():
-        pass
+        @app.function(network_file_systems={"/root/goo": nfs})
+        def g():
+            pass
+        ```
 
-    @app.function(network_file_systems={"/root/goo": nfs})
-    def g():
-        pass
-    ```
+        Also see the CLI methods for accessing network file systems:
 
-    Also see the CLI methods for accessing network file systems:
+        ```
+        modal nfs --help
+        ```
 
-    ```
-    modal nfs --help
-    ```
+        A `NetworkFileSystem` can also be useful for some local scripting scenarios, e.g.:
 
-    A `NetworkFileSystem` can also be useful for some local scripting scenarios, e.g.:
-
-    ```python notest
-    nfs = modal.NetworkFileSystem.from_name("my-network-file-system")
-    for chunk in nfs.read_file("my_db_dump.csv"):
-        ...
-    ```
+        ```python notest
+        nfs = modal.NetworkFileSystem.from_name("my-network-file-system")
+        for chunk in nfs.read_file("my_db_dump.csv"):
+            ...
+        ```
     """
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
@@ -219,19 +229,27 @@ class NetworkFileSystem(modal.object.Object):
         create_if_missing: bool = False,
         client: typing.Optional[modal.client.Client] = None,
     ) -> NetworkFileSystem:
-        """Reference a NetworkFileSystem by its name, creating if necessary.
+        """Reference a NetworkFileSystem by name, optionally creating it on the server first.
 
-        This is a lazy method that defers hydrating the local object with
-        metadata from Modal servers until the first time it is actually
-        used.
+        Hydration is lazy: metadata is fetched from Modal the first time the handle is used.
 
-        ```python notest
-        nfs = NetworkFileSystem.from_name("my-nfs", create_if_missing=True)
+        Args:
+            name: Deployment name of the network file system.
+            environment_name: Environment to resolve the name in; defaults to the active environment.
+            create_if_missing: If True, create the object when it does not already exist.
+            client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
 
-        @app.function(network_file_systems={"/data": nfs})
-        def f():
-            pass
-        ```
+        Returns:
+            A `NetworkFileSystem` handle (possibly not yet hydrated).
+
+        Examples:
+            ```python notest
+            nfs = NetworkFileSystem.from_name("my-nfs", create_if_missing=True)
+
+            @app.function(network_file_systems={"/data": nfs})
+            def f():
+                pass
+            ```
         """
         ...
 
@@ -243,18 +261,22 @@ class NetworkFileSystem(modal.object.Object):
             environment_name: typing.Optional[str] = None,
             _heartbeat_sleep: float = 300,
         ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[NetworkFileSystem]:
-            """Creates a new ephemeral network filesystem within a context manager:
+            """Create an anonymous NetworkFileSystem that exists for the duration of the context manager.
 
-            Usage:
-            ```python
-            with modal.NetworkFileSystem.ephemeral() as nfs:
-                assert nfs.listdir("/") == []
-            ```
+            Args:
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+                environment_name: Environment for the ephemeral object; defaults to the active environment.
 
-            ```python notest
-            async with modal.NetworkFileSystem.ephemeral() as nfs:
-                assert await nfs.listdir("/") == []
-            ```
+            Examples:
+                ```python
+                with modal.NetworkFileSystem.ephemeral() as nfs:
+                    assert nfs.listdir("/") == []
+                ```
+
+                ```python notest
+                async with modal.NetworkFileSystem.ephemeral() as nfs:
+                    assert await nfs.listdir("/") == []
+                ```
             """
             ...
 
@@ -265,18 +287,22 @@ class NetworkFileSystem(modal.object.Object):
             environment_name: typing.Optional[str] = None,
             _heartbeat_sleep: float = 300,
         ) -> typing.AsyncContextManager[NetworkFileSystem]:
-            """Creates a new ephemeral network filesystem within a context manager:
+            """Create an anonymous NetworkFileSystem that exists for the duration of the context manager.
 
-            Usage:
-            ```python
-            with modal.NetworkFileSystem.ephemeral() as nfs:
-                assert nfs.listdir("/") == []
-            ```
+            Args:
+                client: Modal client to use; defaults to `Client.from_env()` when omitted.
+                environment_name: Environment for the ephemeral object; defaults to the active environment.
 
-            ```python notest
-            async with modal.NetworkFileSystem.ephemeral() as nfs:
-                assert await nfs.listdir("/") == []
-            ```
+            Examples:
+                ```python
+                with modal.NetworkFileSystem.ephemeral() as nfs:
+                    assert nfs.listdir("/") == []
+                ```
+
+                ```python notest
+                async with modal.NetworkFileSystem.ephemeral() as nfs:
+                    assert await nfs.listdir("/") == []
+                ```
             """
             ...
 

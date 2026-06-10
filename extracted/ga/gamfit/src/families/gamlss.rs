@@ -1,7 +1,4 @@
-use crate::basis::{
-    BasisOptions, Dense, KnotSource, PenaltyInfo, PenaltySource, create_basis,
-    create_difference_penalty_matrix, create_ispline_derivative_dense,
-};
+use crate::basis::{BasisOptions, PenaltyInfo, PenaltySource};
 use crate::custom_family::{
     AdditiveBlockJacobian, BatchedOuterGradientTerms, BlockEffectiveJacobian, BlockWorkingSet,
     BlockwiseFitOptions, CustomFamily, CustomFamilyBlockPsiDerivative,
@@ -11,16 +8,17 @@ use crate::custom_family::{
     ExactNewtonJointHessianWorkspace, ExactNewtonJointPsiDirectCache,
     ExactNewtonJointPsiSecondOrderTerms, ExactNewtonJointPsiWorkspace, FamilyChannelHessian,
     FamilyEvaluation, ParameterBlockSpec, ParameterBlockState, PenaltyMatrix, PsiDesignMap,
-    build_block_spatial_psi_derivatives, evaluate_custom_family_joint_hyper,
-    evaluate_custom_family_joint_hyper_efs, fit_custom_family, fit_custom_family_fixed_log_lambdas,
-    resolve_custom_family_x_psi_map, resolve_custom_family_x_psi_psi_map, second_psi_linear_map,
-    shared_dense_arc, weighted_crossprod_psi_maps,
+    evaluate_custom_family_joint_hyper, evaluate_custom_family_joint_hyper_efs, fit_custom_family,
+    fit_custom_family_fixed_log_lambdas, resolve_custom_family_x_psi_map,
+    resolve_custom_family_x_psi_psi_map, second_psi_linear_map, shared_dense_arc,
+    weighted_crossprod_psi_maps,
 };
 use crate::estimate::UnifiedFitResult;
 use crate::faer_ndarray::{
     fast_ab, fast_atv, fast_av, fast_joint_hessian_2x2, fast_xt_diag_x, fast_xt_diag_y,
 };
 use crate::families::location_scale_engine::build_location_scale_exact_joint_setup;
+use crate::families::parameter_block::ParameterBlockInput;
 use crate::families::scale_design::{
     build_scale_deviation_operator, build_scale_deviation_transform_design,
 };
@@ -29,6 +27,20 @@ use crate::families::sigma_link::{
     exp_sigma_derivs_up_to_third, exp_sigma_from_eta_scalar, exp_sigma_jet1_scalar,
     logb_sigma_from_eta_scalar, logb_sigma_jet1_scalar, safe_exp,
 };
+use crate::families::spatial_psi_bridge::build_block_spatial_psi_derivatives;
+// The monotone-wiggle helpers live in the neutral `families::wiggle` module
+// (decoupling refactor); this block imports only the ones gamlss's own non-test
+// code uses. Symbols used solely by this module's `#[cfg(test)]` block
+// (`initializewiggle_knots_from_seed`, `monotone_wiggle_internal_degree`,
+// `split_wiggle_penalty_orders`) are imported inside that block instead, so they
+// are not flagged unused in a non-test `--lib` build; downstream consumers import
+// from `families::wiggle` directly.
+use crate::families::wiggle::{
+    SelectedWiggleBasis, WiggleBlockConfig, buildwiggle_block_input_from_knots,
+    initializewiggle_knots_from_seed, monotone_wiggle_basis_with_derivative_order,
+    monotone_wiggle_nonnegative_constraints, select_wiggle_basis_from_seed,
+    validate_monotone_wiggle_beta_nonnegative,
+};
 use crate::generative::{CustomFamilyGenerative, GenerativeSpec, NoiseModel};
 use crate::matrix::SymmetricMatrix;
 use crate::matrix::{
@@ -36,12 +48,9 @@ use crate::matrix::{
 };
 use crate::mixture_link::{
     inverse_link_jet_for_inverse_link, inverse_link_mu_d1_for_inverse_link,
-    inverse_link_pdffourth_derivative_for_inverse_link,
 };
 use crate::pirls::LinearInequalityConstraints;
-use crate::probability::{
-    normal_logcdf, normal_logsf, signed_probit_logcdf_and_mills_ratio, standard_normal_quantile,
-};
+use crate::probability::{normal_logcdf, normal_logsf, standard_normal_quantile};
 use crate::smooth::{
     BlockwisePenalty, ExactJointHyperSetup, PenaltyBlockInfo,
     SpatialLengthScaleOptimizationOptions, SpatialLogKappaCoords, TermCollectionDesign,
@@ -58,6 +67,20 @@ use std::collections::{HashMap, hash_map::DefaultHasher};
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
+
+mod binomial_q_derivs;
+use binomial_q_derivs::{
+    binomial_neglog_q_derivatives_dispatch, binomial_neglog_q_fourth_derivative_dispatch,
+};
+
+mod validation;
+use validation::{
+    minimum_monotone_wiggle_knot_count, validate_binomial_location_scale_termspec,
+    validate_binomial_location_scalewiggle_termspec, validate_binomial_response, validate_blockrows,
+    validate_gaussian_location_scale_termspec, validate_gaussian_location_scalewiggle_termspec,
+    validate_len_match, validate_term_weights, validateweights,
+};
+
 /// Typed errors surfaced from this module's helpers and family
 /// implementations. The `Display` impl writes the carried `reason` verbatim,
 /// so callers that historically returned `Result<_, String>` keep their
@@ -158,6 +181,16 @@ fn saturated_exp_eta(eta: f64) -> f64 {
         .exp()
         .max(MIN_WEIGHT)
 }
+
+/// Floor applied to a fitted smoothing parameter λ before `ln(λ)` is taken to
+/// seed an outer-loop `initial_log_lambdas` warm start. A pilot fit can return
+/// λ underflowed to exactly 0 for a deselected (effectively unpenalized) term;
+/// `ln(0) = -inf` would poison the seed, so we floor at the smallest λ that is
+/// still numerically distinguishable from zero in the log-domain rather than a
+/// modelling-meaningful value. `ln(1e-12) ≈ -27.6` sits well below any λ the
+/// outer optimizer would select, so a genuinely tiny pilot λ still seeds the
+/// search near its lower edge.
+const WARMSTART_LOG_LAMBDA_FLOOR: f64 = 1e-12;
 
 const EXACT_DENSE_BLOCK_BUDGET_BYTES: usize = 512 * 1024 * 1024;
 const EXACT_DENSE_TOTAL_BUDGET_BYTES: usize = 2 * 1024 * 1024 * 1024;
@@ -924,19 +957,6 @@ impl GamlssBetaLayout {
     }
 }
 
-/// Generic block input for high-level built-in family APIs.
-#[derive(Clone)]
-pub struct ParameterBlockInput {
-    pub design: DesignMatrix,
-    pub offset: Array1<f64>,
-    pub penalties: Vec<crate::solver::estimate::PenaltySpec>,
-    /// Structural nullspace dimension per penalty (same length as `penalties`).
-    /// Empty means "use eigenvalue-based rank detection."
-    pub nullspace_dims: Vec<usize>,
-    pub initial_log_lambdas: Option<Array1<f64>>,
-    pub initial_beta: Option<Array1<f64>>,
-}
-
 #[derive(Clone, Debug)]
 pub struct FamilyMetadata {
     pub name: &'static str,
@@ -944,604 +964,8 @@ pub struct FamilyMetadata {
     pub parameter_links: &'static [ParameterLink],
 }
 
-#[derive(Clone, Debug)]
-pub struct WiggleBlockConfig {
-    pub degree: usize,
-    pub num_internal_knots: usize,
-    pub penalty_order: usize,
-    pub double_penalty: bool,
-}
-
-#[derive(Clone)]
-pub(crate) struct SelectedWiggleBasis {
-    pub knots: Array1<f64>,
-    pub degree: usize,
-    pub block: ParameterBlockInput,
-}
-
 const DEFAULT_GAUGE_PRIORITY: u8 = 100;
 const LINK_WIGGLE_GAUGE_PRIORITY: u8 = 80;
-
-impl ParameterBlockInput {
-    pub fn intospec(self, name: &str) -> Result<ParameterBlockSpec, String> {
-        self.intospec_with_gauge_priority(name, DEFAULT_GAUGE_PRIORITY)
-    }
-
-    pub fn intospec_with_gauge_priority(
-        self,
-        name: &str,
-        gauge_priority: u8,
-    ) -> Result<ParameterBlockSpec, String> {
-        let p = self.design.ncols();
-        let n = self.design.nrows();
-        if self.offset.len() != n {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "block '{name}' offset length mismatch: got {}, expected {n}",
-                    self.offset.len()
-                ),
-            }
-            .into());
-        }
-        if let Some(beta0) = &self.initial_beta
-            && beta0.len() != p
-        {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "block '{name}' initial_beta length mismatch: got {}, expected {p}",
-                    beta0.len()
-                ),
-            }
-            .into());
-        }
-        for (k, s) in self.penalties.iter().enumerate() {
-            match s {
-                crate::solver::estimate::PenaltySpec::Block {
-                    local, col_range, ..
-                } => {
-                    if col_range.end > p
-                        || local.nrows() != col_range.len()
-                        || local.ncols() != col_range.len()
-                    {
-                        return Err(GamlssError::DimensionMismatch { reason: format!(
-                            "block '{name}' penalty {k} block shape mismatch: col_range={}..{}, local={}x{}, total_dim={p}",
-                            col_range.start,
-                            col_range.end,
-                            local.nrows(),
-                            local.ncols()
-                        ) }.into());
-                    }
-                }
-                crate::solver::estimate::PenaltySpec::Dense(m)
-                | crate::solver::estimate::PenaltySpec::DenseWithMean { matrix: m, .. } => {
-                    let (r, c) = m.dim();
-                    if r != p || c != p {
-                        return Err(GamlssError::DimensionMismatch {
-                            reason: format!(
-                                "block '{name}' penalty {k} must be {p}x{p}, got {r}x{c}"
-                            ),
-                        }
-                        .into());
-                    }
-                }
-            }
-        }
-        let k = self.penalties.len();
-        let initial_log_lambdas = self
-            .initial_log_lambdas
-            .unwrap_or_else(|| Array1::<f64>::zeros(k));
-        if initial_log_lambdas.len() != k {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "block '{name}' initial_log_lambdas length mismatch: got {}, expected {k}",
-                    initial_log_lambdas.len()
-                ),
-            }
-            .into());
-        }
-        Ok(ParameterBlockSpec {
-            name: name.to_string(),
-            design: self.design,
-            offset: self.offset,
-            penalties: {
-                self.penalties
-                    .into_iter()
-                    .map(|spec| match spec {
-                        crate::solver::estimate::PenaltySpec::Block {
-                            local, col_range, ..
-                        } => PenaltyMatrix::Blockwise {
-                            local,
-                            col_range,
-                            total_dim: p,
-                        },
-                        crate::solver::estimate::PenaltySpec::Dense(m)
-                        | crate::solver::estimate::PenaltySpec::DenseWithMean {
-                            matrix: m, ..
-                        } => PenaltyMatrix::Dense(m),
-                    })
-                    .collect()
-            },
-            nullspace_dims: self.nullspace_dims,
-            initial_log_lambdas,
-            initial_beta: self.initial_beta,
-            gauge_priority,
-            jacobian_callback: None,
-            stacked_design: None,
-            stacked_offset: None,
-        })
-    }
-}
-
-fn validate_len_match(name: &str, expected: usize, found: usize) -> Result<(), String> {
-    if expected != found {
-        return Err(GamlssError::DimensionMismatch {
-            reason: format!("{name} length mismatch: expected {expected}, found {found}"),
-        }
-        .into());
-    }
-    Ok::<(), _>(())
-}
-
-fn validateweights(weights: &Array1<f64>, context: &str) -> Result<(), String> {
-    for (i, &w) in weights.iter().enumerate() {
-        if !w.is_finite() || w < 0.0 {
-            return Err(GamlssError::NonFinite {
-                reason: format!(
-                    "{context}: weights must be finite and non-negative; found weights[{i}]={w}"
-                ),
-            }
-            .into());
-        }
-    }
-    Ok(())
-}
-
-fn validate_binomial_response(y: &Array1<f64>, context: &str) -> Result<(), String> {
-    for (i, &yi) in y.iter().enumerate() {
-        if !yi.is_finite() || !(0.0..=1.0).contains(&yi) {
-            return Err(GamlssError::NonFinite {
-                reason: format!(
-                    "{context}: binomial response must be finite in [0,1]; found y[{i}]={yi}"
-                ),
-            }
-            .into());
-        }
-    }
-    Ok(())
-}
-
-pub(crate) fn initializewiggle_knots_from_seed(
-    seed: ArrayView1<'_, f64>,
-    degree: usize,
-    num_internal_knots: usize,
-) -> Result<Array1<f64>, String> {
-    const MIN_WIGGLE_SEED_SPAN: f64 = 1e-8;
-    const DEFAULT_WIGGLE_HALF_RANGE: f64 = 3.0;
-
-    let mut seed_min = seed.iter().copied().fold(f64::INFINITY, f64::min);
-    let mut seed_max = seed.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    if !seed_min.is_finite() || !seed_max.is_finite() {
-        return Err(GamlssError::NonFinite {
-            reason: "non-finite seed for wiggle knot initialization".to_string(),
-        }
-        .into());
-    }
-    if (seed_max - seed_min).abs() < MIN_WIGGLE_SEED_SPAN {
-        let center = 0.5 * (seed_min + seed_max);
-        seed_min = center - DEFAULT_WIGGLE_HALF_RANGE;
-        seed_max = center + DEFAULT_WIGGLE_HALF_RANGE;
-    }
-    let (_, knots) = create_basis::<Dense>(
-        seed,
-        KnotSource::Generate {
-            data_range: (seed_min, seed_max),
-            num_internal_knots,
-        },
-        degree,
-        BasisOptions::value(),
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(knots)
-}
-
-pub(crate) fn initialize_monotone_wiggle_knots_from_seed(
-    seed: ArrayView1<'_, f64>,
-    degree: usize,
-    num_internal_knots: usize,
-) -> Result<Array1<f64>, String> {
-    initializewiggle_knots_from_seed(seed, degree, num_internal_knots)
-}
-
-#[inline]
-fn monotone_wiggle_internal_degree(degree: usize) -> Result<usize, String> {
-    // Public monotone-wiggle degree refers to the value basis. The low-level
-    // I-spline builder integrates a degree-`internal_degree` specification
-    // into a degree-`internal_degree + 1` value basis, so we subtract one here
-    // to keep the public degree and the per-span value degree aligned.
-    degree
-        .checked_sub(1)
-        .filter(|&internal_degree| internal_degree >= 1)
-        .ok_or_else(|| "monotone wiggle degree must be >= 2".to_string())
-}
-
-#[inline]
-fn minimum_monotone_wiggle_knot_count(degree: usize) -> Result<usize, String> {
-    degree
-        .checked_add(1)
-        .and_then(|order| order.checked_mul(2))
-        .ok_or_else(|| "monotone wiggle knot-count overflow".to_string())
-}
-
-pub fn buildwiggle_block_input_from_knots(
-    seed: ArrayView1<'_, f64>,
-    knots: &Array1<f64>,
-    degree: usize,
-    penalty_order: usize,
-    double_penalty: bool,
-) -> Result<ParameterBlockInput, String> {
-    let design = monotone_wiggle_basis_from_knots(seed, knots, degree)?;
-    let p = design.ncols();
-    if p == 0 {
-        return Err(GamlssError::UnsupportedConfiguration {
-            reason: "wiggle basis has no free monotone columns".to_string(),
-        }
-        .into());
-    }
-    let mut penalties: Vec<crate::solver::estimate::PenaltySpec> = Vec::new();
-    let mut nullspace_dims = Vec::new();
-    if p == 1 {
-        penalties.push(crate::solver::estimate::PenaltySpec::Dense(
-            Array2::<f64>::eye(1),
-        ));
-        nullspace_dims.push(0);
-    } else {
-        let effective_order = penalty_order.max(1).min(p - 1);
-        let diff_penalty = create_difference_penalty_matrix(p, effective_order, None)
-            .map_err(|e| e.to_string())?;
-        penalties.push(crate::solver::estimate::PenaltySpec::Dense(diff_penalty));
-        nullspace_dims.push(effective_order);
-    }
-    if double_penalty {
-        penalties.push(crate::solver::estimate::PenaltySpec::Dense(
-            Array2::<f64>::eye(p),
-        ));
-        nullspace_dims.push(0);
-    }
-    Ok(ParameterBlockInput {
-        design: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(design)),
-        offset: Array1::zeros(seed.len()),
-        penalties,
-        nullspace_dims,
-        initial_log_lambdas: None,
-        initial_beta: Some(Array1::zeros(p)),
-    })
-}
-
-pub fn buildwiggle_block_input_from_seed(
-    seed: ArrayView1<'_, f64>,
-    cfg: &WiggleBlockConfig,
-) -> Result<(ParameterBlockInput, Array1<f64>), String> {
-    let knots =
-        initialize_monotone_wiggle_knots_from_seed(seed, cfg.degree, cfg.num_internal_knots)?;
-    let block = buildwiggle_block_input_from_knots(
-        seed,
-        &knots,
-        cfg.degree,
-        cfg.penalty_order,
-        cfg.double_penalty,
-    )?;
-    Ok((block, knots))
-}
-
-pub(crate) fn monotone_wiggle_basis_from_knots(
-    seed: ArrayView1<'_, f64>,
-    knots: &Array1<f64>,
-    degree: usize,
-) -> Result<Array2<f64>, String> {
-    let internal_degree = monotone_wiggle_internal_degree(degree)?;
-    let (basis, _) = create_basis::<Dense>(
-        seed,
-        KnotSource::Provided(knots.view()),
-        internal_degree,
-        BasisOptions::i_spline(),
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(basis.as_ref().clone())
-}
-
-pub fn monotone_wiggle_basis_with_derivative_order(
-    seed: ArrayView1<'_, f64>,
-    knots: &Array1<f64>,
-    degree: usize,
-    derivative_order: usize,
-) -> Result<Array2<f64>, String> {
-    if derivative_order == 0 {
-        return monotone_wiggle_basis_from_knots(seed, knots, degree);
-    }
-    let internal_degree = monotone_wiggle_internal_degree(degree)?;
-    create_ispline_derivative_dense(seed, knots, internal_degree, derivative_order)
-        .map_err(|e| e.to_string())
-}
-
-pub(crate) fn monotone_wiggle_nonnegative_constraints(
-    beta_dim: usize,
-) -> Option<LinearInequalityConstraints> {
-    if beta_dim == 0 {
-        return None;
-    }
-    let mut a = Array2::<f64>::zeros((beta_dim, beta_dim));
-    for i in 0..beta_dim {
-        a[[i, i]] = 1.0;
-    }
-    Some(LinearInequalityConstraints {
-        a,
-        b: Array1::zeros(beta_dim),
-    })
-}
-
-pub(crate) fn validate_monotone_wiggle_beta_nonnegative<'a>(
-    beta: impl IntoIterator<Item = &'a f64>,
-    context: &str,
-) -> Result<(), String> {
-    for (idx, &value) in beta.into_iter().enumerate() {
-        if !value.is_finite() {
-            return Err(GamlssError::NonFinite {
-                reason: format!("{context} coefficient {idx} is non-finite"),
-            }
-            .into());
-        }
-        if value < -1e-12 {
-            return Err(GamlssError::ConstraintViolation { reason: format!(
-                "{context} coefficient {idx} is negative ({value:.3e}); monotone wiggle coefficients must be non-negative"
-            ) }.into());
-        }
-    }
-    Ok(())
-}
-
-/// Resolve a requested wiggle penalty-order set into:
-///
-/// - the primary order used by the monotone I-spline coefficient penalty, and
-/// - the remaining plain difference-penalty orders to append on the same basis.
-///
-/// The primary order is the smallest positive requested order. If no positive
-/// order is requested, `fallback_primary` is used instead. Extra orders are
-/// returned in the original order, deduplicated, and exclude the primary order.
-pub fn split_wiggle_penalty_orders(
-    fallback_primary: usize,
-    penalty_orders: &[usize],
-) -> (usize, Vec<usize>) {
-    let primary_order = penalty_orders
-        .iter()
-        .copied()
-        .filter(|&order| order >= 1)
-        .min()
-        .unwrap_or_else(|| fallback_primary.max(1));
-    let mut extras = Vec::new();
-    for &order in penalty_orders {
-        if order == 0 || order == primary_order || extras.contains(&order) {
-            continue;
-        }
-        extras.push(order);
-    }
-    (primary_order, extras)
-}
-
-/// Append raw difference penalties for the given orders to an existing block.
-///
-/// These are plain difference penalties `D_k^T D_k` on the monotone I-spline
-/// coefficients, whose nullspace is the set of polynomial sequences of degree
-/// ≤ k−1, giving `nullspace_dim = k`.
-pub fn append_selected_wiggle_penalty_orders(
-    block: &mut ParameterBlockInput,
-    penalty_orders: &[usize],
-) -> Result<(), String> {
-    let p = block.design.ncols();
-    if p == 0 {
-        return Ok(());
-    }
-    for &order in penalty_orders {
-        if order == 0 {
-            continue;
-        }
-        if order >= p {
-            // A k-th order difference operator applied to a length-p coefficient
-            // vector produces a (p-k)-row matrix. When p <= k, that operator has
-            // zero rows and `S = Dᵀ D` is the p×p zero matrix; equivalently,
-            // every length-p sequence is a polynomial of degree < k restricted
-            // to the integer grid, so the entire coefficient space is in the
-            // penalty's null space. Append that degenerate-but-mathematically-
-            // consistent penalty rather than silently dropping the user's
-            // request — silently discarding requested penalty orders hides
-            // misconfiguration and changes the model the caller asked for.
-            let zero_penalty = ndarray::Array2::<f64>::zeros((p, p));
-            block
-                .penalties
-                .push(crate::solver::estimate::PenaltySpec::Dense(zero_penalty));
-            block.nullspace_dims.push(p);
-            continue;
-        }
-        let penalty =
-            create_difference_penalty_matrix(p, order, None).map_err(|e| e.to_string())?;
-        block
-            .penalties
-            .push(crate::solver::estimate::PenaltySpec::Dense(penalty));
-        block.nullspace_dims.push(order);
-    }
-    Ok(())
-}
-
-pub(crate) fn select_wiggle_basis_from_seed(
-    seed: ArrayView1<'_, f64>,
-    cfg: &WiggleBlockConfig,
-    penalty_orders: &[usize],
-) -> Result<SelectedWiggleBasis, String> {
-    let (primary_order, extra_orders) =
-        split_wiggle_penalty_orders(cfg.penalty_order, penalty_orders);
-    let effective_cfg = WiggleBlockConfig {
-        degree: cfg.degree,
-        num_internal_knots: cfg.num_internal_knots,
-        penalty_order: primary_order,
-        double_penalty: cfg.double_penalty,
-    };
-    let (mut block, knots) = buildwiggle_block_input_from_seed(seed, &effective_cfg)?;
-    append_selected_wiggle_penalty_orders(&mut block, &extra_orders)?;
-    Ok(SelectedWiggleBasis {
-        knots,
-        degree: cfg.degree,
-        block,
-    })
-}
-
-fn validate_blockrows(name: &str, n: usize, block: &ParameterBlockInput) -> Result<(), String> {
-    validate_len_match(
-        &format!("block '{name}' offset vs response"),
-        n,
-        block.offset.len(),
-    )?;
-    validate_len_match(
-        &format!("block '{name}' design rows vs response"),
-        n,
-        block.design.nrows(),
-    )
-}
-
-fn validate_term_datarows(context: &str, expected: usize, found: usize) -> Result<(), String> {
-    if expected != found {
-        return Err(GamlssError::DimensionMismatch { reason: format!(
-            "{context}: data row count must match response length (expected {expected}, found {found})"
-        ) }.into());
-    }
-    Ok::<(), _>(())
-}
-
-fn validate_term_weights(
-    data: ndarray::ArrayView2<'_, f64>,
-    y_len: usize,
-    weights: &Array1<f64>,
-    context: &str,
-) -> Result<(), String> {
-    validate_term_datarows(context, y_len, data.nrows())?;
-    validate_len_match("weights vs y", y_len, weights.len())?;
-    validateweights(weights, context)
-}
-
-fn validate_term_offset(y_len: usize, offset: &Array1<f64>, label: &str) -> Result<(), String> {
-    validate_len_match(&format!("{label} vs y"), y_len, offset.len())?;
-    for (row_idx, value) in offset.iter().enumerate() {
-        if !value.is_finite() {
-            return Err(GamlssError::NonFinite {
-                reason: format!("{label} contains non-finite value at row {row_idx}: {value}"),
-            }
-            .into());
-        }
-    }
-    Ok(())
-}
-
-/// Shared degree/knot-count guard for the location-scale *wiggle* term specs.
-///
-/// Both `validate_gaussian_location_scalewiggle_termspec` and
-/// `validate_binomial_location_scalewiggle_termspec` enforce the identical
-/// invariant — `wiggle_degree >= 2` and at least
-/// `minimum_monotone_wiggle_knot_count(degree)` knots — with byte-for-byte
-/// identical error strings. This is the single home for that check.
-fn validate_wiggle_degree_and_knots(
-    context: &str,
-    wiggle_degree: usize,
-    wiggle_knots_len: usize,
-) -> Result<(), String> {
-    if wiggle_degree < 2 {
-        return Err(GamlssError::ConstraintViolation {
-            reason: format!("{context}: wiggle_degree must be >= 2, got {wiggle_degree}"),
-        }
-        .into());
-    }
-    let minimum_knots = minimum_monotone_wiggle_knot_count(wiggle_degree)?;
-    if wiggle_knots_len < minimum_knots {
-        return Err(GamlssError::DimensionMismatch {
-            reason: format!(
-                "{context}: wiggle_knots must have at least {minimum_knots} entries for degree {wiggle_degree}, got {wiggle_knots_len}"
-            ),
-        }
-        .into());
-    }
-    Ok(())
-}
-
-fn validate_gaussian_location_scale_termspec(
-    data: ndarray::ArrayView2<'_, f64>,
-    spec: &GaussianLocationScaleTermSpec,
-    context: &str,
-) -> Result<(), String> {
-    validate_term_weights(data, spec.y.len(), &spec.weights, context)?;
-    validate_term_offset(spec.y.len(), &spec.mean_offset, "mean_offset")?;
-    validate_term_offset(spec.y.len(), &spec.log_sigma_offset, "log_sigma_offset")
-}
-
-fn validate_gaussian_location_scalewiggle_termspec(
-    data: ndarray::ArrayView2<'_, f64>,
-    spec: &GaussianLocationScaleWiggleTermSpec,
-    context: &str,
-) -> Result<(), String> {
-    let n = spec.y.len();
-    validate_term_weights(data, n, &spec.weights, context)?;
-    validate_term_offset(n, &spec.mean_offset, "mean_offset")?;
-    validate_term_offset(n, &spec.log_sigma_offset, "log_sigma_offset")?;
-    validate_blockrows("wiggle", n, &spec.wiggle_block)?;
-    validate_wiggle_degree_and_knots(context, spec.wiggle_degree, spec.wiggle_knots.len())
-}
-
-fn validate_binomial_location_scale_termspec(
-    data: ndarray::ArrayView2<'_, f64>,
-    spec: &BinomialLocationScaleTermSpec,
-    context: &str,
-) -> Result<(), String> {
-    validate_term_weights(data, spec.y.len(), &spec.weights, context)?;
-    validate_term_offset(spec.y.len(), &spec.threshold_offset, "threshold_offset")?;
-    validate_term_offset(spec.y.len(), &spec.log_sigma_offset, "log_sigma_offset")?;
-    validate_binomial_response(&spec.y, context)?;
-    validate_binomial_log_sigma_identifiable(&spec.log_sigmaspec, context)?;
-    Ok(())
-}
-
-fn validate_binomial_location_scalewiggle_termspec(
-    data: ndarray::ArrayView2<'_, f64>,
-    spec: &BinomialLocationScaleWiggleTermSpec,
-    context: &str,
-) -> Result<(), String> {
-    let n = spec.y.len();
-    validate_term_weights(data, n, &spec.weights, context)?;
-    validate_term_offset(n, &spec.threshold_offset, "threshold_offset")?;
-    validate_term_offset(n, &spec.log_sigma_offset, "log_sigma_offset")?;
-    validate_binomial_response(&spec.y, context)?;
-    validate_binomial_log_sigma_identifiable(&spec.log_sigmaspec, context)?;
-    validate_blockrows("wiggle", n, &spec.wiggle_block)?;
-    crate::inference::formula_dsl::require_binomial_inverse_link_supports_joint_wiggle(
-        &spec.link_kind,
-        context,
-    )?;
-    validate_wiggle_degree_and_knots(context, spec.wiggle_degree, spec.wiggle_knots.len())
-}
-
-fn validate_binomial_log_sigma_identifiable(
-    log_sigmaspec: &TermCollectionSpec,
-    context: &str,
-) -> Result<(), String> {
-    if log_sigmaspec.linear_terms.is_empty()
-        && log_sigmaspec.random_effect_terms.is_empty()
-        && log_sigmaspec.smooth_terms.is_empty()
-    {
-        return Ok(());
-    }
-
-    Err(GamlssError::UnsupportedConfiguration {
-        reason: format!(
-            "{context}: Bernoulli binomial location-scale data identify only the composite q = -threshold / sigma; log_sigma must be intercept-only/fixed, not a free linear, random-effect, or smooth formula"
-        ),
-    }
-    .into())
-}
 
 fn initial_log_lambdas_orzeros(block: &ParameterBlockInput) -> Result<Array1<f64>, String> {
     let k = block.penalties.len();
@@ -1900,6 +1324,172 @@ fn append_binomial_log_sigma_shrinkage_penalty_design(design: &mut TermCollectio
             kronecker_factors: None,
         },
     });
+}
+
+/// Build the (mean, log-σ) parameter-block pair for a Gaussian location-scale
+/// family. Shared verbatim by the non-wiggle and wiggle Gaussian builders so the
+/// scale-block construction — prepared log-σ design, the REML-selected full-span
+/// shrinkage penalty on the scale nullspace, and the joint Gaussian warm start —
+/// lives in exactly one place. Callers supply the per-block log-λ vectors sliced
+/// from their own layout (two-block vs with-wiggle) and append any extra blocks.
+#[allow(clippy::too_many_arguments)]
+fn build_gaussian_mean_and_scale_blocks(
+    y: &Array1<f64>,
+    weights: &Array1<f64>,
+    mean_design: &TermCollectionDesign,
+    noise_design: &TermCollectionDesign,
+    mean_offset: &Array1<f64>,
+    noise_offset: &Array1<f64>,
+    mean_log_lambdas: Array1<f64>,
+    noise_log_lambdas: Array1<f64>,
+    mean_beta_hint: Option<Array1<f64>>,
+    noise_beta_hint: Option<Array1<f64>>,
+    context: &str,
+) -> Result<(ParameterBlockSpec, ParameterBlockSpec), String> {
+    let mut meanspec = build_location_scale_block(
+        "mu",
+        mean_design.design.clone(),
+        mean_offset.clone(),
+        mean_design.penalties_as_penalty_matrix(),
+        mean_design.nullspace_dims.clone(),
+        mean_log_lambdas,
+        mean_beta_hint,
+        0,
+        LOCATION_SCALE_N_OUTPUTS,
+        &format!("{context}: mu"),
+    )?;
+    let prepared_noise_design =
+        prepared_gaussian_log_sigma_design(&mean_design.design, &noise_design.design)?;
+    let p_noise = prepared_noise_design.ncols();
+    let mut log_sigma_penalty_matrices = noise_design.penalties_as_penalty_matrix();
+    log_sigma_penalty_matrices.push(PenaltyMatrix::Dense(identity_penalty(p_noise)));
+    let mut log_sigma_nullspace_dims = noise_design.nullspace_dims.clone();
+    // Identity penalty penalizes the full log-sigma space -> nullspace 0.
+    log_sigma_nullspace_dims.push(0);
+    let mut noisespec = build_location_scale_block(
+        "log_sigma",
+        prepared_noise_design,
+        noise_offset.clone(),
+        log_sigma_penalty_matrices,
+        log_sigma_nullspace_dims,
+        noise_log_lambdas,
+        noise_beta_hint,
+        1,
+        LOCATION_SCALE_N_OUTPUTS,
+        &format!("{context}: log_sigma"),
+    )?;
+    if meanspec.initial_beta.is_none() || noisespec.initial_beta.is_none() {
+        let (betamu0, beta_ls0, _) = gaussian_location_scalewarm_start(
+            y,
+            weights,
+            &meanspec,
+            &noisespec,
+            1e-10,
+            meanspec.initial_beta.as_ref(),
+            noisespec.initial_beta.as_ref(),
+        )?;
+        if meanspec.initial_beta.is_none() {
+            meanspec.initial_beta = Some(betamu0);
+        }
+        if noisespec.initial_beta.is_none() {
+            noisespec.initial_beta = Some(beta_ls0);
+        }
+    }
+    Ok((meanspec, noisespec))
+}
+
+/// Build the (threshold, log-σ) parameter-block pair for a Binomial
+/// location-scale family. Shared by the non-wiggle and wiggle Binomial builders;
+/// mirrors [`build_gaussian_mean_and_scale_blocks`] but with the binomial-
+/// identified log-σ design, the link-aware joint warm start, and the same
+/// REML-selected full-span scale shrinkage penalty.
+#[allow(clippy::too_many_arguments)]
+fn build_binomial_threshold_and_scale_blocks(
+    y: &Array1<f64>,
+    weights: &Array1<f64>,
+    link_kind: &InverseLink,
+    mean_design: &TermCollectionDesign,
+    noise_design: &TermCollectionDesign,
+    mean_offset: &Array1<f64>,
+    noise_offset: &Array1<f64>,
+    mean_log_lambdas: Array1<f64>,
+    noise_log_lambdas: Array1<f64>,
+    mean_beta_hint: Option<Array1<f64>>,
+    noise_beta_hint: Option<Array1<f64>>,
+    context: &str,
+) -> Result<(ParameterBlockSpec, ParameterBlockSpec), String> {
+    let identifiednoise_design =
+        identified_binomial_log_sigma_design(mean_design, noise_design, weights)?;
+    let p_noise = identifiednoise_design.ncols();
+    let mut log_sigma_penalty_matrices: Vec<PenaltyMatrix> =
+        noise_design.penalties_as_penalty_matrix();
+    log_sigma_penalty_matrices.push(PenaltyMatrix::Dense(identity_penalty(p_noise)));
+    let mut thresholdspec = build_location_scale_block(
+        "threshold",
+        mean_design.design.clone(),
+        mean_offset.clone(),
+        mean_design.penalties_as_penalty_matrix(),
+        vec![],
+        mean_log_lambdas,
+        mean_beta_hint,
+        0,
+        LOCATION_SCALE_N_OUTPUTS,
+        &format!("{context}: threshold"),
+    )?;
+    let mut log_sigmaspec = build_location_scale_block(
+        "log_sigma",
+        identifiednoise_design,
+        noise_offset.clone(),
+        log_sigma_penalty_matrices,
+        vec![],
+        noise_log_lambdas,
+        noise_beta_hint,
+        1,
+        LOCATION_SCALE_N_OUTPUTS,
+        &format!("{context}: log_sigma"),
+    )?;
+    if thresholdspec.initial_beta.is_none() || log_sigmaspec.initial_beta.is_none() {
+        let (beta_t0, beta_ls0) = binomial_location_scalewarm_start(
+            y,
+            weights,
+            link_kind,
+            &thresholdspec,
+            &log_sigmaspec,
+            thresholdspec.initial_beta.as_ref(),
+            log_sigmaspec.initial_beta.as_ref(),
+        )?;
+        if thresholdspec.initial_beta.is_none() {
+            thresholdspec.initial_beta = Some(beta_t0);
+        }
+        if log_sigmaspec.initial_beta.is_none() {
+            log_sigmaspec.initial_beta = Some(beta_ls0);
+        }
+    }
+    Ok((thresholdspec, log_sigmaspec))
+}
+
+/// Convert a wiggle block's `PenaltySpec`s into the `PenaltyMatrix` list the
+/// location-scale wiggle block expects. Shared by the Gaussian and Binomial
+/// wiggle builders, which previously inlined the identical match.
+fn wiggle_block_penalty_matrices(wiggle_block: &ParameterBlockInput) -> Vec<PenaltyMatrix> {
+    let p_wiggle = wiggle_block.design.ncols();
+    wiggle_block
+        .penalties
+        .iter()
+        .map(|spec| match spec {
+            crate::solver::estimate::PenaltySpec::Block {
+                local, col_range, ..
+            } => PenaltyMatrix::Blockwise {
+                local: local.clone(),
+                col_range: col_range.clone(),
+                total_dim: p_wiggle,
+            },
+            crate::solver::estimate::PenaltySpec::Dense(m)
+            | crate::solver::estimate::PenaltySpec::DenseWithMean { matrix: m, .. } => {
+                PenaltyMatrix::Dense(m.clone())
+            }
+        })
+        .collect()
 }
 
 fn binomial_location_scale_link_eta_from_probability(
@@ -2362,10 +1952,24 @@ pub struct GaussianLocationScaleFitResult {
     /// link-wiggle knots/coefficients are already mapped back to **raw response
     /// units** (the Location/Mean block scaled by `response_scale`, the Scale
     /// block intercept shifted by `+ln(response_scale)`), so downstream
-    /// reconstruction `μ = X_mean·β` and `σ = 0.01 + exp(X_scale·β)` come out in
-    /// raw units with no further rescaling. This field records the factor that
-    /// was applied for transparency and covariance bookkeeping; it is `1.0`
-    /// when no standardization was needed (degenerate constant response).
+    /// reconstruction `μ = X_mean·β` comes out in raw units with no further
+    /// rescaling.
+    ///
+    /// The σ reconstruction, however, **must scale the floor too** to stay
+    /// response-scale-equivariant (#884):
+    ///
+    /// ```text
+    /// σ = response_scale·LOGB_SIGMA_FLOOR + exp(X_scale·β)
+    ///   = response_scale·(LOGB_SIGMA_FLOOR + exp(η_internal)).
+    /// ```
+    ///
+    /// The intercept shift carries only the `exp(η)` term; reconstructing with a
+    /// raw `LOGB_SIGMA_FLOOR` instead of `response_scale·LOGB_SIGMA_FLOOR` leaves
+    /// the non-equivariant residual `LOGB_SIGMA_FLOOR·(1 − response_scale)`.
+    ///
+    /// This field records the factor that was applied for transparency,
+    /// covariance bookkeeping, and the equivariant σ-floor reconstruction; it is
+    /// `1.0` when no standardization was needed (degenerate constant response).
     pub response_scale: f64,
 }
 
@@ -2990,57 +2594,19 @@ impl LocationScaleFamilyBuilder for GaussianLocationScaleTermBuilder {
             self.noise_penalty_count(noise_design),
         );
         layout.validate_theta_len(theta.len(), "gaussian location-scale")?;
-        let mean_log_lambdas = layout.mean_from(theta);
-        let noise_log_lambdas = layout.noise_from(theta);
-        let mut meanspec = build_location_scale_block(
-            "mu",
-            mean_design.design.clone(),
-            self.mean_offset.clone(),
-            mean_design.penalties_as_penalty_matrix(),
-            mean_design.nullspace_dims.clone(),
-            mean_log_lambdas,
+        let (meanspec, noisespec) = build_gaussian_mean_and_scale_blocks(
+            &self.y,
+            &self.weights,
+            mean_design,
+            noise_design,
+            &self.mean_offset,
+            &self.noise_offset,
+            layout.mean_from(theta),
+            layout.noise_from(theta),
             mean_beta_hint,
-            0,
-            LOCATION_SCALE_N_OUTPUTS,
-            "GaussianLocationScale::build_blocks: mu",
-        )?;
-        let prepared_noise_design =
-            prepared_gaussian_log_sigma_design(&mean_design.design, &noise_design.design)?;
-        let p_noise = prepared_noise_design.ncols();
-        let mut log_sigma_penalty_matrices = noise_design.penalties_as_penalty_matrix();
-        log_sigma_penalty_matrices.push(PenaltyMatrix::Dense(identity_penalty(p_noise)));
-        let mut log_sigma_nullspace_dims = noise_design.nullspace_dims.clone();
-        // Identity penalty penalizes the full log-sigma space -> nullspace 0.
-        log_sigma_nullspace_dims.push(0);
-        let mut noisespec = build_location_scale_block(
-            "log_sigma",
-            prepared_noise_design,
-            self.noise_offset.clone(),
-            log_sigma_penalty_matrices,
-            log_sigma_nullspace_dims,
-            noise_log_lambdas,
             noise_beta_hint,
-            1,
-            LOCATION_SCALE_N_OUTPUTS,
-            "GaussianLocationScale::build_blocks: log_sigma",
+            "GaussianLocationScale::build_blocks",
         )?;
-        if meanspec.initial_beta.is_none() || noisespec.initial_beta.is_none() {
-            let (betamu0, beta_ls0, _) = gaussian_location_scalewarm_start(
-                &self.y,
-                &self.weights,
-                &meanspec,
-                &noisespec,
-                1e-10,
-                meanspec.initial_beta.as_ref(),
-                noisespec.initial_beta.as_ref(),
-            )?;
-            if meanspec.initial_beta.is_none() {
-                meanspec.initial_beta = Some(betamu0);
-            }
-            if noisespec.initial_beta.is_none() {
-                noisespec.initial_beta = Some(beta_ls0);
-            }
-        }
         Ok(vec![meanspec, noisespec])
     }
 
@@ -3158,78 +2724,25 @@ impl LocationScaleFamilyBuilder for GaussianLocationScaleWiggleTermBuilder {
             self.wiggle_block.penalties.len(),
         );
         layout.validate_theta_len(theta.len(), "gaussian location-scale wiggle")?;
-        let mut meanspec = build_location_scale_block(
-            "mu",
-            mean_design.design.clone(),
-            self.mean_offset.clone(),
-            mean_design.penalties_as_penalty_matrix(),
-            vec![],
+        let (meanspec, noisespec) = build_gaussian_mean_and_scale_blocks(
+            &self.y,
+            &self.weights,
+            mean_design,
+            noise_design,
+            &self.mean_offset,
+            &self.noise_offset,
             layout.mean_from(theta),
-            mean_beta_hint,
-            0,
-            LOCATION_SCALE_N_OUTPUTS,
-            "GaussianLocationScaleWiggle::build_blocks: mu",
-        )?;
-        let prepared_noise_design =
-            prepared_gaussian_log_sigma_design(&mean_design.design, &noise_design.design)?;
-        let p_noise = prepared_noise_design.ncols();
-        let mut log_sigma_penalty_matrices = noise_design.penalties_as_penalty_matrix();
-        log_sigma_penalty_matrices.push(PenaltyMatrix::Dense(identity_penalty(p_noise)));
-        let mut noisespec = build_location_scale_block(
-            "log_sigma",
-            prepared_noise_design,
-            self.noise_offset.clone(),
-            log_sigma_penalty_matrices,
-            vec![],
             layout.noise_from(theta),
+            mean_beta_hint,
             noise_beta_hint,
-            1,
-            LOCATION_SCALE_N_OUTPUTS,
-            "GaussianLocationScaleWiggle::build_blocks: log_sigma",
+            "GaussianLocationScaleWiggle::build_blocks",
         )?;
-        if meanspec.initial_beta.is_none() || noisespec.initial_beta.is_none() {
-            let (betamu0, beta_ls0, _) = gaussian_location_scalewarm_start(
-                &self.y,
-                &self.weights,
-                &meanspec,
-                &noisespec,
-                1e-10,
-                meanspec.initial_beta.as_ref(),
-                noisespec.initial_beta.as_ref(),
-            )?;
-            if meanspec.initial_beta.is_none() {
-                meanspec.initial_beta = Some(betamu0);
-            }
-            if noisespec.initial_beta.is_none() {
-                noisespec.initial_beta = Some(beta_ls0);
-            }
-        }
         let n_rows = meanspec.design.nrows();
-        let wiggle_penalties: Vec<PenaltyMatrix> = {
-            let p_wiggle = self.wiggle_block.design.ncols();
-            self.wiggle_block
-                .penalties
-                .iter()
-                .map(|spec| match spec {
-                    crate::solver::estimate::PenaltySpec::Block {
-                        local, col_range, ..
-                    } => PenaltyMatrix::Blockwise {
-                        local: local.clone(),
-                        col_range: col_range.clone(),
-                        total_dim: p_wiggle,
-                    },
-                    crate::solver::estimate::PenaltySpec::Dense(m)
-                    | crate::solver::estimate::PenaltySpec::DenseWithMean { matrix: m, .. } => {
-                        PenaltyMatrix::Dense(m.clone())
-                    }
-                })
-                .collect()
-        };
         let wigglespec = build_location_scale_wiggle_block(
             "wiggle",
             self.wiggle_block.design.clone(),
             self.wiggle_block.offset.clone(),
-            wiggle_penalties,
+            wiggle_block_penalty_matrices(&self.wiggle_block),
             self.wiggle_block.nullspace_dims.clone(),
             layout.wiggle_from(theta),
             self.wiggle_block.initial_beta.clone(),
@@ -3345,53 +2858,20 @@ impl LocationScaleFamilyBuilder for BinomialLocationScaleTermBuilder {
             self.noise_penalty_count(noise_design),
         );
         layout.validate_theta_len(theta.len(), "binomial location-scale")?;
-        let identifiednoise_design =
-            identified_binomial_log_sigma_design(mean_design, noise_design, &self.weights)?;
-        let p_noise = identifiednoise_design.ncols();
-        let mut log_sigma_penalty_matrices: Vec<PenaltyMatrix> =
-            noise_design.penalties_as_penalty_matrix();
-        log_sigma_penalty_matrices.push(PenaltyMatrix::Dense(identity_penalty(p_noise)));
-        let mut thresholdspec = build_location_scale_block(
-            "threshold",
-            mean_design.design.clone(),
-            self.mean_offset.clone(),
-            mean_design.penalties_as_penalty_matrix(),
-            vec![],
+        let (thresholdspec, log_sigmaspec) = build_binomial_threshold_and_scale_blocks(
+            &self.y,
+            &self.weights,
+            &self.link_kind,
+            mean_design,
+            noise_design,
+            &self.mean_offset,
+            &self.noise_offset,
             layout.mean_from(theta),
-            mean_beta_hint,
-            0,
-            LOCATION_SCALE_N_OUTPUTS,
-            "BinomialLocationScale::build_blocks: threshold",
-        )?;
-        let mut log_sigmaspec = build_location_scale_block(
-            "log_sigma",
-            identifiednoise_design,
-            self.noise_offset.clone(),
-            log_sigma_penalty_matrices,
-            vec![],
             layout.noise_from(theta),
+            mean_beta_hint,
             noise_beta_hint,
-            1,
-            LOCATION_SCALE_N_OUTPUTS,
-            "BinomialLocationScale::build_blocks: log_sigma",
+            "BinomialLocationScale::build_blocks",
         )?;
-        if thresholdspec.initial_beta.is_none() || log_sigmaspec.initial_beta.is_none() {
-            let (beta_t0, beta_ls0) = binomial_location_scalewarm_start(
-                &self.y,
-                &self.weights,
-                &self.link_kind,
-                &thresholdspec,
-                &log_sigmaspec,
-                thresholdspec.initial_beta.as_ref(),
-                log_sigmaspec.initial_beta.as_ref(),
-            )?;
-            if thresholdspec.initial_beta.is_none() {
-                thresholdspec.initial_beta = Some(beta_t0);
-            }
-            if log_sigmaspec.initial_beta.is_none() {
-                log_sigmaspec.initial_beta = Some(beta_ls0);
-            }
-        }
         Ok(vec![thresholdspec, log_sigmaspec])
     }
 
@@ -3504,79 +2984,26 @@ impl LocationScaleFamilyBuilder for BinomialLocationScaleWiggleTermBuilder {
             self.wiggle_block.penalties.len(),
         );
         layout.validate_theta_len(theta.len(), "wiggle location-scale")?;
-        let identifiednoise_design =
-            identified_binomial_log_sigma_design(mean_design, noise_design, &self.weights)?;
-        let p_noise = identifiednoise_design.ncols();
-        let mut log_sigma_penalty_matrices: Vec<PenaltyMatrix> =
-            noise_design.penalties_as_penalty_matrix();
-        log_sigma_penalty_matrices.push(PenaltyMatrix::Dense(identity_penalty(p_noise)));
-        let mut thresholdspec = build_location_scale_block(
-            "threshold",
-            mean_design.design.clone(),
-            self.mean_offset.clone(),
-            mean_design.penalties_as_penalty_matrix(),
-            vec![],
+        let (thresholdspec, log_sigmaspec) = build_binomial_threshold_and_scale_blocks(
+            &self.y,
+            &self.weights,
+            &self.link_kind,
+            mean_design,
+            noise_design,
+            &self.mean_offset,
+            &self.noise_offset,
             layout.mean_from(theta),
-            mean_beta_hint,
-            0,
-            LOCATION_SCALE_N_OUTPUTS,
-            "BinomialLocationScaleWiggle::build_blocks: threshold",
-        )?;
-        let mut log_sigmaspec = build_location_scale_block(
-            "log_sigma",
-            identifiednoise_design,
-            self.noise_offset.clone(),
-            log_sigma_penalty_matrices,
-            vec![],
             layout.noise_from(theta),
+            mean_beta_hint,
             noise_beta_hint,
-            1,
-            LOCATION_SCALE_N_OUTPUTS,
-            "BinomialLocationScaleWiggle::build_blocks: log_sigma",
+            "BinomialLocationScaleWiggle::build_blocks",
         )?;
-        if thresholdspec.initial_beta.is_none() || log_sigmaspec.initial_beta.is_none() {
-            let (beta_t0, beta_ls0) = binomial_location_scalewarm_start(
-                &self.y,
-                &self.weights,
-                &self.link_kind,
-                &thresholdspec,
-                &log_sigmaspec,
-                thresholdspec.initial_beta.as_ref(),
-                log_sigmaspec.initial_beta.as_ref(),
-            )?;
-            if thresholdspec.initial_beta.is_none() {
-                thresholdspec.initial_beta = Some(beta_t0);
-            }
-            if log_sigmaspec.initial_beta.is_none() {
-                log_sigmaspec.initial_beta = Some(beta_ls0);
-            }
-        }
         let n_rows = thresholdspec.design.nrows();
-        let wiggle_penalties: Vec<PenaltyMatrix> = {
-            let p_wiggle = self.wiggle_block.design.ncols();
-            self.wiggle_block
-                .penalties
-                .iter()
-                .map(|spec| match spec {
-                    crate::solver::estimate::PenaltySpec::Block {
-                        local, col_range, ..
-                    } => PenaltyMatrix::Blockwise {
-                        local: local.clone(),
-                        col_range: col_range.clone(),
-                        total_dim: p_wiggle,
-                    },
-                    crate::solver::estimate::PenaltySpec::Dense(m)
-                    | crate::solver::estimate::PenaltySpec::DenseWithMean { matrix: m, .. } => {
-                        PenaltyMatrix::Dense(m.clone())
-                    }
-                })
-                .collect()
-        };
         let wigglespec = build_location_scale_wiggle_block(
             "wiggle",
             self.wiggle_block.design.clone(),
             self.wiggle_block.offset.clone(),
-            wiggle_penalties,
+            wiggle_block_penalty_matrices(&self.wiggle_block),
             vec![],
             layout.wiggle_from(theta),
             self.wiggle_block.initial_beta.clone(),
@@ -3930,7 +3357,11 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
                         .map(crate::solver::estimate::PenaltySpec::from_blockwise_ref)
                         .collect(),
                     nullspace_dims: vec![],
-                    initial_log_lambdas: Some(pilot_fit.lambdas.mapv(|v| v.max(1e-12).ln())),
+                    initial_log_lambdas: Some(
+                        pilot_fit
+                            .lambdas
+                            .mapv(|v| v.max(WARMSTART_LOG_LAMBDA_FLOOR).ln()),
+                    ),
                     initial_beta: Some(pilot_fit.beta.clone()),
                 },
                 wiggle_block,
@@ -3991,14 +3422,20 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
                     .map(crate::solver::estimate::PenaltySpec::from_blockwise_ref)
                     .collect(),
                 nullspace_dims: vec![],
-                initial_log_lambdas: Some(pilot_fit.lambdas.mapv(|v| v.max(1e-12).ln())),
+                initial_log_lambdas: Some(
+                    pilot_fit
+                        .lambdas
+                        .mapv(|v| v.max(WARMSTART_LOG_LAMBDA_FLOOR).ln()),
+                ),
                 initial_beta: Some(pilot_fit.beta.clone()),
             },
             wiggle_block: wiggle_block.clone(),
         },
         options,
     )?;
-    let baseline_log_lambdas = baseline_fit.lambdas.mapv(|v| v.max(1e-12).ln());
+    let baseline_log_lambdas = baseline_fit
+        .lambdas
+        .mapv(|v| v.max(WARMSTART_LOG_LAMBDA_FLOOR).ln());
     if baseline_log_lambdas.len() != rho_dim {
         return Err(GamlssError::DimensionMismatch {
             reason: format!(
@@ -4417,503 +3854,6 @@ pub enum ParameterLink {
 fn signedwith_floor(v: f64, floor: f64) -> f64 {
     let a = v.abs().max(floor);
     if v >= 0.0 { a } else { -a }
-}
-
-#[inline]
-fn binomial_score_curvaturethird_from_jet(
-    y: f64,
-    weight: f64,
-    mu: f64,
-    d1: f64,
-    d2: f64,
-    d3: f64,
-) -> (f64, f64, f64) {
-    // Binomial derivatives wrt q via mu:
-    // Per-row log-likelihood is represented in weighted-proportion form:
-    //   ell_i = m_i * [ y_i log(mu_i) + (1-y_i) log(1-mu_i) ],
-    // where `weight = m_i` and `y` is the observed proportion in [0,1].
-    //
-    // mu-space derivatives:
-    //   ellmu    = y/mu - (1-y)/(1-mu)
-    //   ellmumu  = -y/mu^2 - (1-y)/(1-mu)^2
-    //   ellmumum = 2y/mu^3 - 2(1-y)/(1-mu)^3
-    //
-    // q-jet using mu(q) derivatives d1=mu', d2=mu'', d3=mu''':
-    //   s = dell/dq   = ellmu * mu'
-    //   c = d2ell/dq2 = ellmumu*(mu')^2 + ellmu*mu''
-    //   t = d3ell/dq3 = ellmumum*(mu')^3 + 3*ellmumu*mu'*mu'' + ellmu*mu'''
-    //
-    // Returns (score_q, curvature_q, third_q) with curvature_q = -d2ell/dq2.
-    let m = mu;
-    let one_minus = 1.0 - m;
-    let ellmu = y / m - (1.0 - y) / one_minus;
-    let ellmumu = -y / (m * m) - (1.0 - y) / (one_minus * one_minus);
-    let ellmumum = 2.0 * y / (m * m * m) - 2.0 * (1.0 - y) / (one_minus * one_minus * one_minus);
-
-    let score_q = weight * ellmu * d1;
-    let d2ell_dq2 = weight * (ellmumu * d1 * d1 + ellmu * d2);
-    let curvature_q = -d2ell_dq2;
-    let third_q = weight * (ellmumum * d1 * d1 * d1 + 3.0 * ellmumu * d1 * d2 + ellmu * d3);
-    (score_q, curvature_q, third_q)
-}
-
-#[inline]
-fn binomial_neglog_q_derivatives_from_jet(
-    y: f64,
-    weight: f64,
-    mu: f64,
-    d1: f64,
-    d2: f64,
-    d3: f64,
-) -> (f64, f64, f64) {
-    // Returns (m1,m2,m3) for F_i(q) = -ell_i(q):
-    //   m1 = dF/dq, m2 = d²F/dq², m3 = d³F/dq³.
-    let (score_q, curvature_q, third_q) =
-        binomial_score_curvaturethird_from_jet(y, weight, mu, d1, d2, d3);
-    (-score_q, curvature_q, -third_q)
-}
-
-#[inline]
-fn binomial_neglog_q_derivatives_probit_closed_form(
-    y: f64,
-    weight: f64,
-    q: f64,
-) -> (f64, f64, f64) {
-    // Closed-form derivatives for F_i(q) = -w_i[y log Phi(q) + (1-y) log(1-Phi(q))].
-    // Uses stable Mills ratios instead of `phi / mu` divisions. In the
-    // incompatible separated tail (for example y=0, q>>0), `phi(q)` underflows
-    // to zero while `phi(q)/Phi(-q) ≈ q`; computing the ratio in log-CDF space
-    // preserves the true score/curvature signal instead of manufacturing a
-    // flat optimum.
-    if weight == 0.0 || !q.is_finite() {
-        return (0.0, 0.0, 0.0);
-    }
-    let (_, left) = signed_probit_logcdf_and_mills_ratio(q);
-    let (_, right) = signed_probit_logcdf_and_mills_ratio(-q);
-
-    let left_prime = -left * (q + left);
-    let left_m2 = -left_prime;
-    let left_m3 = left + left_prime * (q + 2.0 * left);
-
-    let right_prime = right * (right - q);
-    let right_m2 = right_prime;
-    let right_m3 = right_prime * (2.0 * right - q) - right;
-
-    let y0 = 1.0 - y;
-    let m1 = weight * (y0 * right - y * left);
-    let m2 = weight * (y0 * right_m2 + y * left_m2);
-    let m3 = weight * (y0 * right_m3 + y * left_m3);
-    (m1, m2, m3)
-}
-
-#[inline]
-fn binomial_neglog_q_fourth_derivative_probit_closed_form(y: f64, weight: f64, q: f64) -> f64 {
-    // Closed-form m4 for F_i(q) = -w_i[y log Phi(q) + (1-y) log(1-Phi(q))].
-    // Stability (Issue 5): see binomial_neglog_q_derivatives_probit_closed_form.
-    if weight == 0.0 || !q.is_finite() {
-        return 0.0;
-    }
-    let (_, left) = signed_probit_logcdf_and_mills_ratio(q);
-    let (_, right) = signed_probit_logcdf_and_mills_ratio(-q);
-
-    let left_prime = -left * (q + left);
-    let left_m3 = left + left_prime * (q + 2.0 * left);
-    let left_m4 = 2.0 * left_prime - left_m3 * (q + 2.0 * left) + 2.0 * left_prime * left_prime;
-
-    let right_prime = right * (right - q);
-    let right_m3 = right_prime * (2.0 * right - q) - right;
-    let right_m4 =
-        right_m3 * (2.0 * right - q) + 2.0 * right_prime * right_prime - 2.0 * right_prime;
-
-    weight * ((1.0 - y) * right_m4 + y * left_m4)
-}
-
-// ---------------------------------------------------------------------------
-// Logit closed-form m1–m4
-// ---------------------------------------------------------------------------
-//
-// For the logit (sigmoid) inverse link, F(q) = -w[y log G(q) + (1-y) log(1-G(q))]
-// where G(q) = 1/(1 + e^{-q}) is the standard logistic CDF.
-//
-// Because logit is the canonical link for Bernoulli, the derivatives of F
-// collapse to especially simple closed forms in terms of p = G(q) and
-// s = p(1-p) = Var(Bernoulli(p)):
-//
-//   m1 = w(p - y)
-//   m2 = ws                           (always non-negative)
-//   m3 = ws(1 - 2p) = -ws tanh(q/2)
-//   m4 = ws(1 - 6s) = ws(1 - 6p + 6p^2)
-//
-// Derivation: since log G(q) = -log(1 + e^{-q}) and log(1 - G(q)) = -log(1 + e^q),
-// F(q) = w[-y log G + (1-y)(-log(1-G))]
-//       = w[y log(1+e^{-q}) + (1-y) log(1+e^q)]
-//       = w[(1-y)q + log(1+e^{-q})]     (the standard softplus form).
-//
-// Differentiating: F' = w(G(q) - y) = w(p - y), which is m1.
-// F'' = wG'(q) = wp(1-p) = ws, which is m2.
-// F''' = w[p(1-p)(1-2p)] = ws(1-2p), which is m3.
-// F'''' = w[s(1-6s)], which is m4. The identity 1-6s = 1-6p+6p^2 follows directly.
-//
-// Numerical stability (see response.md Section 1a):
-// - p is computed with a branched expit to avoid overflow:
-//     p = (1+e^{-q})^{-1} for q >= 0,  p = e^q/(1+e^q) for q < 0.
-// - s = p(1-p). For extreme tails, s = t/(1+t)^2 with t = e^{-|q|}, which
-//   decays as O(e^{-|q|}). Once |q| > ~36, e^{-|q|} < machine epsilon and
-//   all derivatives are genuinely below precision, so saturation to 0 is safe.
-// - The identity 1-2p = -tanh(q/2) provides a stable alternative for m3.
-//
-// Reference: response.md Section 1a.
-// ---------------------------------------------------------------------------
-
-#[inline]
-fn binomial_neglog_q_derivatives_logit_closed_form(y: f64, weight: f64, q: f64) -> (f64, f64, f64) {
-    // Returns (m1, m2, m3) for F(q) = -w[y log G(q) + (1-y) log(1-G(q))]
-    // with G = logistic CDF.
-    if weight == 0.0 || !q.is_finite() {
-        return (0.0, 0.0, 0.0);
-    }
-    // Branched expit for numerical stability:
-    //   q >= 0: p = 1/(1+e^{-q}), avoids overflow in e^q
-    //   q < 0:  p = e^q/(1+e^q),  avoids overflow in e^{-q}
-    let p = if q >= 0.0 {
-        1.0 / (1.0 + (-q).exp())
-    } else {
-        let eq = q.exp();
-        eq / (1.0 + eq)
-    };
-    // Clamp `p` AND its complement `1 - p` separately so that the
-    // saturated-boundary product `p_var * one_minus_p_var` equals the
-    // mathematical `MIN_PROB · (1 − MIN_PROB)` exactly. Recomputing
-    // `1 - p_var` after clamping `p` would catastrophically cancel near the
-    // boundary (e.g. `1 - (1 − 1e-10)` yields `1.0000000827e-10`, not the
-    // intended `1e-10`), inflating the variance by ~8e-18 — small in
-    // absolute terms but enough to corrupt the Fisher information used by
-    // the GAMLSS exact-Newton step in the deep tail.
-    let p_var = p.clamp(MIN_PROB, 1.0 - MIN_PROB);
-    let one_minus_p_var = (1.0 - p).clamp(MIN_PROB, 1.0 - MIN_PROB);
-    let s = p_var * one_minus_p_var;
-    // For extreme |q|, s settles at the clamped floor `MIN_PROB·(1−MIN_PROB)`
-    // — never below — so the second-order Newton block stays bounded away
-    // from zero curvature on saturated rows.
-
-    let m1 = weight * (p - y);
-    let m2 = weight * s;
-    // m3 = ws(1 - 2p). Using the identity 1-2p = -tanh(q/2) for stability:
-    let m3 = weight * s * (1.0 - 2.0 * p);
-    (m1, m2, m3)
-}
-
-#[inline]
-fn binomial_neglog_q_fourth_derivative_logit_closed_form(x: f64, weight: f64, q: f64) -> f64 {
-    assert!(!x.is_nan());
-    // Returns m4 = d^4F/dq^4 for logit link.
-    // m4 = ws(1 - 6s) = ws(1 - 6p(1-p)).
-    //
-    // Note: m4 does not depend on y at all (same as m2), because all
-    // even-order derivatives of the canonical Bernoulli NLL are functions
-    // of p alone. The y-dependence cancels out in the chain rule because
-    // the logit is the canonical link.
-    if weight == 0.0 || !q.is_finite() {
-        return 0.0;
-    }
-    let p = if q >= 0.0 {
-        1.0 / (1.0 + (-q).exp())
-    } else {
-        let eq = q.exp();
-        eq / (1.0 + eq)
-    };
-    // Same cancellation-free `p · (1 − p)` form as
-    // `binomial_neglog_q_derivatives_logit_closed_form` above — see the
-    // note there.
-    let p_var = p.clamp(MIN_PROB, 1.0 - MIN_PROB);
-    let one_minus_p_var = (1.0 - p).clamp(MIN_PROB, 1.0 - MIN_PROB);
-    let s = p_var * one_minus_p_var;
-    weight * s * (1.0 - 6.0 * s)
-}
-
-// ---------------------------------------------------------------------------
-// CLogLog / Gumbel closed-form m1–m4
-// ---------------------------------------------------------------------------
-//
-// For the complementary log-log link, G(q) = 1 - exp(-exp(q)), so
-// F(q) = -w[y log G(q) + (1-y) log(1-G(q))].
-//
-// Define:
-//   z = e^q            (the "inner exponential")
-//   r = e^{-z}         (survival probability 1 - G(q))
-//   p = 1 - r = G(q) = -expm1(-z)
-//   h = z / expm1(z) = z*r / p
-//
-// The ratio h is the key stable building block. It arises because the
-// y=1 branch of the loss is F_{y=1} = -w log(1 - e^{-z}), and differentiating
-// log(-expm1(-z)) w.r.t. q produces factors of z*e^{-z}/(1 - e^{-z}) = z*r/p = h.
-// The function h = z/(e^z - 1) is smooth on all of R, with h -> 1 as z -> 0
-// (removable singularity), and h -> z*e^{-z} -> 0 as z -> +inf.
-//
-// For y=0, the loss is simply F_{y=0} = w*e^q = w*z, so all derivatives are w*z.
-//
-// For y=1, the derivatives in the "h-form" (from response.md Section 1b) are:
-//   F'_{y=1}    = -wh
-//   F''_{y=1}   = wh(h + z - 1)
-//   F'''_{y=1}  = -wh(2h^2 + 3(z-1)h + z^2 - 3z + 1)
-//   F''''_{y=1} = wh(6h^3 + 12(z-1)h^2 + (7z^2 - 18z + 7)h + z^3 - 6z^2 + 7z - 1)
-//
-// For general y in [0,1], combining linearly:
-//   m1 = w[(1-y)z - yh]
-//   m2 = w[(1-y)z + yh(h + z - 1)]
-//   m3 = w[(1-y)z - yh(2h^2 + 3(z-1)h + z^2 - 3z + 1)]
-//   m4 = w[(1-y)z + yh(6h^3 + 12(z-1)h^2 + (7z^2 - 18z + 7)h + z^3 - 6z^2 + 7z - 1)]
-//
-// Numerical stability (see response.md Section 1b):
-//
-// Left tail (q << 0, z small):
-//   p = -expm1(-z) avoids cancellation in 1 - e^{-z} when z is tiny.
-//   h = z/expm1(z) is computed directly via expm1; no separate Taylor branch
-//   is strictly necessary because expm1 is accurate for small arguments.
-//   As z -> 0, h -> 1 - z/2 + z^2/12 - z^4/720 + O(z^6).
-//
-// Right tail (q >> 0, z > 36.7):
-//   r = e^{-z} underflows to 0, so p rounds to 1. In this regime,
-//   h = z*r/(1-r) ≈ z*r, which gracefully underflows to 0.
-//   For y=1, all four derivatives -> 0. For y=0, they equal w*z.
-//   The overflow boundary for e^z is z ≈ 709, i.e. q ≈ 6.56. Beyond that,
-//   we must not compute e^z directly; instead h = z*r/p with r = e^{-z}.
-//
-// Reference: response.md Section 1b.
-// ---------------------------------------------------------------------------
-
-#[inline]
-fn cloglog_stable_h(z: f64) -> f64 {
-    // Compute h = z / expm1(z) = z / (e^z - 1) = z * e^{-z} / (1 - e^{-z}).
-    //
-    // This is the fundamental stable building block for cloglog derivatives.
-    // It has a removable singularity at z=0 where h -> 1.
-    //
-    // For large z (z > 36.7), expm1(z) overflows to infinity, but z*e^{-z}
-    // is tiny and the derivatives are negligible. We use the identity
-    // h = z * r / p where r = e^{-z} and p = -expm1(-z) for all z, which
-    // is stable across the full range because:
-    //   - For z near 0: expm1(z) is accurate, so z/expm1(z) is fine.
-    //   - For large z: r = e^{-z} -> 0, making h -> 0 as well.
-    if z.abs() < 1e-12 {
-        // Taylor: h = 1 - z/2 + z^2/12 - z^4/720 + ...
-        return 1.0 - z * 0.5 + z * z / 12.0;
-    }
-    let expm1_z = z.exp_m1();
-    if expm1_z.is_infinite() {
-        // z is very large (> ~709), e^z overflows. h = z*e^{-z}/(1 - e^{-z}).
-        // Since z > 709, e^{-z} is essentially 0, so h ≈ 0.
-        let r = (-z).exp();
-        if r == 0.0 {
-            return 0.0;
-        }
-        return z * r / (1.0 - r);
-    }
-    z / expm1_z
-}
-
-#[inline]
-fn binomial_neglog_q_derivatives_cloglog_closed_form(
-    y: f64,
-    weight: f64,
-    q: f64,
-) -> (f64, f64, f64) {
-    // Returns (m1, m2, m3) for F(q) = -w[y log G(q) + (1-y) log(1-G(q))]
-    // with G = cloglog CDF: G(q) = 1 - exp(-exp(q)).
-    if weight == 0.0 || !q.is_finite() {
-        return (0.0, 0.0, 0.0);
-    }
-    let z = q.exp(); // z = e^q; may be large but that's handled below
-    let h = cloglog_stable_h(z);
-    let y0 = 1.0 - y;
-    let y0_term = if y0 == 0.0 { 0.0 } else { y0 * z };
-
-    // y=0 branch: all derivatives equal w*z (since F_{y=0} = w*e^q).
-    // y=1 branch: uses the h-polynomial forms.
-    // General y: linear combination.
-    //
-    // Once h rounds to 0, the y=1 contribution has already underflowed to 0
-    // in f64. Returning the remaining y=0 branch here avoids 0 * inf products
-    // when q is deep in the right tail.
-    if y == 0.0 || h == 0.0 {
-        let base = weight * y0_term;
-        return (base, base, base);
-    }
-
-    let m1 = weight * (y0_term - y * h);
-    let m2 = weight * (y0_term + y * h * (h + z - 1.0));
-    let m3 =
-        weight * (y0_term - y * h * (2.0 * h * h + 3.0 * (z - 1.0) * h + z * z - 3.0 * z + 1.0));
-    (m1, m2, m3)
-}
-
-#[inline]
-fn binomial_neglog_q_fourth_derivative_cloglog_closed_form(y: f64, weight: f64, q: f64) -> f64 {
-    // Returns m4 = d^4F/dq^4 for cloglog link.
-    // m4 = w[(1-y)z + yh(6h^3 + 12(z-1)h^2 + (7z^2-18z+7)h + z^3-6z^2+7z-1)]
-    if weight == 0.0 || !q.is_finite() {
-        return 0.0;
-    }
-    let z = q.exp();
-    let h = cloglog_stable_h(z);
-    let y0 = 1.0 - y;
-    let y0_term = if y0 == 0.0 { 0.0 } else { y0 * z };
-    if y == 0.0 || h == 0.0 {
-        return weight * y0_term;
-    }
-    let h2 = h * h;
-    let h3 = h2 * h;
-    let z2 = z * z;
-    let z3 = z2 * z;
-    let y1_poly = 6.0 * h3 + 12.0 * (z - 1.0) * h2 + (7.0 * z2 - 18.0 * z + 7.0) * h + z3
-        - 6.0 * z2
-        + 7.0 * z
-        - 1.0;
-    weight * (y0_term + y * h * y1_poly)
-}
-
-#[inline]
-fn binomial_neglog_q_fourth_derivative_from_jet(
-    y: f64,
-    weight: f64,
-    mu: f64,
-    d1: f64,
-    d2: f64,
-    d3: f64,
-    d4: f64,
-) -> f64 {
-    // Stability (Issue 5): floor μ inside divisions but allow the chain
-    // rule to propagate; non-finite inputs still short-circuit (the LM
-    // gain-ratio guard rejects non-finite candidate gradients).
-    if weight == 0.0
-        || !mu.is_finite()
-        || !d1.is_finite()
-        || !d2.is_finite()
-        || !d3.is_finite()
-        || !d4.is_finite()
-    {
-        return 0.0;
-    }
-    let m = mu.clamp(MIN_PROB, 1.0 - MIN_PROB);
-    let one_minus = 1.0 - m;
-    let ellmu = y / m - (1.0 - y) / one_minus;
-    let ellmumu = -y / (m * m) - (1.0 - y) / (one_minus * one_minus);
-    let ellmumum = 2.0 * y / (m * m * m) - 2.0 * (1.0 - y) / (one_minus * one_minus * one_minus);
-    let ellmumumum = -6.0 * y / m.powi(4) - 6.0 * (1.0 - y) / one_minus.powi(4);
-    let fourth_q = weight
-        * (ellmumumum * d1.powi(4)
-            + 6.0 * ellmumum * d1 * d1 * d2
-            + ellmumu * (3.0 * d2 * d2 + 4.0 * d1 * d3)
-            + ellmu * d4);
-    -fourth_q
-}
-
-// ---------------------------------------------------------------------------
-// Unified exact dispatch for binomial m1–m4
-// ---------------------------------------------------------------------------
-//
-// Closed forms remain the fast path for Probit, Logit, and CLogLog, but the
-// exact joint Newton calculus is not restricted to those links. When no
-// closed form is available, we use the generic inverse-link jet plus the
-// analytic fourth derivative of the inverse-link pdf.
-// ---------------------------------------------------------------------------
-
-#[inline]
-fn binomial_neglog_q_derivatives_dispatch(
-    y: f64,
-    weight: f64,
-    q: f64,
-    mu: f64,
-    d1: f64,
-    d2: f64,
-    d3: f64,
-    link_kind: &InverseLink,
-) -> (f64, f64, f64) {
-    if binomial_link_has_closed_form(link_kind) {
-        return binomial_neglog_q_derivatives_closed_form_dispatch(y, weight, q, link_kind);
-    }
-    binomial_neglog_q_derivatives_from_jet(y, weight, mu, d1, d2, d3)
-}
-
-#[inline]
-fn binomial_neglog_q_fourth_derivative_dispatch(
-    y: f64,
-    weight: f64,
-    q: f64,
-    mu: f64,
-    d1: f64,
-    d2: f64,
-    d3: f64,
-    link_kind: &InverseLink,
-) -> Result<f64, String> {
-    if binomial_link_has_closed_form(link_kind) {
-        return Ok(binomial_neglog_q_fourth_derivative_closed_form_dispatch(
-            y, weight, q, link_kind,
-        ));
-    }
-    let d4 = inverse_link_pdffourth_derivative_for_inverse_link(link_kind, q)
-        .map_err(|e| format!("binomial inverse-link fourth derivative evaluation failed: {e}"))?;
-    Ok(binomial_neglog_q_fourth_derivative_from_jet(
-        y, weight, mu, d1, d2, d3, d4,
-    ))
-}
-
-#[inline]
-fn binomial_neglog_q_derivatives_closed_form_dispatch(
-    y: f64,
-    weight: f64,
-    q: f64,
-    link_kind: &InverseLink,
-) -> (f64, f64, f64) {
-    match link_kind {
-        InverseLink::Standard(StandardLink::Probit) => {
-            binomial_neglog_q_derivatives_probit_closed_form(y, weight, q)
-        }
-        InverseLink::Standard(StandardLink::Logit) => {
-            binomial_neglog_q_derivatives_logit_closed_form(y, weight, q)
-        }
-        InverseLink::Standard(StandardLink::CLogLog) => {
-            binomial_neglog_q_derivatives_cloglog_closed_form(y, weight, q)
-        }
-        _ => {
-            // Should not be called for unsupported links; caller should use jet path.
-            // This is a safety fallback.
-            (0.0, 0.0, 0.0)
-        }
-    }
-}
-
-#[inline]
-fn binomial_neglog_q_fourth_derivative_closed_form_dispatch(
-    y: f64,
-    weight: f64,
-    q: f64,
-    link_kind: &InverseLink,
-) -> f64 {
-    match link_kind {
-        InverseLink::Standard(StandardLink::Probit) => {
-            binomial_neglog_q_fourth_derivative_probit_closed_form(y, weight, q)
-        }
-        InverseLink::Standard(StandardLink::Logit) => {
-            binomial_neglog_q_fourth_derivative_logit_closed_form(y, weight, q)
-        }
-        InverseLink::Standard(StandardLink::CLogLog) => {
-            binomial_neglog_q_fourth_derivative_cloglog_closed_form(y, weight, q)
-        }
-        _ => 0.0,
-    }
-}
-
-/// Returns true if the given link supports closed-form m1–m4 derivatives for
-/// the binomial location-scale family, enabling the exact joint Newton path.
-#[inline]
-fn binomial_link_has_closed_form(link_kind: &InverseLink) -> bool {
-    matches!(
-        link_kind,
-        InverseLink::Standard(StandardLink::Probit)
-            | InverseLink::Standard(StandardLink::Logit)
-            | InverseLink::Standard(StandardLink::CLogLog)
-    )
 }
 
 fn xt_diag_x_dense(design: &Array2<f64>, diag: &Array1<f64>) -> Result<Array2<f64>, String> {
@@ -6460,8 +5400,11 @@ fn gaussian_joint_psi_firstweights(
         // + κ'·(a−n)·η̇ chain-rule term (∂[κ(a−n)]/∂η = κ'(a−n) + 2κ²n).
         dscore_ls[i].write(ki * (2.0 * mi * ma + 2.0 * ni * sea) + kpi * (ai - ni) * ea);
         hmumu[i].write(wi);
-        // Cross block: H_{μ,ls} = 2mκ (no κ' term — derivative of −m wrt η is 2mκ).
-        hmu_ls[i].write(2.0 * ki * mi);
+        // Cross block: Fisher expectation E[H_{μ,ls}] = 2κ·E[m] = 0 (μ ⊥ σ;
+        // see exact_newton_joint_hessian_from_designs / #684). The observed
+        // 2mκ is mean-zero noise that would inject spurious μ↔σ coupling into
+        // the REML determinant via the Schur complement and over-smooth log σ.
+        hmu_ls[i].write(0.0);
         // Fisher/expected (log σ, log σ) information: E[H_{ls,ls}] = 2κ²a.
         // The observed curvature 2κ²n + κ'(a−n) collapses where the fitted
         // residual is small (n→0), under-counting the scale block's EDF and
@@ -6476,8 +5419,9 @@ fn gaussian_joint_psi_firstweights(
         // expectation.
         h_ls_ls[i].write(2.0 * ki * ki * ai);
         dhmumu[i].write(-2.0 * wi * sea);
-        // + 2m·κ'·η̇: ∂(2mκ)/∂η = −4mκ² + 2mκ'.
-        dhmu_ls[i].write(ki * (-2.0 * wi * ma - 4.0 * mi * sea) + 2.0 * mi * kpi * ea);
+        // Cross block is Fisher 0 (μ ⊥ σ; #684), so its directional derivative
+        // is identically 0.
+        dhmu_ls[i].write(0.0);
         // Directional derivative of E[H_{ls,ls}]=2κ²a along (μ̇,η̇): no μ
         // dependence; ∂(2κ²a)/∂η = 4κκ'a, so dh_ls_ls = 4κκ'a·η̇.
         dh_ls_ls[i].write(4.0 * ki * kpi * ai * ea);
@@ -6566,13 +5510,9 @@ fn gaussian_joint_psisecondweights(
         );
         // − 2·κ'·w·ea·eb: ∂²w/∂η² = 4wκ² − 2wκ'.
         d2hmumu[i].write(4.0 * wi * sea_seb - 2.0 * wi * seab - 2.0 * wi * kpi * ea_eb);
-        // − 2·κ'·w·sym + 2·m·(κ''−6κκ')·ea·eb + 2·m·κ'·eab from d²(2mκ).
-        d2hmu_ls[i].write(
-            ki * (-2.0 * wi * mab + 4.0 * wi * cross + 8.0 * mi * sea_seb - 4.0 * mi * seab)
-                - 2.0 * wi * kpi * cross_eta
-                + 2.0 * mi * (kdpi - 6.0 * ki * kpi) * ea_eb
-                + 2.0 * mi * kpi * eab,
-        );
+        // Cross block is Fisher 0 (μ ⊥ σ; #684), so its second directional
+        // derivative is identically 0.
+        d2hmu_ls[i].write(0.0);
         // d²/dψ_a dψ_b of the Fisher (ls,ls) information E[H_{ls,ls}]=2κ²a (#566).
         // No μ dependence; ∂(2κ²a)/∂η=4κκ'a and ∂(4κκ'a)/∂η=4a(κ'²+κκ'')a, so
         // the second directional derivative is 4a(κ'²+κκ'')·ea·eb + 4aκκ'·eab.
@@ -6594,11 +5534,11 @@ fn gaussian_joint_psisecondweights(
 
 fn gaussian_joint_psi_mixed_driftweights(
     scalars: &GaussianJointRowScalars,
-    dotmu: &Array1<f64>,
+    // Only the log-σ–channel directions enter the surviving (μ,μ) and (ls,ls)
+    // Fisher blocks; the μ-channel drift directions fed the observed cross
+    // block, which is now Fisher 0 (μ ⊥ σ; #684) and no longer assembled.
     dot_eta: &Array1<f64>,
-    mu_a: &Array1<f64>,
     eta_a: &Array1<f64>,
-    dotmu_a: &Array1<f64>,
     dot_eta_a: &Array1<f64>,
 ) -> GaussianJointPsiMixedDriftWeights {
     let nobs = scalars.w.len();
@@ -6610,41 +5550,31 @@ fn gaussian_joint_psi_mixed_driftweights(
     let mut d2h_ls_ls = Array1::<f64>::uninit(nobs);
     for i in 0..nobs {
         let wi = scalars.w[i];
-        let mi = scalars.m[i];
         let ki = scalars.kappa[i];
         let kpi = scalars.kappa_prime[i];
         let kdpi = scalars.kappa_dprime[i];
         let ai = scalars.obs_weight[i];
-        let dm = dotmu[i];
         let de = dot_eta[i];
-        let ma = mu_a[i];
         let ea = eta_a[i];
-        let dma = dotmu_a[i];
         let dea = dot_eta_a[i];
         // κ-scaled log-sigma directions.
         let sde = ki * de;
         let sea = ki * ea;
         let sdea = ki * dea;
-        let cross = sde * ma + dm * sea;
-        // Bare-η symmetric: dm·ea + ma·de (no κ, for κ' chain-rule pieces).
-        let cross_eta = dm * ea + ma * de;
         let de_ea = de * ea;
         // First directional derivative of Hessian blocks (== Helper A).
         dhmumu_u[i].write(-2.0 * wi * sde);
-        // + 2·κ'·m·de.
-        dhmu_ls_u[i].write(ki * (-2.0 * wi * dm - 4.0 * mi * sde) + 2.0 * mi * kpi * de);
+        // Cross block is Fisher 0 (μ ⊥ σ; #684); its first directional and
+        // second mixed directional derivatives are identically 0. The
+        // observed-cross drift inputs (m, dotmu, μ_a, dotmu_a) are therefore
+        // not read here.
+        dhmu_ls_u[i].write(0.0);
         // Directional derivative of Fisher E[H_{ls,ls}]=2κ²a along (dm,de):
         // no μ dependence, ∂(2κ²a)/∂η=4κκ'a ⇒ 4κκ'a·de (#566).
         dh_ls_ls_u[i].write(4.0 * ki * kpi * ai * de);
         // − 2·κ'·w·de·ea: ∂²w/∂η² = 4wκ² − 2wκ'.
         d2hmumu[i].write(4.0 * wi * sde * sea - 2.0 * wi * sdea - 2.0 * wi * kpi * de_ea);
-        // − 2·κ'·w·(dm·ea + de·ma) + 2·m·(κ''−6κκ')·de·ea + 2·m·κ'·dea from d²(2mκ).
-        d2hmu_ls[i].write(
-            ki * (-2.0 * wi * dma + 4.0 * wi * cross + 8.0 * mi * sde * sea - 4.0 * mi * sdea)
-                - 2.0 * wi * kpi * cross_eta
-                + 2.0 * mi * (kdpi - 6.0 * ki * kpi) * de_ea
-                + 2.0 * mi * kpi * dea,
-        );
+        d2hmu_ls[i].write(0.0);
         // d²/(drift × ψ) of Fisher E[H_{ls,ls}]=2κ²a: 4a(κ'²+κκ'')·de·ea +
         // 4aκκ'·dea (drift direction de, ψ direction ea, mixed dea) (#566).
         d2h_ls_ls[i].write(4.0 * ai * (kpi * kpi + ki * kdpi) * de_ea + 4.0 * ai * ki * kpi * dea);
@@ -6686,6 +5616,30 @@ fn gaussian_pack_joint_symmetrichessian(
     out.slice_mut(s![pmu..total, pmu..total]).assign(h_ls_ls);
     mirror_upper_to_lower(&mut out);
     out
+}
+
+/// Canonical Gaussian location-scale Fisher (expected) joint-Hessian row
+/// coefficients `(mm, ml, ll)` — the SINGLE source of truth for this curvature,
+/// shared by every representation that assembles the value Hessian (the dense
+/// `exact_newton_joint_hessian_from_designs` and the matrix-free
+/// `GaussianLocationScaleHessianWorkspace`). The (μ, log σ) information is
+/// block-diagonal because location and scale are information-orthogonal:
+///   `ml = E[H_{μ,ls}] = 2κ·E[m] = 2κ·E[r]·w/σ² = 0`  (E[r]=0 at any β; #684),
+/// and the (log σ, log σ) block is the residual-free Fisher form
+///   `ll = E[H_{ls,ls}] = 2κ²a`  (a = obs_weight; #566).
+/// Routing both paths through this one constructor makes the cross-block drift
+/// that caused #684 — one representation using the observed `2κm`, another the
+/// Fisher 0 — structurally impossible: they cannot disagree because they read
+/// the same coefficients. The observed SCORE still drives the Newton step
+/// (Fisher scoring → exact joint MLE); only the curvature feeding the REML
+/// determinant / Newton metric is the orthogonal expectation.
+fn gaussian_locscale_fisher_joint_row_coeffs(
+    rows: &GaussianJointRowScalars,
+) -> (Array1<f64>, Array1<f64>, Array1<f64>) {
+    let mm = rows.w.clone();
+    let ml = Array1::<f64>::zeros(rows.kappa.len());
+    let ll = 2.0 * &rows.kappa * &rows.kappa * &rows.obs_weight;
+    (mm, ml, ll)
 }
 
 fn gaussian_joint_hessian_from_designs(
@@ -7266,18 +6220,13 @@ impl GaussianLocationScaleFamily {
         }
 
         let rows = self.get_or_compute_row_scalars(etamu, eta_ls)?;
-        // H_{μ,ls} = 2κm. (log σ, log σ) block uses the Fisher/expected
-        // information E[H_{ls,ls}] = 2κ²a (a = obs_weight): the observed
-        // curvature 2κ²n + κ'(a−n) collapses where the residual is small
-        // (n→0), under-counting the scale EDF and over-smoothing the scale
-        // predictor (#566). E[n]=a at the true model ⇒ 2κ²a, the residual-free
-        // Fisher form gamlss/mgcv gaulss use. The exact observed score still
-        // drives the Newton step, so the stationary point is unchanged; only
-        // the curvature feeding the REML determinant is the expectation.
-        let cross = 2.0 * &rows.kappa * &rows.m;
-        let scale = 2.0 * &rows.kappa * &rows.kappa * &rows.obs_weight;
+        // Block-diagonal Gaussian Fisher curvature (μ ⊥ σ ⇒ cross = 0, #684;
+        // (ls,ls) = 2κ²a, #566), built from the shared single-source-of-truth
+        // constructor so this dense path and the matrix-free workspace can never
+        // disagree on the cross block. See `gaussian_locscale_fisher_joint_row_coeffs`.
+        let (mm, cross, scale) = gaussian_locscale_fisher_joint_row_coeffs(&rows);
         Ok(Some(gaussian_joint_hessian_from_designs(
-            xmu, x_ls, &rows.w, &cross, &scale,
+            xmu, x_ls, &mm, &cross, &scale,
         )?))
     }
 
@@ -7323,8 +6272,16 @@ impl GaussianLocationScaleFamily {
         let ximu = xmu.dot(d_beta_flat.slice(s![0..pmu]));
         let xi_ls = x_ls.dot(d_beta_flat.slice(s![pmu..pmu + p_ls]));
         let rows = self.get_or_compute_row_scalars(etamu, eta_ls)?;
-        let (dhmumu, dhmu_ls, dh_ls_ls) =
-            gaussian_joint_first_directionalweights(&rows, &ximu, &xi_ls);
+        let directional = gaussian_joint_first_directionalweights(&rows, &ximu, &xi_ls);
+        let dhmumu = directional.0;
+        let dh_ls_ls = directional.2;
+        // Fisher cross block E[H_{μ,ls}] ≡ 0 (μ ⊥ σ; see
+        // exact_newton_joint_hessian_from_designs / #684), so its directional
+        // derivative is identically 0 — keep the Hessian's curvature object the
+        // block-diagonal Gaussian Fisher information at every order. The
+        // observed-cross directional weight (`directional.1`) is therefore not
+        // assembled.
+        let dhmu_ls = Array1::<f64>::zeros(dhmumu.len());
 
         Ok(Some(gaussian_joint_hessian_from_designs(
             xmu, x_ls, &dhmumu, &dhmu_ls, &dh_ls_ls,
@@ -7374,8 +6331,14 @@ impl GaussianLocationScaleFamily {
         let ximuv = xmu.dot(d_betav_flat.slice(s![0..pmu]));
         let xi_lsv = x_ls.dot(d_betav_flat.slice(s![pmu..pmu + p_ls]));
         let rows = self.get_or_compute_row_scalars(etamu, eta_ls)?;
-        let (d2hmumu, d2hmu_ls, d2h_ls_ls) =
+        let second =
             gaussian_jointsecond_directionalweights(&rows, &ximu_u, &xi_ls_u, &ximuv, &xi_lsv);
+        let d2hmumu = second.0;
+        let d2h_ls_ls = second.2;
+        // Fisher cross block E[H_{μ,ls}] ≡ 0 (μ ⊥ σ; #684), so its second
+        // directional derivative is identically 0; `second.1` (observed) is not
+        // assembled, keeping the curvature object block-diagonal Fisher.
+        let d2hmu_ls = Array1::<f64>::zeros(d2hmumu.len());
 
         Ok(Some(gaussian_joint_hessian_from_designs(
             xmu, x_ls, &d2hmumu, &d2hmu_ls, &d2h_ls_ls,
@@ -7770,11 +6733,11 @@ impl GaussianLocationScaleFamily {
                 total
             ) }.into());
         }
-        let umu = d_beta_flat.slice(s![0..pmu]);
+        // Only the log-σ–channel direction enters the surviving Fisher blocks
+        // of the mixed drift (the μ-channel direction fed the observed cross
+        // block, now Fisher 0; μ ⊥ σ, #684).
         let u_ls = d_beta_flat.slice(s![pmu..pmu + p_ls]);
-        let ximu = fast_av(xmu, &umu);
         let xi_ls = fast_av(x_ls, &u_ls);
-        let uzamu = xmu_map.forward_mul(umu);
         let uza_ls = x_ls_map.forward_mul(u_ls);
         // Mixed drift T_a[u] = D_beta H_a^{(D)}[u] for the Gaussian family.
         //
@@ -7818,15 +6781,8 @@ impl GaussianLocationScaleFamily {
         // Generic code then combines this with S(theta)-motion and the profile
         // mode responses to form ddot H_{ij}.
         let rows = self.get_or_compute_row_scalars(etamu, eta_ls)?;
-        let mut mixedweights = gaussian_joint_psi_mixed_driftweights(
-            &rows,
-            &ximu,
-            &xi_ls,
-            &dir_a.z_primary_psi,
-            &dir_a.z_ls_psi,
-            &uzamu,
-            &uza_ls,
-        );
+        let mut mixedweights =
+            gaussian_joint_psi_mixed_driftweights(&rows, &xi_ls, &dir_a.z_ls_psi, &uza_ls);
         if let Some(sub_rows) = subsample {
             // HT mask: `gaussian_joint_psi_mixedhessian_drift_fromweights` is
             // row-linear in every `mixedweights.*` array via `xt_diag_*_dense`
@@ -9327,8 +8283,11 @@ impl DesignTwoBlockRowCoeffOperator {
 ///   H = [[X_mu^T diag(w) X_mu,    X_mu^T diag(cross) X_ls],
 ///        [X_ls^T diag(cross) X_mu, X_ls^T diag(scale) X_ls]],
 ///
-/// with `cross = 2κm` and `scale = 2κ²a` (the Fisher/expected (log σ, log σ)
-/// information, #566 — see `exact_newton_joint_hessian`). The matvec applies
+/// with `cross = 0` and `scale = 2κ²a` — the block-diagonal Gaussian Fisher
+/// (expected) information (μ ⊥ σ, #684; residual-free (log σ, log σ) block,
+/// #566). This MUST match the dense `exact_newton_joint_hessian_from_designs`
+/// curvature object exactly: the observed cross term `2κm` (mean-zero noise)
+/// over-smooths the scale and is its Fisher expectation 0. The matvec applies
 /// each block by a single design-matrix multiply on each side, so the cost
 /// is Θ(n (p_mu + p_ls)) per `Hv` rather than Θ(n (p_mu + p_ls)²) to form
 /// the dense matrix.
@@ -9352,14 +8311,11 @@ impl GaussianLocationScaleHessianWorkspace {
         let etamu = &block_states[GaussianLocationScaleFamily::BLOCK_MU].eta;
         let eta_ls = &block_states[GaussianLocationScaleFamily::BLOCK_LOG_SIGMA].eta;
         let rows = family.get_or_compute_row_scalars(etamu, eta_ls)?;
-        let coeff_mm = rows.w.clone();
-        let coeff_ml = 2.0 * &rows.kappa * &rows.m;
-        // Fisher/expected (log σ, log σ) information E[H_{ls,ls}] = 2κ²a (#566):
-        // the observed 2κ²n + κ'(a−n) collapses at small residuals and
-        // over-smooths the scale; E[n]=a gives the residual-free 2κ²a, matching
-        // `exact_newton_joint_hessian` so the matrix-free operator and the
-        // dense path feed the REML determinant the same curvature.
-        let coeff_ll = 2.0 * &rows.kappa * &rows.kappa * &rows.obs_weight;
+        // Single source of truth shared with the dense
+        // `exact_newton_joint_hessian_from_designs`: μ ⊥ σ ⇒ cross = 0 (#684),
+        // (ls,ls) = 2κ²a (#566). Reading the same coefficients as the dense path
+        // makes the cross-block drift that caused #684 structurally impossible.
+        let (coeff_mm, coeff_ml, coeff_ll) = gaussian_locscale_fisher_joint_row_coeffs(&rows);
         Ok(Self {
             family,
             block_states,
@@ -9526,7 +8482,14 @@ impl ExactNewtonJointHessianWorkspace for GaussianLocationScaleHessianWorkspace 
         let rows = self.family.get_or_compute_row_scalars(etamu, eta_ls)?;
         let ximu = fast_av(self.xmu.as_ref(), &d_beta_flat.slice(s![0..pmu]));
         let xi_ls = fast_av(self.x_ls.as_ref(), &d_beta_flat.slice(s![pmu..total]));
-        let (c_mm, c_ml, c_ll) = gaussian_joint_first_directionalweights(&rows, &ximu, &xi_ls);
+        let directional = gaussian_joint_first_directionalweights(&rows, &ximu, &xi_ls);
+        let c_mm = directional.0;
+        let c_ll = directional.2;
+        // Fisher cross block ≡ 0 (μ ⊥ σ; #684), so its directional derivative is
+        // identically 0 — matching the dense
+        // `exact_newton_joint_hessian_directional_derivative_from_designs`, which
+        // likewise does not assemble `directional.1`.
+        let c_ml = Array1::<f64>::zeros(c_mm.len());
         Ok(Some(Arc::new(make_two_block_row_coeff_operator(
             self.xmu.clone(),
             self.x_ls.clone(),
@@ -9580,8 +8543,14 @@ impl ExactNewtonJointHessianWorkspace for GaussianLocationScaleHessianWorkspace 
         let xi_ls_u = fast_av(self.x_ls.as_ref(), &d_beta_u.slice(s![pmu..total]));
         let ximu_v = fast_av(self.xmu.as_ref(), &d_beta_v.slice(s![0..pmu]));
         let xi_ls_v = fast_av(self.x_ls.as_ref(), &d_beta_v.slice(s![pmu..total]));
-        let (c_mm, c_ml, c_ll) =
+        let directional =
             gaussian_jointsecond_directionalweights(&rows, &ximu_u, &xi_ls_u, &ximu_v, &xi_ls_v);
+        let c_mm = directional.0;
+        let c_ll = directional.2;
+        // Fisher cross block ≡ 0 (μ ⊥ σ; #684); its second directional
+        // derivative is identically 0 too — match the dense path (which does not
+        // assemble `directional.1`).
+        let c_ml = Array1::<f64>::zeros(c_mm.len());
         Ok(Some(Arc::new(make_two_block_row_coeff_operator(
             self.xmu.clone(),
             self.x_ls.clone(),
@@ -10083,13 +9052,11 @@ fn gls_wiggle_second_directional_coeffs(
         - &(&dm_u * g2_v)
         - &(&dm_v * g2_u)
         - &(&rows.m * g2_uv);
-    let a_md_v = &dm_v * &geom.dq_dq0 + &rows.m * s1_v;
-    let a_md_u = &dm_u * &geom.dq_dq0 + &rows.m * s1_u;
-    let coeff_ml_uv = 2.0
-        * &rows.kappa
-        * &(&dm_uv * &geom.dq_dq0 + &dm_u * s1_v + &dm_v * s1_u + &rows.m * s1_uv)
-        + 2.0 * &rows.kappa_prime * &(zeta_u * &a_md_v + zeta_v * &a_md_u)
-        + 2.0 * &rows.kappa_dprime * &zeta_u_zeta_v * &rows.m * &geom.dq_dq0;
+    let n = rows.m.len();
+    // H_{μ,ls} ≡ Fisher 0 (mean⊥scale orthogonality; the wiggle and μ both
+    // enter the mean, log σ is the only scale block), so every β-directional
+    // derivative — including this second-order one — is identically 0.
+    let coeff_ml_uv = Array1::<f64>::zeros(n);
     // Second directional derivative of the Fisher (log σ, log σ) block
     // coeff_ll = 2κ²a (#566). η_ls is linear in β (no zeta_uv), so the only
     // surviving term is ∂²(2κ²a)/∂η² · zeta_u·zeta_v = 4a(κ'²+κκ'')·zeta_u·zeta_v
@@ -10105,11 +9072,11 @@ fn gls_wiggle_second_directional_coeffs(
     let c_u = -&dm_u;
     let c_v = -&dm_v;
     let c_uv = -&dm_uv;
-    let l_u = 2.0 * &rows.kappa * &dm_u + 2.0 * &rows.kappa_prime * &(zeta_u * &rows.m);
-    let l_v = 2.0 * &rows.kappa * &dm_v + 2.0 * &rows.kappa_prime * &(zeta_v * &rows.m);
-    let l_uv = 2.0 * &rows.kappa * &dm_uv
-        + 2.0 * &rows.kappa_prime * &(zeta_u * &dm_v + zeta_v * &dm_u)
-        + 2.0 * &rows.kappa_dprime * &(&zeta_u_zeta_v * &rows.m);
+    // H_{ls,w} ≡ Fisher 0 (wiggle is mean-side; mean⊥scale), so all of its
+    // β-directional derivatives are 0.
+    let l_u = Array1::<f64>::zeros(n);
+    let l_v = Array1::<f64>::zeros(n);
+    let l_uv = Array1::<f64>::zeros(n);
 
     GlsWiggleSecondDirCoeffs {
         coeff_mm_uv,
@@ -10279,18 +9246,25 @@ impl GaussianLocationScaleWiggleFamily {
         }
         let rows = self.get_or_compute_row_scalars(&q, eta_ls)?;
         let coeff_mm = &rows.w * &geom.dq_dq0.mapv(|v| v * v) - &rows.m * &geom.d2q_dq02;
-        // Cross blocks involving η_ls carry overall κ; scale-scale block is
-        // 2κ²n + κ'(a−n) under the logb link (the κ'(a−n) piece is lost if κ
-        // is treated as constant under ∂/∂η_ls).
-        let coeff_ml = (2.0 * &rows.kappa * &rows.m) * &geom.dq_dq0;
+        // Gaussian mean⊥scale Fisher orthogonality. μ (mu) AND the wiggle both
+        // enter the MEAN q = q0 + B(q0)·βw (see `let q = q0 + etaw`); log σ is
+        // the only scale-side block. The Fisher (expected) cross between any
+        // mean-side parameter and log σ is exactly 0: H_{μ,ls} = 2κm·dq_dq0 and
+        // H_{ls,w} = 2κm both carry m = r·w = (y−q)·weight/σ², and E[m] =
+        // E[r]·w = 0. The dense and matrix-free workspace paths SHARE these row
+        // pieces, so setting the cross coeffs to 0 fixes the curvature object
+        // (the observed 2κm value) for both. Diagonal/same-side blocks
+        // (coeff_mm within mean, coeff_ll within scale, coeff_mw_* within mean,
+        // coeff_ww within mean) are untouched.
+        let coeff_ml = Array1::<f64>::zeros(n);
         // Fisher/expected (log σ, log σ) information E[H_{ls,ls}] = 2κ²a (#566):
         // the observed 2κ²n + κ'(a−n) collapses at small residuals and
         // over-smooths the scale; E[n]=a gives the residual-free 2κ²a.
         let coeff_ll = 2.0 * &rows.kappa * &rows.kappa * &rows.obs_weight;
         let coeff_mw_b = &rows.w * &geom.dq_dq0;
         let coeff_mw_d = -&rows.m;
-        // ls-wiggle cross block carries one κ from the η_ls chain.
-        let coeff_lw_b = 2.0 * &rows.kappa * &rows.m;
+        // ls↔wiggle is a mean⊥scale cross (wiggle is mean-side): Fisher 0.
+        let coeff_lw_b = Array1::<f64>::zeros(n);
         let coeff_ww = rows.w.clone();
         Ok(GaussianLocationScaleWiggleHessianRowPieces {
             coeff_mm,
@@ -10372,18 +9346,19 @@ impl GaussianLocationScaleWiggleFamily {
             + &(2.0 * &rows.w * &geom.dq_dq0 * &s1_u)
             - &(&dm_u * &geom.d2q_dq02)
             - &(&rows.m * &g2_u);
-        // Static blocks: H_{μ,ls} = 2κm·dq_dq0; H_{ls,ls} = Fisher 2κ²a (#566).
-        // Differentiating the cross block along α = (xi, zeta, phi) carries
-        // dκ/dη_ls = κ' on every term that originally read just κ. The Fisher
-        // (ls,ls) block 2κ²a depends only on η_ls (a is the constant prior
-        // weight), so its directional derivative is 4κκ'a·zeta.
-        let coeff_ml_u = 2.0 * &rows.kappa * &(&dm_u * &geom.dq_dq0 + &rows.m * &s1_u)
-            + 2.0 * &rows.kappa_prime * &(&zeta * &rows.m * &geom.dq_dq0);
+        // Static blocks: H_{μ,ls} = Fisher 0 (mean⊥scale); H_{ls,ls} = Fisher
+        // 2κ²a (#566). H_{μ,ls} ≡ 0 for all β, so its directional derivative is
+        // also identically 0. The Fisher (ls,ls) block 2κ²a depends only on
+        // η_ls (a is the constant prior weight), so its directional derivative
+        // is 4κκ'a·zeta.
+        let coeff_ml_u = Array1::<f64>::zeros(n);
         let coeff_ll_u = 4.0 * &rows.kappa * &rows.kappa_prime * &(&zeta * &rows.obs_weight);
         let a_u = &dw_u * &geom.dq_dq0 + &rows.w * &s1_u;
         let c_u = -&dm_u;
-        // ls-wiggle cross block: l = 2κm; differentiating gains 2κ'·m·zeta.
-        let l_u = 2.0 * &rows.kappa * &dm_u + 2.0 * &rows.kappa_prime * &(&rows.m * &zeta);
+        // ls↔wiggle cross block: Fisher 0 (wiggle is mean-side), so its
+        // directional derivative is 0 as well.
+        let l_u = Array1::<f64>::zeros(n);
+        let zeros_ls_b1 = Array1::<f64>::zeros(n);
 
         let h_mm = xt_diag_x_dense(xmu, &coeff_mm_u)?;
         let h_ml = xt_diag_y_dense(xmu, &coeff_ml_u, x_ls)?;
@@ -10393,7 +9368,7 @@ impl GaussianLocationScaleWiggleFamily {
             + &xt_diag_y_dense(xmu, &c_u, &geom.basis_d1)?
             + &xt_diag_y_dense(xmu, &(-&rows.m), &basis1_u)?;
         let h_lw = xt_diag_y_dense(x_ls, &l_u, &geom.basis)?
-            + &xt_diag_y_dense(x_ls, &(2.0 * &rows.kappa * &rows.m), &basis_u)?;
+            + &xt_diag_y_dense(x_ls, &zeros_ls_b1, &basis_u)?;
         let a_ww = xt_diag_y_dense(&basis_u, &rows.w, &geom.basis)?;
         let h_ww = &a_ww + &a_ww.t() + &xt_diag_x_dense(&geom.basis, &dw_u)?;
         Ok(Some(gaussian_pack_wiggle_joint_symmetrichessian(
@@ -10457,13 +9432,15 @@ impl GaussianLocationScaleWiggleFamily {
             + &(2.0 * &rows.w * &geom.dq_dq0 * &s1_u)
             - &(&dm_u * &geom.d2q_dq02)
             - &(&rows.m * &g2_u);
-        let coeff_ml_u = 2.0 * &rows.kappa * &(&dm_u * &geom.dq_dq0 + &rows.m * &s1_u)
-            + 2.0 * &rows.kappa_prime * &(&zeta * &rows.m * &geom.dq_dq0);
+        // H_{μ,ls} ≡ Fisher 0 (mean⊥scale); its directional derivative is 0.
+        let coeff_ml_u = Array1::<f64>::zeros(n);
         // Fisher (ls,ls) 2κ²a directional derivative: 4κκ'a·zeta (#566).
         let coeff_ll_u = 4.0 * &rows.kappa * &rows.kappa_prime * &(&zeta * &rows.obs_weight);
         let a_u = &dw_u * &geom.dq_dq0 + &rows.w * &s1_u;
         let c_u = -&dm_u;
-        let l_u = 2.0 * &rows.kappa * &dm_u + 2.0 * &rows.kappa_prime * &(&rows.m * &zeta);
+        // H_{ls,w} ≡ Fisher 0 (wiggle is mean-side); its derivative is 0 in
+        // both the B channel (l_u) and the B' channel (coeff_ls_b1).
+        let l_u = Array1::<f64>::zeros(n);
 
         // Pair-coefficient bundles. For (0=X_mu, 3=B'): combine
         // `xt_diag_y_dense(xmu, &(w·dq_dq0), &basis_u=diag(xi)·B')`
@@ -10472,8 +9449,8 @@ impl GaussianLocationScaleWiggleFamily {
         let coeff_m_b1 = &(&rows.w * &geom.dq_dq0 * &xi) + &c_u;
         // (0=X_mu, 4=B''): from `xt_diag_y_dense(xmu, &(-m), &basis1_u=diag(xi)·B'')`.
         let coeff_m_b2 = -(&rows.m * &xi);
-        // (1=X_ls, 3=B'): `xt_diag_y_dense(x_ls, &(2κm), &basis_u=diag(xi)·B')`.
-        let coeff_ls_b1 = 2.0 * &rows.kappa * &rows.m * &xi;
+        // (1=X_ls, 3=B'): ls↔wiggle Fisher-0 cross → zero.
+        let coeff_ls_b1 = Array1::<f64>::zeros(n);
         // (2=B, 3=B'): a_ww + a_ww^T where a_ww = (diag(xi)·B')^T diag(w) B
         // = B'^T diag(w·xi) B. The symmetric pair contribution in
         // `RowCoeffOperator` reproduces a_ww + a_ww^T with c = w·xi.
@@ -10508,7 +9485,7 @@ impl GaussianLocationScaleWiggleFamily {
                 (0, 4, coeff_m_b2),
                 // (X_ls, B) ← `xt_diag_y_dense(x_ls, &l_u, &geom.basis)`
                 (1, 2, l_u),
-                // (X_ls, B') ← `xt_diag_y_dense(x_ls, 2κm, basis_u=diag(ξ)·B')`
+                // (X_ls, B') ← ls↔wiggle is mean⊥scale Fisher 0, so coeff_ls_b1 = 0
                 (1, 3, coeff_ls_b1),
                 // (B, B) ← `xt_diag_x_dense(&geom.basis, &dw_u)`
                 (2, 2, dw_u),
@@ -10631,8 +9608,10 @@ impl GaussianLocationScaleWiggleFamily {
         let coeff_m_b1 = &(&a_u * &xi_v) + &(&a_v * &xi_u) + &c_uv;
         let coeff_m_b2 = &(&rows.w * &geom.dq_dq0 * &xi_u_xi_v) + &(&c_u * &xi_v) + &(&c_v * &xi_u);
         let coeff_m_b3 = -(&rows.m * &xi_u_xi_v);
+        // ls↔wiggle is Fisher-0 (mean⊥scale): the B' (coeff_ls_b1) and B''
+        // (coeff_ls_b2) channels of its second directional derivative vanish.
         let coeff_ls_b1 = &(&l_u * &xi_v) + &(&l_v * &xi_u);
-        let coeff_ls_b2 = 2.0 * &rows.kappa * &rows.m * &xi_u_xi_v;
+        let coeff_ls_b2 = Array1::<f64>::zeros(n);
         // Wiggle-wiggle from a_ab + a_ab^T + a_ij + a_ij^T + a_iwj + a_iwj^T + a_jwi + a_jwi^T:
         //   a_ab = B''^T diag(w·ξ_uξ_v) B    → pair (B, B'', w·ξ_uξ_v)
         //   a_ij = B'^T diag(w·ξ_uξ_v) B'   → pair (B', B', 2·w·ξ_uξ_v)  (a_ij + a_ij^T)
@@ -10684,8 +9663,7 @@ impl GaussianLocationScaleWiggleFamily {
                 // basis_v) + xt_diag_y_dense(x_ls, l_v, basis_u)` =
                 // `l_u·ξ_v + l_v·ξ_u`
                 (1, 3, coeff_ls_b1),
-                // (X_ls, B'') ← `xt_diag_y_dense(x_ls, 2κm, basis_uv)` =
-                // 2κm·ξ_uξ_v
+                // (X_ls, B'') ← ls↔wiggle is mean⊥scale Fisher 0, so coeff_ls_b2 = 0
                 (1, 4, coeff_ls_b2),
                 // (B, B) ← `xt_diag_x_dense(&geom.basis, &dw_uv)`
                 (2, 2, dw_uv),
@@ -10829,10 +9807,13 @@ impl GaussianLocationScaleWiggleFamily {
             + &xt_diag_y_dense(xmu, &c_u, &basis1_v)?
             + &xt_diag_y_dense(xmu, &c_v, &basis1_u)?
             + &xt_diag_y_dense(xmu, &(-&rows.m), &basis1_uv)?;
+        // H_{ls,w} ≡ Fisher 0 (mean⊥scale): l_uv/l_u/l_v are 0 (shared helper)
+        // and the 2κm·B'' channel vanishes too.
+        let zeros_ls_b2 = Array1::<f64>::zeros(n);
         let h_lw = xt_diag_y_dense(x_ls, &l_uv, &geom.basis)?
             + &xt_diag_y_dense(x_ls, &l_u, &basis_v)?
             + &xt_diag_y_dense(x_ls, &l_v, &basis_u)?
-            + &xt_diag_y_dense(x_ls, &(2.0 * &rows.kappa * &rows.m), &basis_uv)?;
+            + &xt_diag_y_dense(x_ls, &zeros_ls_b2, &basis_uv)?;
         let a_ab = xt_diag_y_dense(&basis_uv, &rows.w, &geom.basis)?;
         let a_ij = xt_diag_y_dense(&basis_u, &rows.w, &basis_v)?;
         let a_iwj = xt_diag_y_dense(&basis_u, &dw_v, &geom.basis)?;
@@ -10905,25 +9886,40 @@ impl GaussianLocationScaleWiggleFamily {
             &(fast_atv(&basis_a, &s_w) + fast_atv(&geom.basis, &s_w_a)),
         );
 
-        // Static blocks under logb: coeff_ml = 2κmD; coeff_ll = Fisher 2κ²a; l = 2κm.
-        // Cross-block directional pieces add κ' on the e_a leg; the Fisher
-        // (ls,ls) block 2κ²a depends only on η_ls, so coeff_ll_a = 4κκ'a·e_a (#566).
+        // Static blocks under logb. Gaussian mean⊥scale Fisher orthogonality:
+        // μ AND the wiggle both enter the MEAN q = q0 + B(q0)·βw, so log σ is
+        // the only scale-side block. The Fisher (expected) cross between any
+        // mean-side parameter and log σ is exactly 0 because it carries
+        // m = r·weight/σ² and E[m] = E[r]·weight/σ² = 0:
+        //   coeff_ml = E[H_{μ,ls}] = 0  (observed 2κmD)
+        //   l        = E[H_{ls,w}] = 0  (observed 2κm)
+        // A function identically 0 has 0 ψ-derivatives, so coeff_ml_a and l_a
+        // vanish too. This mirrors the non-wiggle psi path
+        // (gaussian_joint_psi_firstweights: hmu_ls = dhmu_ls = 0) and the
+        // wiggle Newton/REML Hessian path (wiggle_hessian_row_pieces:
+        // coeff_ml = coeff_lw_b = 0). The observed SCORE (s_mu/s_ls/s_w above)
+        // stays exact so Fisher scoring still hits the joint MLE; only the
+        // curvature feeding the REML determinant / IFT correction is the
+        // (orthogonal) expectation. coeff_ll is the residual-free Fisher
+        // 2κ²a (#566); its ψ-derivative coeff_ll_a = 4κκ'a·e_a depends only on
+        // η_ls. Same-side blocks (coeff_mm within mean, a/c the μ↔wiggle
+        // within-mean cross, coeff_ww within mean) are untouched.
+        let n = rows.m.len();
         let coeff_mm = &rows.w * &geom.dq_dq0.mapv(|v| v * v) - &rows.m * &geom.d2q_dq02;
         let coeff_mm_a = &(&dw_a * &geom.dq_dq0.mapv(|v| v * v))
             + &(2.0 * &rows.w * &geom.dq_dq0 * &s1_a)
             - &(&dm_a * &geom.d2q_dq02)
             - &(&rows.m * &g2_a);
-        let coeff_ml = 2.0 * &rows.kappa * &rows.m * &geom.dq_dq0;
-        let coeff_ml_a = 2.0 * &rows.kappa * &(&dm_a * &geom.dq_dq0 + &rows.m * &s1_a)
-            + 2.0 * &rows.kappa_prime * &(e_a * &rows.m * &geom.dq_dq0);
+        let coeff_ml = Array1::<f64>::zeros(n);
+        let coeff_ml_a = Array1::<f64>::zeros(n);
         let coeff_ll = 2.0 * &rows.kappa * &rows.kappa * &rows.obs_weight;
         let coeff_ll_a = 4.0 * &rows.kappa * &rows.kappa_prime * &rows.obs_weight * e_a;
         let a = &rows.w * &geom.dq_dq0;
         let a_a = &dw_a * &geom.dq_dq0 + &rows.w * &s1_a;
         let c = -&rows.m;
         let c_a = -&dm_a;
-        let l = 2.0 * &rows.m * &rows.kappa;
-        let l_a = 2.0 * &rows.kappa * &dm_a + 2.0 * &rows.kappa_prime * &(e_a * &rows.m);
+        let l = Array1::<f64>::zeros(n);
+        let l_a = Array1::<f64>::zeros(n);
         let h_mm_a1 = weighted_crossprod_psi_maps(
             xmu_map,
             coeff_mm.view(),
@@ -11161,12 +10157,16 @@ impl GaussianLocationScaleWiggleFamily {
                 + fast_atv(&geom.basis, &s_w_ab)),
         );
 
-        // Static blocks under logb. coeff_mm has no κ; coeff_ml = 2κmD;
-        // coeff_ll = Fisher 2κ²a (#566); l = 2κm. The cross-block directional
-        // derivatives pick up κ', κ'' on every leg that hits η_ls; the Fisher
-        // (ls,ls) block depends only on η_ls so its derivatives carry only κ.
+        // Static blocks under logb. coeff_mm has no κ; coeff_ll = Fisher 2κ²a
+        // (#566). Gaussian mean⊥scale Fisher orthogonality: the wiggle and μ
+        // both enter the mean (q = q0 + B·βw), log σ is the only scale block,
+        // so coeff_ml = E[H_{μ,ls}] = 0 and l = E[H_{ls,w}] = 0 (observed 2κm,
+        // E[m]=0). All of their ψ-directional derivatives (a/b/ab) are 0 since
+        // a function identically 0 has 0 derivatives. The Fisher (ls,ls) block
+        // depends only on η_ls so its derivatives carry only κ.
+        let n = rows.m.len();
         let coeff_mm = &rows.w * &geom.dq_dq0.mapv(|v| v * v) - &rows.m * &geom.d2q_dq02;
-        let coeff_ml = 2.0 * &rows.kappa * &rows.m * &geom.dq_dq0;
+        let coeff_ml = Array1::<f64>::zeros(n);
         let coeff_ll = 2.0 * &rows.kappa * &rows.kappa * &rows.obs_weight;
         // coeff_mm_a/b/ab: structurally κ-free; correctness now follows from
         // dw_a/_b/_ab and dm_a/_b/_ab carrying the κ chain on η_ls (above).
@@ -11187,23 +10187,11 @@ impl GaussianLocationScaleWiggleFamily {
             - &(&dm_a * &g2_b)
             - &(&dm_b * &g2_a)
             - &(&rows.m * &g2_ab);
-        // coeff_ml_a = 2κ(dm_a·D + m·s1_a) + 2κ'·e_a·m·D — same shape as
-        // helper 4 dh_ls_ls but along ψ_a; kappa' on every direct η_ls leg.
-        let coeff_ml_a = 2.0 * &rows.kappa * &(&dm_a * &geom.dq_dq0 + &rows.m * &s1_a)
-            + 2.0 * &rows.kappa_prime * &(e_a * &rows.m * &geom.dq_dq0);
-        let coeff_ml_b = 2.0 * &rows.kappa * &(&dm_b * &geom.dq_dq0 + &rows.m * &s1_b)
-            + 2.0 * &rows.kappa_prime * &(e_b * &rows.m * &geom.dq_dq0);
-        // coeff_ml_ab: ∂²(2κmD)/∂a∂b. Includes the η_ab leg (e_ab) since this
-        // is a ψ-second-order path (η_ab generally nonzero).
-        let coeff_ml_ab = 2.0
-            * &rows.kappa
-            * &(&dm_ab * &geom.dq_dq0 + &dm_a * &s1_b + &dm_b * &s1_a + &rows.m * &s1_ab)
-            + 2.0
-                * &rows.kappa_prime
-                * &(e_a * &(&dm_b * &geom.dq_dq0 + &rows.m * &s1_b)
-                    + e_b * &(&dm_a * &geom.dq_dq0 + &rows.m * &s1_a))
-            + 2.0 * &rows.kappa_dprime * &(e_a * e_b) * &rows.m * &geom.dq_dq0
-            + 2.0 * &rows.kappa_prime * e_ab * &(&rows.m * &geom.dq_dq0);
+        // coeff_ml (μ↔logσ) is Fisher 0; its 1st/2nd ψ-directional derivatives
+        // are 0 as well.
+        let coeff_ml_a = Array1::<f64>::zeros(n);
+        let coeff_ml_b = Array1::<f64>::zeros(n);
+        let coeff_ml_ab = Array1::<f64>::zeros(n);
         // Fisher (ls,ls) coeff_ll = 2κ²a (a constant prior weight) depends only
         // on η_ls (#566): ∂(2κ²a)/∂η = 4κκ'a, so the ψ-first derivatives are
         // 4κκ'a·e_a / e_b. The η_ab leg carries one κ on top.
@@ -11224,15 +10212,12 @@ impl GaussianLocationScaleWiggleFamily {
         let c_a = -&dm_a;
         let c_b = -&dm_b;
         let c_ab = -&dm_ab;
-        // l = 2κm; l_a/_b add κ' on the e direction; l_ab adds κ'', plus
-        // a κ' on the η_ab leg.
-        let l = 2.0 * &rows.kappa * &rows.m;
-        let l_a = 2.0 * &rows.kappa * &dm_a + 2.0 * &rows.kappa_prime * &(e_a * &rows.m);
-        let l_b = 2.0 * &rows.kappa * &dm_b + 2.0 * &rows.kappa_prime * &(e_b * &rows.m);
-        let l_ab = 2.0 * &rows.kappa * &dm_ab
-            + 2.0 * &rows.kappa_prime * &(e_a * &dm_b + e_b * &dm_a)
-            + 2.0 * &rows.kappa_dprime * &(e_a * e_b) * &rows.m
-            + 2.0 * &rows.kappa_prime * e_ab * &rows.m;
+        // l (logσ↔wiggle) is Fisher 0 (wiggle is mean-side; mean⊥scale), so all
+        // of its 1st/2nd ψ-directional derivatives vanish.
+        let l = Array1::<f64>::zeros(n);
+        let l_a = Array1::<f64>::zeros(n);
+        let l_b = Array1::<f64>::zeros(n);
+        let l_ab = Array1::<f64>::zeros(n);
 
         let hmm_ab = weighted_crossprod_psi_maps(
             xmu_ab_map,
@@ -11523,9 +10508,10 @@ impl GaussianLocationScaleWiggleFamily {
             + &(2.0 * &rows.w * &geom.dq_dq0 * &s1_u)
             - &(&dm_u * &geom.d2q_dq02)
             - &(&rows.m * &g2_u);
-        // coeff_ml_u = ∂(2κmD)/∂u = 2κ(dm_u·D + m·s1_u) + 2κ'·ζ·m·D.
-        let coeff_ml_u = 2.0 * &rows.kappa * &(&dm_u * &geom.dq_dq0 + &rows.m * &s1_u)
-            + 2.0 * &rows.kappa_prime * &(&zeta * &rows.m * &geom.dq_dq0);
+        // coeff_ml (μ↔logσ) is mean⊥scale Fisher 0 (E[m]=0), so both its
+        // β-drift derivative coeff_ml_u and the mixed coeff_ml_a_u are 0.
+        let n = rows.m.len();
+        let coeff_ml_u = Array1::<f64>::zeros(n);
         // Fisher (ls,ls) coeff_ll = 2κ²a (#566); ∂(2κ²a)/∂η = 4κκ'a, so the
         // β-drift derivative along ζ is 4κκ'a·ζ.
         let coeff_ll_u = 4.0 * &rows.kappa * &rows.kappa_prime * &rows.obs_weight * &zeta;
@@ -11538,17 +10524,8 @@ impl GaussianLocationScaleWiggleFamily {
             - &(&dm_a * &g2_u)
             - &(&dm_u * &g2_a)
             - &(&rows.m * &g2_a_u);
-        // coeff_ml_a_u = ∂²(2κmD)/∂a∂u — full mixed second derivative,
-        // including the η_au = zls_a_u leg picking up 2κ'·η_au·m·D.
-        let coeff_ml_a_u = 2.0
-            * &rows.kappa
-            * &(&dm_a_u * &geom.dq_dq0 + &dm_a * &s1_u + &dm_u * &s1_a + &rows.m * &s1_a_u)
-            + 2.0
-                * &rows.kappa_prime
-                * &(e_a * &(&dm_u * &geom.dq_dq0 + &rows.m * &s1_u)
-                    + &zeta * &(&dm_a * &geom.dq_dq0 + &rows.m * &s1_a))
-            + 2.0 * &rows.kappa_dprime * &(e_a * &zeta) * &rows.m * &geom.dq_dq0
-            + 2.0 * &rows.kappa_prime * &zls_a_u * &(&rows.m * &geom.dq_dq0);
+        // coeff_ml_a_u = ∂²(coeff_ml)/∂a∂u = 0 (coeff_ml ≡ Fisher 0).
+        let coeff_ml_a_u = Array1::<f64>::zeros(n);
         // coeff_ll_a_u = ∂²(2κ²a)/∂a∂u for the Fisher (ls,ls) block (#566):
         // 4a(κ'²+κκ'')·e_a·ζ + 4κκ'a·η_au (the η_au=zls_a_u mixed leg), mirroring
         // the dense mixed-drift helper.
@@ -11566,14 +10543,12 @@ impl GaussianLocationScaleWiggleFamily {
         let c_u = -&dm_u;
         let c_a = -&dm_a;
         let c_a_u = -&dm_a_u;
-        // l = 2κm; pick up κ'/κ'' on each direction; η_au leg adds κ'.
-        let l = 2.0 * &rows.kappa * &rows.m;
-        let l_u = 2.0 * &rows.kappa * &dm_u + 2.0 * &rows.kappa_prime * &(&zeta * &rows.m);
-        let l_a = 2.0 * &rows.kappa * &dm_a + 2.0 * &rows.kappa_prime * &(e_a * &rows.m);
-        let l_a_u = 2.0 * &rows.kappa * &dm_a_u
-            + 2.0 * &rows.kappa_prime * &(e_a * &dm_u + &zeta * &dm_a)
-            + 2.0 * &rows.kappa_dprime * &(e_a * &zeta) * &rows.m
-            + 2.0 * &rows.kappa_prime * &zls_a_u * &rows.m;
+        // l (logσ↔wiggle) is mean⊥scale Fisher 0 (wiggle is mean-side), so its
+        // β-drift (l_u), ψ (l_a), and mixed (l_a_u) derivatives all vanish.
+        let l = Array1::<f64>::zeros(n);
+        let l_u = Array1::<f64>::zeros(n);
+        let l_a = Array1::<f64>::zeros(n);
+        let l_a_u = Array1::<f64>::zeros(n);
 
         let hmm_a1 = weighted_crossprod_psi_maps(
             xmu_map,
@@ -13261,6 +12236,47 @@ impl BinomialMeanWiggleFamily {
 impl CustomFamily for BinomialMeanWiggleFamily {
     fn exact_newton_joint_hessian_beta_dependent(&self) -> bool {
         true
+    }
+
+    /// The binomial mean link-wiggle refit must NOT carry the full-span
+    /// Jeffreys/Firth augmentation, for the same structural reason
+    /// `GaussianLocationScaleWiggleFamily` opts out (#684–#688) — and the
+    /// binomial wiggle hits it harder. This is a *second-stage* refit: the
+    /// pilot binomial mean fit has already converged through the ordinary
+    /// PIRLS path (which is itself un-Firthed unless the user opts in — the
+    /// standard binomial fit logs `firth=false` / `jeffreys_logdet=none`), so
+    /// the wiggle refit only adds a *penalized*, *monotone-constrained*
+    /// I-spline link-shape correction `q = η + B(η)·β_w` around an
+    /// already-finite mode. Two failure modes follow from leaving the term on
+    /// (default `true`):
+    ///
+    /// 1. **Phantom stationarity residual.** When `H_pen` is full-rank and
+    ///    well-conditioned (the normal case — e.g. `cond ≈ 5.5e2` on the #872
+    ///    pure-probit repro) the Jeffreys gate smooth-steps the curvature
+    ///    `H_Φ → 0`, but the matching score `∇Φ` does not vanish in lock-step,
+    ///    so it leaks a nonzero `|∇L − Sβ + ∇Φ|` into the inner joint-Newton
+    ///    KKT residual. The certificate then refuses every iterate and the
+    ///    outer REML rejects all seeds (exactly the #684–#688 abort signature).
+    /// 2. **Saturation barrier / divergence.** `−Φ = −½log|I_J|` is folded into
+    ///    the objective and `∇Φ ∝ I_J⁻¹` into the gradient. The I-spline warp
+    ///    can drive the binomial linear predictor toward saturation, where the
+    ///    reduced Fisher information `I_J` goes singular: `−Φ → +∞` and
+    ///    `∇Φ → ∞`. The augmented objective grows a barrier that the joint
+    ///    Newton diverges into — the #872 repro runs the full 1200-cycle budget
+    ///    with the augmented objective pinned at ~4.6e9 and the augmented
+    ///    residual at ~5.8e9 while the plain data gradient is only ~2.3e2,
+    ///    aborting the documented `link(type=flexible(...)) + linkwiggle(...)`
+    ///    fit.
+    ///
+    /// Separation robustness is not lost: the wiggle block carries both a
+    /// difference penalty (λ selected by REML) and a hard non-negativity
+    /// constraint, and the underlying mean is fit by the pilot; a penalized,
+    /// constrained refit around a finite pilot mode does not run away to
+    /// `β → ∞` the way an unpenalized MLE can. Turning the term off here makes
+    /// the wiggle refit consistent with the un-Firthed pilot and removes the
+    /// phantom residual that blocked convergence.
+    fn joint_jeffreys_term_required(&self) -> bool {
+        false
     }
 
     fn coefficient_hessian_cost(&self, specs: &[ParameterBlockSpec]) -> u64 {
@@ -22486,7 +21502,24 @@ impl CustomFamilyGenerative for BinomialLocationScaleWiggleFamily {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::basis::{CenterStrategy, MaternBasisSpec, MaternIdentifiability, MaternNu};
+    // Helpers exercised only by these tests; imported here (not at module scope)
+    // so they are not flagged unused in a non-test `--lib` build.
+    use super::binomial_q_derivs::{
+        binomial_neglog_q_derivatives_cloglog_closed_form,
+        binomial_neglog_q_derivatives_logit_closed_form,
+        binomial_neglog_q_derivatives_probit_closed_form,
+        binomial_neglog_q_fourth_derivative_cloglog_closed_form,
+        binomial_neglog_q_fourth_derivative_logit_closed_form,
+        binomial_neglog_q_fourth_derivative_probit_closed_form,
+    };
+    use crate::basis::{
+        CenterStrategy, Dense, KnotSource, MaternBasisSpec, MaternIdentifiability, MaternNu,
+        create_basis,
+    };
+    use crate::families::wiggle::{
+        initializewiggle_knots_from_seed, monotone_wiggle_internal_degree,
+        split_wiggle_penalty_orders,
+    };
     use crate::smooth::{ShapeConstraint, SmoothBasisSpec, SmoothTermSpec};
     use crate::test_support::{binomial_location_scale_base_fixture, no_densify_design};
     use ndarray::{Array2, Axis, array};
@@ -25603,6 +24636,7 @@ mod tests {
                         double_penalty: false,
                         identifiability: MaternIdentifiability::CenterSumToZero,
                         aniso_log_scales: None,
+                        nullspace_shrinkage_survived: None,
                     },
                     input_scales: None,
                 },
@@ -27160,11 +26194,41 @@ mod tests {
             psi_terms.hessian_psi[[0, 0]],
             h_mu_mu_psi
         );
+        // The (μ, log-σ) cross block of the analytic coefficient Hessian uses
+        // Fisher information `E[H_{μ,ls}] = 2κ·E[m] = 0` (`hmu_ls[i] = 0` in
+        // `gaussian_joint_psi_firstweights`; #684), so its ψ-derivative is
+        // identically 0. The AD reference is the observed `∂³N/∂β_μ∂β_ls∂ψ`,
+        // which carries the observed contribution `Σ_i X_μ_i · (2 m_i κ_i)·
+        // X_ls,i(ψ)`. Subtracting that observed ψ-drift puts the AD reference
+        // back on the same Fisher footing as the analytic block. Per-row,
+        // `∂(2mκ)/∂η_ls = -2 m·P` with `P = 2κ² − κ'` (from `dm/dη_ls = -2κm`
+        // and `dκ/dη_ls = κ'`), and `dX_ls/dψ = x_ls_psi`, so the chain rule
+        // gives `∂(observed cross)/∂ψ = Σ_i X_μ_i·[-2 m P·z_ls_psi·X_ls,i
+        // + 2 m κ·x_ls_psi,i]` with `z_ls_psi = X_ls_psi·β_ls`.
+        let rows_gap =
+            gaussian_jointrow_scalars(&y, &(&x_mu0 * beta_mu0), &(&x_ls0 * beta_ls0), &weights)
+                .expect("gaussian row scalars for psi corrections");
+        let mu_ls_psi_correction: f64 = (0..y.len())
+            .map(|i| {
+                let m = rows_gap.m[i];
+                let k = rows_gap.kappa[i];
+                let kp = rows_gap.kappa_prime[i];
+                let p = 2.0 * k * k - kp;
+                let xm = x_mu0[i];
+                let xl = x_ls0[i];
+                let xp = x_ls_psi[i];
+                let z_ls_psi = xp * beta_ls0;
+                // Fisher − observed = 0 − ∂(2mκ·X_ls)/∂ψ at ψ=0
+                xm * (2.0 * m * p * z_ls_psi * xl - 2.0 * m * k * xp)
+            })
+            .sum();
         assert!(
-            (psi_terms.hessian_psi[[0, 1]] - h_mu_ls_psi).abs() <= 1e-9,
-            "Gaussian log-sigma psi hessian(mu,ls) mismatch: analytic={} autodiff={}",
+            (psi_terms.hessian_psi[[0, 1]] - (h_mu_ls_psi + mu_ls_psi_correction)).abs() <= 1e-9,
+            "Gaussian log-sigma psi hessian(mu,ls) mismatch: analytic={} reference={} (ad={} + Fisher correction={})",
             psi_terms.hessian_psi[[0, 1]],
-            h_mu_ls_psi
+            h_mu_ls_psi + mu_ls_psi_correction,
+            h_mu_ls_psi,
+            mu_ls_psi_correction
         );
         // The (ls,ls) coefficient-Hessian block uses the Fisher curvature
         // `2κ²a` (#566), so its ψ-derivative `hessian_psi[[1,1]]` is the Fisher
@@ -27177,9 +26241,6 @@ mod tests {
         // gives the per-row correction below. The η-drift is the code's own
         // `z_ls_psi = X_ls_psi·β_ls` (the η_ls induced by the design ψ-drift)
         // and the design drift is `dX_ls/dψ = x_ls_psi`. η_μ is ψ-independent.
-        let rows_gap =
-            gaussian_jointrow_scalars(&y, &(&x_mu0 * beta_mu0), &(&x_ls0 * beta_ls0), &weights)
-                .expect("gaussian row scalars for ls,ls psi correction");
         let ls_ls_psi_correction: f64 = (0..y.len())
             .map(|i| {
                 let a = rows_gap.obs_weight[i];
@@ -27522,21 +26583,22 @@ mod tests {
             }
         }
 
-        // The (log-σ, log-σ) block is the Fisher/expected information `2κ²a`, by
-        // deliberate design (#566): the score stays the exact observed gradient
-        // so the joint Newton lands on the true MLE, but the curvature that
-        // feeds the REML log-determinant / EDF is the expectation, exactly as
-        // gamlss/mgcv `gaulss` Fisher-scores the scale channel. The observed
-        // second derivative is `∂²ℓ/∂η_ls² = 2κ²n + κ'(a−n)` (what the AD
-        // reference computes), so on the (ls,ls) entries the analytic Fisher
-        // block differs from AD by the per-row amount `fisher − observed =
-        // 2κ²a − (2κ²n + κ'(a−n))`. We add that exact, separately derived
-        // correction to the AD observed Hessian so the comparison both
-        // (a) validates the AD machinery against the analytic mean/cross blocks
-        // and (b) pins the analytic (ls,ls) block to the Fisher closed form via
-        // a non-circular `observed + (Fisher − observed)` reference.
+        // Both the (log-σ, log-σ) and (μ, log-σ) blocks ship the Fisher/expected
+        // information by deliberate design (#566 / #684): the score stays the
+        // exact observed gradient so the joint Newton lands on the true MLE, but
+        // the curvature feeding the REML log-determinant / EDF is the
+        // expectation, exactly as gamlss/mgcv `gaulss` Fisher-scores the scale
+        // channel and as `gaussian_joint_psi_firstweights` already pins
+        // (`hmu_ls = 0`, `h_ls_ls = 2κ²a`). The AD reference computes the
+        // observed Hessian, so on each Fisher-replaced block the analytic value
+        // differs from AD by the per-row amount `fisher − observed`. We add
+        // those exact, separately derived corrections to the AD observed
+        // Hessian so the comparison both
+        //   (a) validates the AD machinery against the analytic mean blocks,
+        //   (b) pins each analytic Fisher block to its closed form via a
+        //       non-circular `observed + (Fisher − observed)` reference.
         let mut reference = ad.clone();
-        let fisher_minus_observed: Array1<f64> = Array1::from_shape_fn(y.len(), |i| {
+        let fisher_minus_observed_ls_ls: Array1<f64> = Array1::from_shape_fn(y.len(), |i| {
             let a = rows.obs_weight[i];
             let n = rows.n[i];
             let k = rows.kappa[i];
@@ -27547,10 +26609,27 @@ mod tests {
         });
         let ls_correction = x_ls
             .t()
-            .dot(&Array2::from_diag(&fisher_minus_observed).dot(&x_ls));
+            .dot(&Array2::from_diag(&fisher_minus_observed_ls_ls).dot(&x_ls));
         for a in 0..p_ls {
             for b in 0..p_ls {
                 reference[[pmu + a, pmu + b]] += ls_correction[[a, b]];
+            }
+        }
+        // (μ, log-σ) cross block: observed ∂²ℓ/∂η_μ∂η_ls = 2 m κ (zero in
+        // expectation since E[m] = 0 under correct model), Fisher = 0.
+        // Correction = fisher − observed = −2 m κ.
+        let fisher_minus_observed_mu_ls: Array1<f64> = Array1::from_shape_fn(y.len(), |i| {
+            let m = rows.m[i];
+            let k = rows.kappa[i];
+            -2.0 * m * k
+        });
+        let mu_ls_correction = xmu
+            .t()
+            .dot(&Array2::from_diag(&fisher_minus_observed_mu_ls).dot(&x_ls));
+        for a in 0..pmu {
+            for b in 0..p_ls {
+                reference[[a, pmu + b]] += mu_ls_correction[[a, b]];
+                reference[[pmu + b, a]] += mu_ls_correction[[a, b]];
             }
         }
 
@@ -28937,7 +28016,7 @@ mod tests {
     fn degeneratewiggle_seed_uses_broad_fallback_domain() {
         let q_seed = Array1::zeros(9);
         let degree = 3usize;
-        let knots = initialize_monotone_wiggle_knots_from_seed(q_seed.view(), degree, 5)
+        let knots = initializewiggle_knots_from_seed(q_seed.view(), degree, 5)
             .expect("initialize degenerate wiggle knots");
         let bs_degree = monotone_wiggle_internal_degree(degree).expect("cubic wiggle degree") + 1;
         let domain_min = knots[bs_degree];
@@ -29300,8 +28379,8 @@ mod tests {
         let beta_eta = array![-0.15, 0.7];
         let eta = x_eta.dot(&beta_eta);
         let degree = 3usize;
-        let knots = initialize_monotone_wiggle_knots_from_seed(eta.view(), degree, 4)
-            .expect("mean-wiggle knots");
+        let knots =
+            initializewiggle_knots_from_seed(eta.view(), degree, 4).expect("mean-wiggle knots");
         let family = BinomialMeanWiggleFamily {
             y: array![0.0, 1.0, 0.0, 1.0, 1.0, 0.0],
             weights: array![1.0, 0.8, 1.2, 1.0, 0.7, 1.1],
@@ -29439,7 +28518,7 @@ mod tests {
             y: Array1::zeros(n),
             weights: Array1::ones(n),
             link_kind: InverseLink::Standard(StandardLink::Logit),
-            wiggle_knots: initialize_monotone_wiggle_knots_from_seed(
+            wiggle_knots: initializewiggle_knots_from_seed(
                 Array1::linspace(-1.0, 1.0, 9).view(),
                 3,
                 4,
@@ -29485,5 +28564,265 @@ mod tests {
             family.exact_outer_derivative_order(&specs, &BlockwiseFitOptions::default()),
             crate::custom_family::ExactOuterDerivativeOrder::Second
         );
+    }
+
+    /// Regression guard for #684 on the ψ / influence-Jacobian (IFT) joint
+    /// Hessian. The Newton/REML dense↔workspace path is pinned by
+    /// `gaussian_location_scale_workspace_matvec_matches_dense`, but nothing
+    /// pinned the *separate* representation used by the three
+    /// `exact_newton_joint_psi*` builders — which is exactly where the observed
+    /// `2κm` Fisher-cross drift slipped in uncaught. The Gaussian mean⊥scale
+    /// Fisher cross E[H_{μ,ls}] = 2κ·E[m] = 0 (m = r·weight/σ², E[r] = 0) must
+    /// be exactly 0 on the ψ joint Hessian and on ALL of its ψ-directional
+    /// derivatives (1st, 2nd, and mixed β·ψ), because a function identically 0
+    /// has identically-0 derivatives. The fixtures carry NONZERO residuals
+    /// (y ≠ η_μ), so the old buggy `2κm` cross is genuinely nonzero — this test
+    /// FAILS against the pre-fix code.
+    #[test]
+    fn gaussian_location_scale_psi_joint_hessian_pins_fisher_cross_zero() {
+        use crate::solver::estimate::reml::unified::HyperOperator;
+
+        // Materialize an `ExactNewtonJointPsiTerms` joint Hessian regardless of
+        // whether the family returns it dense or operator-backed.
+        fn materialize(
+            dense: &Array2<f64>,
+            operator: Option<&dyn HyperOperator>,
+            total: usize,
+        ) -> Array2<f64> {
+            match operator {
+                Some(op) => op.to_dense(),
+                None => {
+                    assert_eq!(dense.dim(), (total, total));
+                    dense.clone()
+                }
+            }
+        }
+
+        // Max |entry| over the rectangular block H[r0..r1, c0..c1].
+        fn block_max_abs(h: &Array2<f64>, r0: usize, r1: usize, c0: usize, c1: usize) -> f64 {
+            let mut m = 0.0_f64;
+            for r in r0..r1 {
+                for c in c0..c1 {
+                    m = m.max(h[[r, c]].abs());
+                }
+            }
+            m
+        }
+
+        const CROSS_TOL: f64 = 1e-12;
+
+        // ---- Non-wiggle GaussianLocationScaleFamily ----------------------
+        {
+            let (family, states, specs) = gls_workspace_fixture();
+            let p_mu = states[GaussianLocationScaleFamily::BLOCK_MU].beta.len();
+            let p_ls = states[GaussianLocationScaleFamily::BLOCK_LOG_SIGMA]
+                .beta
+                .len();
+            let total = p_mu + p_ls;
+
+            // Nonzero ψ design-Jacobian on the MEAN (μ) block so psi_index 0
+            // resolves a nonzero z_primary_psi: the observed `2κmD` cross would
+            // then leak into H_{μ,ls} on the old code. A second-order payload
+            // (x_psi_psi) feeds the 2nd-order builder too.
+            let x_mu_psi = Array2::from_shape_fn((family.y.len(), p_mu), |(i, j)| {
+                0.2 + 0.11 * ((i as f64) * 0.37 + (j as f64) * 0.53).sin()
+            });
+            let x_mu_psi_psi = Array2::from_shape_fn((family.y.len(), p_mu), |(i, j)| {
+                0.07 * ((i as f64) * 0.19 + (j as f64) * 0.23).cos()
+            });
+            let derivative_blocks = vec![
+                vec![CustomFamilyBlockPsiDerivative {
+                    penalty_index: None,
+                    x_psi: x_mu_psi,
+                    s_psi: Array2::zeros((p_mu, p_mu)),
+                    s_psi_components: None,
+                    s_psi_penalty_components: None,
+                    x_psi_psi: Some(vec![x_mu_psi_psi]),
+                    s_psi_psi: Some(vec![Array2::zeros((p_mu, p_mu))]),
+                    s_psi_psi_components: None,
+                    s_psi_psi_penalty_components: None,
+                    implicit_operator: None,
+                    implicit_axis: 0,
+                    implicit_group_id: None,
+                }],
+                Vec::new(),
+            ];
+
+            // The dense Fisher joint Hessian itself must have a zero μ↔logσ
+            // cross (cross=0 Fisher; #684) — sanity that the dense path agrees
+            // with the ψ-path's zero, since the ψ-Hessian is the ψ-derivative
+            // of exactly this curvature object.
+            let dense_h = family
+                .exact_newton_joint_hessian(&states)
+                .expect("dense joint Hessian build")
+                .expect("dense joint Hessian present");
+            assert!(
+                block_max_abs(&dense_h, 0, p_mu, p_mu, total) <= CROSS_TOL,
+                "#684: dense Fisher joint Hessian μ↔logσ cross block must be 0, got max |.|={:.3e}",
+                block_max_abs(&dense_h, 0, p_mu, p_mu, total)
+            );
+
+            // 1st-order ψ joint Hessian.
+            let psi = family
+                .exact_newton_joint_psi_terms(&states, &specs, &derivative_blocks, 0)
+                .expect("psi terms call")
+                .expect("gaussian psi terms present");
+            let h_psi = materialize(&psi.hessian_psi, psi.hessian_psi_operator.as_deref(), total);
+            let cross = block_max_abs(&h_psi, 0, p_mu, p_mu, total);
+            assert!(
+                cross <= CROSS_TOL,
+                "#684: ψ joint Hessian μ↔logσ cross block must be Fisher-0 (observed 2κm \
+                 drift), got max |.|={cross:.3e}"
+            );
+
+            // 2nd-order ψ joint Hessian.
+            let psi2 = family
+                .exact_newton_joint_psisecond_order_terms(&states, &specs, &derivative_blocks, 0, 0)
+                .expect("psi 2nd-order call")
+                .expect("gaussian psi 2nd-order present");
+            let h_psi2 = materialize(
+                &psi2.hessian_psi_psi,
+                psi2.hessian_psi_psi_operator.as_deref(),
+                total,
+            );
+            let cross2 = block_max_abs(&h_psi2, 0, p_mu, p_mu, total);
+            assert!(
+                cross2 <= CROSS_TOL,
+                "#684: 2nd-order ψ joint Hessian μ↔logσ cross block must be Fisher-0, \
+                 got max |.|={cross2:.3e}"
+            );
+
+            // Mixed β·ψ directional derivative of the ψ joint Hessian.
+            let d_beta = Array1::from_shape_fn(total, |i| 0.05 + 0.13 * ((i + 1) as f64).sin());
+            let mixed = family
+                .exact_newton_joint_psihessian_directional_derivative(
+                    &states,
+                    &specs,
+                    &derivative_blocks,
+                    0,
+                    &d_beta,
+                )
+                .expect("psi mixed-drift call")
+                .expect("gaussian psi mixed-drift present");
+            assert_eq!(mixed.dim(), (total, total));
+            let crossm = block_max_abs(&mixed, 0, p_mu, p_mu, total);
+            assert!(
+                crossm <= CROSS_TOL,
+                "#684: mixed β·ψ ψ-Hessian μ↔logσ cross block must be Fisher-0, \
+                 got max |.|={crossm:.3e}"
+            );
+        }
+
+        // ---- Wiggle GaussianLocationScaleWiggleFamily --------------------
+        {
+            let (family, states, specs, ..) = gls_wiggle_workspace_fixture();
+            let p_mu = states[GaussianLocationScaleWiggleFamily::BLOCK_MU]
+                .beta
+                .len();
+            let p_ls = states[GaussianLocationScaleWiggleFamily::BLOCK_LOG_SIGMA]
+                .beta
+                .len();
+            let p_w = states[GaussianLocationScaleWiggleFamily::BLOCK_WIGGLE]
+                .beta
+                .len();
+            let total = p_mu + p_ls + p_w;
+            // Block column offsets in the flattened joint coefficient space.
+            let mu0 = 0usize;
+            let ls0 = p_mu;
+            let ls1 = p_mu + p_ls;
+            let w0 = p_mu + p_ls;
+            let w1 = total;
+
+            // ψ design-Jacobian on the MEAN (μ) block (psi_index 0). The wiggle
+            // block does not carry an independent ψ axis here; a nonzero mean ψ
+            // is enough to exercise BOTH mean⊥scale crosses (coeff_ml = 2κmD and
+            // l = 2κm) and their derivatives on the old code.
+            let x_mu_psi = Array2::from_shape_fn((family.y.len(), p_mu), |(i, j)| {
+                0.18 + 0.09 * ((i as f64) * 0.41 + (j as f64) * 0.29).sin()
+            });
+            let x_mu_psi_psi = Array2::from_shape_fn((family.y.len(), p_mu), |(i, j)| {
+                0.06 * ((i as f64) * 0.17 + (j as f64) * 0.31).cos()
+            });
+            let derivative_blocks = vec![
+                vec![CustomFamilyBlockPsiDerivative {
+                    penalty_index: None,
+                    x_psi: x_mu_psi,
+                    s_psi: Array2::zeros((p_mu, p_mu)),
+                    s_psi_components: None,
+                    s_psi_penalty_components: None,
+                    x_psi_psi: Some(vec![x_mu_psi_psi]),
+                    s_psi_psi: Some(vec![Array2::zeros((p_mu, p_mu))]),
+                    s_psi_psi_components: None,
+                    s_psi_psi_penalty_components: None,
+                    implicit_operator: None,
+                    implicit_axis: 0,
+                    implicit_group_id: None,
+                }],
+                Vec::new(),
+                Vec::new(),
+            ];
+
+            // Assert BOTH mean⊥scale cross blocks are Fisher-0 on the ψ joint
+            // Hessian: μ↔logσ AND wiggle↔logσ. Leave the within-mean (μ↔wiggle)
+            // and within-scale (logσ↔logσ) blocks unasserted (genuinely
+            // nonzero).
+            let assert_wiggle_crosses_zero = |h: &Array2<f64>, label: &str| {
+                let c_ml = block_max_abs(h, mu0, ls0, ls0, ls1);
+                let c_wl = block_max_abs(h, w0, w1, ls0, ls1);
+                assert!(
+                    c_ml <= CROSS_TOL,
+                    "#684 (wiggle {label}): μ↔logσ cross block must be Fisher-0 \
+                     (observed 2κmD drift), got max |.|={c_ml:.3e}"
+                );
+                assert!(
+                    c_wl <= CROSS_TOL,
+                    "#684 (wiggle {label}): wiggle↔logσ cross block must be Fisher-0 \
+                     (observed 2κm drift; the wiggle is mean-side), got max |.|={c_wl:.3e}"
+                );
+            };
+
+            // Dense Fisher joint Hessian sanity: both mean⊥scale crosses zero.
+            let dense_h = family
+                .exact_newton_joint_hessian(&states)
+                .expect("wiggle dense joint Hessian build")
+                .expect("wiggle dense joint Hessian present");
+            assert_eq!(dense_h.dim(), (total, total));
+            assert_wiggle_crosses_zero(&dense_h, "dense Fisher");
+
+            // 1st-order ψ.
+            let psi = family
+                .exact_newton_joint_psi_terms(&states, &specs, &derivative_blocks, 0)
+                .expect("wiggle psi terms call")
+                .expect("wiggle psi terms present");
+            let h_psi = materialize(&psi.hessian_psi, psi.hessian_psi_operator.as_deref(), total);
+            assert_wiggle_crosses_zero(&h_psi, "1st-order ψ");
+
+            // 2nd-order ψ.
+            let psi2 = family
+                .exact_newton_joint_psisecond_order_terms(&states, &specs, &derivative_blocks, 0, 0)
+                .expect("wiggle psi 2nd-order call")
+                .expect("wiggle psi 2nd-order present");
+            let h_psi2 = materialize(
+                &psi2.hessian_psi_psi,
+                psi2.hessian_psi_psi_operator.as_deref(),
+                total,
+            );
+            assert_wiggle_crosses_zero(&h_psi2, "2nd-order ψ");
+
+            // Mixed β·ψ.
+            let d_beta = Array1::from_shape_fn(total, |i| 0.04 + 0.1 * ((i + 1) as f64).cos());
+            let mixed = family
+                .exact_newton_joint_psihessian_directional_derivative(
+                    &states,
+                    &specs,
+                    &derivative_blocks,
+                    0,
+                    &d_beta,
+                )
+                .expect("wiggle psi mixed-drift call")
+                .expect("wiggle psi mixed-drift present");
+            assert_eq!(mixed.dim(), (total, total));
+            assert_wiggle_crosses_zero(&mixed, "mixed β·ψ");
+        }
     }
 }

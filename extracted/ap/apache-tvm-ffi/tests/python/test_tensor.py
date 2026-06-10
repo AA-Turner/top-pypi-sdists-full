@@ -39,12 +39,44 @@ def test_tensor_attributes() -> None:
     x = tvm_ffi.from_dlpack(data)
     assert isinstance(x, tvm_ffi.Tensor)
     assert x.shape == (10, 8, 4, 2)
+    assert x.ndim == 4
+    assert x.numel() == 640
+    assert x.size(0) == 10
+    assert x.size(-1) == 2
+    assert x.is_contiguous()
     assert x.strides == (64, 8, 2, 1)
     assert x.dtype == tvm_ffi.dtype("int16")
     assert x.device.dlpack_device_type() == tvm_ffi.DLDeviceType.kDLCPU
     assert x.device.index == 0
     x2 = np.from_dlpack(x)
     np.testing.assert_equal(x2, data)
+
+
+def test_empty_tensor_is_contiguous() -> None:
+    # Empty tensors are trivially contiguous regardless of what
+    # strides the producer reports (numpy 2.3+ via __dlpack__ now
+    # reports (0, 0, 0) for shape (4, 0, 4)). See PR #607 review
+    # comment for context.
+    data: npt.NDArray[Any] = np.zeros((4, 0, 4), dtype="int16")
+    if not hasattr(data, "__dlpack__"):
+        return
+    x = tvm_ffi.from_dlpack(data)
+    assert x.is_contiguous()
+
+
+def test_non_contiguous_tensor_attributes() -> None:
+    data: npt.NDArray[Any] = np.zeros((4, 4, 4), dtype="int16")
+    slice = data[1:3, :, 1:3]
+    if not hasattr(slice, "__dlpack__"):
+        return
+    x = tvm_ffi.from_dlpack(slice)
+    assert isinstance(x, tvm_ffi.Tensor)
+    assert x.shape == (2, 4, 2)
+    assert x.numel() == 16
+    assert x.size(0) == 2
+    assert x.size(-1) == 2
+    assert not x.is_contiguous()
+    assert x.strides == (16, 4, 1)
 
 
 def test_shape_object() -> None:

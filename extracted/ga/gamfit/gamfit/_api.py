@@ -1672,7 +1672,7 @@ def duchon_basis(
     m: int = 2,
     periodic_per_axis: Any = None,
     length_scale: float | None = None,
-    nullspace_order: str = "linear",
+    nullspace_order: str | None = None,
     power: float | None = None,
 ) -> Any:
     """Evaluate the Duchon m-spline basis at ``points`` against ``centers``.
@@ -1700,9 +1700,9 @@ def duchon_basis(
         hybrid kernel keeps the polynomial nullspace order **linear in d**
         (a single dim+1 column block), letting the same basis scale cleanly
         to d=8, 16, 32, 64 without ratcheting the nullspace.
-    nullspace_order : string. ``"zero"`` (constant nullspace),
+    nullspace_order : optional string. ``"zero"`` (constant nullspace),
         ``"linear"`` (constant + linear), or ``"degree<k>"`` for k ≥ 2.
-        Defaults to ``"linear"``.
+        ``None`` (default) uses the binding's Duchon order resolver.
     power : optional float. Riesz spectral power ``s``. ``None`` (default)
         auto-resolves the minimum admissible ``s`` for the requested
         ``nullspace_order`` and dimension (matches the formula API).
@@ -1759,8 +1759,6 @@ def duchon_basis(
         raise ValueError("length_scale must be finite and > 0")
     if power is not None and not math.isfinite(float(power)):
         raise ValueError("power must be finite")
-    if nullspace_order is None:
-        raise TypeError("nullspace_order must be a string")
     try:
         return np.asarray(
             rust_module().duchon_basis(
@@ -1769,7 +1767,7 @@ def duchon_basis(
                 m_i,
                 periodic_arg,
                 None if length_scale is None else float(length_scale),
-                str(nullspace_order),
+                None if nullspace_order is None else str(nullspace_order),
                 None if power is None else float(power),
             ),
             dtype=float,
@@ -2088,7 +2086,7 @@ def duchon_function_norm_penalty(
     period: float | None = None,
     periodic_per_axis: Any = None,
     length_scale: float | None = None,
-    nullspace_order: str = "linear",
+    nullspace_order: str | None = None,
     power: float | None = None,
 ) -> Any:
     """Single-λ smoothness penalty matrix for the cubic (r³) Duchon basis.
@@ -2119,8 +2117,9 @@ def duchon_function_norm_penalty(
         scale-free pure Duchon spectrum. A positive value enables the
         hybrid (Matérn-blended) spectrum, keeping the polynomial nullspace
         order **linear in d** for clean scaling to d=8, 16, 32, 64.
-    nullspace_order : string. ``"zero"``, ``"linear"``, or ``"degree<k>"``
-        (k ≥ 2). Defaults to ``"linear"``.
+    nullspace_order : optional string. ``"zero"``, ``"linear"``, or
+        ``"degree<k>"`` (k ≥ 2). ``None`` (default) uses the binding's Duchon
+        order resolver.
     power : optional float. Riesz spectral power ``s``. ``None`` (default)
         auto-resolves the minimum admissible ``s``.
 
@@ -2141,8 +2140,6 @@ def duchon_function_norm_penalty(
     m_i = int(m)
     if m_i < 1:
         raise ValueError(f"m must be at least 1, got {m}")
-    if nullspace_order is None:
-        raise TypeError("nullspace_order must be a string")
     if period is not None and (
         not math.isfinite(float(period)) or float(period) <= 0.0
     ):
@@ -2163,15 +2160,22 @@ def duchon_function_norm_penalty(
                 f"got {len(per_list)}"
             )
     try:
+        # Pass the optional arguments by keyword. The binding's positional
+        # layout is ``(centers, m, period, periodic_per_axis, length_scale,
+        # nullspace_order, power)``; an obsolete ``periodic: bool`` third
+        # positional (once passed here as ``False``) was dropped from the
+        # binding when ``period``/``periodic_per_axis`` superseded it, but the
+        # call site kept the stray ``False`` and overflowed the arity by one
+        # (gam#880). Keywords make this call robust to any future reordering of
+        # the binding's parameters.
         penalty = rust_module().duchon_function_norm_penalty(
             ctrs,
             m_i,
-            False,
-            float(period) if period is not None else None,
-            per_list,
-            None if length_scale is None else float(length_scale),
-            str(nullspace_order),
-            None if power is None else float(power),
+            period=float(period) if period is not None else None,
+            periodic_per_axis=per_list,
+            length_scale=None if length_scale is None else float(length_scale),
+            nullspace_order=None if nullspace_order is None else str(nullspace_order),
+            power=None if power is None else float(power),
         )
     except Exception as exc:
         raise map_exception(exc) from exc
@@ -2434,13 +2438,26 @@ def _resolve_position_basis_inputs(
     )
     effective_kind, order, _ = _normalize_position_basis(display_kind, basis_order)
     t_np = _numeric_vector(t, "t")
-    knots_np, eff_order, _shrunk = _resolve_basis_locations(
-        knots_or_centers,
-        t_np,
-        basis_kind=effective_kind,
-        label="knots_or_centers",
-        degree=order,
-    )
+    kind_norm = str(display_kind).strip().lower().replace("_", "").replace("-", "")
+    if periodic and effective_kind == "bspline" and (
+        knots_or_centers is None
+        or (isinstance(knots_or_centers, int) and not isinstance(knots_or_centers, bool))
+    ):
+        knots_np = _resolve_periodic_position_bspline_knots(
+            knots_or_centers,
+            t_np,
+            degree=order,
+            period=period,
+        )
+        eff_order = order
+    else:
+        knots_np, eff_order, _shrunk = _resolve_basis_locations(
+            knots_or_centers,
+            t_np,
+            basis_kind=effective_kind,
+            label="knots_or_centers",
+            degree=order,
+        )
     # Resolve the effective wrap period for periodic Duchon. The period is the
     # domain wrap, not the knot span: on a half-open grid the knots span only
     # (period − one_spacing). When the caller gives no explicit period, derive it
@@ -2448,7 +2465,6 @@ def _resolve_position_basis_inputs(
     # spacing apart across the wrap (an undersized period gave a non-PSD Gram —
     # gam#580). Non-periodic / non-Duchon bases ignore this.
     eff_period = period
-    kind_norm = str(display_kind).strip().lower().replace("_", "").replace("-", "")
     if periodic and period is None and kind_norm in {"duchon", "duchonspline", "thinplate", "thinplatespline", "tps"}:
         k = np.asarray(knots_np, dtype=float)
         if k.size >= 2:
@@ -2468,6 +2484,63 @@ def _resolve_position_basis_inputs(
         period=eff_period,
     )
     return display_kind, effective_kind, eff_order, t_np, knots_np, penalty_np, eff_period
+
+
+def _resolve_periodic_position_bspline_knots(
+    count: Any,
+    t_arr: Any,
+    *,
+    degree: int,
+    period: float | None,
+) -> Any:
+    """Resolve count-based periodic position B-splines to K cyclic controls.
+
+    ``gaussian_reml_fit_positions(..., periodic=True)`` documents integer
+    ``knots_or_centers`` as a basis count. The Rust position kernel accepts an
+    explicit half-open knot/control grid and derives ``num_basis = len(grid)-1``.
+    Therefore the public count K must become K+1 grid endpoints, not the open
+    B-spline auto-knot vector used by non-periodic fits.
+    """
+    import numpy as np
+
+    degree_i = int(degree)
+    k = int(_DEFAULT_BASIS_K if count is None else count)
+    if k < degree_i + 1:
+        raise ValueError(
+            "periodic B-spline position basis count must be at least "
+            f"degree + 1 (got {k} for degree {degree_i})"
+        )
+    if period is None:
+        raise ValueError("periodic B-spline position fits require a finite positive period")
+    period_f = float(period)
+    if not np.isfinite(period_f) or period_f <= 0.0:
+        raise ValueError(f"period must be finite and positive, got {period}")
+    t_np = np.asarray(t_arr, dtype=float)
+    if t_np.size == 0:
+        raise ValueError("t must contain at least one value")
+    origin = float(np.min(t_np))
+    return np.linspace(origin, origin + period_f, k + 1, dtype=float)
+
+
+def _cyclic_difference_penalty(num_basis: int, order: int = 2) -> Any:
+    """Return ``D.T @ D`` for the cyclic finite-difference operator."""
+    import numpy as np
+
+    k = int(num_basis)
+    order_i = int(order)
+    if k <= 0:
+        raise ValueError(f"num_basis must be positive, got {num_basis}")
+    if order_i <= 0 or order_i >= k:
+        raise ValueError(
+            f"cyclic difference order must be in [1, {k - 1}], got {order}"
+        )
+    d = np.zeros((k, k), dtype=float)
+    rows = np.arange(k)
+    d[rows, rows] = -1.0
+    d[rows, (rows + 1) % k] = 1.0
+    for _ in range(1, order_i):
+        d = d @ d
+    return d.T @ d
 
 
 def gaussian_reml_fit_positions(
@@ -3018,8 +3091,14 @@ def gaussian_reml_optimize_latent(
     The ``centers`` / ``penalty`` / ``basis_kind`` arguments define the decoder
     basis exactly as in :func:`gaussian_reml_fit_latent`; the spectral seed is
     affinely mapped onto the span of ``centers`` so it lands where ``Φ`` is
-    well-conditioned. The result also carries ``"grad_t_norm"``, ``"converged"``,
-    ``"objective_value"``, ``"n_restarts"``, and ``"init"`` diagnostics.
+    well-conditioned. The result also carries ``"grad_t_norm"``,
+    ``"grad_t_norm_scaled"``, ``"converged"``, ``"objective_value"``,
+    ``"n_restarts"``, and ``"init"`` diagnostics. ``"converged"`` is decided from
+    ``"grad_t_norm_scaled"`` -- the *scale-aware* (relative) latent-gradient
+    stationarity measure ``‖∇ₜ f‖ · ‖t‖_typ / max(|f|, 1)`` -- rather than the
+    raw ``"grad_t_norm"``, because the *profiled* Gaussian REML objective leaves
+    the raw gradient at an O(n) magnitude near interpolation (R²≈1) even at a
+    genuine stationary point.
     """
     import numpy as np
 
@@ -4020,6 +4099,9 @@ def _resolve_position_penalty(
         if kind in {"bspline", "spline"}:
             if penalty_kind not in {None, "coefficient-difference", "coefficientdifference", "difference"}:
                 raise ValueError(f"unsupported B-spline penalty {penalty!r}")
+            if periodic:
+                k = int(np.asarray(knots_or_centers, dtype=float).size - 1)
+                return _cyclic_difference_penalty(k, order=2)
             s, _ = smoothness_penalty(knots_or_centers, degree=int(basis_order), order=2)
             return s
         if kind in {"thinplate", "thinplatespline", "tps"}:

@@ -1,5 +1,6 @@
 pub mod circuit;
 pub mod engine;
+pub mod fusion;
 pub mod instruction;
 pub mod measurement;
 pub mod result;

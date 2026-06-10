@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "TheSilent"
-version = "0.1.25"
+version = "1.1"
 authors = [
   { name="Invizabel"},
 ]
-description = "TheSilent allows you to hide CLI history!"
+description = "TheSilent is a cross platform screen tool written in Python!"
 readme = "README.md"
 license = { file="LICENSE.txt" }
 requires-python = ">=3.8"

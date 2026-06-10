@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "pystow"
-version = "0.8.15"
+version = "0.8.16"
 description = "Easily pick a place to store data for your Python code"
 readme = "README.md"
 authors = [
@@ -50,6 +50,7 @@ requires-python = ">=3.10"
 dependencies = [
     "tqdm",
     "typing-extensions",
+    "backports.zstd; python_version < '3.14'",
 ]
 
 [dependency-groups]
@@ -206,7 +207,7 @@ known-first-party = [
 docstring-code-format = true
 
 [tool.bumpversion]
-current_version = "0.8.15"
+current_version = "0.8.16"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(?:-(?P<release>[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?(?:\\+(?P<build>[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?"
 serialize = [
     "{major}.{minor}.{patch}-{release}+{build}",

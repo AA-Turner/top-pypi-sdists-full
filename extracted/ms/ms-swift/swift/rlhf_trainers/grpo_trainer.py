@@ -60,9 +60,10 @@ from swift.utils import (JsonlWriter, get_cu_seqlens_from_position_ids, get_logg
                          start_event_loop_in_daemon, to_device, unwrap_model_for_generation)
 from .arguments import GRPOConfig
 from .rollout_mixin import DataType, RolloutTrainerMixin, SyncRefModelCallback
-from .utils import (_ForwardRedirection, compute_chord_loss, get_even_process_data, identity_data_collator,
-                    load_pil_img, make_chord_sft_dataset, nanstd, pad_logps_back_to_batch, patch_save_last_checkpoint,
-                    profiling_context, profiling_decorator, replace_assistant_response_with_ids)
+from .utils import (_ForwardRedirection, compute_chord_loss, get_even_process_data, get_non_thinking_prefix_ids,
+                    identity_data_collator, load_pil_img, make_chord_sft_dataset, nanstd, pad_logps_back_to_batch,
+                    patch_save_last_checkpoint, profiling_context, profiling_decorator,
+                    replace_assistant_response_with_ids)
 
 try:
     from trl.trainer.utils import entropy_from_logits
@@ -312,12 +313,17 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
             rewards_per_func: Tensor of shape (num_examples, num_reward_funcs) with all reward values
         """
         device = self.accelerator.device
-        # If using gym environment, extract rewards directly from inputs
+        # Gym path: pull `total_reward` from the multi-turn scheduler's rollout_infos and
+        # append it as an extra column so reward_weights can blend it with reward_funcs.
         if self.use_gym_env:
-            reward_from_gym = [inp['rollout_infos']['total_reward'] for inp in inputs]
-            # For gym environment, there's only one total reward, so rewards_per_func is just local_rewards reshaped
-            local_rewards_per_func = torch.tensor(
-                reward_from_gym, dtype=torch.float32, device=device).unsqueeze(1)  # shape: [num_examples, 1]
+            gym_reward = torch.tensor([inp['rollout_infos']['total_reward'] for inp in inputs],
+                                      dtype=torch.float32,
+                                      device=device).unsqueeze(1)
+            if self.reward_funcs:
+                local_rewards_per_func = self._compute_rewards_per_func(inputs)
+                local_rewards_per_func = torch.cat([local_rewards_per_func, gym_reward], dim=1)
+            else:
+                local_rewards_per_func = gym_reward
         else:
             # Compute rewards using reward functions
             local_rewards_per_func = self._compute_rewards_per_func(inputs)
@@ -799,6 +805,7 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
         template = self.template
         gas_chunks = self.split_by_mini_batches(inputs)
         ga_batch_encoded_inputs = []
+        non_thinking_prefix_ids = get_non_thinking_prefix_ids(template)
         for batch in gas_chunks:
             # Encode and process each batch (size=bs)
             with self._template_context(template):
@@ -807,8 +814,11 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
                         loss_mask = None
                         if 'response_loss_mask' in data and data['response_loss_mask']:
                             loss_mask = data['response_loss_mask']
-                        data['messages'] = replace_assistant_response_with_ids(data['messages'],
-                                                                               data['response_token_ids'], loss_mask)
+                        data['messages'] = replace_assistant_response_with_ids(
+                            data['messages'],
+                            data['response_token_ids'],
+                            loss_mask,
+                            non_thinking_prefix_ids=non_thinking_prefix_ids)
                 batch_encoded_inputs = [template.encode(data, return_length=True) for data in batch]
                 for encoded_inputs in batch_encoded_inputs:
                     extra_kwargs = encoded_inputs.get('_extra_kwargs') or {}
@@ -2329,14 +2339,17 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
                 self.reward_funcs.append(rm)
                 self.reward_func_names.append(rm.config._name_or_path.split('/')[-1])
 
-        if self.use_gym_env and not self.reward_func_names:
-            self.reward_func_names = ['gym_reward']
+        # use_gym_env: gym total_reward is appended as an extra reward column so it can
+        # blend with reward_funcs via reward_weights. When reward_funcs is empty, it becomes
+        # the single reward source.
+        if self.use_gym_env:
+            self.reward_func_names.append('gym_reward')
 
         # Reward weights
         if args.reward_weights is not None:
-            if len(args.reward_weights) != len(reward_funcs):
+            if len(args.reward_weights) != len(self.reward_func_names):
                 raise ValueError(f'Number of reward weights ({len(args.reward_weights)}) must match number of reward '
-                                 f'functions ({len(reward_funcs)})')
+                                 f'functions ({len(self.reward_func_names)})')
             self.reward_weights = torch.tensor(args.reward_weights, dtype=torch.float32).to(device)
         else:
             self.reward_weights = torch.ones(len(self.reward_func_names), dtype=torch.float32).to(device)
@@ -2525,7 +2538,6 @@ class GRPOTrainer(RolloutTrainerMixin, SwiftMixin, HFGRPOTrainer):
     ) -> Dict[str, float]:
         """
         Compute off-policy diagnostic metrics (always computed for monitoring).
-        reference: verl/verl/trainer/ppo/rollout_corr_helper.py
 
         These metrics help diagnose the off-policy gap between rollout and training policies,
         which can arise from policy mismatch (e.g., vLLM BF16 vs FSDP FP32), model staleness,

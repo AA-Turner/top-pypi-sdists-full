@@ -1,3 +1,4 @@
+import abc
 import collections.abc
 import modal._utils.task_command_router_client
 import modal.client
@@ -98,9 +99,9 @@ class _StreamReaderThroughServerParams:
         """Return hash(self)."""
         ...
 
-class _StreamReaderThroughCommandRouterParams:
-    """Parameters for a ``_StreamReader`` that reads container-process stdio
-    directly from the worker via the task command router.
+class _StreamReaderThroughSandboxExecCommandRouterParams:
+    """Parameters for a ``_StreamReader`` that reads sandbox-exec stdio
+    directly from the worker via the task command router (``exec_stdio_read``).
     """
 
     file_descriptor: int
@@ -140,19 +141,81 @@ class _StreamReaderThroughCommandRouterParams:
         """Return hash(self)."""
         ...
 
-def _stdio_stream_from_command_router(
-    params: _StreamReaderThroughCommandRouterParams,
+class _StreamReaderThroughSandboxCommandRouterParams:
+    """Parameters for a ``_StreamReader`` that reads a V2 sandbox's
+    stdio directly from the worker via the task command router
+    (``sandbox_stdio_read``).
+    """
+
+    file_descriptor: int
+    sandbox_id: str
+    resolve_router: collections.abc.Callable[
+        [], collections.abc.Awaitable[tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]]
+    ]
+
+    def __init__(
+        self,
+        file_descriptor: int,
+        sandbox_id: str,
+        resolve_router: collections.abc.Callable[
+            [], collections.abc.Awaitable[tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]]
+        ],
+    ) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
+
+    def __setattr__(self, name, value):
+        """Implement setattr(self, name, value)."""
+        ...
+
+    def __delattr__(self, name):
+        """Implement delattr(self, name)."""
+        ...
+
+    def __hash__(self):
+        """Return hash(self)."""
+        ...
+
+def _stdio_stream_from_sandbox_command_router(
+    params: _StreamReaderThroughSandboxCommandRouterParams,
 ) -> collections.abc.AsyncGenerator[bytes, None]:
-    """Stream raw bytes from the router client."""
+    """Stream raw bytes from a V2 sandbox's primary stdio via ``sandbox_stdio_read``."""
+    ...
+
+def _stdio_stream_from_sandbox_exec_command_router(
+    params: _StreamReaderThroughSandboxExecCommandRouterParams,
+) -> collections.abc.AsyncGenerator[bytes, None]:
+    """Stream raw bytes from a V2 sandbox-exec'd process via ``exec_stdio_read``."""
+    ...
+
+def _stdio_stream_from_command_router(
+    params: typing.Union[
+        _StreamReaderThroughSandboxExecCommandRouterParams, _StreamReaderThroughSandboxCommandRouterParams
+    ],
+) -> collections.abc.AsyncGenerator[bytes, None]:
+    """Dispatch between the V2-sandbox primary stdio and the V2-sandbox-exec
+    stdio streams, both of which yield raw bytes.
+    """
     ...
 
 class _BytesStreamReaderThroughCommandRouter:
-    """StreamReader implementation that will read directly from the worker that
-    hosts the sandbox.
-
-    This implementation is used for non-text streams.
+    """StreamReader that yields raw bytes from the router-backed stdio source
+    (either V2 sandbox top-level stdio or V2 sandbox-exec stdio).
     """
-    def __init__(self, params: _StreamReaderThroughCommandRouterParams) -> None:
+    def __init__(
+        self,
+        params: typing.Union[
+            _StreamReaderThroughSandboxExecCommandRouterParams, _StreamReaderThroughSandboxCommandRouterParams
+        ],
+    ) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
@@ -163,12 +226,16 @@ class _BytesStreamReaderThroughCommandRouter:
     async def _print_all(self, output_stream: typing.TextIO) -> None: ...
 
 class _TextStreamReaderThroughCommandRouter:
-    """StreamReader implementation that will read directly from the worker
-    that hosts the sandbox.
-
-    This implementation is used for text streams.
+    """StreamReader that yields UTF-8-decoded text from the router-backed
+    stdio source.
     """
-    def __init__(self, params: _StreamReaderThroughCommandRouterParams, by_line: bool) -> None:
+    def __init__(
+        self,
+        params: typing.Union[
+            _StreamReaderThroughSandboxExecCommandRouterParams, _StreamReaderThroughSandboxCommandRouterParams
+        ],
+        by_line: bool,
+    ) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
@@ -235,7 +302,11 @@ class _StreamReader(typing.Generic[T]):
 
     def __init__(
         self,
-        params: typing.Union[_StreamReaderThroughServerParams, _StreamReaderThroughCommandRouterParams],
+        params: typing.Union[
+            _StreamReaderThroughServerParams,
+            _StreamReaderThroughSandboxExecCommandRouterParams,
+            _StreamReaderThroughSandboxCommandRouterParams,
+        ],
         *,
         stream_type: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
         text: bool = True,
@@ -296,9 +367,10 @@ class _StreamWriterThroughServerParams:
         """Return hash(self)."""
         ...
 
-class _StreamWriterThroughCommandRouterParams:
-    """Parameters for a ``_StreamWriter`` that writes container-process stdin
-    directly to the worker via the task command router.
+class _StreamWriterThroughCommandRouterSandboxExecParams:
+    """Parameters for a ``_StreamWriter`` that writes the stdin of a process
+    spawned via ``sb.exec(...)`` directly to the worker via the task command
+    router.
     """
 
     task_id: str
@@ -310,6 +382,44 @@ class _StreamWriterThroughCommandRouterParams:
         task_id: str,
         object_id: str,
         command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient,
+    ) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
+
+    def __setattr__(self, name, value):
+        """Implement setattr(self, name, value)."""
+        ...
+
+    def __delattr__(self, name):
+        """Implement delattr(self, name)."""
+        ...
+
+    def __hash__(self):
+        """Return hash(self)."""
+        ...
+
+class _StreamWriterThroughCommandRouterSandboxParams:
+    """Parameters for a ``_StreamWriter`` that writes a V2 sandbox entrypoint's
+    stdin directly to the worker via the task command router.
+    """
+
+    resolve_router: collections.abc.Callable[
+        [], collections.abc.Awaitable[tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]]
+    ]
+
+    def __init__(
+        self,
+        resolve_router: collections.abc.Callable[
+            [], collections.abc.Awaitable[tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]]
+        ],
     ) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
@@ -366,19 +476,55 @@ class _StreamWriterThroughServer:
         """
         ...
 
-class _StreamWriterThroughCommandRouter:
-    def __init__(self, params: _StreamWriterThroughCommandRouterParams) -> None:
+class _StreamWriterThroughCommandRouterBuffer(abc.ABC):
+    """Buffering/draining logic for stream writers that flush data
+    to the task command router.
+    """
+    def __init__(self) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    async def stdin_write(self, data: bytes, eof: bool) -> None:
+        """Write the given chunk (with optional EOF) to the command router."""
         ...
 
     def write(self, data: typing.Union[bytes, bytearray, memoryview, str]) -> None: ...
     def write_eof(self) -> None: ...
     async def drain(self) -> None: ...
 
+class _StreamWriterThroughCommandRouterSandboxExec(_StreamWriterThroughCommandRouterBuffer):
+    """Buffering/draining logic for stream writers that flush data
+    to the task command router.
+    """
+    def __init__(self, params: _StreamWriterThroughCommandRouterSandboxExecParams) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    async def stdin_write(self, data: bytes, eof: bool) -> None:
+        """Write the given chunk (with optional EOF) to the command router."""
+        ...
+
+class _StreamWriterThroughCommandRouterSandbox(_StreamWriterThroughCommandRouterBuffer):
+    """Write a V2 sandbox entrypoint's stdin directly to the worker
+    via the task command router.
+    """
+    def __init__(self, params: _StreamWriterThroughCommandRouterSandboxParams) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    async def stdin_write(self, data: bytes, eof: bool) -> None:
+        """Write the given chunk (with optional EOF) to the command router."""
+        ...
+
 class _StreamWriter:
     """Provides an interface to buffer and write logs to a sandbox or container process stream (`stdin`)."""
     def __init__(
-        self, params: typing.Union[_StreamWriterThroughServerParams, _StreamWriterThroughCommandRouterParams]
+        self,
+        params: typing.Union[
+            _StreamWriterThroughServerParams,
+            _StreamWriterThroughCommandRouterSandboxExecParams,
+            _StreamWriterThroughCommandRouterSandboxParams,
+        ],
     ) -> None:
         """mdmd:hidden"""
         ...
@@ -389,19 +535,18 @@ class _StreamWriter:
         This is non-blocking and queues the data to an internal buffer. Must be
         used along with the `drain()` method, which flushes the buffer.
 
-        **Usage**
-
-        ```python fixture:sandbox
-        proc = sandbox.exec(
-            "bash",
-            "-c",
-            "while read line; do echo $line; done",
-        )
-        proc.stdin.write(b"foo\n")
-        proc.stdin.write(b"bar\n")
-        proc.stdin.write_eof()
-        proc.stdin.drain()
-        ```
+        Examples:
+            ```python fixture:sandbox
+            proc = sandbox.exec(
+                "bash",
+                "-c",
+                "while read line; do echo $line; done",
+            )
+            proc.stdin.write(b"foo\n")
+            proc.stdin.write(b"bar\n")
+            proc.stdin.write_eof()
+            proc.stdin.drain()
+            ```
         """
         ...
 
@@ -420,18 +565,18 @@ class _StreamWriter:
         This is a flow control method that blocks until data is sent. It returns
         when it is appropriate to continue writing data to the stream.
 
-        **Usage**
+        Examples:
+            ```python notest
+            writer.write(data)
+            writer.drain()
+            ```
 
-        ```python notest
-        writer.write(data)
-        writer.drain()
-        ```
+            Async usage:
 
-        Async usage:
-        ```python notest
-        writer.write(data)  # not a blocking operation
-        await writer.drain.aio()
-        ```
+            ```python notest
+            writer.write(data)  # not a blocking operation
+            await writer.drain.aio()
+            ```
         """
         ...
 
@@ -455,7 +600,11 @@ class StreamReader(typing.Generic[T]):
 
     def __init__(
         self,
-        params: typing.Union[_StreamReaderThroughServerParams, _StreamReaderThroughCommandRouterParams],
+        params: typing.Union[
+            _StreamReaderThroughServerParams,
+            _StreamReaderThroughSandboxExecCommandRouterParams,
+            _StreamReaderThroughSandboxCommandRouterParams,
+        ],
         *,
         stream_type: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
         text: bool = True,
@@ -509,7 +658,12 @@ class StreamReader(typing.Generic[T]):
 class StreamWriter:
     """Provides an interface to buffer and write logs to a sandbox or container process stream (`stdin`)."""
     def __init__(
-        self, params: typing.Union[_StreamWriterThroughServerParams, _StreamWriterThroughCommandRouterParams]
+        self,
+        params: typing.Union[
+            _StreamWriterThroughServerParams,
+            _StreamWriterThroughCommandRouterSandboxExecParams,
+            _StreamWriterThroughCommandRouterSandboxParams,
+        ],
     ) -> None:
         """mdmd:hidden"""
         ...
@@ -520,19 +674,18 @@ class StreamWriter:
         This is non-blocking and queues the data to an internal buffer. Must be
         used along with the `drain()` method, which flushes the buffer.
 
-        **Usage**
-
-        ```python fixture:sandbox
-        proc = sandbox.exec(
-            "bash",
-            "-c",
-            "while read line; do echo $line; done",
-        )
-        proc.stdin.write(b"foo\n")
-        proc.stdin.write(b"bar\n")
-        proc.stdin.write_eof()
-        proc.stdin.drain()
-        ```
+        Examples:
+            ```python fixture:sandbox
+            proc = sandbox.exec(
+                "bash",
+                "-c",
+                "while read line; do echo $line; done",
+            )
+            proc.stdin.write(b"foo\n")
+            proc.stdin.write(b"bar\n")
+            proc.stdin.write_eof()
+            proc.stdin.drain()
+            ```
         """
         ...
 
@@ -552,18 +705,18 @@ class StreamWriter:
             This is a flow control method that blocks until data is sent. It returns
             when it is appropriate to continue writing data to the stream.
 
-            **Usage**
+            Examples:
+                ```python notest
+                writer.write(data)
+                writer.drain()
+                ```
 
-            ```python notest
-            writer.write(data)
-            writer.drain()
-            ```
+                Async usage:
 
-            Async usage:
-            ```python notest
-            writer.write(data)  # not a blocking operation
-            await writer.drain.aio()
-            ```
+                ```python notest
+                writer.write(data)  # not a blocking operation
+                await writer.drain.aio()
+                ```
             """
             ...
 
@@ -573,19 +726,21 @@ class StreamWriter:
             This is a flow control method that blocks until data is sent. It returns
             when it is appropriate to continue writing data to the stream.
 
-            **Usage**
+            Examples:
+                ```python notest
+                writer.write(data)
+                writer.drain()
+                ```
 
-            ```python notest
-            writer.write(data)
-            writer.drain()
-            ```
+                Async usage:
 
-            Async usage:
-            ```python notest
-            writer.write(data)  # not a blocking operation
-            await writer.drain.aio()
-            ```
+                ```python notest
+                writer.write(data)  # not a blocking operation
+                await writer.drain.aio()
+                ```
             """
             ...
 
     drain: __drain_spec
+
+TASK_COMMAND_ROUTER_MAX_BUFFER_SIZE: int

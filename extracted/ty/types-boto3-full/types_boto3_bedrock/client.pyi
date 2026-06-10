@@ -106,6 +106,7 @@ from .type_defs import (
     DeregisterMarketplaceModelEndpointRequestTypeDef,
     ExportAutomatedReasoningPolicyVersionRequestTypeDef,
     ExportAutomatedReasoningPolicyVersionResponseTypeDef,
+    GetAccountDataRetentionResponseTypeDef,
     GetAdvancedPromptOptimizationJobRequestTypeDef,
     GetAdvancedPromptOptimizationJobResponseTypeDef,
     GetAutomatedReasoningPolicyAnnotationsRequestTypeDef,
@@ -200,6 +201,8 @@ from .type_defs import (
     ListProvisionedModelThroughputsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    PutAccountDataRetentionRequestTypeDef,
+    PutAccountDataRetentionResponseTypeDef,
     PutEnforcedGuardrailConfigurationRequestTypeDef,
     PutEnforcedGuardrailConfigurationResponseTypeDef,
     PutModelInvocationLoggingConfigurationRequestTypeDef,
@@ -668,6 +671,14 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/export_automated_reasoning_policy_version.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#export_automated_reasoning_policy_version)
+        """
+
+    def get_account_data_retention(self) -> GetAccountDataRetentionResponseTypeDef:
+        """
+        Returns the account-wide data retention mode for Amazon Bedrock.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_account_data_retention.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_account_data_retention)
         """
 
     def get_advanced_prompt_optimization_job(
@@ -1160,6 +1171,16 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/list_tags_for_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#list_tags_for_resource)
+        """
+
+    def put_account_data_retention(
+        self, **kwargs: Unpack[PutAccountDataRetentionRequestTypeDef]
+    ) -> PutAccountDataRetentionResponseTypeDef:
+        """
+        Sets the account-wide data retention mode for Amazon Bedrock.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/put_account_data_retention.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#put_account_data_retention)
         """
 
     def put_enforced_guardrail_configuration(

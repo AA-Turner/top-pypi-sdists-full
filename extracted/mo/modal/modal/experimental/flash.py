@@ -7,7 +7,8 @@ import sys
 import time
 import traceback
 from collections import defaultdict
-from typing import Any, Callable, Optional, Union
+from collections.abc import Callable
+from typing import Any
 from urllib.parse import urlparse
 
 from modal._clustered_functions import get_cluster_info
@@ -32,11 +33,12 @@ class _FlashManager:
         self,
         client: _Client,
         port: int,
-        process: Optional[subprocess.Popen] = None,  # to be deprecated
-        health_check_url: Optional[str] = None,
+        process: subprocess.Popen | None = None,  # to be deprecated
+        health_check_url: str | None = None,
         startup_timeout: int = 30,
         exit_grace_period: int = 0,
         h2_enabled: bool = False,
+        is_server: bool = False,
     ):
         self.client = client
         self.port = port
@@ -46,16 +48,18 @@ class _FlashManager:
         self.startup_timeout = startup_timeout
         self.exit_grace_period = exit_grace_period
         self.tunnel_manager = _forward_tunnel(port, h2_enabled=h2_enabled, client=client)
+        self.is_server = is_server
         self.stopped = False
         self.num_heartbeat_failures = 0
         self.task_id = os.environ["MODAL_TASK_ID"]
+        self.heartbeat_task = None
 
     async def is_port_connection_healthy(
-        self, process: Optional[subprocess.Popen], timeout: float = 0.5
-    ) -> tuple[bool, Optional[Exception]]:
+        self, process: subprocess.Popen | None, timeout: float = 0.5
+    ) -> tuple[bool, Exception | None]:
         start_time = time.monotonic()
 
-        def check_process_is_running() -> Optional[Exception]:
+        def check_process_is_running() -> Exception | None:
             if process is not None and process.poll() is not None:
                 return Exception(f"Process {process.pid} exited with code {process.returncode}")
             return None
@@ -84,13 +88,22 @@ class _FlashManager:
         host = parsed_url.hostname
         port = parsed_url.port or 443
 
+        if self.is_server:
+            await self._start_server_tunnel()
+            return
+        await self._start_flash_registration(host, port)
+
+    async def _start_server_tunnel(self) -> None:
+        # Worker-side HTTP relay owns Flash registration and drain for server tasks.
+        logger.warning(f"[Modal Flash] Server tunnel opened at {self.tunnel.url}.")
+
+    async def _start_flash_registration(self, host: str, port: int) -> None:
         try:
             await self._wait_for_port_success(host, port)
         except (Exception, KeyboardInterrupt, asyncio.CancelledError):
             await self._deregister()
             await self.tunnel_manager.__aexit__(*sys.exc_info())
             raise
-
         self.heartbeat_task = asyncio.create_task(self._run_heartbeat(host, port))
         self.drain_task = asyncio.create_task(self._drain_container())
 
@@ -207,22 +220,24 @@ class _FlashManager:
             if self.heartbeat_task:
                 self.heartbeat_task.cancel()
                 try:
+                    # NOTE(gongy): We skip calling TunnelStop to avoid interrupting in-flight requests.
+                    # It is up to the user to wait after calling .stop() to drain in-flight requests.
                     await asyncio.wait_for(self.heartbeat_task, timeout=5)
+                    logger.warning(f"[Modal Flash] Stopping heartbeat task on {self.tunnel.url}.")
                 except (asyncio.TimeoutError, asyncio.CancelledError):
                     logger.warning("[Modal Flash] Heartbeat task did not stop within 5s.")
         except Exception as e:
             logger.error(f"[Modal Flash] Error stopping: {e}")
         self.stopped = True
-        logger.warning(f"[Modal Flash] No longer accepting new requests on {self.tunnel.url}.")
-
-        # NOTE(gongy): We skip calling TunnelStop to avoid interrupting in-flight requests.
-        # It is up to the user to wait after calling .stop() to drain in-flight requests.
 
     async def close(self):
         if not self.stopped:
             await self.stop()
 
-        await asyncio.sleep(self.exit_grace_period)
+        # Server tasks drain via the worker-side HTTP relay, so skip the
+        # Python-side sleep here to avoid double-counting the grace period.
+        if not self.is_server:
+            await asyncio.sleep(self.exit_grace_period)
 
         logger.warning(f"[Modal Flash] Closing tunnel on {self.tunnel.url}.")
         await self.tunnel_manager.__aexit__(*sys.exc_info())
@@ -234,11 +249,12 @@ FlashManager = synchronize_api(_FlashManager, target_module=__name__)
 @synchronizer.create_blocking
 async def flash_forward(
     port: int,
-    process: Optional[subprocess.Popen] = None,  # to be deprecated
-    health_check_url: Optional[str] = None,
+    process: subprocess.Popen | None = None,  # to be deprecated
+    health_check_url: str | None = None,
     startup_timeout: int = 30,
     exit_grace_period: int = 0,
     h2_enabled: bool = False,
+    is_server: bool = False,
 ) -> _FlashManager:
     """
     Forward a port to the Modal Flash service, exposing that port as a stable endpoint.
@@ -255,6 +271,7 @@ async def flash_forward(
         startup_timeout=startup_timeout,
         exit_grace_period=exit_grace_period,
         h2_enabled=h2_enabled,
+        is_server=is_server,
     )
     await manager._start()
     return manager
@@ -271,9 +288,9 @@ class _FlashPrometheusAutoscaler:
         metrics_endpoint: str,
         target_metric: str,
         target_metric_value: float,
-        min_containers: Optional[int],
-        max_containers: Optional[int],
-        buffer_containers: Optional[int],
+        min_containers: int | None,
+        max_containers: int | None,
+        buffer_containers: int | None,
         scale_up_tolerance: float,
         scale_down_tolerance: float,
         scale_up_stabilization_window_seconds: int,
@@ -501,7 +518,7 @@ class _FlashPrometheusAutoscaler:
 
         return sum_metric, n_containers_with_metrics
 
-    async def _get_metrics(self, url: str) -> Optional[dict[str, list[Any]]]:  # technically any should be Sample
+    async def _get_metrics(self, url: str) -> dict[str, list[Any]] | None:  # technically any should be Sample
         from prometheus_client.parser import Sample, text_string_to_metric_families
 
         # Fetch the metrics from the endpoint
@@ -549,9 +566,9 @@ class _FlashPrometheusAutoscaler:
         autoscaling_decisions: list[tuple[float, int]],
         scale_up_stabilization_window_seconds: int = 0,
         scale_down_stabilization_window_seconds: int = 60 * 5,
-        min_containers: Optional[int] = None,
-        max_containers: Optional[int] = None,
-        buffer_containers: Optional[int] = None,
+        min_containers: int | None = None,
+        max_containers: int | None = None,
+        buffer_containers: int | None = None,
     ) -> int:
         """
         Return the target number of containers following (simplified) Kubernetes HPA
@@ -627,8 +644,8 @@ async def flash_prometheus_autoscaler(
     target_metric: str,
     # Target metric value. Example: 25
     target_metric_value: float,
-    min_containers: Optional[int] = None,
-    max_containers: Optional[int] = None,
+    min_containers: int | None = None,
+    max_containers: int | None = None,
     # Corresponds to https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#tolerance
     scale_up_tolerance: float = 0.1,
     # Corresponds to https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#tolerance
@@ -641,7 +658,7 @@ async def flash_prometheus_autoscaler(
     # Corresponds to --horizontal-pod-autoscaler-sync-period in Kubernetes.
     autoscaling_interval_seconds: int = 15,
     # Whether to include overprovisioned containers in the scale up calculation.
-    buffer_containers: Optional[int] = None,
+    buffer_containers: int | None = None,
 ) -> _FlashPrometheusAutoscaler:
     """
     Autoscale a Flash service based on containers' Prometheus metrics.
@@ -696,11 +713,11 @@ async def flash_get_containers(app_name: str, cls_name: str) -> list[dict[str, A
 
 
 def _http_server(
-    port: Optional[int] = None,
+    port: int | None = None,
     *,
     proxy_regions: list[str] = [],  # The regions to proxy the HTTP server to.
     startup_timeout: int = 30,  # Maximum number of seconds to wait for the HTTP server to start.
-    exit_grace_period: Optional[int] = None,  # The time to wait for the HTTP server to exit gracefully.
+    exit_grace_period: int | None = None,  # The time to wait for the HTTP server to exit gracefully.
     h2_enabled: bool = False,  # Whether to enable HTTP/2 support.
 ):
     """Decorator for Flash-enabled HTTP servers on Modal classes.
@@ -716,7 +733,7 @@ def _http_server(
         raise InvalidError(
             "Positional arguments are not allowed. Did you forget parentheses? Suggestion: `@modal.http_server()`."
         )
-    validate_http_server_config(port, proxy_regions, startup_timeout, exit_grace_period)
+    validate_http_server_config(port, proxy_regions, startup_timeout, exit_grace_period, is_server=False)
 
     from modal._partial_function import _PartialFunction, _PartialFunctionParams
 
@@ -730,7 +747,7 @@ def _http_server(
         )
     )
 
-    def wrapper(obj: Union[Callable[..., Any], _PartialFunction]) -> _PartialFunction:
+    def wrapper(obj: Callable[..., Any] | _PartialFunction) -> _PartialFunction:
         flags = _PartialFunctionFlags.HTTP_WEB_INTERFACE
 
         if isinstance(obj, _PartialFunction):
@@ -755,11 +772,12 @@ class _FlashContainerEntry:
     while exit handlers execute and the exit grace period elapses, before finally closing the tunnel.
     """
 
-    flash_manager: Optional[FlashManager]  # type: ignore
+    flash_manager: FlashManager | None  # type: ignore
 
-    def __init__(self, http_config: api_pb2.HTTPConfig):
+    def __init__(self, http_config: api_pb2.HTTPConfig, is_server: bool = False):
         self.http_config: api_pb2.HTTPConfig = http_config
         self.flash_manager = None
+        self.is_server = is_server
 
     def enter(self):
         if self.http_config != api_pb2.HTTPConfig():
@@ -775,6 +793,7 @@ class _FlashContainerEntry:
                     startup_timeout=self.http_config.startup_timeout,
                     exit_grace_period=self.http_config.exit_grace_period,
                     h2_enabled=self.http_config.h2_enabled,
+                    is_server=self.is_server,
                 )
             except Exception as e:
                 logger.warning(f"[Modal Flash] Startup failed: {e}")

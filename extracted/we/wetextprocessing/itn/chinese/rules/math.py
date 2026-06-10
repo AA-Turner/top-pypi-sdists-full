@@ -12,26 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pynini import string_file
+from pynini.lib.pynutil import insert
+
 from itn.chinese.rules.cardinal import Cardinal
 from tn.processor import Processor
 from tn.utils import get_abs_path
 
-from pynini import string_file
-from pynini.lib.pynutil import insert
-
 
 class Math(Processor):
 
-    def __init__(self):
-        super().__init__(name='math')
+    def __init__(self, cardinal=None):
+        super().__init__(name="math")
+        self.cardinal = cardinal or Cardinal()
         self.build_tagger()
         self.build_verbalizer()
 
     def build_tagger(self):
-        operator = string_file(
-            get_abs_path('../itn/chinese/data/math/operator.tsv'))
+        operator = string_file(get_abs_path("../itn/chinese/data/math/operator.tsv"))
 
-        number = Cardinal().number
-        tagger = (number + (operator + number).plus)
+        number = self.cardinal.number
+        tagger = number + (operator + number).plus
         tagger = insert('value: "') + tagger + insert('"')
         self.tagger = self.add_tokens(tagger)

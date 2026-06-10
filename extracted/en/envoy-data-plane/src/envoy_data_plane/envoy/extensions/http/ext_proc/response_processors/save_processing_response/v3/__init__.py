@@ -23,19 +23,22 @@ betterproto2.check_compiler_version(_COMPILER_VERSION)
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class SaveProcessingResponse(betterproto2.Message):
     """
-    [#protodoc-title: Save Processing Response from external processor.]
+    [#protodoc-title: Save Processing Response from external processor]
     [#extension: envoy.http.ext_proc.response_processors.save_processing_response]
 
-    Extension to save the :ref:`response
-    <envoy_v3_api_msg_service.ext_proc.v3.ProcessingResponse>` from the external processor as
-    filter state with name
-    "envoy.http.ext_proc.response_processors.save_processing_response[.:ref:`filter_state_name_suffix
-    <envoy_v3_api_field_extensions.http.ext_proc.response_processors.save_processing_response.v3.SaveProcessingResponse.filter_state_name>`].
-    This extension supports saving of request and response headers and trailers,
+    Extension to save the
+    :ref:`ProcessingResponse <envoy_v3_api_msg_service.ext_proc.v3.ProcessingResponse>` from the
+    external processor as filter state with name
+    ``envoy.http.ext_proc.response_processors.save_processing_response``. If
+    :ref:`filter_state_name_suffix <envoy_v3_api_field_extensions.http.ext_proc.response_processors.save_processing_response.v3.SaveProcessingResponse.filter_state_name_suffix>`
+    is defined, it is appended to this name.
+
+    This extension supports saving of request and response headers, request and response trailers,
     and immediate response.
 
     .. note::
-      Response processors are currently in alpha.
+
+       Response processors are currently in alpha.
 
     [#next-free-field: 7]
     """
@@ -45,50 +48,56 @@ class SaveProcessingResponse(betterproto2.Message):
     )
     """
     The default filter state name is
-    "envoy.http.ext_proc.response_processors.save_processing_response".
-    If defined, ``filter_state_name_suffix`` is appended to this.
-    For example, setting ``filter_state_name_suffix`` to "xyz" will set the
-    filter state name to "envoy.http.ext_proc.response_processors.save_processing_response.xyz"
+    ``envoy.http.ext_proc.response_processors.save_processing_response``.
+    If defined, ``filter_state_name_suffix`` is appended to this name.
+
+    For example, setting ``filter_state_name_suffix`` to ``xyz`` will set the filter state name
+    to ``envoy.http.ext_proc.response_processors.save_processing_response.xyz``.
     """
 
     save_request_headers: "SaveProcessingResponseSaveOptions | None" = (
         betterproto2.field(2, betterproto2.TYPE_MESSAGE, optional=True)
     )
     """
-    Save the response to filter state when :ref:`request_headers
-    <envoy_v3_api_field_service.ext_proc.v3.ProcessingResponse.request_headers>` is set.
+    Save the response to filter state when
+    :ref:`request_headers <envoy_v3_api_field_service.ext_proc.v3.ProcessingResponse.request_headers>`
+    is set.
     """
 
     save_response_headers: "SaveProcessingResponseSaveOptions | None" = (
         betterproto2.field(3, betterproto2.TYPE_MESSAGE, optional=True)
     )
     """
-    Save the response to filter state when :ref:`response_headers
-    <envoy_v3_api_field_service.ext_proc.v3.ProcessingResponse.response_headers>` is set.
+    Save the response to filter state when
+    :ref:`response_headers <envoy_v3_api_field_service.ext_proc.v3.ProcessingResponse.response_headers>`
+    is set.
     """
 
     save_request_trailers: "SaveProcessingResponseSaveOptions | None" = (
         betterproto2.field(4, betterproto2.TYPE_MESSAGE, optional=True)
     )
     """
-    Save the response to filter state when :ref:`request_trailers
-    <envoy_v3_api_field_service.ext_proc.v3.ProcessingResponse.request_trailers>` is set.
+    Save the response to filter state when
+    :ref:`request_trailers <envoy_v3_api_field_service.ext_proc.v3.ProcessingResponse.request_trailers>`
+    is set.
     """
 
     save_response_trailers: "SaveProcessingResponseSaveOptions | None" = (
         betterproto2.field(5, betterproto2.TYPE_MESSAGE, optional=True)
     )
     """
-    Save the response to filter state when :ref:`response_trailers
-    <envoy_v3_api_field_service.ext_proc.v3.ProcessingResponse.response_trailers>` is set.
+    Save the response to filter state when
+    :ref:`response_trailers <envoy_v3_api_field_service.ext_proc.v3.ProcessingResponse.response_trailers>`
+    is set.
     """
 
     save_immediate_response: "SaveProcessingResponseSaveOptions | None" = (
         betterproto2.field(6, betterproto2.TYPE_MESSAGE, optional=True)
     )
     """
-    Save the response to filter state when :ref:`immediate_response
-    <envoy_v3_api_field_service.ext_proc.v3.ProcessingResponse.immediate_response>` is set.
+    Save the response to filter state when
+    :ref:`immediate_response <envoy_v3_api_field_service.ext_proc.v3.ProcessingResponse.immediate_response>`
+    is set.
     """
 
 
@@ -101,15 +110,23 @@ default_message_pool.register_message(
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class SaveProcessingResponseSaveOptions(betterproto2.Message):
+    """
+    Options for saving the processing response.
+    """
+
     save_response: "bool" = betterproto2.field(1, betterproto2.TYPE_BOOL)
     """
-    Whether or not to save the response for the response type.
+    When set to ``true``, saves the response for the corresponding response type.
+
+    Defaults to ``false``.
     """
 
     save_on_error: "bool" = betterproto2.field(2, betterproto2.TYPE_BOOL)
     """
-    When true, saves the response if there was an error when processing
-    the response from the external processor.
+    When set to ``true``, saves the response if there was an error when processing the response
+    from the external processor.
+
+    Defaults to ``false``.
     """
 
 

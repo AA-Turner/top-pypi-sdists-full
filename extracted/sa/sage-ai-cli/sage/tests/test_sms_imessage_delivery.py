@@ -29,12 +29,20 @@ def fake_chat_db(tmp_path):
             "CREATE TABLE message ("
             "  rowid INTEGER PRIMARY KEY, "
             "  text TEXT, "
-            "  is_from_me INTEGER"
+            "  is_from_me INTEGER, "
+            "  handle_id INTEGER, "
+            "  attributedBody BLOB"
+            ")"
+        )
+        db.execute(
+            "CREATE TABLE handle ("
+            "  ROWID INTEGER PRIMARY KEY, "
+            "  id TEXT"
             ")"
         )
         # Seed two existing rows (mixed inbound + outbound) so baseline > 0
-        db.execute("INSERT INTO message (rowid, text, is_from_me) VALUES (1, 'inbound msg', 0)")
-        db.execute("INSERT INTO message (rowid, text, is_from_me) VALUES (2, 'old outbound', 1)")
+        db.execute("INSERT INTO message (rowid, text, is_from_me, handle_id) VALUES (1, 'inbound msg', 0, 1)")
+        db.execute("INSERT INTO message (rowid, text, is_from_me, handle_id) VALUES (2, 'old outbound', 1, 1)")
         db.commit()
     return str(db_path)
 
@@ -61,12 +69,12 @@ class TestIMessageRowIdHelpers:
     def test_max_rowid_handles_missing_db(self, tmp_path):
         missing = str(tmp_path / "nope.db")
         with _patch_path_to(missing):
-            assert _imessage_max_rowid() == 0
+            assert _imessage_max_rowid() == -1
 
     def test_row_matches_finds_new_outbound(self, fake_chat_db):
         with sqlite3.connect(fake_chat_db) as db:
             db.execute(
-                "INSERT INTO message (rowid, text, is_from_me) VALUES (3, ?, 1)",
+                "INSERT INTO message (rowid, text, is_from_me, handle_id) VALUES (3, ?, 1, 1)",
                 ("hello world",),
             )
             db.commit()
@@ -77,7 +85,7 @@ class TestIMessageRowIdHelpers:
         """Inbound messages (is_from_me=0) must not count as a successful send."""
         with sqlite3.connect(fake_chat_db) as db:
             db.execute(
-                "INSERT INTO message (rowid, text, is_from_me) VALUES (3, ?, 0)",
+                "INSERT INTO message (rowid, text, is_from_me, handle_id) VALUES (3, ?, 0, 1)",
                 ("hello world",),
             )
             db.commit()
@@ -96,7 +104,7 @@ class TestIMessageRowIdHelpers:
         stored = long_msg[:200]  # iMessage may truncate or chunk; our match uses 200
         with sqlite3.connect(fake_chat_db) as db:
             db.execute(
-                "INSERT INTO message (rowid, text, is_from_me) VALUES (3, ?, 1)",
+                "INSERT INTO message (rowid, text, is_from_me, handle_id) VALUES (3, ?, 1, 1)",
                 (stored,),
             )
             db.commit()
@@ -109,7 +117,7 @@ class TestNonDarwinShortCircuit:
     """The helpers must short-circuit on non-darwin without touching disk."""
 
     def test_max_rowid_short_circuits(self):
-        assert _imessage_max_rowid() == 0
+        assert _imessage_max_rowid() == -1
 
     def test_row_matches_short_circuits(self):
         assert _imessage_row_matches(prev_max_rowid=0, text="x") is False

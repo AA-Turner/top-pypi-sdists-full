@@ -1,40 +1,35 @@
 Metadata-Version: 2.4
 Name: dbt-sqlserver
-Version: 1.9.2
+Version: 1.10.0
 Summary: A Microsoft SQL Server adapter plugin for dbt
-Home-page: https://github.com/dbt-msft/dbt-sqlserver
 Author: Mikael Ene, Anders Swanson, Sam Debruyn, Cor Zuurmond, Cody Scott
 License: MIT
 Project-URL: Setup & configuration, https://docs.getdbt.com/reference/warehouse-profiles/mssql-profile
 Project-URL: Documentation & usage, https://docs.getdbt.com/reference/resource-configs/mssql-configs
 Project-URL: Changelog, https://github.com/dbt-msft/dbt-sqlserver/blob/master/CHANGELOG.md
 Project-URL: Issue Tracker, https://github.com/dbt-msft/dbt-sqlserver/issues
+Project-URL: Source, https://github.com/dbt-msft/dbt-sqlserver
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: dbt-core<2.0,>=1.9.0
-Requires-Dist: dbt-common<2.0,>=1.0
-Requires-Dist: dbt-adapters<2.0,>=1.11.0
+Requires-Dist: dbt-core<2.0,>=1.10.0
+Requires-Dist: dbt-common<2.0,>=1.22.0
+Requires-Dist: dbt-adapters<2.0,>=1.15.2
 Requires-Dist: pyodbc>=5.2.0
-Dynamic: author
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
+Provides-Extra: azure
+Requires-Dist: azure-identity>=1.12.0; extra == "azure"
+Provides-Extra: pyodbc
+Requires-Dist: pyodbc>=5.2.0; extra == "pyodbc"
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: summary
 
 # dbt-sqlserver
 

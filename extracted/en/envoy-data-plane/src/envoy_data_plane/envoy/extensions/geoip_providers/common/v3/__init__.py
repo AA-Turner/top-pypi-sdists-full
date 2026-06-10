@@ -5,6 +5,7 @@
 
 __all__ = (
     "CommonGeoipProviderConfig",
+    "CommonGeoipProviderConfigGeolocationFieldKeys",
     "CommonGeoipProviderConfigGeolocationHeadersToAdd",
 )
 
@@ -33,8 +34,26 @@ class CommonGeoipProviderConfig(betterproto2.Message):
         betterproto2.field(1, betterproto2.TYPE_MESSAGE, optional=True)
     )
     """
-    Configuration for geolocation headers to add to the request.
+    Configuration for geolocation headers to add to HTTP requests.
+    This field is deprecated in favor of ``geo_field_keys``. If both are set, ``geo_field_keys``
+    takes precedence.
     """
+
+    geo_field_keys: "CommonGeoipProviderConfigGeolocationFieldKeys | None" = (
+        betterproto2.field(3, betterproto2.TYPE_MESSAGE, optional=True)
+    )
+    """
+    Configuration for geolocation field keys.
+    At least one of ``geo_headers_to_add`` or ``geo_field_keys`` must be set.
+    """
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.is_set("geo_headers_to_add"):
+            warnings.warn(
+                "CommonGeoipProviderConfig.geo_headers_to_add is deprecated",
+                DeprecationWarning,
+            )
 
 
 default_message_pool.register_message(
@@ -45,11 +64,133 @@ default_message_pool.register_message(
 
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class CommonGeoipProviderConfigGeolocationFieldKeys(betterproto2.Message):
+    """
+    The set of geolocation field keys to use for storing lookup results.
+    These keys define how the geolocation lookup results will be stored. The actual storage
+    mechanism depends on the filter using the provider:
+
+    - The :ref:`HTTP GeoIP filter <config_http_filters_geoip>` stores results as HTTP request headers.
+    - The :ref:`Network GeoIP filter <config_network_filters_geoip>` stores results in the
+      connection's filter state under the well-known key ``envoy.geoip``.
+
+    [#next-free-field: 13]
+    """
+
+    country: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        1, betterproto2.TYPE_STRING
+    )
+    """
+    If set, the key will be used to populate the country ISO code associated with the IP address.
+    """
+
+    city: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        2, betterproto2.TYPE_STRING
+    )
+    """
+    If set, the key will be used to populate the city associated with the IP address.
+    """
+
+    region: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        3, betterproto2.TYPE_STRING
+    )
+    """
+    If set, the key will be used to populate the region ISO code associated with the IP address.
+    The least specific subdivision will be selected as the region value.
+    """
+
+    asn: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        4, betterproto2.TYPE_STRING
+    )
+    """
+    If set, the key will be used to populate the ASN associated with the IP address.
+    """
+
+    asn_org: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        12, betterproto2.TYPE_STRING
+    )
+    """
+    If set, the key will be used to populate the autonomous system organization associated with the IP address.
+    """
+
+    anon: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        5, betterproto2.TYPE_STRING
+    )
+    """
+    If set, the IP address will be checked if it belongs to any type of anonymization network
+    (e.g., VPN, public proxy). The result will be stored with this key. Value will be set to
+    either ``true`` or ``false`` depending on the check result.
+    """
+
+    anon_vpn: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        6, betterproto2.TYPE_STRING
+    )
+    """
+    If set, the IP address will be checked if it belongs to a VPN and the result will be stored
+    with this key. Value will be set to either ``true`` or ``false`` depending on the check result.
+    """
+
+    anon_hosting: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        7, betterproto2.TYPE_STRING
+    )
+    """
+    If set, the IP address will be checked if it belongs to a hosting provider and the result
+    will be stored with this key. Value will be set to either ``true`` or ``false`` depending on
+    the check result.
+    """
+
+    anon_tor: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        8, betterproto2.TYPE_STRING
+    )
+    """
+    If set, the IP address will be checked if it belongs to a TOR exit node and the result will
+    be stored with this key. Value will be set to either ``true`` or ``false`` depending on the
+    check result.
+    """
+
+    anon_proxy: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        9, betterproto2.TYPE_STRING
+    )
+    """
+    If set, the IP address will be checked if it belongs to a public proxy and the result will
+    be stored with this key. Value will be set to either ``true`` or ``false`` depending on the
+    check result.
+    """
+
+    isp: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        10, betterproto2.TYPE_STRING
+    )
+    """
+    If set, the key will be used to populate the ISP associated with the IP address.
+    """
+
+    apple_private_relay: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        11, betterproto2.TYPE_STRING
+    )
+    """
+    If set, the IP address will be checked if it belongs to the ISP named iCloud Private Relay
+    and the result will be stored with this key. Value will be set to either ``true`` or ``false``
+    depending on the check result.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.geoip_providers.common.v3",
+    "CommonGeoipProviderConfig.GeolocationFieldKeys",
+    CommonGeoipProviderConfigGeolocationFieldKeys,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class CommonGeoipProviderConfigGeolocationHeadersToAdd(betterproto2.Message):
     """
-    The set of geolocation headers to add to the request. If any of the configured headers is present
-    in the incoming request, it will be overridden by the :ref:`GeoIP filter <config_http_filters_geoip>`.
-    [#next-free-field: 13]
+    The set of geolocation headers to add to request. If any of the configured headers is present
+    in the incoming request, it will be overridden by the :ref:`HTTP GeoIP filter <config_http_filters_geoip>`.
+    [#next-free-field: 14]
+
+    .. attention::
+      This field is deprecated in favor of :ref:`geo_field_keys
+      <envoy_v3_api_field_extensions.geoip_providers.common.v3.CommonGeoipProviderConfig.geo_field_keys>`.
     """
 
     country: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -79,6 +220,15 @@ class CommonGeoipProviderConfigGeolocationHeadersToAdd(betterproto2.Message):
     )
     """
     If set, the header will be used to populate the ASN associated with the IP address.
+    Note: If both ISP and ASN databases are configured, only the ASN database is used for lookup.
+    """
+
+    asn_org: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        13, betterproto2.TYPE_STRING
+    )
+    """
+    If set, the header will be used to populate the autonomous system organization associated with the IP address.
+    Note: If both ISP and ASN databases are configured, only the ASN database is used for lookup.
     """
 
     is_anon: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(

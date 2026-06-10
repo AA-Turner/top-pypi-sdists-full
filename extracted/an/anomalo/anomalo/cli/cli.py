@@ -27,9 +27,16 @@ class CLI(Client):
         self.output_style = "json"
         SaveLoad(self).load_config(filename, warehouse_id, table_id, force)
 
-    def pull(self, filename: str, *table_refs: str) -> None:
+    def pull(
+        self, filename: str, *table_refs: str, exclude_labels: str | None = None
+    ) -> None:
         self.output_style = "json"
-        StateMachine(self).pull(filename, table_refs)
+        labels_to_exclude: list[str] = []
+        if exclude_labels:
+            labels_to_exclude = [
+                label.strip() for label in exclude_labels.split(",") if label.strip()
+            ]
+        StateMachine(self).pull(filename, table_refs, labels_to_exclude)
 
     def examine(self, table: str, check: str | None = None) -> None:
         self.output_style = "json"

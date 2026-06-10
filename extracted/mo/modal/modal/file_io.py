@@ -1,9 +1,8 @@
 # Copyright Modal Labs 2024
 import asyncio
-import enum
 import io
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, AsyncIterator, Generic, Optional, Sequence, TypeVar, Union, cast
+from collections.abc import AsyncIterator, Sequence
+from typing import TYPE_CHECKING, Generic, Optional, TypeVar, Union, cast
 
 if TYPE_CHECKING:
     import _typeshed
@@ -14,6 +13,7 @@ from grpclib.exceptions import StreamTerminatedError
 
 from modal._utils.async_utils import TaskContext
 from modal.exception import ClientClosed
+from modal.sandbox_fs import FileWatchEvent, FileWatchEventType
 from modal_proto import api_pb2
 
 from ._utils.async_utils import synchronize_api
@@ -45,35 +45,21 @@ ERROR_MAPPING = {
 T = TypeVar("T", str, bytes)
 
 
-async def _delete_bytes(file: "_FileIO", start: Optional[int] = None, end: Optional[int] = None) -> None:
+async def _delete_bytes(file: "_FileIO", start: int | None = None, end: int | None = None) -> None:
     """mdmd:hidden
     This method has been removed.
     """
     deprecation_error((2025, 12, 3), "delete_bytes has been removed.")
 
 
-async def _replace_bytes(file: "_FileIO", data: bytes, start: Optional[int] = None, end: Optional[int] = None) -> None:
+async def _replace_bytes(file: "_FileIO", data: bytes, start: int | None = None, end: int | None = None) -> None:
     """mdmd:hidden
     This method has been removed.
     """
     deprecation_error((2025, 12, 3), "replace_bytes has been removed.")
 
 
-class FileWatchEventType(enum.Enum):
-    Unknown = "Unknown"
-    Access = "Access"
-    Create = "Create"
-    Modify = "Modify"
-    Remove = "Remove"
-
-
-@dataclass
-class FileWatchEvent:
-    paths: list[str]
-    type: FileWatchEventType
-
-
-async def _consume_output(client: _Client, exec_id: str) -> AsyncIterator[Union[Optional[bytes], Exception]]:
+async def _consume_output(client: _Client, exec_id: str) -> AsyncIterator[Optional[bytes] | Exception]:
     req = api_pb2.ContainerFilesystemExecGetOutputRequest(
         exec_id=exec_id,
         timeout=55,
@@ -118,7 +104,7 @@ async def _wait(client: _Client, exec_id: str) -> bytes:
 async def _consume_watch_output(
     client: _Client,
     exec_id: str,
-    buffer: list[Union[Optional[bytes], Exception]],
+    buffer: list[bytes | None | Exception],
 ) -> None:
     completed = False
     retries_remaining = 10
@@ -158,18 +144,17 @@ class _FileIO(Generic[T]):
     restricted in the current implementation. For our recommendations on large file transfers
     see the Sandbox [filesystem access guide](https://modal.com/docs/guide/sandbox-files).
 
-    **Usage**
+    Examples:
+        ```python notest
+        import modal
 
-    ```python notest
-    import modal
+        app = modal.App.lookup("my-app", create_if_missing=True)
 
-    app = modal.App.lookup("my-app", create_if_missing=True)
-
-    sb = modal.Sandbox.create(app=app)
-    f = sb.open("/tmp/foo.txt", "w")
-    f.write("hello")
-    f.close()
-    ```
+        sb = modal.Sandbox.create(app=app)
+        f = sb.open("/tmp/foo.txt", "w")
+        f.write("hello")
+        f.close()
+        ```
     """
 
     _binary = False
@@ -232,7 +217,7 @@ class _FileIO(Generic[T]):
         self._closed = False
         return self
 
-    async def _make_read_request(self, n: Optional[int]) -> bytes:
+    async def _make_read_request(self, n: int | None) -> bytes:
         resp = await self._client.stub.ContainerFilesystemExec(
             api_pb2.ContainerFilesystemExecRequest(
                 file_read_request=api_pb2.ContainerFileReadRequest(file_descriptor=self._file_descriptor, n=n),
@@ -241,7 +226,7 @@ class _FileIO(Generic[T]):
         )
         return await _wait(self._client, resp.exec_id)
 
-    async def read(self, n: Optional[int] = None) -> T:
+    async def read(self, n: int | None = None) -> T:
         """Read n bytes from the current position, or the entire remaining file if n is None."""
         deprecation_warning(
             (2026, 3, 9),
@@ -299,7 +284,7 @@ class _FileIO(Generic[T]):
             return_strs = [line + "\n" for line in lines[:-1]] + ([lines[-1]] if lines[-1] else [])
             return cast(Sequence[T], return_strs)
 
-    async def write(self, data: Union[bytes, str]) -> None:
+    async def write(self, data: bytes | str) -> None:
         """Write data to the current position.
 
         Writes may not appear until the entire buffer is flushed, which
@@ -418,13 +403,13 @@ class _FileIO(Generic[T]):
         path: str,
         client: _Client,
         task_id: str,
-        filter: Optional[list[FileWatchEventType]] = None,
+        filter: list[FileWatchEventType] | None = None,
         recursive: bool = False,
-        timeout: Optional[int] = None,
+        timeout: int | None = None,
     ) -> AsyncIterator[FileWatchEvent]:
         deprecation_warning(
             (2026, 3, 9),
-            "`FileIO.watch()` is deprecated. Use `Sandbox.watch()` instead.",
+            "`FileIO.watch()` is deprecated. Use `Sandbox.filesystem.watch()` instead.",
         )
         async for event in watch(path, client, task_id, filter, recursive, timeout):
             yield event
@@ -459,7 +444,7 @@ class _FileIO(Generic[T]):
         if self._closed:
             raise ValueError("I/O operation on closed file")
 
-    def _validate_type(self, data: Union[bytes, str]) -> None:
+    def _validate_type(self, data: bytes | str) -> None:
         if self._binary and isinstance(data, str):
             raise TypeError("Expected bytes when in binary mode")
         if not self._binary and isinstance(data, bytes):
@@ -525,9 +510,9 @@ async def watch(
     path: str,
     client: _Client,
     task_id: str,
-    filter: Optional[list[FileWatchEventType]] = None,
+    filter: list[FileWatchEventType] | None = None,
     recursive: bool = False,
-    timeout: Optional[int] = None,
+    timeout: int | None = None,
 ) -> AsyncIterator[FileWatchEvent]:
     """Watch a file or directory for changes."""
     resp = await client.stub.ContainerFilesystemExec(
@@ -541,7 +526,7 @@ async def watch(
         ),
     )
 
-    output_buffer: list[Union[Optional[bytes], Exception]] = []
+    output_buffer: list[bytes | None | Exception] = []
 
     async with TaskContext() as tc:
         tc.create_task(_consume_watch_output(client, resp.exec_id, output_buffer))

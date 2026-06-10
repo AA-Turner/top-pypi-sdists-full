@@ -20,8 +20,10 @@ Usage::
         ListBlockingInstancesForCapacityTaskPaginator,
         ListCapacityTasksPaginator,
         ListCatalogItemsPaginator,
+        ListOrderableInstanceTypesPaginator,
         ListOrdersPaginator,
         ListOutpostsPaginator,
+        ListQuotesPaginator,
         ListSitesPaginator,
     )
 
@@ -36,8 +38,10 @@ Usage::
     list_blocking_instances_for_capacity_task_paginator: ListBlockingInstancesForCapacityTaskPaginator = client.get_paginator("list_blocking_instances_for_capacity_task")
     list_capacity_tasks_paginator: ListCapacityTasksPaginator = client.get_paginator("list_capacity_tasks")
     list_catalog_items_paginator: ListCatalogItemsPaginator = client.get_paginator("list_catalog_items")
+    list_orderable_instance_types_paginator: ListOrderableInstanceTypesPaginator = client.get_paginator("list_orderable_instance_types")
     list_orders_paginator: ListOrdersPaginator = client.get_paginator("list_orders")
     list_outposts_paginator: ListOutpostsPaginator = client.get_paginator("list_outposts")
+    list_quotes_paginator: ListQuotesPaginator = client.get_paginator("list_quotes")
     list_sites_paginator: ListSitesPaginator = client.get_paginator("list_sites")
     ```
 """
@@ -66,10 +70,14 @@ from .type_defs import (
     ListCapacityTasksOutputTypeDef,
     ListCatalogItemsInputPaginateTypeDef,
     ListCatalogItemsOutputTypeDef,
+    ListOrderableInstanceTypesInputPaginateTypeDef,
+    ListOrderableInstanceTypesOutputTypeDef,
     ListOrdersInputPaginateTypeDef,
     ListOrdersOutputTypeDef,
     ListOutpostsInputPaginateTypeDef,
     ListOutpostsOutputTypeDef,
+    ListQuotesInputPaginateTypeDef,
+    ListQuotesOutputTypeDef,
     ListSitesInputPaginateTypeDef,
     ListSitesOutputTypeDef,
 )
@@ -89,8 +97,10 @@ __all__ = (
     "ListBlockingInstancesForCapacityTaskPaginator",
     "ListCapacityTasksPaginator",
     "ListCatalogItemsPaginator",
+    "ListOrderableInstanceTypesPaginator",
     "ListOrdersPaginator",
     "ListOutpostsPaginator",
+    "ListQuotesPaginator",
     "ListSitesPaginator",
 )
 
@@ -272,6 +282,27 @@ class ListCatalogItemsPaginator(_ListCatalogItemsPaginatorBase):
 
 
 if TYPE_CHECKING:
+    _ListOrderableInstanceTypesPaginatorBase = Paginator[ListOrderableInstanceTypesOutputTypeDef]
+else:
+    _ListOrderableInstanceTypesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListOrderableInstanceTypesPaginator(_ListOrderableInstanceTypesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/paginator/ListOrderableInstanceTypes.html#Outposts.Paginator.ListOrderableInstanceTypes)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/paginators/#listorderableinstancetypespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListOrderableInstanceTypesInputPaginateTypeDef]
+    ) -> PageIterator[ListOrderableInstanceTypesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/paginator/ListOrderableInstanceTypes.html#Outposts.Paginator.ListOrderableInstanceTypes.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/paginators/#listorderableinstancetypespaginator)
+        """
+
+
+if TYPE_CHECKING:
     _ListOrdersPaginatorBase = Paginator[ListOrdersOutputTypeDef]
 else:
     _ListOrdersPaginatorBase = Paginator  # type: ignore[assignment]
@@ -310,6 +341,27 @@ class ListOutpostsPaginator(_ListOutpostsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/paginator/ListOutposts.html#Outposts.Paginator.ListOutposts.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/paginators/#listoutpostspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListQuotesPaginatorBase = Paginator[ListQuotesOutputTypeDef]
+else:
+    _ListQuotesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListQuotesPaginator(_ListQuotesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/paginator/ListQuotes.html#Outposts.Paginator.ListQuotes)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/paginators/#listquotespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListQuotesInputPaginateTypeDef]
+    ) -> PageIterator[ListQuotesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/paginator/ListQuotes.html#Outposts.Paginator.ListQuotes.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/paginators/#listquotespaginator)
         """
 
 

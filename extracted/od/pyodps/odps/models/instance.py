@@ -14,10 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
-
 import base64
+import enum
 import functools
+import io
 import json
 import logging
 import sys
@@ -29,11 +29,10 @@ from datetime import datetime
 
 import requests
 
-from .. import compat, errors, options, readers, serializers, utils
+from .. import errors, options, readers, serializers, utils
 from ..accounts import BearerTokenAccount
-from ..compat import Enum, six
-from ..lib.monotonic import monotonic
 from ..lib.tblib import pickling_support
+from ..readers import CsvRecordReader
 from ..utils import to_str
 from .core import JSONRemoteModel, XMLLazyLoad, XMLRemoteModel
 from .job import Job
@@ -53,7 +52,7 @@ _STATUS_QUERY_TIMEOUT = 5 * 60  # timeout when getting status
 
 
 def _with_status_api_lock(func):
-    @six.wraps(func)
+    @functools.wraps(func)
     def wrapped(self, *args, **kw):
         with self._status_api_lock:
             return func(self, *args, **kw)
@@ -61,7 +60,7 @@ def _with_status_api_lock(func):
     return wrapped
 
 
-class SpawnedInstanceReaderMixin(object):
+class SpawnedInstanceReaderMixin:
     @property
     def schema(self):
         return self._schema
@@ -147,6 +146,19 @@ class InstanceArrowReader(SpawnedInstanceReaderMixin, TunnelArrowReader):
         self._schema = download_session.schema
 
 
+def _parse_instance_schema(value):
+    from .table import TableSchema
+
+    if isinstance(value, dict):
+        columns = value.get("Columns", [])
+        if columns:
+            return TableSchema.from_lists(
+                [c["Name"] for c in columns],
+                [c["Type"] for c in columns],
+            )
+    return None
+
+
 class Instance(XMLLazyLoad):
     """
     Instance means that a ODPS task will sometimes run as an instance.
@@ -213,7 +225,7 @@ class Instance(XMLLazyLoad):
     def id(self):
         return self.name
 
-    class Status(Enum):
+    class Status(enum.Enum):
         RUNNING = "Running"
         SUSPENDED = "Suspended"
         TERMINATED = "Terminated"
@@ -231,10 +243,7 @@ class Instance(XMLLazyLoad):
                 text = serializers.XMLNodeField(".", default="")
 
                 def __str__(self):
-                    if six.PY2:
-                        text = utils.to_binary(self.text)
-                    else:
-                        text = self.text
+                    text = self.text
                     if self.transform is not None and self.transform == "Base64":
                         try:
                             return utils.to_str(base64.b64decode(text))
@@ -251,9 +260,21 @@ class Instance(XMLLazyLoad):
                             return text
                     return text
 
+            class TaskResultDescriptor(serializers.JSONSerializableModel):
+                select_result_status = serializers.JSONNodeField("SelectResultStatus")
+                is_select = serializers.JSONNodeField("IsSelect")
+                schema = serializers.JSONNodeField(
+                    "Schema", parse_callback=_parse_instance_schema
+                )
+
             type = serializers.XMLNodeAttributeField(attr="Type")
             name = serializers.XMLNodeField("Name")
             result = serializers.XMLNodeReferenceField(Result, "Result")
+
+            result_descriptor = serializers.XMLNodeReferenceField(
+                TaskResultDescriptor, "ResultDescriptor"
+            )
+            status = serializers.XMLNodeField("Status")
 
         task_results = serializers.XMLNodesReferencesField(TaskResult, "Tasks", "Task")
 
@@ -279,7 +300,7 @@ class Instance(XMLLazyLoad):
             "Instance.Task", "Histories", "History"
         )
 
-        class TaskStatus(Enum):
+        class TaskStatus(enum.Enum):
             WAITING = "WAITING"
             RUNNING = "RUNNING"
             SUCCESS = "SUCCESS"
@@ -327,23 +348,23 @@ class Instance(XMLLazyLoad):
             stages = serializers.XMLNodesReferencesField(StageProgress, "Stage")
 
             def get_stage_progress_formatted_string(self):
-                buf = six.StringIO()
+                buf = io.StringIO()
 
                 buf.write(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 buf.write(" ")
 
                 for stage in self.stages:
+                    backup_worker_str = (
+                        f"(+{stage.backup_workers} backups)"
+                        if stage.backup_workers > 0
+                        else ""
+                    )
+                    worker_str = (
+                        f"{stage.running_workers}/{stage.terminated_workers}"
+                        f"/{stage.total_workers}{backup_worker_str}"
+                    )
                     buf.write(
-                        "{0}:{1}/{2}/{3}{4}[{5}%]\t".format(
-                            stage.name,
-                            stage.running_workers,
-                            stage.terminated_workers,
-                            stage.total_workers,
-                            "(+%s backups)" % stage.backup_workers
-                            if stage.backup_workers > 0
-                            else "",
-                            stage.finished_percentage,
-                        )
+                        f"{stage.name}:{worker_str}[{stage.finished_percentage}%]\t"
                     )
 
                 return buf.getvalue()
@@ -355,7 +376,7 @@ class Instance(XMLLazyLoad):
         key = serializers.XMLNodeField("Key")
         value = serializers.XMLNodeField("Value")
 
-    class TaskCost(object):
+    class TaskCost:
         __slots__ = "cpu_cost", "memory_cost", "input_size"
 
         def __init__(self, cpu_cost=None, memory_cost=None, input_size=None):
@@ -363,7 +384,7 @@ class Instance(XMLLazyLoad):
             self.memory_cost = memory_cost
             self.input_size = input_size
 
-    class SQLCost(object):
+    class SQLCost:
         __slots__ = "udf_num", "complexity", "input_size"
 
         def __init__(self, udf_num=None, complexity=None, input_size=None):
@@ -378,6 +399,7 @@ class Instance(XMLLazyLoad):
         def __init__(self, *args, **kwargs):
             super(Instance.TaskSummary, self).__init__(*args, **kwargs)
             self.summary_text, self.json_summary = None, None
+            self.finalized = None
 
     class AnonymousSubmitInstance(XMLRemoteModel):
         _root = "Instance"
@@ -386,7 +408,7 @@ class Instance(XMLLazyLoad):
     class InstanceQueueingInfo(JSONRemoteModel):
         __slots__ = ("_instance",)
 
-        class Status(Enum):
+        class Status(enum.Enum):
             RUNNING = "Running"
             SUSPENDED = "Suspended"
             TERMINATED = "Terminated"
@@ -482,7 +504,7 @@ class Instance(XMLLazyLoad):
         return utils.call_with_retry(func, **retry_kw)
 
     @_with_status_api_lock
-    def get_task_results_without_format(self, timeout=None, retry=True):
+    def _get_task_results_without_format(self, timeout=None, retry=True):
         if self._is_sync:
             return self._task_results
 
@@ -491,7 +513,16 @@ class Instance(XMLLazyLoad):
 
         resp = self._call_with_retry(_get_resp, retry=retry, retry_timeout=timeout)
         instance_result = Instance.InstanceResult.parse(self._client, resp)
-        return OrderedDict([(r.name, r.result) for r in instance_result.task_results])
+        self._task_results = OrderedDict(
+            [(r.name, r) for r in instance_result.task_results]
+        )
+        return self._task_results
+
+    def get_task_results_without_format(self, timeout=None, retry=True):
+        task_results = self._get_task_results_without_format(
+            timeout=timeout, retry=retry
+        )
+        return OrderedDict([(k, r.result) for k, r in task_results.items()])
 
     @_with_status_api_lock
     def get_task_results(self, timeout=None, retry=True):
@@ -501,23 +532,29 @@ class Instance(XMLLazyLoad):
         :return: a dict which key is task name, and value is the task result as string
         :rtype: dict
         """
-
         results = self.get_task_results_without_format(timeout=timeout, retry=retry)
         if options.tunnel.string_as_binary:
-            return OrderedDict(
-                [(k, bytes(result)) for k, result in six.iteritems(results)]
-            )
+            return OrderedDict([(k, bytes(result)) for k, result in results.items()])
         else:
-            return OrderedDict(
-                [(k, str(result)) for k, result in six.iteritems(results)]
-            )
+            return OrderedDict([(k, str(result)) for k, result in results.items()])
+
+    def get_result_descriptor(self, task_name=None):
+        if task_name is None:
+            task_name = self._get_default_task_name()
+        if self._task_results is None:
+            self._get_task_results_without_format()
+        task_result = (self._task_results or {}).get(task_name)
+        return task_result.result_descriptor if task_result else None
 
     def _get_default_task_name(self):
-        job = self._get_job()
-        if len(job.tasks) != 1:
-            msg = "No tasks" if len(job.tasks) == 0 else "Multiple tasks"
-            raise errors.ODPSError("%s in instance." % msg)
-        return job.tasks[0].name
+        if self._is_sync and self._task_results:
+            names = list(self._task_results.keys())
+        else:
+            names = [t.name for t in self._get_job().tasks]
+        if len(names) != 1:
+            msg = "No tasks" if len(names) == 0 else "Multiple tasks"
+            raise errors.ODPSError(f"{msg} in instance.")
+        return names[0]
 
     @_with_status_api_lock
     def get_task_result(self, task_name=None, timeout=None, retry=True):
@@ -532,13 +569,21 @@ class Instance(XMLLazyLoad):
         return self.get_task_results(timeout=timeout, retry=retry).get(task_name)
 
     @_with_status_api_lock
-    def get_task_summary(self, task_name=None):
+    def get_task_summary(self, task_name=None, with_finalized=False):
         """
         Get a task's summary, mostly used for MapReduce.
 
         :param task_name: task name
-        :return: summary as a dict parsed from JSON
-        :rtype: dict
+        :param with_finalized: if True, return an empty TaskSummary with
+            the finalized attribute when no summary body is available but
+            the task ends.
+        :return: summary dict with extra attributes:
+            * summary_text: plain text summary
+            * json_summary: raw JSON string
+            * finalized: (only when with_finalized=True) True if task is
+              finalized (summary won't change), False if not yet finalized,
+              None if server did not return the x-odps-task-finalized header.
+        :rtype: Instance.TaskSummary or None
         """
         task_name = task_name or self._get_default_task_name()
         params = {"taskname": task_name}
@@ -546,25 +591,74 @@ class Instance(XMLLazyLoad):
             self.resource(), action="instancesummary", params=params
         )
 
-        map_reduce = resp.json().get("Instance")
-        if map_reduce:
-            json_summary = map_reduce.get("JsonSummary")
-            if json_summary:
-                summary = Instance.TaskSummary(json.loads(json_summary))
-                summary.summary_text = map_reduce.get("Summary")
-                summary.json_summary = json_summary
+        finalized = None
+        if with_finalized:
+            finalized_header = resp.headers.get("x-odps-task-finalized")
+            if finalized_header is not None:
+                finalized = finalized_header.lower() == "true"
 
-                return summary
+        summary = None
+        try:
+            map_reduce = resp.json().get("Instance")
+            if map_reduce:
+                json_summary = map_reduce.get("JsonSummary")
+                if json_summary:
+                    summary = Instance.TaskSummary(json.loads(json_summary))
+                    summary.summary_text = map_reduce.get("Summary")
+                    summary.json_summary = json_summary
+        except (AttributeError, ValueError):
+            if not with_finalized:
+                raise
+            logger.debug("Failed to parse task summary body", exc_info=True)
+
+        if with_finalized:
+            if summary is None and finalized is not None:
+                summary = Instance.TaskSummary()
+            if summary is not None:
+                summary.finalized = finalized
+
+        return summary
+
+    def _get_task_statuses_from_results(self):
+        """Build Task objects from cached _task_results.
+
+        Only name, type, and status fields are populated; other fields
+        such as start_time, end_time, and histories are left as None.
+        Returns None if _task_results is empty or any required field
+        is missing.
+        """
+        if not self._task_results:
+            return None
+        try:
+            return {
+                tr.name: Instance.Task(
+                    name=tr.name,
+                    type=tr.type.lower(),  # make sure type exists
+                    status=Instance.Task.TaskStatus(tr.status.upper()),
+                )
+                for tr in self._task_results.values()
+            }
+        except (AttributeError, ValueError):
+            return None
 
     @_with_status_api_lock
-    def get_task_statuses(self, retry=True, timeout=None, on_exception=None):
+    def get_task_statuses(
+        self, retry=True, timeout=None, on_exception=None, status_only=False
+    ):
         """
         Get all tasks' statuses
 
+        :param status_only: if True, allow using cached status from sync
+            response instead of making HTTP request
         :return: a dict which key is the task name and value is
             the :class:`odps.models.Instance.Task` object
         :rtype: dict
         """
+
+        if status_only:
+            sync_tasks = self._get_task_statuses_from_results()
+            if sync_tasks is not None:
+                return sync_tasks
 
         def _get_resp():
             return self._client.get(self.resource(), action="taskstatus")
@@ -584,7 +678,11 @@ class Instance(XMLLazyLoad):
         :rtype: list
         """
 
-        return compat.lkeys(self.get_task_statuses(retry=retry, timeout=timeout))
+        return list(
+            self.get_task_statuses(
+                retry=retry, timeout=timeout, status_only=True
+            ).keys()
+        )
 
     def get_task_cost(self, task_name=None):
         """
@@ -763,7 +861,9 @@ class Instance(XMLLazyLoad):
             return False
 
         def _get_successful():
-            statuses = self.get_task_statuses(on_exception=on_exception)
+            statuses = self.get_task_statuses(
+                on_exception=on_exception, status_only=True
+            )
             return all(
                 task.status == Instance.Task.TaskStatus.SUCCESS
                 for task in statuses.values()
@@ -858,7 +958,7 @@ class Instance(XMLLazyLoad):
         :return: None
         """
 
-        start_time = check_time = self._last_progress_time = monotonic()
+        start_time = check_time = self._last_progress_time = time.monotonic()
         self._last_progress_value = 0
         while not self.is_terminated(
             retry=True,
@@ -867,15 +967,15 @@ class Instance(XMLLazyLoad):
             on_exception=on_exception,
         ):
             try:
-                sleep_interval_left = interval - (monotonic() - check_time)
+                sleep_interval_left = interval - (time.monotonic() - check_time)
                 if sleep_interval_left > 0:
                     time.sleep(sleep_interval_left)
-                check_time = monotonic()
+                check_time = time.monotonic()
                 if max_interval is not None:
                     interval = min(interval * 2, max_interval)
                 if timeout is not None and check_time - start_time > timeout:
                     raise errors.WaitTimeoutError(
-                        "Wait completion of instance %s timed out" % self.id,
+                        f"Wait completion of instance {self.id} timed out",
                         instance_id=self.id,
                     )
 
@@ -918,16 +1018,14 @@ class Instance(XMLLazyLoad):
         )
 
         if not self.is_successful(retry=True, on_exception=on_exception):
-            for task_name, task in six.iteritems(
-                self.get_task_statuses(on_exception=on_exception)
-            ):
+            for task_name, task in self.get_task_statuses(
+                on_exception=on_exception
+            ).items():
                 exc = None
                 if task.status == Instance.Task.TaskStatus.FAILED:
                     exc = errors.parse_instance_error(self.get_task_result(task_name))
                 elif task.status != Instance.Task.TaskStatus.SUCCESS:
-                    exc = errors.ODPSError(
-                        "%s, status=%s" % (task_name, task.status.value)
-                    )
+                    exc = errors.ODPSError(f"{task_name}, status={task.status.value}")
                 if exc:
                     exc.instance_id = self.id
                     raise exc
@@ -958,13 +1056,11 @@ class Instance(XMLLazyLoad):
         """
 
         def _get_detail():
-            from ..compat import json  # fix object_pairs_hook parameter for Py2.6
-
             params = {"taskname": task_name}
             resp = self._client.get(
                 self.resource(), action="instancedetail", params=params
             )
-            res = resp.content.decode() if six.PY3 else resp.content
+            res = resp.content.decode()
             try:
                 return json.loads(res, object_pairs_hook=OrderedDict)
             except ValueError:
@@ -993,7 +1089,7 @@ class Instance(XMLLazyLoad):
             params["subquery_id"] = str(kw.pop("subquery_id"))
 
         resp = self._client.get(self.resource(), action="detail", params=params)
-        res = resp.content.decode() if six.PY3 else resp.content
+        res = resp.content.decode()
         try:
             return json.loads(res, object_pairs_hook=OrderedDict)
         except ValueError:
@@ -1034,7 +1130,7 @@ class Instance(XMLLazyLoad):
             if log_type not in LOG_TYPES_MAPPING:
                 raise ValueError(
                     "log_type should choose a value in "
-                    + " ".join(six.iterkeys(LOG_TYPES_MAPPING))
+                    + " ".join(LOG_TYPES_MAPPING.keys())
                 )
             params["logtype"] = LOG_TYPES_MAPPING[log_type]
         if size > 0:
@@ -1043,7 +1139,7 @@ class Instance(XMLLazyLoad):
         return resp.text
 
     get_worker_log.__doc__ = get_worker_log.__doc__.format(
-        log_types=", ".join(sorted(six.iterkeys(LOG_TYPES_MAPPING)))
+        log_types=", ".join(sorted(LOG_TYPES_MAPPING.keys()))
     )
 
     @_with_status_api_lock
@@ -1083,7 +1179,7 @@ class Instance(XMLLazyLoad):
     def _get_legacy_logview_address(self, hours=None):
         if (
             self._logview_address is not None
-            and monotonic() - self._logview_address_time < 600
+            and time.monotonic() - self._logview_address_time < 600
         ):
             return self._logview_address
 
@@ -1097,8 +1193,7 @@ class Instance(XMLLazyLoad):
                     {
                         "Action": ["odps:Read"],
                         "Effect": "Allow",
-                        "Resource": "acs:odps:*:projects/%s/instances/%s"
-                        % (project.name, self.id),
+                        "Resource": f"acs:odps:*:projects/{project.name}/instances/{self.id}",
                     }
                 ],
                 "Version": "1",
@@ -1116,7 +1211,7 @@ class Instance(XMLLazyLoad):
             token=token,
         )
         self._logview_address = link
-        self._logview_address_time = monotonic()
+        self._logview_address_time = time.monotonic()
         return link
 
     def __str__(self):
@@ -1176,31 +1271,27 @@ class Instance(XMLLazyLoad):
     def _check_get_task_name(self, task_type, task_name=None, err_head=None):
         if not self.is_successful(retry=True):
             raise errors.ODPSError(
-                "%s, instance(%s) may fail or has not finished yet"
-                % (err_head, self.id)
+                f"{err_head}, instance({self.id}) may fail or has not finished yet"
             )
 
         task_type = task_type.lower()
         filtered_tasks = {
             name: task
-            for name, task in six.iteritems(self.get_task_statuses())
+            for name, task in self.get_task_statuses(status_only=True).items()
             if task.type.lower() == task_type
         }
         if len(filtered_tasks) > 1:
             if task_name is None:
                 raise errors.ODPSError(
-                    "%s, job has more than one %s tasks, please specify one"
-                    % (err_head, task_type)
+                    f"{err_head}, job has more than one {task_type} tasks, please specify one"
                 )
             elif task_name not in filtered_tasks:
-                raise errors.ODPSError(
-                    "%s, unknown task name: %s" % (err_head, task_name)
-                )
+                raise errors.ODPSError(f"{err_head}, unknown task name: {task_name}")
             return task_name
         elif len(filtered_tasks) == 1:
             return list(filtered_tasks)[0]
         else:
-            raise errors.ODPSError("%s, job has no %s task" % (err_head, task_type))
+            raise errors.ODPSError(f"{err_head}, job has no {task_type} task")
 
     def _create_instance_tunnel(self, endpoint=None, quota_name=None):
         from ..tunnel import InstanceTunnel
@@ -1217,7 +1308,14 @@ class Instance(XMLLazyLoad):
         task_name = self._check_get_task_name(
             "sql", task_name=task_name, err_head="Cannot open reader"
         )
+        logger.debug(
+            "Opening result reader: legacy_cast_csv_result=%s, schema=%s",
+            options.legacy_cast_csv_result,
+            "provided" if schema is not None else "None",
+        )
         result = self.get_task_result(task_name, timeout=timeout)
+        if not result or not result.strip():
+            result = ""
         reader = readers.CsvRecordReader(schema, result, **kw)
         if options.result_reader_create_callback:
             options.result_reader_create_callback(reader)
@@ -1249,7 +1347,7 @@ class Instance(XMLLazyLoad):
         except errors.InternalServerError:
             e, tb = sys.exc_info()[1:]
             e.__class__ = Instance.DownloadSessionCreationError
-            six.reraise(Instance.DownloadSessionCreationError, e, tb)
+            raise e.with_traceback(tb)
 
         self._download_id = download_session.id
 
@@ -1313,20 +1411,21 @@ class Instance(XMLLazyLoad):
             errors.InvalidArgument,
             errors.NoSuchProject,
         )
+
+        # for compatibility
+        if "limit_enabled" in kwargs:
+            kwargs["limit"] = kwargs["limit_enabled"]
+            del kwargs["limit_enabled"]
+
+        if "limit" not in kwargs:
+            kwargs["limit"] = options.tunnel.limit_instance_tunnel
+
+        auto_fallback_protection = False
+        if kwargs["limit"] is None:
+            kwargs["limit"] = False
+            auto_fallback_protection = True
+
         if use_tunnel:
-            # for compatibility
-            if "limit_enabled" in kwargs:
-                kwargs["limit"] = kwargs["limit_enabled"]
-                del kwargs["limit_enabled"]
-
-            if "limit" not in kwargs:
-                kwargs["limit"] = options.tunnel.limit_instance_tunnel
-
-            auto_fallback_protection = False
-            if kwargs["limit"] is None:
-                kwargs["limit"] = False
-                auto_fallback_protection = True
-
             try:
                 return self._open_tunnel_reader(**kwargs)
             except result_fallback_errors:
@@ -1372,6 +1471,44 @@ class Instance(XMLLazyLoad):
                     )
                     kwargs["limit"] = True
                     return self.open_reader(*args, **kwargs)
+
+        rd = self.get_result_descriptor()
+        if rd is None or not rd.is_select:
+            # No ResultDescriptor: offline mode — fall through to legacy inline path
+            return self._open_result_reader(*args, **kwargs)
+
+        status = rd.select_result_status
+        status_upper = status.upper() if isinstance(status, str) else None
+        if status_upper == "NO":
+            raise errors.NotSupportedError(
+                f"Result read failed: (SelectResultStatus={status})."
+            )
+        if status_upper == "TRUNCATED":
+            limit = kwargs.get("limit")
+            if limit is None:
+                warnings.warn("Result has been truncated, you may not get all records.")
+            elif not limit:
+                raise errors.NotSupportedError(
+                    "Result has been truncated and limit is not enabled. "
+                    "pass limit=True to accept truncated results."
+                )
+        # Use ResultDescriptor schema for inline reader when not in legacy mode
+        if not options.legacy_cast_csv_result:
+            if rd.schema and any(
+                CsvRecordReader._contains_unsupported_type(col.type)
+                for col in rd.schema
+            ):
+                unsupported_names = []
+                for col in rd.schema:
+                    if CsvRecordReader._contains_unsupported_type(col.type):
+                        unsupported_names.append(col.type.name)
+                raise errors.NotSupportedError(
+                    "Result contains unsupported column types (%s) "
+                    "that cannot be parsed from CSV. "
+                    "Pass tunnel=True to download data with correct format"
+                    % ", ".join(unsupported_names)
+                )
+            kwargs["schema"] = rd.schema
 
         return self._open_result_reader(*args, **kwargs)
 

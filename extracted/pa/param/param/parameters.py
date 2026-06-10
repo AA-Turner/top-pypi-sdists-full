@@ -60,6 +60,8 @@ from ._utils import (
 #-----------------------------------------------------------------------------
 
 if t.TYPE_CHECKING:
+    from types import NoneType
+
     import numpy as np
     import pandas as pd
 
@@ -150,7 +152,7 @@ def param_union(*parameterizeds: Parameterized, warn: bool = True) -> dict[str, 
     Parameters
     ----------
     warn : bool, optional
-        Wether to warn if the same parameter have been given multiple values,
+        Whether to warn if the same parameter have been given multiple values,
         otherwise use the last value, by default True
 
     Returns
@@ -3175,7 +3177,7 @@ class ClassSelector(SelectorBase[_T]):
             # This will clobber separate classes with identical names.
             # Known historical issue, see https://github.com/holoviz/param/pull/1035
             all_classes.update({c.__name__: c for c in desc})
-        d = OrderedDict((name, class_) for name,class_ in all_classes.items())
+        d: dict[str, type | NoneType] = OrderedDict((name, class_) for name,class_ in all_classes.items())
         if self.allow_None:
             d['None'] = None
         return d
@@ -3608,7 +3610,7 @@ class List(Parameter[_T]):
             self: List[list[LT]],
             default: list[LT] = [],
             *,
-            item_type: type[LT] | tuple[type[LT], ...] = (),
+            item_type: type[LT] | tuple[type[LT], ...],
             bounds: tuple[int, int | None] | None = (0, None),
             is_instance: bool = True,
             allow_None: t.Literal[False] = False,
@@ -3632,17 +3634,7 @@ class List(Parameter[_T]):
             self: List[list[LT] | None],
             default: list[LT] | None = None,
             *,
-            item_type: type[LT] | tuple[type[LT], ...] = (),
-            allow_None: t.Literal[True] = True,
-            **kwargs: Unpack[_ParameterKwargs]
-        ) -> None:
-            ...
-
-        @t.overload
-        def __init__(
-            self: List[list[t.Any] | None],
-            default: list[t.Any] | None = None,
-            *,
+            item_type: type[LT] | tuple[type[LT], ...],
             allow_None: t.Literal[True] = True,
             **kwargs: Unpack[_ParameterKwargs]
         ) -> None:
@@ -3655,6 +3647,16 @@ class List(Parameter[_T]):
             *,
             item_type: None = None,
             allow_None: t.Literal[False] = False,
+            **kwargs: Unpack[_ParameterKwargs]
+        ) -> None:
+            ...
+
+        @t.overload
+        def __init__(
+            self: List[list[t.Any] | None],
+            default: list[t.Any] | None = None,
+            *,
+            allow_None: t.Literal[True] = True,
             **kwargs: Unpack[_ParameterKwargs]
         ) -> None:
             ...

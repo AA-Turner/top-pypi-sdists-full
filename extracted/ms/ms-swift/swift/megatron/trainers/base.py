@@ -29,10 +29,10 @@ from swift.dataset import RowPreprocessor
 from swift.megatron.callbacks import megatron_callbacks_map
 from swift.megatron.model import get_mcore_model
 from swift.megatron.utils import (apply_router_replay_patch, disable_forward_pre_hook, enable_forward_pre_hook,
-                                  get_batch_on_this_cp_rank, get_optimizer_param_scheduler, get_packed_seq_params,
-                                  get_padding_to, init_persistent_async_worker, initialize_tp_communicators,
-                                  load_mcore_checkpoint, logical_and_across_model_parallel_group,
-                                  maybe_finalize_async_save, prepare_mcore_model,
+                                  get_optimizer_param_scheduler, get_padding_to, init_persistent_async_worker,
+                                  initialize_tp_communicators, load_mcore_checkpoint,
+                                  logical_and_across_model_parallel_group, maybe_finalize_async_save,
+                                  prepare_mcore_model, reconstruct_tensor_cp,
                                   reduce_max_stat_across_model_parallel_group, save_mcore_checkpoint,
                                   should_disable_forward_pre_hook, warmup_jit_function, wrap_model)
 from swift.template import Template
@@ -41,7 +41,7 @@ from swift.trainers.utils import patch_modelscope_hub_timeout
 from swift.utils import (deep_getattr, gc_collect, get_current_device, get_last_valid_indices, get_logger, is_last_rank,
                          is_master, ms_logger_context)
 from .batch_sampler import MegatronPretrainingRandomSampler, MegatronPretrainingSampler
-from .utils import TrainerState, build_streaming_dataloader, get_batch_on_this_pp_rank
+from .utils import TrainerState, build_streaming_dataloader, prepare_batch
 
 try:
     from megatron.core.optimizer import param_group_identifier_keys
@@ -128,6 +128,7 @@ class BaseMegatronTrainer(ABC):
         self._log_callback(logs, n_steps)
         if prefix:
             logs = {f'{prefix}{k}': v for k, v in logs.items()}
+        self._last_logged_metrics = dict(logs)
         self.call_event('on_log', logs=logs)
 
     def _log_callback(self, logs, n_steps):
@@ -445,6 +446,8 @@ class BaseMegatronTrainer(ABC):
                 param_group['max_lr'] = lr
                 param_group['min_lr'] = min_lr
             lr_mult = param_group.pop('lr_mult')
+            # Instead of using lr_mult to control the learning rate, we directly use max_lr/min_lr.
+            param_group['lr_mult'] = 1.
             param_group['max_lr'] *= lr_mult
             param_group['min_lr'] *= lr_mult
         return param_groups
@@ -498,7 +501,8 @@ class BaseMegatronTrainer(ABC):
             if self.args.vit_gradient_checkpointing:
                 dynamic_gradient_checkpointing(module, False)
                 try:
-                    module.gradient_checkpointing_enable(**(self.args.vit_gradient_checkpointing_kwargs or {}))
+                    module.gradient_checkpointing_enable(
+                        gradient_checkpointing_kwargs=self.args.vit_gradient_checkpointing_kwargs)
                     module.enable_input_require_grads()
                 except AttributeError:
                     pass
@@ -576,10 +580,10 @@ class BaseMegatronTrainer(ABC):
             val_data_iterator = iter(self.cyclic_iter(val_dataloader, use_origin_cyclic=use_origin_cyclic))
         return train_data_iterator, val_data_iterator
 
-    def train(self, train_dataset, val_dataset):
+    def setup_model_training(self):
         args = self.args
         config = self.config
-        state = self.state
+
         for m in self.wrapped_models:
             m.train()
 
@@ -603,21 +607,20 @@ class BaseMegatronTrainer(ABC):
             if len(self.wrapped_models) == 1:
                 config.param_sync_func = config.param_sync_func[0]
         config.finalize_model_grads_func = finalize_model_grads
-        start_iteration = state.iteration
-        pre_hook_enabled = False
-        # Disable forward pre-hook to start training to ensure that errors in checkpoint loading
-        # or random initialization don't propagate to all ranks in first all-gather (which is a
-        # no-op if things work correctly).
+
+        self._start_iteration = self.state.iteration
+        self._pre_hook_enabled = False
         if should_disable_forward_pre_hook(args):
             disable_forward_pre_hook(self.wrapped_models, param_sync=False)
-            # Also remove param_sync_func temporarily so that sync calls made in
-            # `forward_backward_func` are no-ops.
-            param_sync_func = config.param_sync_func
+            self._saved_param_sync_func = config.param_sync_func
             config.param_sync_func = None
-            pre_hook_enabled = False
 
         self.call_event('on_train_begin')
-        train_metrics = {}
+        self._train_metrics = {}
+
+    def setup_training(self, train_dataset, val_dataset):
+        self.setup_model_training()
+        args = self.args
         if args.virtual_pipeline_model_parallel_size is not None:
             train_data_iterator, val_data_iterator = [], []
             for _ in range(args.virtual_pipeline_model_parallel_size):
@@ -626,66 +629,81 @@ class BaseMegatronTrainer(ABC):
                 val_data_iterator.append(val_it)
         else:
             train_data_iterator, val_data_iterator = self._prepare_data_iterator(train_dataset, val_dataset)
-        while state.iteration < args.train_iters:
-            self.call_event('on_step_begin')
-            maybe_finalize_async_save(args, blocking=False)
-            metrics, grad_norm, update_successful = self.train_step(train_data_iterator)
-            if state.iteration == start_iteration:
-                if update_successful:
-                    # Enable forward pre-hook after training step has successfully run. All subsequent
-                    # forward passes will use the forward pre-hook / `param_sync_func` in
-                    # `forward_backward_func`.
-                    if should_disable_forward_pre_hook(args):
-                        enable_forward_pre_hook(self.wrapped_models)
-                        config.param_sync_func = param_sync_func
-                        pre_hook_enabled = True
-                else:
-                    start_iteration = state.iteration + 1
+        return train_data_iterator, val_data_iterator
 
-            state.iteration += 1
-            self.call_event('on_step_end')
-            self._aggregated_metrics(metrics, train_metrics)
-            train_metrics['grad_norm'] = grad_norm
-            learning_rate = None
-            for param_group in self.optimizer.param_groups:
-                if len(param_group['params']) == 0:
-                    continue
-                learning_rate = param_group['lr']
-            if learning_rate is not None:
-                train_metrics['learning_rate'] = learning_rate
-            if state.should_log:
-                state.should_log = False
-                self.on_log(logs=train_metrics)
-                train_metrics = {}
+    def run_train_step(self, train_data_iterator, val_data_iterator):
+        """Execute one training iteration including logging / eval / save.
 
-            eval_metrics = None
-            if state.should_eval:
-                state.should_eval = False
-                if should_disable_forward_pre_hook(args):
-                    disable_forward_pre_hook(self.wrapped_models)
-                    pre_hook_enabled = False
-                eval_metrics = self.evaluate(val_data_iterator)
-                for m in self.wrapped_models:
-                    m.train()
+        Returns ``True`` if training should continue, ``False`` if done.
+        """
+        args = self.args
+        config = self.config
+        state = self.state
+
+        self.call_event('on_step_begin')
+        maybe_finalize_async_save(args, blocking=False)
+        metrics, grad_norm, update_successful = self.train_step(train_data_iterator)
+
+        if state.iteration == self._start_iteration:
+            if update_successful:
                 if should_disable_forward_pre_hook(args):
                     enable_forward_pre_hook(self.wrapped_models)
-                    pre_hook_enabled = True
+                    config.param_sync_func = self._saved_param_sync_func
+                    self._pre_hook_enabled = True
+            else:
+                self._start_iteration = state.iteration + 1
 
-            if state.should_save:
-                self._determine_best_metric(eval_metrics)
-                if should_disable_forward_pre_hook(args):
-                    disable_forward_pre_hook(self.wrapped_models)
-                state.should_save = False
-                self.save_checkpoint()
-                self.call_event('on_save', output_dir=self.state.last_model_checkpoint)
-                if should_disable_forward_pre_hook(args):
-                    enable_forward_pre_hook(self.wrapped_models)
+        state.iteration += 1
+        self.call_event('on_step_end')
+        self._aggregated_metrics(metrics, self._train_metrics)
+        self._train_metrics['grad_norm'] = grad_norm
+        for param_group in self.optimizer.param_groups:
+            if len(param_group['params']) == 0:
+                continue
+            self._train_metrics['learning_rate'] = param_group['lr']
+            break
+        if state.should_log:
+            state.should_log = False
+            self.on_log(logs=self._train_metrics)
+            self._train_metrics = {}
 
+        eval_metrics = None
+        if state.should_eval:
+            state.should_eval = False
+            if should_disable_forward_pre_hook(args):
+                disable_forward_pre_hook(self.wrapped_models)
+                self._pre_hook_enabled = False
+            eval_metrics = self.evaluate(val_data_iterator)
+            for m in self.wrapped_models:
+                m.train()
+            if should_disable_forward_pre_hook(args):
+                enable_forward_pre_hook(self.wrapped_models)
+                self._pre_hook_enabled = True
+
+        if state.should_save:
+            self._determine_best_metric(eval_metrics)
+            if should_disable_forward_pre_hook(args):
+                disable_forward_pre_hook(self.wrapped_models)
+            state.should_save = False
+            self.save_checkpoint()
+            self.call_event('on_save', output_dir=self.state.last_model_checkpoint)
+            if should_disable_forward_pre_hook(args):
+                enable_forward_pre_hook(self.wrapped_models)
+
+        return state.iteration < args.train_iters
+
+    def finalize_training(self):
+        """Cleanup after training loop completes."""
         self.call_event('on_train_end')
-        # Close out pre-hooks if using distributed optimizer and overlapped param gather.
-        if pre_hook_enabled:
+        if self._pre_hook_enabled:
             disable_forward_pre_hook(self.wrapped_models)
-        maybe_finalize_async_save(args, blocking=True, terminate=True)
+        maybe_finalize_async_save(self.args, blocking=True, terminate=True)
+
+    def train(self, train_dataset, val_dataset):
+        train_data_iterator, val_data_iterator = self.setup_training(train_dataset, val_dataset)
+        while self.state.iteration < self.args.train_iters:
+            self.run_train_step(train_data_iterator, val_data_iterator)
+        self.finalize_training()
 
     def _determine_best_metric(self, metrics) -> bool:
         args = self.args
@@ -851,7 +869,7 @@ class BaseMegatronTrainer(ABC):
         return eval_metrics
 
     def compute_eval_metrics(self, metrics):
-        if self.eval_metrics is not None:
+        if self.eval_metrics is not None and mpu.is_pipeline_last_stage():
             metric = self.eval_metrics.compute()
             for k, v in metric.items():
                 metrics[k] = v if isinstance(v, torch.Tensor) else torch.tensor(v)
@@ -969,25 +987,7 @@ class BaseMegatronTrainer(ABC):
                 and getattr(args, 'attention_backend', None) != 'local' and getattr(args, 'use_flash_attn', False))
 
     def _prepare_batch(self, data, vp_stage=None, num_samples=None):
-        batch = get_batch_on_this_pp_rank(self.args, data, vp_stage=vp_stage)
-        if num_samples is None:
-            num_samples = batch.pop('num_samples')
-        args = self.args
-        text_position_ids = batch.pop('text_position_ids', None)
-        if text_position_ids is None:
-            text_position_ids = batch.get('position_ids')
-        if self._should_use_npu_generated_attention_mask(args):
-            if 'attention_mask_2d' not in batch and batch.get('attention_mask') is not None:
-                batch['attention_mask_2d'] = (~batch['attention_mask']).sum(dim=(1, 2)) > 0
-            batch['attention_mask'] = None
-        else:
-            batch.pop('attention_mask_2d', None)
-        if args.padding_free and text_position_ids is not None:
-            batch['packed_seq_params'] = get_packed_seq_params(text_position_ids)
-            batch['packed_seq_params'].num_samples = num_samples
-        # slice batch along sequence dimension for context parallelism
-        batch = get_batch_on_this_cp_rank(args, batch)
-        return batch
+        return prepare_batch(self.args, data, vp_stage=vp_stage, num_samples=num_samples)
 
     def get_batch(self, data_iterator, vp_stage=None):
         """Generate a batch."""
@@ -1015,11 +1015,19 @@ class BaseMegatronTrainer(ABC):
         return {}
 
     def get_last_tokens(self, output_tensor, packed_seq_params=None, attention_mask=None, num_samples=None):
+        if self.args.context_parallel_size > 1:
+            output_tensor = reconstruct_tensor_cp(output_tensor, packed_seq_params, dim=1)
         if packed_seq_params is None:
-            last_token_idx = get_last_valid_indices((~attention_mask[:, 0, -1]).long())
+            # Compatible with attention_mask_2d
+            if attention_mask.dim() > 2:
+                attention_mask = (~attention_mask).sum(dim=(1, 2)) > 0
+            last_token_idx = get_last_valid_indices(attention_mask.long())
             last_tokens = output_tensor[torch.arange(output_tensor.shape[0]), last_token_idx]
         else:
             num_samples = num_samples or packed_seq_params.num_samples
-            last_token_idx = packed_seq_params.cu_seqlens_q[1:num_samples + 1] - 1
+            if self.args.context_parallel_size > 1:
+                last_token_idx = packed_seq_params.cu_seqlens_q[:num_samples] + packed_seq_params.seq_lens - 1
+            else:
+                last_token_idx = packed_seq_params.cu_seqlens_q[1:num_samples + 1] - 1
             last_tokens = output_tensor[0, last_token_idx]
         return last_tokens

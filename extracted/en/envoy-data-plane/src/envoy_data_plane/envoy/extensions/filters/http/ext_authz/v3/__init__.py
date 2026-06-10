@@ -11,6 +11,8 @@ __all__ = (
     "ExtAuthz",
     "ExtAuthzPerRoute",
     "HttpService",
+    "ShadowDecision",
+    "ShadowDecisionCheckResult",
 )
 
 import typing
@@ -27,6 +29,20 @@ _COMPILER_VERSION = "0.9.0"
 betterproto2.check_compiler_version(_COMPILER_VERSION)
 
 
+class ShadowDecisionCheckResult(betterproto2.Enum):
+    """
+    The decision the auth server returned.
+    """
+
+    UNSPECIFIED = 0
+
+    OK = 1
+
+    DENIED = 2
+
+    ERROR = 3
+
+
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class AuthorizationRequest(betterproto2.Message):
     allowed_headers: "_____type__matcher__v3__.ListStringMatcher | None" = (
@@ -34,7 +50,7 @@ class AuthorizationRequest(betterproto2.Message):
     )
     """
     Authorization request includes the client request headers that have a corresponding match
-    in the :ref:`list <envoy_v3_api_msg_type.matcher.v3.ListStringMatcher>`.
+    in the list.
     This field has been deprecated in favor of :ref:`allowed_headers
     <envoy_v3_api_field_extensions.filters.http.ext_authz.v3.ExtAuthz.allowed_headers>`.
 
@@ -56,8 +72,10 @@ class AuthorizationRequest(betterproto2.Message):
         2, betterproto2.TYPE_MESSAGE, repeated=True
     )
     """
-    Sets a list of headers that will be included in the request to the authorization service. Note that
-    client request headers with the same key will be overridden.
+    Sets a list of headers that will be included in the request to the authorization service.
+
+    .. note::
+      Client request headers with the same key will be overridden.
     """
 
     def __post_init__(self) -> None:
@@ -85,36 +103,43 @@ class AuthorizationResponse(betterproto2.Message):
         betterproto2.field(1, betterproto2.TYPE_MESSAGE, optional=True)
     )
     """
-    When this :ref:`list <envoy_v3_api_msg_type.matcher.v3.ListStringMatcher>` is set, authorization
+    When this list is set, authorization
     response headers that have a correspondent match will be added to the original client request.
-    Note that coexistent headers will be overridden.
+
+    .. note::
+      Existing headers will be overridden.
     """
 
     allowed_upstream_headers_to_append: "_____type__matcher__v3__.ListStringMatcher | None" = betterproto2.field(
         3, betterproto2.TYPE_MESSAGE, optional=True
     )
     """
-    When this :ref:`list <envoy_v3_api_msg_type.matcher.v3.ListStringMatcher>` is set, authorization
+    When this list is set, authorization
     response headers that have a correspondent match will be added to the original client request.
-    Note that coexistent headers will be appended.
+
+    .. note::
+      Existing headers will be appended.
     """
 
     allowed_client_headers: "_____type__matcher__v3__.ListStringMatcher | None" = (
         betterproto2.field(2, betterproto2.TYPE_MESSAGE, optional=True)
     )
     """
-    When this :ref:`list <envoy_v3_api_msg_type.matcher.v3.ListStringMatcher>` is set, authorization
-    response headers that have a correspondent match will be added to the client's response. Note
-    that when this list is *not* set, all the authorization response headers, except ``Authority
-    (Host)`` will be in the response to the client. When a header is included in this list, ``Path``,
-    ``Status``, ``Content-Length``, ``WWWAuthenticate`` and ``Location`` are automatically added.
+    When this list is set, authorization
+    response headers that have a correspondent match will be added to the client's response.
+    When a header is included in this list, ``Path``, ``Status``, ``Content-Length``, ``WWW-Authenticate`` and
+    ``Location`` are automatically added.
+
+    .. note::
+      When this list is *not* set, all the authorization response headers, except
+      ``Authority (Host)``, will be in the response to the client.
     """
 
     allowed_client_headers_on_success: "_____type__matcher__v3__.ListStringMatcher | None" = betterproto2.field(
         4, betterproto2.TYPE_MESSAGE, optional=True
     )
     """
-    When this :ref:`list <envoy_v3_api_msg_type.matcher.v3.ListStringMatcher>` is set, authorization
+    When this list is set, authorization
     response headers that have a correspondent match will be added to the client's response when
     the authorization response itself is successful, i.e. not failed or denied. When this list is
     *not* set, no additional headers will be added to the client's response on success.
@@ -124,7 +149,7 @@ class AuthorizationResponse(betterproto2.Message):
         5, betterproto2.TYPE_MESSAGE, optional=True
     )
     """
-    When this :ref:`list <envoy_v3_api_msg_type.matcher.v3.ListStringMatcher>` is set, authorization
+    When this list is set, authorization
     response headers that have a correspondent match will be emitted as dynamic metadata to be consumed
     by the next filter. This metadata lives in a namespace specified by the canonical name of extension filter
     that requires it:
@@ -153,8 +178,11 @@ class BufferSettings(betterproto2.Message):
     """
     Sets the maximum size of a message body that the filter will hold in memory. Envoy will return
     ``HTTP 413`` and will *not* initiate the authorization process when the buffer reaches the size
-    set in this field. Note that this setting will have precedence over :ref:`failure_mode_allow
-    <envoy_v3_api_field_extensions.filters.http.ext_authz.v3.ExtAuthz.failure_mode_allow>`.
+    set in this field.
+
+    .. note::
+      This setting will have precedence over :ref:`failure_mode_allow
+      <envoy_v3_api_field_extensions.filters.http.ext_authz.v3.ExtAuthz.failure_mode_allow>`.
     """
 
     allow_partial_message: "bool" = betterproto2.field(2, betterproto2.TYPE_BOOL)
@@ -162,6 +190,8 @@ class BufferSettings(betterproto2.Message):
     When this field is ``true``, Envoy will buffer the message until ``max_request_bytes`` is reached.
     The authorization request will be dispatched and no 413 HTTP error will be returned by the
     filter.
+
+    Defaults to ``false``.
     """
 
     pack_as_bytes: "bool" = betterproto2.field(3, betterproto2.TYPE_BOOL)
@@ -176,6 +206,8 @@ class BufferSettings(betterproto2.Message):
     <envoy_v3_api_field_extensions.filters.http.ext_authz.v3.ExtAuthz.grpc_service>`. In configurations that use
     an :ref:`http_service <envoy_v3_api_field_extensions.filters.http.ext_authz.v3.ExtAuthz.http_service>`, this
     has no effect.
+
+    Defaults to ``false``.
     """
 
 
@@ -277,7 +309,7 @@ class ExtAuthz(betterproto2.Message):
     External Authorization :ref:`configuration overview <config_http_filters_ext_authz>`.
     [#extension: envoy.filters.http.ext_authz]
 
-    [#next-free-field: 31]
+    [#next-free-field: 33]
 
     Oneofs:
         - services: External authorization service configuration.
@@ -311,15 +343,17 @@ class ExtAuthz(betterproto2.Message):
     """
     Changes the filter's behavior on errors:
 
-    #. When set to ``true``, the filter will ``accept`` the client request even if communication with
-       the authorization service has failed, or if the authorization service has returned an HTTP 5xx
-       error.
+    * When set to ``true``, the filter will ``accept`` the client request even if communication with
+      the authorization service has failed, or if the authorization service has returned an HTTP 5xx
+      error.
 
-    #. When set to ``false``, the filter will ``reject`` client requests and return ``Forbidden``
-       if communication with the authorization service has failed, or if the authorization service
-       has returned an HTTP 5xx error.
+    * When set to ``false``, the filter will ``reject`` client requests and return ``Forbidden``
+      if communication with the authorization service has failed, or if the authorization service
+      has returned an HTTP 5xx error.
 
     Errors can always be tracked in the :ref:`stats <config_http_filters_ext_authz_stats>`.
+
+    Defaults to ``false``.
     """
 
     failure_mode_allow_header_add: "bool" = betterproto2.field(
@@ -344,14 +378,14 @@ class ExtAuthz(betterproto2.Message):
     clear_route_cache: "bool" = betterproto2.field(6, betterproto2.TYPE_BOOL)
     """
     Clears the route cache in order to allow the external authorization service to correctly affect
-    routing decisions. The filter clears all cached routes when:
+    routing decisions. The filter clears all cached routes when all of the following holds:
 
-    #. The field is set to ``true``.
+    * This field is set to ``true``.
+    * The status returned from the authorization service is an HTTP 200 or gRPC 0.
+    * At least one ``authorization response header`` is added to the client request, or is used to
+      alter another client request header.
 
-    #. The status returned from the authorization service is an HTTP 200 or gRPC 0.
-
-    #. At least one ``authorization response header`` is added to the client request, or is used to
-       alter another client request header.
+    Defaults to ``false``.
     """
 
     status_on_error: "_____type__v3__.HttpStatus | None" = betterproto2.field(
@@ -359,15 +393,17 @@ class ExtAuthz(betterproto2.Message):
     )
     """
     Sets the HTTP status that is returned to the client when the authorization server returns an error
-    or cannot be reached. The default status is HTTP 403 Forbidden.
+    or cannot be reached.
+
+    The default status is ``HTTP 403 Forbidden``.
     """
 
     validate_mutations: "bool" = betterproto2.field(24, betterproto2.TYPE_BOOL)
     """
-    When this is set to ``true``, the filter will check the :ref:`ext_authz response
+    When set to ``true``, the filter will check the :ref:`ext_authz response
     <envoy_v3_api_msg_service.auth.v3.CheckResponse>` for invalid header and
-    query parameter mutations. If the side stream response is invalid, it will send a local reply
-    to the downstream request with status HTTP 500 Internal Server Error.
+    query parameter mutations. If the response is invalid, the filter will send a local reply
+    to the downstream request with status ``HTTP 500 Internal Server Error``.
 
     .. note::
       Both ``headers_to_remove`` and ``query_parameters_to_remove`` are validated, but invalid elements in
@@ -377,6 +413,8 @@ class ExtAuthz(betterproto2.Message):
     unexpected behavior.
 
     If you are using ext_authz with an untrusted ext_authz server, you should set this to ``true``.
+
+    Defaults to ``false``.
     """
 
     metadata_context_namespaces: "list[typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]]" = betterproto2.field(
@@ -453,6 +491,24 @@ class ExtAuthz(betterproto2.Message):
     """
     Specifies if the filter is enabled with metadata matcher.
     If this field is not specified, the filter will be enabled for all requests.
+
+    .. note::
+
+      This field is only evaluated if the filter is instantiated. If the filter is marked with
+      ``disabled: true`` in the :ref:`HttpFilter
+      <envoy_v3_api_msg_extensions.filters.network.http_connection_manager.v3.HttpFilter>`
+      configuration or in per-route configuration via :ref:`ExtAuthzPerRoute
+      <envoy_v3_api_msg_extensions.filters.http.ext_authz.v3.ExtAuthzPerRoute>`,
+      the filter will not be instantiated and this field will have no effect.
+
+    .. tip::
+
+      For dynamic filter activation based on metadata (such as metadata set by a preceding
+      filter), consider using :ref:`ExtensionWithMatcher
+      <envoy_v3_api_msg_extensions.common.matching.v3.ExtensionWithMatcher>` instead. This
+      provides a more flexible matching framework that can evaluate conditions before filter
+      instantiation. See the :ref:`ext_authz filter documentation
+      <config_http_filters_ext_authz>` for examples.
     """
 
     deny_at_disable: "_____config__core__v3__.RuntimeFeatureFlag | None" = (
@@ -514,7 +570,7 @@ class ExtAuthz(betterproto2.Message):
     )
     """
     Check request to authorization server will include the client request headers that have a correspondent match
-    in the :ref:`list <envoy_v3_api_msg_type.matcher.v3.ListStringMatcher>`. If this option isn't specified, then
+    in the list. If this option isn't specified, then
     all client request headers are included in the check request to a gRPC authorization server, whereas no client request headers
     (besides the ones allowed by default - see note below) are included in the check request to an HTTP authorization server.
     This inconsistency between gRPC and HTTP servers is to maintain backwards compatibility with legacy behavior.
@@ -595,19 +651,19 @@ class ExtAuthz(betterproto2.Message):
     )
     """
     Rules for what modifications an ext_authz server may make to the request headers before
-    continuing decoding / forwarding upstream.
+    continuing decoding or forwarding upstream.
 
-    If set to anything, enables header mutation checking against configured rules. Note that
+    If set, enables header mutation checking against the configured rules. Note that
     :ref:`HeaderMutationRules <envoy_v3_api_msg_config.common.mutation_rules.v3.HeaderMutationRules>`
-    has defaults that change ext_authz behavior. Also note that if this field is set to anything,
-    ext_authz can no longer append to :-prefixed headers.
+    has defaults that change ext_authz behavior. Also note that if this field is set,
+    ext_authz can no longer append to ``:``-prefixed headers.
 
-    If empty, header mutation rule checking is completely disabled.
+    If unset, header mutation rule checking is completely disabled.
 
-    Regardless of what is configured here, ext_authz cannot remove :-prefixed headers.
+    Regardless of what is configured here, ext_authz cannot remove ``:``-prefixed headers.
 
     This field and ``validate_mutations`` have different use cases. ``validate_mutations`` enables
-    correctness checks for all header / query parameter mutations (e.g. for invalid characters).
+    correctness checks for all header and query parameter mutations (for example, invalid characters).
     This field allows the filter to reject mutations to specific headers.
     """
 
@@ -644,8 +700,10 @@ class ExtAuthz(betterproto2.Message):
     key will be the same as the filter name.
 
     If using Envoy gRPC, emits latency, bytes sent / received, upstream info, and upstream cluster
-    info. If not using Envoy gRPC, emits only latency. Note that stats are ONLY added to filter
-    state if a check request is actually made to an ext_authz service.
+    info. If not using Envoy gRPC, emits only latency.
+
+    .. note::
+      Stats are ONLY added to filter state if a check request is actually made to an ext_authz service.
 
     If this is ``false`` the filter will not emit stats, but filter_metadata will still be respected if
     it has a value.
@@ -667,6 +725,51 @@ class ExtAuthz(betterproto2.Message):
 
     If this field is not set or is set to 0, no truncation will occur, and the entire
     denied response body will be forwarded.
+    """
+
+    enforce_response_header_limits: "bool" = betterproto2.field(
+        31, betterproto2.TYPE_BOOL
+    )
+    """
+    When set to ``true``, the filter will enforce the response header map's count and size limits
+    by sending a local reply when those limits are violated.
+
+    When set to ``false``, the filter will ignore the response header map's limits and add / set
+    all response headers as specified by the external authorization service.
+
+    Recommendation: enable if the external authorization service is not trusted. Otherwise, leave
+    it ``false``.
+
+    Defaults to ``false``.
+    """
+
+    shadow_mode: "bool" = betterproto2.field(32, betterproto2.TYPE_BOOL)
+    """
+    When set to ``true``, the filter operates in shadow mode. In shadow mode the
+    filter still calls the external authorization service and processes the response,
+    but never terminates the request. Instead of sending a local reply on a denied or
+    error response, the filter writes the authorization decision (engine result, status
+    code, response headers) into the request's
+    :ref:`FilterState <arch_overview_data_sharing_between_filters>` as a
+    :ref:`ShadowDecision
+    <envoy_v3_api_msg_extensions.filters.http.ext_authz.v3.ShadowDecision>` object so
+    that subsequent filters can read and optionally enforce it.
+
+    The FilterState key is the filter's configured ``name`` in the filter chain with a
+    ``.shadow`` suffix (``envoy.filters.http.ext_authz.shadow`` by default). Multiple ext_authz
+    filters in the same chain must already have distinct names and therefore write to distinct
+    keys automatically.
+
+    The auth server's denied-response body is intentionally **not** carried on the
+    ShadowDecision: bodies can be arbitrarily large and no downstream consumer in the
+    shadow-comparison flow needs them. A consumer that wants to reproduce the auth
+    server's full denied response must read it from its own source of truth rather
+    than replaying it from FilterState.
+
+    Header and query-parameter mutations from an OK response are still applied to the
+    request as usual.
+
+    Defaults to ``false``.
     """
 
     @model_validator(mode="after")
@@ -721,8 +824,10 @@ class HttpService(betterproto2.Message):
     HttpService is used for raw HTTP communication between the filter and the authorization service.
     When configured, the filter will parse the client request and use these attributes to call the
     authorization server. Depending on the response, the filter may reject or accept the client
-    request. Note that in any of these events, metadata can be added, removed or overridden by the
-    filter:
+    request.
+
+    .. note::
+      In any of these events, metadata can be added, removed or overridden by the filter:
 
     On authorization request, a list of allowed request headers may be supplied. See
     :ref:`allowed_headers
@@ -745,7 +850,7 @@ class HttpService(betterproto2.Message):
     metadata as well as body may be added to the client's response. See :ref:`allowed_client_headers
     <envoy_v3_api_field_extensions.filters.http.ext_authz.v3.AuthorizationResponse.allowed_client_headers>`
     for details.
-    [#next-free-field: 10]
+    [#next-free-field: 11]
     """
 
     server_uri: "_____config__core__v3__.HttpUri | None" = betterproto2.field(
@@ -760,6 +865,15 @@ class HttpService(betterproto2.Message):
     )
     """
     Sets a prefix to the value of authorization request header ``Path``.
+    Only one of ``path_prefix`` or ``path_override`` may be set.
+    """
+
+    path_override: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        10, betterproto2.TYPE_STRING
+    )
+    """
+    Replaces the value of authorization request header ``Path`` with this value.
+    Only one of ``path_prefix`` or ``path_override`` may be set.
     """
 
     authorization_request: "AuthorizationRequest | None" = betterproto2.field(
@@ -790,6 +904,50 @@ class HttpService(betterproto2.Message):
 
 default_message_pool.register_message(
     "envoy.extensions.filters.http.ext_authz.v3", "HttpService", HttpService
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class ShadowDecision(betterproto2.Message):
+    """
+    Serialized form of the shadow-mode authorization decision written to FilterState
+    when :ref:`shadow_mode
+    <envoy_v3_api_field_extensions.filters.http.ext_authz.v3.ExtAuthz.shadow_mode>` is
+    enabled. Consumed by a downstream filter that decides whether to enforce the
+    decision.
+    """
+
+    check_result: "ShadowDecisionCheckResult" = betterproto2.field(
+        1, betterproto2.TYPE_ENUM, default_factory=lambda: ShadowDecisionCheckResult(0)
+    )
+    """
+    The decision the auth server returned.
+    """
+
+    status_code: "typing.Annotated[int, pydantic.Field(ge=0, le=2**32 - 1)]" = (
+        betterproto2.field(2, betterproto2.TYPE_UINT32)
+    )
+    """
+    Response status code associated with the decision. For ``DENIED`` and ``ERROR`` this is
+    the code the filter would have set on termination (the auth server's code for ``DENIED``,
+    or :ref:`status_on_error
+    <envoy_v3_api_field_extensions.filters.http.ext_authz.v3.ExtAuthz.status_on_error>` fallback
+    for ``ERROR``). For ``OK`` this defaults to ``200`` so consumers always see a populated
+    value — the upstream response code is not known at shadow-decision time.
+    """
+
+    response_headers: "list[_____config__core__v3__.HeaderValue]" = betterproto2.field(
+        3, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+    """
+    Response headers the auth server asked to set on a denied response
+    (e.g. ``WWW-Authenticate``, ``Set-Cookie``). Populated for ``DENIED`` only.
+    Preserves ordering and duplicate header names.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.ext_authz.v3", "ShadowDecision", ShadowDecision
 )
 
 

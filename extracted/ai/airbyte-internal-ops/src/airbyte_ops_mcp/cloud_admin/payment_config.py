@@ -123,7 +123,7 @@ def update_organization_payment_config(
     payment_provider_id: str | None = None,
     grace_period_end_at: str | None = None,
     new_grace_period_reason: str | None = None,
-    usage_category_overwrite: UsageCategoryOverwrite | None = None,
+    usage_category_overwrite: UsageCategoryOverwrite | str | None = None,
 ) -> dict[str, Any]:
     """Update the payment config for an organization.
 

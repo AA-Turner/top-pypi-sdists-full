@@ -129,6 +129,26 @@ use crate::terms::smooth::BlockwisePenalty;
 
 const MIN_CONDITIONAL_PRECISION: f64 = 1.0e-12;
 
+/// Floor applied to an assignment probability before taking its logarithm in the
+/// entropic / softmax-assignment penalties, keeping `ln(a)` finite (and the
+/// `a·ln(a)` contribution → 0) as `a → 0` without changing the value anywhere a
+/// is not numerically zero.
+const ENTROPY_LOG_PROBABILITY_FLOOR: f64 = 1e-300;
+
+/// Half-width of the open-interval clamp `[ε, 1−ε]` applied to IBP-assignment
+/// probabilities before `ln`/`1/p` so the Bernoulli cross-entropy and its score
+/// stay finite at the simplex boundary.
+const IBP_PROBABILITY_CLAMP: f64 = 1.0e-12;
+
+/// Interior tolerance for the IBP straight-through Bernoulli mean: the
+/// pass-through Jacobian `∂π/∂(mass)` is taken only when the unclamped mean lies
+/// strictly inside `(δ, 1−δ)`; at the saturated boundary the gradient is zero.
+const IBP_INTERIOR_TOL: f64 = 1.0e-9;
+
+/// Floor on the IBP posterior-count denominator `n + a − 1`, guarding the
+/// per-component mean against a zero (or negative) effective count.
+const IBP_COUNT_DENOM_FLOOR: f64 = 1.0e-9;
+
 // ---------------------------------------------------------------------------
 // Common trait
 // ---------------------------------------------------------------------------
@@ -1871,7 +1891,9 @@ impl SoftmaxAssignmentSparsityPenalty {
     fn psd_majorizer_abs_row_sums(&self, row: &[f64], scale: f64) -> Vec<f64> {
         let a = self.softmax_row(row);
         let k = self.k_atoms;
-        let l: Vec<f64> = (0..k).map(|i| a[i].max(1e-300).ln() + 1.0).collect();
+        let l: Vec<f64> = (0..k)
+            .map(|i| a[i].max(ENTROPY_LOG_PROBABILITY_FLOOR).ln() + 1.0)
+            .collect();
         let m: f64 = (0..k).map(|i| a[i] * l[i]).sum();
         let mut d = vec![0.0_f64; k];
         for kk in 0..k {
@@ -1926,7 +1948,7 @@ impl AnalyticPenalty for SoftmaxAssignmentSparsityPenalty {
             let mut d_h_da = vec![0.0; self.k_atoms];
             let mut mean = 0.0;
             for k in 0..self.k_atoms {
-                let ak = a[k].max(1e-300);
+                let ak = a[k].max(ENTROPY_LOG_PROBABILITY_FLOOR);
                 d_h_da[k] = -lambda * (ak.ln() + 1.0);
                 mean += a[k] * d_h_da[k];
             }
@@ -1971,10 +1993,10 @@ impl AnalyticPenalty for SoftmaxAssignmentSparsityPenalty {
             let a = self.softmax_row(&values[start..start + self.k_atoms]);
             let mut mean_log_plus_one = 0.0;
             for k in 0..self.k_atoms {
-                mean_log_plus_one += a[k] * (a[k].max(1e-300).ln() + 1.0);
+                mean_log_plus_one += a[k] * (a[k].max(ENTROPY_LOG_PROBABILITY_FLOOR).ln() + 1.0);
             }
             for k in 0..self.k_atoms {
-                let log_plus_one = a[k].max(1e-300).ln() + 1.0;
+                let log_plus_one = a[k].max(ENTROPY_LOG_PROBABILITY_FLOOR).ln() + 1.0;
                 let term = (1.0 - 2.0 * a[k]) * (mean_log_plus_one - log_plus_one) + a[k] - 1.0;
                 out[start + k] = scale * a[k] * term;
             }
@@ -2011,16 +2033,17 @@ impl AnalyticPenalty for SoftmaxAssignmentSparsityPenalty {
             let mut mean_log_plus_one = 0.0;
             let mut mean_v = 0.0;
             for k in 0..self.k_atoms {
-                mean_log_plus_one += a[k] * (a[k].max(1e-300).ln() + 1.0);
+                mean_log_plus_one += a[k] * (a[k].max(ENTROPY_LOG_PROBABILITY_FLOOR).ln() + 1.0);
                 mean_v += a[k] * v[start + k];
             }
             let mut mean_centered_v_log_plus_one = 0.0;
             for k in 0..self.k_atoms {
                 let centered_v = v[start + k] - mean_v;
-                mean_centered_v_log_plus_one += a[k] * centered_v * (a[k].max(1e-300).ln() + 1.0);
+                mean_centered_v_log_plus_one +=
+                    a[k] * centered_v * (a[k].max(ENTROPY_LOG_PROBABILITY_FLOOR).ln() + 1.0);
             }
             for k in 0..self.k_atoms {
-                let log_plus_one = a[k].max(1e-300).ln() + 1.0;
+                let log_plus_one = a[k].max(ENTROPY_LOG_PROBABILITY_FLOOR).ln() + 1.0;
                 let centered_v = v[start + k] - mean_v;
                 out[start + k] = scale
                     * a[k]
@@ -2167,16 +2190,15 @@ impl IBPAssignmentPenalty {
     fn pi_map(&self, z: ArrayView1<'_, f64>, alpha: f64) -> Array1<f64> {
         let n = z.len() / self.k_max;
         let a = alpha / self.k_max as f64;
-        let eps = 1.0e-9;
         let mut pi = Array1::<f64>::zeros(self.k_max);
         for k in 0..self.k_max {
             let mut active_mass = 0.0;
             for row in 0..n {
                 active_mass += z[row * self.k_max + k];
             }
-            let denom = (n as f64 + a - 1.0).max(eps);
+            let denom = (n as f64 + a - 1.0).max(IBP_COUNT_DENOM_FLOOR);
             let raw = (active_mass + a - 1.0) / denom;
-            pi[k] = raw.clamp(eps, 1.0 - eps);
+            pi[k] = raw.clamp(IBP_INTERIOR_TOL, 1.0 - IBP_INTERIOR_TOL);
         }
         pi
     }
@@ -2197,8 +2219,8 @@ impl AnalyticPenalty for IBPAssignmentPenalty {
         for row in 0..n {
             let start = row * self.k_max;
             for k in 0..self.k_max {
-                let zk = z[start + k].clamp(1.0e-12, 1.0 - 1.0e-12);
-                let pk = pi[k].clamp(1.0e-12, 1.0 - 1.0e-12);
+                let zk = z[start + k].clamp(IBP_PROBABILITY_CLAMP, 1.0 - IBP_PROBABILITY_CLAMP);
+                let pk = pi[k].clamp(IBP_PROBABILITY_CLAMP, 1.0 - IBP_PROBABILITY_CLAMP);
                 acc -= zk * pk.ln() + (1.0 - zk) * (1.0 - pk).ln();
             }
         }
@@ -2216,7 +2238,7 @@ impl AnalyticPenalty for IBPAssignmentPenalty {
         let z = self.concrete_logits(target);
         let pi = self.pi_map(z.view(), alpha);
         let n = z.len() / self.k_max;
-        let denom = (n as f64 + a - 1.0).max(1.0e-9);
+        let denom = (n as f64 + a - 1.0).max(IBP_COUNT_DENOM_FLOOR);
         let mut out = Array1::<f64>::zeros(target.len());
         let mut active_mass = Array1::<f64>::zeros(self.k_max);
         for row in 0..n {
@@ -2228,10 +2250,10 @@ impl AnalyticPenalty for IBPAssignmentPenalty {
         let mut pi_score = Array1::<f64>::zeros(self.k_max);
         let mut pi_jac = Array1::<f64>::zeros(self.k_max);
         for k in 0..self.k_max {
-            let pk = pi[k].clamp(1.0e-12, 1.0 - 1.0e-12);
+            let pk = pi[k].clamp(IBP_PROBABILITY_CLAMP, 1.0 - IBP_PROBABILITY_CLAMP);
             let mass = active_mass[k];
             let raw = (mass + a - 1.0) / denom;
-            if raw > 1.0e-9 && raw < 1.0 - 1.0e-9 {
+            if raw > IBP_INTERIOR_TOL && raw < 1.0 - IBP_INTERIOR_TOL {
                 pi_jac[k] = 1.0 / denom;
             }
             let bce_pi_score = -mass / pk + (n as f64 - mass) / (1.0 - pk);
@@ -2242,7 +2264,7 @@ impl AnalyticPenalty for IBPAssignmentPenalty {
             let start = row * self.k_max;
             for k in 0..self.k_max {
                 let zk = z[start + k];
-                let pk = pi[k].clamp(1.0e-12, 1.0 - 1.0e-12);
+                let pk = pi[k].clamp(IBP_PROBABILITY_CLAMP, 1.0 - IBP_PROBABILITY_CLAMP);
                 let direct_z_score = ((1.0 - pk) / pk).ln();
                 let implicit_pi_score = pi_score[k] * pi_jac[k];
                 out[start + k] =
@@ -2265,7 +2287,7 @@ impl AnalyticPenalty for IBPAssignmentPenalty {
         let n = z.len() / self.k_max;
         let mut out = Array1::<f64>::zeros(target.len());
         let inv_tau2 = 1.0 / (tau * tau);
-        let denom = (n as f64 + a - 1.0).max(1.0e-9);
+        let denom = (n as f64 + a - 1.0).max(IBP_COUNT_DENOM_FLOOR);
         let mut active_mass = Array1::<f64>::zeros(self.k_max);
         for row in 0..n {
             let start = row * self.k_max;
@@ -2277,10 +2299,10 @@ impl AnalyticPenalty for IBPAssignmentPenalty {
         let mut pi_score_derivative = Array1::<f64>::zeros(self.k_max);
         let mut pi_jac = Array1::<f64>::zeros(self.k_max);
         for k in 0..self.k_max {
-            let pk = pi[k].clamp(1.0e-12, 1.0 - 1.0e-12);
+            let pk = pi[k].clamp(IBP_PROBABILITY_CLAMP, 1.0 - IBP_PROBABILITY_CLAMP);
             let mass = active_mass[k];
             let raw = (mass + a - 1.0) / denom;
-            if raw > 1.0e-9 && raw < 1.0 - 1.0e-9 {
+            if raw > IBP_INTERIOR_TOL && raw < 1.0 - IBP_INTERIOR_TOL {
                 pi_jac[k] = 1.0 / denom;
             }
             let bce_pi_score = -mass / pk + (n as f64 - mass) / (1.0 - pk);
@@ -2294,7 +2316,7 @@ impl AnalyticPenalty for IBPAssignmentPenalty {
             let start = row * self.k_max;
             for k in 0..self.k_max {
                 let zk = z[start + k];
-                let pk = pi[k].clamp(1.0e-12, 1.0 - 1.0e-12);
+                let pk = pi[k].clamp(IBP_PROBABILITY_CLAMP, 1.0 - IBP_PROBABILITY_CLAMP);
                 let direct_z_score = ((1.0 - pk) / pk).ln();
                 let implicit_pi_score = pi_score[k] * pi_jac[k];
                 let score = direct_z_score + implicit_pi_score;
@@ -2329,7 +2351,7 @@ impl AnalyticPenalty for IBPAssignmentPenalty {
         let n = z.len() / self.k_max;
         let inv_tau = 1.0 / tau;
         let inv_tau2 = inv_tau * inv_tau;
-        let denom = (n as f64 + a - 1.0).max(1.0e-9);
+        let denom = (n as f64 + a - 1.0).max(IBP_COUNT_DENOM_FLOOR);
 
         // Column aggregates (active_mass, pi_jac, pi_score, pi_score_derivative,
         // score, score_derivative). These are identical to hessian_diag and
@@ -2345,10 +2367,10 @@ impl AnalyticPenalty for IBPAssignmentPenalty {
         let mut score = Array1::<f64>::zeros(self.k_max);
         let mut score_derivative = Array1::<f64>::zeros(self.k_max);
         for k in 0..self.k_max {
-            let pk = pi[k].clamp(1.0e-12, 1.0 - 1.0e-12);
+            let pk = pi[k].clamp(IBP_PROBABILITY_CLAMP, 1.0 - IBP_PROBABILITY_CLAMP);
             let mass = active_mass[k];
             let raw = (mass + a - 1.0) / denom;
-            let pi_jac = if raw > 1.0e-9 && raw < 1.0 - 1.0e-9 {
+            let pi_jac = if raw > IBP_INTERIOR_TOL && raw < 1.0 - IBP_INTERIOR_TOL {
                 1.0 / denom
             } else {
                 0.0
@@ -2417,7 +2439,9 @@ impl AnalyticPenalty for IBPAssignmentPenalty {
         let pi = self.pi_map(z.view(), alpha);
         let mut sum_log_pi = 0.0;
         for &pk in pi.iter() {
-            sum_log_pi += pk.clamp(1.0e-12, 1.0 - 1.0e-12).ln();
+            sum_log_pi += pk
+                .clamp(IBP_PROBABILITY_CLAMP, 1.0 - IBP_PROBABILITY_CLAMP)
+                .ln();
         }
         Array1::from_vec(vec![-self.weight * alpha * sum_log_pi / self.k_max as f64])
     }
@@ -4186,6 +4210,26 @@ impl NuclearNormPenalty {
         self.max_rank.unwrap_or(thin_rank).min(thin_rank)
     }
 
+    /// PSD-floored squared smoothed singular value `max(σ² + ε², eig_floor)`,
+    /// with `eig_floor = max(ε², 1e-15)`.
+    ///
+    /// This is the single regularized spectrum shared by `value`, `grad_target`
+    /// and the HVP's right-Gram filter, so that the smoothed nuclear norm
+    /// `Σ(√(σ²+ε²) − ε)`, its gradient `σ/√(σ²+ε²)`, and the Fréchet
+    /// inverse-square-root filter `(σ²+ε²)^{-1/2}` are all evaluated on the
+    /// *same* eigenvalue. Without the shared floor the value/gradient (which
+    /// previously used the unfloored `σ²+ε²`) desync from the HVP (which floors
+    /// the right-Gram eigenvalues) when `ε² < 1e-15`, breaking the
+    /// value↔gradient↔Hessian consistency that REML evidence and the Newton
+    /// curvature block rely on (#737). The floor itself was introduced for
+    /// PSD-roundoff robustness (651d827e6); applying it everywhere preserves
+    /// that protection without reintroducing the desync.
+    fn regularized_sigma_sq(&self, sigma_sq: f64) -> f64 {
+        let eps2 = self.smoothing_eps * self.smoothing_eps;
+        let eig_floor = eps2.max(1.0e-15);
+        (sigma_sq + eps2).max(eig_floor)
+    }
+
     /// Number of leading right-Gram eigen-directions (top singular values) the
     /// HVP keeps active, identical to the rank `value`/`grad` sum over.
     ///
@@ -4294,13 +4338,15 @@ impl NuclearNormPenalty {
                 ));
             }
         }
-        let eps2 = self.smoothing_eps * self.smoothing_eps;
-        let eig_floor = eps2.max(1.0e-15);
         let mut regularized_evals = Array1::<f64>::zeros(d);
         let mut f = Array1::<f64>::zeros(d);
         let mut df = Array1::<f64>::zeros(d);
         for i in 0..d {
-            regularized_evals[i] = (raw_evals[i] + eps2).max(eig_floor);
+            // Same shared floor used by `value`/`grad_target` (#737): the
+            // right-Gram eigenvalue `raw_evals[i]` is the squared singular value
+            // `σ²`, so `regularized_sigma_sq(σ²) = max(σ²+ε², eig_floor)` keeps
+            // the filter on the identical regularized spectrum.
+            regularized_evals[i] = self.regularized_sigma_sq(raw_evals[i]);
             if i >= active_start {
                 // Keep the value filter and Fréchet derivative on the same
                 // regularized spectrum. This preserves the PSD-roundoff floor
@@ -4401,7 +4447,9 @@ impl AnalyticPenalty for NuclearNormPenalty {
         let mut acc = 0.0;
         for i in 0..rank {
             let sigma = svd.singular[i];
-            acc += (sigma * sigma + eps * eps).sqrt() - eps;
+            // Floored on the shared regularized spectrum so the value matches the
+            // HVP's right-Gram filter (see `regularized_sigma_sq`).
+            acc += self.regularized_sigma_sq(sigma * sigma).sqrt() - eps;
         }
         self.resolved_weight(rho) * acc
     }
@@ -4413,11 +4461,12 @@ impl AnalyticPenalty for NuclearNormPenalty {
         let svd = self.compute_svd_cached(t);
         let rank = self.rank_limit(svd.singular.len());
         let weight = self.resolved_weight(rho);
-        let eps2 = self.smoothing_eps * self.smoothing_eps;
         let mut grad = Array2::<f64>::zeros(t.dim());
         for i in 0..rank {
             let sigma = svd.singular[i];
-            let spectral_grad = sigma / (sigma * sigma + eps2).sqrt();
+            // d/dσ (√(σ²+ε²) − ε) = σ/√(σ²+ε²), floored on the shared regularized
+            // spectrum so grad↔value↔HVP stay mutually consistent (#737).
+            let spectral_grad = sigma / self.regularized_sigma_sq(sigma * sigma).sqrt();
             for n in 0..t.nrows() {
                 for a in 0..t.ncols() {
                     grad[[n, a]] += weight * svd.u[[n, i]] * spectral_grad * svd.vt[[i, a]];

@@ -164,16 +164,20 @@ pub fn candidate_paths(
     ]
 }
 
-/// hyper-optimization: greedy + random-greedy + SA + partition 을 모두 돌려
-/// estimate_cost 최소 path 선택 (`effort` 가 클수록 trial 수 ↑).
+/// hyper-optimization: greedy + random-greedy + SA + partition 을 모두 돌리되,
+/// **각 후보를 subtree reconfiguration 으로 정제한 뒤** estimate_cost 최소 path 를
+/// 고른다.  raw 후보 best 를 골라 정제하는 것보다, 후보마다 정제 잠재력이 달라
+/// (raw 로는 차선이어도 정제 후 최적일 수 있음) 더 나은 path 를 얻는다.
 fn hyper_path(
     ti: &[Vec<usize>],
     dims: &HashMap<usize, usize>,
     effort: usize,
     seed: u64,
 ) -> SsaPath {
+    let (max_units, sweeps) = if ti.len() <= 400 { (10, 8) } else { (8, 4) };
     candidate_paths(ti, dims, effort, seed)
         .into_iter()
+        .map(|p| reconfigure::subtree_reconfigure(ti, dims, &p, max_units, sweeps))
         .min_by(|a, b| {
             let ca = path_score(&estimate_cost(ti, dims, a));
             let cb = path_score(&estimate_cost(ti, dims, b));

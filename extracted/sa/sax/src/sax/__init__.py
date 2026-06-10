@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 __author__ = "Floris Laporte"
-__version__ = "0.18.1"
+__version__ = "0.18.2"
 
 # isort: off
 from .saxtypes import (
@@ -221,6 +221,7 @@ from .parsers import (
     parse_kfnetlist,
     parse_kfnetlist_recursive,
     parse_lumerical_dat,
+    parse_mosaic,
     parse_touchstone,
     write_lumerical_dat,
     write_touchstone,
@@ -397,6 +398,7 @@ __all__ = [  # noqa: RUF022
     "parse_kfnetlist",
     "parse_kfnetlist_recursive",
     "parse_lumerical_dat",
+    "parse_mosaic",
     "parse_touchstone",
     "parsers",
     "read",

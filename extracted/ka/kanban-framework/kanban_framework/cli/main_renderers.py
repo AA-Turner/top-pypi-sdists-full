@@ -114,7 +114,7 @@ def _render_create(data: dict):
     tc = data.get("test_config")
     if tc:
         level = tc.get("level", "quick")
-        level_labels = {"full": "完整测试", "quick": "快速验证", "manual": "手动检查"}
+        level_labels = {"quick": "快速验证", "manual": "手动检查"}
         parts = [level_labels.get(level, "快速验证")]
         if tc.get("framework"): parts.append(tc["framework"])
         if tc.get("command"): parts.append(tc["command"])

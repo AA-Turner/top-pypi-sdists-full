@@ -21,6 +21,21 @@ def test_get_icechunk_container_credentials_anonymous():
     assert isinstance(con_creds, icechunk.S3Credentials.Anonymous)
 
 
+def test_get_icechunk_container_credentials_gcs_static(gs_credentials):
+    con_creds = get_icechunk_container_credentials("gs", gs_credentials, None)
+    assert isinstance(con_creds, icechunk.GcsCredentials.Static)
+
+
+def test_get_icechunk_container_credentials_gcs_credential_refresh(credential_refresh_func):
+    con_creds = get_icechunk_container_credentials("gs", None, credential_refresh_func)
+    assert isinstance(con_creds, icechunk.GcsCredentials.Refreshable)
+
+
+def test_get_icechunk_container_credentials_gcs_anonymous():
+    con_creds = get_icechunk_container_credentials("gs", None, None)
+    assert isinstance(con_creds, icechunk.GcsCredentials.Anonymous)
+
+
 def test_get_icechunk_container_credentials_gcs_raises():
     with pytest.raises(ValueError) as e:
         get_icechunk_container_credentials("gcs", None, None)

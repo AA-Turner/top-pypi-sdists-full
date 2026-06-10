@@ -143,7 +143,7 @@ class AcousticField(ABC):
 
     ## TOOLS METHODS ##
 
-    def generate_field(self, isGpu=config.get_process() == 'gpu',show_log = True):
+    def generate_field(self, isGpu=config.get_process() == 'gpu',tempFieldName="Kwave", show_log = True):
         """
         Generate the acoustic field based on the specified simulation type and parameters.
         """
@@ -156,12 +156,12 @@ class AcousticField(ABC):
             elif self.params.acoustic['typeSim'] == TypeSim.KWAVE.value:
                 if self.params.acoustic["dim"] == Dim.D2.value:
                     try:
-                        field = self._generate_acoustic_field_KWAVE_2D(isGpu, show_log)
+                        field = self._generate_acoustic_field_KWAVE_2D(isGpu, tempFieldName=tempFieldName, show_log=show_log)
                     except Exception as e:
                         raise RuntimeError(f"Failed to generate 2D acoustic field: {e}")
                     self.field = calculate_envelope_squared(field)
                 elif self.params.acoustic["dim"] == Dim.D3.value:
-                    field = self._generate_acoustic_field_KWAVE_3D(isGpu, show_log)
+                    field = self._generate_acoustic_field_KWAVE_3D(isGpu, tempFieldName=tempFieldName, show_log=show_log)
                     self.field = calculate_envelope_squared(field)
             elif self.params.acoustic['typeSim'] == TypeSim.HYDRO.value:
                 raise ValueError("Cannot generate field for Hydrophone simulation, load exciting acquisitions.")
@@ -427,7 +427,7 @@ class AcousticField(ABC):
             print(f"Error in __generate_burst_signal method: {e}")
             raise
 
-    def _generate_acoustic_field_KWAVE_2D(self, isGPU=True if config.get_process() == 'gpu' else False, show_log=True):
+    def _generate_acoustic_field_KWAVE_2D(self, isGPU=True if config.get_process() == 'gpu' else False, tempFieldName="Kwave", show_log=True):
         """
         Base function to generate a 2D acoustic field using k-Wave.
         Handles common setup, simulation, and post-processing.
@@ -449,8 +449,8 @@ class AcousticField(ABC):
         pml_size=[1, pml_size],
         use_sg=False,
         save_to_disk=True,
-        input_filename=os.path.join(gettempdir(), "KwaveIN.h5"),
-        output_filename=os.path.join(gettempdir(), "KwaveOUT.h5"),
+        input_filename=os.path.join(gettempdir(), f"{tempFieldName}IN.h5"),
+        output_filename=os.path.join(gettempdir(), f"{tempFieldName}OUT.h5"),
         smooth_c0 = True,
         smooth_rho0 = True,
         smooth_p0 = True,
@@ -535,8 +535,8 @@ class AcousticField(ABC):
     #             pml_auto=True,
     #             use_sg=False,
     #             save_to_disk=True,
-    #             input_filename=os.path.join(gettempdir(), "KwaveIN.h5"),
-    #             output_filename=os.path.join(gettempdir(), "KwaveOUT.h5")
+    #             input_filename=os.path.join(gettempdir(), f"{tempFieldName}IN.h5"),
+    #             output_filename=os.path.join(gettempdir(), f"{tempFieldName}OUT.h5")
     #         )
 
     #         execution_options = SimulationExecutionOptions(

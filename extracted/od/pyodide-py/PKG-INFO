@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyodide-py
-Version: 0.29.4
+Version: 314.0.0
 Summary: A Python package providing core interpreter functionality for Pyodide
 Author: Pyodide developers
 Project-URL: Homepage, https://github.com/pyodide/pyodide
@@ -9,7 +9,7 @@ Project-URL: Documentation, https://pyodide.org/en/stable/
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.13
+Requires-Python: >=3.14
 Description-Content-Type: text/markdown
 
 # Pyodide Python package

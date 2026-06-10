@@ -1,14 +1,14 @@
 use crate::basis::BasisOptions;
 use crate::estimate::{BlockRole, FittedLinkState, UnifiedFitResult};
 use crate::families::bms::{LatentMeasureKind, LatentZRankIntCalibration};
-use crate::families::gamlss::{
-    monotone_wiggle_basis_with_derivative_order, validate_monotone_wiggle_beta_nonnegative,
-};
 use crate::families::lognormal_kernel::FrailtySpec;
 use crate::families::survival_construction::{
     SurvivalBaselineConfig, SurvivalTimeBasisConfig, parse_survival_baseline_config,
 };
 use crate::families::survival_location_scale::ResidualDistribution;
+use crate::families::wiggle::{
+    monotone_wiggle_basis_with_derivative_order, validate_monotone_wiggle_beta_nonnegative,
+};
 use crate::inference::formula_dsl::{
     inverse_link_supports_joint_wiggle, joint_wiggle_unsupported_link_message, parse_formula,
     parse_surv_response, parsed_term_column_names,
@@ -2540,6 +2540,47 @@ impl FittedModel {
         Ok(required)
     }
 
+    /// Columns a *post-fit diagnostic* command (diagnose / sample / report)
+    /// needs **beyond** [`Self::prediction_required_columns`].
+    ///
+    /// Prediction deliberately drops a standard GAM's bare response so a
+    /// prediction frame may omit it (#840 / #864). Diagnostics are statements
+    /// *about* that observed response — residuals, R², posterior likelihoods,
+    /// leave-one-out — so the response must be present. This returns the bare
+    /// response column when the prediction projection would otherwise drop it,
+    /// and nothing when the response is already prediction-required (survival
+    /// `Surv(...)` time/event columns, the transformation-normal response) or
+    /// is not a plain data column.
+    ///
+    /// Centralising the intent here is what makes it *structurally impossible*
+    /// for a diagnostic command to silently drop the response: callers use
+    /// `load_dataset…_for_diagnostics`, which always folds these in, instead of
+    /// each remembering to thread an `extra_required` response by hand.
+    pub fn diagnostic_extra_columns(&self) -> Result<Vec<String>, String> {
+        let payload = self.payload();
+        let parsed = parse_formula(payload.formula.as_str()).map_err(|e| e.to_string())?;
+        // Survival responses are `Surv(...)` expressions, not bare columns; the
+        // underlying entry/exit columns are already prediction-required.
+        if parse_surv_response(parsed.response.as_str())
+            .map_err(|e| e.to_string())?
+            .is_some()
+        {
+            return Ok(Vec::new());
+        }
+        let response = parsed.response.trim();
+        // A response that is empty, or a function-call expression rather than a
+        // plain data column, has no bare column to re-add.
+        if response.is_empty() || response.contains('(') {
+            return Ok(Vec::new());
+        }
+        // Already prediction-required (e.g. transformation-normal re-adds it):
+        // nothing extra to fold in.
+        if self.prediction_required_columns()?.contains(response) {
+            return Ok(Vec::new());
+        }
+        Ok(vec![response.to_string()])
+    }
+
     /// Add the columns referenced by an auxiliary (noise / logslope) formula,
     /// which may be supplied as a full `lhs ~ rhs` formula or as a bare RHS.
     fn add_auxiliary_formula_columns(
@@ -3014,9 +3055,19 @@ impl FittedModel {
                 let beta_mu = gaussian_location_scale_mean_beta(fit)?;
                 let beta_noise = location_scale_noise_beta(fit)
                     .or_else(|| self.payload().beta_noise.clone().map(Array1::from_vec))?;
+                // The log-σ coefficients were mapped to raw response units by
+                // shifting the intercept by `+ln(response_scale)`, which scales
+                // only the `exp(η)` term. The σ floor must be scaled separately
+                // so reconstructed σ is response-scale-equivariant (#884): use
+                // `LOGB_SIGMA_FLOOR · response_scale` (≈ 1 % of the response
+                // spread). A model fitted without standardization persists
+                // `gaussian_response_scale = 1`, recovering the raw floor.
+                let response_scale = self.payload().gaussian_response_scale.unwrap_or(1.0);
+                let sigma_floor = crate::families::sigma_link::LOGB_SIGMA_FLOOR * response_scale;
                 Some(Box::new(GaussianLocationScalePredictor {
                     beta_mu,
                     beta_noise,
+                    sigma_floor,
                     covariance: fit.beta_covariance().cloned(),
                     link_wiggle: runtime.link_wiggle,
                 }) as Box<dyn PredictableModel>)
@@ -3852,11 +3903,13 @@ impl DerefMut for FittedModel {
 pub fn survival_baseline_config_from_model(
     model: &FittedModel,
 ) -> Result<SurvivalBaselineConfig, FittedModelError> {
+    let target = model.survival_baseline_target.as_deref().ok_or_else(|| {
+        FittedModelError::MissingField {
+            reason: "saved survival model missing survival_baseline_target; refit".to_string(),
+        }
+    })?;
     parse_survival_baseline_config(
-        model
-            .survival_baseline_target
-            .as_deref()
-            .unwrap_or("linear"),
+        target,
         model.survival_baseline_scale,
         model.survival_baseline_shape,
         model.survival_baseline_rate,

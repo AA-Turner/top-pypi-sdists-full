@@ -8,6 +8,7 @@
 
 use std::sync::Arc;
 
+use blazen_macros::py_async;
 use pyo3::prelude::*;
 use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pyclass_enum, gen_stub_pymethods};
 use tokio::sync::Mutex;
@@ -36,9 +37,11 @@ use blazen_llm::{
 /// callers can pre-warm by awaiting :meth:`load`.
 ///
 /// Example:
-///     >>> opts = LlamaCppOptions(model_path="/models/llama-3.2-1b-q4_k_m.gguf")
-///     >>> provider = LlamaCppProvider(options=opts)
-///     >>> response = await provider.complete([ChatMessage.user("Hello!")])
+/// ```text
+///  >>> opts = LlamaCppOptions(model_path="/models/llama-3.2-1b-q4_k_m.gguf")
+///  >>> provider = LlamaCppProvider(options=opts)
+///  >>> response = await provider.complete([ChatMessage.user("Hello!")])
+/// ```
 #[gen_stub_pyclass]
 #[pyclass(name = "LlamaCppProvider", from_py_object)]
 #[derive(Clone)]
@@ -46,6 +49,7 @@ pub struct PyLlamaCppProvider {
     inner: Arc<LlamaCppProvider>,
 }
 
+#[py_async]
 #[gen_stub_pymethods]
 #[pymethods]
 impl PyLlamaCppProvider {
@@ -55,11 +59,16 @@ impl PyLlamaCppProvider {
     ///     options: Optional :class:`LlamaCppOptions` for model path,
     ///         device, quantization, context length, GPU layer count, and
     ///         cache directory.
-    #[new]
+    #[py_async_factory]
     #[pyo3(signature = (*, options=None))]
-    fn new(options: Option<PyRef<'_, PyLlamaCppOptions>>) -> PyResult<Self> {
-        let opts = options.map(|o| o.inner.clone()).unwrap_or_default();
-        let provider = crate::convert::block_on_context(LlamaCppProvider::from_options(opts))
+    async fn new(options: Option<Py<PyLlamaCppOptions>>) -> PyResult<Self> {
+        let opts = Python::attach(|py| {
+            options
+                .map(|o| o.borrow(py).inner.clone())
+                .unwrap_or_default()
+        });
+        let provider = LlamaCppProvider::from_options(opts)
+            .await
             .map_err(|e| LlamaCppError::new_err(e.to_string()))?;
         Ok(Self {
             inner: Arc::new(provider),

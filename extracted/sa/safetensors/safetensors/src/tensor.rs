@@ -5,7 +5,7 @@ use core::fmt::Display;
 use core::str::Utf8Error;
 use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "std")]
-use std::io::Write;
+use std::{io::Write, path::Path};
 
 const MAX_HEADER_SIZE: usize = 100_000_000;
 const N_LEN: usize = size_of::<u64>();
@@ -16,8 +16,6 @@ const N_LEN: usize = size_of::<u64>();
 pub enum SafeTensorError {
     /// The header is an invalid UTF-8 string and cannot be read.
     InvalidHeader(Utf8Error),
-    /// The header's first byte is not the expected `{`.
-    InvalidHeaderStart,
     /// The header does contain a valid string, but it is not valid JSON.
     InvalidHeaderDeserialization(serde_json::Error),
     /// The header is large than 100Mo which is considered too large (Might evolve in the future).
@@ -70,7 +68,6 @@ impl Display for SafeTensorError {
 
         match self {
             InvalidHeader(error) => write!(f, "invalid UTF-8 in header: {error}"),
-            InvalidHeaderStart => write!(f, "invalid start character in header, must be `{{`"),
             InvalidHeaderDeserialization(error) => write!(f, "invalid JSON in header: {error}"),
             JsonError(error) => write!(f, "JSON error: {error}"),
             HeaderTooLarge => write!(f, "header too large"),
@@ -301,6 +298,49 @@ pub fn serialize<
     Ok(buffer)
 }
 
+#[cfg(feature = "std")]
+fn buffered_write_to_file<V: View>(
+    path: impl AsRef<Path>,
+    n: u64,
+    header_bytes: &[u8],
+    tensors: &[V],
+    total_size: usize,
+) -> Result<(), SafeTensorError> {
+    let path = path.as_ref();
+    // Write to a sibling tempfile then rename, so an existing `path` is never
+    // truncated under any mmap of it (e.g. tensors returned by `load_file`).
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    let temp = tempfile::NamedTempFile::new_in(parent)?;
+
+    temp.as_file().set_len(total_size as u64)?;
+
+    // Serialize tensors to a file using direct I/O (bypassing page cache) using F_NOCACHE.
+    // This yields ~30% performance improvement.
+    #[cfg(target_os = "macos")]
+    unsafe {
+        use std::os::fd::AsRawFd;
+
+        libc::fcntl(temp.as_file().as_raw_fd(), libc::F_NOCACHE, 1);
+    }
+
+    {
+        let mut f = std::io::BufWriter::with_capacity(1024 * 1024, temp.as_file());
+
+        f.write_all(n.to_le_bytes().as_ref())?;
+        f.write_all(header_bytes)?;
+
+        for tensor in tensors {
+            f.write_all(tensor.data().as_ref())?;
+        }
+
+        f.flush()?;
+    }
+
+    temp.persist(path).map_err(|e| e.error)?;
+
+    Ok(())
+}
+
 /// Serialize to a regular file the dictionnary of tensors.
 /// Writing directly to file reduces the need to allocate the whole amount to
 /// memory.
@@ -317,7 +357,10 @@ where
 {
     let (
         PreparedData {
-            n, header_bytes, ..
+            n,
+            header_bytes,
+            offset,
+            ..
         },
         tensors,
     ) = prepare(data, data_info)?;
@@ -326,15 +369,9 @@ where
         return Err(SafeTensorError::HeaderTooLarge);
     }
 
-    let mut f = std::io::BufWriter::new(std::fs::File::create(filename)?);
-    f.write_all(n.to_le_bytes().as_ref())?;
-    f.write_all(&header_bytes)?;
+    let total_size = N_LEN + header_bytes.len() + offset;
 
-    for tensor in tensors {
-        f.write_all(tensor.data().as_ref())?;
-    }
-
-    f.flush()?;
+    buffered_write_to_file(filename, n, &header_bytes, &tensors, total_size)?;
 
     Ok(())
 }
@@ -376,11 +413,6 @@ impl<'data> SafeTensors<'data> {
             return Err(SafeTensorError::InvalidHeaderLength);
         };
         let string = core::str::from_utf8(header_bytes).map_err(SafeTensorError::InvalidHeader)?;
-        // Assert the string starts with {
-        // NOTE: Add when we move to 0.4.0
-        // if !string.starts_with('{') {
-        //     return Err(SafeTensorError::InvalidHeaderStart);
-        // }
         let metadata: HashMetadata =
             serde_json::from_str(string).map_err(SafeTensorError::InvalidHeaderDeserialization)?;
         let metadata: Metadata = metadata.try_into()?;
@@ -522,7 +554,7 @@ impl TryFrom<HashMetadata> for Metadata {
         // Previous versions might have a different ordering
         // Than we expect (Not aligned ordered, but purely name ordered,
         // or actually any order).
-        tensors.sort_by(|(_, left), (_, right)| left.data_offsets.cmp(&right.data_offsets));
+        tensors.sort_by_key(|(_, left)| left.data_offsets);
         Metadata::new(metadata, tensors)
     }
 }
@@ -800,6 +832,12 @@ pub enum Dtype {
     /// F8_E8M0 <https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf>_
     #[allow(non_camel_case_types)]
     F8_E8M0,
+    /// FP8 E4M3 (FNUZ) <https://arxiv.org/pdf/2206.02915.pdf>_
+    #[allow(non_camel_case_types)]
+    F8_E4M3FNUZ,
+    /// FP8 E5M2 (FNUZ) <https://arxiv.org/pdf/2206.02915.pdf>_
+    #[allow(non_camel_case_types)]
+    F8_E5M2FNUZ,
     /// Signed integer (16-bit)
     I16,
     /// Unsigned integer (16-bit)
@@ -837,6 +875,8 @@ impl Dtype {
             Dtype::F8_E5M2 => 8,
             Dtype::F8_E4M3 => 8,
             Dtype::F8_E8M0 => 8,
+            Dtype::F8_E4M3FNUZ => 8,
+            Dtype::F8_E5M2FNUZ => 8,
             Dtype::I16 => 16,
             Dtype::U16 => 16,
             Dtype::I32 => 32,
@@ -872,6 +912,8 @@ impl Display for Dtype {
             Dtype::F8_E5M2 => "F8_E5M2",
             Dtype::F8_E4M3 => "F8_E4M3",
             Dtype::F8_E8M0 => "F8_E8M0",
+            Dtype::F8_E4M3FNUZ => "F8_E4M3FNUZ",
+            Dtype::F8_E5M2FNUZ => "F8_E5M2FNUZ",
             Dtype::I16 => "I16",
             Dtype::U16 => "U16",
             Dtype::I32 => "I32",
@@ -1273,6 +1315,57 @@ mod tests {
         }
     }
 
+    #[cfg(all(feature = "std", unix))]
+    #[test]
+    fn test_serialize_to_file_same_path_with_active_mmap() {
+        // Regression test for #762: on Linux, `serialize_to_file` to a path that
+        // is currently mmap'd (e.g. by views the caller is about to serialize)
+        // would truncate the destination and zero those mmap pages before the
+        // bytes were read for writing, producing a zero-filled output file.
+        //
+        // FIXME: Windows is unsupported. Rename-over-active-mmap requires POSIX
+        // inode semantics; `MoveFileExW` returns ERROR_ACCESS_DENIED when the
+        // destination has open handles or active section objects. Callers on
+        // Windows must drop mmaps of `path` before calling `serialize_to_file`
+        // with the same `path`.
+        use memmap2::MmapOptions;
+
+        let filename = std::env::temp_dir().join(format!(
+            "safetensors_test_762_{}_{:?}.safetensors",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_file(&filename);
+
+        let bytes: Vec<u8> = [1.0f32, 2.0, 3.0]
+            .into_iter()
+            .flat_map(|f| f.to_le_bytes())
+            .collect();
+        let view = TensorView::new(Dtype::F32, vec![3], &bytes).unwrap();
+        let metadata: HashMap<String, TensorView> = [("w".to_string(), view)].into_iter().collect();
+        serialize_to_file(&metadata, None, &filename).unwrap();
+
+        // Mmap the file, deserialize, and re-save to the same path with views
+        // that borrow from the mmap.
+        {
+            let file = std::fs::File::open(&filename).unwrap();
+            let mmap = unsafe { MmapOptions::new().map(&file).unwrap() };
+            let safetensors = SafeTensors::deserialize(&mmap).unwrap();
+            let mmap_tensors = safetensors.tensors();
+            serialize_to_file(
+                mmap_tensors.iter().map(|(k, v)| (k.as_str(), v)),
+                None,
+                &filename,
+            )
+            .unwrap();
+        }
+
+        let raw = std::fs::read(&filename).unwrap();
+        let reloaded = SafeTensors::deserialize(&raw).unwrap();
+        assert_eq!(reloaded.tensor("w").unwrap().data(), bytes.as_slice());
+        std::fs::remove_file(&filename).unwrap();
+    }
+
     #[test]
     fn test_empty_shapes_allowed() {
         let serialized = b"8\x00\x00\x00\x00\x00\x00\x00{\"test\":{\"dtype\":\"I32\",\"shape\":[],\"data_offsets\":[0,4]}}\x00\x00\x00\x00";
@@ -1445,18 +1538,15 @@ mod tests {
         assert_eq!(loaded.len(), 0);
     }
 
-    // Reserver for 0.4.0
-    // #[test]
-    // /// Test that the JSON header must begin with a `{` character.
-    // fn test_whitespace_start_padded_header_is_not_allowed() {
-    //     let serialized = b"\x06\x00\x00\x00\x00\x00\x00\x00\x09\x0A{}\x0D\x20";
-    //     match SafeTensors::deserialize(serialized) {
-    //         Err(SafeTensorError::InvalidHeaderStart) => {
-    //             // Correct error
-    //         }
-    //         _ => panic!("This should not be able to be deserialized"),
-    //     }
-    // }
+    #[test]
+    /// Test that the JSON header may be leading-padded with JSON whitespace characters.
+    /// This is intentional: writers may pad the header to align the data section to a
+    /// page boundary, so readers must tolerate leading whitespace.
+    fn test_whitespace_leading_padded_header() {
+        let serialized = b"\x06\x00\x00\x00\x00\x00\x00\x00\x09\x0A{}\x0D\x20";
+        let loaded = SafeTensors::deserialize(serialized).unwrap();
+        assert_eq!(loaded.len(), 0);
+    }
 
     #[test]
     fn test_zero_sized_tensor() {

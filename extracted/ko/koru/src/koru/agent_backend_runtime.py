@@ -11,7 +11,7 @@ the small :class:`AgentBackend` protocol and concrete implementations:
     loop running when no plugin socket is available.
   * :class:`NoopBackend` — explicit "headless / smoke" backend; useful for CI
     and `--no-autopilot` smoke tests.
-  * :class:`SllmShellBackend` — shell LLM client via the external ``sllm``
+  * :class:`TillmShellBackend` — shell LLM client via the external ``tillm``
     plugin/package (aider, Claude Code, Codex CLI, Devin, ...).
 
 Lane → backend resolution lives in :func:`build_agent_backend`.
@@ -29,7 +29,7 @@ from koru.agent_backends import normalize_agent_backend_id
 from koru.ide_adapters.gillm_client import GillmIDEControlClient, build_gillm_ide_client
 from koru.ide_adapters.gillm_recovery import enrich_drive_reply_with_recovery
 from koru.ide_client import IDEControlClient
-from koru.sllm_bridge import drive_shell_chat
+from koru.tillm_bridge import drive_shell_chat
 
 
 class AgentBackend(Protocol):
@@ -122,8 +122,8 @@ class NoopBackend:
 
 
 @dataclass
-class SllmShellBackend:
-    """Shell LLM client backend delegated to the external ``sllm`` package."""
+class TillmShellBackend:
+    """Shell LLM client backend delegated to the external ``tillm`` package."""
 
     client_id: str = "aider"
     execute: bool = True
@@ -148,7 +148,7 @@ class SllmShellBackend:
         except Exception as exc:
             return {
                 "ok": False,
-                "backend": "sllm_shell",
+                "backend": "tillm_shell",
                 "client_id": self.client_id,
                 "message": str(exc),
                 "type": "error",
@@ -202,6 +202,40 @@ class GillmGuiBackend:
 
 
 @dataclass
+class ImglDesktopBackend:
+    """Vision-guided UI backend via imgl (nlp2imgl / rest2imgl).
+
+    Captures screen, resolves UI elements from catalog, types into Chat input
+    and submits via KEY — fallback when koruide plugin socket is unavailable.
+    """
+
+    dry_run: bool = False
+
+    def send_chat(
+        self,
+        project: Path,
+        prompt: str,
+        *,
+        ide: str,
+        submit: bool,
+        ticket_id: str | None = None,
+    ) -> dict[str, Any]:
+        del project, ticket_id
+        from koru.integrations.imgl_client import imgl_available, imgl_missing_message, send_chat
+
+        if self.dry_run:
+            return send_chat(prompt, ide=ide, submit=submit, dry_run=True)
+        if not imgl_available():
+            return {
+                "ok": False,
+                "backend": "imgl",
+                "message": imgl_missing_message(),
+                "type": "error",
+            }
+        return send_chat(prompt, ide=ide, submit=submit, dry_run=False)
+
+
+@dataclass
 class Nlp2UriDesktopBackend:
     """Window-management backend via nlp2uri desktop-window://focus.
 
@@ -248,9 +282,9 @@ def build_agent_backend(
     if bid == "mcp_tool" or normalized == "mcp_stdio_server":
         return McpToolBackend(mcp_server=mcp_server)
     if normalized == "vendor_agent_cli":
-        return SllmShellBackend(
-            client_id=shell_client_id or os.environ.get("KORU_SLLM_CLIENT", "aider"),
-            execute=os.environ.get("KORU_SLLM_DRY_RUN", "").strip().lower()
+        return TillmShellBackend(
+            client_id=shell_client_id or os.environ.get("KORU_TILLM_CLIENT", "aider"),
+            execute=os.environ.get("KORU_TILLM_DRY_RUN", "").strip().lower()
             not in {"1", "true", "yes", "on"},
         )
     if bid == "gillm_gui" or normalized == "gillm_gui_driver":
@@ -267,6 +301,11 @@ def build_agent_backend(
             "1", "true", "yes", "on",
         }
         return Nlp2UriDesktopBackend(dry_run=dry)
+    if bid in ("imgl", "imgl_vision", "imgl_desktop") or normalized == "imgl_vision_driver":
+        dry = os.environ.get("KORU_IMGL_DRY_RUN", "").strip().lower() in {
+            "1", "true", "yes", "on",
+        }
+        return ImglDesktopBackend(dry_run=dry)
     if bid in ("none", "noop", ""):
         return NoopBackend(reason=noop_reason)
     raise ValueError(f"unknown agent backend id: {backend_id!r}")
@@ -364,8 +403,9 @@ __all__ = [
     "AgentBackend",
     "PluginSocketBackend",
     "McpToolBackend",
-    "SllmShellBackend",
+    "TillmShellBackend",
     "GillmGuiBackend",
+    "ImglDesktopBackend",
     "OsInjectorBackend",
     "Nlp2UriDesktopBackend",
     "NoopBackend",

@@ -1,8 +1,9 @@
 # Copyright Modal Labs 2022
 import platform
 import shlex
+from collections.abc import Callable, Iterable
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Iterable, Optional
+from typing import Any
 
 import click
 from click import ClickException
@@ -10,12 +11,13 @@ from click import ClickException
 from .._environments import ensure_env
 from .._functions import _FunctionSpec
 from ..app import App
+from ..container_process import ContainerProcess
 from ..exception import InvalidError, NotFoundError
 from ..functions import Function
 from ..image import Image
 from ..mount import _Mount
 from ..runner import interactive_shell
-from ..sandbox import Sandbox
+from ..sandbox import _MAIN_CONTAINER_NAME, Sandbox
 from ..secret import Secret
 from ..stream_type import StreamType
 from ..volume import Volume
@@ -80,7 +82,7 @@ def _is_valid_modal_id(ref: str, prefix: str) -> bool:
     return ref.startswith(prefix) and len(ref[len(prefix) :]) > 0 and ref[len(prefix) :].isalnum()
 
 
-def _parse_sandbox_container_ref(ref: str) -> tuple[str, Optional[str]]:
+def _parse_sandbox_container_ref(ref: str) -> tuple[str, str | None]:
     """Parse a sandbox:container reference into (sandbox_id, container_name).
 
     Supports the pattern `sb-xyz:container_name` for accessing sandbox containers.
@@ -98,15 +100,15 @@ def _parse_sandbox_container_ref(ref: str) -> tuple[str, Optional[str]]:
     return ref, None
 
 
-def _is_running_container_ref(ref: Optional[str]) -> bool:
+def _is_running_container_ref(ref: str | None) -> bool:
     if ref is None:
         return False
     sandbox_id, _ = _parse_sandbox_container_ref(ref)
     return _is_valid_modal_id(sandbox_id, "sb-") or _is_valid_modal_id(ref, "ta-")
 
 
-def _start_shell_in_sandbox_container(sandbox_id: str, container_name: str, cmd: str, pty: bool) -> None:
-    """Shell into a named container within a sandbox."""
+def _start_shell_in_sidecar_container(sandbox_id: str, container_name: str, cmd: str, pty: bool) -> None:
+    """Shell into a sidecar container within a sandbox."""
     try:
         sandbox = Sandbox.from_id(sandbox_id)
     except NotFoundError:
@@ -115,18 +117,19 @@ def _start_shell_in_sandbox_container(sandbox_id: str, container_name: str, cmd:
         raise ClickException(f"Error connecting to Sandbox '{sandbox_id}': {str(e)}")
 
     try:
-        sandbox_container = sandbox._experimental_containers.get(name=container_name)
+        sandbox_container = sandbox._experimental_sidecars.get(name=container_name)
+        process: ContainerProcess[bytes] | ContainerProcess[str]
         if pty:
             # PTY output is raw terminal bytes, not text; strict UTF-8 decode
             # crashes on the first non-UTF-8 byte (e.g. vim drawing a Latin-1
             # file under LC_CTYPE=C). See the matching call in `_exec_impl`.
-            process = sandbox_container.exec(*shlex.split(cmd), pty=pty, text=False)
+            process = sandbox_container.exec(*shlex.split(cmd), pty=True, text=False)
             process.attach()
         else:
             process = sandbox_container.exec(
-                *shlex.split(cmd), pty=pty, stdout=StreamType.STDOUT, stderr=StreamType.STDOUT
+                *shlex.split(cmd), pty=False, text=False, stdout=StreamType.STDOUT, stderr=StreamType.STDOUT
             )
-            process.wait()
+            _ = process.wait()
     except NotFoundError:
         raise ClickException(f"Container '{container_name}' not found in Sandbox '{sandbox_id}'.")
     except Exception as e:
@@ -136,8 +139,8 @@ def _start_shell_in_sandbox_container(sandbox_id: str, container_name: str, cmd:
 def _start_shell_in_running_container(ref: str, cmd: str, pty: bool) -> None:
     sandbox_id, container_name = _parse_sandbox_container_ref(ref)
 
-    if container_name is not None:
-        return _start_shell_in_sandbox_container(sandbox_id, container_name, cmd, pty)
+    if container_name is not None and container_name != _MAIN_CONTAINER_NAME:
+        return _start_shell_in_sidecar_container(sandbox_id, container_name, cmd, pty)
 
     if _is_valid_modal_id(sandbox_id, "sb-"):
         try:
@@ -225,15 +228,15 @@ def _start_shell_from_image(
     cmds: list[str],
     env: str,
     timeout: int,
-    modal_image: Optional[Image],
+    modal_image: Image | None,
     volume: list[str],
     secret: list[str],
     add_local: list[str],
-    cpu: Optional[int],
-    memory: Optional[int],
-    gpu: Optional[str],
-    cloud: Optional[str],
-    region: Optional[str],
+    cpu: int | None,
+    memory: int | None,
+    gpu: str | None,
+    cloud: str | None,
+    region: str | None,
     pty: bool,
     experimental_options: dict[str, bool],
 ) -> None:
@@ -328,26 +331,26 @@ def _start_shell_from_image(
     metavar="KEY=VALUE",
 )
 def shell(
-    ref: Optional[str] = None,
+    ref: str | None = None,
     cmd: str = "/bin/bash",
-    env: Optional[str] = None,
-    image: Optional[str] = None,
-    add_python: Optional[str] = None,
+    env: str | None = None,
+    image: str | None = None,
+    add_python: str | None = None,
     volume: tuple[str, ...] = (),
     add_local: tuple[str, ...] = (),
     secret: tuple[str, ...] = (),
-    cpu: Optional[int] = None,
-    memory: Optional[int] = None,
-    gpu: Optional[str] = None,
-    cloud: Optional[str] = None,
-    region: Optional[str] = None,
-    pty: Optional[bool] = None,
+    cpu: int | None = None,
+    memory: int | None = None,
+    gpu: str | None = None,
+    cloud: str | None = None,
+    region: str | None = None,
+    pty: bool | None = None,
     use_module_mode: bool = False,
     experimental_options: tuple[str, ...] = (),
 ):
     """Run a command or interactive shell inside a Modal container.
 
-    **Examples:**
+    Examples:
 
     Start an interactive shell inside the default Debian-based image:
 

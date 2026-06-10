@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Alibaba Group Holding Ltd.
+# Copyright 1999-2026 Alibaba Group Holding Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import datetime
+import threading
 
 try:
     import pyarrow as pa
@@ -23,27 +24,32 @@ try:
 except ImportError:
     pd = None
 
-from ..compat import datetime_utcnow, six
+from ..compat import datetime_utcnow
 from ..utils import camel_to_underline
 
+_func_registry_lock = threading.RLock()
 _name_to_funcs = {}
 
 
-class ExprFunction(object):
+class ExprFunction:
     arg_count = None
 
     @classmethod
     def _load_name_to_funcs(cls):
         if not _name_to_funcs:
-            for val in globals().values():
-                if (
-                    not isinstance(val, type)
-                    or not issubclass(val, ExprFunction)
-                    or val is ExprFunction
-                ):
-                    continue
-                cls_name = getattr(val, "_func_name", camel_to_underline(val.__name__))
-                _name_to_funcs[cls_name.lower()] = val
+            with _func_registry_lock:
+                if not _name_to_funcs:  # Double-check after acquiring lock
+                    for val in globals().values():
+                        if (
+                            not isinstance(val, type)
+                            or not issubclass(val, ExprFunction)
+                            or val is ExprFunction
+                        ):
+                            continue
+                        cls_name = getattr(
+                            val, "_func_name", camel_to_underline(val.__name__)
+                        )
+                        _name_to_funcs[cls_name.lower()] = val
         return _name_to_funcs
 
     @classmethod
@@ -51,7 +57,7 @@ class ExprFunction(object):
         try:
             return ExprFunction._load_name_to_funcs()[func_name.lower()]
         except KeyError:
-            six.raise_from(ValueError("%s function not found" % func_name), None)
+            raise ValueError(f"{func_name} function not found") from None
 
     @classmethod
     def call(cls, *args):
@@ -59,7 +65,7 @@ class ExprFunction(object):
 
     @classmethod
     def to_str(cls, arg_strs):
-        return "%s(%s)" % (cls._func_name, ", ".join(arg_strs))
+        return f"{cls._func_name}({', '.join(arg_strs)})"
 
 
 _date_patterns = {
@@ -82,7 +88,7 @@ class TruncateTime(ExprFunction):
 
     @classmethod
     def call(cls, arg, date_part):
-        assert isinstance(date_part, six.string_types)
+        assert isinstance(date_part, str)
         date_part = date_part.lower()
         if pa and isinstance(arg, (pa.Array, pa.ChunkedArray)):
             res = [cls._call_single(x, date_part) for x in arg.to_pandas()]

@@ -24,7 +24,7 @@ class TestTemplateLoading:
         result = _load_template_steps("quick")
         assert result is not None
         assert "execute" in result
-        assert "plan" not in result  # quick has no plan phase
+        assert "plan" in result  # quick now has plan (knowledge_search + user_confirm)
 
     def test_load_nonexistent_template_returns_none(self):
         from kanban_framework.domain.steps_loader import _load_template_steps

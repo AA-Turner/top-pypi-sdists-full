@@ -5,7 +5,7 @@ import warnings
 
 from envoy.service.metrics.v2 import metrics_service_pb2 as envoy_dot_service_dot_metrics_dot_v2_dot_metrics__service__pb2
 
-GRPC_GENERATED_VERSION = '1.76.0'
+GRPC_GENERATED_VERSION = '1.81.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -25,7 +25,7 @@ if _version_not_supported:
     )
 
 
-class MetricsServiceStub(object):
+class MetricsServiceStub:
     """[#protodoc-title: Metrics service]
 
     Service for streaming metrics to server that consumes the metrics data. It uses Prometheus metric
@@ -45,7 +45,7 @@ class MetricsServiceStub(object):
                 _registered_method=True)
 
 
-class MetricsServiceServicer(object):
+class MetricsServiceServicer:
     """[#protodoc-title: Metrics service]
 
     Service for streaming metrics to server that consumes the metrics data. It uses Prometheus metric
@@ -76,7 +76,7 @@ def add_MetricsServiceServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class MetricsService(object):
+class MetricsService:
     """[#protodoc-title: Metrics service]
 
     Service for streaming metrics to server that consumes the metrics data. It uses Prometheus metric

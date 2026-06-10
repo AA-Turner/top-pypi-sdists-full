@@ -35,6 +35,13 @@ class Config(betterproto2.Message):
     when a new request is received.
     """
 
+    clear_route_cache: "bool" = betterproto2.field(2, betterproto2.TYPE_BOOL)
+    """
+    Clear the route cache for the current client request. This is necessary
+    if the route configuration may depend on the filter state values set by
+    this filter.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.filters.http.set_filter_state.v3", "Config", Config

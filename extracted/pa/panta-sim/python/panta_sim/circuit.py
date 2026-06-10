@@ -1220,6 +1220,16 @@ class QuantumCircuit:
             기댓값 (``float``).
         """
         run_kwargs.pop("shots", None)
+        # method="pauli_propagation": Heisenberg 역전파 경로 (큰 N·저 비-Clifford,
+        # 얽힘 무관).  run/statevector 대신 전용 estimator 로 라우팅.
+        if run_kwargs.get("method") == "pauli_propagation":
+            from .pauli_propagation import pauli_propagation_expectation as _pp
+
+            threshold = run_kwargs.get("pp_threshold", 1e-10)
+            depolarizing = run_kwargs.get("pp_depolarizing", 0.0)
+            return _pp(
+                self, observable, threshold=threshold, depolarizing=depolarizing
+            ).real
         result = self.run(shots=0, precision=precision, **run_kwargs)
         return result.expectation(observable, shots=shots, seed=estimator_seed)
 
@@ -1253,29 +1263,38 @@ class QuantumCircuit:
         return self
 
     def transpile_to_basis(self, basis: str = "cx") -> QuantumCircuit:
-        """회로를 하드웨어 basis gate set 으로 변환한 **새 회로** 를 반환한다 (v0.8.3).
+        """회로를 하드웨어 basis gate set 으로 변환한 **새 회로** 를 반환한다 (v0.8.3+).
 
-        현재 지원 basis:
+        지원 basis:
         - ``"cx"`` (default): **CX + 임의 1-큐비트** 게이트.  모든 2/3-큐비트
           게이트 (CZ/CY/SWAP/iSWAP/DCX/CRx/CRy/CRz/CP/CH/RXX/RYY/RZZ/RZX/Toffoli/
           Fredkin) 를 표준 항등식으로 CX + 1q 회전으로 분해한다.  대부분의 실
           하드웨어 (IBM/Google/IonQ) 의 2-큐비트 native gate 가 CX 동치이므로
           회로 레벨 transpile 의 핵심 단계다.
+        - ``"ibm"`` (별칭 ``"rz_sx_x"``): **`rz` + `sx` + `x` + CX**.  CX-basis
+          분해 후 모든 1q 게이트를 ZYZ 분해 + 항등식 `Ry(γ)=X·SX·Rz(γ)·SX` 로
+          `{rz, sx, x}` 로 rebase 한다.  IBM Eagle/Heron 등 초전도 하드웨어의
+          표준 1q basis (전역 위상 보존, 대각 게이트는 `rz` 하나로 접음).
 
         KAK 합성이 필요한 게이트 (CU/CU3/ECR/XXPlusYY/XXMinusYY) 를 만나면
         ``ValueError`` — 대신 ``unitary(M, qubits, decompose="cx")`` (KAK) 를
         사용하라는 안내를 포함한다.
 
         Args:
-            basis: 타깃 basis (현재 ``"cx"`` 만).
+            basis: 타깃 basis — ``"cx"`` 또는 ``"ibm"`` (``"rz_sx_x"``).
 
         Returns:
-            변환된 새 ``QuantumCircuit`` (원본은 불변).  결과는
-            ``is_cx_basis() == True`` 를 만족한다.
+            변환된 새 ``QuantumCircuit`` (원본은 불변).  ``"cx"`` 는
+            ``is_cx_basis() == True``, ``"ibm"`` 은 ``is_zsx_basis() == True``.
         """
-        if basis != "cx":
-            raise ValueError(f"지원하는 basis 는 'cx' 뿐입니다 (입력: {basis!r})")
-        new_raw = self._circuit.transpile_cx_basis()
+        if basis == "cx":
+            new_raw = self._circuit.transpile_cx_basis()
+        elif basis in ("ibm", "rz_sx_x"):
+            new_raw = self._circuit.transpile_ibm_basis()
+        else:
+            raise ValueError(
+                f"지원하는 basis 는 'cx' / 'ibm' 입니다 (입력: {basis!r})"
+            )
         obj = QuantumCircuit.__new__(QuantumCircuit)
         obj._pending_builder = None
         obj._raw_circuit = new_raw
@@ -1287,6 +1306,10 @@ class QuantumCircuit:
     def is_cx_basis(self) -> bool:
         """회로의 모든 2/3-큐비트 게이트가 CX 인지 (CX-basis 인지) 검사한다."""
         return self._circuit.is_cx_basis()
+
+    def is_zsx_basis(self) -> bool:
+        """회로가 IBM basis (rz/sx/x 1q + CX 2q) 인지 검사한다."""
+        return self._circuit.is_zsx_basis()
 
     @property
     def global_phase(self) -> float:
@@ -2011,6 +2034,45 @@ class QuantumCircuit:
         if return_diagnostic:
             return counts, r_hat
         return counts
+
+    def pauli_propagation_expectation(
+        self,
+        observable,
+        threshold: float = 1e-10,
+        max_terms: int = 2_000_000,
+        depolarizing: float = 0.0,
+    ) -> complex:
+        """관측량 기댓값 ``⟨0|U†OU|0⟩`` 를 **Pauli 역전파(Heisenberg)** 로 추정한다
+        (v1.1, arXiv:2505.21606).
+
+        관측량을 weighted Pauli 합으로 회로를 통해 역전파하므로 **얽힘에 제약받지
+        않는다** (Tensor Network 의 보완재).  비-Clifford 게이트가 Pauli 항을
+        분기시키며, 계수 절댓값이 ``threshold`` 미만인 항을 버려 다항적으로 유지한다.
+        Clifford 가 많고 비-Clifford 가 적은 큰 N 회로(VQE/동역학)에서 statevector·
+        TN 이 못 미치는 영역 — 예: 100큐비트 TFIM Trotter 의 ``⟨Z⟩``.
+
+        지원 게이트: 1q Clifford(h/s/sdg/x/y/z/sx/sxdg) + rx/ry/rz/t/tdg/p, cx, cz.
+        ``threshold=0`` 이면 exact statevector 기댓값과 일치(검증).
+
+        Args:
+            observable: ``dict`` / ``list[(str,coeff)]`` / SparsePauliOp (Qiskit 규약).
+            threshold: 계수 절댓값 컷오프 (클수록 빠르고 덜 정확).
+            max_terms: Pauli 항 수 상한 (초과 시 ``ValueError``).
+            depolarizing: 게이트당 depolarizing 확률 ``p`` (>0 이면 noisy 기댓값
+                ``Tr(ρH)``; density 백엔드와 1e-9 일치).
+
+        Returns:
+            기댓값 (복소; Hermitian observable 이면 허수부 ≈ 0).
+        """
+        from .pauli_propagation import pauli_propagation_expectation as _pp
+
+        return _pp(
+            self,
+            observable,
+            threshold=threshold,
+            max_terms=max_terms,
+            depolarizing=depolarizing,
+        )
 
     def amplitudes(
         self,

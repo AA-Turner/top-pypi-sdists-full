@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: etcd3gw
-Version: 2.6.0
+Version: 2.7.0
 Summary: A Python client for etcd3 grpc-gateway v3 API
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0

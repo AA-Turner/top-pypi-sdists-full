@@ -12,20 +12,21 @@
 # the Intune Remediation settings — this script writes/reads SYSTEM-scoped
 # config dirs (Program Files, ProgramData) and must run as SYSTEM.
 #
-# Enrollment runs separately via packaging/windows/scripts/bootstrap.ps1 as
-# the logged-on user (SCCM / GPO logon script). The credential gate here
-# checks `C:\Users\<console>\.runlayer\.enrolled-<host_key>` — an empty marker
-# file dropped only by enrollment success paths. The secret may live in the
-# Credential Manager (SYSTEM can't read it); the marker is sufficient proof
-# the user has enrolled.
+# With a single org API key the SYSTEM context has everything it needs: the
+# MDM-pushed `OrgApiKey` authenticates hooks directly (the backend resolves
+# device identity from the attached device context), so no per-user enroll
+# step is required. `aiwatch setup hooks check --mdm` treats the managed
+# `OrgApiKey` as a satisfied credential.
 
 $ErrorActionPreference = "SilentlyContinue"
 
-# Scan-only fleets (no MDM-pushed EnrollmentKey) short-circuit silently here so
-# Intune treats the device as compliant and never fires remediate.ps1. Path
-# mirrors `runlayer_cli/mdm_config.py:_read_windows` (HKLM hive).
-$EnrollmentKey = (Get-ItemProperty -Path "HKLM:\Software\Runlayer\AIWatch" -Name "EnrollmentKey" -ErrorAction SilentlyContinue).EnrollmentKey
-if ([string]::IsNullOrEmpty($EnrollmentKey)) {
+# Unconfigured fleets (no MDM-pushed OrgApiKey) short-circuit silently here so
+# Intune treats the device as compliant and never fires remediate.ps1. Whether
+# hooks actually install is decided downstream by the Enforcement / Sessions
+# managed-config keys. Path mirrors `runlayer_cli/mdm_config.py:_read_windows`
+# (HKLM hive).
+$OrgApiKey = (Get-ItemProperty -Path "HKLM:\Software\Runlayer\AIWatch" -Name "OrgApiKey" -ErrorAction SilentlyContinue).OrgApiKey
+if ([string]::IsNullOrEmpty($OrgApiKey)) {
     exit 0
 }
 

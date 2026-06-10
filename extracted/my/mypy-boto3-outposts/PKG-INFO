@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-outposts
-Version: 1.43.0
-Summary: Type annotations for boto3 Outposts 1.43.0 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.26
+Summary: Type annotations for boto3 Outposts 1.43.26 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 Outposts 1.43.0](https://pypi.org/project/boto3/)
+Type annotations for [boto3 Outposts 1.43.26](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -104,7 +104,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.26' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Outposts` service.
 4. Use provided commands to install generated packages.
@@ -346,8 +346,10 @@ from mypy_boto3_outposts.paginator import (
     ListBlockingInstancesForCapacityTaskPaginator,
     ListCapacityTasksPaginator,
     ListCatalogItemsPaginator,
+    ListOrderableInstanceTypesPaginator,
     ListOrdersPaginator,
     ListOutpostsPaginator,
+    ListQuotesPaginator,
     ListSitesPaginator,
 )
 
@@ -375,8 +377,12 @@ list_capacity_tasks_paginator: ListCapacityTasksPaginator = client.get_paginator
     "list_capacity_tasks"
 )
 list_catalog_items_paginator: ListCatalogItemsPaginator = client.get_paginator("list_catalog_items")
+list_orderable_instance_types_paginator: ListOrderableInstanceTypesPaginator = client.get_paginator(
+    "list_orderable_instance_types"
+)
 list_orders_paginator: ListOrdersPaginator = client.get_paginator("list_orders")
 list_outposts_paginator: ListOutpostsPaginator = client.get_paginator("list_outposts")
+list_quotes_paginator: ListQuotesPaginator = client.get_paginator("list_quotes")
 list_sites_paginator: ListSitesPaginator = client.get_paginator("list_sites")
 ```
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agency-swarm
-Version: 1.9.9
+Version: 1.10.0
 Summary: Agency Swarm framework
 Project-URL: Homepage, https://github.com/VRSEN/agency-swarm
 Project-URL: Repository, https://github.com/VRSEN/agency-swarm
@@ -17,37 +17,39 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.12
-Requires-Dist: ag-ui-protocol>=0.1.4
+Requires-Dist: ag-ui-protocol>=0.1.18
 Requires-Dist: aiofiles>=23.2.1
-Requires-Dist: datamodel-code-generator<0.57.0,>=0.56.0
+Requires-Dist: datamodel-code-generator<0.62.0,>=0.56.0
 Requires-Dist: docstring-parser<1.0.0,>=0.16
 Requires-Dist: fastapi>=0.115.0
-Requires-Dist: fastmcp>=2.13.1
+Requires-Dist: fastmcp>=3.2.0
 Requires-Dist: filetype>=1.2.0
+Requires-Dist: griffe<3,>=1.15.0
 Requires-Dist: httpx>=0.28.0
 Requires-Dist: jsonref<2.0.0,>=1.1.0
-Requires-Dist: mcp<2.0.0,>=1.13.1
+Requires-Dist: litellm<2,>=1.83.0
+Requires-Dist: mcp<2.0.0,>=1.23.0
 Requires-Dist: openai-agents==0.14.8
 Requires-Dist: openai<3,>=2.2
 Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0
 Requires-Dist: pydantic<3,>=2.11
 Requires-Dist: python-dotenv<2.0.0,>=1.1.1
 Requires-Dist: requests<3,>=2.0
-Requires-Dist: rich<14.0.0,>=13.9.4
+Requires-Dist: rich<16.0.0,>=13.9.4
 Requires-Dist: termcolor<3.0.0,>=2.3.0
 Requires-Dist: types-requests<3,>=2.0
 Requires-Dist: typing-extensions<5,>=4.13
 Requires-Dist: uvicorn[standard]>=0.35.0
 Requires-Dist: watchfiles<2.0.0,>=1.0.0
 Provides-Extra: fastapi
-Requires-Dist: ag-ui-protocol>=0.1.4; extra == 'fastapi'
+Requires-Dist: ag-ui-protocol>=0.1.18; extra == 'fastapi'
 Requires-Dist: aiofiles>=23.2.1; extra == 'fastapi'
 Requires-Dist: fastapi>=0.115.0; extra == 'fastapi'
 Requires-Dist: filetype>=1.2.0; extra == 'fastapi'
 Requires-Dist: httpx>=0.28.0; extra == 'fastapi'
 Requires-Dist: uvicorn[standard]>=0.35.0; extra == 'fastapi'
 Provides-Extra: jupyter
-Requires-Dist: ipykernel<7.0.0,>=6.29.0; extra == 'jupyter'
+Requires-Dist: ipykernel<8.0.0,>=6.29.0; extra == 'jupyter'
 Requires-Dist: jupyter-client<9.0.0,>=8.0.0; extra == 'jupyter'
 Requires-Dist: nest-asyncio<2.0.0,>=1.6.0; extra == 'jupyter'
 Provides-Extra: litellm
@@ -56,7 +58,7 @@ Provides-Extra: viz
 Requires-Dist: graphviz>=0.17; extra == 'viz'
 Provides-Extra: voice
 Requires-Dist: numpy<3,>=2.2.0; (python_version >= '3.10') and extra == 'voice'
-Requires-Dist: websockets<16,>=15.0; extra == 'voice'
+Requires-Dist: websockets<17,>=15.0; extra == 'voice'
 Description-Content-Type: text/markdown
 
 # 🐝 Agency Swarm

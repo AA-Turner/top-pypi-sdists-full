@@ -1,23 +1,16 @@
 # Copyright Modal Labs 2024
 import asyncio
-import importlib.metadata
 import inspect
-import json
 import math
-import os
 import sys
 import time
 import traceback
-from collections.abc import AsyncGenerator, AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator, Callable, Generator
 from contextlib import AsyncExitStack
-from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     ClassVar,
-    Generator,
-    Optional,
     cast,
 )
 
@@ -25,7 +18,12 @@ from google.protobuf.empty_pb2 import Empty
 from grpclib import Status
 from synchronicity.async_wrap import asynccontextmanager
 
-from modal._runtime import gpu_memory_snapshot
+from modal._runtime.task_lifecycle_manager import (
+    TaskLifecycleManager,
+    UserException as UserException,
+    _TaskLifecycleManager,
+    check_fastapi_pydantic_compatibility,
+)
 from modal._serialization import (
     deserialize_data_format,
     pickle_exception,
@@ -33,13 +31,12 @@ from modal._serialization import (
     serialize_data_format,
 )
 from modal._traceback import print_exception
-from modal._utils.async_utils import TaskContext, aclosing, asyncify, synchronize_api, synchronizer
+from modal._utils.async_utils import TaskContext, aclosing, synchronize_api, synchronizer
 from modal._utils.blob_utils import MAX_OBJECT_SIZE_BYTES, blob_download, blob_upload, format_blob_data
 from modal._utils.function_utils import _stream_function_call_data
 from modal._utils.grpc_utils import Retry
-from modal._utils.package_utils import parse_major_minor_version
 from modal.client import HEARTBEAT_INTERVAL, HEARTBEAT_TIMEOUT, _Client
-from modal.config import config, logger
+from modal.config import logger
 from modal.exception import ClientClosed, InputCancellation, InvalidError
 from modal_proto import api_pb2
 
@@ -52,10 +49,6 @@ DYNAMIC_CONCURRENCY_TIMEOUT_SECS = 10
 MAX_OUTPUT_BATCH_SIZE: int = 49
 
 RTT_S: float = 0.5  # conservative estimate of RTT in seconds.
-
-
-class UserException(Exception):
-    """Used to shut down the task gracefully."""
 
 
 class Sentinel:
@@ -75,7 +68,7 @@ class IOContext:
     finalized_function: "modal._runtime.user_code_imports.FinalizedFunction"
 
     _cancel_issued: bool = False
-    _cancel_callback: Optional[Callable[[], None]] = None
+    _cancel_callback: Callable[[], None] | None = None
 
     def __init__(
         self,
@@ -130,7 +123,7 @@ class IOContext:
             cast(list[str], function_call_ids),
             cast(list[str], attempt_tokens),
             finalized_function,
-            cast(list[api_pb2.FunctionInput], function_inputs),
+            function_inputs,
             is_batched,
             client,
         )
@@ -260,8 +253,7 @@ class IOContext:
         if not inspect.isgenerator(expected_gen):
             raise InvalidError(f"Generator function returned value of type {type(expected_gen)}")
 
-        for result in expected_gen:
-            yield result
+        yield from expected_gen
         logger.debug(f"Finished generator input {self.input_ids}")
 
     async def call_generator_async(self) -> AsyncGenerator[Any, None]:
@@ -430,7 +422,7 @@ class InputSlots:
 
     active: int
     value: int
-    waiter: Optional[asyncio.Future]
+    waiter: asyncio.Future | None
     closed: bool
 
     def __init__(self, value: int) -> None:
@@ -478,43 +470,43 @@ class _ContainerIOManager:
     Then we could potentially move a bunch of the global functions onto it.
     """
 
-    task_id: str
-    function_id: str
     app_id: str
-    function_def: api_pb2.Function
-    checkpoint_id: Optional[str]
-    input_plane_server_url: Optional[str]
+    _task_lifecycle_manager: _TaskLifecycleManager
+    input_plane_server_url: str | None
 
     calls_completed: int
     total_user_time: float
-    current_input_id: Optional[str]
+    current_input_id: str | None
     current_inputs: dict[str, IOContext]  # input_id -> IOContext
-    current_input_started_at: Optional[float]
+    current_input_started_at: float | None
 
     _input_concurrency_enabled: bool
     _target_concurrency: int
     _max_concurrency: int
-    _concurrency_loop: Optional[asyncio.Task]
+    _concurrency_loop: asyncio.Task | None
     _input_slots: InputSlots
 
     _environment_name: str
-    _heartbeat_loop: Optional[asyncio.Task]
-    _heartbeat_condition: Optional[asyncio.Condition]
+    _heartbeat_loop: asyncio.Task | None
+    _heartbeat_condition: asyncio.Condition | None
     _waiting_for_memory_snapshot: bool
 
     _is_interactivity_enabled: bool
     _fetching_inputs: bool
 
-    _client: _Client
-
-    _singleton: ClassVar[Optional["_ContainerIOManager"]] = None
+    _singleton: ClassVar["_ContainerIOManager | None"] = None
 
     def _init(self, container_args: api_pb2.ContainerArguments, client: _Client):
-        self.task_id = container_args.task_id
-        self.function_id = container_args.function_id
         self.app_id = container_args.app_id
-        self.function_def = container_args.function_def
-        self.checkpoint_id = container_args.checkpoint_id or None
+
+        assert isinstance(client, _Client)
+        self._task_lifecycle_manager = _TaskLifecycleManager(
+            task_id=container_args.task_id,
+            function_id=container_args.function_id,
+            function_def=container_args.function_def,
+            checkpoint_id=container_args.checkpoint_id or None,
+            client=client,
+        )
 
         self.input_plane_server_url = container_args.input_plane_server_url
 
@@ -541,13 +533,9 @@ class _ContainerIOManager:
         self._heartbeat_loop = None
         self._heartbeat_condition = None
         self._waiting_for_memory_snapshot = False
-        self._cuda_checkpoint_session = None
 
         self._is_interactivity_enabled = False
         self._fetching_inputs = True
-
-        self._client = client
-        assert isinstance(self._client, _Client)
 
     @property
     def heartbeat_condition(self) -> asyncio.Condition:
@@ -566,6 +554,29 @@ class _ContainerIOManager:
     def _reset_singleton(cls):
         """Only used for tests."""
         cls._singleton = None
+
+    def get_task_lifecycle_manager(self) -> TaskLifecycleManager:
+        return cast(TaskLifecycleManager, synchronizer._translate_out(self._task_lifecycle_manager))
+
+    @property
+    def task_id(self) -> str:
+        return self._task_lifecycle_manager.task_id
+
+    @property
+    def function_id(self) -> str:
+        return self._task_lifecycle_manager.function_id
+
+    @property
+    def function_def(self) -> api_pb2.Function:
+        return self._task_lifecycle_manager.function_def
+
+    @property
+    def checkpoint_id(self) -> str | None:
+        return self._task_lifecycle_manager.checkpoint_id
+
+    @property
+    def _client(self) -> _Client:
+        return self._task_lifecycle_manager._client
 
     async def hello(self):
         await self._client.stub.ContainerHello(Empty())
@@ -684,7 +695,7 @@ class _ContainerIOManager:
 
             await asyncio.sleep(DYNAMIC_CONCURRENCY_INTERVAL_SECS)
 
-    async def get_data_in(self, function_call_id: str, attempt_token: Optional[str]) -> AsyncIterator[Any]:
+    async def get_data_in(self, function_call_id: str, attempt_token: str | None) -> AsyncIterator[Any]:
         """Read from the `data_in` stream of a function call."""
         stub = self._client.stub
         if self.input_plane_server_url:
@@ -894,47 +905,6 @@ class _ContainerIOManager:
         self.exit_context(started_at, input_ids)
 
     @asynccontextmanager
-    async def handle_user_exception(self) -> AsyncGenerator[None, None]:
-        """Sets the task as failed in a way where it's not retried.
-
-        Used for handling exceptions from container lifecycle methods at the moment, which should
-        trigger a task failure state.
-        """
-        try:
-            yield
-        except KeyboardInterrupt:
-            # Send no task result in case we get sigint:ed by the runner
-            # The status of the input should have been handled externally already in that case
-            raise
-        except BaseException as exc:
-            if isinstance(exc, ImportError):
-                # Catches errors raised by global scope imports
-                check_fastapi_pydantic_compatibility(exc)
-
-            # Since this is on a different thread, sys.exc_info() can't find the exception in the stack.
-            print_exception(type(exc), exc, exc.__traceback__)
-
-            serialized_tb, tb_line_cache = pickle_traceback(exc, self.task_id)
-
-            data_or_blob = await format_blob_data(pickle_exception(exc), self._client.stub)
-            result = api_pb2.GenericResult(
-                status=api_pb2.GenericResult.GENERIC_STATUS_FAILURE,
-                **data_or_blob,
-                # TODO: there is no way to communicate the data format here
-                #   since it usually goes on the envelope outside of GenericResult
-                exception=repr(exc),
-                traceback="".join(traceback.format_exception(type(exc), exc, exc.__traceback__)),
-                serialized_tb=serialized_tb or b"",
-                tb_line_cache=tb_line_cache or b"",
-            )
-
-            req = api_pb2.TaskResultRequest(result=result)
-            await self._client.stub.TaskResult(req)
-
-            # Shut down the task gracefully
-            raise UserException()
-
-    @asynccontextmanager
     async def handle_input_exception(
         self,
         io_context: IOContext,
@@ -986,115 +956,25 @@ class _ContainerIOManager:
         outputs = await io_context.output_items(started_at, output_data)
         await self._send_outputs(started_at, outputs)
 
-    async def memory_restore(self) -> None:
-        # Busy-wait for restore. `/__modal/restore-state.json` is created
-        # by the worker process with updates to the container config.
-        restored_path = Path(config.get("restore_state_path"))
-        logger.debug("Waiting for restore")
-        while not restored_path.exists():
-            await asyncio.sleep(0.01)
-            continue
-        logger.debug("Container: restored")
-
-        # Look for state file and create new client with updated credentials.
-        # State data is serialized with key-value pairs, example: {"task_id": "tk-000"}
-        with restored_path.open("r") as file:
-            restored_state = json.load(file)
-
-        # Start a debugger if the worker tells us to
-        if int(restored_state.get("snapshot_debug", 0)):
-            logger.debug("Entering snapshot debugger")
-            breakpoint()  # noqa: T100
-
-        # Local ContainerIOManager state.
-        for key in ["task_id", "function_id"]:
-            if value := restored_state.get(key):
-                logger.debug(f"Updating ContainerIOManager.{key} = {value}")
-                setattr(self, key, restored_state[key])
-
-        # Env vars and global state.
-        for key, value in restored_state.items():
-            # Empty string indicates that value does not need to be updated.
-            if value != "":
-                config.override_locally(key, value)
-
-        # Restore GPU memory.
-        if self.function_def._experimental_enable_gpu_snapshot and self.function_def.resources.gpu_config.gpu_type:
-            logger.debug("GPU memory snapshot enabled. Attempting to restore GPU memory.")
-
-            assert self._cuda_checkpoint_session, (
-                "CudaCheckpointSession not found when attempting to restore GPU memory"
-            )
-            self._cuda_checkpoint_session.restore()
-
-        # Restore input to default state.
-        self.current_input_id = None
-        self.current_inputs = {}
-        self.current_input_started_at = None
-        self._client = await _Client.from_env()
-
-    async def memory_snapshot(self) -> None:
-        """Message server indicating that function is ready to be checkpointed."""
-        if self.checkpoint_id:
-            logger.debug(f"Checkpoint ID: {self.checkpoint_id} (Memory Snapshot ID)")
-        else:
-            raise ValueError("No checkpoint ID provided for memory snapshot")
-
+    @asynccontextmanager
+    async def snapshot_context_manager(self) -> AsyncGenerator[None, None]:
         # Pause heartbeats since they keep the client connection open which causes the snapshotter to crash
         async with self.heartbeat_condition:
-            # Snapshot GPU memory.
-            if self.function_def._experimental_enable_gpu_snapshot and self.function_def.resources.gpu_config.gpu_type:
-                logger.debug("GPU memory snapshot enabled. Attempting to snapshot GPU memory.")
-
-                self._cuda_checkpoint_session = gpu_memory_snapshot.CudaCheckpointSession()
-                self._cuda_checkpoint_session.checkpoint()
-
             # Notify the heartbeat loop that the snapshot phase has begun in order to
             # prevent it from sending heartbeat RPCs
             self._waiting_for_memory_snapshot = True
             self.heartbeat_condition.notify_all()
-
-            await self._client.stub.ContainerCheckpoint(
-                api_pb2.ContainerCheckpointRequest(checkpoint_id=self.checkpoint_id)
-            )
-
-            await self._client._close(prep_for_restore=True)
-
-            logger.debug("Memory snapshot request sent. Connection closed.")
-            await self.memory_restore()
-            # Turn heartbeats back on. This is safe since the snapshot RPC
-            # and the restore phase has finished.
-            self._waiting_for_memory_snapshot = False
-            self.heartbeat_condition.notify_all()
-
-    async def volume_commit(self, volume_ids: list[str]) -> None:
-        """
-        Perform volume commit for given `volume_ids`.
-        Only used on container exit to persist uncommitted changes on behalf of user.
-        """
-        if not volume_ids:
-            return
-        await asyncify(os.sync)()
-        results = await asyncio.gather(
-            *[
-                self._client.stub.VolumeCommit(
-                    api_pb2.VolumeCommitRequest(volume_id=v_id),
-                    retry=Retry(
-                        max_retries=9,
-                        base_delay=0.25,
-                        max_delay=256,
-                        delay_factor=2,
-                    ),
-                )
-                for v_id in volume_ids
-            ],
-            return_exceptions=True,
-        )
-        for volume_id, res in zip(volume_ids, results):
-            if isinstance(res, Exception):
-                logger.error(f"modal.Volume background commit failed for {volume_id}. Exception: {res}")
-            else:
-                logger.debug(f"modal.Volume background commit success for {volume_id}.")
+            try:
+                yield
+            finally:
+                # Turn heartbeats back on. This is safe since the snapshot RPC
+                # and the restore phase has finished.
+                self._waiting_for_memory_snapshot = False
+                self.heartbeat_condition.notify_all()
+            # Reset current input state
+            self.current_input_id = None
+            self.current_inputs = {}
+            self.current_input_started_at = None
 
     async def interact(self, from_breakpoint: bool = False):
         if self._is_interactivity_enabled:
@@ -1111,6 +991,25 @@ class _ContainerIOManager:
         except Exception as e:
             logger.error("Failed to start PTY shell.")
             raise e
+
+    def _install_breakpoint_hook(self) -> None:
+        # sys.breakpointhook is synchronous, so call the blocking wrapper for async interact().
+        container_io_manager: Any = synchronizer._translate_out(self)
+
+        # Install hooks for interactive functions.
+        def breakpoint_wrapper(*args: Any, **kwargs: Any) -> None:
+            # note: it would be nice to not have breakpoint_wrapper() included in the backtrace
+            container_io_manager.interact(from_breakpoint=True)
+            import pdb  # noqa: T100
+
+            current_frame = inspect.currentframe()
+            if current_frame is not None:
+                frame = current_frame.f_back
+                pdb.Pdb().set_trace(frame)
+            else:
+                raise RuntimeError("No current frame found")
+
+        sys.breakpointhook = breakpoint_wrapper
 
     @property
     def target_concurrency(self) -> int:
@@ -1159,30 +1058,3 @@ class _ContainerIOManager:
 
 
 ContainerIOManager = synchronize_api(_ContainerIOManager)
-
-
-def check_fastapi_pydantic_compatibility(exc: ImportError) -> None:
-    """Add a helpful note to an exception that is likely caused by a pydantic<>fastapi version incompatibility.
-
-    We need this becasue the legacy set of container requirements (image_builder_version=2023.12) contains a
-    version of fastapi that is not forwards-compatible with pydantic 2.0+, and users commonly run into issues
-    building an image that specifies a more recent version only for pydantic.
-    """
-    note = (
-        "Please ensure that your Image contains compatible versions of fastapi and pydantic."
-        " If using pydantic>=2.0, you must also install fastapi>=0.100."
-    )
-    name = exc.name or ""
-    if name.startswith("pydantic"):
-        try:
-            fastapi_version = parse_major_minor_version(importlib.metadata.version("fastapi"))
-            pydantic_version = parse_major_minor_version(importlib.metadata.version("pydantic"))
-            if pydantic_version >= (2, 0) and fastapi_version < (0, 100):
-                if sys.version_info < (3, 11):
-                    # https://peps.python.org/pep-0678/
-                    exc.__notes__ = [note]  # type: ignore
-                else:
-                    exc.add_note(note)
-        except Exception:
-            # Since we're just trying to add a helpful message, don't fail here
-            pass

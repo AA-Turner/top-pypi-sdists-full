@@ -9,17 +9,19 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import nio
 import pytest
 import yaml
 from agno.factory import RequestContext
-from agno.run.agent import RunStatus
+from agno.run.agent import RunOutput, RunStatus
+from agno.tools import Toolkit
 from agno.workflow import Workflow, WorkflowFactory
 from agno.workflow.types import StepInput, StepOutput
 
 import mindroom.tools  # noqa: F401
+from mindroom.approval_manager import SentApprovalEvent, initialize_approval_store
 from mindroom.config.agent import AgentConfig, AgentPrivateConfig
 from mindroom.config.main import Config
 from mindroom.config.models import ModelConfig
@@ -30,13 +32,39 @@ from mindroom.dynamic_workflows.runner import DynamicWorkflowExecutionError, exe
 from mindroom.dynamic_workflows.service import DynamicWorkflowService
 from mindroom.dynamic_workflows.store import DynamicWorkflowError, DynamicWorkflowStore
 from mindroom.entity_resolution import entity_identity_registry
+from mindroom.tool_approval import ToolCallWorkflowOrigin, _matching_tool_approval_rule, _shutdown_approval_store
 from mindroom.tool_system.metadata import TOOL_METADATA
 from mindroom.tool_system.runtime_context import ToolRuntimeContext, get_tool_runtime_context, tool_runtime_context
 from tests.conftest import bind_runtime_paths, make_event_cache_mock, runtime_paths_for, test_runtime_paths
 from tests.identity_helpers import persist_entity_accounts
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable
     from pathlib import Path
+
+
+def _fake_stream_agent(
+    *,
+    content: str,
+    status: RunStatus = RunStatus.completed,
+    on_run: Callable[..., None] | None = None,
+) -> SimpleNamespace:
+    """Build a fake Agent matching the streaming participant run contract.
+
+    ``_arun_agent`` calls ``agent.arun(..., stream=True, yield_run_output=True)`` (not awaited)
+    and consumes the event iterator, treating the final ``RunOutput`` as the result.
+    """
+
+    def arun(prompt: str, *, user_id: str, session_id: str, **_kwargs: object) -> AsyncIterator[RunOutput]:
+        if on_run is not None:
+            on_run(prompt, user_id=user_id, session_id=session_id)
+
+        async def _events() -> AsyncIterator[RunOutput]:
+            yield RunOutput(content=content, status=status)
+
+        return _events()
+
+    return SimpleNamespace(arun=arun)
 
 
 def _workflow_spec(**overrides: object) -> dict[str, object]:
@@ -554,12 +582,112 @@ def test_validate_workflow_spec_rejects_excessive_agent_steps(tmp_path: Path) ->
         )
 
 
-def test_validate_workflow_spec_rejects_tool_permission_until_grants_exist(tmp_path: Path) -> None:
-    """Workflow specs should not request ambient tool access before grants are modeled."""
+def test_validate_workflow_spec_normalizes_tool_grants(tmp_path: Path) -> None:
+    """Tool grants of any registered name should validate, strip, and dedupe at the store layer."""
     store = DynamicWorkflowStore(tmp_path / "mindroom_data")
 
-    with pytest.raises(DynamicWorkflowError, match="tools"):
-        store.validate_workflow(_workflow_spec(permissions={"tools": ["shell"]}))
+    validated = store.validate_workflow(
+        _workflow_spec(
+            participants=[
+                {
+                    "id": "writer",
+                    "kind": "ephemeral_agent",
+                    "name": "Report Writer",
+                    "model": "claude-sonnet-4-6",
+                    "tools": [" shell ", "website", "shell"],
+                },
+            ],
+            permissions={"tools": ["shell", "website"]},
+        ),
+    )
+
+    participants = validated["participants"]
+    assert isinstance(participants, list)
+    assert participants[0]["tools"] == ["shell", "website"]
+    permissions = validated["permissions"]
+    assert isinstance(permissions, dict)
+    assert permissions["tools"] == ["shell", "website"]
+
+
+def test_validate_workflow_spec_rejects_participant_tool_not_granted_by_permissions(tmp_path: Path) -> None:
+    """Participant tools must be a subset of the workflow-level permissions.tools grant."""
+    store = DynamicWorkflowStore(tmp_path / "mindroom_data")
+
+    with pytest.raises(DynamicWorkflowError, match=r"not granted by permissions\.tools"):
+        store.validate_workflow(
+            _workflow_spec(
+                participants=[{"id": "writer", "kind": "ephemeral_agent", "tools": ["duckduckgo"]}],
+                permissions={"tools": ["website"]},
+            ),
+        )
+
+
+def test_validate_workflow_tool_policy_rejects_unknown_tool(tmp_path: Path) -> None:
+    """The context-aware policy layer rejects tool grants that name no registered tool."""
+    context = _make_context(tmp_path)
+    tool = DynamicWorkflowTools()
+
+    with tool_runtime_context(context):
+        unknown_payload = _tool_payload(
+            tool.validate_workflow(
+                _workflow_spec(
+                    participants=[{"id": "writer", "kind": "ephemeral_agent", "tools": ["not_a_real_tool"]}],
+                    permissions={"tools": ["not_a_real_tool"]},
+                ),
+            ),
+        )
+
+    assert unknown_payload["status"] == "error"
+    assert "not a registered tool" in unknown_payload["message"]
+
+
+@pytest.mark.parametrize(
+    "restricted_tool",
+    ["compact_context", "delegate", "dynamic_tools", "dynamic_workflow", "memory", "self_config"],
+)
+def test_validate_workflow_tool_policy_rejects_each_restricted_tool(tmp_path: Path, restricted_tool: str) -> None:
+    """Every agent-infrastructure tool must be rejected as a participant grant."""
+    context = _make_context(tmp_path)
+    tool = DynamicWorkflowTools()
+
+    with tool_runtime_context(context):
+        # Place the grant only in permissions.tools, with no participant using it: the
+        # policy layer is the sole gate for this case (store validation is shape-only and
+        # the subset rule passes trivially when no participant references the tool).
+        permissions_only_payload = _tool_payload(
+            tool.validate_workflow(
+                _workflow_spec(
+                    participants=[{"id": "writer", "kind": "ephemeral_agent"}],
+                    permissions={"tools": [restricted_tool]},
+                ),
+            ),
+        )
+        participant_payload = _tool_payload(
+            tool.validate_workflow(
+                _workflow_spec(
+                    participants=[{"id": "writer", "kind": "ephemeral_agent", "tools": [restricted_tool]}],
+                    permissions={"tools": [restricted_tool]},
+                ),
+            ),
+        )
+
+    assert permissions_only_payload["status"] == "error"
+    assert "agent-infrastructure" in permissions_only_payload["message"]
+    assert participant_payload["status"] == "error"
+    assert "agent-infrastructure" in participant_payload["message"]
+
+
+def test_validate_workflow_spec_rejects_room_agent_participant_tools(tmp_path: Path) -> None:
+    """Room-agent participants must stay tool-less even for allowlisted tools."""
+    store = DynamicWorkflowStore(tmp_path / "mindroom_data")
+
+    with pytest.raises(DynamicWorkflowError, match="only available to ephemeral participants"):
+        store.validate_workflow(
+            _workflow_spec(
+                participants=[{"id": "writer", "kind": "room_agent", "agent": "general", "tools": ["duckduckgo"]}],
+                permissions={"tools": ["duckduckgo"]},
+            ),
+        )
 
 
 def test_validate_workflow_spec_rejects_unimplemented_thread_data_permissions(tmp_path: Path) -> None:
@@ -1051,6 +1179,72 @@ async def test_service_async_run_fails_at_deadline_when_cancellation_is_suppress
     assert run.status == "failed"
     assert loaded.status == "failed"
     assert "max_runtime_seconds" in str(loaded.error)
+
+
+@pytest.mark.asyncio
+async def test_async_run_timeout_expires_pending_approval_card(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A participant blocked on approval must fail at the runtime cap and expire its card."""
+    store = DynamicWorkflowStore(tmp_path / "mindroom_data")
+    runtime_paths = test_runtime_paths(tmp_path)
+    sender = AsyncMock(return_value=SentApprovalEvent("$approval"))
+    editor = AsyncMock(return_value=True)
+    approval_store = initialize_approval_store(
+        runtime_paths,
+        sender=sender,
+        editor=editor,
+        transport_sender=lambda: "@mindroom_router:localhost",
+    )
+
+    async def blocked_executor(**_kwargs: object) -> object:
+        return await approval_store.request_approval(
+            tool_name="run_shell_command",
+            arguments={"command": "ls"},
+            agent_name="general",
+            room_id="!room:localhost",
+            requester_id="@user:localhost",
+            approver_user_id="@user:localhost",
+            timeout_seconds=600,
+            workflow_id="competitor-research-report",
+            participant_id="writer",
+        )
+
+    service = DynamicWorkflowService(store, async_participant_executor=blocked_executor)
+    monkeypatch.setattr("mindroom.dynamic_workflows.service.workflow_runtime_seconds", lambda _spec: 0.1)
+    store.create_workflow(
+        spec=_workflow_spec(),
+        scope="agent",
+        owner_id="general",
+        created_by="general",
+        reason="initial design",
+    )
+
+    try:
+        run = await service.arun_workflow(
+            workflow_id="competitor-research-report",
+            scope="agent",
+            owner_id="general",
+            input_data={"topic": "Agno factories"},
+            requested_by="general",
+            base_url="https://acme.mindroom.chat",
+        )
+
+        assert run.status == "failed"
+        assert "max_runtime_seconds" in str(run.error)
+        # The cancelled approval wait finishes its cleanup in the background.
+        async with asyncio.timeout(5):
+            while True:
+                if editor.await_count:
+                    break
+                await asyncio.sleep(0)
+        assert editor.await_args.args[:2] == ("!room:localhost", "$approval")
+        assert editor.await_args.args[2]["status"] == "expired"
+        assert editor.await_args.args[2]["workflow_id"] == "competitor-research-report"
+        assert editor.await_args.args[2]["participant_id"] == "writer"
+    finally:
+        await _shutdown_approval_store()
 
 
 @pytest.mark.asyncio
@@ -1822,7 +2016,7 @@ def test_room_agent_participant_rebinds_context_and_uses_isolated_state(tmp_path
     context = replace(context, config=config, runtime_paths=runtime_paths)
     parent_loop = asyncio.new_event_loop()
 
-    async def fake_arun(prompt: str, *, user_id: str, session_id: str) -> SimpleNamespace:
+    def assert_run(prompt: str, *, user_id: str, session_id: str) -> None:
         runtime_context = get_tool_runtime_context()
         assert runtime_context is not None
         assert asyncio.get_running_loop() is parent_loop
@@ -1832,9 +2026,8 @@ def test_room_agent_participant_rebinds_context_and_uses_isolated_state(tmp_path
         assert "competitor-research-report:run_1:writer_a" in session_id
         assert prompt == "Write a report."
         assert user_id == "@user:localhost"
-        return SimpleNamespace(content="done", status=RunStatus.completed)
 
-    fake_agent = SimpleNamespace(arun=fake_arun)
+    fake_agent = _fake_stream_agent(content="done", on_run=assert_run)
     with patch("mindroom.agents.create_agent", return_value=fake_agent) as create_agent_mock:
         asyncio.set_event_loop(parent_loop)
         try:
@@ -1861,14 +2054,359 @@ def test_room_agent_participant_rebinds_context_and_uses_isolated_state(tmp_path
     assert create_kwargs["execution_identity"].session_id == create_kwargs["session_id"]
 
 
+def test_resolve_participant_toolkits_rejects_unavailable_tools(tmp_path: Path) -> None:
+    """Executor-level grant resolution must re-reject bad names for store-bypassing callers."""
+    context = _make_context(tmp_path)
+
+    with pytest.raises(DynamicWorkflowError, match="not a registered tool"):
+        dynamic_workflow_module._resolve_participant_toolkits(context, {"id": "writer", "tools": ["not_a_real_tool"]})
+
+    with pytest.raises(DynamicWorkflowError, match="agent-infrastructure"):
+        dynamic_workflow_module._resolve_participant_toolkits(context, {"id": "writer", "tools": ["memory"]})
+
+    with pytest.raises(DynamicWorkflowError, match="list of non-empty strings"):
+        dynamic_workflow_module._resolve_participant_toolkits(context, {"id": "writer", "tools": "duckduckgo"})
+
+    # Falsy non-list values (e.g. "") are malformed, not "no tools" — they must raise, not degrade silently.
+    with pytest.raises(DynamicWorkflowError, match="list of non-empty strings"):
+        dynamic_workflow_module._resolve_participant_toolkits(context, {"id": "writer", "tools": ""})
+
+
+def test_resolve_participant_toolkits_returns_empty_for_missing_grants(tmp_path: Path) -> None:
+    """Participants without grants (missing, null, or empty tools) resolve to no toolkits."""
+    context = _make_context(tmp_path)
+
+    for participant in ({"id": "writer"}, {"id": "writer", "tools": None}, {"id": "writer", "tools": []}):
+        assert dynamic_workflow_module._resolve_participant_toolkits(context, participant) == {}
+
+
+def test_resolve_participant_toolkits_builds_real_instances_with_caller_routing(tmp_path: Path) -> None:
+    """Granted tools should resolve through the agent toolkit builder keyed by registry name."""
+    context = _make_context(tmp_path)
+
+    toolkits = dynamic_workflow_module._resolve_participant_toolkits(context, {"id": "writer", "tools": ["website"]})
+
+    assert list(toolkits) == ["website"]
+    assert "read_url" in toolkits["website"].functions
+
+
+def test_participant_run_config_requires_approval_for_granted_tools(tmp_path: Path) -> None:
+    """Without pre-approval config, granted tool calls must default to require_approval."""
+    context = _make_context(tmp_path)
+    toolkit = Toolkit(name="fake_shell")
+    toolkit.functions["run_shell_command"] = SimpleNamespace(name="run_shell_command")
+
+    run_config = dynamic_workflow_module._participant_run_config(context, {"shell": toolkit})
+
+    assert run_config.tool_approval.default == "require_approval"
+    assert run_config.tool_approval.rules == []
+    assert context.config.tool_approval.default == "auto_approve"
+
+
+def test_participant_run_config_pre_approves_allowed_tools(tmp_path: Path) -> None:
+    """Tools listed in the dynamic_workflow allowed_tools config skip per-call approval."""
+    context = _make_context(tmp_path)
+    config = bind_runtime_paths(
+        Config(
+            agents={
+                "general": AgentConfig(
+                    display_name="General Agent",
+                    tools=[{"dynamic_workflow": {"allowed_tools": ["website"]}}],
+                ),
+            },
+            models={"default": ModelConfig(provider="anthropic", id="claude-sonnet-4-6")},
+        ),
+        context.runtime_paths,
+    )
+    context = replace(context, config=config, runtime_paths=runtime_paths_for(config))
+    website = Toolkit(name="fake_website")
+    website.functions["read_url"] = SimpleNamespace(name="read_url")
+    shell = Toolkit(name="fake_shell")
+    shell.functions["run_shell_command"] = SimpleNamespace(name="run_shell_command")
+
+    run_config = dynamic_workflow_module._participant_run_config(context, {"website": website, "shell": shell})
+
+    assert run_config.tool_approval.default == "require_approval"
+    assert [(rule.match, rule.action) for rule in run_config.tool_approval.rules] == [("read_url", "auto_approve")]
+
+
+def test_participant_run_config_wildcard_pre_approves_all_granted_tools(tmp_path: Path) -> None:
+    """allowed_tools ["*"] pre-approves every granted tool's functions."""
+    context = _make_context(tmp_path)
+    config = bind_runtime_paths(
+        Config(
+            agents={
+                "general": AgentConfig(
+                    display_name="General Agent",
+                    tools=[{"dynamic_workflow": {"allowed_tools": ["*"]}}],
+                ),
+            },
+            models={"default": ModelConfig(provider="anthropic", id="claude-sonnet-4-6")},
+        ),
+        context.runtime_paths,
+    )
+    context = replace(context, config=config, runtime_paths=runtime_paths_for(config))
+    shell = Toolkit(name="fake_shell")
+    shell.functions["run_shell_command"] = SimpleNamespace(name="run_shell_command")
+
+    run_config = dynamic_workflow_module._participant_run_config(context, {"shell": shell})
+
+    assert run_config.tool_approval.default == "require_approval"
+    assert [(rule.match, rule.action) for rule in run_config.tool_approval.rules] == [
+        ("run_shell_command", "auto_approve"),
+    ]
+
+
+def test_participant_run_config_does_not_pre_approve_colliding_function_names(tmp_path: Path) -> None:
+    """A function name shared with a non-pre-approved toolkit must not be auto-approved."""
+    context = _make_context(tmp_path)
+    config = bind_runtime_paths(
+        Config(
+            agents={
+                "general": AgentConfig(
+                    display_name="General Agent",
+                    tools=[{"dynamic_workflow": {"allowed_tools": ["python"]}}],
+                ),
+            },
+            models={"default": ModelConfig(provider="anthropic", id="claude-sonnet-4-6")},
+        ),
+        context.runtime_paths,
+    )
+    context = replace(context, config=config, runtime_paths=runtime_paths_for(config))
+    python = Toolkit(name="fake_python")
+    python.functions["read_file"] = SimpleNamespace(name="read_file")
+    python.functions["run_python_code"] = SimpleNamespace(name="run_python_code")
+    file = Toolkit(name="fake_file")
+    file.functions["read_file"] = SimpleNamespace(name="read_file")
+
+    run_config = dynamic_workflow_module._participant_run_config(context, {"python": python, "file": file})
+
+    rules = {rule.match: rule.action for rule in run_config.tool_approval.rules}
+    # run_python_code is unique to the pre-approved python toolkit -> auto-approved.
+    assert rules == {"run_python_code": "auto_approve"}
+    # read_file collides with the non-pre-approved file toolkit, so it must still require approval.
+    assert "read_file" not in rules
+
+
+def test_participant_run_config_never_pre_approves_system_mutating_tools(tmp_path: Path) -> None:
+    """allowed_tools (wildcard or explicit) must not pre-approve system-mutating tools."""
+    context = _make_context(tmp_path)
+    config = bind_runtime_paths(
+        Config(
+            agents={
+                "general": AgentConfig(
+                    display_name="General Agent",
+                    tools=[{"dynamic_workflow": {"allowed_tools": ["*", "scheduler"]}}],
+                ),
+            },
+            models={"default": ModelConfig(provider="anthropic", id="claude-sonnet-4-6")},
+        ),
+        context.runtime_paths,
+    )
+    context = replace(context, config=config, runtime_paths=runtime_paths_for(config))
+    scheduler = Toolkit(name="fake_scheduler")
+    scheduler.functions["schedule_task"] = SimpleNamespace(name="schedule_task")
+    website = Toolkit(name="fake_website")
+    website.functions["read_url"] = SimpleNamespace(name="read_url")
+
+    run_config = dynamic_workflow_module._participant_run_config(context, {"scheduler": scheduler, "website": website})
+
+    assert run_config.tool_approval.default == "require_approval"
+    assert [(rule.match, rule.action) for rule in run_config.tool_approval.rules] == [("read_url", "auto_approve")]
+
+
+def test_participant_run_config_preserves_operator_rule_precedence(tmp_path: Path) -> None:
+    """An operator require_approval rule must win over workflow pre-approval (first-match)."""
+    context = _make_context(tmp_path)
+    config = bind_runtime_paths(
+        Config(
+            agents={
+                "general": AgentConfig(
+                    display_name="General Agent",
+                    tools=[{"dynamic_workflow": {"allowed_tools": ["*"]}}],
+                ),
+            },
+            models={"default": ModelConfig(provider="anthropic", id="claude-sonnet-4-6")},
+            tool_approval={"rules": [{"match": "run_shell_command", "action": "require_approval"}]},
+        ),
+        context.runtime_paths,
+    )
+    context = replace(context, config=config, runtime_paths=runtime_paths_for(config))
+    shell = Toolkit(name="fake_shell")
+    shell.functions["run_shell_command"] = SimpleNamespace(name="run_shell_command")
+
+    run_config = dynamic_workflow_module._participant_run_config(context, {"shell": shell})
+
+    ordered = [(rule.match, rule.action) for rule in run_config.tool_approval.rules]
+    assert ordered[0] == ("run_shell_command", "require_approval")
+    assert ordered[1] == ("run_shell_command", "auto_approve")
+    matched = _matching_tool_approval_rule(run_config, "run_shell_command")
+    assert matched is not None
+    assert matched.action == "require_approval"
+
+
+def test_ephemeral_participant_runs_with_granted_toolkits(tmp_path: Path) -> None:
+    """run_workflow should hand granted toolkit instances to the participant with caller routing parity."""
+    context = _make_context(tmp_path)
+    config = bind_runtime_paths(
+        Config(
+            agents={
+                "general": AgentConfig(
+                    display_name="General Agent",
+                    tools=["dynamic_workflow", {"website": {"knowledge": "kb"}}, "shell"],
+                    worker_tools=["shell"],
+                ),
+            },
+            models={"default": ModelConfig(provider="anthropic", id="claude-sonnet-4-6")},
+        ),
+        context.runtime_paths,
+    )
+    context = replace(context, config=config, runtime_paths=runtime_paths_for(config))
+    tool = DynamicWorkflowTools()
+    spec = _workflow_spec(
+        participants=[
+            {
+                "id": "writer",
+                "kind": "ephemeral_agent",
+                "name": "Report Writer",
+                "model": "claude-sonnet-4-6",
+                "tools": ["website", "shell"],
+            },
+        ],
+        permissions={"models": ["claude-sonnet-4-6"], "tools": ["website", "shell"]},
+    )
+    sentinel_toolkits = {name: Toolkit(name=f"fake_{name}") for name in ("website", "shell")}
+
+    def assert_run(prompt: str, *, user_id: str, session_id: str) -> None:
+        assert "Write a cited report" in prompt
+        assert user_id == "@user:localhost"
+        assert session_id
+        runtime_context = get_tool_runtime_context()
+        assert runtime_context is not None
+        assert runtime_context.config.tool_approval.default == "require_approval"
+
+    agent_mock = Mock(return_value=_fake_stream_agent(content="researched", on_run=assert_run))
+    with (
+        tool_runtime_context(context),
+        patch(
+            "mindroom.agents.build_agent_toolkit",
+            side_effect=lambda name, **_kwargs: sentinel_toolkits[name],
+        ) as build_toolkit_mock,
+        patch.object(dynamic_workflow_module.model_loading, "get_model_instance", return_value=SimpleNamespace()),
+        patch.object(dynamic_workflow_module, "Agent", agent_mock),
+    ):
+        create_payload = _tool_payload(tool.create_workflow(spec))
+        run_payload = _tool_payload(tool.run_workflow("competitor-research-report", {"topic": "Agno"}))
+
+    assert create_payload["status"] == "ok"
+    assert run_payload["status"] == "completed"
+    tools_kwarg = agent_mock.call_args.kwargs["tools"]
+    assert tools_kwarg == [sentinel_toolkits["website"], sentinel_toolkits["shell"]]
+    build_calls = {call.args[0]: call.kwargs for call in build_toolkit_mock.call_args_list}
+    assert list(build_calls) == ["website", "shell"]
+    # Caller parity: authored per-tool config, worker routing, and session reach the builder.
+    assert build_calls["website"]["agent_name"] == "general"
+    assert build_calls["website"]["execution_identity"] is not None
+    assert build_calls["website"]["tool_config_overrides"] == {"knowledge": "kb"}
+    assert build_calls["website"]["worker_tools"] == ["shell"]
+    assert build_calls["website"]["session_id"] == context.session_id
+    assert build_calls["shell"]["worker_tools"] == ["shell"]
+
+
+def test_ephemeral_participant_tool_bridge_carries_workflow_origin(tmp_path: Path) -> None:
+    """The participant's tool hook bridge must carry workflow + participant provenance for approval cards."""
+    context = _make_context(tmp_path)
+    config = bind_runtime_paths(
+        Config(
+            agents={
+                "general": AgentConfig(display_name="General Agent", tools=["dynamic_workflow", "website"]),
+            },
+            models={"default": ModelConfig(provider="anthropic", id="claude-sonnet-4-6")},
+        ),
+        context.runtime_paths,
+    )
+    context = replace(context, config=config, runtime_paths=runtime_paths_for(config))
+    tool = DynamicWorkflowTools()
+    spec = _workflow_spec(
+        participants=[
+            {
+                "id": "writer",
+                "kind": "ephemeral_agent",
+                "model": "claude-sonnet-4-6",
+                "tools": ["website"],
+            },
+        ],
+        permissions={"models": ["claude-sonnet-4-6"], "tools": ["website"]},
+    )
+    bridge_mock = Mock(return_value=None)
+    agent_mock = Mock(return_value=_fake_stream_agent(content="done"))
+    with (
+        tool_runtime_context(context),
+        patch(
+            "mindroom.agents.build_agent_toolkit",
+            side_effect=lambda name, **_kwargs: Toolkit(name=f"fake_{name}"),
+        ),
+        patch.object(dynamic_workflow_module, "build_tool_hook_bridge", bridge_mock),
+        patch.object(dynamic_workflow_module.model_loading, "get_model_instance", return_value=SimpleNamespace()),
+        patch.object(dynamic_workflow_module, "Agent", agent_mock),
+    ):
+        create_payload = _tool_payload(tool.create_workflow(spec))
+        run_payload = _tool_payload(tool.run_workflow("competitor-research-report", {"topic": "Agno"}))
+
+    assert create_payload["status"] == "ok"
+    assert run_payload["status"] == "completed"
+    assert bridge_mock.call_args.kwargs["workflow_origin"] == ToolCallWorkflowOrigin(
+        workflow_id="competitor-research-report",
+        participant_id="writer",
+    )
+
+
+def test_ephemeral_participant_without_grants_runs_with_empty_tools(tmp_path: Path) -> None:
+    """Tool-less participants (empty or missing tools key) must keep running with tools=[]."""
+    context = _make_context(tmp_path)
+    tool = DynamicWorkflowTools()
+    spec = _workflow_spec(
+        participants=[
+            {"id": "writer", "kind": "ephemeral_agent", "model": "claude-sonnet-4-6", "tools": []},
+            {"id": "editor", "kind": "ephemeral_agent", "model": "claude-sonnet-4-6"},
+        ],
+        workflow=[
+            {"id": "write", "type": "agent_step", "participant": "writer", "prompt": "Write."},
+            {"id": "edit", "type": "agent_step", "participant": "editor", "prompt": "Edit."},
+        ],
+        outputs=[{"id": "report_html", "type": "html_report", "from_step": "edit"}],
+    )
+
+    def assert_run(_prompt: str, *, user_id: str, session_id: str) -> None:
+        assert user_id == "@user:localhost"
+        assert session_id
+
+    agent_mock = Mock(return_value=_fake_stream_agent(content="done", on_run=assert_run))
+    with (
+        tool_runtime_context(context),
+        patch("mindroom.agents.build_agent_toolkit") as build_toolkit_mock,
+        patch.object(dynamic_workflow_module.model_loading, "get_model_instance", return_value=SimpleNamespace()),
+        patch.object(dynamic_workflow_module, "Agent", agent_mock),
+    ):
+        create_payload = _tool_payload(tool.create_workflow(spec))
+        run_payload = _tool_payload(tool.run_workflow("competitor-research-report", {"topic": "Agno"}))
+
+    assert create_payload["status"] == "ok"
+    assert run_payload["status"] == "completed"
+    assert agent_mock.call_count == 2
+    assert [call.kwargs["tools"] for call in agent_mock.call_args_list] == [[], []]
+    build_toolkit_mock.assert_not_called()
+
+
 def test_run_agent_raises_on_failed_agno_status(tmp_path: Path) -> None:
     """Participant failures from Agno should become failed workflow steps, not normal content."""
     context = _make_context(tmp_path)
 
-    async def fake_arun(_prompt: str, *, user_id: str, session_id: str) -> SimpleNamespace:
+    def assert_run(_prompt: str, *, user_id: str, session_id: str) -> None:
         assert user_id == "@user:localhost"
         assert session_id == context.session_id
-        return SimpleNamespace(content="provider auth failed", status=RunStatus.error)
+
+    fake_agent = _fake_stream_agent(content="provider auth failed", status=RunStatus.error, on_run=assert_run)
 
     with pytest.raises(dynamic_workflow_module.DynamicWorkflowExecutionError, match="provider auth failed"):
-        asyncio.run(dynamic_workflow_module._arun_agent(context, SimpleNamespace(arun=fake_arun), "Write."))
+        asyncio.run(dynamic_workflow_module._arun_agent(context, fake_agent, "Write."))

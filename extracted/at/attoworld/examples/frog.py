@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.14"
 # dependencies = [
-#     "attoworld>=2026.2.3",
+#     "attoworld>=2026.2.5",
 #     "marimo>=0.23.8",
 #     "numpy>=2.4.6",
 #     "pyside6>=6.11.1",
@@ -12,7 +12,7 @@
 
 import marimo
 
-__generated_with = "0.23.9"
+__generated_with = "0.23.8"
 app = marimo.App(width="medium", app_title="Frog")
 
 
@@ -28,7 +28,7 @@ async def _():
         import zipfile
         mo._runtime.context.get_context().marimo_config["runtime"]["output_max_bytes"] = 10000000000
         await micropip.install(
-            "https://nickkarpowicz.github.io/wheels/attoworld-2026.2.1-cp312-cp312-emscripten_3_1_58_wasm32.whl"
+            "https://nickkarpowicz.github.io/wheels/attoworld-2026.2.5-cp312-cp312-emscripten_3_1_58_wasm32.whl"
         )
         def display_download_link_from_file(
             path, output_name, mime_type="text/plain"
@@ -97,7 +97,6 @@ def _(mo):
 def _(help_cb, mo):
     if help_cb.value:
         mo.output.append(mo.md("If your spectrometer is in our list (i.e. you're in the MPQ lab and calibrated your spectrometer), it will be in the list. If you want your reconstruction to work better, you can send a calibration result to me, using the calibration script in the Attoworld repo examples folder."))
-
     return
 
 
@@ -302,26 +301,16 @@ def _(
 
 @app.cell
 def _(
-    aw,
     bin_geometric_correction,
     bin_geometric_smearing_angle,
     bin_geometric_smearing_max,
     bin_geometric_smearing_waist,
-    bin_log,
     bin_settings,
     display_download_link_from_file,
     input_data,
     is_in_web_notebook,
-    plot_style_selector,
 ):
-    # if not bin_live.value:
-    #     mo.stop(not bin_button.value)
     if input_data is not None:
-        if plot_style_selector.value == "Light":
-            aw.plot.set_style("light")
-        else:
-            aw.plot.set_style("nick_dark")
-
         if bin_geometric_correction.value:
             frog_data = input_data.to_bin_pipeline_result(bin_settings).to_deconvolved_geometric_smearing(
                 angle_in_degrees=bin_geometric_smearing_angle.value,
@@ -330,11 +319,6 @@ def _(
             )
         else:
             frog_data = input_data.to_bin_pipeline_result(bin_settings)
-        if bin_log.value:
-            frog_data.plot_log()
-        else:
-            frog_data.plot()
-        aw.plot.showmo()
 
         if is_in_web_notebook:
             bin_settings.save_yaml("bin_settings.yml")
@@ -343,10 +327,28 @@ def _(
                 output_name="bin_settings.yml",
                 mime_type="text/yaml",
             )
-
     else:
         frog_data = None
     return (frog_data,)
+
+
+@app.cell
+def _(aw, bin_log, frog_data, plot_style_selector):
+    # if not bin_live.value:
+    #     mo.stop(not bin_button.value)
+    if frog_data is not None:
+        if plot_style_selector.value == "Light":
+            aw.plot.set_style("light")
+        else:
+            aw.plot.set_style("nick_dark")
+
+
+        if bin_log.value:
+            frog_data.plot_log()
+        else:
+            frog_data.plot()
+        aw.plot.showmo()
+    return
 
 
 @app.cell
@@ -544,9 +546,9 @@ def _(help_cb, mo):
 
 @app.cell
 def _(is_in_web_notebook, mo):
-    recon_trials = mo.ui.number(value=16, label="Initial guesses")
-    recon_trial_length = mo.ui.number(value=128, label="Trial iterations")
-    recon_followups = mo.ui.number(value=1024, label="Finishing iterations")
+    recon_trials = mo.ui.number(value=256, label="Initial guesses")
+    recon_trial_length = mo.ui.number(value=16, label="Trial iterations")
+    recon_followups = mo.ui.number(value=512, label="Finishing iterations")
     reconstruct_button = mo.ui.run_button(label="reconstruct")
     save_button = mo.ui.run_button(label="save")
     save_plot_button = mo.ui.run_button(label="save plot")
@@ -643,7 +645,7 @@ def _(
                 )
                 ptycho_threshhold_float = ptycho_threshhold.value
         _start_time = time.time()
-        result, result_gate = aw.wave.reconstruct_frog(
+        result, result_gate, best_trial_index, best_finishing_index = aw.wave.reconstruct_frog(
             measurement=frog_data,
             repeats=int(recon_trials.value),
             test_iterations=int(recon_trial_length.value),
@@ -656,8 +658,13 @@ def _(
         )
         _stop_time = time.time()
         reconstruction_time = _stop_time - _start_time
-        mo.output.append(mo.md(f"Reconstruction time: {reconstruction_time: .1f} s"))
-    return result, result_gate
+    return (
+        best_finishing_index,
+        best_trial_index,
+        reconstruction_time,
+        result,
+        result_gate,
+    )
 
 
 @app.cell
@@ -700,6 +707,15 @@ def _(
 def _(help_cb, mo):
     if help_cb.value:
         mo.output.append(mo.md("**a** The measured spectrogram as binned above. **b** The retrieved spectrogram. **c** The reconstructed pulse, the time-dependent frequency as determined the derivative of the temporal phase, and the transform limited pulse. The Fourier limit is calculated with an amplitude gate set to $3 \\times 10^{-2}$ of the amplitude, or approximately three orders of magnitude in spectral intensity. **d** The retrieved spectrum and group delay curve."))
+    return
+
+
+@app.cell
+def _(best_finishing_index, best_trial_index, mo, reconstruction_time, result):
+    if result is not None:
+        mo.output.append(mo.md(f"Reconstruction time: {reconstruction_time: .1f} s"))
+        mo.output.append(mo.md(f"Best trial minimum error on iteration: {best_trial_index}"))
+        mo.output.append(mo.md(f"Finishing iteration with lowest error: {best_finishing_index}"))
     return
 
 

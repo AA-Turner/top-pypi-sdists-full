@@ -2625,6 +2625,10 @@ class SAGEMessageBridge:
 
         body = f"[SAGE — {self.cfg.computer_name}] {text}"
         
+        # Resolve phone part upfront so it is defined for both apple and android branches
+        phone_local = gateway_email.split("@", 1)[0] if "@" in gateway_email else gateway_email
+        phone_e164 = _normalize_e164_globally(phone_local)
+        
         # Apple → iMessage. 
         if device_type == "apple":
             if sys.platform == "darwin":
@@ -2632,9 +2636,7 @@ class SAGEMessageBridge:
                 if _send_imessage(gateway_email, body, local_attachments):
                     return True
                 
-                # 2. If that failed, try extracting a phone number
-                phone_local = gateway_email.split("@", 1)[0] if "@" in gateway_email else ""
-                phone_e164 = _normalize_e164_globally(phone_local)
+                # 2. If that failed, try using normalized phone
                 if phone_e164 and phone_e164 != gateway_email:
                     if _send_imessage(phone_e164, body, local_attachments):
                         return True

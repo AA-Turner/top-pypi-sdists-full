@@ -26,7 +26,11 @@ from runlayer_cli.hook_install import (
     iter_supported_clients,
     resolve_hook_command,
 )
-from runlayer_cli.mdm_config import read_managed_config, resolve_include_pipeline
+from runlayer_cli.mdm_config import (
+    read_managed_config,
+    resolve_include_pipeline,
+    resolve_install_hooks,
+)
 from runlayer_cli.symbols import FAIL, OK, WARN
 
 EXIT_OK = 0
@@ -92,6 +96,16 @@ def bootstrap(
 
 
 def _bootstrap_check(host: str, *, scope: InstallScope) -> None:
+    managed = read_managed_config()
+    if not resolve_install_hooks(managed):
+        typer.secho(
+            f"{OK} scan-only deployment (Enforcement + Sessions disabled); "
+            "no hooks to verify.",
+            fg=typer.colors.GREEN,
+            err=True,
+        )
+        return
+
     present, _ = credential_present(load_config(), host, scope)
     if not present:
         typer.secho(
@@ -104,7 +118,7 @@ def _bootstrap_check(host: str, *, scope: InstallScope) -> None:
 
     results = check_all(
         scope=scope,
-        include_pipeline=resolve_include_pipeline(False, read_managed_config()),
+        include_pipeline=resolve_include_pipeline(False, managed),
     )
     if scope == InstallScope.USER:
         installed = [
@@ -143,6 +157,17 @@ def _bootstrap_check(host: str, *, scope: InstallScope) -> None:
 
 def _enroll_step(host: str, scope: InstallScope) -> None:
     """Enroll half of bootstrap; skips when running as root/SYSTEM in MDM scope."""
+    if read_managed_config().get("org_api_key"):
+        # Org-key mode: hooks authenticate with the single managed OrgApiKey
+        # directly (backend resolves device identity), so there's no per-user
+        # enroll step to run.
+        typer.secho(
+            f"{OK} enroll: skipped — using managed org api key for {host}.",
+            fg=typer.colors.GREEN,
+            err=True,
+        )
+        return
+
     config = load_config()
     if config.get_secret_for_host(host):
         # Self-migration for pre-marker-file enrollments.
@@ -204,6 +229,16 @@ def _bootstrap_apply(
     scope: InstallScope,
     all_events: bool,
 ) -> None:
+    managed = read_managed_config()
+    if not all_events and not resolve_install_hooks(managed):
+        typer.secho(
+            f"{OK} scan-only deployment (Enforcement + Sessions disabled); "
+            "no hooks installed.",
+            fg=typer.colors.GREEN,
+            err=True,
+        )
+        return
+
     _enroll_step(host, scope)
 
     present, _ = credential_present(load_config(), host, scope)
@@ -226,7 +261,7 @@ def _bootstrap_apply(
         )
         raise typer.Exit(EXIT_MISCONFIG) from None
 
-    include_pipeline = resolve_include_pipeline(all_events, read_managed_config())
+    include_pipeline = resolve_include_pipeline(all_events, managed)
 
     any_failed = False
     wrote_any = False

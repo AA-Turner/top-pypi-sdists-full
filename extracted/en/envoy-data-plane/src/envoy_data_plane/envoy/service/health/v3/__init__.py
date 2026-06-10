@@ -154,6 +154,23 @@ class EndpointHealth(betterproto2.Message):
         default_factory=lambda: ___config__core__v3__.HealthStatus(0),
     )
 
+    health_metadata: "____google__protobuf__.Struct | None" = betterproto2.field(
+        3, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Optional metadata about the health check result, populated by the active
+    health checker and forwarded to the management server for richer health
+    state interpretation.
+
+    Well-known keys:
+
+    ``http_status_code`` (number)
+      Set by the HTTP health checker. Contains the HTTP response status code
+      returned by the upstream endpoint during the most recent health check,
+      e.g. ``200``, ``503``. Only present when the health check received a
+      complete HTTP response; absent on connection failures or timeouts.
+    """
+
 
 default_message_pool.register_message(
     "envoy.service.health.v3", "EndpointHealth", EndpointHealth

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: efterlev
-Version: 0.1.221
+Version: 0.1.223
 Summary: Repo-native, agent-first compliance scanner for FedRAMP and DoD Impact Levels
 Project-URL: Homepage, https://efterlev.org
 Project-URL: Documentation, https://docs.efterlev.org
@@ -107,7 +107,7 @@ Pronounced "EF-ter-lev." From Swedish *efterlevnad* (compliance).
 - Asks which LLM backend you want — **Anthropic API**, **OpenAI** (gpt-5.4-mini), **AWS Bedrock** (GovCloud-compatible), or **Claude Code subscription** (Pro/Max users; **zero per-call billing**, v0.1.148+)
 - Installs Efterlev with `uv` (fetches Python 3.12 automatically; handles the stock-Mac / Anaconda-Python and PATH gotchas that trip up a plain `pip install`)
 - If your path has no Terraform at all, offers to clone `lhassa8/govnotes-demo` as a turnkey FedRAMP-shaped test fixture (151 resources across TF + CFN + 5 GitHub workflows + 9 procedural manifests)
-- Runs `init → scan → agent gap → agent document → poam → oscal` with per-stage wall-clock timing
+- Runs `init → scan → agent gap → agent document → poam` with per-stage wall-clock timing (`--with-oscal` adds OSCAL 1.0.4 artifacts for Rev5-ecosystem interop)
 - Briefs you on the top 3 KSIs to focus on, the readiness scorecard, and offers a 3PAO submission package zip
 - Knows the recovery paths for `terraform init` backend-init failures, missing variables, partial pipeline failures, and cache-hit-vs-miss UX
 
@@ -130,7 +130,7 @@ efterlev quickstart                        # full pipeline on a bundled sample (
 # ...or against your own repo:
 cd path/to/your-repo                       # repo root, NOT a Terraform subdir
 efterlev init --target . --force --llm-backend=anthropic   # or openai / claude_code / bedrock
-efterlev report run                        # init → scan → gap → document → poam → oscal
+efterlev report run                        # init → scan → gap → document → poam
 ```
 
 <details>
@@ -213,7 +213,7 @@ Efterlev is built for that model. The deterministic detectors are the **signal**
 - **Proposes** code-level remediation diffs you can review, edit, or apply
 - **Generates** a reviewer-ready POA&M markdown for every open KSI, with out-of-boundary scope filtering
 - **Ingests** runtime evidence — `efterlev import-security-hub` / `import-config` / `import-prowler` fold AWS Security Hub (ASFF), AWS Config, and Prowler findings into the same provenance store as the IaC scanner, so the Gap Agent reasons over pre-deploy *and* runtime evidence uniformly (default-on since v0.1.124; file-based, no AWS API calls)
-- **Emits OSCAL** — POA&M + Component-Definition in OSCAL 1.0.4, validated against the NIST schema, a Python-native FedRAMP rule layer, and NIST's canonical `oscal-cli` (default-on in `report run`; `efterlev oscal export --kind poam|component-definition`)
+- **Emits OSCAL on request** — POA&M + Component-Definition in OSCAL 1.0.4, validated against the NIST schema, a Python-native FedRAMP rule layer, and NIST's canonical `oscal-cli` (`efterlev oscal export --kind poam|component-definition`, or `report run --with-oscal`). Opt-in because FedRAMP 20x does not require OSCAL — the Authorization Data Sharing standard is format-agnostic and FedRAMP recommends implementing from the FRMR JSON, which Efterlev produces natively. The OSCAL export exists for Rev5-ecosystem and GRC-tool interop.
 - **Walks you through** the work — `efterlev next` ranks your open blockers by impact, gives the exact command for each, and re-ranks as you close items. Stage-aware: tells you to `init` / `scan` / `agent gap` first if you haven't run them, then becomes the companion worklist.
 - **Traces** every claim back to the file (and HCL line range, in `.tf` mode) that produced it via `efterlev provenance show <id>` — accepts truncated SHA prefixes
 - **Watches**: `efterlev report run --watch` re-runs the full pipeline on every save (debounced 2s)
@@ -265,14 +265,14 @@ efterlev readiness                             # 0-100% scorecard + top blockers
 efterlev provenance show <prefix>              # walk any claim back to source (8-char prefix OK)
 efterlev provenance verify                     # tamper-evidence sweep
 efterlev import-security-hub findings.json     # fold runtime findings into the evidence store
-efterlev oscal export --kind poam              # OSCAL 1.0.4 POA&M (also emitted by report run)
+efterlev oscal export --kind poam              # OSCAL 1.0.4 POA&M (opt-in; or report run --with-oscal)
 efterlev shell                                 # interactive REPL over the whole command surface
 ```
 
 Or just:
 
 ```bash
-efterlev report run                            # full pipeline: init → scan → gap → document → poam → oscal
+efterlev report run                            # full pipeline: init → scan → gap → document → poam
 efterlev report run --watch                    # re-run on every file change (2s debounce)
 ```
 
@@ -331,7 +331,7 @@ For deeper architectural detail, see [docs/architecture.md](./docs/architecture.
 
   The `gpt-5.4-mini` row reflects **three re-runs** on `csp-starter-cfn`: recall was 100% every time, while precision varied 79–96% (it intermittently over-flags *procedural* KSIs as `not_implemented` — false POA&M items a reviewer removes, never a missed real gap). The other rows are single dispatches. Quality holds end-to-end against real CloudFormation through the Gap Agent's hallucination guard (it rejects any classification citing evidence IDs not in the prompt, and any positive classification with no citation at all). Single-fixture reading at v0.1.213; broader sweep follows the v0.1.118 Bedrock-Haiku pattern. See [`LIMITATIONS.md`](./LIMITATIONS.md) "OpenAI backend" section for the model-by-model detail.
 - **OpenAI on AWS Bedrock (`bedrock_openai`, v0.1.217):** runs `openai.gpt-5.5` (default) / `openai.gpt-5.4` *inside an AWS account* via Bedrock's `bedrock-mantle` (OpenAI Responses-API) endpoint — for customers who want Bedrock billing/governance without Anthropic egress. `efterlev init --llm-backend=bedrock_openai --llm-region us-east-2` (commercial us-east-2/us-west-2 only at launch; needs a Bedrock API key in `AWS_BEARER_TOKEN_BEDROCK`). **Validated live 2026-06-05 on `csp-starter-cfn`** (single fixture): gpt-5.5 100% / 95.8%, gpt-5.4 82.6% / 95.0% (gpt-5.4 over-flags procedural KSIs — hence gpt-5.5 is the default); the gap-prompt change was confirmed not to regress Claude (100/100). Single-fixture reading — use a Claude backend for 3PAO-binding work. See [`LIMITATIONS.md`](./LIMITATIONS.md) "OpenAI on Bedrock (`bedrock_openai`)".
-- **2434 tests passing;** mypy strict + ruff check + ruff format clean across 298 source files; 46 CLI commands; full E2E pipeline smoke (real Anthropic API call against a synthetic fixture) runs as a required check on every PR
+- **2437 tests passing;** mypy strict + ruff check + ruff format clean across 298 source files; 46 CLI commands; full E2E pipeline smoke (real Anthropic API call against a synthetic fixture) runs as a required check on every PR
 
 **Coverage relative to FedRAMP 20x Phase 2's 70% automated-validation threshold:** the threshold applies to the customer's whole authorization package, not to any single tool. Efterlev covers 37 KSIs at the IaC layer pre-deploy (post-Tier-2 serverless backlog); AWS-native services (Config, Security Hub, CloudTrail, Inspector, GuardDuty) cover roughly 14 KSIs at the runtime layer. Honest union: ~38 of 63 KSIs (~60%) — distinct layers, not double-counted. Reaching 70% takes both. See [docs/aws-coexistence.md](./docs/aws-coexistence.md) for the strategic mapping and [docs/csx-mapping.md](./docs/csx-mapping.md) for how the outputs map to CSX-SUM / MAS / ORD.
 
@@ -380,7 +380,7 @@ In this repo:
 - [`docs/icp.md`](./docs/icp.md) — Ideal Customer Profile; the lens behind every product decision
 - [`docs/followups.md`](./docs/followups.md) — tracked work, deferred items, what's shipped vs pending
 - [`docs/v0.2-eval-harness-plan.md`](./docs/v0.2-eval-harness-plan.md) — design sketch for the v0.2 agent-quality harness
-- [`CHANGELOG.md`](./CHANGELOG.md) — release-by-release record (200+ patch versions, v0.1.221 current)
+- [`CHANGELOG.md`](./CHANGELOG.md) — release-by-release record (200+ patch versions, v0.1.223 current)
 - [`docs/benchmark-2026-05.md`](./docs/benchmark-2026-05.md) — time-to-FRMR benchmark methodology (numbers populated by maintainer dispatch)
 - [`docs/cfn-detector-parity.md`](./docs/cfn-detector-parity.md) + [`docs/cfn-detector-parity.csv`](./docs/cfn-detector-parity.csv) — per-detector CFN coverage matrix (regenerated by `scripts/build_cfn_parity_table.py`)
 - [`DECISIONS.md`](./DECISIONS.md) — append-only design-decision log
@@ -397,7 +397,7 @@ We want contributors. The detector library is designed to make the common contri
 
 ## Status, governance, license
 
-**Status:** v0.1.221 is current — 200+ patch releases since v0.1.0 (2026-04-29), each shipped under a per-fix regression-test discipline and the full CI gate (mypy strict, ruff, doc-drift check, real-API E2E smoke). The scanner reads Terraform, CloudFormation (default-on since v0.1.99), and Python CDK source (v0.1.131); the agents emit FRMR attestations plus OSCAL 1.0.4 POA&M and Component-Definition; and runtime-tool findings (AWS Security Hub / Config / Prowler) ingest into the same provenance store (v0.1.124). Classification quality is maintainer-validated at 100% precision + 100% recall on the Terraform fixtures (67/67 across 3) and 44/44 on the CloudFormation fixtures, with Bedrock Claude Haiku 4.5 confirmed quality-neutral for GovCloud deployments. The CloudFormation validation detail is in [`evals/PHASE_2_LITE_CFN_VALIDATION.md`](./evals/PHASE_2_LITE_CFN_VALIDATION.md); per-detector CFN coverage in [`docs/cfn-detector-parity.md`](./docs/cfn-detector-parity.md). Per-release detail is in [`CHANGELOG.md`](./CHANGELOG.md); verify a published artifact with `bash scripts/verify-release.sh v0.1.207` (PEP 740 PyPI attestations + cosign keyless OIDC + SLSA provenance on `ghcr.io/efterlev/efterlev`).
+**Status:** v0.1.223 is current — 200+ patch releases since v0.1.0 (2026-04-29), each shipped under a per-fix regression-test discipline and the full CI gate (mypy strict, ruff, doc-drift check, real-API E2E smoke). The scanner reads Terraform, CloudFormation (default-on since v0.1.99), and Python CDK source (v0.1.131); the agents emit FRMR attestations plus OSCAL 1.0.4 POA&M and Component-Definition; and runtime-tool findings (AWS Security Hub / Config / Prowler) ingest into the same provenance store (v0.1.124). Classification quality is maintainer-validated at 100% precision + 100% recall on the Terraform fixtures (67/67 across 3) and 44/44 on the CloudFormation fixtures, with Bedrock Claude Haiku 4.5 confirmed quality-neutral for GovCloud deployments. The CloudFormation validation detail is in [`evals/PHASE_2_LITE_CFN_VALIDATION.md`](./evals/PHASE_2_LITE_CFN_VALIDATION.md); per-detector CFN coverage in [`docs/cfn-detector-parity.md`](./docs/cfn-detector-parity.md). Per-release detail is in [`CHANGELOG.md`](./CHANGELOG.md); verify a published artifact with `bash scripts/verify-release.sh v0.1.207` (PEP 740 PyPI attestations + cosign keyless OIDC + SLSA provenance on `ghcr.io/efterlev/efterlev`).
 
 **Governance:** Benevolent-dictator model today (`@lhassa8`), transitioning to a technical steering committee at 10 sustained-activity contributors. Full model in [GOVERNANCE.md](./GOVERNANCE.md). Architectural decisions: [DECISIONS.md](./DECISIONS.md). The project may eventually be donated to a neutral foundation (OpenSSF / Linux Foundation / CNCF) if contributor diversity warrants — that decision is not made and not time-boxed.
 

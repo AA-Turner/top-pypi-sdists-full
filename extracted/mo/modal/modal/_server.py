@@ -1,7 +1,6 @@
 # Copyright Modal Labs 2025
 import inspect
 import typing
-from typing import Optional
 
 from ._functions import _Function
 from ._load_context import LoadContext
@@ -23,7 +22,8 @@ def validate_http_server_config(
     port: int,
     proxy_regions: list[str],  # The regions to proxy the HTTP server to.
     startup_timeout: int,  # Maximum number of seconds to wait for the HTTP server to start.
-    exit_grace_period: Optional[int],  # The time to wait for the HTTP server to exit gracefully.
+    exit_grace_period: int | None,  # The time to wait for the HTTP server to exit gracefully.
+    is_server: bool = False,  # Whether this validates a `_experimental_server` config.
 ):
     if not isinstance(port, int) or port < 1 or port > 65535:
         raise InvalidError("Port must be a positive integer between 1 and 65535.")
@@ -31,10 +31,12 @@ def validate_http_server_config(
         raise InvalidError("The `startup_timeout` argument must be positive.")
     if exit_grace_period is not None and exit_grace_period < 0:
         raise InvalidError("The `exit_grace_period` argument must be non-negative.")
-    if exit_grace_period is not None and exit_grace_period > 25:
+    if not is_server and exit_grace_period is not None and exit_grace_period > 25:
         raise InvalidError("The `exit_grace_period` argument must not exceed 25 seconds.")
 
-    if not proxy_regions:
+    if not proxy_regions or not proxy_regions[0]:
+        if is_server:
+            raise InvalidError("The `routing_region` argument must be passed.")
         raise InvalidError("The `proxy_regions` argument must be non-empty.")
 
 
@@ -47,7 +49,7 @@ class _Server:
     Instead, use the [`@app._experimental_server()`](https://modal.com/docs/reference/modal.App#server) decorator.
 
     ```python notest
-    @app._experimental_server(port=8000, proxy_regions=["us-east", "us-west"])
+    @app._experimental_server(port=8000, routing_region="us-east")
     class MyServer:
         @modal.enter()
         def start_server(self):
@@ -55,9 +57,9 @@ class _Server:
     ```
     """
 
-    _user_cls: Optional[type] = None  # None if remote
+    _user_cls: type | None = None  # None if remote
     _service_function: _Function
-    _app: Optional["modal.app._App"] = None  # None if remote
+    _app: "modal.app._App | None" = None  # None if remote
 
     def _get_user_cls(self) -> type:
         assert self._user_cls is not None
@@ -81,7 +83,7 @@ class _Server:
     # ============ Live Methods ============
 
     @live_method
-    async def get_urls(self) -> Optional[dict[str, str]]:
+    async def get_urls(self) -> dict[str, str] | None:
         def _extract_region_from_url(url: str) -> str:
             return url.split(".")[-3].removeprefix("modal-")
 
@@ -94,36 +96,44 @@ class _Server:
     async def update_autoscaler(
         self,
         *,
-        min_containers: Optional[int] = None,
-        max_containers: Optional[int] = None,
-        buffer_containers: Optional[int] = None,
-        scaledown_window: Optional[int] = None,
+        min_containers: int | None = None,
+        max_containers: int | None = None,
+        buffer_containers: int | None = None,
+        scaledown_window: int | None = None,
+        target_concurrency: int | None = None,
     ) -> None:
         """Override the current autoscaler behavior for this Server.
 
         Unspecified parameters will retain their current value.
 
         Examples:
-        ```python notest
-        server = modal.Server.from_name("my-app", "Server")
+            ```python notest
+            server = modal.Server.from_name("my-app", "Server")
 
-        # Always have at least 2 containers running, with an extra buffer of 2 containers
-        server.update_autoscaler(min_containers=2, buffer_containers=1)
+            # Always have at least 2 containers running, with an extra buffer of 2 containers
+            server.update_autoscaler(min_containers=2, buffer_containers=1)
 
-        # Limit this Server to avoid spinning up more than 5 containers
-        server.update_autoscaler(max_containers=5)
+            # Limit this Server to avoid spinning up more than 5 containers
+            server.update_autoscaler(max_containers=5)
+
+            # Adjust Server autoscaling to target 20 concurrent requests per replica
+            server.update_autoscaler(target_concurrency=20)
+
+            # Disable the Server autoscaling by setting target_concurrency to 0
+            server.update_autoscaler(target_concurrency=0)
         ```
 
         """
-        return await self._get_service_function().update_autoscaler(
+        return await self._get_service_function()._update_autoscaler(
             min_containers=min_containers,
             max_containers=max_containers,
             scaledown_window=scaledown_window,
             buffer_containers=buffer_containers,
+            target_concurrency=target_concurrency,
         )
 
     # ============ Hydration ============
-    async def hydrate(self, client: Optional[_Client] = None) -> "_Server":
+    async def hydrate(self, client: _Client | None = None) -> "_Server":
         # This is required since we want to support @livemethod() decorated methods
         service_function = self._get_service_function()
         await service_function.hydrate(client)
@@ -154,8 +164,8 @@ class _Server:
         app_name: str,
         name: str,
         *,
-        environment_name: Optional[str] = None,
-        client: Optional[_Client] = None,
+        environment_name: str | None = None,
+        client: _Client | None = None,
     ) -> "_Server":
         """Reference a Server from a deployed App by its name.
 

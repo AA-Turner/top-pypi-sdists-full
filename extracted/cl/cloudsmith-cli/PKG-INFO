@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloudsmith-cli
-Version: 1.17.0
+Version: 1.18.0
 Summary: Cloudsmith Command-Line Interface (CLI)
 Home-page: https://github.com/cloudsmith-io/cloudsmith-cli
 Author: Cloudsmith Ltd
@@ -34,12 +34,17 @@ Requires-Dist: json5>=0.9.0
 Requires-Dist: cloudsmith-api<3.0,>=2.0.25
 Requires-Dist: keyring>=25.4.1
 Requires-Dist: mcp==1.9.1
+Requires-Dist: PyJWT>=2.0.0
 Requires-Dist: python-toon==0.1.2
 Requires-Dist: requests>=2.18.4
 Requires-Dist: requests_toolbelt>=1.0.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: semver>=2.7.9
 Requires-Dist: urllib3>=2.5
+Provides-Extra: aws
+Requires-Dist: boto3[crt]>=1.26.0; extra == "aws"
+Provides-Extra: all
+Requires-Dist: boto3[crt]>=1.26.0; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -50,6 +55,7 @@ Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
 Dynamic: platform
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
@@ -196,6 +202,30 @@ Or you can get the latest pre-release version from Cloudsmith:
 ```
 pip install --upgrade cloudsmith-cli --extra-index-url=https://dl.cloudsmith.io/public/cloudsmith/cli/python/index/
 ```
+
+### Optional Dependencies
+
+The CLI supports optional extras for additional functionality:
+
+#### AWS OIDC Support
+
+For AWS environments (ECS, EKS, EC2), install with `aws` extra to enable automatic credential discovery:
+
+```
+pip install cloudsmith-cli[aws]
+```
+
+This installs `boto3[crt]` for AWS credential chain support, STS token generation, and AWS SSO compatibility.
+
+#### All Optional Features
+
+To install all optional dependencies:
+
+```
+pip install cloudsmith-cli[all]
+```
+
+**Note:** If you don't install the AWS extra, the AWS OIDC detector will gracefully skip itself with no errors.
 
 ## Configuration
 

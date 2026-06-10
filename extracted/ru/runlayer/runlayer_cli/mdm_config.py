@@ -104,6 +104,25 @@ def resolve_include_pipeline(
     return bool(managed.get("sessions", True))
 
 
+def resolve_install_hooks(managed: ManagedConfig | None = None) -> bool:
+    """Whether this deployment wants any hooks installed at all.
+
+    With the single org API key driving everything, the ``EnrollmentKey``
+    presence signal is gone; the ``Enforcement`` and ``Sessions`` keys now
+    decide if (and what) hooks to install. Hooks install when either the
+    enforcement (blocking) hooks or the event/session hooks are requested.
+    Defaults: ``Enforcement`` absent ⇒ ``false`` (monitor), ``Sessions`` absent
+    ⇒ ``true``, so a default fleet still installs the full event/session set in
+    monitoring mode. A pure scan-only / Detect fleet sets ``Sessions=false`` (and
+    leaves ``Enforcement`` off / ``false``) for a no-op install.
+    """
+    if managed is None:
+        managed = read_managed_config()
+    enforcement = bool(managed.get("enforcement", False))
+    sessions = bool(managed.get("sessions", True))
+    return enforcement or sessions
+
+
 def _merge_first_wins(result: ManagedConfig, parsed: ManagedConfig) -> None:
     parsed_dict = cast(dict[str, object], parsed)
     result_dict = cast(dict[str, object], result)

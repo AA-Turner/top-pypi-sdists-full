@@ -228,6 +228,7 @@ class AlgebraicRecon(Recon):
         tau: Optional[float] = None,
         sigma: Optional[float] = None,
         reshufflePeriod: Optional[int] = None,
+        useAdaptiveSteps: bool = False,
         noiseType: Optional[NoiseType] = NoiseType.GAUSSIAN,
         # Potential function parameters
         PotentialShape: Optional[PotentialShapeType] = PotentialShapeType.CROSS,
@@ -306,7 +307,8 @@ class AlgebraicRecon(Recon):
         self.blockRows = blockRows
         self.sliceHeight = sliceHeight
         self.preconditionerType = preconditionerType
-        
+        self.useAdaptiveSteps = useAdaptiveSteps
+
         # Store regularization parameters
         self.alpha = alpha
         self.beta = beta
@@ -1103,6 +1105,7 @@ class AlgebraicRecon(Recon):
                 reshuffle_period=self.reshufflePeriod,
                 noise_type=self.noiseType,
                 preconditioner_type=self.preconditionerType,
+                use_adaptive_steps=self.useAdaptiveSteps,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
                 stop_window_size=stop_window_size,
@@ -1128,6 +1131,7 @@ class AlgebraicRecon(Recon):
                 reshuffle_period=self.reshufflePeriod,
                 noise_type=self.noiseType,
                 preconditioner_type=self.preconditionerType,
+                use_adaptive_steps=self.useAdaptiveSteps,
                 stop_criterion=stop_criterion,
                 stop_threshold=stop_threshold,
                 stop_window_size=stop_window_size,
@@ -1754,111 +1758,98 @@ class AlgebraicRecon(Recon):
 
     def load(self, withTumor=True, results_date=None, optimizer=None, filePath=None, show_logs=True):
         """
-        Load the reconstruction results (reconPhantom or reconLaser) and indices as lists of 2D np arrays into self.
-        If the loaded file is a 3D array, it is split into a list of 2D arrays.
-        Args:
-            withTumor: If True, loads reconPhantom (with tumor), else reconLaser (without tumor).
-            results_date: Date string (format "ddmm") to specify which results to load. If None, uses the most recent date in saveDir.
-            optimizer: Optimizer name (as string or enum) to filter results. If None, uses the current optimizer of the instance.
-            filePath: Optional. If provided, loads directly from this path (overrides saveDir and results_date).
+        Load reconstruction results (reconPhantom or reconLaser) and indices.
+        If results_date is None, finds the most recent directory matching the pattern.
         """
+        recon_key = 'reconPhantom' if withTumor else 'reconLaser'
+
         if filePath is not None:
-            # Mode chargement direct depuis un fichier
-            recon_key = 'reconPhantom' if withTumor else 'reconLaser'
+            # Direct load mode from a specified file
+            if not os.path.exists(filePath):
+                raise FileNotFoundError(f"No reconstruction file found at {filePath}.")
             recon_path = filePath
-            if not os.path.exists(recon_path):
-                raise FileNotFoundError(f"No reconstruction file found at {recon_path}.")
-            # Charge le fichier (3D ou liste de 2D)
-            data = np.load(recon_path, allow_pickle=True)
-            # Découpe en liste de 2D si c'est un tableau 3D
-            if isinstance(data, np.ndarray) and data.ndim == 3:
-                if withTumor:
-                    self.reconPhantom = [data[i, :, :] for i in range(data.shape[0])]
-                else:
-                    self.reconLaser = [data[i, :, :] for i in range(data.shape[0])]
-            else:
-                # Sinon, suppose que c'est déjà une liste de 2D
-                if withTumor:
-                    self.reconPhantom = data
-                else:
-                    self.reconLaser = data
-            # Essayer de charger les indices
-            base_dir, _ = os.path.split(recon_path)
-            indices_path = os.path.join(base_dir, 'indices.npy')
-            if os.path.exists(indices_path):
-                indices_data = np.load(indices_path, allow_pickle=True)
-                if isinstance(indices_data, np.ndarray) and indices_data.ndim == 3:
-                    self.indices = [indices_data[i, :, :] for i in range(indices_data.shape[0])]
-                else:
-                    self.indices = indices_data
-            else:
-                self.indices = None
-                
-            if show_logs:
-                print(f"Loaded reconstruction results and indices from {recon_path}")
         else:
-            # Mode chargement depuis le répertoire de résultats
             if self.saveDir is None:
                 raise ValueError("Save directory is not specified. Please set saveDir before loading.")
-            # Use current optimizer and potential function if not provided
+
+            # Determine the optimizer name to use
             opt_name = optimizer.value if optimizer is not None else self.optimizer.value
-            # Build the base directory pattern
+
+            # Build the base directory pattern (e.g., "results_*_PDHG")
             dir_pattern = f'results_*_{opt_name}'
-            # Add parameters to the pattern based on the optimizer
+
+            # Add optimizer-specific parameters to the pattern
             if optimizer is None:
                 optimizer = self.optimizer
             if optimizer == OptimizerType.PPGMLEM:
-                beta_str = f'_Beta_{self.beta}'
-                delta_str = f'_Delta_{self.delta}'
-                gamma_str = f'_Gamma_{self.gamma}'
-                sigma_str = f'_Sigma_{self.sigma}'
-                dir_pattern += f'{beta_str}{delta_str}{gamma_str}{sigma_str}'
+                dir_pattern += f'_Beta_{self.beta}_Delta_{self.delta}_Gamma_{self.gamma}_Sigma_{self.sigma}'
             elif optimizer in (OptimizerType.PGC, OptimizerType.DEPIERRO):
-                beta_str = f'_Beta_{self.beta}'
-                sigma_str = f'_Sigma_{self.sigma}'
-                dir_pattern += f'{beta_str}{sigma_str}'
-            # Find the most recent results directory if no date is specified
-            if results_date is None:
-                dirs = [d for d in os.listdir(self.saveDir) if os.path.isdir(os.path.join(self.saveDir, d)) and dir_pattern in d]
-                if not dirs:
-                    raise FileNotFoundError(f"No matching results directory found for pattern '{dir_pattern}' in {self.saveDir}.")
-                dirs.sort(reverse=True)  # Most recent first
-                results_dir = os.path.join(self.saveDir, dirs[0])
-            else:
-                results_dir = os.path.join(self.saveDir, f'results_{results_date}_{opt_name}')
-                if optimizer == OptimizerType.MLEM:
-                    pass
+                dir_pattern += f'_Beta_{self.beta}_Sigma_{self.sigma}'
+            elif optimizer == OptimizerType.LS:
+                dir_pattern += f'_Alpha_{self.alpha}'
+
+            # List all directories in self.saveDir
+            all_dirs = [d for d in os.listdir(self.saveDir) if os.path.isdir(os.path.join(self.saveDir, d))]
+
+            # Filter directories matching the pattern (e.g., "results_0906_PDHG")
+            matching_dirs = []
+            for d in all_dirs:
+                if d.startswith('results_') and f'_{opt_name}' in d:
+                    matching_dirs.append(d)
+
+            if not matching_dirs:
+                raise FileNotFoundError(f"No matching results directory found for pattern 'results_*_{opt_name}' in {self.saveDir}.")
+
+            # If results_date is specified, use it
+            if results_date is not None:
+                target_dir = f'results_{results_date}_{opt_name}'
+                if optimizer == OptimizerType.PPGMLEM:
+                    target_dir += f'_Beta_{self.beta}_Delta_{self.delta}_Gamma_{self.gamma}_Sigma_{self.sigma}'
+                elif optimizer in (OptimizerType.PGC, OptimizerType.DEPIERRO):
+                    target_dir += f'_Beta_{self.beta}_Sigma_{self.sigma}'
                 elif optimizer == OptimizerType.LS:
-                    results_dir += f'_Alpha_{self.alpha}'
+                    target_dir += f'_Alpha_{self.alpha}'
+
+                # Check if the directory exists
+                results_dir = os.path.join(self.saveDir, target_dir)
                 if not os.path.exists(results_dir):
                     raise FileNotFoundError(f"Directory {results_dir} does not exist.")
-            # Load reconstruction results
-            recon_key = 'reconPhantom' if withTumor else 'reconLaser'
+            else:
+                # Find the most recent directory (sorted by date in ddmm format)
+                matching_dirs.sort(reverse=True)  # Sort alphabetically (ddmm dates are sortable)
+                results_dir = os.path.join(self.saveDir, matching_dirs[0])
+
+            # Path to the reconstruction file
             recon_path = os.path.join(results_dir, f'{recon_key}.npy')
             if not os.path.exists(recon_path):
-                raise FileNotFoundError(f"No reconstruction file found at {recon_path}.")
-            data = np.load(recon_path, allow_pickle=True)
-            if isinstance(data, np.ndarray) and data.ndim == 3:
-                if withTumor:
-                    self.reconPhantom = [data[i, :, :] for i in range(data.shape[0])]
-                else:
-                    self.reconLaser = [data[i, :, :] for i in range(data.shape[0])]
+                raise FileNotFoundError(f"No {recon_key}.npy file found in {results_dir}.")
+
+        # Load the file (3D array or list of 2D arrays)
+        data = np.load(recon_path, allow_pickle=True)
+        if isinstance(data, np.ndarray) and data.ndim == 3:
+            if withTumor:
+                self.reconPhantom = [data[i, :, :] for i in range(data.shape[0])]
             else:
-                if withTumor:
-                    self.reconPhantom = data
-                else:
-                    self.reconLaser = data
-            # Load saved indices as list of 2D arrays
-            indices_path = os.path.join(results_dir, 'indices.npy')
-            if not os.path.exists(indices_path):
-                raise FileNotFoundError(f"No indices file found at {indices_path}.")
+                self.reconLaser = [data[i, :, :] for i in range(data.shape[0])]
+        else:
+            if withTumor:
+                self.reconPhantom = data
+            else:
+                self.reconLaser = data
+
+        # Load indices if they exist
+        indices_path = os.path.join(os.path.dirname(recon_path), 'indices.npy')
+        if os.path.exists(indices_path):
             indices_data = np.load(indices_path, allow_pickle=True)
             if isinstance(indices_data, np.ndarray) and indices_data.ndim == 3:
                 self.indices = [indices_data[i, :, :] for i in range(indices_data.shape[0])]
             else:
                 self.indices = indices_data
-            if show_logs:
-                print(f"Loaded reconstruction results and indices from {results_dir}")
+        else:
+            self.indices = None
+
+        if show_logs:
+            print(f"Loaded reconstruction results and indices from {recon_path}")
         
     def normalizeSMatrix(self):
         self.SMatrix = self.SMatrix / (float(self.experiment.params.acoustic['emission']['voltage'])*float(self.experiment.params.acoustic['emission']['sensitivity']))  

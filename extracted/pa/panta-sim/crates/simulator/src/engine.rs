@@ -795,7 +795,11 @@ impl ExecutionEngine {
         let mut has_measure_all = false;
         let mut explicit_measures: Vec<(usize, usize)> = Vec::new();
 
-        for inst in circuit.instructions() {
+        // gate fusion: 연속 1q 게이트를 2×2 로, 직전 1q 를 2q 에 흡수해 4×4 로
+        // 융합해 statevector sweep 횟수를 줄인다 (이 fast 경로는 noise/dynamic 이
+        // 없어 융합이 항상 유효).
+        let fused = crate::fusion::fuse_gates(circuit.instructions(), circuit.num_qubits());
+        for inst in &fused {
             match inst {
                 Instruction::ApplyGate { gate, targets } => {
                     apply_gate_typed(&mut state, gate, targets);
@@ -4410,7 +4414,26 @@ pub(crate) fn apply_unitary_typed<F: Real>(
             )
         })
         .collect();
-    apply_multi_qubit_gate(state, &conv, targets);
+    // 1q/2q 는 전용 커널이 일반 k-큐비트 경로보다 빠르다 (gate fusion 융합 행렬
+    // 도 이 경로).  2q: ApplyUnitary 규약(targets[0]=LSB)이 apply_two_qubit_gate
+    // 규약(q0=LSB)과 일치 — index=2·bit(targets[1])+bit(targets[0]).  Rust 테스트
+    // `apply_unitary_2q_matches_general` 가 일반 경로와 동치임을 검증.
+    match targets.len() {
+        1 => {
+            let m = [[conv[0], conv[1]], [conv[2], conv[3]]];
+            apply_single_qubit_gate(state, &m, targets[0]);
+        }
+        2 => {
+            let m = [
+                [conv[0], conv[1], conv[2], conv[3]],
+                [conv[4], conv[5], conv[6], conv[7]],
+                [conv[8], conv[9], conv[10], conv[11]],
+                [conv[12], conv[13], conv[14], conv[15]],
+            ];
+            apply_two_qubit_gate(state, &m, targets[0], targets[1]);
+        }
+        _ => apply_multi_qubit_gate(state, &conv, targets),
+    }
 }
 
 pub(crate) fn apply_gate_typed<F: Real>(
@@ -4547,6 +4570,44 @@ mod tests {
     use super::*;
     use qsim_core::complex::approx_eq;
     use qsim_core::C64;
+
+    #[test]
+    fn apply_unitary_2q_matches_general() {
+        // 2q fast-path (apply_two_qubit_gate) 가 일반 경로(apply_multi_qubit_gate)
+        // 와 동치인지 — 임의 4×4 unitary, 여러 (q0,q1) 순서/거리에서.
+        use qsim_core::operations::apply_multi_qubit_gate;
+        // 임의(꼭 유니터리일 필요 없음 — 선형사상 동치만 확인) 4×4 행렬.
+        let mat: Vec<C64> = (0..16)
+            .map(|i| C64::new((i as f64 * 0.37).sin(), (i as f64 * 0.21).cos()))
+            .collect();
+        for n in [3usize, 4, 5] {
+            for &(a, b) in &[
+                (0usize, 1usize),
+                (1, 0),
+                (0, 2),
+                (2, 0),
+                (1, n - 1),
+                (n - 1, 1),
+            ] {
+                if a >= n || b >= n || a == b {
+                    continue;
+                }
+                // 임의 초기 상태.
+                let mut s1: StateVector<f64> = StateVector::new(n);
+                for (i, amp) in s1.amplitudes_mut().iter_mut().enumerate() {
+                    *amp = C64::new((i as f64 * 0.13).cos(), (i as f64 * 0.29).sin());
+                }
+                let mut s2 = s1.clone();
+                // fast-path.
+                apply_unitary_typed(&mut s1, &mat, &[a, b]);
+                // 일반 경로.
+                apply_multi_qubit_gate(&mut s2, &mat, &[a, b]);
+                for (x, y) in s1.amplitudes().iter().zip(s2.amplitudes().iter()) {
+                    assert!(approx_eq(*x, *y, 1e-12), "n={n} ({a},{b}) {x} vs {y}");
+                }
+            }
+        }
+    }
 
     #[test]
     fn test_bell_circuit_execution() {

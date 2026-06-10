@@ -13,24 +13,24 @@
 # limitations under the License.
 
 import io
-from typing import Any, Dict, IO, Optional, Union
+from typing import Any, ClassVar, IO
 
 from docutils.core import publish_parts
-from docutils.nodes import colspec, image
+from docutils.nodes import Element
 from docutils.writers.html5_polyglot import HTMLTranslator, Writer
 from docutils.utils import SystemMessage
 
 from .clean import clean
 
 
-class ReadMeHTMLTranslator(HTMLTranslator):  # type: ignore[misc] # docutils is incomplete, returns `Any` python/typeshed#7256 # noqa E501
+class ReadMeHTMLTranslator(HTMLTranslator):
 
     # Overrides base class not to output `<object>` tag for SVG images.
-    object_image_types: Dict[str, str] = {}
+    object_image_types: ClassVar[dict[str, str]] = {}
 
     def emptytag(
         self,
-        node: Union[colspec, image],
+        node: Element,
         tagname: str,
         suffix: str = "\n",
         **attributes: Any
@@ -45,6 +45,16 @@ class ReadMeHTMLTranslator(HTMLTranslator):  # type: ignore[misc] # docutils is 
         return super().emptytag(
             node, tagname, suffix, **attributes
         )
+
+    def read_size_with_PIL(self, node: Element) -> None:  # noqa: N802
+        """
+        We disable ``file_insertion_enabled`` for security,
+        which means docutils can't read images to compute ``:scale:`` dimensions
+        and emits a WARNING/2 that our ``halt_level=2`` would turn fatal.
+        Skip the probe so the image renders at natural size
+        instead of aborting render.
+        """
+        return None
 
 
 SETTINGS = {
@@ -76,7 +86,7 @@ SETTINGS = {
 
     # Output math blocks as LaTeX that can be interpreted by MathJax for
     # a prettier display of Math formulas.
-    # Pass a dummy path to supress docutils warning and emit HTML.
+    # Pass a dummy path to suppress docutils warning and emit HTML.
     "math_output": "MathJax /dummy.js",
 
     # Disable raw html as enabling it is a security risk, we do not want
@@ -100,14 +110,21 @@ SETTINGS = {
     # Maximum width (in characters) for one-column field names.
     # 0 means "no limit"
     "field_name_limit": 0,
+
+    # Add self-referential links to section headings, allowing users to
+    # easily link to specific sections.
+    "section_self_link": True,
+
+    # Prefix generated IDs and anchors with a string
+    "id_prefix": "user-content-"
 }
 
 
 def render(
     raw: str,
-    stream: Optional[IO[str]] = None,
+    stream: IO[str] | None = None,
     **kwargs: Any
-) -> Optional[str]:
+) -> str | None:
     if stream is None:
         # Use a io.StringIO as the warning stream to prevent warnings from
         # being printed to sys.stderr.

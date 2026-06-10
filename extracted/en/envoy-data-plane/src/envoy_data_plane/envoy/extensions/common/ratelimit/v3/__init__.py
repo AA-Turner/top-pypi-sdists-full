@@ -117,6 +117,11 @@ class LocalRateLimitDescriptor(betterproto2.Message):
     Token Bucket algorithm for local ratelimiting.
     """
 
+    shadow_mode: "bool" = betterproto2.field(3, betterproto2.TYPE_BOOL)
+    """
+    Mark the descriptor as shadow. When the values is true, envoy allow requests to the backend.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.common.ratelimit.v3",
@@ -198,6 +203,13 @@ class RateLimitDescriptor(betterproto2.Message):
     """
     Optional hits_addend for the rate limit descriptor. If set the value will override the
     request level hits_addend.
+    """
+
+    is_negative_hits: "bool" = betterproto2.field(4, betterproto2.TYPE_BOOL)
+    """
+    If true, the hits_addend value will be treated as negative, effectively adding to
+    the rate limit budget instead of consuming from it. This can be used to refill previously consumed
+    rate limit tokens.
     """
 
 

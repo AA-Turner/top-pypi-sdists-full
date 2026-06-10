@@ -1,6 +1,7 @@
 import json
 import logging
 import logging.config
+import os
 from pathlib import Path
 from typing import Any, List, Literal, Optional
 
@@ -14,6 +15,7 @@ from robotcode.plugin import (
     OutputFormat,
     pass_application,
 )
+from robotcode.plugin._agent_detection import is_running_in_ai_agent
 from robotcode.plugin.click_helper.aliases import AliasedGroup
 from robotcode.plugin.click_helper.types import EnumChoice
 from robotcode.plugin.manager import PluginManager
@@ -105,14 +107,19 @@ class RobotCodeFormatter(logging.Formatter):
     "--color / --no-color",
     "color",
     default=None,
-    help="Whether or not to display colored output (default is auto-detection).",
+    help=(
+        "Force or disable colored output. Default (no flag): auto-detect — colors only when stdout is a TTY,"
+        " disabled if `NO_COLOR` is set, forced if `FORCE_COLOR` is set."
+    ),
     show_envvar=True,
 )
 @click.option(
     "--pager / --no-pager",
     "pager",
-    default=False,
-    help="Whether or not use a pager to display long text or data.",
+    default=None,
+    help=(
+        "Force or disable the pager. Default (no flag): auto-page when the rendered output exceeds the terminal height."
+    ),
     show_envvar=True,
 )
 @click.option(
@@ -271,6 +278,16 @@ def robotcode(
     else:
         app.config.colored_output = ColoredOutput.NO
     app.config.pager = pager
+
+    # AI-agent auto-detect: when running inside a known agent session
+    # (Claude Code, Copilot, OpenCode, …) demote colour and pager
+    # defaults so the agent's stdout capture stays clean. Explicit CLI
+    # flags and `NO_COLOR` / `FORCE_COLOR` keep their precedence.
+    if is_running_in_ai_agent():
+        if color is None and not os.environ.get("NO_COLOR") and not os.environ.get("FORCE_COLOR"):
+            app.config.colored_output = ColoredOutput.NO
+        if pager is None:
+            app.config.pager = False
     app.config.output_format = format
     app.config.launcher_script = launcher_script
     app.config.default_paths = default_path

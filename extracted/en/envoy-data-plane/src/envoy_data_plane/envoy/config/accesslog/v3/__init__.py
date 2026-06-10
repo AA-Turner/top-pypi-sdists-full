@@ -53,6 +53,11 @@ class ComparisonFilterOp(betterproto2.Enum):
     <=
     """
 
+    NE = 3
+    """
+    !=
+    """
+
 
 class GrpcStatusFilterStatus(betterproto2.Enum):
     OK = 0

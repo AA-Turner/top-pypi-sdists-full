@@ -11,6 +11,7 @@ import re
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
@@ -18,7 +19,6 @@ import yaml
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
-    from pathlib import Path
 
 _ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,127}$")
 _REVISION_RE = re.compile(r"^[0-9]{6}$")
@@ -380,6 +380,22 @@ class DynamicWorkflowStore:
             raise DynamicWorkflowError(msg)
         return report_path
 
+    def run_report_html_artifact_path(self, run: DynamicWorkflowRun) -> Path:
+        """Return the HTML report artifact path for one persisted run."""
+        report_artifact = run.artifacts.get("report_html")
+        if report_artifact is None:
+            msg = f"Run '{run.run_id}' does not have an HTML report artifact."
+            raise DynamicWorkflowError(msg)
+        report_path = self._artifact_path_from_relative(report_artifact)
+        if not report_path.is_file():
+            msg = f"HTML report artifact for run '{run.run_id}' was not found."
+            raise DynamicWorkflowError(msg)
+        return report_path
+
+    def run_report_title(self, run: DynamicWorkflowRun) -> str:
+        """Return the report title for one persisted run."""
+        return self._run_report_title(self._workflow_dir(run.scope, run.owner_id, run.workflow_id), run)
+
     def _load_revision(self, workflow_dir: Path, revision: str) -> dict[str, object]:
         _validate_revision(revision)
         return _load_yaml_mapping(workflow_dir / "revisions" / f"{revision}.yaml")
@@ -404,6 +420,13 @@ class DynamicWorkflowStore:
     def _workflow_dir(self, scope: str, owner_id: str, workflow_id: str) -> Path:
         _validate_id(workflow_id, "workflow_id")
         return self._scope_dir(scope, owner_id) / workflow_id
+
+    def _artifact_path_from_relative(self, artifact_path: str) -> Path:
+        relative_path = Path(artifact_path)
+        if relative_path.is_absolute() or ".." in relative_path.parts:
+            msg = "Dynamic Workflow artifact path is invalid."
+            raise DynamicWorkflowError(msg)
+        return self._storage_root / relative_path
 
     def _write_run(self, run: DynamicWorkflowRun) -> None:
         run_path = self._workflow_dir(run.scope, run.owner_id, run.workflow_id) / "runs" / f"{run.run_id}.json"
@@ -455,6 +478,7 @@ def validate_workflow_spec(spec: dict[str, object]) -> dict[str, object]:
     workflow_steps = _required_mapping_list(normalized, "workflow", "Workflow step")
     step_ids = _validate_workflow_steps(workflow_steps, participant_ids)
     _validate_workflow_limits(normalized, participants, workflow_steps)
+    _validate_participant_tool_grants(normalized, participants)
     _validate_outputs(normalized, step_ids)
     return normalized
 
@@ -661,15 +685,16 @@ def _validate_room_agent_participant(participant: dict[str, object], context: st
         msg = f"{context} room_agent participants cannot override model."
         raise DynamicWorkflowError(msg)
     if participant.get("tools") not in (None, []):
-        msg = f"{context} room_agent participants cannot declare tools; workflow tool grants are not supported yet."
+        msg = f"{context} room_agent participants cannot declare tools; tool grants are only available to ephemeral participants."
         raise DynamicWorkflowError(msg)
 
 
 def _validate_ephemeral_agent_participant(participant: dict[str, object], context: str) -> None:
     _reject_unsupported_fields(participant, _EPHEMERAL_PARTICIPANT_KEYS, context)
-    if participant.get("tools") not in (None, []):
-        msg = f"{context} ephemeral_agent participants cannot use tools yet."
-        raise DynamicWorkflowError(msg)
+    participant["tools"] = _normalized_tool_names(
+        participant.get("tools"),
+        f"{context} field 'tools'",
+    )
     if "model" in participant and participant.get("model") is not None:
         model = _required_text(participant, "model", context=context)
         participant["model"] = model
@@ -799,14 +824,32 @@ def _validate_permission_models(permissions: dict[str, object]) -> None:
 
 
 def _validate_permission_tools(permissions: dict[str, object]) -> None:
-    tools = permissions.get("tools", [])
-    if not isinstance(tools, list) or not all(isinstance(tool, str) and tool.strip() for tool in tools):
-        msg = "Workflow permission 'tools' must be a list of non-empty strings."
+    permissions["tools"] = _normalized_tool_names(permissions.get("tools", []), "Workflow permission 'tools'")
+
+
+def _normalized_tool_names(raw_tools: object, context: str) -> list[str]:
+    if raw_tools is None:
+        return []
+    if not isinstance(raw_tools, list) or not all(isinstance(tool, str) and tool.strip() for tool in raw_tools):
+        msg = f"{context} must be a list of non-empty strings."
         raise DynamicWorkflowError(msg)
-    if tools:
-        msg = "Workflow permission 'tools' must be empty until Dynamic Workflow tool grants are supported."
-        raise DynamicWorkflowError(msg)
-    permissions["tools"] = []
+    tool_names: list[str] = []
+    for raw_tool in raw_tools:
+        tool_name = cast("str", raw_tool).strip()
+        if tool_name not in tool_names:
+            tool_names.append(tool_name)
+    return tool_names
+
+
+def _validate_participant_tool_grants(spec: dict[str, object], participants: list[dict[str, object]]) -> None:
+    granted_tools = _permissions_mapping(spec).get("tools", [])
+    granted = set(cast("list[str]", granted_tools))
+    for participant in participants:
+        for tool_name in cast("list[str]", participant.get("tools") or []):
+            if tool_name not in granted:
+                participant_id = participant["id"]
+                msg = f"Participant '{participant_id}' tool '{tool_name}' is not granted by permissions.tools."
+                raise DynamicWorkflowError(msg)
 
 
 def _validate_permission_data(permissions: dict[str, object]) -> None:

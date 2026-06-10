@@ -72,13 +72,15 @@ class Config(betterproto2.Message):
     this value. If not set or empty, the original host header value
     will be used and no rewrite will happen.
 
-    Note: this rewrite affects both signing and host header forwarding. However, this
-    option shouldn't be used with
-    :ref:`HCM host rewrite <envoy_v3_api_field_config.route.v3.RouteAction.host_rewrite_literal>` given that the
-    value set here would be used for signing whereas the value set in the HCM would be used
-    for host header forwarding which is not the desired outcome.
-    Changing the value of the host header can result in a different route to be selected
-    if an HTTP filter after AWS lambda re-evaluates the route (clears route cache).
+    .. note::
+        This rewrite affects both signing and host header forwarding. However, this
+        option shouldn't be used with
+        :ref:`HCM host rewrite <envoy_v3_api_field_config.route.v3.RouteAction.host_rewrite_literal>` given that the
+        value set here would be used for signing whereas the value set in the HCM would be used
+        for host header forwarding which is not the desired outcome.
+
+        Changing the value of the host header can result in a different route to be selected
+        if an HTTP filter after AWS lambda re-evaluates the route (clears route cache).
     """
 
     credentials_profile: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(

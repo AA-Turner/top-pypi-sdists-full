@@ -138,7 +138,7 @@ def _handle_skip_to(task_id: str, target: str, task) -> dict:
 def _cmd_task_edit(args: list[str]) -> dict:
     parser = argparse.ArgumentParser(prog="kanban task edit", add_help=False)
     parser.add_argument("task_id")
-    parser.add_argument("--mode", type=str, default=None, help="Task mode: full, lightweight, quick, custom, or any custom mode from workflow.json")
+    parser.add_argument("--mode", type=str, default=None, help="Task mode: lightweight, quick, or any custom mode from workflow.json")
     parser.add_argument("--lightweight", action="store_true", default=False)
     parser.add_argument("--priority", type=int, default=None)
     parser.add_argument("--auto-mode", type=str, default=None,

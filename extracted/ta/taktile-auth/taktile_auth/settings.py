@@ -65,6 +65,13 @@ defaults = {
     "CACHE_PUBLIC_KEY_SPEEDUP_TIME_MINUTES": 24 * 60,
     "CACHE_PUBLIC_KEY_FALLBACK_TIME_MINUTES": 10 * 24 * 60,
     "AUTH_SERVER_TIMEOUT_SECONDS": 4,
+    # PEP-295 recursion accounting. Default ``warn`` is safe (no abort);
+    # opting in / out of the mechanism itself is controlled by the
+    # ``recursion_check_enabled`` flag on ``AuthClient``.
+    "RECURSION_MODE": "warn",
+    "RECURSION_WARN_WEIGHT": 700,
+    "RECURSION_ABORT_WEIGHT": 1000,
+    "RECURSION_TTL_SECONDS": 3600,
 }
 
 settings = Settings(defaults)

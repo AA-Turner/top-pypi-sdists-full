@@ -155,13 +155,16 @@ class SandboxStdioReadV2Response(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     DATA_FIELD_NUMBER: builtins.int
+    STARTING_OFFSET_FIELD_NUMBER: builtins.int
     data: builtins.bytes
+    starting_offset: builtins.int
     def __init__(
         self,
         *,
         data: builtins.bytes = ...,
+        starting_offset: builtins.int = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["data", b"data"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["data", b"data", "starting_offset", b"starting_offset"]) -> None: ...
 
 global___SandboxStdioReadV2Response = SandboxStdioReadV2Response
 
@@ -766,17 +769,25 @@ class TaskMountDirectoryRequest(google.protobuf.message.Message):
     TASK_ID_FIELD_NUMBER: builtins.int
     PATH_FIELD_NUMBER: builtins.int
     IMAGE_ID_FIELD_NUMBER: builtins.int
+    CUSTOMER_SUPPLIED_ENCRYPTION_KEY_FIELD_NUMBER: builtins.int
     task_id: builtins.str
     path: builtins.bytes
     image_id: builtins.str
+    customer_supplied_encryption_key: builtins.bytes
+    """Customer-supplied encryption key used to decrypt CSEK-encrypted image metadata keys.
+    This key is not persisted by Modal.
+    """
     def __init__(
         self,
         *,
         task_id: builtins.str = ...,
         path: builtins.bytes = ...,
         image_id: builtins.str = ...,
+        customer_supplied_encryption_key: builtins.bytes | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["image_id", b"image_id", "path", b"path", "task_id", b"task_id"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_customer_supplied_encryption_key", b"_customer_supplied_encryption_key", "customer_supplied_encryption_key", b"customer_supplied_encryption_key"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_customer_supplied_encryption_key", b"_customer_supplied_encryption_key", "customer_supplied_encryption_key", b"customer_supplied_encryption_key", "image_id", b"image_id", "path", b"path", "task_id", b"task_id"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_customer_supplied_encryption_key", b"_customer_supplied_encryption_key"]) -> typing_extensions.Literal["customer_supplied_encryption_key"] | None: ...
 
 global___TaskMountDirectoryRequest = TaskMountDirectoryRequest
 
@@ -787,6 +798,7 @@ class TaskSnapshotDirectoryRequest(google.protobuf.message.Message):
     PATH_FIELD_NUMBER: builtins.int
     SNAPSHOT_ID_FIELD_NUMBER: builtins.int
     TTL_SECONDS_FIELD_NUMBER: builtins.int
+    CUSTOMER_SUPPLIED_ENCRYPTION_KEY_FIELD_NUMBER: builtins.int
     task_id: builtins.str
     path: builtins.bytes
     snapshot_id: builtins.str
@@ -804,6 +816,10 @@ class TaskSnapshotDirectoryRequest(google.protobuf.message.Message):
     0 and other negative values are invalid and rejected by the
     server.
     """
+    customer_supplied_encryption_key: builtins.bytes
+    """Customer-supplied encryption key used to encrypt the resulting image's data and tree
+    metadata keys. This key is not persisted by Modal.
+    """
     def __init__(
         self,
         *,
@@ -811,9 +827,13 @@ class TaskSnapshotDirectoryRequest(google.protobuf.message.Message):
         path: builtins.bytes = ...,
         snapshot_id: builtins.str = ...,
         ttl_seconds: builtins.int | None = ...,
+        customer_supplied_encryption_key: builtins.bytes | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["_ttl_seconds", b"_ttl_seconds", "ttl_seconds", b"ttl_seconds"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_ttl_seconds", b"_ttl_seconds", "path", b"path", "snapshot_id", b"snapshot_id", "task_id", b"task_id", "ttl_seconds", b"ttl_seconds"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_customer_supplied_encryption_key", b"_customer_supplied_encryption_key", "_ttl_seconds", b"_ttl_seconds", "customer_supplied_encryption_key", b"customer_supplied_encryption_key", "ttl_seconds", b"ttl_seconds"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_customer_supplied_encryption_key", b"_customer_supplied_encryption_key", "_ttl_seconds", b"_ttl_seconds", "customer_supplied_encryption_key", b"customer_supplied_encryption_key", "path", b"path", "snapshot_id", b"snapshot_id", "task_id", b"task_id", "ttl_seconds", b"ttl_seconds"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_customer_supplied_encryption_key", b"_customer_supplied_encryption_key"]) -> typing_extensions.Literal["customer_supplied_encryption_key"] | None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_ttl_seconds", b"_ttl_seconds"]) -> typing_extensions.Literal["ttl_seconds"] | None: ...
 
 global___TaskSnapshotDirectoryRequest = TaskSnapshotDirectoryRequest
@@ -838,6 +858,7 @@ class TaskSnapshotFilesystemRequest(google.protobuf.message.Message):
     TASK_ID_FIELD_NUMBER: builtins.int
     SNAPSHOT_ID_FIELD_NUMBER: builtins.int
     TTL_SECONDS_FIELD_NUMBER: builtins.int
+    CUSTOMER_SUPPLIED_ENCRYPTION_KEY_FIELD_NUMBER: builtins.int
     task_id: builtins.str
     snapshot_id: builtins.str
     """A unique ID to ensure idempotency of filesystem snapshot requests."""
@@ -850,15 +871,23 @@ class TaskSnapshotFilesystemRequest(google.protobuf.message.Message):
     0 and other negative values are invalid and rejected by the
     server.
     """
+    customer_supplied_encryption_key: builtins.bytes
+    """Customer-supplied encryption key used to encrypt the resulting image's data and tree
+    metadata keys. This key is not persisted by Modal.
+    """
     def __init__(
         self,
         *,
         task_id: builtins.str = ...,
         snapshot_id: builtins.str = ...,
         ttl_seconds: builtins.int | None = ...,
+        customer_supplied_encryption_key: builtins.bytes | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["_ttl_seconds", b"_ttl_seconds", "ttl_seconds", b"ttl_seconds"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_ttl_seconds", b"_ttl_seconds", "snapshot_id", b"snapshot_id", "task_id", b"task_id", "ttl_seconds", b"ttl_seconds"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_customer_supplied_encryption_key", b"_customer_supplied_encryption_key", "_ttl_seconds", b"_ttl_seconds", "customer_supplied_encryption_key", b"customer_supplied_encryption_key", "ttl_seconds", b"ttl_seconds"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_customer_supplied_encryption_key", b"_customer_supplied_encryption_key", "_ttl_seconds", b"_ttl_seconds", "customer_supplied_encryption_key", b"customer_supplied_encryption_key", "snapshot_id", b"snapshot_id", "task_id", b"task_id", "ttl_seconds", b"ttl_seconds"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_customer_supplied_encryption_key", b"_customer_supplied_encryption_key"]) -> typing_extensions.Literal["customer_supplied_encryption_key"] | None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_ttl_seconds", b"_ttl_seconds"]) -> typing_extensions.Literal["ttl_seconds"] | None: ...
 
 global___TaskSnapshotFilesystemRequest = TaskSnapshotFilesystemRequest

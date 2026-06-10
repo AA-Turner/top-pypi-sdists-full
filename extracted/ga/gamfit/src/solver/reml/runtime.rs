@@ -3,9 +3,10 @@ use crate::cache::Fingerprinter;
 use crate::construction::{
     create_balanced_penalty_root_from_canonical, precompute_reparam_invariant_from_canonical,
 };
+use crate::faer_ndarray::array2_to_matmut;
 use crate::linalg::sparse_exact::build_sparse_penalty_blocks_from_canonical;
 use crate::linalg::utils::{
-    boundary_hit_indices, enforce_symmetry, symmetric_spectrum_condition_number,
+    StableSolver, boundary_hit_indices, enforce_symmetry, symmetric_spectrum_condition_number,
 };
 use crate::mixture_link::inverse_link_has_fisher_weight_jet;
 use crate::pirls::PirlsWorkspace;
@@ -21,6 +22,13 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock, Mutex, OnceLock};
 
 const TK_BLOCK_SIZE: usize = 128;
+/// Upper bound on the parallel row-chunk length for the TK accumulation, so a
+/// large `n / (4·threads)` split does not produce chunks so coarse that load
+/// balancing across rayon workers suffers. Pairs with the [`TK_BLOCK_SIZE`]
+/// lower bound. The `4×` oversubscription on the thread count keeps each worker
+/// fed with several chunks for work stealing.
+const TK_CHUNK_MAX_ROWS: usize = 2048;
+const TK_CHUNK_OVERSUBSCRIBE: usize = 4;
 const TK_MAX_OBSERVATIONS: usize = 20_000;
 const TK_MAX_COEFFICIENTS: usize = 2_000;
 const ADAPTIVE_KKT_ETA: f64 = 0.1;
@@ -50,6 +58,25 @@ const S_LINEAR_INIT: f64 = 1.0;
 const S_TRACE_INIT: f64 = 1.0;
 const HGB_SENS_FLOOR: f64 = 1e-6;
 const IFT_QUALITY_HISTORY_CAP: usize = 5;
+
+/// Clamp bound on a linear predictor `eta` so `exp(eta)` cannot overflow f64
+/// (`exp` overflows near `709`). Mirrors the canonical PIRLS `ETA_CLAMP`; kept
+/// as a local const because that one is private to the `pirls` module. Used to
+/// detect out-of-range η rows when materializing the logit fifth-derivative
+/// channel (an out-of-range row contributes zero rather than a garbage jet).
+const ETA_OVERFLOW_CLAMP: f64 = 700.0;
+
+/// Rolling-quality bands and step-cap adjustment factors for the IFT step-cap
+/// controller (`record_ift_prediction_quality`). `quality` is the relative
+/// prediction residual averaged over the last [`IFT_QUALITY_HISTORY_CAP`]
+/// predictions; below `GROW` the linearization is reliably excellent and the cap
+/// is loosened, above `SHRINK` it is tightened, in between it is held. A rolling
+/// quality at or above `FLAT_FALLBACK` flips the predictor to flat warm-start.
+const IFT_QUALITY_GROW_BAND: f64 = 1e-3;
+const IFT_QUALITY_SHRINK_BAND: f64 = 1e-1;
+const IFT_QUALITY_FLAT_FALLBACK_BAND: f64 = 0.5;
+const IFT_STEP_CAP_GROW_FACTOR: f64 = 1.5;
+const IFT_STEP_CAP_SHRINK_FACTOR: f64 = 0.5;
 
 // KKT residual acceptance tolerances for the active-set inner solver.
 // Primal/dual/complementarity are checked at 1e-7 (matches the inner
@@ -95,6 +122,42 @@ struct AloStabilizationEval {
 // distinguish a genuinely influential point from sampling jitter, so the
 // stabilization stays off entirely.
 const ALO_STABILIZATION_MIN_N: usize = 20;
+// Effective-dof fraction (edf / n) above which the design is treated as
+// over-parameterized / near-interpolating and the ALO stabilization is
+// suppressed.
+//
+// The stabilizer exists to robustify the REML criterion against a *handful* of
+// genuinely influential observations on an *identified* design. On a
+// near-saturated basis (edf approaching n — e.g. a tensor-product `te()` smooth
+// whose marginal-product column count rivals n at small n), leverage is high
+// for essentially *every* row purely from basis geometry, not from outliers.
+// There the augmentation — whose mechanism is to pull λ upward until each row's
+// LOO denominator clears the leverage barrier — can never satisfy its own gate
+// (no finite λ drives an over-parameterized basis's leverage below 0.80 for all
+// rows), so it adds a near-flat, ill-conditioned ridge to the outer surface.
+// The outer optimizer then crawls that ridge to its iteration cap (the
+// `[ALO-STABILIZED-REML]` "cost decreasing ~1e-4 per step over thousands of
+// evals" / `min_denom≈0.043` signature of #813 / #821), re-running PIRLS every
+// step. RKHS smooths (`duchon`/`matern`) regularize edf well below n and never
+// reach this regime, which is exactly why `te()` was pathological while they
+// were not on identical data. The 0.70 cut leaves genuinely identified,
+// moderately-fit designs (where a few isolated rows carry the high leverage)
+// fully stabilized while excluding the basis-saturation artifact.
+const ALO_EDF_FRACTION_SATURATION: f64 = 0.70;
+// Fraction of rows that may clear the leverage activation threshold before the
+// high leverage is judged pervasive (a basis-geometry artifact) rather than
+// concentrated in a few influential observations. Genuine influential-point
+// stabilization touches a small minority of rows; a near-interpolating
+// tensor-product basis trips a large fraction. Above this fraction the
+// stabilizer is suppressed (see the pervasiveness guard in
+// `alo_stabilization_eval`). 0.25 is well above the handful of rows a real
+// outlier cluster produces yet far below the pervasive activation a saturated
+// `te()` basis exhibits.
+const ALO_PERVASIVE_LEVERAGE_FRACTION: f64 = 0.25;
+// Suppress ALO when every ALO-triggering row is already high-leverage in the
+// exact pure-parametric subdesign. Those directions are unpenalized, so no
+// smoothness-parameter move can clear the leverage barrier (#862).
+const ALO_PARAMETRIC_LEVERAGE_SHARE: f64 = 0.75;
 // Activation gate on the leave-one-out denominator (1 - h). 0.20 means we only
 // engage once some observation's LOO predictor is amplified by >5×; below that
 // the correction is negligible and we preserve the unstabilized objective.
@@ -134,6 +197,18 @@ const ALO_DEVIANCE_SATURATION: f64 = 9.0;
 // stabilizer falls back to value-only augmentation (still bit-preserving the
 // gate-off path).
 const ALO_GRADIENT_MAX_WORK: usize = 4_000_000;
+
+/// Shared factorization of the stabilized penalized Hessian, computed once on
+/// the value path and threaded into the ALO ρ-gradient so the gradient never
+/// re-materializes dense `X` or re-factorizes the same matrix (#862).
+struct AloFactoredHessian<'a> {
+    /// Dense transformed design `X` (n × p).
+    x: &'a Array2<f64>,
+    /// Lower-triangular Cholesky factor of the stabilized penalized Hessian.
+    chol: &'a crate::linalg::faer_ndarray::FaerCholeskyFactor,
+    /// `H⁻¹Xᵀ` (p × n), the column-solve the gradient reuses per observation.
+    h_inv_xt: &'a Array2<f64>,
+}
 
 fn alo_leverage_barrier(h: f64) -> f64 {
     let excess = (h - ALO_MAX_LEVERAGE_THRESHOLD).max(0.0);
@@ -1350,12 +1425,20 @@ pub(crate) fn analytic_penalty_registry_fingerprint(
 }
 
 fn hash_design_matrix(hasher: &mut Fingerprinter, design: &DesignMatrix) -> Result<(), String> {
+    // Stream the design through fixed-byte row blocks so a biobank-scale design
+    // is never fully materialized just to fingerprint it. Target ~8 MiB of
+    // working set per chunk, with a row-count floor of 1 (always make progress)
+    // and a ceiling so a very narrow design does not request an unbounded chunk.
+    const HASH_CHUNK_TARGET_BYTES: usize = 8 * 1024 * 1024;
+    const HASH_CHUNK_MIN_ROWS: usize = 1;
+    const HASH_CHUNK_MAX_ROWS: usize = 4096;
     let n = design.nrows();
     let p = design.ncols();
     hasher.write_usize(n);
     hasher.write_usize(p);
     let bytes_per_row = p.saturating_mul(std::mem::size_of::<f64>()).max(1);
-    let chunk_rows = ((8 * 1024 * 1024) / bytes_per_row).clamp(1, 4096);
+    let chunk_rows =
+        (HASH_CHUNK_TARGET_BYTES / bytes_per_row).clamp(HASH_CHUNK_MIN_ROWS, HASH_CHUNK_MAX_ROWS);
     for start in (0..n).step_by(chunk_rows) {
         let end = (start + chunk_rows).min(n);
         let chunk = design
@@ -1602,6 +1685,140 @@ fn reml_fixed_glm_dispersion(likelihood: &GlmLikelihoodSpec) -> f64 {
     }
 }
 
+/// Minimum importance-sampling effective-sample fraction below which the #784
+/// block-local sampled marginalization is declined (the Monte-Carlo estimate
+/// would be noisier than the Laplace error it corrects). Auto-derived constant,
+/// not a tunable flag.
+const MIN_IMPORTANCE_ESS_FRACTION: f64 = 0.10;
+
+/// Block-local non-Gaussian-remainder target for the adaptive Laplace-to-
+/// sampling fallback (issue #784).
+///
+/// Implements [`crate::inference::hmc::BlockExcessTarget`] for the standard-GAM
+/// GLM inner loop. The fallback sampler asks this target, for each whitened
+/// block displacement `t` (coordinates in the curvature-heavy H-eigenvector
+/// subspace `V_b`), for the non-Gaussian remainder
+///
+///   ΔF(t) = F(β̂ + δ) − F(β̂) − ½ δᵀ H δ,   δ = V_b t,
+///   F(β)  = −ℓ(β) + ½ βᵀ S(ρ) β.
+///
+/// Using the mode condition `S β̂ = ∇ℓ(β̂)` and `∇²ℓ = −Xᵀ W X`, the penalty's
+/// (exactly quadratic) curvature cancels and the remainder reduces to a
+/// family-uniform expression in the deviance plus the explicit penalty score:
+///
+///   ΔF(t) = (1/2φ)[D(μ(η̂ + Xδ)) − D(μ(η̂))]   (= −[ℓ(β̂+δ) − ℓ(β̂)])
+///           + (S β̂)·δ                          (penalty-score channel)
+///           − ½ Σ_i W_i (Xδ)_i².               (likelihood-curvature subtraction)
+///
+/// `D` is the family deviance (`calculate_deviance`), so this works uniformly
+/// across every GLM family/link without per-family score code. The only place
+/// ρ appears *explicitly* (with δ held fixed in coefficient space) is the
+/// penalty-score term, giving the exact explicit ρ-gradient
+///   ∂ΔF/∂ρ_k = λ_k (S_k β̂)·δ.
+/// The implicit β̂(ρ) channel is the same envelope term the surrounding
+/// Laplace/LAML evaluator already accounts for at the mode.
+struct Gam784BlockTarget<'t> {
+    /// `X_t` (transformed-basis dense design, matching `h_total`/`solve_c_array`).
+    x_transformed: &'t Array2<f64>,
+    /// Block eigenvectors `V_b` (columns), shape `p × m`.
+    block_vecs: Array2<f64>,
+    /// Block curvatures `λ_r` (the `H_total` eigenvalues), length `m`.
+    block_lambdas: Array1<f64>,
+    /// Mode linear predictor η̂ = X_t β̂.
+    eta_hat: Array1<f64>,
+    /// Per-row observed weights `W_i` (the likelihood Hessian diagonal).
+    weights_obs: Array1<f64>,
+    /// Response y and prior weights for the deviance.
+    y: Array1<f64>,
+    prior_weights: Array1<f64>,
+    /// Family/link spec for the deviance and the inverse link.
+    likelihood: GlmLikelihoodSpec,
+    inverse_link: InverseLink,
+    /// Dispersion φ used to scale the deviance into a log-likelihood.
+    phi: f64,
+    /// Penalty scores `S_k β̂` per canonical penalty (unscaled by λ_k).
+    penalty_scores: Vec<Array1<f64>>,
+    /// `λ_k = e^{ρ_k}` per canonical penalty, aligned with `penalty_scores`.
+    lambdas: Vec<f64>,
+    /// Deviance at the base mode.
+    base_deviance: f64,
+}
+
+impl Gam784BlockTarget<'_> {
+    /// Map a whitened block displacement `t` to the coefficient displacement
+    /// `δ = V_b t` and the per-row score `s = X_t δ`.
+    fn displacement(&self, t: &Array1<f64>) -> (Array1<f64>, Array1<f64>) {
+        let delta = self.block_vecs.dot(t);
+        let s = crate::faer_ndarray::fast_av(self.x_transformed, &delta);
+        (delta, s)
+    }
+}
+
+impl crate::inference::hmc::BlockExcessTarget for Gam784BlockTarget<'_> {
+    fn block_dim(&self) -> usize {
+        self.block_lambdas.len()
+    }
+
+    fn rho_dim(&self) -> usize {
+        self.lambdas.len()
+    }
+
+    fn block_curvatures(&self) -> &Array1<f64> {
+        &self.block_lambdas
+    }
+
+    fn excess(&self, t: &Array1<f64>) -> f64 {
+        let (delta, s) = self.displacement(t);
+        // Displaced mean μ(η̂ + s) via the inverse-link jet (family-uniform).
+        let mut mu_disp = Array1::<f64>::zeros(self.eta_hat.len());
+        for i in 0..self.eta_hat.len() {
+            let eta_i = self.eta_hat[i] + s[i];
+            match crate::mixture_link::inverse_link_jet_for_inverse_link(&self.inverse_link, eta_i)
+            {
+                Ok(jet) => mu_disp[i] = jet.mu,
+                Err(_) => return f64::INFINITY,
+            }
+        }
+        let dev_disp = crate::pirls::calculate_deviance(
+            self.y.view(),
+            &mu_disp,
+            &self.likelihood,
+            self.prior_weights.view(),
+        );
+        if !dev_disp.is_finite() {
+            return f64::INFINITY;
+        }
+        // −[ℓ(β̂+δ) − ℓ(β̂)] = (1/2φ)[D_disp − D_base].
+        let neg_loglik_diff = (dev_disp - self.base_deviance) / (2.0 * self.phi);
+        // Penalty-score channel (S β̂)·δ = Σ_k λ_k (S_k β̂)·δ.
+        let mut penalty_term = 0.0_f64;
+        for (score, &lam) in self.penalty_scores.iter().zip(self.lambdas.iter()) {
+            penalty_term += lam * score.dot(&delta);
+        }
+        // Likelihood-curvature subtraction ½ Σ_i W_i s_i².
+        let mut curv = 0.0_f64;
+        for i in 0..s.len() {
+            curv += self.weights_obs[i] * s[i] * s[i];
+        }
+        neg_loglik_diff + penalty_term - 0.5 * curv
+    }
+
+    fn excess_rho_gradient(&self, t: &Array1<f64>) -> Array1<f64> {
+        let (delta, _s) = self.displacement(t);
+        let mut grad = Array1::<f64>::zeros(self.lambdas.len());
+        for (k, (score, &lam)) in self
+            .penalty_scores
+            .iter()
+            .zip(self.lambdas.iter())
+            .enumerate()
+        {
+            // ∂ΔF/∂ρ_k = λ_k (S_k β̂)·δ (the only explicit ρ-appearance).
+            grad[k] = lam * score.dot(&delta);
+        }
+        grad
+    }
+}
+
 impl<'a> RemlState<'a> {
     const POLISH_NORM_RATIO: f64 = 0.25;
 
@@ -1645,15 +1862,15 @@ impl<'a> RemlState<'a> {
         }
         let rolling_quality =
             state.quality_history.iter().sum::<f64>() / state.quality_history.len() as f64;
-        let next_step_cap = if rolling_quality < 1e-3 {
-            current_cap * 1.5
-        } else if rolling_quality < 1e-1 {
+        let next_step_cap = if rolling_quality < IFT_QUALITY_GROW_BAND {
+            current_cap * IFT_STEP_CAP_GROW_FACTOR
+        } else if rolling_quality < IFT_QUALITY_SHRINK_BAND {
             current_cap
         } else {
-            current_cap * 0.5
+            current_cap * IFT_STEP_CAP_SHRINK_FACTOR
         };
         state.next_step_cap = Some(next_step_cap);
-        state.fallback_next_flat = rolling_quality >= 0.5;
+        state.fallback_next_flat = rolling_quality >= IFT_QUALITY_FLAT_FALLBACK_BAND;
         Some(next_step_cap)
     }
 
@@ -2359,8 +2576,11 @@ impl<'a> RemlState<'a> {
             .and(c_array)
             .and(&x_y)
             .par_for_each(|o, &d, &h, &c, &xy| *o = d * h - c * xy);
-        let chunk_len = (n / (rayon::current_num_threads().saturating_mul(4).max(1)))
-            .clamp(TK_BLOCK_SIZE, 2048);
+        let chunk_len = (n
+            / (rayon::current_num_threads()
+                .saturating_mul(TK_CHUNK_OVERSUBSCRIBE)
+                .max(1)))
+        .clamp(TK_BLOCK_SIZE, TK_CHUNK_MAX_ROWS);
         let chunks = n.div_ceil(chunk_len);
         let mut p_total = (0..chunks)
             .into_par_iter()
@@ -3377,7 +3597,15 @@ impl<'a> RemlState<'a> {
         let h_factor = if let Ok(chol) = h_tk_eval.cholesky(Side::Lower) {
             HFactor::Cholesky(chol)
         } else if let Ok((evals, evecs)) = h_tk_eval.eigh(Side::Lower) {
-            if let Some((idx, ev)) = evals.iter().enumerate().find(|(_, ev)| **ev <= 1e-12) {
+            // Smallest eigenvalue at or below this floor means the effective
+            // Hessian failed positive-definiteness (Cholesky already declined),
+            // so the Tierney–Kadane Laplace correction is undefined here.
+            const TK_HESSIAN_PD_EIGENVALUE_FLOOR: f64 = 1e-12;
+            if let Some((idx, ev)) = evals
+                .iter()
+                .enumerate()
+                .find(|(_, ev)| **ev <= TK_HESSIAN_PD_EIGENVALUE_FLOOR)
+            {
                 crate::bail_invalid_estim!(
                     "Tierney-Kadane correction requires a positive definite Hessian; eigenvalue {idx} is {ev}"
                 );
@@ -3539,11 +3767,256 @@ impl<'a> RemlState<'a> {
         Ok(result)
     }
 
+    /// Build the inverse link from the runtime link state, mirroring the
+    /// dispatch in `hessian_cde_arrays`. Used by the #784 block-local sampled
+    /// marginalization to evaluate μ at displaced η.
+    fn runtime_inverse_link(&self) -> InverseLink {
+        let link_function = self.config.link_function();
+        if let Some(state) = self.runtime_mixture_link_state.clone() {
+            InverseLink::Mixture(state)
+        } else if let Some(state) = self.runtime_sas_link_state {
+            if matches!(link_function, LinkFunction::BetaLogistic) {
+                InverseLink::BetaLogistic(state)
+            } else {
+                InverseLink::Sas(state)
+            }
+        } else {
+            InverseLink::Standard(
+                StandardLink::try_from(link_function)
+                    .expect("state-bearing link without runtime state in runtime_inverse_link"),
+            )
+        }
+    }
+
+    /// Adaptive, block-local Laplace-to-sampling fallback for the inner
+    /// marginalization loop (issue #784).
+    ///
+    /// The unified evaluator summarizes the coefficient posterior by its Laplace
+    /// (Gaussian) moments. This method audits that summary per curvature
+    /// direction and, where the Gaussian approximation is *not* trustworthy,
+    /// replaces it with a sampling-based block marginal — keeping the cheap
+    /// Laplace summary everywhere else:
+    ///
+    /// 1. Run the directional cubic non-Gaussianity diagnostic on the observed
+    ///    penalized Hessian + the third-derivative weights `solve_c_array`,
+    ///    yielding per-eigendirection standardized skewness `γ_r`.
+    /// 2. Convert `γ_r` into a block-local activation set via the auto-derived
+    ///    threshold `τ(n_eff)` (no flag). The flagged eigenvectors span the
+    ///    curvature-heavy subspace `V_b`.
+    /// 3. Importance-sample the true block marginal against the local Laplace
+    ///    Gaussian (reusing the whitening) and return the additive correction
+    ///    `Δ_b` to the marginal log-likelihood, together with its consistent
+    ///    ρ-gradient, so the outer REML/LAML stays consistent.
+    ///
+    /// Returns `TkCorrectionTerms` whose `value` is added to the REML cost.
+    /// Because `Δ_b` is added to the *marginal log-likelihood* it is subtracted
+    /// from the cost, so the returned `value` is `−Δ_b` (likewise the gradient).
+    /// The gradient is laid out over the ρ coordinates and zero-extended over
+    /// external coordinates to match the unified evaluator's coordinate set in
+    /// `apply_tk_to_result`.
+    ///
+    /// A no-op (zeros) is returned for Gaussian-identity fits (Laplace is
+    /// exact), when no direction trips the threshold, or when the importance
+    /// estimate is not trustworthy (low ESS) — in which case the plain Laplace
+    /// summary is retained rather than splicing in a noisy correction.
+    ///
+    /// # Outer-consistency / continuity
+    ///
+    /// The threshold-based activation is technically discontinuous in ρ (a
+    /// direction can cross `τ` as ρ moves). That discontinuity is harmless for
+    /// the outer REML by construction: a direction crosses the threshold only
+    /// at `|γ_r| ≈ τ = sqrt((24/5)/n_eff) = O(n^{−1/2})`, so its contribution to
+    /// `Δ_b` is `O(γ_r²) = O(1/n)` — the same order as the Laplace floor error
+    /// that the criterion already carries and below the inner KKT tolerance
+    /// band. The correction value therefore vanishes continuously as a
+    /// direction approaches the threshold, so the spliced objective is
+    /// continuous to leading order and does not bias ρ selection.
+    fn block_local_sampled_correction(
+        &self,
+        rho: &Array1<f64>,
+        bundle: &EvalShared,
+        n_ext: usize,
+    ) -> Result<TkCorrectionTerms, EstimationError> {
+        use crate::inference::hmc::{
+            block_sampled_marginal_correction, laplace_directional_cubic_diagnostic,
+            laplace_trustworthiness_from_skewness,
+        };
+
+        let n_rho = self.canonical_penalties.len();
+        let zero = || TkCorrectionTerms {
+            value: 0.0,
+            gradient: Some(Array1::zeros(n_rho + n_ext)),
+            hessian: None,
+        };
+
+        // Laplace is exact for the Gaussian-identity model: nothing to correct.
+        if reml_is_gaussian_identity(&self.config.likelihood) {
+            return Ok(zero());
+        }
+        // The penalty-score channel needs one λ per canonical penalty.
+        if rho.len() != n_rho || n_rho == 0 {
+            return Ok(zero());
+        }
+
+        let pirls_result = bundle.pirls_result.as_ref();
+        // Operate in the transformed basis, where `h_total`, `solve_c_array`,
+        // `final_eta`, `finalweights`, `beta_transformed` and `x_transformed`
+        // are all mutually consistent.
+        let h_total = bundle.h_total.as_ref();
+        let c_weights = &pirls_result.solve_c_array;
+        let x_design = &pirls_result.x_transformed;
+        let p = h_total.nrows();
+        if p == 0 || c_weights.len() != x_design.nrows() {
+            return Ok(zero());
+        }
+
+        // Problem-scale gate. The non-Gaussianity diagnostic costs an O(p³)
+        // dense eigendecomposition plus O(n·p) cubic contractions, and the
+        // sampler adds O(draws · n · m) deviance work. At biobank scale that is
+        // prohibitive on every inner evaluation, and the Laplace floor error is
+        // already O(1/n) → negligible there, so the correction would be a
+        // no-op anyway. Mirror the established TK scale caps: skip the audit
+        // entirely above them and retain the (asymptotically exact) plain
+        // Laplace summary.
+        let n_obs = x_design.nrows();
+        let dense_work = n_obs.saturating_mul(p);
+        if n_obs > TK_MAX_OBSERVATIONS || p > TK_MAX_COEFFICIENTS || dense_work > TK_MAX_DENSE_WORK
+        {
+            return Ok(zero());
+        }
+
+        // Step 1: per-direction skewness diagnostic γ_r.
+        let (max_abs, directional) =
+            laplace_directional_cubic_diagnostic(h_total, x_design, c_weights)
+                .map_err(EstimationError::InvalidInput)?;
+        if !max_abs.is_finite() || max_abs == 0.0 {
+            return Ok(zero());
+        }
+
+        // Step 2: auto-derived, block-local activation. `n_eff` is the number of
+        // observations carrying curvature; using it (not the raw n) keeps the
+        // verdict tied to the actual information content.
+        let n_eff = c_weights.iter().filter(|&&c| c != 0.0).count() as f64;
+        let verdict = laplace_trustworthiness_from_skewness(&directional, n_eff);
+        if !verdict.fallback_required() {
+            return Ok(zero());
+        }
+
+        // Build the block subspace V_b from the flagged H-eigenvectors.
+        let sym_h = (h_total + &h_total.t()) * 0.5;
+        let (evals, evecs) = sym_h.eigh(Side::Lower).map_err(|e| {
+            EstimationError::InvalidInput(format!(
+                "#784 block-local fallback eigendecomposition failed: {e}"
+            ))
+        })?;
+        let mut block_cols: Vec<usize> = Vec::new();
+        for &r in &verdict.untrustworthy_directions {
+            if r < evals.len() && evals[r] > 0.0 {
+                block_cols.push(r);
+            }
+        }
+        if block_cols.is_empty() {
+            return Ok(zero());
+        }
+        let m = block_cols.len();
+        let mut block_vecs = Array2::<f64>::zeros((p, m));
+        let mut block_lambdas = Array1::<f64>::zeros(m);
+        for (j, &r) in block_cols.iter().enumerate() {
+            block_vecs.column_mut(j).assign(&evecs.column(r));
+            block_lambdas[j] = evals[r];
+        }
+
+        // Penalty scores S_k β̂ (canonical basis) and λ_k = e^{ρ_k}.
+        let beta_hat = pirls_result.beta_transformed.as_ref().clone();
+        let penalty_scores: Vec<Array1<f64>> = self
+            .canonical_penalties
+            .iter()
+            .map(|pen| transformed_penalty_matvec(pen, &beta_hat))
+            .collect();
+        let lambdas: Vec<f64> = rho.iter().map(|&r| r.exp()).collect();
+
+        // Dispersion φ used to turn deviance into log-likelihood.
+        let phi = match reml_spec(&self.config.likelihood).response {
+            ResponseFamily::Gaussian => 1.0,
+            _ => reml_fixed_glm_dispersion(&self.config.likelihood),
+        };
+        let phi = if phi.is_finite() && phi > 0.0 {
+            phi
+        } else {
+            1.0
+        };
+
+        let x_dense = x_design
+            .try_to_dense_arc("#784 block-local fallback requires dense design access")
+            .map_err(EstimationError::InvalidInput)?;
+
+        let target = Gam784BlockTarget {
+            x_transformed: x_dense.as_ref(),
+            block_vecs,
+            block_lambdas,
+            eta_hat: pirls_result.final_eta.clone(),
+            weights_obs: pirls_result.finalweights.clone(),
+            y: self.y.to_owned(),
+            prior_weights: self.weights.to_owned(),
+            likelihood: self.config.likelihood.clone(),
+            inverse_link: self.runtime_inverse_link(),
+            phi,
+            penalty_scores,
+            lambdas,
+            base_deviance: pirls_result.deviance,
+        };
+
+        let sampled =
+            block_sampled_marginal_correction(&target).map_err(EstimationError::InvalidInput)?;
+
+        // Trust gate: an importance estimate with too few effective draws is
+        // noisier than the Laplace error it is meant to correct, so we keep the
+        // plain Laplace summary rather than splicing in Monte-Carlo jitter.
+        let min_ess = (sampled.n_draws as f64 * MIN_IMPORTANCE_ESS_FRACTION).max(1.0);
+        if sampled.importance_ess < min_ess {
+            log::info!(
+                "[#784] block-local fallback declined: importance ESS {:.1} < {:.1} \
+                 (m={m} dirs, max|γ|={:.3}, τ={:.3})",
+                sampled.importance_ess,
+                min_ess,
+                verdict.max_abs_skewness,
+                verdict.threshold,
+            );
+            return Ok(zero());
+        }
+
+        log::info!(
+            "[#784] block-local sampled marginalization ENGAGED: m={m} curvature-heavy dirs, \
+             max|γ|={:.3}, τ={:.3}, Δ_b={:.4e}, ESS={:.1}/{}",
+            verdict.max_abs_skewness,
+            verdict.threshold,
+            sampled.value,
+            sampled.importance_ess,
+            sampled.n_draws,
+        );
+
+        // `Δ_b` is added to the marginal log-likelihood ⇒ subtracted from the
+        // REML cost. The gradient ∂Δ_b/∂ρ likewise enters the cost with a
+        // negative sign. Zero-extend over external coordinates.
+        let mut gradient = Array1::<f64>::zeros(n_rho + n_ext);
+        for k in 0..n_rho.min(sampled.rho_gradient.len()) {
+            gradient[k] = -sampled.rho_gradient[k];
+        }
+        Ok(TkCorrectionTerms {
+            value: -sampled.value,
+            gradient: Some(gradient),
+            hessian: None,
+        })
+    }
+
     pub(super) fn should_compute_hot_diagnostics(&self, eval_idx: u64) -> bool {
         // Keep expensive diagnostics out of the hot path unless they can
         // be surfaced. This has zero effect on optimization math.
+        // Emit on the first eval and then once every this-many evals so a long
+        // outer optimization leaves a periodic trace without flooding the log.
+        const HOT_DIAGNOSTIC_EVAL_INTERVAL: u64 = 200;
         (log::log_enabled!(log::Level::Info) || log::log_enabled!(log::Level::Warn))
-            && (eval_idx == 1 || eval_idx.is_multiple_of(200))
+            && (eval_idx == 1 || eval_idx.is_multiple_of(HOT_DIAGNOSTIC_EVAL_INTERVAL))
     }
 
     fn invalidate_link_dependent_state(&self) {
@@ -4174,7 +4647,7 @@ impl<'a> RemlState<'a> {
         let f_s = f_array.as_slice_mut().expect("f_array must be contiguous");
         f_s.par_iter_mut().enumerate().for_each(|(i, f_o)| {
             let eta_raw = final_eta[i];
-            let eta_used = eta_raw.clamp(-700.0_f64, 700.0_f64);
+            let eta_used = eta_raw.clamp(-ETA_OVERFLOW_CLAMP, ETA_OVERFLOW_CLAMP);
             if eta_raw != eta_used {
                 *f_o = 0.0;
             } else {
@@ -4185,18 +4658,30 @@ impl<'a> RemlState<'a> {
         Ok((c_array, d_array, e_array, f_array))
     }
 
-    /// Compute soft prior cost without needing workspace
+    /// Compute soft prior cost without needing workspace.
+    ///
+    /// The `log cosh` bound is evaluated at the weight-anchored coordinate
+    /// `ρ̃ = ρ − log g(w)` (see [`rho_weight_anchor`](Self::rho_weight_anchor))
+    /// so the selected λ̂ stays exactly invariant to a global prior-weight
+    /// rescale `w → c·w` (issue #877). The pure-REML optimum drifts by
+    /// `ρ̂ → ρ̂ + log c`; a barrier on *raw* ρ would then exert a different
+    /// (asymmetric) pull at the shifted optimum, breaking the invariance. The
+    /// anchor `log g(c·w) = log c + log g(w)` drifts identically to ρ̂, so the
+    /// barrier's view ρ̃ — hence its cost, gradient and curvature — is identical
+    /// at the rescaled optimum. With all weights 1 the anchor is exactly 0, so
+    /// unweighted fits stay byte-identical.
     pub(super) fn compute_soft_priorcost(&self, rho: &Array1<f64>) -> f64 {
         let len = rho.len();
         if len == 0 || RHO_SOFT_PRIOR_WEIGHT == 0.0 {
             return 0.0;
         }
 
+        let anchor = self.rho_weight_anchor();
         let inv_bound = 1.0 / RHO_BOUND;
         let sharp = RHO_SOFT_PRIOR_SHARPNESS;
         let mut cost = 0.0;
         for &ri in rho.iter() {
-            let scaled = sharp * ri * inv_bound;
+            let scaled = sharp * (ri - anchor) * inv_bound;
             cost += scaled.cosh().ln();
         }
 
@@ -4210,10 +4695,14 @@ impl<'a> RemlState<'a> {
         if len == 0 || RHO_SOFT_PRIOR_WEIGHT == 0.0 {
             return grad;
         }
+        // Anchored at `ρ̃ = ρ − log g(w)` for weight-scale invariance (issue
+        // #877); the anchor is ρ-independent so `d/dρ = d/dρ̃` and the gradient
+        // form is unchanged — only the argument shifts.
+        let anchor = self.rho_weight_anchor();
         let inv_bound = 1.0 / RHO_BOUND;
         let sharp = RHO_SOFT_PRIOR_SHARPNESS;
         for (g, &ri) in grad.iter_mut().zip(rho.iter()) {
-            let scaled = sharp * ri * inv_bound;
+            let scaled = sharp * (ri - anchor) * inv_bound;
             *g = sharp * inv_bound * scaled.tanh() * RHO_SOFT_PRIOR_WEIGHT;
         }
         grad
@@ -4232,15 +4721,20 @@ impl<'a> RemlState<'a> {
     ///                = w * a² * (1 - tanh²(a * rho_i)).
     ///
     /// The prior is separable across coordinates, so off-diagonals are zero.
+    ///
+    /// Evaluated at the weight-anchored coordinate `ρ̃ = ρ − log g(w)` for
+    /// weight-scale invariance (issue #877); the anchor is ρ-independent so the
+    /// curvature form is unchanged — only the argument shifts.
     pub(super) fn add_soft_priorhessian_in_place(&self, rho: &Array1<f64>, hess: &mut Array2<f64>) {
         let len = rho.len();
         if len == 0 || RHO_SOFT_PRIOR_WEIGHT == 0.0 {
             return;
         }
+        let anchor = self.rho_weight_anchor();
         let a = RHO_SOFT_PRIOR_SHARPNESS / RHO_BOUND;
         let prefactor = RHO_SOFT_PRIOR_WEIGHT * a * a;
         for i in 0..len {
-            let t = (a * rho[i]).tanh();
+            let t = (a * (rho[i] - anchor)).tanh();
             hess[[i, i]] += prefactor * (1.0 - t * t);
         }
     }
@@ -4297,9 +4791,18 @@ impl<'a> RemlState<'a> {
         rho: &Array1<f64>,
     ) -> super::rho_prior_eval::RhoPriorEval {
         let effective = self.effective_rho_prior();
+        // Evaluate the prior at the weight-anchored coordinate `ρ̃ = ρ − log g(w)`
+        // (see [`rho_weight_anchor`](Self::rho_weight_anchor)) so the selected λ̂
+        // is exactly invariant to a global weight rescale `w → c·w` (issue #877).
+        // The anchor is a ρ-independent constant, so d/dρ̃ = d/dρ: the returned
+        // gradient and Hessian are already correct w.r.t. ρ. For unweighted fits
+        // the anchor is 0 and `rho_eff` aliases `rho` (byte-identical behaviour).
+        let anchor = self.rho_weight_anchor();
+        let rho_anchored = (anchor != 0.0).then(|| rho.mapv(|r| r - anchor));
+        let rho_eff: &Array1<f64> = rho_anchored.as_ref().unwrap_or(rho);
         let mut eval = super::rho_prior_eval::evaluate(
             effective.as_ref(),
-            rho,
+            rho_eff,
             super::rho_prior_eval::InvalidPriorPolicy::Saturate,
         )
         .expect("Saturate policy never errors");
@@ -4330,7 +4833,7 @@ impl<'a> RemlState<'a> {
                     if !is_default {
                         continue;
                     }
-                    let r = rho[idx];
+                    let r = rho_eff[idx];
                     // Remove the plain PC contribution the engine added for this
                     // defaulted coordinate, then add the self-gated barrier.
                     let (pc_c, pc_g, pc_h) = super::rho_prior_eval::pc_prior_terms(theta, r);
@@ -4370,6 +4873,99 @@ impl<'a> RemlState<'a> {
     /// reduction to plain REML).
     fn effective_rho_prior(&self) -> std::borrow::Cow<'_, RhoPrior> {
         resolve_effective_rho_prior(&self.rho_prior)
+    }
+
+    /// ½·Σᵢ log(wᵢ) over the positive-weight rows — the per-observation
+    /// Gaussian normalization constant that the log-likelihood drops.
+    ///
+    /// `Var(yᵢ) = φ/wᵢ` under inverse-variance prior weights, so the full
+    /// weighted-Gaussian normalization is `½ Σ log(2π φ/wᵢ) =
+    /// (n/2) log(2πφ) − ½ Σ log wᵢ`; the `calculate_loglikelihood_omitting_constants`
+    /// helper omits the `−½ Σ log wᵢ` piece. The `ProfiledGaussian` REML cost
+    /// adds it back (`InnerSolution::gaussian_weight_log_sum_half`) so the
+    /// objective VALUE is exactly invariant to a global prior-weight rescale
+    /// `w → c·w`: the invariance-preserving `λ → c·λ` otherwise inflates the cost
+    /// value by `(n/2) log c`. This term only restores the *value*; it is a
+    /// ρ-independent constant and so cannot move the argmin. The *argmin*
+    /// invariance of the selected λ̂ — the substance of issue #877 — is restored
+    /// separately by [`rho_weight_anchor`](Self::rho_weight_anchor), which
+    /// evaluates the configured ρ-prior at the weight-anchored coordinate.
+    /// With all weights 1 this is exactly 0. Summed over the SAME positive-weight rows
+    /// counted in `n_observations` (zero-weight rows are dropped; `log(0)` is
+    /// undefined).
+    fn gaussian_weight_log_sum_half(&self) -> f64 {
+        0.5 * self
+            .weights
+            .iter()
+            .filter(|&&wi| wi > 0.0)
+            .map(|&wi| wi.ln())
+            .sum::<f64>()
+    }
+
+    /// Geometric-mean log-weight anchor `log g(w) = (1/n₊)·Σ log wᵢ` over the
+    /// positive-weight rows — **but only for a profiled-dispersion family**
+    /// (Gaussian-identity). Fixed-dispersion families return exactly `0`.
+    ///
+    /// The configured outer ρ-prior is evaluated at the weight-anchored
+    /// coordinate `ρ̃ = ρ − log g(w)` so that the selected λ̂ is *exactly*
+    /// invariant to a global prior-weight rescale `w → c·w` (issue #877). Under
+    /// inverse-variance weights the penalized Hessian is `XᵀWX + λS`, so the
+    /// pure-REML optimum drifts by `ρ̂ → ρ̂ + log c` while the fit (β̂, EDF,
+    /// predictions) is unchanged. A prior on *raw* ρ (e.g. the default
+    /// `Normal{0, sd}`) would then pull the optimum back by `log(c)/sd²`,
+    /// breaking the invariance — the exact defect #877 reports (λ̂ ratio 810×
+    /// not 1000×). Anchoring removes it: `log g(c·w) = log c + log g(w)` drifts
+    /// identically to ρ̂, so the prior's view `ρ̃` — hence its cost, gradient and
+    /// curvature — is identical at the rescaled optimum. The
+    /// [`gaussian_weight_log_sum_half`](Self::gaussian_weight_log_sum_half) cost
+    /// term keeps the objective *value* invariant; this keeps its *argmin*
+    /// invariant. With all weights 1 the anchor is exactly 0, so unweighted fits
+    /// (the overwhelming majority) stay byte-identical.
+    ///
+    /// # Why this is gated on profiled dispersion (issue #893)
+    ///
+    /// The drift `ρ̂ → ρ̂ + log c` and the fit-invariance it compensates are a
+    /// *profiled*-dispersion phenomenon: only when the scale φ̂ absorbs the
+    /// weight magnitude (`Var = φ/w`, φ profiled) does a global rescale leave
+    /// β̂/EDF fixed, so that the only correct response is to slide λ̂ — and the
+    /// prior must slide with it. For a **fixed-dispersion** family (φ ≡ 1:
+    /// Poisson, binomial, …) the weight has a *different* meaning entirely: a
+    /// uniform prior weight `w = c` is exact `c`-fold row replication, and
+    /// genuinely more data. Two encodings of the same data — one row with
+    /// weight `c` vs `c` literal copies — share an identical penalized deviance
+    /// `D_p` and identical `XᵀWX`, hence an identical fixed-dispersion LAML
+    /// objective `V(ρ)` and an identical pure-LAML optimum `ρ̂₀` (there is no
+    /// `log c` drift; the data and Occam terms are weighted differently, but
+    /// *identically* between the two encodings). They differ only in their
+    /// per-row log-weight mean — `log c` for the weighted row, `0` for the
+    /// replicated copies. Applying the geometric-mean anchor would therefore
+    /// evaluate the regularizing prior at *different* `ρ̃` for the two encodings
+    /// (`ρ − log c` vs `ρ`), pulling λ̂ apart and making the weighted encoding
+    /// systematically over-smooth (issue #893). The encoding-invariant choice
+    /// is anchor `0`: the prior then acts identically on both encodings (it does
+    /// not need to track the optimum — being O(1) against the O(Σwᵢ) data
+    /// curvature, it is negligible either way; what matters is that it is the
+    /// *same* for the two encodings). Concretely the only weight summary that is
+    /// invariant under `w=c ↔ c-fold replication` is the total weight `Σwᵢ`, not
+    /// the per-row geometric mean `log g(w)` or the row count `n₊`.
+    pub(crate) fn rho_weight_anchor(&self) -> f64 {
+        // Fixed-dispersion families: no profiled scale to absorb the weight
+        // magnitude, so there is no `log c` optimum drift to compensate and a
+        // nonzero anchor would break the `w=c ⇔ c-fold replication` equivalence
+        // in λ-selection (issue #893). Only Gaussian-identity is profiled here
+        // (see the `ProfiledGaussian` vs `Fixed` split in `build_*_context`).
+        if !reml_is_gaussian_identity(&self.config.likelihood) {
+            return 0.0;
+        }
+        let mut sum = 0.0;
+        let mut count = 0usize;
+        for &wi in self.weights.iter() {
+            if wi > 0.0 {
+                sum += wi.ln();
+                count += 1;
+            }
+        }
+        if count == 0 { 0.0 } else { sum / count as f64 }
     }
 
     fn compute_configured_rho_prior_cost(&self, rho: &Array1<f64>) -> f64 {
@@ -4869,6 +5465,13 @@ impl<'a> RemlState<'a> {
         let config = super::unified::BarrierConfig::from_constraints(Some(constraints))?;
         // Diagnostic: check curvature significance at a test point near bounds.
         {
+            // Place the diagnostic test point a small slack inside the feasible
+            // side of each bound, and probe the barrier curvature at unit β
+            // magnitude against a 5%-of-curvature significance threshold. These
+            // only shape the emitted trace line, not the fit.
+            const DIAGNOSTIC_BOUND_SLACK: f64 = 0.01;
+            const DIAGNOSTIC_BETA_MAGNITUDE: f64 = 1.0;
+            const DIAGNOSTIC_CURVATURE_REL_THRESHOLD: f64 = 0.05;
             let max_idx = config
                 .constrained_indices
                 .iter()
@@ -4882,9 +5485,13 @@ impl<'a> RemlState<'a> {
                 .zip(config.lower_bounds.iter())
                 .zip(config.bound_signs.iter())
             {
-                beta_test[idx] = (rhs + 0.01) / sign; // slack is 0.01 inside the feasible side
+                beta_test[idx] = (rhs + DIAGNOSTIC_BOUND_SLACK) / sign;
             }
-            let significant = config.barrier_curvature_is_significant(&beta_test, 1.0, 0.05);
+            let significant = config.barrier_curvature_is_significant(
+                &beta_test,
+                DIAGNOSTIC_BETA_MAGNITUDE,
+                DIAGNOSTIC_CURVATURE_REL_THRESHOLD,
+            );
             log::trace!(
                 "[barrier] curvature significant={significant} (tau={:.2e}, n_constrained={})",
                 config.tau,
@@ -4898,10 +5505,32 @@ impl<'a> RemlState<'a> {
         let Some(kkt) = pr.constraint_kkt.as_ref() else {
             return Ok(());
         };
+        // On a genuinely degenerate boundary face (linearly-dependent active
+        // rows), the active-row multipliers are non-unique and a strict 5e-6
+        // stationarity check is unreachable by construction. The inner
+        // active-set solver already certifies such iterates via its
+        // `degenerate_boundary_ok` clause at the relaxed
+        // `ACTIVE_SET_KKT_DEGENERATE_STATIONARITY_TOL` tolerance — without
+        // matching that here, the outer startup gate would refuse a
+        // legitimately converged constrained optimum. This relaxation is gated
+        // strictly on `working_set_rank_deficient`; it does NOT fire for
+        // `shape=concave`/`shape=convex`, whose active rows are independent
+        // coordinate lower bounds `γ_j ≥ 0` (full rank). Those converge from a
+        // strictly-interior cold seed (`project_point_strictly_into_feasible_cone`)
+        // and are held to the strict tolerance — their cold-vs-warm cache
+        // divergence (#873) was a seed problem, not a degeneracy. Primal / dual
+        // / complementarity stay on their strict tolerances; only the
+        // stationarity channel — the one mathematically unreachable on a
+        // rank-deficient face — gets the matching relaxation.
+        let stationarity_tol = if kkt.working_set_rank_deficient {
+            crate::solver::active_set::ACTIVE_SET_KKT_DEGENERATE_STATIONARITY_TOL
+        } else {
+            KKT_TOL_STAT
+        };
         if kkt.primal_feasibility > KKT_TOL_PRIMAL
             || kkt.dual_feasibility > KKT_TOL_DUAL
             || kkt.complementarity > KKT_TOL_COMP
-            || kkt.stationarity > KKT_TOL_STAT
+            || kkt.stationarity > stationarity_tol
         {
             let mut worstrow_msg = String::new();
             if let Some(lin) = pr.linear_constraints_transformed.as_ref() {
@@ -4920,11 +5549,17 @@ impl<'a> RemlState<'a> {
                 }
             }
             return Err(EstimationError::ParameterConstraintViolation(format!(
-                "KKT residuals exceed tolerance: primal={:.3e}, dual={:.3e}, comp={:.3e}, stat={:.3e}; active={}/{}{}",
+                "KKT residuals exceed tolerance: primal={:.3e}, dual={:.3e}, comp={:.3e}, stat={:.3e} (tol={:.3e}{}); active={}/{}{}",
                 kkt.primal_feasibility,
                 kkt.dual_feasibility,
                 kkt.complementarity,
                 kkt.stationarity,
+                stationarity_tol,
+                if kkt.working_set_rank_deficient {
+                    ", degenerate face"
+                } else {
+                    ""
+                },
                 kkt.n_active,
                 kkt.n_constraints,
                 worstrow_msg
@@ -5773,12 +6408,16 @@ impl<'a> RemlState<'a> {
             return Some((cur_beta, WarmStartPredictionSource::Flat));
         }
         // d_rho = ρ_k − ρ_{k-1}; step_rho = ρ_new − ρ_k.
+        // Squared-norm floor (≈1e-12 in ‖Δρ‖) below which the previous ρ-step is
+        // treated as a degenerate/zero-length direction the tangent predictor
+        // cannot extrapolate along.
+        const DEGENERATE_DRHO_NORM_SQ: f64 = 1e-24;
         let d_rho_norm_sq: f64 = cur_rho
             .iter()
             .zip(prev_rho.iter())
             .map(|(c, p)| (c - p) * (c - p))
             .sum();
-        if !d_rho_norm_sq.is_finite() || d_rho_norm_sq <= 1e-24 {
+        if !d_rho_norm_sq.is_finite() || d_rho_norm_sq <= DEGENERATE_DRHO_NORM_SQ {
             // Degenerate Δρ direction (the previous ρ-step had zero or
             // unfinite length). Diagnostic rather than bug: this fires
             // when the outer optimizer landed on a flat region or the
@@ -7026,6 +7665,18 @@ impl<'a> RemlState<'a> {
 /// is available yet (the first PIRLS solve at a fresh surface).
 const IFT_WARM_START_DEFAULT_MAX_DRHO: f64 = 2.0;
 
+/// Shared relative-residual tier breakpoints for the warm-start linear
+/// predictors. `r = ‖β_converged − β_predicted‖ / ‖β_converged‖` from the
+/// previous IFT prediction classifies the local linearization quality into
+/// five bands; both `adaptive_ift_max_drho` and `adaptive_tangent_alpha_cap`
+/// key off the SAME breakpoints so their caps move in lockstep (the two
+/// predictors share one quality signal). One step per decade of residual keeps
+/// the policy stable under noise.
+const IFT_RESIDUAL_TIER_EXCELLENT: f64 = 0.01;
+const IFT_RESIDUAL_TIER_VERY_GOOD: f64 = 0.05;
+const IFT_RESIDUAL_TIER_OK: f64 = 0.20;
+const IFT_RESIDUAL_TIER_MARGINAL: f64 = 0.50;
+
 /// Adaptive |Δρ| cap for the IFT predictor, driven by the residual of
 /// the previous IFT prediction (see `last_ift_prediction_residual`).
 ///
@@ -7061,10 +7712,10 @@ fn adaptive_ift_max_drho(last_residual: Option<f64>) -> f64 {
         return IFT_WARM_START_DEFAULT_MAX_DRHO;
     }
     match r {
-        r if r < 0.01 => 4.0,
-        r if r < 0.05 => 3.0,
-        r if r < 0.20 => 2.0,
-        r if r < 0.50 => 1.0,
+        r if r < IFT_RESIDUAL_TIER_EXCELLENT => 4.0,
+        r if r < IFT_RESIDUAL_TIER_VERY_GOOD => 3.0,
+        r if r < IFT_RESIDUAL_TIER_OK => 2.0,
+        r if r < IFT_RESIDUAL_TIER_MARGINAL => 1.0,
         _ => 0.5,
     }
 }
@@ -7110,10 +7761,10 @@ fn adaptive_tangent_alpha_cap(last_residual: Option<f64>) -> f64 {
         return TANGENT_ALPHA_DEFAULT_CAP;
     }
     match r {
-        r if r < 0.01 => 2.0,
-        r if r < 0.05 => 1.75,
-        r if r < 0.20 => 1.5,
-        r if r < 0.50 => 1.0,
+        r if r < IFT_RESIDUAL_TIER_EXCELLENT => 2.0,
+        r if r < IFT_RESIDUAL_TIER_VERY_GOOD => 1.75,
+        r if r < IFT_RESIDUAL_TIER_OK => 1.5,
+        r if r < IFT_RESIDUAL_TIER_MARGINAL => 1.0,
         _ => 0.5,
     }
 }
@@ -7211,19 +7862,34 @@ pub(crate) fn adaptive_lm_lambda_hint(
     last_iters: usize,
     last_converged: bool,
 ) -> Option<f64> {
+    // Iteration-count boundaries that classify the previous PIRLS solve's
+    // conditioning regime.
+    const NEWTON_FRIENDLY_MAX_ITERS: usize = 2;
+    const HARD_FIT_MIN_ITERS: usize = 10;
+    // Per-regime adaptive clamp bands for the cached LM damping hint (see the
+    // doc comment): Newton-friendly relaxes down to the LM-internal floor, a
+    // hard fit preserves the heavy-damping signal up to gradient-descent, and
+    // the default reproduces the historical static `[1e-6, 1e-3]` clamp.
+    const NEWTON_LAMBDA_FLOOR: f64 = 1e-9;
+    const NEWTON_LAMBDA_CEILING: f64 = 1e-3;
+    const HARD_FIT_LAMBDA_FLOOR: f64 = 1e-3;
+    const HARD_FIT_LAMBDA_CEILING: f64 = 1.0;
+    const DEFAULT_LAMBDA_FLOOR: f64 = 1e-6;
+    const DEFAULT_LAMBDA_CEILING: f64 = 1e-3;
     if !cached_lambda.is_finite() || cached_lambda <= 0.0 {
         return None;
     }
     if last_iters == 0 && !last_converged {
         return None;
     }
-    let (floor, ceiling) = if last_converged && (1..=2).contains(&last_iters) {
-        (1e-9_f64, 1e-3_f64)
-    } else if !last_converged || last_iters >= 10 {
-        (1e-3_f64, 1.0_f64)
-    } else {
-        (1e-6_f64, 1e-3_f64)
-    };
+    let (floor, ceiling) =
+        if last_converged && (1..=NEWTON_FRIENDLY_MAX_ITERS).contains(&last_iters) {
+            (NEWTON_LAMBDA_FLOOR, NEWTON_LAMBDA_CEILING)
+        } else if !last_converged || last_iters >= HARD_FIT_MIN_ITERS {
+            (HARD_FIT_LAMBDA_FLOOR, HARD_FIT_LAMBDA_CEILING)
+        } else {
+            (DEFAULT_LAMBDA_FLOOR, DEFAULT_LAMBDA_CEILING)
+        };
     Some(cached_lambda.clamp(floor, ceiling))
 }
 
@@ -7688,6 +8354,38 @@ impl<'a> RemlState<'a> {
                 t_eval_start.elapsed().as_secs_f64() * 1000.0
             );
             return Ok(eval.cost);
+        }
+        // Cost-order short-circuit (#778). The configured/soft ρ-prior cost is
+        // the *cheapest* additive term in the objective — `O(K)`, a function of
+        // ρ alone, with no dependence on the inner P-IRLS solve. The unified
+        // evaluator forms the final cost as
+        //   V(ρ) = data_term(ρ) + prior_cost(ρ) + barrier_cost(β̂),
+        // where `data_term` (the inner solve + the `O(K³)` penalty/Hessian
+        // log-determinants) is the dominant cost and is always finite for a
+        // feasible inner solve, while `prior_cost` saturates to `+∞` whenever ρ
+        // leaves the prior's support (Saturate policy, see
+        // `evaluate_configured_rho_prior`). When the cheap prior term is already
+        // non-finite the sum is `+∞` regardless of the data term, so the outer
+        // optimizer will reject this step — evaluate it first and return `+∞`
+        // without paying for the inner P-IRLS solve or the log-determinant
+        // assembly. This is exact, not an approximation: it reproduces the value
+        // the full path would return (`build_prior` adds the identical
+        // `compute_soft_priorcost(ρ) + compute_configured_rho_prior_cost(ρ)`).
+        let prior_cost = self.compute_soft_priorcost(p) + self.compute_configured_rho_prior_cost(p);
+        if !prior_cost.is_finite() {
+            log::debug!(
+                "[REML] eval#{} prior short-circuit | prior_cost {:.6e} | rejecting step \
+                 without inner solve | elapsed {:.1}ms",
+                cost_call_idx,
+                prior_cost,
+                t_eval_start.elapsed().as_secs_f64() * 1000.0
+            );
+            // Out-of-support ρ saturates the prior to `+∞` (never `−∞`/`NaN`,
+            // since the soft prior is finite and non-negative and the configured
+            // prior's Saturate policy folds to `+∞`); return the `+∞` retreat
+            // signal explicitly to match the `obtain_eval_bundle` failure paths
+            // below that also return `f64::INFINITY` on an infeasible step.
+            return Ok(f64::INFINITY);
         }
         let t_pirls = std::time::Instant::now();
         let bundle = match self.obtain_eval_bundle(p) {
@@ -9188,6 +9886,21 @@ impl<'a> RemlState<'a> {
         if n < ALO_STABILIZATION_MIN_N {
             return Ok(None);
         }
+        // Suppress the stabilizer on near-saturated / over-parameterized designs
+        // (e.g. small-n tensor-product `te()` whose marginal-product column count
+        // rivals n). There leverage is high for *every* row from basis geometry,
+        // not from a few influential observations, so the augmentation can never
+        // clear its own leverage gate and instead leaves a near-flat ill-
+        // conditioned ridge on the outer surface that the optimizer crawls to its
+        // iteration cap (#813 / #821). This check is cheap (one scalar ratio) and
+        // is intentionally placed *before* `compute_alo_diagnostics_from_pirls`,
+        // so the per-outer-evaluation dense Hessian factorization and n column
+        // solves the diagnostics require are skipped entirely in this regime —
+        // restoring `te()` to the same per-eval cost profile as `duchon`/`matern`.
+        let edf = bundle.pirls_result.edf;
+        if edf.is_finite() && edf > ALO_EDF_FRACTION_SATURATION * (n as f64) {
+            return Ok(None);
+        }
         let alo = crate::inference::alo::compute_alo_diagnostics_from_pirls(
             bundle.pirls_result.as_ref(),
             self.y,
@@ -9207,6 +9920,35 @@ impl<'a> RemlState<'a> {
         if max_leverage < ALO_MAX_LEVERAGE_THRESHOLD
             && min_denominator > ALO_DENOM_INSTABILITY_THRESHOLD
         {
+            return Ok(None);
+        }
+        if self.high_leverage_is_pure_parametric(&alo.leverage, bundle.pirls_result.as_ref())? {
+            return Ok(None);
+        }
+
+        // Pervasiveness guard. The stabilizer is designed for a *minority* of
+        // genuinely influential rows on an identified design; there the leverage
+        // barrier `Σ(h_i − 0.80)₊²` can be cleared by a modest λ bump that the
+        // REML criterion tolerates, and the augmented surface stays well-
+        // conditioned. When instead a *large fraction* of rows clears the
+        // leverage threshold, the high leverage is a basis-geometry artifact of a
+        // near-interpolating tensor-product `te()` basis (every local B-spline
+        // cell carries one or two near-interpolated rows), not outliers: no
+        // finite λ can pull all of them below 0.80, so the barrier turns the
+        // outer surface into a near-flat ill-conditioned ridge that the optimizer
+        // crawls to its iteration cap (the #821 "cost decreasing ~1e-4 per step
+        // over thousands of evals" signature). RKHS smooths (`duchon`/`matern`)
+        // spread leverage globally and keep this fraction near zero on identical
+        // data — which is precisely why they were fast while `te()` was not.
+        // Suppressing the augmentation here returns `te()` to the plain REML
+        // surface (which already controls λ) and to the others' convergence
+        // profile, while leaving every concentrated-outlier fit fully stabilized.
+        let n_high_leverage = alo
+            .leverage
+            .iter()
+            .filter(|&&h| h > ALO_MAX_LEVERAGE_THRESHOLD)
+            .count();
+        if (n_high_leverage as f64) > ALO_PERVASIVE_LEVERAGE_FRACTION * (n as f64) {
             return Ok(None);
         }
 
@@ -9284,7 +10026,37 @@ impl<'a> RemlState<'a> {
             && n.saturating_mul(bundle.pirls_result.beta_transformed.as_ref().len())
                 <= ALO_GRADIENT_MAX_WORK
         {
-            self.alo_stabilization_gradient(rho, bundle, &alo, &influence_scale, phi)?
+            // Factor the stabilized penalized Hessian and form H⁻¹Xᵀ exactly once
+            // here, then hand the factor + solve to the gradient. The leverage
+            // diagnostics above already factored the same matrix internally, so
+            // recomputing dense X + a fresh Cholesky + the H⁻¹Xᵀ solve inside the
+            // gradient is a full duplicate O(np² + p³) per outer evaluation —
+            // the dominant per-eval cost once ALO engages on small-n smooth+linear
+            // fits (#862). One factorization feeds both the value and the gradient.
+            let x = bundle.pirls_result.x_transformed.to_dense();
+            match bundle
+                .pirls_result
+                .dense_stabilizedhessian_transformed("ALO-stabilized REML gradient")?
+                .cholesky(Side::Lower)
+            {
+                Ok(chol) => {
+                    let mut h_inv_xt = x.t().to_owned();
+                    chol.solve_mat_in_place(&mut h_inv_xt);
+                    self.alo_stabilization_gradient(
+                        rho,
+                        bundle,
+                        &alo,
+                        &influence_scale,
+                        phi,
+                        &AloFactoredHessian {
+                            x: &x,
+                            chol: &chol,
+                            h_inv_xt: &h_inv_xt,
+                        },
+                    )?
+                }
+                Err(_) => None,
+            }
         } else {
             None
         };
@@ -9297,6 +10069,119 @@ impl<'a> RemlState<'a> {
         }))
     }
 
+    fn high_leverage_is_pure_parametric(
+        &self,
+        alo_leverage: &Array1<f64>,
+        pirls_result: &PirlsResult,
+    ) -> Result<bool, EstimationError> {
+        let pure_parametric_cols = self.pure_parametric_column_indices();
+        if pure_parametric_cols.len() <= 1 {
+            return Ok(false);
+        }
+        let high_rows: Vec<usize> = alo_leverage
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, &h)| (h > ALO_MAX_LEVERAGE_THRESHOLD).then_some(idx))
+            .collect();
+        if high_rows.is_empty() {
+            return Ok(false);
+        }
+        let parametric_leverage =
+            self.pure_parametric_projection_leverage(&pure_parametric_cols, pirls_result)?;
+        let all_high_rows_parametric = high_rows.iter().all(|&idx| {
+            let h = alo_leverage[idx];
+            let hp = parametric_leverage[idx];
+            hp >= ALO_MAX_LEVERAGE_THRESHOLD && hp >= ALO_PARAMETRIC_LEVERAGE_SHARE * h
+        });
+        if all_high_rows_parametric {
+            log::info!(
+                "[ALO-STABILIZED-REML] suppressed: {} high-leverage rows are explained by {} pure-parametric columns",
+                high_rows.len(),
+                pure_parametric_cols.len(),
+            );
+        }
+        Ok(all_high_rows_parametric)
+    }
+
+    fn pure_parametric_column_indices(&self) -> Vec<usize> {
+        let mut covered_by_penalty = vec![false; self.p];
+        for penalty in self.canonical_penalties.iter() {
+            for col in penalty.col_range.clone() {
+                if col < self.p {
+                    covered_by_penalty[col] = true;
+                }
+            }
+        }
+        covered_by_penalty
+            .iter()
+            .enumerate()
+            .filter_map(|(col, &covered)| (!covered).then_some(col))
+            .collect()
+    }
+
+    fn pure_parametric_projection_leverage(
+        &self,
+        cols: &[usize],
+        pirls_result: &PirlsResult,
+    ) -> Result<Array1<f64>, EstimationError> {
+        let x_dense = match self
+            .x
+            .try_to_dense_arc("ALO pure-parametric activation gate requires dense design")
+        {
+            Ok(x_dense) => x_dense,
+            Err(reason) => {
+                log::debug!("[ALO-STABILIZED-REML] pure-parametric gate skipped: {reason}");
+                return Ok(Array1::<f64>::zeros(pirls_result.finalweights.len()));
+            }
+        };
+        let n = x_dense.nrows();
+        if n != pirls_result.finalweights.len() || cols.iter().any(|&col| col >= x_dense.ncols()) {
+            crate::bail_invalid_estim!(
+                "ALO pure-parametric activation gate received inconsistent dimensions"
+            );
+        }
+        let q = cols.len();
+        let mut gram = Array2::<f64>::zeros((q, q));
+        for i in 0..n {
+            let wi = pirls_result.finalweights[i];
+            if !wi.is_finite() || wi <= 0.0 {
+                return Ok(Array1::<f64>::zeros(n));
+            }
+            for (a, &ca) in cols.iter().enumerate() {
+                let xa = x_dense[[i, ca]];
+                for (b, &cb) in cols.iter().take(a + 1).enumerate() {
+                    gram[[a, b]] += wi * xa * x_dense[[i, cb]];
+                }
+            }
+        }
+        for a in 0..q {
+            for b in 0..a {
+                gram[[b, a]] = gram[[a, b]];
+            }
+        }
+        let factor = match StableSolver::new("ALO pure-parametric activation gate").factorize(&gram)
+        {
+            Ok(factor) => factor,
+            Err(_) => return Ok(Array1::<f64>::zeros(n)),
+        };
+        let mut gram_inv = Array2::<f64>::eye(q);
+        let mut gram_inv_view = array2_to_matmut(&mut gram_inv);
+        factor.solve_in_place(gram_inv_view.as_mut());
+        let mut leverage = Array1::<f64>::zeros(n);
+        for i in 0..n {
+            let wi = pirls_result.finalweights[i];
+            let mut h = 0.0;
+            for (a, &ca) in cols.iter().enumerate() {
+                let xa = x_dense[[i, ca]];
+                for (b, &cb) in cols.iter().enumerate() {
+                    h += xa * gram_inv[[a, b]] * x_dense[[i, cb]];
+                }
+            }
+            leverage[i] = (wi * h).max(0.0);
+        }
+        Ok(leverage)
+    }
+
     /// Analytic ρ-gradient of the ALO augmentation.
     ///
     /// The augmentation is `C(ρ) = Σ_i [ τ·b(h_i(ρ)) + γ·s_i·w_i·(y_i −
@@ -9307,6 +10192,10 @@ impl<'a> RemlState<'a> {
     /// The base REML analytic Hessian is reused unchanged as the second-order
     /// model for ARC's adaptive cubic regularization (the ratio test runs on
     /// the exact augmented cost+gradient produced here).
+    ///
+    /// The stabilized-Hessian factorization is supplied via `factored` — the
+    /// value path factors the same matrix once and shares it here, so the
+    /// gradient adds no extra dense factorization (#862).
     fn alo_stabilization_gradient(
         &self,
         rho: &Array1<f64>,
@@ -9314,17 +10203,9 @@ impl<'a> RemlState<'a> {
         alo: &crate::inference::alo::AloDiagnostics,
         influence_scale: &[f64],
         phi: f64,
+        factored: &AloFactoredHessian<'_>,
     ) -> Result<Option<Array1<f64>>, EstimationError> {
-        let x = bundle.pirls_result.x_transformed.to_dense();
-        let h = bundle
-            .pirls_result
-            .dense_stabilizedhessian_transformed("ALO-stabilized REML gradient")?;
-        let chol = match h.cholesky(Side::Lower) {
-            Ok(chol) => chol,
-            Err(_) => return Ok(None),
-        };
-        let mut h_inv_xt = x.t().to_owned();
-        chol.solve_mat_in_place(&mut h_inv_xt);
+        let &AloFactoredHessian { x, chol, h_inv_xt } = factored;
         let beta = bundle.pirls_result.beta_transformed.as_ref();
         let k = rho.len();
         let nrows = x.nrows();
@@ -9431,8 +10312,10 @@ impl<'a> RemlState<'a> {
         let tk_terms = self.tierney_kadane_terms(rho, bundle, mode, &assembly.ext_coords)?;
         let trace_state = self.hypergradient_trace_state();
         Self::reset_hypergradient_trace_telemetry(&trace_state);
+        let assembly_ext_len = assembly.ext_coords.len();
         let mut inner_solution = assembly.build();
         inner_solution.stochastic_trace_state = trace_state;
+        inner_solution.gaussian_weight_log_sum_half = self.gaussian_weight_log_sum_half();
         let solution_beta = inner_solution.beta.clone();
         let result = super::assembly::evaluate_solution(
             &inner_solution,
@@ -9442,6 +10325,14 @@ impl<'a> RemlState<'a> {
         )
         .map_err(EstimationError::InvalidInput)?;
         let result = self.apply_tk_to_result(result, tk_terms)?;
+        // Adaptive, block-local Laplace-to-sampling fallback (issue #784): where
+        // a curvature direction is too non-Gaussian for the Laplace summary,
+        // splice in the importance-sampled block marginal correction. Reuses
+        // the same value+gradient splicing contract as the TK correction so the
+        // outer REML/LAML stays consistent. A no-op when every direction is
+        // Laplace-trustworthy.
+        let block_terms = self.block_local_sampled_correction(rho, bundle, assembly_ext_len)?;
+        let result = self.apply_tk_to_result(result, block_terms)?;
         let result = self.apply_alo_stabilization_to_result(rho, bundle, mode, result)?;
         self.store_ift_mode_response_cache_from_result(rho, bundle, &result);
         if let Some(polish_step) = result.inner_polish_step.as_ref() {
@@ -9471,7 +10362,9 @@ impl<'a> RemlState<'a> {
         let eval_mode = super::unified::EvalMode::ValueAndGradient;
         self.validate_tk_ext_coords(eval_mode, &assembly.ext_coords)?;
         let tk_terms = self.tierney_kadane_terms(rho, bundle, eval_mode, &assembly.ext_coords)?;
-        let inner_solution = assembly.build();
+        let assembly_ext_len = assembly.ext_coords.len();
+        let mut inner_solution = assembly.build();
+        inner_solution.gaussian_weight_log_sum_half = self.gaussian_weight_log_sum_half();
         let inner_hessian_scale =
             super::unified::hessian_operator_geometric_scale(inner_solution.hessian_op.as_ref());
 
@@ -9484,6 +10377,14 @@ impl<'a> RemlState<'a> {
         )
         .map_err(EstimationError::InvalidInput)?;
         let cost_result = self.apply_tk_to_result(cost_result, tk_terms)?;
+        // Fold the #784 adaptive block-local Laplace-to-sampling correction into
+        // the EFS objective too, so the EFS fixed-point and the BFGS/Newton path
+        // (`assemble_and_evaluate`) optimize the SAME marginal-likelihood
+        // surface. The correction enters through the gradient channel exactly
+        // like TK, which the universal EFS step already folds in. No-op when no
+        // direction is non-Gaussian.
+        let block_terms = self.block_local_sampled_correction(rho, bundle, assembly_ext_len)?;
+        let cost_result = self.apply_tk_to_result(cost_result, block_terms)?;
         // Augment with the ALO stabilization term BEFORE the gradient is read,
         // so the EFS step (which is driven by `cost_result.gradient` and
         // `cost_result.cost`) targets the same stabilized stationarity equation

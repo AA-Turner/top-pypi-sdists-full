@@ -37,6 +37,13 @@ class MethodExtractionExtractDirective(betterproto2.Enum):
     empty, an empty Struct will be extracted.
     """
 
+    EXTRACT_REPEATED_CARDINALITY = 3
+    """
+    Extract a repeated top-level field and record its number of entries in
+    the extraction result. Can be applied to at most one field in the
+    response, and cannot be applied to any fields in the request.
+    """
+
 
 class ProtoMessageExtractionConfigExtractMode(betterproto2.Enum):
     ExtractMode_UNSPECIFIED = 0

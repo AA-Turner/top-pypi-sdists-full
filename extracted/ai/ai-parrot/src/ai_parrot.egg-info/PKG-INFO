@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.25.7
+Version: 0.25.8
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -179,7 +179,7 @@ Requires-Dist: branca==0.8.2; extra == "agents-lite"
 Requires-Dist: opensearch-py==3.1.0; extra == "agents-lite"
 Provides-Extra: mcp
 Requires-Dist: google-genai>=2.6.0; extra == "mcp"
-Requires-Dist: openai==2.8.1; extra == "mcp"
+Requires-Dist: openai==2.41.0; extra == "mcp"
 Requires-Dist: yfinance==0.2.54; extra == "mcp"
 Requires-Dist: youtube_search==2.1.2; extra == "mcp"
 Requires-Dist: wikipedia==1.4.0; extra == "mcp"
@@ -221,11 +221,13 @@ Requires-Dist: transformers<5.0,>=4.48.0; extra == "images"
 Requires-Dist: ffmpeg==1.4; extra == "images"
 Requires-Dist: ipywidgets==8.1.0; extra == "images"
 Provides-Extra: anthropic
-Requires-Dist: anthropic[aiohttp]<1.0.0,>=0.105.0; extra == "anthropic"
+Requires-Dist: anthropic[aiohttp]<1.0.0,>=0.109.0; extra == "anthropic"
+Provides-Extra: bedrock
+Requires-Dist: anthropic[aiohttp,aws]<1.0.0,>=0.109.0; extra == "bedrock"
 Provides-Extra: claude-agent
 Requires-Dist: claude-agent-sdk>=0.1.68; extra == "claude-agent"
 Provides-Extra: openai
-Requires-Dist: openai==2.8.1; extra == "openai"
+Requires-Dist: openai==2.41.0; extra == "openai"
 Requires-Dist: tiktoken==0.9.0; extra == "openai"
 Provides-Extra: google
 Requires-Dist: google-api-python-client<=2.177.0,>=2.166.0; extra == "google"
@@ -238,9 +240,9 @@ Provides-Extra: zai
 Requires-Dist: zai-sdk>=0.2.2; extra == "zai"
 Provides-Extra: llms
 Requires-Dist: google-genai>=2.6.0; extra == "llms"
-Requires-Dist: openai==2.8.1; extra == "llms"
+Requires-Dist: openai==2.41.0; extra == "llms"
 Requires-Dist: groq==0.33.0; extra == "llms"
-Requires-Dist: anthropic[aiohttp]<1.0.0,>=0.105.0; extra == "llms"
+Requires-Dist: ai-parrot[anthropic,bedrock]; extra == "llms"
 Requires-Dist: claude-agent-sdk>=0.1.68; extra == "llms"
 Requires-Dist: xai-sdk>=0.1.0; extra == "llms"
 Requires-Dist: zai-sdk>=0.2.2; extra == "llms"

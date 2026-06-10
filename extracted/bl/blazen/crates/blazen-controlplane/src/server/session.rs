@@ -46,6 +46,7 @@ const OUTBOUND_BUFFER: usize = 64;
 /// underlying transport reports a recv error before the handshake.
 pub async fn handle_worker_session(
     shared: Arc<SharedState>,
+    identity: Option<crate::auth::PeerIdentity>,
     mut incoming: Streaming<PostcardRequest>,
 ) -> Result<Response<PostcardResponseStream>, Status> {
     // Peek the first frame — must be a Hello.
@@ -67,6 +68,19 @@ pub async fn handle_worker_session(
     validate_envelope_version(hello.envelope_version)
         .map_err(|e| Status::failed_precondition(e.to_string()))?;
 
+    // Resolve the worker's place. The server-derived identity WINS over
+    // the worker's self-reported `hello.place` (anti-spoof). Fall back to
+    // the hello's place, then to the default place.
+    let place = identity.as_ref().map_or_else(
+        || {
+            hello
+                .place
+                .clone()
+                .unwrap_or_else(|| crate::protocol::DEFAULT_PLACE.to_string())
+        },
+        |id| id.place.clone(),
+    );
+
     // Build outbound channel and register.
     let (outbound_tx, outbound_rx) = mpsc::channel::<ServerToWorker>(OUTBOUND_BUFFER);
     let capabilities = hello.capabilities.iter().map(Into::into).collect();
@@ -78,6 +92,7 @@ pub async fn handle_worker_session(
         .collect();
     let session_id = shared.registry.register(
         hello.node_id.clone(),
+        place.clone(),
         capabilities,
         hello.tags.clone(),
         (&hello.admission).into(),
@@ -107,7 +122,7 @@ pub async fn handle_worker_session(
     let cap_vec: Vec<_> = hello.capabilities.iter().map(Into::into).collect();
     shared
         .queue
-        .try_drain_for(&cap_vec, &shared.registry, &shared.admission)
+        .try_drain_for(&place, &cap_vec, &shared.registry, &shared.admission)
         .await;
 
     // Spawn inbound pump: read WorkerToServer frames, update registry / queue.
@@ -198,6 +213,77 @@ async fn handle_worker_frame(shared: &Arc<SharedState>, session_id: Uuid, frame:
             // Offered immediately without awaiting a response — when the
             // retry loop lands, this is where the decision gets delivered.
         }
+        WorkerToServer::KeyRequest(req) => {
+            handle_key_request(shared, session_id, req).await;
+        }
+    }
+}
+
+/// Resolve a worker's [`crate::protocol::KeyRequest`] against the
+/// per-place [`crate::server::key_store::KeyStore`] and reply with a
+/// [`ServerToWorker::KeyResponse`] on the worker's outbound channel.
+///
+/// The place is ALWAYS the worker session's server-authenticated place
+/// (read from the registry handle) — never a place the worker named — so
+/// one tenant can never fetch another's key. An unknown session, an
+/// unbrokered provider, or a store error all resolve to `key: None`; the
+/// worker then falls through to the next link in its resolver chain. The
+/// key value is never logged (the [`crate::protocol::KeyResponse`] frame
+/// redacts it in `Debug`).
+async fn handle_key_request(
+    shared: &Arc<SharedState>,
+    session_id: Uuid,
+    req: crate::protocol::KeyRequest,
+) {
+    // Look up the worker's authenticated place + outbound channel by
+    // session id. A vanished session (worker raced a disconnect) → drop.
+    let Some(handle) = shared.registry.get(session_id) else {
+        tracing::debug!(
+            session_id = %session_id,
+            "KeyRequest for unknown session; dropping"
+        );
+        return;
+    };
+
+    let key = match shared.key_store.get_key(&handle.place, &req.provider).await {
+        Ok(found) => found,
+        Err(e) => {
+            // Never include the key (there is none on this path) or place
+            // secrets in the log; surface only the provider + error.
+            tracing::warn!(
+                session_id = %session_id,
+                provider = %req.provider,
+                error = %e,
+                "key store lookup failed; replying with no key"
+            );
+            None
+        }
+    };
+
+    // Split SharedKey into the wire fields. `None` (unbrokered/unknown
+    // provider) yields `key: None` with default cache metadata.
+    let (key_value, ttl_secs, version) = match key {
+        Some(sk) => (Some(sk.value), sk.ttl_secs, sk.version),
+        None => (None, None, 0),
+    };
+
+    let response = ServerToWorker::KeyResponse(crate::protocol::KeyResponse {
+        envelope_version: ENVELOPE_VERSION,
+        request_id: req.request_id,
+        key: key_value,
+        ttl_secs,
+        version,
+    });
+
+    // Best-effort send — a full/closed outbound channel means the worker
+    // is gone or backed up; the worker will re-request on its next
+    // pre-warm. Never log the response (it carries the key).
+    if handle.outbound.send(response).await.is_err() {
+        tracing::debug!(
+            session_id = %session_id,
+            provider = %req.provider,
+            "worker outbound closed before KeyResponse could be sent"
+        );
     }
 }
 

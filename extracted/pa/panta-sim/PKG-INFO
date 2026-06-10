@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: panta-sim
-Version: 0.8.22
-Classifier: Development Status :: 3 - Alpha
+Version: 1.4.0
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -52,9 +52,16 @@ Project-URL: Repository, https://github.com/quantumfia/quantum-sim
 [![License: MIT](https://img.shields.io/pypi/l/panta-sim.svg)](https://github.com/quantumfia/quantum-sim/blob/main/LICENSE)
 
 풀 Rust 코어 + Python 바인딩으로 작성한 양자 회로 시뮬레이터.
-Full state vector + density matrix + cross-platform GPU (wgpu) 지원.
+Full state vector + density matrix + MPS + stabilizer + tensor-network +
+cross-platform GPU (wgpu) 지원.  **v1.0+ 안정 API** (semver, `docs/api-stability.md`).
+
+> **Qiskit Aer 대비 bit-exact + 전 영역 추월** (검증): dense statevector(gate
+> fusion 으로 N≥20 에서 Aer 추월), stabilizer(~40×), MPS(~5×).
+> `examples/benchmarks/vs_aer.py` 참조.
 
 - **Rust 코어**: `num-complex` 기반 상태 벡터, qubit-wise multiplication
+- **gate fusion (v1.1~v1.3)**: 연속 1q + 1q→2q 흡수로 statevector sweep 감소 →
+  dense 에서 **Aer 추월** (bit-exact 유지)
 - **멀티스레드**: rayon 으로 게이트 적용 병렬화 (v0.2.0~), Python GIL 해제
 - **f32/f64 정밀도 선택** (v0.2.1~): `qc.run(precision="f32")` 로 메모리 50% 절감
 - **OpenQASM 2.0/3.0** import / export (v0.3.0~), 트랜스파일러 (Z-Y-Z 분해)
@@ -96,11 +103,18 @@ Full state vector + density matrix + cross-platform GPU (wgpu) 지원.
   상태 (Qiskit 교차검증, 전 백엔드 호환).
 - **CX-basis transpile 패스 (v0.8.3~)**: `qc.transpile_to_basis("cx")` — 모든
   2/3-큐비트 게이트를 CX + 1q 로 자동 분해 (하드웨어 타깃).
-- **RCS / Linear XEB 벤치마크 (v0.8.1~)**: `random_circuit` / `linear_xeb` /
-  `xeb_ideal` (Google supremacy-style cross-entropy benchmarking).
-- **검증**: 1430+ pytest + cargo test, Qiskit cross-check 1e-9~1e-10
-  (`StabilizerState` / `Operator.equiv` / `expectation_value` / `QFT` 포함),
-  wgpu vs CPU 1e-5 (f32 한계)
+- **Pauli propagation (Heisenberg, v1.1~v1.3)**: `qc.expectation(H,
+  method="pauli_propagation", pp_threshold=, pp_depolarizing=)` — 관측량을 역전파해
+  `⟨0|U†HU|0⟩` 추정.  weighted Pauli 합 표현이라 **얽힘 무관** (TN 보완재) → 큰 N ·
+  저 비-Clifford (VQE/동역학, 예: 100큐비트 TFIM `⟨Z⟩`).  swap/iswap/cy/ccx/cswap,
+  **depolarizing 노이즈** (density `Tr(ρH)` 1e-15 일치), Monte-Carlo 무편향 변형
+  (`pauli_propagation_expectation_mc`).  arXiv:2505.21606.
+- **RCS / Linear·Noisy XEB 벤치마크 (v0.8.1~)**: `random_circuit` / `linear_xeb` /
+  `xeb_ideal` / `xeb_noisy` (Google supremacy-style cross-entropy benchmarking).
+- **검증**: **1661 pytest** + cargo test(전 크레이트), Qiskit/Aer cross-check
+  1e-9~1e-15 (`StabilizerState` / `Operator.equiv` / `expectation_value` /
+  `Statevector` bit-exact / `QFT` 포함), wgpu vs CPU 1e-5 (f32 한계).
+  fmt + clippy(`-D warnings`, toolchain 1.96 고정) clean.
 
 ## 설치
 

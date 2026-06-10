@@ -3,10 +3,9 @@ use crate::custom_family::{
     ExactNewtonJointGradientEvaluation, ExactNewtonJointHessianWorkspace,
     ExactNewtonJointPsiSecondOrderTerms, ExactNewtonJointPsiTerms, ExactNewtonJointPsiWorkspace,
     FamilyEvaluation, ParameterBlockSpec, ParameterBlockState, PenaltyMatrix,
-    build_block_spatial_psi_derivatives, custom_family_outer_derivatives,
-    evaluate_custom_family_joint_hyper_efs_shared, evaluate_custom_family_joint_hyper_shared,
-    fit_custom_family, fit_custom_family_fixed_log_lambda_warm_start,
-    joint_hyper_options_for_outer_tolerance,
+    custom_family_outer_derivatives, evaluate_custom_family_joint_hyper_efs_shared,
+    evaluate_custom_family_joint_hyper_shared, fit_custom_family,
+    fit_custom_family_fixed_log_lambda_warm_start, joint_hyper_options_for_outer_tolerance,
 };
 use crate::estimate::UnifiedFitResult;
 use crate::faer_ndarray::{FaerCholesky, fast_ab, fast_atv, fast_av, fast_xt_diag_x};
@@ -25,7 +24,6 @@ use crate::families::bms::{
     unary_derivatives_sqrt,
 };
 use crate::families::cubic_cell_kernel as exact_kernel;
-use crate::families::gamlss::{ParameterBlockInput, monotone_wiggle_basis_with_derivative_order};
 use crate::families::lognormal_kernel::FrailtySpec;
 use crate::families::marginal_slope_shared::{
     CoeffSupport, DirectionalScaleJets, ObservedDenestedCellPartials, SparsePrimaryCoeffJetView,
@@ -37,10 +35,12 @@ use crate::families::marginal_slope_shared::{
     probit_frailty_scale, probit_frailty_scale_multi_dir_jet, psi_derivative_location,
     scale_coeff4,
 };
+use crate::families::parameter_block::ParameterBlockInput;
 use crate::families::row_kernel::{
     RowKernel, RowKernelHessianWorkspace, build_row_kernel_cache, row_kernel_gradient,
     row_kernel_hessian_dense, row_kernel_log_likelihood,
 };
+use crate::families::spatial_psi_bridge::build_block_spatial_psi_derivatives;
 use crate::families::survival::{OffsetChannelCurvatures, OffsetChannelResiduals};
 use crate::families::survival_location_scale::{
     TimeBlockInput, TimeWiggleBlockInput, project_onto_linear_constraints,
@@ -49,6 +49,7 @@ use crate::families::survival_time_constraints::{
     FeasibilityTolerance, GuardConstraintFailure, GuardConstraintPolicy, GuardPolicy,
     build_time_derivative_guard_constraints,
 };
+use crate::families::wiggle::monotone_wiggle_basis_with_derivative_order;
 use crate::matrix::{DesignMatrix, SymmetricMatrix};
 use crate::pirls::LinearInequalityConstraints;
 use crate::probability::signed_probit_logcdf_and_mills_ratio;
@@ -3487,6 +3488,20 @@ fn survival_rigid_pilot_eta(
 /// scope of `survival_pilot_irls_row_metric_at_eta` (see its long block);
 /// the chain factor `dη₁/dq = c(g)` is absorbed into a per-row scaling of
 /// the location anchor before the solve.
+///
+/// Returns `(eta1, beta_logslope)`: the per-row observed index `eta1` (used by
+/// the cross-block W metric, unchanged from the legacy scalar return) AND the
+/// one-step IRLS estimate of the logslope-surface coefficients `beta_logslope`
+/// (the `G`-block portion of the joint Newton step). The latter is the #808
+/// operating-point WARM START for the logslope block's `initial_beta`: on
+/// clustered-PC designs the logslope block is EXACTLY W-null at the `g = 0`
+/// seed (the slope-channel IRLS weight vanishes at the null slope), so the
+/// inner joint-Newton cannot take its first step and freezes; seeding the
+/// block at the pilot's `g ≈ 0.3` operating point (where the slope channel
+/// carries information and the block is full-rank) breaks the chicken-and-egg
+/// and lets the inner converge to the true data optimum — preserving the
+/// log-slope estimand rather than dropping/pinning it. Self-correcting: it is
+/// just a warm start, so the converged fit is the data optimum (zero bias).
 fn survival_nonrigid_pilot_eta(
     n: usize,
     location_anchor_design: &DesignMatrix,
@@ -3499,7 +3514,7 @@ fn survival_nonrigid_pilot_eta(
     sample_weights: &Array1<f64>,
     event: &Array1<f64>,
     probit_scale: f64,
-) -> Result<Array1<f64>, String> {
+) -> Result<(Array1<f64>, Array1<f64>), String> {
     if location_anchor_design.nrows() != n
         || logslope_design.nrows() != n
         || z_primary.len() != n
@@ -3530,14 +3545,17 @@ fn survival_nonrigid_pilot_eta(
     let p_g = g_dense.ncols();
     let p_joint = p_loc + p_g;
     if p_joint == 0 {
-        return Ok(survival_rigid_pilot_eta(
-            n,
-            z_primary,
-            offset_exit,
-            marginal_offset,
-            logslope_offset,
-            baseline_slope,
-            probit_scale,
+        return Ok((
+            survival_rigid_pilot_eta(
+                n,
+                z_primary,
+                offset_exit,
+                marginal_offset,
+                logslope_offset,
+                baseline_slope,
+                probit_scale,
+            ),
+            Array1::<f64>::zeros(p_g),
         ));
     }
     // Starting pilot (offset-only). Decompose into q_exit and slope so the
@@ -3684,7 +3702,19 @@ fn survival_nonrigid_pilot_eta(
         };
         pilot_eta[i] = if capped.is_finite() { capped } else { eta1[i] };
     }
-    Ok(pilot_eta)
+    // Logslope-surface warm start (#808): the `G`-block portion of the joint
+    // Newton step, used to seed the logslope block's `initial_beta` off the
+    // `g = 0` seed where the block is W-null. Sanitise to finite values; the
+    // per-row logslope value `baseline_slope + logslope_offset + G·β_g` is the
+    // operating point the inner refines from, so a non-finite coefficient
+    // (degenerate one-step solve) falls back to the zero warm start rather than
+    // poisoning the seed.
+    let beta_logslope = if beta_g.iter().all(|v| v.is_finite()) {
+        beta_g
+    } else {
+        Array1::<f64>::zeros(p_g)
+    };
+    Ok((pilot_eta, beta_logslope))
 }
 
 pub fn survival_marginal_slope_vector_scale(
@@ -16920,6 +16950,17 @@ fn smgs_deleted_required_channel_reason(
 }
 
 impl CustomFamily for SurvivalMarginalSlopeFamily {
+    /// #808: engage the inner self-vanishing Levenberg–Marquardt μ on a
+    /// full-rank-but-ill-conditioned penalized Hessian. Clustered-PC marginal +
+    /// log-slope share a matern PC basis → `H_pen` is full rank (`nullity == 0`)
+    /// yet cond ≈ 5.8e6; the nullity-only μ gate would leave the trust-region
+    /// Newton oscillating on the near-singular mode. μ is self-vanishing
+    /// (∝ ‖∇L − Sβ‖∞ → 0 at the fixed point), so the converged β is the exact
+    /// unconditioned solution — log-slope conditioned, NOT reduced. Survival-local.
+    fn levenberg_on_ill_conditioning(&self) -> bool {
+        true
+    }
+
     fn persistent_warm_start_fingerprint(
         &self,
         specs: &[ParameterBlockSpec],
@@ -20654,7 +20695,7 @@ pub fn fit_survival_marginal_slope_terms(
     // Newton step is sufficient for the cross-block residualisation: we
     // need a per-row-varying η₁ that respects event/weight structure, not
     // a converged β.
-    let cross_block_pilot_eta = survival_nonrigid_pilot_eta(
+    let (cross_block_pilot_eta, pilot_logslope_beta) = survival_nonrigid_pilot_eta(
         n,
         &location_anchor_design,
         &logslope_design.design,
@@ -21081,6 +21122,23 @@ pub fn fit_survival_marginal_slope_terms(
     );
 
     let hints = RefCell::new(ThetaHints::default());
+    // #808 operating-point warm start for the logslope block. The inner
+    // joint-Newton seeds each block at `spec.initial_beta` (→ `hints.logslope_beta`
+    // via `build_logslope_blockspec`). At the default `g = 0` seed the logslope
+    // block is W-null (the slope-channel IRLS weight vanishes at the null slope),
+    // so the inner cannot take its first step and freezes (the #808 stall). Seed
+    // it instead at the one-step non-rigid pilot's logslope coefficients, which
+    // put `g` at the operating point (`g ≈ 0.3`) where the slope channel carries
+    // information and the block is full-rank — breaking the chicken-and-egg so the
+    // inner moves and converges to the true data optimum. It is only a warm start,
+    // so the converged β is the data optimum (zero bias; the log-slope estimand is
+    // recovered, NOT dropped or pinned to zero). Width-guarded against any
+    // logslope design rebuild.
+    if pilot_logslope_beta.len() == logslope_design.design.ncols()
+        && pilot_logslope_beta.iter().all(|v| v.is_finite())
+    {
+        hints.borrow_mut().logslope_beta = Some(pilot_logslope_beta.clone());
+    }
     let sigma_hint = RefCell::new(initial_sigma);
     let exact_warm_start = RefCell::new(None::<CustomFamilyWarmStart>);
     // Outer ρ-cache β-seed staging slot. The spatial-joint optimizer fires
@@ -21418,14 +21476,91 @@ pub fn fit_survival_marginal_slope_terms(
                     if let Some(channel) = smgs_deleted_required_channel_reason(
                         p_time, p_marg, p_log, w_time, w_marg, w_log,
                     ) {
-                        log::warn!(
-                            "[smgs phase-4b compiled-map] rejected destructive rawstack reduction \
-                             for #808: channel {channel} would be deleted \
-                             (time {p_time}→{w_time}, marginal {p_marg}→{w_marg}, \
-                             logslope {p_log}→{w_log}); using the unreduced design and \
-                             leaving the near-null direction to Jeffreys conditioning",
-                        );
-                        Ok(None)
+                        // #741: the η₁-only rawstack W-metric collapsed a whole
+                        // required channel. That metric is only the η₁-channel
+                        // row curvature; the true survival row Hessian is 4×4 in
+                        // (q₀,q₁,qd₁,g) and chains DIFFERENTLY into each block, so
+                        // marginal/logslope that look identical in η₁ are kept
+                        // distinct by the full driver. Before falling back to the
+                        // unreduced (rank-deficient) raw design, retry the
+                        // reduction with the full row-Hessian per-term compiler.
+                        // If it preserves every required channel, the η₁ collapse
+                        // was a FALSE alias — emit its CompiledMap so Newton runs
+                        // in the correct identifiable quotient (the closed-form
+                        // fast path engages). Only when the full row Hessian ALSO
+                        // deletes the channel is the alias real → unreduced design.
+                        use crate::families::survival_marginal_slope_identifiability::{
+                            SurvivalRowHessian, compile_survival_parametric_designs_per_term,
+                            compiled_map_from_per_term,
+                        };
+                        let full_row_hess = (|| -> Result<
+                            Option<(
+                                crate::families::identifiability_compiler::CompiledMap,
+                                (usize, usize, usize),
+                            )>,
+                            String,
+                        > {
+                            let row_hess = SurvivalRowHessian::from_pilot_primary_state(
+                                &q0_pilot,
+                                &q1_pilot,
+                                &qd1_pilot,
+                                &g_pilot,
+                                &z_primary,
+                                &spec.weights,
+                                &spec.event_target,
+                                derivative_guard,
+                                probit_scale,
+                            )?;
+                            let per_term = compile_survival_parametric_designs_per_term(
+                                dq0.clone(),
+                                dq1.clone(),
+                                dqd1.clone(),
+                                &time_partition,
+                                m_dq.clone(),
+                                m_dqd1.clone(),
+                                &marginal_partition,
+                                g_dg.clone(),
+                                &logslope_partition,
+                                &row_hess,
+                            )?;
+                            let map = compiled_map_from_per_term(&per_term);
+                            let fw_time = map.compiled_block_ranges[0].len();
+                            let fw_marg = map.compiled_block_ranges[1].len();
+                            let fw_log = map.compiled_block_ranges[2].len();
+                            if let Some(real) = smgs_deleted_required_channel_reason(
+                                p_time, p_marg, p_log, fw_time, fw_marg, fw_log,
+                            ) {
+                                log::warn!(
+                                    "[smgs phase-4b compiled-map] full row-Hessian compile also \
+                                     deletes channel {real} (time {p_time}→{fw_time}, \
+                                     marginal {p_marg}→{fw_marg}, logslope {p_log}→{fw_log}); \
+                                     alias is genuine — using the unreduced design and leaving \
+                                     the near-null direction to Jeffreys conditioning",
+                                );
+                                Ok(None)
+                            } else {
+                                log::info!(
+                                    "[smgs phase-4b compiled-map] #741: η₁-only metric falsely \
+                                     collapsed channel {channel}; full 4×4 row-Hessian quotient \
+                                     keeps all channels (time {p_time}→{fw_time}, \
+                                     marginal {p_marg}→{fw_marg}, logslope {p_log}→{fw_log}); \
+                                     engaging closed-form fast path on the correct quotient",
+                                );
+                                Ok(Some((map, (fw_time, fw_marg, fw_log))))
+                            }
+                        })();
+                        match full_row_hess {
+                            Ok(some) => Ok(some),
+                            Err(reason) => {
+                                log::warn!(
+                                    "[smgs phase-4b compiled-map] full row-Hessian retry failed \
+                                     ({reason}); rawstack metric collapsed channel {channel} — \
+                                     using the unreduced design and leaving the near-null \
+                                     direction to Jeffreys conditioning",
+                                );
+                                Ok(None)
+                            }
+                        }
                     } else {
                         Ok(Some((map, (w_time, w_marg, w_log))))
                     }
@@ -24285,7 +24420,11 @@ mod tests {
 
     #[test]
     fn survival_marginal_slope_advertises_outer_hvp_at_large_psi_dim() {
-        let n = 2usize;
+        // `dummy_penalized_blockspec` materializes single-row designs, so the
+        // family row count must be 1 to satisfy the HVP availability row guard
+        // (`parameter_block_specs_match_rows`, added in 28a1c035f). The
+        // "large psi dim" under test is the 32-column block below, not `n`.
+        let n = 1usize;
         let family = make_block_psi_test_family(n);
         let specs = vec![
             dummy_penalized_blockspec(0, 0),
@@ -26721,7 +26860,15 @@ mod tests {
             .max_feasible_step_size(&states, 0, &array![-1.0, 0.0])
             .expect("time step ceiling")
             .expect("time step should be bounded");
-        assert_eq!(alpha, 0.0);
+        // Starting at beta=[0,0] with derivative q' = design·beta + offset = 0.2,
+        // far above the 1e-4 guard. Stepping along [-1, 0] drives q' toward the
+        // guard; the largest feasible α satisfies -α + 0.2 = 1e-4, i.e. α ≈ 0.1999,
+        // and the shared `feasible_step_fraction` applies a 0.995 boundary backoff
+        // so the post-step iterate stays *strictly* interior (slack > 0).
+        assert!(
+            alpha > 0.0 && alpha < 1.0,
+            "expected an interior step, got {alpha}"
+        );
         let feasible = &states[0].beta + &(array![-1.0, 0.0] * alpha);
         let slack = family
             .time_linear_constraints
@@ -26735,7 +26882,10 @@ mod tests {
                 .as_ref()
                 .expect("constraints")
                 .b[0];
-        assert!(slack >= 0.0);
+        assert!(
+            slack > 0.0,
+            "boundary-backed-off step must stay strictly interior; slack={slack}"
+        );
     }
 
     #[test]

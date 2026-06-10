@@ -376,6 +376,30 @@ pub(super) fn detect_logit_instability(
         return false;
     }
 
+    // Separation-detection policy thresholds. Each is a heuristic cut-off, not
+    // a math identity: they decide when a binary-logit fit has drifted into the
+    // perfect/quasi-perfect separation regime and the inner solve must retreat.
+    //
+    // `ORDER_SEPARATION_ETA_GAP`: a strictly positive η-gap between the lowest
+    //   η among y=1 rows and the highest among y=0 rows means the two classes
+    //   are linearly separable on the linear predictor.
+    // `EXTREME_ETA`: |η| this large drives μ to within machine-ε of {0,1}.
+    // `SATURATION_FRACTION` / `SEVERE_SATURATION_FRACTION`: share of fitted μ
+    //   pinned to the {0,1} boundary that flags (severe) saturation.
+    // `DEGENERATE_DEVIANCE_PER_SAMPLE` / `EXTREME_DEGENERATE_DEVIANCE_PER_SAMPLE`:
+    //   near-zero per-sample deviance means the model fits the data perfectly.
+    // `EXTREME_BETA_NORM`: coefficient norm blow-up characteristic of the MLE
+    //   escaping to infinity under separation.
+    // `WEIGHT_COLLAPSE_FRACTION`: share of working weights collapsed to ~0.
+    const ORDER_SEPARATION_ETA_GAP: f64 = 1e-3;
+    const EXTREME_ETA: f64 = 30.0;
+    const SATURATION_FRACTION: f64 = 0.98;
+    const SEVERE_SATURATION_FRACTION: f64 = 0.995;
+    const DEGENERATE_DEVIANCE_PER_SAMPLE: f64 = 1e-3;
+    const EXTREME_DEGENERATE_DEVIANCE_PER_SAMPLE: f64 = 1e-6;
+    const EXTREME_BETA_NORM: f64 = 1e4;
+    const WEIGHT_COLLAPSE_FRACTION: f64 = 0.98;
+
     let n = y.len() as f64;
     if n == 0.0 {
         return false;
@@ -420,18 +444,21 @@ pub(super) fn detect_logit_instability(
             }
         }
     }
-    let order_separated = has_pos && has_neg && (min_eta_pos - max_eta_neg) > 1e-3;
+    let order_separated =
+        has_pos && has_neg && (min_eta_pos - max_eta_neg) > ORDER_SEPARATION_ETA_GAP;
 
-    let classic_signals =
-        max_abs_eta > 30.0 || sat_fraction > 0.98 || dev_per_sample < 1e-3 || beta_norm > 1e4;
+    let classic_signals = max_abs_eta > EXTREME_ETA
+        || sat_fraction > SATURATION_FRACTION
+        || dev_per_sample < DEGENERATE_DEVIANCE_PER_SAMPLE
+        || beta_norm > EXTREME_BETA_NORM;
 
     if !has_penalty {
         return classic_signals || order_separated;
     }
 
-    let severe_saturation = sat_fraction > 0.995 && max_abs_eta > 30.0;
-    let weights_collapsed = weight_collapse_fraction > 0.98;
-    let dev_extremely_small = dev_per_sample < 1e-6;
+    let severe_saturation = sat_fraction > SEVERE_SATURATION_FRACTION && max_abs_eta > EXTREME_ETA;
+    let weights_collapsed = weight_collapse_fraction > WEIGHT_COLLAPSE_FRACTION;
+    let dev_extremely_small = dev_per_sample < EXTREME_DEGENERATE_DEVIANCE_PER_SAMPLE;
 
     order_separated || severe_saturation || weights_collapsed || dev_extremely_small
 }
@@ -1260,16 +1287,58 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
         .map(|transform| transform.apply_transpose(beta_guess_original.as_ref()))
         .unwrap_or_else(|| beta_guess_original.as_ref().clone());
     let initial_beta = if let Some(constraints) = linear_constraints.as_ref() {
-        let current_violation = constraints
-            .a
-            .dot(&initial_beta)
-            .iter()
-            .zip(constraints.b.iter())
-            .map(|(lhs, rhs)| (rhs - lhs).max(0.0))
-            .fold(0.0_f64, f64::max);
-        if current_violation > 1e-8 {
-            active_set::feasible_point_for_linear_constraints(constraints, initial_beta.len())
-                .unwrap_or(initial_beta)
+        // Worst per-row *scaled* (geometric) slack of the current seed against the
+        // constraint cone. Negative ⇒ the seed violates a row; ~0 ⇒ the seed sits
+        // ON the boundary (for a homogeneous convex/concave second-difference
+        // cone, `β = 0` — the unconstrained Gaussian seed — sits on EVERY row's
+        // boundary, i.e. the cone vertex). Either way the seed must be pushed
+        // strictly into the interior before P-IRLS starts.
+        let mut min_scaled_slack = f64::INFINITY;
+        for i in 0..constraints.a.nrows() {
+            let norm = constraints.a.row(i).dot(&constraints.a.row(i)).sqrt();
+            let inv = if norm > 0.0 { 1.0 / norm } else { 0.0 };
+            let slack = (constraints.a.row(i).dot(&initial_beta) - constraints.b[i]) * inv;
+            min_scaled_slack = min_scaled_slack.min(slack);
+        }
+        // Push the seed to the nearest STRICTLY-INTERIOR feasible point whenever
+        // any row is tight or violated. A seed on the cone boundary (most acutely
+        // the vertex `β = 0`) hands the inner active-set QP an all-rows-active
+        // working set, where it stalls on a degenerate, non-stationary face — so
+        // the fit silently diverges (or aborts in release) between a cold and a
+        // warm warm-start cache (#873). A strictly-interior seed makes the QP's
+        // initial active set empty; it then adds only the genuinely binding rows
+        // and converges to the certified constrained optimum regardless of cache
+        // state. The projection keeps the data-driven curvature of `initial_beta`
+        // and falls back to the min-norm feasible point only if it cannot certify
+        // a strictly-interior solution.
+        //
+        // The min-norm fallback (`feasible_point_for_linear_constraints`) is only
+        // used for a NON-homogeneous cone (`b ≠ 0`), where it returns a genuine
+        // interior-of-the-offset-polyhedron point. For a HOMOGENEOUS shape cone
+        // (`b ≈ 0` — the convex/concave second-difference rows) that function
+        // returns the minimum-norm feasible point `β = 0`, which is the cone
+        // *vertex*: the exact all-rows-tight degenerate seed #873 is about. Taking
+        // it would silently reintroduce the #873 pathology whenever the strict
+        // projection rarely fails to certify. So for a homogeneous cone we skip the
+        // vertex fallback entirely and prefer the data-driven `initial_beta`: it
+        // violates at most *some* rows (a lower-dimensional, non-degenerate face the
+        // inner active-set QP can recover from), strictly better than the vertex
+        // where *every* row is simultaneously tight.
+        let cone_is_homogeneous = constraints.b.iter().all(|v| v.abs() <= 1e-14);
+        if min_scaled_slack < active_set::interior_seed_margin() {
+            let projected =
+                active_set::project_point_strictly_into_feasible_cone(&initial_beta, constraints)
+                    .or_else(|| {
+                        if cone_is_homogeneous {
+                            None
+                        } else {
+                            active_set::feasible_point_for_linear_constraints(
+                                constraints,
+                                initial_beta.len(),
+                            )
+                        }
+                    });
+            projected.unwrap_or(initial_beta)
         } else {
             initial_beta
         }
@@ -2006,13 +2075,20 @@ pub(super) fn merge_linear_constraints(
 }
 
 pub(super) fn sparse_from_denseview(x: ArrayView2<f64>) -> Option<DesignMatrix> {
+    // Below this column count a dense factorization beats the sparse path even
+    // at high sparsity, so skip the sparsity scan entirely for narrow designs.
+    const DENSE_PREFERRED_MAX_COLS: usize = 32;
+    // Sparse storage + sparse Cholesky only pays off below this density (nnz as
+    // a fraction of all entries); denser matrices stay dense.
+    const SPARSE_DENSITY_LIMIT: f64 = 0.20;
+
     let nrows = x.nrows();
     let ncols = x.ncols();
     if nrows == 0 || ncols == 0 {
         return None;
     }
     // Narrow matrices are faster in dense form; avoid any sparsity scan overhead.
-    if ncols <= 32 {
+    if ncols <= DENSE_PREFERRED_MAX_COLS {
         return None;
     }
 
@@ -2022,7 +2098,7 @@ pub(super) fn sparse_from_denseview(x: ArrayView2<f64>) -> Option<DesignMatrix> 
         return None;
     }
     // If a matrix exceeds this nnz count it is too dense for sparse path; bail early.
-    let sparse_nnz_limit = ((total as f64) * 0.20).floor() as usize;
+    let sparse_nnz_limit = ((total as f64) * SPARSE_DENSITY_LIMIT).floor() as usize;
     let mut nnz = 0usize;
     for &val in x.iter() {
         if val.abs() > ZERO_EPS {

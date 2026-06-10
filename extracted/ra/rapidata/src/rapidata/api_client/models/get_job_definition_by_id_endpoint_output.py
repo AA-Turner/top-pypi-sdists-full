@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List
 from rapidata.api_client.models.definition_type import DefinitionType
 from pydantic import ValidationError
@@ -33,10 +33,11 @@ class GetJobDefinitionByIdEndpointOutput(LazyValidatedModel):
     definition_id: StrictStr = Field(description="The job definition id.", alias="definitionId")
     name: StrictStr = Field(description="The name of the job definition.")
     definition_type: DefinitionType = Field(description="The type of the job definition.", alias="definitionType")
+    is_public: StrictBool = Field(description="Whether the definition is shared publicly as a reusable template.", alias="isPublic")
     created_at: datetime = Field(description="The creation timestamp.", alias="createdAt")
     owner_id: StrictStr = Field(description="The id of the job definition's owner.", alias="ownerId")
     owner_mail: StrictStr = Field(description="The email of the job definition's owner.", alias="ownerMail")
-    __properties: ClassVar[List[str]] = ["definitionId", "name", "definitionType", "createdAt", "ownerId", "ownerMail"]
+    __properties: ClassVar[List[str]] = ["definitionId", "name", "definitionType", "isPublic", "createdAt", "ownerId", "ownerMail"]
 
     # model_config is inherited from LazyValidatedModel
 
@@ -88,6 +89,7 @@ class GetJobDefinitionByIdEndpointOutput(LazyValidatedModel):
             "definitionId": obj.get("definitionId"),
             "name": obj.get("name"),
             "definitionType": obj.get("definitionType"),
+            "isPublic": obj.get("isPublic"),
             "createdAt": obj.get("createdAt"),
             "ownerId": obj.get("ownerId"),
             "ownerMail": obj.get("ownerMail")

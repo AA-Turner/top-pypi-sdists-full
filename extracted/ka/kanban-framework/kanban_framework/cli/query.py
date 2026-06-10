@@ -276,7 +276,7 @@ def cmd_dashboard(args: list[str]) -> dict:
 
     sub = args[0] if args else None
 
-    # Parse --port flag
+    # Parse --port flag or positional port number
     port = None
     i = 0
     while i < len(args):
@@ -286,6 +286,9 @@ def cmd_dashboard(args: list[str]) -> dict:
             except ValueError:
                 return {"dashboard": {"error": f"invalid port: {args[i+1]}"}}
             i += 2
+        elif args[i].isdigit():
+            port = int(args[i])
+            i += 1
         else:
             i += 1
 

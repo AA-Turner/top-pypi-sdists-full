@@ -490,3 +490,32 @@ def test_apply_managed_config_noop_when_nothing_managed(monkeypatch):
         _apply_managed_config()
     assert "RUNLAYER_HOST" not in os.environ
     assert "RUNLAYER_API_KEY" not in os.environ
+
+
+# ── resolve_install_hooks (Enforcement/Sessions install gate) ──────────
+
+
+@pytest.mark.parametrize(
+    ("managed", "expected"),
+    [
+        ({}, True),  # enforcement absent ⇒ false, sessions absent ⇒ true
+        ({"enforcement": True, "sessions": True}, True),
+        ({"enforcement": True, "sessions": False}, True),  # enforcement-only
+        ({"enforcement": False, "sessions": True}, True),  # event/session only
+        ({"enforcement": False, "sessions": False}, False),  # scan-only no-op
+        ({"enforcement": True}, True),  # sessions absent ⇒ true (full set)
+        ({"enforcement": False}, True),  # sessions absent ⇒ true (full set)
+        ({"sessions": False}, False),  # enforcement absent ⇒ false ⇒ scan-only
+        ({"sessions": True}, True),  # enforcement absent ⇒ false, sessions on
+    ],
+)
+def test_resolve_install_hooks(managed, expected):
+    assert mdm_config.resolve_install_hooks(managed) is expected
+
+
+def test_resolve_install_hooks_reads_managed_when_none(monkeypatch):
+    with patch(
+        "runlayer_cli.mdm_config.read_managed_config",
+        return_value={"enforcement": False, "sessions": False},
+    ):
+        assert mdm_config.resolve_install_hooks() is False

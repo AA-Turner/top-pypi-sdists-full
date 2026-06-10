@@ -17,14 +17,13 @@
 import itertools
 import json
 
-from ..compat import six
 from ..errors import NoSuchObject
 from ..utils import with_wait_argument
 from .utils import build_model_table_name, TABLE_MODEL_PREFIX, TABLE_MODEL_SEPARATOR, \
     TEMP_TABLE_PREFIX, TEMP_TABLE_MODEL_PREFIX
 
 
-class TablesModelObject(object):
+class TablesModelObject:
     __slots__ = '_odps', 'name', '_parent', '_tables', '_params'
 
     def __init__(self, **kwargs):
@@ -67,7 +66,7 @@ class TablesModelObject(object):
         if not self._tables:
             return False
         try:
-            for t in six.itervalues(self._tables):
+            for t in self._tables.values():
                 t.reload()
         except NoSuchObject:
             return False
@@ -77,7 +76,7 @@ class TablesModelObject(object):
     def params(self):
         if self._params is None:
             try:
-                tb = next(t for t in six.itervalues(self._tables) if self._odps.exist_table(t.name))
+                tb = next(t for t in self._tables.values() if self._odps.exist_table(t.name))
                 if tb.comment:
                     self._params = json.loads(tb.comment)
                 else:

@@ -776,21 +776,24 @@ components:
         phone: { type: string, description: "Phone number, e.g. +14155551234 (required when type is phone; Facebook only)" }
     WhatsAppTemplateButton:
       type: object
-      required: [type, text]
+      required: [type]
       properties:
         type:
           type: string
-          enum: [quick_reply, url, phone_number, otp, flow, mpm, catalog]
+          enum: [quick_reply, url, phone_number, otp, copy_code, flow, mpm, catalog]
         text:
           type: string
+          description: Visible button label. Required for all types except copy_code (whose label is fixed by WhatsApp).
         url:
           type: string
           format: uri
           description: Required when type is URL
         example:
-          type: array
-          items: { type: string }
-          description: Example values for URL suffix variables
+          description: "Example value(s). For URL buttons, an array of URL-suffix samples. For copy_code (marketing) buttons, the coupon code as a string."
+          oneOf:
+            - type: string
+            - type: array
+              items: { type: string }
         phone_number:
           type: string
           description: Required when type is phone_number
@@ -1284,6 +1287,56 @@ components:
           additionalProperties:
             type: string
           description: Custom headers included in webhook requests
+    WebhookLog:
+      type: object
+      description: A single webhook delivery attempt recorded by Zernio (30-day retention).
+      properties:
+        userId:
+          type: string
+          description: ID of the account owner the webhook belongs to
+        webhookId:
+          type: string
+          description: ID of the webhook configuration that produced this delivery
+        webhookName:
+          type: string
+          description: Name of the webhook configuration at delivery time
+        eventId:
+          type: string
+          description: Stable webhook event ID (correlates to the delivered payload)
+        event:
+          type: string
+          description: Event type that triggered the delivery (e.g. post.published)
+        url:
+          type: string
+          format: uri
+          description: Destination URL the webhook was delivered to
+        status:
+          type: string
+          enum: [success, failed]
+          description: Delivery outcome
+        statusCode:
+          type: integer
+          description: HTTP status code returned by the destination endpoint
+        requestPayload:
+          type: object
+          additionalProperties: true
+          description: The JSON payload sent to the destination endpoint
+        responseBody:
+          type: string
+          description: Response body returned by the destination endpoint
+        errorMessage:
+          type: string
+          description: Error message when delivery failed
+        attemptNumber:
+          type: integer
+          description: Delivery attempt number (increments on retries)
+        responseTime:
+          type: integer
+          description: Time taken by the destination endpoint to respond, in milliseconds
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp the delivery was attempted
     WebhookPayloadPost:
       type: object
       description: Webhook payload for post events
@@ -3267,6 +3320,27 @@ components:
           description: Enable long video uploads (over 140 seconds) using amplify_video media category. Requires the connected X account to have an active X Premium subscription. When true, videos are uploaded with the amplify_video category which supports longer durations (up to 10 minutes via API). When false or omitted, the standard tweet_video category is used (140 second limit). Note that not all Premium accounts have API long-video access, as X may require separate allowlisting.
         geoRestriction:
           $ref: '#/components/schemas/GeoRestriction'
+        paidPartnership:
+          type: boolean
+          default: false
+          description: When true, the post is labeled by X as a paid partnership / paid promotion. For threads, applies to the root tweet only. Field availability may depend on your X API access tier.
+        madeWithAi:
+          type: boolean
+          default: false
+          description: When true, the post is labeled by X as containing AI-generated media. Per X, this label is for AI-generated media, not AI-written text. For threads, applies to the root tweet only.
+        sensitiveMedia:
+          type: object
+          description: Marks attached media with a sensitive-content warning. Applied to every media item in the post (requires media; ignored for text-only tweets). At least one flag must be true for the warning to be sent.
+          properties:
+            adultContent:
+              type: boolean
+              description: Content contains adult material.
+            graphicViolence:
+              type: boolean
+              description: Content depicts graphic violence.
+            other:
+              type: boolean
+              description: Content has other sensitive characteristics.
       description: >
         X (Twitter) geo-restriction applies at the media level. Media in geo-restricted tweets will be
         hidden for users outside the specified countries; the tweet text itself remains visible globally.
@@ -3766,6 +3840,21 @@ components:
           type: string
           description: Flair ID for the post. Required by some subreddits. Use GET /v1/accounts/{id}/reddit-flairs?subreddit=name to list flairs.
           example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        flairText:
+          type: string
+          description: Custom flair text, for subreddits that allow free-text flair. Ignored when flairId is provided (flairId wins).
+        nsfw:
+          type: boolean
+          default: false
+          description: Mark the post as NSFW (Not Safe For Work / over 18).
+        spoiler:
+          type: boolean
+          default: false
+          description: Mark the post as a spoiler. The subreddit must have spoiler tagging enabled for this to take effect.
+        sendreplies:
+          type: boolean
+          default: true
+          description: Whether to receive inbox replies for comments on this post. Set to false to opt out.
         nativeVideo:
           type: boolean
           description: >
@@ -11938,11 +12027,21 @@ paths:
                   type: array
                   items: { type: string }
                   description: Required if scope is 'profiles'. Array of profile IDs to grant access to.
+                role:
+                  type: string
+                  enum: [member, billing_admin]
+                  default: member
+                  description: Org role granted to the invitee. Defaults to 'member'.
+                readOnly:
+                  type: boolean
+                  default: false
+                  description: When true, the invitee can view everything in their profile scope but cannot perform any content mutation (publish, edit, delete, connect accounts).
             example:
               scope: "profiles"
               profileIds:
                 - "64f0a1b2c3d4e5f6a7b8c9d0"
                 - "64f0a1b2c3d4e5f6a7b8c9d1"
+              readOnly: false
       responses:
         '201':
           description: Invite token created
@@ -18113,6 +18212,94 @@ paths:
         '400': { description: Webhook ID required }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /v1/webhooks/logs:
+    get:
+      operationId: getWebhookLogs
+      tags: [Webhooks]
+      summary: List webhook delivery logs
+      description: |
+        Retrieve recorded webhook delivery attempts for the authenticated user, most recent first.
+        Logs are retained for 30 days. Supports filtering by status, event type, webhook ID, and event ID,
+        plus offset-based pagination.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of logs to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: skip
+          in: query
+          description: Number of logs to skip (offset-based pagination)
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 10000
+            default: 0
+        - name: status
+          in: query
+          description: Filter by delivery outcome
+          schema:
+            type: string
+            enum: [success, failed]
+        - name: event
+          in: query
+          description: Filter by event type (e.g. post.published)
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: webhookId
+          in: query
+          description: Filter by webhook configuration ID
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: eventId
+          in: query
+          description: Filter by stable webhook event ID
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      responses:
+        '200':
+          description: Webhook logs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WebhookLog'
+                  pagination:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                        description: Total number of matching logs
+                      limit:
+                        type: integer
+                        description: Maximum number of logs returned per page
+                      skip:
+                        type: integer
+                        description: Number of logs skipped
+                      pages:
+                        type: integer
+                        description: Total number of pages
+                      hasMore:
+                        type: boolean
+                        description: Whether more logs are available beyond this page
+        '400': { description: Invalid query parameter }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /v1/webhooks/test:
     post:
       operationId: testWebhook
@@ -22736,7 +22923,7 @@ paths:
         List active WhatsApp group chats for a business phone number.
         These are actual WhatsApp group conversations on the platform.
 
-        Not available on [Coexistence](/platforms/whatsapp#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -22775,7 +22962,7 @@ paths:
       description: |
         Create a new WhatsApp group chat. Returns the group ID and optionally an invite link.
 
-        Not available on [Coexistence](/platforms/whatsapp#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       requestBody:
@@ -22818,7 +23005,7 @@ paths:
         Retrieve metadata about a WhatsApp group including subject, description,
         participants, and settings.
 
-        Not available on [Coexistence](/platforms/whatsapp#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -22859,7 +23046,7 @@ paths:
       description: |
         Update the subject, description, or join approval mode of a WhatsApp group.
 
-        Not available on [Coexistence](/platforms/whatsapp#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -22894,7 +23081,7 @@ paths:
       description: |
         Delete a WhatsApp group and remove all participants.
 
-        Not available on [Coexistence](/platforms/whatsapp#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -22921,7 +23108,7 @@ paths:
       description: |
         Add participants to a WhatsApp group. Maximum 8 participants per request.
 
-        Not available on [Coexistence](/platforms/whatsapp#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -22958,7 +23145,7 @@ paths:
       description: |
         Remove participants from a WhatsApp group.
 
-        Not available on [Coexistence](/platforms/whatsapp#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -22996,7 +23183,7 @@ paths:
       description: |
         Create a new invite link for a WhatsApp group. The previous link is revoked.
 
-        Not available on [Coexistence](/platforms/whatsapp#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -23022,7 +23209,7 @@ paths:
       description: |
         List pending join requests for a WhatsApp group (only for groups with approval_required mode).
 
-        Not available on [Coexistence](/platforms/whatsapp#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -23052,7 +23239,7 @@ paths:
       description: |
         Approve pending join requests for a WhatsApp group.
 
-        Not available on [Coexistence](/platforms/whatsapp#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -23088,7 +23275,7 @@ paths:
       description: |
         Reject pending join requests for a WhatsApp group.
 
-        Not available on [Coexistence](/platforms/whatsapp#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -27033,7 +27220,7 @@ paths:
                 body: { type: string, description: "Required on legacy + attach shapes. For X/Twitter this is the tweet text (max 280 chars including a ~24-char URL when `linkUrl` is set). On LinkedIn this is the post commentary (the intro text shown above the ad). Max: Google=90, Pinterest=500." }
                 callToAction: { type: string, enum: [LEARN_MORE, SHOP_NOW, SIGN_UP, BOOK_TRAVEL, CONTACT_US, DOWNLOAD, GET_OFFER, GET_QUOTE, SUBSCRIBE, WATCH_MORE, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, BUY_NOW], description: "Required on legacy + attach shapes for Meta. Honoured on TikTok (passes through to the Spark Ad creative's `call_to_action`) and on LinkedIn (the CTA button on the ad; defaults to LEARN_MORE when `linkUrl` is set). LinkedIn accepts: LEARN_MORE, SIGN_UP, DOWNLOAD, SUBSCRIBE, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, SHOP_NOW, BUY_NOW. Ignored by Google, Pinterest, and X/Twitter." }
                 linkUrl: { type: string, format: uri, description: "Required on legacy + attach shapes (skip for multi-creative). On LinkedIn it's the ad's destination URL; required for `traffic` ads, optional for `engagement` / `awareness`. NOT required when `goal` is `lead_generation` (the ad opens a Lead Gen form instead of a destination)." }
-                leadGenFormId: { type: string, description: "Meta Lead Gen forms only (facebook/instagram). The leadgen_forms ID to attach to the ad's creative — create one via POST /v1/ads/lead-forms. REQUIRED when `goal` is `lead_generation`; ignored otherwise. The ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. `placementAssets` (per-placement creative) IS supported on instant-form lead ads — the form is attached for you. NOT compatible with `dynamicCreative` (the auto-optimizing multi-asset pool), which Meta requires a dedicated Dynamic Creative ad set for; that combination is rejected with INVALID_FIELD_VALUE (use `placementAssets`, a single creative, or run `dynamicCreative` on a `traffic`/`conversions` goal)." }
+                leadGenFormId: { type: string, description: "Meta Lead Gen forms only (facebook/instagram). The leadgen_forms ID to attach to the ad's creative — create one via POST /v1/ads/lead-forms. REQUIRED when `goal` is `lead_generation`; ignored otherwise. The ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. Both `placementAssets` (per-placement creative) and `dynamicCreative` (multi-text / multi-asset pool, e.g. multiple headlines and primary texts) ARE supported on instant-form lead ads — the form is attached for you, and for `dynamicCreative` the ad set is created as a Dynamic Creative ad set automatically (Meta requires that for any multi-text feed; there is no non-DCO multi-text path). Send a single `imageUrls` entry plus your text variations to get Meta's \"Multiple Text Options\" behavior on a lead ad." }
                 imageUrl: { type: string, format: uri, description: "Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). Ignored for X/Twitter. For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627)." }
                 images:
                   type: object

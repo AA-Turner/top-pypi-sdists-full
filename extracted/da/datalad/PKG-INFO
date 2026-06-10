@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datalad
-Version: 1.5.0
+Version: 1.6.0
 Summary: Distributed system for joint management of code, data, and their relationship
 Author-email: The DataLad Team and Contributors <team@datalad.org>
 License-Expression: MIT
@@ -44,6 +44,7 @@ Requires-Dist: tqdm>=4.32.0
 Requires-Dist: typing_extensions>=4.0.0; python_version < "3.11"
 Requires-Dist: annexremote
 Requires-Dist: looseversion
+Requires-Dist: giturlparse
 Requires-Dist: boto3
 Requires-Dist: keyring!=23.9.0,>=20.0
 Requires-Dist: keyrings.alt

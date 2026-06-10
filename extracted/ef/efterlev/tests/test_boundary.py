@@ -344,3 +344,33 @@ def test_in_scope_evidence_noop_when_nothing_out_of_boundary() -> None:
 
     evs = [_ev_with_boundary("boundary_undeclared", f"r{i}") for i in range(3)]
     assert in_scope_evidence(evs) == evs
+
+
+# --- boundary enforcement at every agent-input load site (v0.1.222) ---------
+
+
+def test_agent_remediate_cli_filters_evidence_through_in_scope() -> None:
+    """Source-level pin (v0.1.23-27 pattern): `agent remediate` must load store
+    evidence through `in_scope_evidence`, same as `agent gap` (v0.1.219).
+    Without it, out-of-boundary evidence attributed to the target KSI flows
+    into the prompt AND the excluded `.tf` source files get read and diffed —
+    the agent could propose a remediation against a file the user explicitly
+    scoped out (found by the 2026-06-09 post-v0.1.221 code review)."""
+    import re
+
+    src = Path("src/efterlev/cli/main.py").read_text(encoding="utf-8")
+    # Locate the agent_remediate function body (up to the next top-level def).
+    m = re.search(r"\ndef agent_remediate\(.*?(?=\ndef [a-zA-Z_])", src, re.DOTALL)
+    assert m is not None, "agent_remediate not found in cli/main.py"
+    body = m.group(0)
+    # The store load must be wrapped by in_scope_evidence.
+    assert "in_scope_evidence(" in body, (
+        "agent_remediate loads evidence without in_scope_evidence — "
+        "out-of-boundary .tf files would be read and diffed"
+    )
+    # And the load site itself must be the wrapped form: iter_evidence
+    # appearing inside an in_scope_evidence(...) call.
+    wrapped = re.search(r"in_scope_evidence\(\s*\n?\s*\[.*?iter_evidence", body, re.DOTALL)
+    assert wrapped is not None, (
+        "agent_remediate's iter_evidence load is not wrapped by in_scope_evidence"
+    )

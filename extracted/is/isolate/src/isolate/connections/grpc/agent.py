@@ -542,6 +542,13 @@ class AgentServicer(definitions.AgentServicer):
             was_it_raised=was_it_raised,
             stringized_traceback=stringized_tb,
         )
+        if was_it_raised:
+            # Current agent scripts can run against older installed isolate packages
+            # whose generated protobuf classes do not know about newly added fields.
+            if "exception_type_name" in serialized_obj.DESCRIPTOR.fields_by_name:
+                serialized_obj.exception_type_name = type(result).__name__
+            if "exception_message" in serialized_obj.DESCRIPTOR.fields_by_name:
+                serialized_obj.exception_message = str(result)
         return definitions.PartialRunResult(
             result=serialized_obj,
             is_complete=True,

@@ -51,7 +51,7 @@ class _MountFile(_MountEntry):
         ...
 
 class _MountDir(_MountEntry):
-    """_MountDir(local_dir: pathlib.Path, remote_path: pathlib.PurePosixPath, ignore: Union[Callable[[pathlib.Path], bool], modal.file_pattern_matcher._AbstractPatternMatcher], recursive: bool)"""
+    """_MountDir(local_dir: pathlib.Path, remote_path: pathlib.PurePosixPath, ignore: collections.abc.Callable[[pathlib.Path], bool] | modal.file_pattern_matcher._AbstractPatternMatcher, recursive: bool)"""
 
     local_dir: pathlib.Path
     remote_path: pathlib.PurePosixPath
@@ -96,7 +96,7 @@ def module_mount_condition(module_base: pathlib.Path): ...
 def module_mount_ignore_condition(module_base: pathlib.Path): ...
 
 class _MountedPythonModule(_MountEntry):
-    """_MountedPythonModule(module_name: str, remote_dir: Union[pathlib.PurePosixPath, str] = '/root', ignore: Optional[Callable[[pathlib.Path], bool]] = None)"""
+    """_MountedPythonModule(module_name: str, remote_dir: pathlib.PurePosixPath | str = '/root', ignore: collections.abc.Callable[[pathlib.Path], bool] | None = None)"""
 
     module_name: str
     remote_dir: typing.Union[pathlib.PurePosixPath, str]
@@ -135,21 +135,20 @@ class _Mount(modal._object._Object):
     Create a mount for a local directory or file that can be attached
     to one or more Modal functions.
 
-    **Usage**
+    Examples:
+        ```python notest
+        import modal
+        import os
+        app = modal.App()
 
-    ```python notest
-    import modal
-    import os
-    app = modal.App()
+        @app.function(mounts=[modal.Mount.from_local_dir("~/foo", remote_path="/root/foo")])
+        def f():
+            # `/root/foo` has the contents of `~/foo`.
+            print(os.listdir("/root/foo/"))
+        ```
 
-    @app.function(mounts=[modal.Mount.from_local_dir("~/foo", remote_path="/root/foo")])
-    def f():
-        # `/root/foo` has the contents of `~/foo`.
-        print(os.listdir("/root/foo/"))
-    ```
-
-    Modal syncs the contents of the local directory every time the app runs, but uses the hash of
-    the file's contents to skip uploading files that have been uploaded before.
+        Modal syncs the contents of the local directory every time the app runs, but uses the hash of
+        the file's contents to skip uploading files that have been uploaded before.
     """
 
     _entries: typing.Optional[list[_MountEntry]]
@@ -226,7 +225,9 @@ class _Mount(modal._object._Object):
         *module_names: str,
         remote_dir: typing.Union[str, pathlib.PurePosixPath] = "/root",
         condition: typing.Optional[collections.abc.Callable[[str], bool]] = None,
-        ignore: typing.Union[typing.Sequence[str], collections.abc.Callable[[pathlib.Path], bool], None] = None,
+        ignore: typing.Union[
+            collections.abc.Sequence[str], collections.abc.Callable[[pathlib.Path], bool], None
+        ] = None,
     ) -> _Mount: ...
     @staticmethod
     def from_name(
@@ -256,21 +257,20 @@ class Mount(modal.object.Object):
     Create a mount for a local directory or file that can be attached
     to one or more Modal functions.
 
-    **Usage**
+    Examples:
+        ```python notest
+        import modal
+        import os
+        app = modal.App()
 
-    ```python notest
-    import modal
-    import os
-    app = modal.App()
+        @app.function(mounts=[modal.Mount.from_local_dir("~/foo", remote_path="/root/foo")])
+        def f():
+            # `/root/foo` has the contents of `~/foo`.
+            print(os.listdir("/root/foo/"))
+        ```
 
-    @app.function(mounts=[modal.Mount.from_local_dir("~/foo", remote_path="/root/foo")])
-    def f():
-        # `/root/foo` has the contents of `~/foo`.
-        print(os.listdir("/root/foo/"))
-    ```
-
-    Modal syncs the contents of the local directory every time the app runs, but uses the hash of
-    the file's contents to skip uploading files that have been uploaded before.
+        Modal syncs the contents of the local directory every time the app runs, but uses the hash of
+        the file's contents to skip uploading files that have been uploaded before.
     """
 
     _entries: typing.Optional[list[_MountEntry]]
@@ -370,7 +370,9 @@ class Mount(modal.object.Object):
         *module_names: str,
         remote_dir: typing.Union[str, pathlib.PurePosixPath] = "/root",
         condition: typing.Optional[collections.abc.Callable[[str], bool]] = None,
-        ignore: typing.Union[typing.Sequence[str], collections.abc.Callable[[pathlib.Path], bool], None] = None,
+        ignore: typing.Union[
+            collections.abc.Sequence[str], collections.abc.Callable[[pathlib.Path], bool], None
+        ] = None,
     ) -> Mount: ...
     @staticmethod
     def from_name(

@@ -27,6 +27,7 @@ blazen-core.workspace = true
 blazen-embed-tract = { workspace = true, optional = true }
 blazen-events.workspace = true
 blazen-llm = { workspace = true, features = ["reqwest", "pyo3-serde"] }
+blazen-local-llm = { workspace = true }
 blazen-manager = { workspace = true, features = ["hf-loader"] }
 blazen-memory.workspace = true
 blazen-memory-valkey = { workspace = true, features = ["redis-tcp", "upstash"] }
@@ -58,11 +59,12 @@ blazen-train = { workspace = true, optional = true }
 tokenizers = { workspace = true, optional = true }
 candle-core = { workspace = true, optional = true }
 tonic = { workspace = true, optional = true }
-blazen-3d = { version = "0.6.7", path = "../blazen-3d", default-features = false, optional = true }
+blazen-3d = { version = "0.6.71", path = "../blazen-3d", default-features = false, optional = true }
 blazen-audio-music = { workspace = true, optional = true }
 blazen-audio-codec = { workspace = true, optional = true }
 blazen-audio = { workspace = true, optional = true }
 blazen-audio-vc = { workspace = true, optional = true }
+blazen-macros = { version = "0.6.71", path = "../blazen-macros" }
 
 [features]
 default = ["local-all"]

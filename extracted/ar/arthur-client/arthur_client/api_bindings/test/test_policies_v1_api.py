@@ -166,6 +166,20 @@ class TestPoliciesV1Api(unittest.TestCase):
         """
         pass
 
+    def test_list_organization_compliance(self) -> None:
+        """Test case for list_organization_compliance
+
+        List Organization Compliance
+        """
+        pass
+
+    def test_list_organization_policy_assignments(self) -> None:
+        """Test case for list_organization_policy_assignments
+
+        List Organization Policy Assignments
+        """
+        pass
+
     def test_list_policies(self) -> None:
         """Test case for list_policies
 

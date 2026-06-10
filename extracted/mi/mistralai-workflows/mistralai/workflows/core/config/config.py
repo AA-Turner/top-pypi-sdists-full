@@ -410,6 +410,8 @@ class WorkerConfig(BaseSettings):
         description="If True, all workflows will be sandboxed by default to enforce deterministic execution.",
     )
 
+    upload_graph: bool = False
+
     deployment_name: DeploymentName = None
     worker_name: str = Field(default_factory=socket.gethostname)
 

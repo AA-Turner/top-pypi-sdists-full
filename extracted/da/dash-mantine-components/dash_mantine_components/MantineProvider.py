@@ -83,6 +83,11 @@ Keyword arguments:
     Forces color scheme value, if set, MantineProvider ignores
     `colorSchemeManager` and `defaultColorScheme`.
 
+- getStyleNonce (boolean | number | string | dict | list; optional):
+    getStyleNonce is a function to generate
+    [nonce](https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/nonce)
+    attribute added to dynamic generated `<style />` tags.
+
 - stylesTransform (dict; optional):
     An object to transform `styles` and `sx` props into css classes,
     can be used with CSS-in-JS libraries.
@@ -519,6 +524,7 @@ Keyword arguments:
         self,
         children: typing.Optional[ComponentType] = None,
         id: typing.Optional[typing.Union[str, dict]] = None,
+        getStyleNonce: typing.Optional[typing.Any] = None,
         theme: typing.Optional["Theme"] = None,
         colorSchemeManager: typing.Optional["ColorSchemeManager"] = None,
         defaultColorScheme: typing.Optional[Literal["auto", "dark", "light"]] = None,
@@ -528,7 +534,6 @@ Keyword arguments:
         deduplicateCssVariables: typing.Optional[bool] = None,
         getRootElement: typing.Optional[typing.Any] = None,
         classNamesPrefix: typing.Optional[str] = None,
-        getStyleNonce: typing.Optional[typing.Any] = None,
         cssVariablesResolver: typing.Optional["CssVariablesResolver"] = None,
         withStaticClasses: typing.Optional[bool] = None,
         withGlobalClasses: typing.Optional[bool] = None,
@@ -536,9 +541,9 @@ Keyword arguments:
         env: typing.Optional[Literal["default", "test"]] = None,
         **kwargs
     ):
-        self._prop_names = ['children', 'id', 'classNamesPrefix', 'colorSchemeManager', 'cssVariablesResolver', 'cssVariablesSelector', 'deduplicateCssVariables', 'defaultColorScheme', 'env', 'forceColorScheme', 'stylesTransform', 'theme', 'withCssVariables', 'withGlobalClasses', 'withStaticClasses']
+        self._prop_names = ['children', 'id', 'classNamesPrefix', 'colorSchemeManager', 'cssVariablesResolver', 'cssVariablesSelector', 'deduplicateCssVariables', 'defaultColorScheme', 'env', 'forceColorScheme', 'getStyleNonce', 'stylesTransform', 'theme', 'withCssVariables', 'withGlobalClasses', 'withStaticClasses']
         self._valid_wildcard_attributes =            []
-        self.available_properties = ['children', 'id', 'classNamesPrefix', 'colorSchemeManager', 'cssVariablesResolver', 'cssVariablesSelector', 'deduplicateCssVariables', 'defaultColorScheme', 'env', 'forceColorScheme', 'stylesTransform', 'theme', 'withCssVariables', 'withGlobalClasses', 'withStaticClasses']
+        self.available_properties = ['children', 'id', 'classNamesPrefix', 'colorSchemeManager', 'cssVariablesResolver', 'cssVariablesSelector', 'deduplicateCssVariables', 'defaultColorScheme', 'env', 'forceColorScheme', 'getStyleNonce', 'stylesTransform', 'theme', 'withCssVariables', 'withGlobalClasses', 'withStaticClasses']
         self.available_wildcard_properties =            []
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

@@ -333,6 +333,13 @@ def run_scope_apply(target: Path) -> int:
                     if isinstance(k, str):
                         existing_inherited.add(k)
                 continue
+            # Out-of-boundary evidence must not contradict an inheritance
+            # declaration (v0.1.222): a dev_sandbox RDS would otherwise
+            # "contradict" an RDS-inherited-from-platform declaration even
+            # though the in-boundary workspace has none. Same boundary
+            # discipline as agent gap (v0.1.219) / agent remediate (v0.1.222).
+            if payload.get("boundary_state") == "out_of_boundary":
+                continue
             for k in payload.get("ksis_evidenced", []) or []:
                 if isinstance(k, str):
                     evidenced.add(k)

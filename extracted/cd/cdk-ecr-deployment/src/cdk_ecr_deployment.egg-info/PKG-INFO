@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-ecr-deployment
-Version: 4.2.13
+Version: 4.2.14
 Summary: CDK construct to deploy docker image to Amazon ECR
 Home-page: https://github.com/cdklabs/cdk-ecr-deployment
 Author: Amazon Web Services<aws-cdk-dev@amazon.com>
@@ -10,21 +10,22 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: JavaScript
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved
-Requires-Python: ~=3.10
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: aws-cdk-lib<3.0.0,>=2.80.0
 Requires-Dist: constructs<11.0.0,>=10.5.1
-Requires-Dist: jsii<2.0.0,>=1.132.0
+Requires-Dist: jsii<2.0.0,>=1.134.0
 Requires-Dist: publication>=0.0.3
-Requires-Dist: typeguard==2.13.3
 
 # cdk-ecr-deployment
 

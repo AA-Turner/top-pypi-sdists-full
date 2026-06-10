@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: texterrors
-Version: 1.1.7
+Version: 1.1.8
 Summary: For WER
 Author-Email: Rudolf A Braun <rab014@gmail.com>
 License: Apache-2.0 License
@@ -39,6 +39,10 @@ Example of colored detailed output (`--usecolor`):
 For more background on the motivation for the tool, see [this post](https://ruabraun.github.io/jekyll/update/2020/11/27/On-word-error-rates.html).
 
 # Changelog
+
+## 1.1.8
+
+- Fixed side-by-side output when a hypothesis file is missing an utterance by skipping incomplete utterances before alignment merging.
 
 ## 1.1.7
 

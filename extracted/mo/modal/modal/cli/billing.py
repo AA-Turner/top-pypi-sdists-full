@@ -1,7 +1,6 @@
 # Copyright Modal Labs 2025
 from datetime import datetime
 from json import dumps
-from typing import Optional
 
 import click
 
@@ -38,12 +37,12 @@ DATE_HELP = "Date (in UTC by default): ISO format (2025-01-01) or relative (yest
 @click.option("--csv", "csv", is_flag=True, default=False, help="Output as CSV.")
 @synchronizer.create_blocking
 async def report(
-    start: Optional[str],
-    end: Optional[str],
-    for_: Optional[str],
+    start: str | None,
+    end: str | None,
+    for_: str | None,
     resolution: str,
-    tz: Optional[str],
-    tag_names: Optional[str],
+    tz: str | None,
+    tag_names: str | None,
     json: bool,
     csv: bool,
 ):
@@ -61,19 +60,19 @@ async def report(
 
     Examples:
 
-    ```bash
-    modal billing report --start 2025-12-01 --end 2026-01-01
+        ```bash
+        modal billing report --start 2025-12-01 --end 2026-01-01
 
-    modal billing report --for "last month" --tag-names team,project
+        modal billing report --for "last month" --tag-names team,project
 
-    modal billing report --for today --resolution h
+        modal billing report --for today --resolution h
 
-    modal billing report --for yesterday -r h --tz local
+        modal billing report --for yesterday -r h --tz local
 
-    modal billing report --for "last month" --csv > report.csv
+        modal billing report --for "last month" --csv > report.csv
 
-    modal billing report --start 2025-12-01 --json > report.json
-    ```
+        modal billing report --start 2025-12-01 --json > report.json
+        ```
 
     """
     # Validate mutually exclusive output formats

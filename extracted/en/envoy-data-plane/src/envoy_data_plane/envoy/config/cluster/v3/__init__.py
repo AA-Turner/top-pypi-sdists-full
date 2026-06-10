@@ -330,15 +330,22 @@ class ClusterRingHashLbConfigHashFunction(betterproto2.Enum):
 
 
 class UpstreamConnectionOptionsFirstAddressFamilyVersion(betterproto2.Enum):
+    """
+    [#comment: Keep this list of address types in sync with api/config/core/v3/address.proto.]
+    """
+
     DEFAULT = 0
     """
-    respect the native ranking of destination ip addresses returned from dns
-    resolution
+    Use the first address family encountered in the address list.
     """
 
     V4 = 1
 
     V6 = 2
+
+    PIPE = 3
+
+    INTERNAL = 4
 
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
@@ -531,7 +538,7 @@ default_message_pool.register_message(
 class Cluster(betterproto2.Message):
     """
     Configuration for a single upstream cluster.
-    [#next-free-field: 59]
+    [#next-free-field: 61]
 
     Oneofs:
         - cluster_discovery_type:
@@ -603,6 +610,45 @@ class Cluster(betterproto2.Message):
     [#comment:TODO(incfly): add a detailed architecture doc on intended usage.]
     """
 
+    transport_socket_matcher: "____xds__type__matcher__v3__.Matcher | None" = (
+        betterproto2.field(59, betterproto2.TYPE_MESSAGE, optional=True)
+    )
+    """
+    Optional matcher that selects a transport socket from
+    :ref:`transport_socket_matches <envoy_v3_api_field_config.cluster.v3.Cluster.transport_socket_matches>`.
+
+    This matcher uses the generic xDS matcher framework to select a named transport socket
+    based on various inputs available at transport socket selection time.
+
+    Supported matching inputs:
+
+    * ``endpoint_metadata``: Extract values from the selected endpoint's metadata.
+    * ``locality_metadata``: Extract values from the endpoint's locality metadata.
+    * ``transport_socket_filter_state``: Extract values from filter state that was explicitly shared from
+      downstream to upstream via ``TransportSocketOptions``. This enables flexible
+      downstream-connection-based matching, such as:
+
+      - Network namespace matching.
+      - Custom connection attributes.
+      - Any data explicitly passed via filter state.
+
+    .. note::
+      Filter state sharing follows the same pattern as tunneling in Envoy. Filters must explicitly
+      share data by setting filter state with the appropriate sharing mode. The filter state is
+      then accessible via the ``transport_socket_filter_state`` input during transport socket selection.
+
+    If this field is set, it takes precedence over legacy metadata-based selection
+    performed by :ref:`transport_socket_matches
+    <envoy_v3_api_field_config.cluster.v3.Cluster.transport_socket_matches>` alone.
+    If the matcher does not yield a match, Envoy uses the default transport socket
+    configured for the cluster.
+
+    When using this field, each entry in
+    :ref:`transport_socket_matches <envoy_v3_api_field_config.cluster.v3.Cluster.transport_socket_matches>`
+    must have a unique ``name``. The matcher outcome is expected to reference one of
+    these names.
+    """
+
     name: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
         1, betterproto2.TYPE_STRING
     )
@@ -671,6 +717,20 @@ class Cluster(betterproto2.Message):
     """
     Soft limit on size of the cluster’s connections read and write buffers. If
     unspecified, an implementation defined default is applied (1MiB).
+    """
+
+    per_connection_buffer_high_watermark_timeout: "datetime.timedelta | None" = (
+        betterproto2.field(
+            60,
+            betterproto2.TYPE_MESSAGE,
+            unwrap=lambda: ____google__protobuf__.Duration,
+            optional=True,
+        )
+    )
+    """
+    Optional timeout that controls how long an upstream connection is allowed to stay above the
+    configured buffer high watermark before it is closed. If this timeout is not specified, or
+    explicitly set to 0, connections will not be closed due to buffer high watermark usage.
     """
 
     lb_policy: "ClusterLbPolicy" = betterproto2.field(
@@ -1967,6 +2027,9 @@ class ClusterPreconnectPolicy(betterproto2.Message):
     If both this and preconnect_ratio are set, Envoy will make sure both predicted needs are met,
     basically preconnecting max(predictive-preconnect, per-upstream-preconnect), for each
     upstream.
+
+    This is limited somewhat arbitrarily to 3 because preconnecting too aggressively can
+    harm latency more than the preconnecting helps.
     """
 
 
@@ -2287,7 +2350,7 @@ class OutlierDetection(betterproto2.Message):
 
     See the :ref:`architecture overview <arch_overview_outlier_detection>` for
     more information on outlier detection.
-    [#next-free-field: 26]
+    [#next-free-field: 27]
     """
 
     consecutive_5xx: "int | None" = betterproto2.field(
@@ -2300,6 +2363,8 @@ class OutlierDetection(betterproto2.Message):
     The number of consecutive server-side error responses (for HTTP traffic,
     5xx responses; for TCP traffic, connection failures; for Redis, failure to
     respond PONG; etc.) before a consecutive 5xx ejection occurs. Defaults to 5.
+
+    If set to 0 explicitly, consecutive 5xx ejection will be disabled.
     """
 
     interval: "datetime.timedelta | None" = betterproto2.field(
@@ -2414,6 +2479,8 @@ class OutlierDetection(betterproto2.Message):
     """
     The number of consecutive gateway failures (502, 503, 504 status codes)
     before a consecutive gateway failure ejection occurs. Defaults to 5.
+
+    If set to 0 explicitly, consecutive gateway failure ejection will be disabled.
     """
 
     enforcing_consecutive_gateway_failure: "int | None" = betterproto2.field(
@@ -2452,6 +2519,8 @@ class OutlierDetection(betterproto2.Message):
     occurs. Defaults to 5. Parameter takes effect only when
     :ref:`split_external_local_origin_errors<envoy_v3_api_field_config.cluster.v3.OutlierDetection.split_external_local_origin_errors>`
     is set to true.
+
+    If set to 0 explicitly, consecutive locally originated failure ejection will be disabled.
     """
 
     enforcing_consecutive_local_origin_failure: "int | None" = betterproto2.field(
@@ -2605,6 +2674,22 @@ class OutlierDetection(betterproto2.Message):
     Defaults to false.
     """
 
+    detect_degraded_hosts: "bool | None" = betterproto2.field(
+        26,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ____google__protobuf__.BoolValue,
+        optional=True,
+    )
+    """
+    If set to true, outlier detection will mark hosts as degraded when they return
+    the ``x-envoy-degraded`` header.
+    Degraded hosts are deprioritized in load balancing but are not ejected from the cluster.
+    The degraded state is cleared using the same backoff algorithm as ejection, with the degradation
+    period calculated as ``base_ejection_time`` multiplied by the number of times the host
+    has been marked as degraded, capped by ``max_ejection_time``.
+    Defaults to false.
+    """
+
 
 default_message_pool.register_message(
     "envoy.config.cluster.v3", "OutlierDetection", OutlierDetection
@@ -2718,6 +2803,7 @@ default_message_pool.register_message(
 
 from .....google import protobuf as ____google__protobuf__
 from .....xds.core import v3 as ____xds__core__v3__
+from .....xds.type.matcher import v3 as ____xds__type__matcher__v3__
 from ....type import v3 as ___type__v3__
 from ....type.metadata import v3 as ___type__metadata__v3__
 from ...core import v3 as __core__v3__

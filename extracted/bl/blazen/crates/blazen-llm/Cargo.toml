@@ -150,6 +150,7 @@ embed-tract = ["dep:blazen-embed-tract"]
 
 [dependencies]
 blazen-events.workspace = true
+blazen-local-llm.workspace = true
 async-trait.workspace = true
 schemars.workspace = true
 serde.workspace = true
@@ -188,7 +189,7 @@ blazen-llm-llamacpp-server = { workspace = true, optional = true }
 blazen-llm-tgi = { workspace = true, optional = true }
 blazen-llm-lmstudio = { workspace = true, optional = true }
 blazen-audio-vc = { workspace = true, optional = true }
-blazen-3d = { version = "0.6.7", path = "../blazen-3d", optional = true }
+blazen-3d = { version = "0.6.71", path = "../blazen-3d", optional = true }
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"], optional = true }
 candle-core = { workspace = true, optional = true }
 blazen-embed-fastembed = { workspace = true, optional = true }

@@ -42,8 +42,6 @@ def app_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Test
     omits it to test the unauthed path).
     """
     state = tmp_path / "state.db"
-    image_root = tmp_path / "images"
-    image_root.mkdir()
     boot_root = tmp_path / "boot"
     boot_root.mkdir()
     bty_state_dir = tmp_path / "bty-state"
@@ -52,8 +50,6 @@ def app_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Test
     (boot_root / ARTIFACT_NAMES[0]).write_bytes(b"fake-kernel")
     (boot_root / ARTIFACT_NAMES[1]).write_bytes(b"fake-initrd")
     (boot_root / ARTIFACT_NAMES[2]).write_bytes(b"fake-squashfs")
-    # Seed an image too so /images/{name} tests work.
-    (image_root / "demo.qcow2").write_bytes(b"fake-image")
     # Pin BTY_STATE_DIR so ``catalog.toml`` upload / fetch-release
     # tests can find the on-disk manifest under tmp_path. The default
     # is /var/lib/bty which would be unwritable in CI.
@@ -63,7 +59,6 @@ def app_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Test
         state_path=state,
         service_user=TEST_SERVICE_USER,
         secret_key=TEST_SECRET_KEY,
-        image_root=image_root,
         boot_root=boot_root,
     )
 
@@ -387,7 +382,12 @@ def test_put_boot_rejects_oversized_upload(
     the cap behaviour applies to both. Verify directly so a future
     refactor that splits the two paths can't silently drop the
     cap on /boot."""
+    from bty.web import _config
+
     monkeypatch.setenv("BTY_MAX_UPLOAD_BYTES", "16")
+    # Cfg is loaded once at create_app time; reload now that the test
+    # has set the env override the upload-cap reader consults.
+    _config.set_active_config(_config.load_config(None))
     payload = b"a" * 64
     r = app_client.put("/boot/oversized.efi", content=payload, cookies=AUTH)
     assert r.status_code == 413
@@ -2375,7 +2375,10 @@ def test_source_ip_uses_x_forwarded_for_when_trusted_proxy(
     ``request.client.host``. This is what bty-web operators behind
     nginx / caddy need so audit rows show the real client IP, not
     the proxy's loopback."""
+    from bty.web import _config
+
     monkeypatch.setenv("BTY_TRUSTED_PROXY", "1")
+    _config.set_active_config(_config.load_config(None))
     mac = "aa:bb:cc:dd:ee:f8"
     app_client.get(f"/pxe/{mac}", headers={"X-Forwarded-For": "192.168.1.42, 10.0.0.1"})
     r = app_client.get("/events", params={"kind": "machine.discovered"}, cookies=AUTH)
@@ -3548,8 +3551,6 @@ def test_create_app_rotates_stale_state_db_end_to_end(
     from bty.web import _db
 
     state = tmp_path / "state.db"
-    image_root = tmp_path / "images"
-    image_root.mkdir()
     bty_state_dir = tmp_path / "bty-state"
     bty_state_dir.mkdir()
     monkeypatch.setenv("BTY_STATE_DIR", str(bty_state_dir))
@@ -3573,7 +3574,6 @@ def test_create_app_rotates_stale_state_db_end_to_end(
         state_path=state,
         service_user=TEST_SERVICE_USER,
         secret_key=TEST_SECRET_KEY,
-        image_root=image_root,
     )
     with TestClient(app) as client:
         # /healthz forces the lifespan to fully start (open_db

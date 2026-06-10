@@ -3,7 +3,10 @@
 # plugin: python-betterproto2
 # This file has been @generated
 
-__all__ = ("DownstreamReverseConnectionSocketInterface",)
+__all__ = (
+    "DownstreamReverseConnectionSocketInterface",
+    "DownstreamReverseConnectionSocketInterfaceHttpHandshakeConfig",
+)
 
 import typing
 
@@ -39,7 +42,15 @@ class DownstreamReverseConnectionSocketInterface(betterproto2.Message):
     """
     Enable detailed per-host and per-cluster statistics.
     When enabled, emits hidden statistics for individual hosts and clusters.
-    Defaults to false.
+    Defaults to ``false``.
+    """
+
+    http_handshake: "DownstreamReverseConnectionSocketInterfaceHttpHandshakeConfig | None" = betterproto2.field(
+        3, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Optional HTTP handshake configuration. When unset, the initiator envoy uses the defaults
+    provided by ``HttpHandshakeConfig``.
     """
 
 
@@ -48,3 +59,37 @@ default_message_pool.register_message(
     "DownstreamReverseConnectionSocketInterface",
     DownstreamReverseConnectionSocketInterface,
 )
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class DownstreamReverseConnectionSocketInterfaceHttpHandshakeConfig(
+    betterproto2.Message
+):
+    """
+    HTTP handshake settings for initiator envoy initiated reverse tunnels.
+    """
+
+    request_path: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        1, betterproto2.TYPE_STRING
+    )
+    """
+    Request path used when issuing the HTTP reverse-connection handshake. Defaults to
+    "/reverse_connections/request".
+    """
+
+    additional_headers: "list[_____config__core__v3__.HeaderValueOption]" = (
+        betterproto2.field(2, betterproto2.TYPE_MESSAGE, repeated=True)
+    )
+    """
+    Additional headers to include in the HTTP handshake request.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.bootstrap.reverse_tunnel.downstream_socket_interface.v3",
+    "DownstreamReverseConnectionSocketInterface.HttpHandshakeConfig",
+    DownstreamReverseConnectionSocketInterfaceHttpHandshakeConfig,
+)
+
+
+from ......config.core import v3 as _____config__core__v3__

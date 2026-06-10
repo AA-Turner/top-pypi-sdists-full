@@ -68,6 +68,35 @@ class Params:
         }
         self._print_config(config)
 
+    def save_to_json(self, path):
+        """
+        Save the current configuration to a JSON file. The structure of the JSON file will be as follows:
+        {
+        "Parameters": {
+            "general": {...},
+            "acoustic": {...},
+            "optic": {...},
+            "reconstruction": {...}
+        }
+        }
+        """
+        if not path.endswith('.json'):
+            raise ValueError("The output file must have a .json extension.")
+        config = {
+            "Parameters": {
+                "general": self.general,
+                "acoustic": self.acoustic,
+                "optic": self.optic,
+                "reconstruction": self.reconstruction
+            }
+        }
+        try:
+            with open(path, 'w', encoding='utf-8') as file:
+                json.dump(config, file, indent=4, ensure_ascii=False)
+            print(f"Configuration saved to {path}")
+        except Exception as e:
+            raise IOError(f"Error occurred while saving the file: {e}")
+
     def _print_config(self, config, indent=0):
         border = "+" + "-" * 100 + "+"
         print(border)

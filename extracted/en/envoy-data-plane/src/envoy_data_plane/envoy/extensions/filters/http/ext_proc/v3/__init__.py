@@ -62,24 +62,27 @@ class ExternalProcessorRouteCacheAction(betterproto2.Enum):
 
 class ProcessingModeBodySendMode(betterproto2.Enum):
     """
-    Control how the request and response bodies are handled
-    When body mutation by external processor is enabled, ext_proc filter will always remove
-    the content length header in four cases below because content length can not be guaranteed
-    to be set correctly:
-    1) STREAMED BodySendMode: header processing completes before body mutation comes back.
-    2) BUFFERED_PARTIAL BodySendMode: body is buffered and could be injected in different phases.
-    3) BUFFERED BodySendMode + SKIP HeaderSendMode: header processing (e.g., update content-length) is skipped.
-    4) FULL_DUPLEX_STREAMED BodySendMode: header processing completes before body mutation comes back.
+    Control how the request and response bodies are handled.
 
-    In Envoy's http1 codec implementation, removing content length will enable chunked transfer
-    encoding whenever feasible. The recipient (either client or server) must be able
-    to parse and decode the chunked transfer coding.
+    When body mutation by the external processor is enabled, the ext_proc filter will always remove the
+    content length header in the following four cases, unless
+    :ref:`allow_content_length_header <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.allow_content_length_header>`
+    is enabled. This is because the content length cannot be guaranteed to be set correctly:
+
+    1) ``STREAMED`` BodySendMode: header processing completes before body mutation comes back.
+    2) ``BUFFERED_PARTIAL`` BodySendMode: body is buffered and could be injected in different phases.
+    3) ``BUFFERED`` BodySendMode + ``SKIP`` HeaderSendMode: header processing (e.g., update content-length) is skipped.
+    4) ``FULL_DUPLEX_STREAMED`` BodySendMode: header processing completes before body mutation comes back.
+
+    In Envoy's HTTP/1 codec implementation, removing content length will enable chunked transfer
+    encoding whenever feasible. The recipient (either client or server) must be able to parse and
+    decode the chunked transfer coding
     (see `details in RFC9112 <https://tools.ietf.org/html/rfc9112#section-7.1>`_).
 
-    In BUFFERED BodySendMode + SEND HeaderSendMode, content length header is allowed but it is
-    external processor's responsibility to set the content length correctly matched to the length
-    of mutated body. If they don't match, the corresponding body mutation will be rejected and
-    local reply will be sent with an error message.
+    In ``BUFFERED`` BodySendMode + ``SEND`` HeaderSendMode, content length header is allowed but it
+    is the external processor's responsibility to set the content length correctly matched to the
+    length of the mutated body. If they don't match, the corresponding body mutation will be
+    rejected and a local reply will be sent with an error message.
     """
 
     NONE = 0
@@ -110,54 +113,75 @@ class ProcessingModeBodySendMode(betterproto2.Enum):
     """
     The ext_proc client (the data plane) streams the body to the server in pieces as they arrive.
 
-    1) The server may choose to buffer any number chunks of data before processing them.
-    After it finishes buffering, the server processes the buffered data. Then it splits the processed
-    data into any number of chunks, and streams them back to the ext_proc client one by one.
-    The server may continuously do so until the complete body is processed.
-    The individual response chunk size is recommended to be no greater than 64K bytes, or
-    :ref:`max_receive_message_length <envoy_v3_api_field_config.core.v3.GrpcService.EnvoyGrpc.max_receive_message_length>`
-    if EnvoyGrpc is used.
+    1) The server may choose to buffer any number of chunks of data before processing them.
+       After it finishes buffering, the server processes the buffered data. Then it splits the
+       processed data into any number of chunks, and streams them back to the ext_proc client one
+       by one. The server may continuously do so until the complete body is processed. The
+       individual response chunk size is recommended to be no greater than 64K bytes, or
+       :ref:`max_receive_message_length <envoy_v3_api_field_config.core.v3.GrpcService.EnvoyGrpc.max_receive_message_length>`
+       if EnvoyGrpc is used.
 
-    2) The server may also choose to buffer the entire message, including the headers (if header mode is
-    ``SEND``), the entire body, and the trailers (if present), before sending back any response.
-    The server response has to maintain the headers-body-trailers ordering.
+    2) The server may also choose to buffer the entire message, including the headers (if header
+       mode is ``SEND``), the entire body, and the trailers (if present), before sending back any
+       response. The server response has to maintain the headers-body-trailers ordering.
 
-    3) Note that the server might also choose not to buffer data. That is, upon receiving a
-    body request, it could process the data and send back a body response immediately.
+    3) Note that the server might also choose not to buffer data. That is, upon receiving a body
+       request, it could process the data and send back a body response immediately.
 
     In this body mode:
+
     * The corresponding trailer mode has to be set to ``SEND``.
-    * The client will send body and trailers (if present) to the server as they arrive.
-      Sending the trailers (if present) is to inform the server the complete body arrives.
-      In case there are no trailers, then the client will set
+    * The client will send body and trailers (if present) to the server as they arrive. Sending
+      the trailers (if present) is to inform the server that the complete body has arrived. In
+      case there are no trailers, then the client will set
       :ref:`end_of_stream <envoy_v3_api_field_service.ext_proc.v3.HttpBody.end_of_stream>`
-      to true as part of the last body chunk request to notify the server that no other data is to be sent.
+      to ``true`` as part of the last body chunk request to notify the server that no other data
+      is to be sent.
     * The server needs to send
       :ref:`StreamedBodyResponse <envoy_v3_api_msg_service.ext_proc.v3.StreamedBodyResponse>`
       to the client in the body response.
-    * The client will stream the body chunks in the responses from the server to the upstream/downstream as they arrive.
+    * The client will stream the body chunks in the responses from the server to the
+      upstream/downstream as they arrive.
+    """
+
+    GRPC = 5
+    """
+    [#not-implemented-hide:]
+    A mode for gRPC traffic. This is similar to ``FULL_DUPLEX_STREAMED``, except that instead of
+    sending raw chunks of the HTTP/2 DATA frames, the ext_proc client will de-frame the
+    individual gRPC messages inside the HTTP/2 DATA frames, and as each message is de-framed, it
+    will be sent to the ext_proc server as a
+    :ref:`request_body <envoy_v3_api_field_service.ext_proc.v3.ProcessingRequest.request_body>`
+    or
+    :ref:`response_body <envoy_v3_api_field_service.ext_proc.v3.ProcessingRequest.response_body>`.
+    The ext_proc server will stream back individual gRPC messages in the
+    :ref:`StreamedBodyResponse <envoy_v3_api_msg_service.ext_proc.v3.StreamedBodyResponse>`
+    field, but the number of messages sent by the ext_proc server does not need to equal the
+    number of messages sent by the data plane. This allows the ext_proc server to change the
+    number of messages sent on the stream. In this mode, the client will send body and trailers
+    to the server as they arrive.
     """
 
 
 class ProcessingModeHeaderSendMode(betterproto2.Enum):
     """
-    Control how headers and trailers are handled
+    Control how headers and trailers are handled.
     """
 
     DEFAULT = 0
     """
-    When used to configure the ext_proc filter :ref:`processing_mode
-    <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.processing_mode>`,
-    the default HeaderSendMode depends on which part of the message is being processed. By
+    When used to configure the ext_proc filter
+    :ref:`processing_mode <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.processing_mode>`,
+    the default ``HeaderSendMode`` depends on which part of the message is being processed. By
     default, request and response headers are sent, while trailers are skipped.
 
-    When used in :ref:`mode_override
-    <envoy_v3_api_field_service.ext_proc.v3.ProcessingResponse.mode_override>` or
-    :ref:`allowed_override_modes
-    <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.allowed_override_modes>`,
-    a value of DEFAULT indicates that there is no change from the behavior that is configured for
-    the filter in :ref:`processing_mode
-    <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.processing_mode>`.
+    When used in
+    :ref:`mode_override <envoy_v3_api_field_service.ext_proc.v3.ProcessingResponse.mode_override>`
+    or
+    :ref:`allowed_override_modes <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.allowed_override_modes>`,
+    a value of ``DEFAULT`` indicates that there is no change from the behavior that is configured
+    for the filter in
+    :ref:`processing_mode <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.processing_mode>`.
     """
 
     SEND = 1
@@ -206,8 +230,10 @@ class ExternalProcessor(betterproto2.Message):
     * Request body: If the body is present, the behavior depends on the
       body send mode. In ``BUFFERED`` or ``BUFFERED_PARTIAL`` mode, the body is sent to the external
       processor in a single message. In ``STREAMED`` or ``FULL_DUPLEX_STREAMED`` mode, the body will
-      be split across multiple messages sent to the external processor. In ``NONE`` mode, the body
-      will not be sent to the external processor.
+      be split across multiple messages sent to the external processor. In ``GRPC`` mode, as each
+      gRPC message arrives, it will be sent to the external processor (there will be exactly one
+      gRPC message in each message sent to the external processor). In ``NONE`` mode, the body will
+      not be sent to the external processor.
     * Request trailers: Delivered if they are present and if the trailer mode is set
       to ``SEND``.
     * Response headers: Contains the headers from the HTTP response. Keep in mind
@@ -242,7 +268,7 @@ class ExternalProcessor(betterproto2.Message):
     <arch_overview_advanced_filter_state_sharing>` object in a namespace matching the filter
     name.
 
-    [#next-free-field: 26]
+    [#next-free-field: 27]
     """
 
     grpc_service: "_____config__core__v3__.GrpcService | None" = betterproto2.field(
@@ -356,9 +382,9 @@ class ExternalProcessor(betterproto2.Message):
     an error (subject to the processing mode) if the timer expires before a
     matching response is received. There is no timeout when the filter is
     running in observability mode or when the body send mode is
-    ``FULL_DUPLEX_STREAMED``. Zero is a valid config which means the timer
-    will be triggered immediately. If not configured, default is 200
-    milliseconds.
+    ``FULL_DUPLEX_STREAMED`` or ``GRPC``. Zero is a valid config which means
+    the timer will be triggered immediately. If not configured, default is
+    200 milliseconds.
     """
 
     stat_prefix: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -447,8 +473,8 @@ class ExternalProcessor(betterproto2.Message):
     without pausing on filter chain iteration. It is "Send and Go" mode that can be used
     by external processor to observe the request's data and status. In this mode:
 
-    1. Only ``STREAMED`` and ``NONE`` body processing modes are supported; for any other body
-    processing mode, the body will not be sent.
+    1. Only ``STREAMED``, ``GRPC``, and ``NONE`` body processing modes are supported; for any
+    other body processing mode, the body will not be sent.
 
     2. External processor should not send back processing response, as any responses will be ignored.
     This also means that
@@ -456,14 +482,6 @@ class ExternalProcessor(betterproto2.Message):
     restriction doesn't apply to this mode.
 
     3. External processor may still close the stream to indicate that no more messages are needed.
-
-    .. warning::
-
-       Flow control is a necessary mechanism to prevent the fast sender (either downstream client or upstream server)
-       from overwhelming the external processor when its processing speed is slower.
-       This protective measure is being explored and developed but has not been ready yet, so please use your own
-       discretion when enabling this feature.
-       This work is currently tracked under https://github.com/envoyproxy/envoy/issues/33319.
     """
 
     disable_clear_route_cache: "bool" = betterproto2.field(11, betterproto2.TYPE_BOOL)
@@ -570,6 +588,21 @@ class ExternalProcessor(betterproto2.Message):
     an error, fails to respond, or cannot be reached.
 
     The default status is ``HTTP 500 Internal Server Error``.
+    """
+
+    allow_content_length_header: "bool" = betterproto2.field(26, betterproto2.TYPE_BOOL)
+    """
+    If true, the filter will not remove the ``content-length`` header from the request/response after external processing.
+    It is typically used in
+    :ref:`FULL_DUPLEX_STREAMED <envoy_v3_api_enum_value_extensions.filters.http.ext_proc.v3.ProcessingMode.BodySendMode.FULL_DUPLEX_STREAMED>`
+    mode. If the original body has been modified, the external processing server needs to set the correct content-length header in HeaderMutation
+    that matches the modified body length.
+
+    .. warning::
+
+       This configuration should only be used if you are sure that the content length matches
+       the body length after external processing. Otherwise, it may cause vulnerability issues such as
+       request smuggling. Thus, please use your own discretion when enabling this feature.
     """
 
 
@@ -791,7 +824,7 @@ class MetadataOptions(betterproto2.Message):
         betterproto2.field(1, betterproto2.TYPE_MESSAGE, optional=True)
     )
     """
-    Describes which typed or untyped dynamic metadata namespaces to forward to
+    Describes which typed or untyped filter dynamic metadata namespaces to forward to
     the external processing server.
     """
 
@@ -799,9 +832,20 @@ class MetadataOptions(betterproto2.Message):
         betterproto2.field(2, betterproto2.TYPE_MESSAGE, optional=True)
     )
     """
-    Describes which typed or untyped dynamic metadata namespaces to accept from
+    Describes which typed or untyped filter dynamic metadata namespaces to accept from
     the external processing server. Set to empty or leave unset to disallow writing
     any received dynamic metadata. Receiving of typed metadata is not supported.
+    """
+
+    cluster_metadata_forwarding_namespaces: "MetadataOptionsMetadataNamespaces | None" = betterproto2.field(
+        3, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Describes which cluster metadata namespaces to forward to
+    the external processing server.
+    .. note::
+    This is the least specific metadata. Should there be any namespace collision,
+    cluster level metadata can be overridden by filter metadata.
     """
 
 
@@ -857,10 +901,16 @@ class ProcessingMode(betterproto2.Message):
         default_factory=lambda: ProcessingModeHeaderSendMode(0),
     )
     """
-    How to handle the request header. Default is "SEND".
-    Note this field is ignored in :ref:`mode_override
-    <envoy_v3_api_field_service.ext_proc.v3.ProcessingResponse.mode_override>`, since mode
-    overrides can only affect messages exchanged after the request header is processed.
+    How to handle the request header.
+
+    .. note::
+
+       This field is ignored in
+       :ref:`mode_override <envoy_v3_api_field_service.ext_proc.v3.ProcessingResponse.mode_override>`,
+       since mode overrides can only affect messages exchanged after the request header is
+       processed.
+
+    Defaults to ``SEND``.
     """
 
     response_header_mode: "ProcessingModeHeaderSendMode" = betterproto2.field(
@@ -869,21 +919,27 @@ class ProcessingMode(betterproto2.Message):
         default_factory=lambda: ProcessingModeHeaderSendMode(0),
     )
     """
-    How to handle the response header. Default is "SEND".
+    How to handle the response header.
+
+    Defaults to ``SEND``.
     """
 
     request_body_mode: "ProcessingModeBodySendMode" = betterproto2.field(
         3, betterproto2.TYPE_ENUM, default_factory=lambda: ProcessingModeBodySendMode(0)
     )
     """
-    How to handle the request body. Default is "NONE".
+    How to handle the request body.
+
+    Defaults to ``NONE``.
     """
 
     response_body_mode: "ProcessingModeBodySendMode" = betterproto2.field(
         4, betterproto2.TYPE_ENUM, default_factory=lambda: ProcessingModeBodySendMode(0)
     )
     """
-    How do handle the response body. Default is "NONE".
+    How to handle the response body.
+
+    Defaults to ``NONE``.
     """
 
     request_trailer_mode: "ProcessingModeHeaderSendMode" = betterproto2.field(
@@ -892,7 +948,9 @@ class ProcessingMode(betterproto2.Message):
         default_factory=lambda: ProcessingModeHeaderSendMode(0),
     )
     """
-    How to handle the request trailers. Default is "SKIP".
+    How to handle the request trailers.
+
+    Defaults to ``SKIP``.
     """
 
     response_trailer_mode: "ProcessingModeHeaderSendMode" = betterproto2.field(
@@ -901,7 +959,9 @@ class ProcessingMode(betterproto2.Message):
         default_factory=lambda: ProcessingModeHeaderSendMode(0),
     )
     """
-    How to handle the response trailers. Default is "SKIP".
+    How to handle the response trailers.
+
+    Defaults to ``SKIP``.
     """
 
 

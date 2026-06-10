@@ -6,15 +6,12 @@
 # Parse Netscape bookmark HTML files and extract URLs.
 #
 # This is a standalone extractor that can run without ArchiveBox.
-# It reads Netscape-format bookmark exports (produced by all major browsers).
+# It reads Netscape-format bookmark exports from SNAP_DIR/staticfile/*.txt or an HTTP URL.
 #
 # Usage:
 #     ./on_Snapshot__73_parse_netscape_urls.py --url=<url>
 # Output: Appends discovered URLs to SNAP_DIR/parse_netscape_urls/urls.jsonl
 #
-# Examples:
-#     ./on_Snapshot__73_parse_netscape_urls.py --url=file:///path/to/bookmarks.html
-
 import json
 import os
 import re
@@ -22,7 +19,7 @@ import sys
 from pathlib import Path
 from datetime import datetime, timezone
 from html import unescape
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
 from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url
 from abx_plugins.plugins.base.utils import (
@@ -30,6 +27,7 @@ from abx_plugins.plugins.base.utils import (
     emit_snapshot_record,
     emit_tag_record,
     get_extra_context,
+    iter_staticfile_text_inputs,
     load_config,
     write_text_atomic,
 )
@@ -54,11 +52,11 @@ MAC_COCOA_EPOCH = 978307200  # 2001-01-01 00:00:00 UTC (Mac/Cocoa/NSDate epoch)
 MIN_REASONABLE_YEAR = 1995  # Netscape Navigator era
 MAX_REASONABLE_YEAR = 2035  # Far enough in future
 
-# Regex pattern for Netscape bookmark format
-# Example: <DT><A HREF="https://example.com/?q=1+2" ADD_DATE="1497562974" TAGS="tag1,tag2">example title</A>
-NETSCAPE_PATTERN = re.compile(
-    r'<a\s+href="([^"]+)"(?:\s+add_date="([^"]*)")?(?:\s+[^>]*?tags="([^"]*)")?[^>]*>([^<]+)</a>',
-    re.UNICODE | re.IGNORECASE,
+# Browser exports are often malformed HTML, so anchors are scanned manually
+# instead of requiring a valid DOM parse.
+ATTR_PATTERN = re.compile(
+    r"""([^\s=<>"']+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?""",
+    re.UNICODE | re.IGNORECASE | re.DOTALL,
 )
 
 
@@ -67,9 +65,9 @@ def looks_like_netscape_bookmarks(content: str) -> bool:
     lowered = content[:200000].lower()
     if "netscape-bookmark-file-1" in lowered:
         return True
-    if NETSCAPE_PATTERN.search(content):
+    if "<dt" in lowered and "<a" in lowered and "href" in lowered:
         return True
-    return "<dl" in lowered and "add_date=" in lowered and "<dt>" in lowered
+    return "<dl" in lowered and "add_date" in lowered and "href" in lowered
 
 
 def parse_timestamp(timestamp_str: str) -> datetime | None:
@@ -183,22 +181,22 @@ def parse_timestamp(timestamp_str: str) -> datetime | None:
 
 
 def fetch_content(url: str) -> str:
-    """Fetch content from a URL (supports file:// and https://)."""
-    parsed = urlparse(url)
+    """Fetch content from snapshot source artifacts or an HTTP URL."""
+    source_paths = iter_staticfile_text_inputs(SNAP_DIR)
+    if source_paths:
+        return "\n".join(
+            path.read_text(encoding="utf-8", errors="replace") for path in source_paths
+        )
+    if not url.startswith(("http://", "https://")):
+        return ""
+    timeout = CONFIG.TIMEOUT
+    user_agent = CONFIG.USER_AGENT
 
-    if parsed.scheme == "file":
-        file_path = parsed.path
-        with open(file_path, encoding="utf-8", errors="replace") as f:
-            return f.read()
-    else:
-        timeout = CONFIG.TIMEOUT
-        user_agent = CONFIG.USER_AGENT
+    import urllib.request
 
-        import urllib.request
-
-        req = urllib.request.Request(url, headers={"User-Agent": user_agent})
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            return response.read().decode("utf-8", errors="replace")
+    req = urllib.request.Request(url, headers={"User-Agent": user_agent})
+    with urllib.request.urlopen(req, timeout=timeout) as response:
+        return response.read().decode("utf-8", errors="replace")
 
 
 def normalize_bookmark_url(bookmark_url: str, root_url: str) -> str:
@@ -207,6 +205,97 @@ def normalize_bookmark_url(bookmark_url: str, root_url: str) -> str:
     if not cleaned:
         return cleaned
     return urljoin(root_url, cleaned)
+
+
+def parse_bookmark_attrs(attrs: str) -> dict[str, str]:
+    """Parse loose HTML attributes from a Netscape bookmark anchor."""
+    parsed = {}
+    for match in ATTR_PATTERN.finditer(attrs):
+        name = match.group(1).lower()
+        value = next(
+            (
+                group
+                for group in (match.group(2), match.group(3), match.group(4))
+                if group is not None
+            ),
+            "",
+        )
+        parsed[name] = unescape(value)
+    return parsed
+
+
+def clean_bookmark_title(raw_title: str) -> str:
+    """Collapse bookmark title text while tolerating nested/broken markup."""
+    without_tags = re.sub(r"<[^>]*>", " ", raw_title or "")
+    return " ".join(unescape(without_tags).split())
+
+
+def find_tag_end(content: str, start: int) -> int:
+    """Return the end of an opening tag, ignoring > inside quoted attrs."""
+    quote = ""
+    i = start
+    while i < len(content):
+        char = content[i]
+        if quote:
+            if char == quote:
+                quote = ""
+        elif char in {'"', "'"}:
+            quote = char
+        elif char == ">":
+            return i
+        i += 1
+    return -1
+
+
+def find_next_anchor_start(content: str, start: int) -> int:
+    """Find the next <a tag start without treating words like <article as anchors."""
+    lowered = content.lower()
+    pos = start
+    while True:
+        pos = lowered.find("<a", pos)
+        if pos == -1:
+            return -1
+        next_char_index = pos + 2
+        if next_char_index >= len(content):
+            return -1
+        if content[next_char_index].isspace() or content[next_char_index] in {">", "/"}:
+            return pos
+        pos += 2
+
+
+def iter_bookmarks(content: str):
+    """Yield loose Netscape bookmark anchors from the full file content."""
+    lowered = content.lower()
+    pos = 0
+    while True:
+        anchor_start = find_next_anchor_start(content, pos)
+        if anchor_start == -1:
+            return
+
+        open_end = find_tag_end(content, anchor_start)
+        if open_end == -1:
+            return
+
+        attrs_text = content[anchor_start + 2 : open_end]
+        close_start = lowered.find("</a", open_end + 1)
+        if close_start == -1:
+            title_text = ""
+            pos = open_end + 1
+        else:
+            title_text = content[open_end + 1 : close_start]
+            close_end = find_tag_end(content, close_start)
+            pos = close_end + 1 if close_end != -1 else close_start + 3
+
+        attrs = parse_bookmark_attrs(attrs_text)
+        bookmark_url = attrs.get("href")
+        if not bookmark_url:
+            continue
+        yield {
+            "url": bookmark_url,
+            "add_date": attrs.get("add_date", ""),
+            "tags": attrs.get("tags", ""),
+            "title": clean_bookmark_title(title_text),
+        }
 
 
 def emit_result(status: str, output_str: str) -> None:
@@ -246,6 +335,14 @@ def main(
     try:
         content = fetch_content(url)
     except Exception as e:
+        if url.startswith(("http://", "https://")):
+            # Snapshot URL fetching is only a fallback when no staticfile import
+            # artifact exists. Normal webpages, blocked requests, or transient
+            # network errors should not make this parser hook look broken.
+            status, output_str = persist_records([])
+            print(output_str)
+            emit_result(status, output_str)
+            sys.exit(0)
         emit_result("failed", f"Failed to fetch {url}: {e}")
         sys.exit(1)
 
@@ -258,38 +355,36 @@ def main(
     urls_found = []
     all_tags = set()
 
-    for line in content.splitlines():
-        match = NETSCAPE_PATTERN.search(line)
-        if match:
-            bookmark_url = match.group(1)
-            timestamp_str = match.group(2)
-            tags_str = match.group(3) or ""
-            title = match.group(4).strip()
-            resolved_url = normalize_bookmark_url(bookmark_url, url)
+    for bookmark in iter_bookmarks(content):
+        bookmark_url = bookmark["url"]
+        timestamp_str = bookmark["add_date"]
+        tags_str = bookmark["tags"]
+        title = bookmark["title"]
+        resolved_url = normalize_bookmark_url(bookmark_url, url)
 
-            entry = {
-                "type": "Snapshot",
-                "url": resolved_url,
-                "plugin": PLUGIN_NAME,
-                "depth": depth + 1,
-            }
-            if title:
-                entry["title"] = unescape(title)
-            if tags_str:
-                entry["tags"] = tags_str
-                # Collect unique tags
-                for tag in tags_str.split(","):
-                    tag = tag.strip()
-                    if tag:
-                        all_tags.add(tag)
+        entry = {
+            "type": "Snapshot",
+            "url": resolved_url,
+            "plugin": PLUGIN_NAME,
+            "depth": depth + 1,
+        }
+        if title:
+            entry["title"] = title
+        if tags_str:
+            entry["tags"] = tags_str
+            # Collect unique tags
+            for tag in tags_str.split(","):
+                tag = tag.strip()
+                if tag:
+                    all_tags.add(tag)
 
-            # Parse timestamp with intelligent format detection
-            if timestamp_str:
-                dt = parse_timestamp(timestamp_str)
-                if dt:
-                    entry["bookmarked_at"] = dt.isoformat()
+        # Parse timestamp with intelligent format detection
+        if timestamp_str:
+            dt = parse_timestamp(timestamp_str)
+            if dt:
+                entry["bookmarked_at"] = dt.isoformat()
 
-            urls_found.append(entry)
+        urls_found.append(entry)
 
     # Emit Tag records first (to stdout as JSONL)
     for tag_name in sorted(all_tags):

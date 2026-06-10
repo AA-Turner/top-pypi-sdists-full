@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: roboflow
-Version: 1.3.9
+Version: 1.3.10
 Summary: Official Python package for working with the Roboflow API
 Home-page: https://github.com/roboflow-ai/roboflow-python
 Author: Roboflow

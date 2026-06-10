@@ -24,7 +24,6 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import parse_qs, parse_qsl, unquote, urlencode, urlparse, urlunparse
 
-from ...path_support import resolve_path_within_allowed_roots
 from ...version import __version__
 from ..adapters import get_adapter
 from ..adapters.base import HarnessContext
@@ -91,15 +90,20 @@ from ..desktop_notifications import (
 from ..insights_share import publish_insights_share
 from ..local_dashboard_session import LOCAL_DASHBOARD_SESSION_AUDIENCE, build_local_dashboard_session_token
 from ..local_supply_chain import (
+    audit_receipt_metadata,
     build_workspace_audit_payload,
     resolve_package_firewall_entitlement_with_refresh,
+    resolve_supply_chain_audit_workspace_dir,
 )
 from ..models import DECISION_SCOPE_VALUES, GUARD_ACTION_VALUES, PolicyDecision
+from ..package_firewall_action_rate_limit import PackageFirewallActionRateLimiter
 from ..package_firewall_entitlement import (
     package_firewall_action_states,
     package_firewall_available_actions,
     package_firewall_block_details,
+    package_firewall_operation_allowed,
 )
+from ..package_shim_status import record_package_shim_audit_result
 from ..receipts.manager import build_receipt
 from ..runtime.runner import (
     GuardSyncAuthorizationExpiredError,
@@ -119,7 +123,7 @@ from ..shims import (
     activate_package_shims,
     package_shim_status,
     package_shim_supported_managers,
-    test_package_shim_intercepts,
+    probe_package_shim_intercepts,
     uninstall_package_shims,
 )
 from ..stable_digest import stable_digest_hex
@@ -179,8 +183,10 @@ def _build_snapshot_payload(context: HarnessContext) -> dict[str, object]:
     status = package_shim_status(context)
     return {
         "package_manager_coverage": {
-            "shims_installed": status.get("active_managers", []),
+            "detected_managers": status.get("detected_managers", []),
             "path_active": status.get("active_managers", []),
+            "shims_installed": status.get("active_managers", []),
+            "undetected_managers": status.get("undetected_managers", []),
             "unsupported_managers": [],
         }
     }
@@ -197,6 +203,9 @@ class _GuardDaemonHttpServer(ThreadingHTTPServer):
     active_stream_clients_lock: threading.Lock
     package_firewall_connect_state: dict[str, object] | None
     package_firewall_connect_state_lock: threading.Lock
+    package_firewall_action_rate_limiter: PackageFirewallActionRateLimiter
+    package_firewall_session_nonces: dict[str, float]
+    package_firewall_session_nonces_lock: threading.Lock
 
 
 _STATIC_DIR = Path(__file__).with_name("static")
@@ -1911,10 +1920,16 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             self._write_json(response, status=status)
             return
         operation = "remove" if action == "uninstall" else action
+        if not self._enforce_package_firewall_rate_limit(operation, payload):
+            return
         entitlement = self._supply_chain_entitlement()
         context = self._supply_chain_context(payload)
         current_status = package_shim_status(context)
-        if operation not in {"repair", "remove"} and not bool(entitlement["allowed"]):
+        if not package_firewall_operation_allowed(
+            entitlement,
+            operation,
+            has_installed_managers=bool(current_status.get("installed_managers")),
+        ):
             status, error_code, message = package_firewall_block_details(entitlement)
             self._write_json(
                 {
@@ -1935,7 +1950,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             self._write_json({"error": manager_error, "operation": operation}, status=400)
             return
         try:
-            if operation in {"install", "repair", "remove"}:
+            if operation in {"install", "repair", "remove", "test", "sync"}:
                 require_high_risk(
                     self.server.store.guard_home,  # type: ignore[attr-defined]
                     purpose="supply_chain_firewall",
@@ -1948,6 +1963,9 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         except ValueError as error:
             self._write_json({"error": str(error), "operation": operation}, status=400)
             return
+        receipt_overrides: dict[str, object] = {}
+        if operation == "audit":
+            receipt_overrides = audit_receipt_metadata(result)
         receipt = self._record_headless_receipt(
             harness="package-firewall",
             operation=operation,
@@ -1955,16 +1973,27 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             result=result,
             workspace_id=self._optional_string(payload.get("workspace_id"))
             or self.server.store.get_cloud_workspace_id(),  # type: ignore[attr-defined]
+            policy_decision=self._optional_string(receipt_overrides.get("policy_decision")),
+            capabilities_summary=self._optional_string(receipt_overrides.get("capabilities_summary")),
+            artifact_name=self._optional_string(receipt_overrides.get("artifact_name")),
+            scanner_evidence_extra=(
+                receipt_overrides.get("scanner_evidence")
+                if isinstance(receipt_overrides.get("scanner_evidence"), dict)
+                else None
+            ),
         )
-        self._write_json(
-            {
-                "entitlement": entitlement,
-                "operation": operation,
-                "receipt": receipt,
-                "result": result,
-                "status": "completed",
-            }
-        )
+        response_payload: dict[str, object] = {
+            "entitlement": entitlement,
+            "operation": operation,
+            "receipt": receipt,
+            "result": result,
+            "status": "completed",
+        }
+        if operation == "audit":
+            cloud_sync = _queue_headless_cloud_sync(store=self.server.store)  # type: ignore[attr-defined]
+            receipt["cloud_sync"] = cloud_sync
+            response_payload["cloud_sync"] = cloud_sync
+        self._write_json(response_payload)
 
     def _run_supply_chain_package_action(
         self,
@@ -1980,7 +2009,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         if operation == "remove":
             return uninstall_package_shims(context, managers=managers)
         if operation == "test":
-            return test_package_shim_intercepts(
+            return probe_package_shim_intercepts(
                 context,
                 managers=managers,
                 workspace_dir=context.workspace_dir,
@@ -1999,28 +2028,28 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 workspace_dir=context.workspace_dir,
             )
             audit_payload["exit_code"] = exit_code
+            if exit_code == 0:
+                record_package_shim_audit_result(context, audited_at=now)
             return audit_payload
         if operation == "sync":
             return sync_supply_chain_bundle(self.server.store)  # type: ignore[attr-defined]
         raise ValueError("unsupported_supply_chain_operation")
 
     @staticmethod
-    def _resolve_supply_chain_workspace_dir(value: object) -> Path | None:
-        if not isinstance(value, str):
-            return None
+    def _resolve_supply_chain_workspace_dir(payload: dict[str, object]) -> Path | None:
         allowed_roots = (
             Path.home().resolve(),
             Path.cwd().resolve(),
             Path(tempfile.gettempdir()).resolve(),
         )
-        return resolve_path_within_allowed_roots(
-            value,
-            allowed_roots,
-            require_exists=True,
+        return resolve_supply_chain_audit_workspace_dir(
+            workspace_dir_value=payload.get("workspace_dir"),
+            workspace_value=payload.get("workspace"),
+            allowed_roots=allowed_roots,
         )
 
     def _supply_chain_context(self, payload: dict[str, object]) -> HarnessContext:
-        workspace_dir = self._resolve_supply_chain_workspace_dir(payload.get("workspace_dir"))
+        workspace_dir = self._resolve_supply_chain_workspace_dir(payload)
         return HarnessContext(
             home_dir=Path.home().resolve(),
             workspace_dir=workspace_dir,
@@ -2257,6 +2286,10 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         result: dict[str, object],
         workspace_id: str | None,
         cloud_sync: dict[str, object] | None = None,
+        policy_decision: str | None = None,
+        capabilities_summary: str | None = None,
+        artifact_name: str | None = None,
+        scanner_evidence_extra: dict[str, object] | None = None,
     ) -> dict[str, object]:
         cursor_receipt_context = self._cursor_receipt_context(
             harness=harness,
@@ -2279,19 +2312,22 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         artifact_hash = stable_digest_hex(material.encode("utf-8"))
         changed_capabilities = [] if operation in {"status", "scan"} else [operation]
         artifact_id = f"headless:{harness}:{operation}"
-        artifact_name = f"Headless {operation}"
-        capabilities_summary = f"Guard local daemon completed headless {operation}."
+        resolved_artifact_name = artifact_name or f"Headless {operation}"
+        resolved_capabilities_summary = capabilities_summary or f"Guard local daemon completed headless {operation}."
         source_scope = "local-daemon"
+        resolved_policy_decision = policy_decision or "allow"
         scanner_evidence: dict[str, object] = {
             "operation": operation,
             "location_id": location_id,
             "workspace_id": workspace_id,
             "status": "completed",
         }
+        if scanner_evidence_extra is not None:
+            scanner_evidence.update(scanner_evidence_extra)
         if cursor_receipt_context is not None:
             artifact_id = str(cursor_receipt_context["action_scope"])
-            artifact_name = str(cursor_receipt_context["artifact_name"])
-            capabilities_summary = str(cursor_receipt_context["capabilities_summary"])
+            resolved_artifact_name = str(cursor_receipt_context["artifact_name"])
+            resolved_capabilities_summary = str(cursor_receipt_context["capabilities_summary"])
             source_scope = str(cursor_receipt_context["source_scope"])
             changed_capabilities = [str(cursor_receipt_context["changed_capability"])]
             scanner_evidence.update(cursor_receipt_context["scanner_evidence"])
@@ -2299,11 +2335,11 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             harness=harness,
             artifact_id=artifact_id,
             artifact_hash=artifact_hash,
-            policy_decision="allow",
-            capabilities_summary=capabilities_summary,
+            policy_decision=resolved_policy_decision,
+            capabilities_summary=resolved_capabilities_summary,
             changed_capabilities=changed_capabilities,
             provenance_summary="Guard Cloud local daemon API",
-            artifact_name=artifact_name,
+            artifact_name=resolved_artifact_name,
             source_scope=source_scope,
             scanner_evidence=(scanner_evidence,),
             approval_source="guard-cloud-headless",
@@ -3421,6 +3457,54 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             path_parts,
         )
 
+    def _claim_string(self, claims: dict[str, object], *keys: str) -> str | None:
+        for key in keys:
+            value = self._optional_string(claims.get(key))
+            if value is not None:
+                return value
+        return None
+
+    def _enforce_package_firewall_rate_limit(
+        self,
+        operation: str,
+        payload: dict[str, object],
+    ) -> bool:
+        workspace_id = (
+            self._optional_string(payload.get("workspace_id"))
+            or self._optional_string(payload.get("workspaceId"))
+            or self.server.store.get_cloud_workspace_id()  # type: ignore[attr-defined]
+            or "local"
+        )
+        rate_key = f"{workspace_id}:{operation}"
+        allowed, retry_after = self.server.package_firewall_action_rate_limiter.allow(rate_key)  # type: ignore[attr-defined]
+        if allowed:
+            return True
+        self._write_json(
+            {
+                "error": "rate_limited",
+                "message": "Package firewall actions are temporarily rate limited.",
+                "operation": operation,
+                "retry_after_seconds": retry_after,
+            },
+            status=429,
+        )
+        return False
+
+    def _consume_dashboard_session_nonce(self, nonce: str) -> bool:
+        now = time.monotonic()
+        ttl_seconds = 600.0
+        with self.server.package_firewall_session_nonces_lock:  # type: ignore[attr-defined]
+            stale_before = now - ttl_seconds
+            stale_keys = [
+                key for key, seen_at in self.server.package_firewall_session_nonces.items() if seen_at <= stale_before
+            ]
+            for key in stale_keys:
+                del self.server.package_firewall_session_nonces[key]
+            if nonce in self.server.package_firewall_session_nonces:
+                return False
+            self.server.package_firewall_session_nonces[nonce] = now
+            return True
+
     def _supply_chain_dashboard_claims_authorize(
         self,
         claims: dict[str, object],
@@ -3435,12 +3519,35 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         )
         if supply_chain_action != action_path and supply_chain_action not in allowed_actions:
             return False
+        claim_nonce = self._claim_string(claims, "nonce")
+        if claim_nonce is not None and not self._consume_dashboard_session_nonce(claim_nonce):
+            return False
         if payload is None:
             return supply_chain_action in {"package_shims_status", "supply_chain_bundle"}
-        workspace_id = self._optional_string(claims.get("workspace_id")) or ""
-        payload_workspace_id = self._optional_string(payload.get("workspace_id")) or ""
+        workspace_id = self._claim_string(claims, "workspace_id", "workspaceId") or ""
+        payload_workspace_id = (
+            self._optional_string(payload.get("workspace_id"))
+            or self._optional_string(payload.get("workspaceId"))
+            or ""
+        )
         if workspace_id and payload_workspace_id != workspace_id:
             return False
+        location_id = self._claim_string(claims, "location_id", "locationId")
+        payload_location_id = (
+            self._optional_string(payload.get("location_id")) or self._optional_string(payload.get("locationId")) or ""
+        )
+        if location_id and payload_location_id != location_id:
+            return False
+        daemon_origin = self._claim_string(claims, "daemon_origin", "daemonOrigin")
+        if daemon_origin is not None:
+            request_origin = self._normalize_origin(self.headers.get("Origin"))
+            payload_origin = (
+                self._optional_string(payload.get("daemon_origin"))
+                or self._optional_string(payload.get("daemonOrigin"))
+                or request_origin
+            )
+            if payload_origin != daemon_origin:
+                return False
         managers_claim = claims.get("managers")
         if not isinstance(managers_claim, list):
             return True
@@ -4111,6 +4218,9 @@ class GuardDaemonServer:
         self._server.active_stream_clients_lock = threading.Lock()
         self._server.package_firewall_connect_state = None
         self._server.package_firewall_connect_state_lock = threading.Lock()
+        self._server.package_firewall_action_rate_limiter = PackageFirewallActionRateLimiter()
+        self._server.package_firewall_session_nonces = {}
+        self._server.package_firewall_session_nonces_lock = threading.Lock()
         self.port = int(self._server.server_address[1])
         self._bundle_refresh_backoff_seconds = bundle_refresh_backoff_seconds
         self._bundle_refresh_interval_seconds = bundle_refresh_interval_seconds

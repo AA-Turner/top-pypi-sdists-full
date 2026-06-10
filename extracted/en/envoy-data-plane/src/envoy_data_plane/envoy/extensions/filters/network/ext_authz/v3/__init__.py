@@ -29,7 +29,7 @@ class ExtAuthz(betterproto2.Message):
     gRPC Authorization API defined by
     :ref:`CheckRequest <envoy_v3_api_msg_service.auth.v3.CheckRequest>`.
     A failed check will cause this filter to close the TCP connection.
-    [#next-free-field: 10]
+    [#next-free-field: 12]
     """
 
     stat_prefix: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -106,6 +106,36 @@ class ExtAuthz(betterproto2.Message):
     non-TLS connections will be closed without sending an alert.
 
     Defaults to ``false``.
+    """
+
+    metadata_context_namespaces: "list[typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]]" = betterproto2.field(
+        10, betterproto2.TYPE_STRING, repeated=True
+    )
+    """
+    Specifies a list of metadata namespaces whose values, if present, will be passed to the
+    ext_authz service. The :ref:`filter_metadata <envoy_v3_api_field_config.core.v3.Metadata.filter_metadata>`
+    is passed as an opaque ``protobuf::Struct``.
+
+    For example, if the ``proxy_protocol`` listener filter is used and populates TLV metadata,
+    then the following will pass that metadata to the authorization server for making decisions
+    based on proxy protocol information.
+
+    .. code-block:: yaml
+
+       metadata_context_namespaces:
+       - envoy.filters.listener.proxy_protocol
+    """
+
+    typed_metadata_context_namespaces: "list[typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]]" = betterproto2.field(
+        11, betterproto2.TYPE_STRING, repeated=True
+    )
+    """
+    Specifies a list of metadata namespaces whose values, if present, will be passed to the
+    ext_authz service. :ref:`typed_filter_metadata <envoy_v3_api_field_config.core.v3.Metadata.typed_filter_metadata>`
+    is passed as a ``protobuf::Any``.
+
+    This works similarly to ``metadata_context_namespaces`` but allows Envoy and the ext_authz server to share
+    the protobuf message definition in order to perform safe parsing.
     """
 
 

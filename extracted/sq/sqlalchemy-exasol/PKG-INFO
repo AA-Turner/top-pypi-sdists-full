@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlalchemy_exasol
-Version: 7.0.0
+Version: 7.1.1
 Summary: EXASOL dialect for SQLAlchemy
 License-Expression: BSD-2-Clause
 License-File: LICENSE
@@ -27,7 +27,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Requires-Dist: packaging (>=21.3)
 Requires-Dist: pyexasol (>=0.26.0,<3.0)
-Requires-Dist: sqlalchemy (>=2.0.0,<2.0.45)
+Requires-Dist: sqlalchemy (>=2.0.0,<3)
 Project-URL: Changelog, https://exasol.github.io/sqlalchemy-exasol/changelog.html
 Project-URL: Documentation, https://exasol.github.io/sqlalchemy-exasol/
 Project-URL: Homepage, https://www.exasol.com/

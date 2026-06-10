@@ -35,6 +35,25 @@ class Config(betterproto2.Message):
     when a new connection is received.
     """
 
+    on_downstream_tls_handshake: "list[___common__set_filter_state__v3__.FilterStateValue]" = betterproto2.field(
+        2, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+    """
+    A sequence of the filter state values to apply in the specified order
+    when the downstream TLS handshake is complete.
+
+    For non-TLS downstream connections (where there is no TLS handshake), this
+    list is applied when a new connection is received.
+    """
+
+    on_downstream_data: "list[___common__set_filter_state__v3__.FilterStateValue]" = (
+        betterproto2.field(3, betterproto2.TYPE_MESSAGE, repeated=True)
+    )
+    """
+    A sequence of the filter state values to apply in the specified order
+    when data is first received from the downstream connection.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.filters.network.set_filter_state.v3", "Config", Config

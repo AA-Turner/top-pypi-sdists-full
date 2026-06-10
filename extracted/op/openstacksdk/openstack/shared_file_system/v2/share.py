@@ -10,6 +10,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from typing import Any, Self
+
+from keystoneauth1 import adapter
+import requests
+
 from openstack.common import metadata
 from openstack import exceptions
 from openstack import resource
@@ -128,7 +133,12 @@ class Share(resource.Resource, metadata.MetadataMixin):
     #: Display description for updating description
     display_description = resource.Body("display_description", type=str)
 
-    def _action(self, session, body, microversion=None):
+    def _action(
+        self,
+        session: adapter.Adapter,
+        body: dict[str, Any],
+        microversion: str | None = None,
+    ) -> requests.Response:
         """Perform share instance actions given the message body"""
         url = utils.urljoin(self.base_path, self.id, 'action')
         headers = {'Accept': ''}
@@ -143,15 +153,16 @@ class Share(resource.Resource, metadata.MetadataMixin):
         exceptions.raise_from_response(response)
         return response
 
-    def extend_share(self, session, new_size, force=False):
+    def extend_share(
+        self, session: adapter.Adapter, new_size: float, force: bool = False
+    ) -> None:
         """Extend the share size.
 
-        :param float new_size: The new size of the share
-            in GiB.
-        :param bool force: Whether or not to use force, bypassing
-            the scheduler. Requires admin privileges. Defaults to False.
+        :param session: A session object used for sending request.
+        :param new_size: The new size of the share in GiB.
+        :param force: Whether or not to use force, bypassing the scheduler.
+            Requires admin privileges. Defaults to False.
         :returns: The result of the action.
-        :rtype: ``None``
         """
 
         extend_body = {"new_size": new_size}
@@ -162,35 +173,45 @@ class Share(resource.Resource, metadata.MetadataMixin):
         body = {"extend": extend_body}
         self._action(session, body)
 
-    def shrink_share(self, session, new_size):
+    def shrink_share(self, session: adapter.Adapter, new_size: float) -> None:
         """Shrink the share size.
 
-        :param float new_size: The new size of the share
-            in GiB.
+        :param session: A session object used for sending request.
+        :param new_size: The new size of the share in GiB.
         :returns: ``None``
         """
 
         body = {"shrink": {'new_size': new_size}}
         self._action(session, body)
 
-    def revert_to_snapshot(self, session, snapshot_id):
+    def revert_to_snapshot(
+        self, session: adapter.Adapter, snapshot_id: str
+    ) -> None:
         """Revert the share to the given snapshot.
 
-        :param str snapshot_id: The id of the snapshot to revert to.
+        :param session: A session object used for sending request.
+        :param snapshot_id: The id of the snapshot to revert to.
         :returns: ``None``
         """
         body = {"revert": {"snapshot_id": snapshot_id}}
         self._action(session, body)
 
-    def manage(self, session, protocol, export_path, service_host, **params):
+    def manage(
+        self,
+        session: adapter.Adapter,
+        protocol: str,
+        export_path: str,
+        service_host: str,
+        **params: Any,
+    ) -> Self:
         """Manage a share.
 
         :param session: A session object used for sending request.
-        :param str protocol: The shared file systems protocol of this share.
-        :param str export_path: The export path formatted according to the
+        :param protocol: The shared file systems protocol of this share.
+        :param export_path: The export path formatted according to the
             protocol.
-        :param str service_host: The manage-share service host.
-        :param kwargs params: Optional parameters to be sent. Available
+        :param service_host: The manage-share service host.
+        :param params: Optional parameters to be sent. Available
             parameters include:
 
             * name: The user defined name of the resource.
@@ -204,8 +225,6 @@ class Share(resource.Resource, metadata.MetadataMixin):
 
         :returns: The share that was managed.
         """
-
-        path = 'manage'
         attrs = {
             'share': {
                 'protocol': protocol,
@@ -216,19 +235,51 @@ class Share(resource.Resource, metadata.MetadataMixin):
 
         attrs['share'].update(params)
 
-        url = utils.urljoin(self.base_path, path)
+        url = utils.urljoin(self.base_path, 'manage')
         resp = session.post(url, json=attrs)
-
         self._translate_response(resp)
         return self
 
-    def unmanage(self, session):
+    def unmanage(self, session: adapter.Adapter) -> None:
         """Unmanage a share.
 
         :param session: A session object used for sending request.
         :returns: ``None``
         """
-
         body = {'unmanage': None}
+        self._action(session, body)
 
+    def force_delete(self, session: adapter.Adapter) -> None:
+        """Force delete the share.
+
+        :returns: ``None``
+        """
+        body = {"force_delete": None}
+        self._action(session, body)
+
+    def soft_delete(self, session: adapter.Adapter) -> None:
+        """Soft delete a share.
+
+        :param session: A session object used for sending request.
+        :returns: ``None``
+        """
+        body = {'soft_delete': None}
+        self._action(session, body)
+
+    def restore(self, session: adapter.Adapter) -> None:
+        """Restore a share.
+
+        :param session: A session object used for sending request.
+        :returns: ``None``
+        """
+        body = {'restore': None}
+        self._action(session, body)
+
+    def reset_status(self, session: adapter.Adapter, status: str) -> None:
+        """Reset the share to the given status.
+
+        :param status: The status of the share to reset to.
+        :returns: ``None``
+        """
+        body = {"reset_status": {"status": status}}
         self._action(session, body)

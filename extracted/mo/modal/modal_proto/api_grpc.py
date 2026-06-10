@@ -264,6 +264,14 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def EndpointList(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EndpointListRequest, modal_proto.api_pb2.EndpointListResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def EndpointStop(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EndpointStopRequest, modal_proto.api_pb2.EndpointStopResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def EnvironmentCreate(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.EnvironmentCreateRequest, google.protobuf.empty_pb2.Empty]') -> None:
         pass
 
@@ -416,11 +424,27 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def ImageGetByTag(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.ImageGetByTagRequest, modal_proto.api_pb2.ImageGetByTagResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def ImageGetOrCreate(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.ImageGetOrCreateRequest, modal_proto.api_pb2.ImageGetOrCreateResponse]') -> None:
         pass
 
     @abc.abstractmethod
     async def ImageJoinStreaming(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.ImageJoinStreamingRequest, modal_proto.api_pb2.ImageJoinStreamingResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def ImageListTags(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.ImageListTagsRequest, modal_proto.api_pb2.ImageListTagsResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def ImagePublish(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.ImagePublishRequest, modal_proto.api_pb2.ImagePublishResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def ImageTagRevisions(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.ImageTagRevisionsRequest, modal_proto.api_pb2.ImageTagRevisionsResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -561,6 +585,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def SandboxList(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxListRequest, modal_proto.api_pb2.SandboxListResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def SandboxListV2(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxListRequest, modal_proto.api_pb2.SandboxListResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -1183,6 +1211,18 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.EndpointCreateRequest,
                 modal_proto.api_pb2.EndpointCreateResponse,
             ),
+            '/modal.client.ModalClient/EndpointList': grpclib.const.Handler(
+                self.EndpointList,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.EndpointListRequest,
+                modal_proto.api_pb2.EndpointListResponse,
+            ),
+            '/modal.client.ModalClient/EndpointStop': grpclib.const.Handler(
+                self.EndpointStop,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.EndpointStopRequest,
+                modal_proto.api_pb2.EndpointStopResponse,
+            ),
             '/modal.client.ModalClient/EnvironmentCreate': grpclib.const.Handler(
                 self.EnvironmentCreate,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1411,6 +1451,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.ImageFromIdRequest,
                 modal_proto.api_pb2.ImageFromIdResponse,
             ),
+            '/modal.client.ModalClient/ImageGetByTag': grpclib.const.Handler(
+                self.ImageGetByTag,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.ImageGetByTagRequest,
+                modal_proto.api_pb2.ImageGetByTagResponse,
+            ),
             '/modal.client.ModalClient/ImageGetOrCreate': grpclib.const.Handler(
                 self.ImageGetOrCreate,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -1422,6 +1468,24 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_STREAM,
                 modal_proto.api_pb2.ImageJoinStreamingRequest,
                 modal_proto.api_pb2.ImageJoinStreamingResponse,
+            ),
+            '/modal.client.ModalClient/ImageListTags': grpclib.const.Handler(
+                self.ImageListTags,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.ImageListTagsRequest,
+                modal_proto.api_pb2.ImageListTagsResponse,
+            ),
+            '/modal.client.ModalClient/ImagePublish': grpclib.const.Handler(
+                self.ImagePublish,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.ImagePublishRequest,
+                modal_proto.api_pb2.ImagePublishResponse,
+            ),
+            '/modal.client.ModalClient/ImageTagRevisions': grpclib.const.Handler(
+                self.ImageTagRevisions,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.ImageTagRevisionsRequest,
+                modal_proto.api_pb2.ImageTagRevisionsResponse,
             ),
             '/modal.client.ModalClient/MapAwait': grpclib.const.Handler(
                 self.MapAwait,
@@ -1629,6 +1693,12 @@ class ModalClientBase(abc.ABC):
             ),
             '/modal.client.ModalClient/SandboxList': grpclib.const.Handler(
                 self.SandboxList,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxListRequest,
+                modal_proto.api_pb2.SandboxListResponse,
+            ),
+            '/modal.client.ModalClient/SandboxListV2': grpclib.const.Handler(
+                self.SandboxListV2,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.SandboxListRequest,
                 modal_proto.api_pb2.SandboxListResponse,
@@ -2383,6 +2453,18 @@ class ModalClientStub:
             modal_proto.api_pb2.EndpointCreateRequest,
             modal_proto.api_pb2.EndpointCreateResponse,
         )
+        self.EndpointList = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/EndpointList',
+            modal_proto.api_pb2.EndpointListRequest,
+            modal_proto.api_pb2.EndpointListResponse,
+        )
+        self.EndpointStop = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/EndpointStop',
+            modal_proto.api_pb2.EndpointStopRequest,
+            modal_proto.api_pb2.EndpointStopResponse,
+        )
         self.EnvironmentCreate = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/EnvironmentCreate',
@@ -2611,6 +2693,12 @@ class ModalClientStub:
             modal_proto.api_pb2.ImageFromIdRequest,
             modal_proto.api_pb2.ImageFromIdResponse,
         )
+        self.ImageGetByTag = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/ImageGetByTag',
+            modal_proto.api_pb2.ImageGetByTagRequest,
+            modal_proto.api_pb2.ImageGetByTagResponse,
+        )
         self.ImageGetOrCreate = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/ImageGetOrCreate',
@@ -2622,6 +2710,24 @@ class ModalClientStub:
             '/modal.client.ModalClient/ImageJoinStreaming',
             modal_proto.api_pb2.ImageJoinStreamingRequest,
             modal_proto.api_pb2.ImageJoinStreamingResponse,
+        )
+        self.ImageListTags = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/ImageListTags',
+            modal_proto.api_pb2.ImageListTagsRequest,
+            modal_proto.api_pb2.ImageListTagsResponse,
+        )
+        self.ImagePublish = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/ImagePublish',
+            modal_proto.api_pb2.ImagePublishRequest,
+            modal_proto.api_pb2.ImagePublishResponse,
+        )
+        self.ImageTagRevisions = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/ImageTagRevisions',
+            modal_proto.api_pb2.ImageTagRevisionsRequest,
+            modal_proto.api_pb2.ImageTagRevisionsResponse,
         )
         self.MapAwait = grpclib.client.UnaryUnaryMethod(
             channel,
@@ -2830,6 +2936,12 @@ class ModalClientStub:
         self.SandboxList = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/SandboxList',
+            modal_proto.api_pb2.SandboxListRequest,
+            modal_proto.api_pb2.SandboxListResponse,
+        )
+        self.SandboxListV2 = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxListV2',
             modal_proto.api_pb2.SandboxListRequest,
             modal_proto.api_pb2.SandboxListResponse,
         )

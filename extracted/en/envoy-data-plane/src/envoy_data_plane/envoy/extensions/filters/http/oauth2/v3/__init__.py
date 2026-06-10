@@ -12,6 +12,7 @@ __all__ = (
     "OAuth2ConfigAuthType",
     "OAuth2Credentials",
     "OAuth2CredentialsCookieNames",
+    "OAuth2PerRoute",
 )
 
 import datetime
@@ -50,6 +51,16 @@ class OAuth2ConfigAuthType(betterproto2.Enum):
     The ``client_id`` and ``client_secret`` will be sent using HTTP Basic authentication scheme.
     """
 
+    TLS_CLIENT_AUTH = 2
+    """
+    The client will be authenticated using mutual TLS (mTLS) with a client certificate.
+    The ``client_secret`` is not required and will not be sent in the request to the
+    authorization server.
+    The client certificate must be configured in the cluster used by ``token_endpoint`` via
+    transport socket configuration.
+    This implements OAuth 2.0 Mutual-TLS Client Authentication as defined in RFC 8705.
+    """
+
 
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class CookieConfig(betterproto2.Message):
@@ -66,6 +77,35 @@ class CookieConfig(betterproto2.Message):
     )
     """
     The value used for the SameSite cookie attribute.
+    """
+
+    path: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
+        2, betterproto2.TYPE_STRING
+    )
+    """
+    The path attribute for the cookie.
+
+    This controls the scope of the cookie and is useful for path-based routing scenarios
+    where different logical boundaries or applications may operate with different OAuth2 clients.
+    The CSRF cookie (nonce cookie) can be configured with a different path than session cookies
+    to support flows where the callback URL is on a different path.
+
+    If not specified, defaults to ``/``.
+    """
+
+    partitioned: "bool" = betterproto2.field(3, betterproto2.TYPE_BOOL)
+    """
+    If true, the ``Partitioned`` attribute will be set on the cookie.
+
+    Modern browsers (Firefox, Chrome with third-party cookie deprecation) warn or block
+    "foreign" cookies unless they carry the ``Partitioned`` attribute alongside ``SameSite=None; Secure``.
+    When Envoy is used in a gateway/IdP flow that sets OAuth/OIDC cookies for a parent domain
+    (e.g., ``Domain=.example.com``) while running on a different host, those cookies are
+    considered third-party and will be rejected without ``Partitioned``.
+
+    See `CHIPS <https://developers.google.com/privacy-sandbox/3pcd/chips>`_ for more information.
+
+    Default is false.
     """
 
 
@@ -145,7 +185,7 @@ class OAuth2(betterproto2.Message):
         1, betterproto2.TYPE_MESSAGE, optional=True
     )
     """
-    Leave this empty to disable OAuth2 for a specific route, using per filter config.
+    The OAuth2 filter config.
     """
 
 
@@ -159,7 +199,7 @@ class OAuth2Config(betterproto2.Message):
     """
     OAuth config
 
-    [#next-free-field: 27]
+    [#next-free-field: 28]
     """
 
     token_endpoint: "_____config__core__v3__.HttpUri | None" = betterproto2.field(
@@ -397,6 +437,22 @@ class OAuth2Config(betterproto2.Message):
     Default is false (tokens are encrypted).
     """
 
+    allow_failed_matcher: "list[_____config__route__v3__.HeaderMatcher]" = (
+        betterproto2.field(27, betterproto2.TYPE_MESSAGE, repeated=True)
+    )
+    """
+    Any request that matches any of the provided matchers will be allowed to continue to upstream
+    even if OAuth validation fails (missing, invalid, or expired credentials).
+    This is useful for services that can handle both authenticated and unauthenticated requests,
+    enabling graceful degradation patterns.
+
+    When triggered, all OAuth cookies are stripped from the request and the request proceeds as unauthenticated.
+    Context headers ``x-envoy-oauth-status: failed`` and ``x-envoy-oauth-failure-reason`` are added to inform upstream.
+
+    Note: If a request matches pass_through_matcher, it bypasses OAuth validation and this matcher won't be evaluated.
+    This matcher takes precedence over deny_redirect_matcher.
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.filters.http.oauth2.v3", "OAuth2Config", OAuth2Config
@@ -424,6 +480,8 @@ class OAuth2Credentials(betterproto2.Message):
     )
     """
     The secret used to retrieve the access token. This value will be URL encoded when sent to the OAuth server.
+    This field is required unless :ref:`auth_type <envoy_v3_api_field_extensions.filters.http.oauth2.v3.OAuth2Config.auth_type>`
+    is set to ``TLS_CLIENT_AUTH``, in which case authentication is done via the client certificate.
     """
 
     hmac_secret: "____transport_sockets__tls__v3__.SdsSecretConfig | None" = (
@@ -524,6 +582,29 @@ default_message_pool.register_message(
     "envoy.extensions.filters.http.oauth2.v3",
     "OAuth2Credentials.CookieNames",
     OAuth2CredentialsCookieNames,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class OAuth2PerRoute(betterproto2.Message):
+    """
+    Per-route OAuth2 config.
+
+    This message supplies an OAuth2Config for the matched route.
+    It overrides the filter-level config for requests matching the route.
+    If neither the global config nor a per-route config is specified, OAuth2 is disabled for the route.
+    """
+
+    config: "OAuth2Config | None" = betterproto2.field(
+        1, betterproto2.TYPE_MESSAGE, optional=True
+    )
+    """
+    Full OAuth2 config for this route.
+    """
+
+
+default_message_pool.register_message(
+    "envoy.extensions.filters.http.oauth2.v3", "OAuth2PerRoute", OAuth2PerRoute
 )
 
 

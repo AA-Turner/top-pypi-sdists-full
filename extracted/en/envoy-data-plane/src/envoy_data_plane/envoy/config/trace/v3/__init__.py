@@ -370,11 +370,9 @@ class OpenTelemetryConfig(betterproto2.Message):
 
     .. note::
 
-      Note: The ``request_headers_to_add`` property in the OTLP HTTP exporter service
-      does not support the :ref:`format specifier <config_access_log_format>` as used for
-      :ref:`HTTP access logging <config_access_log>`.
-      The values configured are added as HTTP headers on the OTLP export request
-      without any formatting applied.
+      The ``request_headers_to_add`` property in the OTLP HTTP exporter service supports
+      substitution formatters. The formatters cannot access any HTTP or connection properties, but
+      can load content such as environment variables or files or secrets.
     """
 
     service_name: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -675,7 +673,7 @@ class ZipkinConfig(betterproto2.Message):
 
     Configuration for the Zipkin tracer.
     [#extension: envoy.tracers.zipkin]
-    [#next-free-field: 10]
+    [#next-free-field: 11]
     """
 
     collector_cluster: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -683,9 +681,12 @@ class ZipkinConfig(betterproto2.Message):
     )
     """
     The cluster manager cluster that hosts the Zipkin collectors.
-    Note: This field will be deprecated in future releases in favor of
-    :ref:`collector_service <envoy_v3_api_field_config.trace.v3.ZipkinConfig.collector_service>`.
-    Either this field or collector_service must be specified.
+
+    .. note::
+        This field will be deprecated in future releases in favor of
+        :ref:`collector_service <envoy_v3_api_field_config.trace.v3.ZipkinConfig.collector_service>`.
+
+        Either this field or ``collector_service`` must be specified.
     """
 
     collector_endpoint: "typing.Annotated[str, pydantic.AfterValidator(betterproto2.validators.validate_string)]" = betterproto2.field(
@@ -694,9 +695,12 @@ class ZipkinConfig(betterproto2.Message):
     """
     The API endpoint of the Zipkin service where the spans will be sent. When
     using a standard Zipkin installation.
-    Note: This field will be deprecated in future releases in favor of
-    :ref:`collector_service <envoy_v3_api_field_config.trace.v3.ZipkinConfig.collector_service>`.
-    Required when using collector_cluster.
+
+    .. note::
+        This field will be deprecated in future releases in favor of
+        :ref:`collector_service <envoy_v3_api_field_config.trace.v3.ZipkinConfig.collector_service>`.
+
+        Required when using ``collector_cluster``.
     """
 
     trace_id_128bit: "bool" = betterproto2.field(3, betterproto2.TYPE_BOOL)
@@ -733,8 +737,10 @@ class ZipkinConfig(betterproto2.Message):
     """
     Optional hostname to use when sending spans to the collector_cluster. Useful for collectors
     that require a specific hostname. Defaults to :ref:`collector_cluster <envoy_v3_api_field_config.trace.v3.ZipkinConfig.collector_cluster>` above.
-    Note: This field will be deprecated in future releases in favor of
-    :ref:`collector_service <envoy_v3_api_field_config.trace.v3.ZipkinConfig.collector_service>`.
+
+    .. note::
+        This field will be deprecated in future releases in favor of
+        :ref:`collector_service <envoy_v3_api_field_config.trace.v3.ZipkinConfig.collector_service>`.
     """
 
     split_spans_for_request: "bool" = betterproto2.field(7, betterproto2.TYPE_BOOL)
@@ -822,6 +828,14 @@ class ZipkinConfig(betterproto2.Message):
 
       * Hostname: Uses cluster name as fallback
       * Path: ``/api/v2/spans``
+    """
+
+    timestamp_trace_ids: "bool" = betterproto2.field(10, betterproto2.TYPE_BOOL)
+    """
+    Determines whether trace IDs will include a timestamp in the first 4 bytes.
+    When enabled, trace IDs are generated with the format: [32-bit epoch seconds][32-bit random].
+    The default value is false, which results in fully random trace IDs.
+    For 128-bit trace IDs, the timestamp is encoded in the high 32 bits of the high 64-bit word.
     """
 
     def __post_init__(self) -> None:

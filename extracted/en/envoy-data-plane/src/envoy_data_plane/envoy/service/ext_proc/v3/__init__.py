@@ -22,6 +22,7 @@ __all__ = (
     "ProcessingResponse",
     "ProtocolConfiguration",
     "StreamedBodyResponse",
+    "StreamedImmediateResponse",
     "TrailersResponse",
 )
 
@@ -69,13 +70,15 @@ class CommonResponseResponseStatus(betterproto2.Enum):
     further messages for this request or response even if the processing
     mode is configured to do so.
 
-    When used in response to a request_headers or response_headers message,
+    When used in response to a ``request_headers`` or ``response_headers`` message,
     this status makes it possible to either completely replace the body
     while discarding the original body, or to add a body to a message that
     formerly did not have one.
 
     In other words, this response makes it possible to turn an HTTP GET
     into a POST, PUT, or PATCH.
+
+    Not supported if the body send mode is ``GRPC``.
     """
 
 
@@ -95,18 +98,17 @@ class BodyMutation(betterproto2.Message):
     The entire body to replace.
     Should only be used when the corresponding ``BodySendMode`` in the
     :ref:`processing_mode <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.processing_mode>`
-    is not set to ``FULL_DUPLEX_STREAMED``.
+    is not set to ``FULL_DUPLEX_STREAMED`` or ``GRPC``.
     """
 
     clear_body: "bool | None" = betterproto2.field(
         2, betterproto2.TYPE_BOOL, optional=True, group="mutation"
     )
     """
-    Clear the corresponding body chunk.
-    Should only be used when the corresponding ``BodySendMode`` in the
+    Clear the corresponding body chunk. Should only be used when the corresponding
+    ``BodySendMode`` in the
     :ref:`processing_mode <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.processing_mode>`
-    is not set to ``FULL_DUPLEX_STREAMED``.
-    Clear the corresponding body chunk.
+    is not set to ``FULL_DUPLEX_STREAMED`` or ``GRPC``.
     """
 
     streamed_response: "StreamedBodyResponse | None" = betterproto2.field(
@@ -115,7 +117,7 @@ class BodyMutation(betterproto2.Message):
     """
     Must be used when the corresponding ``BodySendMode`` in the
     :ref:`processing_mode <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.processing_mode>`
-    is set to ``FULL_DUPLEX_STREAMED``.
+    is set to ``FULL_DUPLEX_STREAMED`` or ``GRPC``.
     """
 
     @model_validator(mode="after")
@@ -171,21 +173,20 @@ class CommonResponse(betterproto2.Message):
     )
     """
     Instructions on how to manipulate the headers. When responding to an
-    HttpBody request, header mutations will only take effect if
-    the current processing mode for the body is BUFFERED.
+    ``HttpBody`` request, header mutations will only take effect if the current processing mode
+    for the body is ``BUFFERED``.
     """
 
     body_mutation: "BodyMutation | None" = betterproto2.field(
         3, betterproto2.TYPE_MESSAGE, optional=True
     )
     """
-    Replace the body of the last message sent to the remote server on this
-    stream. If responding to an HttpBody request, simply replace or clear
-    the body chunk that was sent with that request. Body mutations may take
-    effect in response either to ``header`` or ``body`` messages. When it is
-    in response to ``header`` messages, it only take effect if the
+    Replace the body of the last message sent to the remote server on this stream. If responding
+    to an ``HttpBody`` request, simply replace or clear the body chunk that was sent with that
+    request. Body mutations may take effect in response either to ``header`` or ``body`` messages.
+    When it is in response to ``header`` messages, it only takes effect if the
     :ref:`status <envoy_v3_api_field_service.ext_proc.v3.CommonResponse.status>`
-    is set to CONTINUE_AND_REPLACE.
+    is set to ``CONTINUE_AND_REPLACE``.
     """
 
     trailers: "___config__core__v3__.HeaderMap | None" = betterproto2.field(
@@ -193,9 +194,9 @@ class CommonResponse(betterproto2.Message):
     )
     """
     [#not-implemented-hide:]
-    Add new trailers to the message. This may be used when responding to either a
-    HttpHeaders or HttpBody message, but only if this message is returned
-    along with the CONTINUE_AND_REPLACE status.
+    Add new trailers to the message. This may be used when responding to either an
+    ``HttpHeaders`` or ``HttpBody`` message, but only if this message is returned
+    along with the ``CONTINUE_AND_REPLACE`` status.
     The header value is encoded in the
     :ref:`raw_value <envoy_v3_api_field_config.core.v3.HeaderValue.raw_value>` field.
     """
@@ -217,7 +218,7 @@ default_message_pool.register_message(
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class GrpcStatus(betterproto2.Message):
     """
-    This message specifies a gRPC status for an ImmediateResponse message.
+    This message specifies a gRPC status for an ``ImmediateResponse`` message.
     """
 
     status: "typing.Annotated[int, pydantic.Field(ge=0, le=2**32 - 1)]" = (
@@ -291,20 +292,40 @@ default_message_pool.register_message(
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class HttpBody(betterproto2.Message):
     """
-    This message is sent to the external server when the HTTP request and
-    response bodies are received.
+    This message is sent to the external server when the HTTP request and response bodies are
+    received.
     """
 
     body: "bytes" = betterproto2.field(1, betterproto2.TYPE_BYTES)
     """
-    The contents of the body in the HTTP request/response. Note that in
-    streaming mode multiple ``HttpBody`` messages may be sent.
+    The contents of the body in the HTTP request/response. Note that in streaming mode multiple
+    ``HttpBody`` messages may be sent.
+
+    In ``GRPC`` body send mode, a separate ``HttpBody`` message will be sent for each message in
+    the gRPC stream.
     """
 
     end_of_stream: "bool" = betterproto2.field(2, betterproto2.TYPE_BOOL)
     """
-    If ``true``, this will be the last ``HttpBody`` message that will be sent and no
-    trailers will be sent for the current request/response.
+    If ``true``, this will be the last ``HttpBody`` message that will be sent and no trailers
+    will be sent for the current request/response.
+    """
+
+    end_of_stream_without_message: "bool" = betterproto2.field(
+        3, betterproto2.TYPE_BOOL
+    )
+    """
+    This field is used in ``GRPC`` body send mode when ``end_of_stream`` is ``true`` and ``body``
+    is empty. Those values would normally indicate an empty message on the stream with the
+    end-of-stream bit set. However, if the half-close happens after the last message on the stream
+    was already sent, then this field will be ``true`` to indicate an end-of-stream with *no*
+    message (as opposed to an empty message).
+    """
+
+    grpc_message_compressed: "bool" = betterproto2.field(4, betterproto2.TYPE_BOOL)
+    """
+    This field is used in ``GRPC`` body send mode to indicate whether the message is compressed.
+    This will never be set to ``true`` by gRPC but may be set to ``true`` by a proxy like Envoy.
     """
 
 
@@ -316,7 +337,7 @@ class HttpHeaders(betterproto2.Message):
     """
     The following are messages that are sent to the server.
 
-    This message is sent to the external server when the HTTP request and responses
+    This message is sent to the external server when the HTTP request and response headers
     are first received.
     """
 
@@ -324,9 +345,8 @@ class HttpHeaders(betterproto2.Message):
         1, betterproto2.TYPE_MESSAGE, optional=True
     )
     """
-    The HTTP request headers. All header keys will be
-    lower-cased, because HTTP header keys are case-insensitive.
-    The header value is encoded in the
+    The HTTP request headers. All header keys will be lower-cased, because HTTP header keys are
+    case-insensitive. The header value is encoded in the
     :ref:`raw_value <envoy_v3_api_field_config.core.v3.HeaderValue.raw_value>` field.
     """
 
@@ -339,15 +359,13 @@ class HttpHeaders(betterproto2.Message):
     )
     """
     [#not-implemented-hide:]
-    This field is deprecated and not implemented. Attributes will be sent in
-    the  top-level :ref:`attributes <envoy_v3_api_field_service.ext_proc.v3.ProcessingRequest.attributes`
-    field.
+    This field is deprecated and not implemented. Attributes will be sent in the top-level
+    :ref:`attributes <envoy_v3_api_field_service.ext_proc.v3.ProcessingRequest.attributes>` field.
     """
 
     end_of_stream: "bool" = betterproto2.field(3, betterproto2.TYPE_BOOL)
     """
-    If ``true``, then there is no message body associated with this
-    request or response.
+    If ``true``, then there is no message body associated with this request or response.
     """
 
     def __post_init__(self) -> None:
@@ -385,12 +403,10 @@ default_message_pool.register_message(
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class ImmediateResponse(betterproto2.Message):
     """
-    This message causes the filter to attempt to create a locally
-    generated response, send it  downstream, stop processing
-    additional filters, and ignore any additional messages received
-    from the remote server for this request or response. If a response
-    has already started, then  this will either ship the reply directly
-    to the downstream codec, or reset the stream.
+    This message causes the filter to attempt to create a locally generated response, send it
+    downstream, stop processing additional filters, and ignore any additional messages received
+    from the remote server for this request or response. If a response has already started, then
+    this will either ship the reply directly to the downstream codec, or reset the stream.
     [#next-free-field: 6]
     """
 
@@ -405,13 +421,13 @@ class ImmediateResponse(betterproto2.Message):
         2, betterproto2.TYPE_MESSAGE, optional=True
     )
     """
-    Apply changes to the default headers, which will include content-type.
+    Apply changes to the default headers, which will include ``content-type``.
     """
 
     body: "bytes" = betterproto2.field(3, betterproto2.TYPE_BYTES)
     """
     The message body to return with the response which is sent using the
-    text/plain content type, or encoded in the grpc-message header.
+    ``text/plain`` content type, or encoded in the ``grpc-message`` header.
     """
 
     grpc_status: "GrpcStatus | None" = betterproto2.field(
@@ -426,7 +442,7 @@ class ImmediateResponse(betterproto2.Message):
     )
     """
     A string detailing why this local reply was sent, which may be included
-    in log and debug output (e.g. this populates the %RESPONSE_CODE_DETAILS%
+    in log and debug output (e.g., this populates the ``%RESPONSE_CODE_DETAILS%``
     command operator field for use in access logging).
     """
 
@@ -455,7 +471,7 @@ class ProcessingRequest(betterproto2.Message):
     """
     Information about the HTTP request headers, as well as peer info and additional
     properties. Unless ``observability_mode`` is ``true``, the server must send back a
-    HeaderResponse message, an ImmediateResponse message, or close the stream.
+    ``HeaderResponse`` message, an ``ImmediateResponse`` message, or close the stream.
     """
 
     response_headers: "HttpHeaders | None" = betterproto2.field(
@@ -464,23 +480,23 @@ class ProcessingRequest(betterproto2.Message):
     """
     Information about the HTTP response headers, as well as peer info and additional
     properties. Unless ``observability_mode`` is ``true``, the server must send back a
-    HeaderResponse message or close the stream.
+    ``HeaderResponse`` message or close the stream.
     """
 
     request_body: "HttpBody | None" = betterproto2.field(
         4, betterproto2.TYPE_MESSAGE, optional=True, group="request"
     )
     """
-    A chunk of the HTTP request body. Unless ``observability_mode`` is true, the server must send back
-    a BodyResponse message, an ImmediateResponse message, or close the stream.
+    A chunk of the HTTP request body. Unless ``observability_mode`` is ``true``, the server must
+    send back a ``BodyResponse`` message, an ``ImmediateResponse`` message, or close the stream.
     """
 
     response_body: "HttpBody | None" = betterproto2.field(
         5, betterproto2.TYPE_MESSAGE, optional=True, group="request"
     )
     """
-    A chunk of the HTTP response body. Unless ``observability_mode`` is ``true``, the server must send back
-    a BodyResponse message or close the stream.
+    A chunk of the HTTP response body. Unless ``observability_mode`` is ``true``, the server must
+    send back a ``BodyResponse`` message or close the stream.
     """
 
     request_trailers: "HttpTrailers | None" = betterproto2.field(
@@ -488,7 +504,7 @@ class ProcessingRequest(betterproto2.Message):
     )
     """
     The HTTP trailers for the request path. Unless ``observability_mode`` is ``true``, the server
-    must send back a TrailerResponse message or close the stream.
+    must send back a ``TrailerResponse`` message or close the stream.
 
     This message is only sent if the trailers processing mode is set to ``SEND`` and
     the original downstream request has trailers.
@@ -499,7 +515,7 @@ class ProcessingRequest(betterproto2.Message):
     )
     """
     The HTTP trailers for the response path. Unless ``observability_mode`` is ``true``, the server
-    must send back a TrailerResponse message or close the stream.
+    must send back a ``TrailerResponse`` message or close the stream.
 
     This message is only sent if the trailers processing mode is set to ``SEND`` and
     the original upstream response has trailers.
@@ -528,16 +544,16 @@ class ProcessingRequest(betterproto2.Message):
 
     observability_mode: "bool" = betterproto2.field(10, betterproto2.TYPE_BOOL)
     """
-    Specify whether the filter that sent this request is running in :ref:`observability_mode
-    <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.observability_mode>`
-    and defaults to false.
+    Specifies whether the filter that sent this request is running in
+    :ref:`observability_mode <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.observability_mode>`.
 
-    * A value of ``false`` indicates that the server must respond
-      to this message by either sending back a matching ProcessingResponse message,
-      or by closing the stream.
+    * A value of ``false`` indicates that the server must respond to this message by either
+      sending back a matching ``ProcessingResponse`` message, or by closing the stream.
     * A value of ``true`` indicates that the server should not respond to this message, as any
-      responses will be ignored. However, it may still close the stream to indicate that no more messages
-      are needed.
+      responses will be ignored. However, it may still close the stream to indicate that no more
+      messages are needed.
+
+    Defaults to ``false``.
     """
 
     protocol_config: "ProtocolConfiguration | None" = betterproto2.field(
@@ -562,15 +578,15 @@ default_message_pool.register_message(
 class ProcessingResponse(betterproto2.Message):
     """
     This represents the different types of messages the server may send back to the data plane
-    when the ``observability_mode`` field in the received ProcessingRequest is set to false.
+    when the ``observability_mode`` field in the received ``ProcessingRequest`` is set to ``false``.
 
     * If the corresponding ``BodySendMode`` in the
       :ref:`processing_mode <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.processing_mode>`
-      is not set to ``FULL_DUPLEX_STREAMED``, then for every received ProcessingRequest,
-      the server must send back exactly one ProcessingResponse message.
+      is not set to ``FULL_DUPLEX_STREAMED``, then for every received ``ProcessingRequest``,
+      the server must send back exactly one ``ProcessingResponse`` message.
     * If it is set to ``FULL_DUPLEX_STREAMED``, the server must follow the API defined
-      for this mode to send the ProcessingResponse messages.
-    [#next-free-field: 11]
+      for this mode to send the ``ProcessingResponse`` messages.
+    [#next-free-field: 13]
 
     Oneofs:
         - response: The response type that is sent by the server.
@@ -637,6 +653,28 @@ class ProcessingResponse(betterproto2.Message):
     or reset the stream.
     """
 
+    streamed_immediate_response: "StreamedImmediateResponse | None" = (
+        betterproto2.field(
+            11, betterproto2.TYPE_MESSAGE, optional=True, group="response"
+        )
+    )
+    """
+    The server sends back this message to initiate or continue local response streaming.
+    The server must initiate local response streaming with the ``headers_response`` in response
+    to a ``ProcessingRequest`` with the ``request_headers`` only.
+    The server may follow up with multiple messages containing ``body_response``. The server must
+    indicate end of stream by setting ``end_of_stream`` to ``true`` in the ``headers_response``
+    or ``body_response`` message or by sending a ``trailers_response`` message.
+    The client may send a ``request_body`` or ``request_trailers`` to the server depending on
+    configuration.
+    The streaming local response can only be sent when the ``request_header_mode`` in the filter
+    :ref:`processing_mode <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.processing_mode>`
+    is set to ``SEND``. The ext_proc server should not send ``StreamedImmediateResponse`` if it
+    did not observe request headers, as it will result in a race with the upstream server
+    response and reset of the client request.
+    Presently only the ``FULL_DUPLEX_STREAMED`` or ``NONE`` body modes are supported.
+    """
+
     dynamic_metadata: "____google__protobuf__.Struct | None" = betterproto2.field(
         8, betterproto2.TYPE_MESSAGE, optional=True
     )
@@ -650,19 +688,32 @@ class ProcessingResponse(betterproto2.Message):
         9, betterproto2.TYPE_MESSAGE, optional=True
     )
     """
-    Override how parts of the HTTP request and response are processed
-    for the duration of this particular request/response only. Servers
-    may use this to intelligently control how requests are processed
-    based on the headers and other metadata that they see.
-    This field is only applicable when servers responding to the header requests.
-    If it is set in the response to the body or trailer requests, it will be ignored by the data plane.
+    Override how parts of the HTTP request and response are processed for the duration of this
+    particular request/response only. Servers may use this to intelligently control how requests
+    are processed based on the headers and other metadata that they see.
+
+    This field is only applicable when servers are responding to the header requests. If it is set
+    in the response to the body or trailer requests, it will be ignored by the data plane.
     It is also ignored by the data plane when the ext_proc filter config
-    :ref:`allow_mode_override
-    <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.allow_mode_override>`
-    is set to false, or
-    :ref:`send_body_without_waiting_for_header_response
-    <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.send_body_without_waiting_for_header_response>`
-    is set to true.
+    :ref:`allow_mode_override <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.allow_mode_override>`
+    is set to ``false``, or
+    :ref:`send_body_without_waiting_for_header_response <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.send_body_without_waiting_for_header_response>`
+    is set to ``true``.
+    """
+
+    request_drain: "bool" = betterproto2.field(12, betterproto2.TYPE_BOOL)
+    """
+    [#not-implemented-hide:]
+    Used only in ``FULL_DUPLEX_STREAMED`` and ``GRPC`` body send modes.
+    Instructs the data plane to stop sending body data and to send a
+    half-close on the ext_proc stream. The ext_proc server should then echo
+    back all subsequent body contents as-is until it sees the client's
+    half-close, at which point the ext_proc server can terminate the stream
+    with an OK status. This provides a safe way for the ext_proc server
+    to indicate that it does not need to see the rest of the stream;
+    without this, the ext_proc server could not terminate the stream
+    early, because it would wind up dropping any body contents that the
+    client had already sent before it saw the ext_proc stream termination.
     """
 
     override_message_timeout: "datetime.timedelta | None" = betterproto2.field(
@@ -672,19 +723,18 @@ class ProcessingResponse(betterproto2.Message):
         optional=True,
     )
     """
-    When ext_proc server receives a request message, in case it needs more
-    time to process the message, it sends back a ProcessingResponse message
-    with a new timeout value. When the data plane receives this response
-    message, it ignores other fields in the response, just stop the original
-    timer, which has the timeout value specified in
-    :ref:`message_timeout
-    <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.message_timeout>`
-    and start a new timer with this ``override_message_timeout`` value and keep the
-    data plane ext_proc filter state machine intact.
-    Has to be >= 1ms and <=
-    :ref:`max_message_timeout <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.max_message_timeout>`
-    Such message can be sent at most once in a particular data plane ext_proc filter processing state.
-    To enable this API, one has to set ``max_message_timeout`` to a number >= 1ms.
+    When the ext_proc server receives a request message and needs more time to process it, it
+    sends back a ``ProcessingResponse`` message with a new timeout value. When the data plane
+    receives this response message, it ignores other fields in the response, stops the original
+    timer (which has the timeout value specified in
+    :ref:`message_timeout <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.message_timeout>`),
+    and starts a new timer with this ``override_message_timeout`` value while keeping the data
+    plane ext_proc filter state machine intact.
+
+    The value must be >= 1ms and <=
+    :ref:`max_message_timeout <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.max_message_timeout>`.
+    Such a message can be sent at most once in a particular data plane ext_proc filter processing
+    state. To enable this API, ``max_message_timeout`` must be set to a value >= 1ms.
     """
 
     @model_validator(mode="after")
@@ -702,8 +752,9 @@ class ProtocolConfiguration(betterproto2.Message):
     """
     This message specifies the filter protocol configurations which will be sent to the ext_proc
     server in a :ref:`ProcessingRequest <envoy_v3_api_msg_service.ext_proc.v3.ProcessingRequest>`.
-    If the server does not support these protocol configurations, it may choose to close the gRPC stream.
-    If the server supports these protocol configurations, it should respond based on the API specifications.
+    If the server does not support these protocol configurations, it may choose to close the gRPC
+    stream. If the server supports these protocol configurations, it should respond based on the
+    API specifications.
     """
 
     request_body_mode: "___extensions__filters__http__ext_proc__v3__.ProcessingModeBodySendMode" = betterproto2.field(
@@ -714,8 +765,8 @@ class ProtocolConfiguration(betterproto2.Message):
         ),
     )
     """
-    Specify the filter configuration :ref:`request_body_mode
-    <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ProcessingMode.request_body_mode>`
+    Specifies the filter configuration
+    :ref:`request_body_mode <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ProcessingMode.request_body_mode>`.
     """
 
     response_body_mode: "___extensions__filters__http__ext_proc__v3__.ProcessingModeBodySendMode" = betterproto2.field(
@@ -726,18 +777,19 @@ class ProtocolConfiguration(betterproto2.Message):
         ),
     )
     """
-    Specify the filter configuration :ref:`response_body_mode
-    <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ProcessingMode.response_body_mode>`
+    Specifies the filter configuration
+    :ref:`response_body_mode <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ProcessingMode.response_body_mode>`.
     """
 
     send_body_without_waiting_for_header_response: "bool" = betterproto2.field(
         3, betterproto2.TYPE_BOOL
     )
     """
-    Specify the filter configuration :ref:`send_body_without_waiting_for_header_response
-    <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.send_body_without_waiting_for_header_response>`
-    If the client is waiting for a header response from the server, setting ``true`` means the client will send body to the server
-    as they arrive. Setting ``false`` means the client will buffer the arrived data and not send it to the server immediately.
+    Specifies the filter configuration
+    :ref:`send_body_without_waiting_for_header_response <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.send_body_without_waiting_for_header_response>`.
+    If the client is waiting for a header response from the server, setting to ``true`` means the
+    client will send the body to the server as it arrives. Setting to ``false`` means the client
+    will buffer the arrived data and not send it to the server immediately.
     """
 
 
@@ -749,24 +801,91 @@ default_message_pool.register_message(
 @dataclass(eq=False, repr=False, config={"extra": "forbid"})
 class StreamedBodyResponse(betterproto2.Message):
     """
-    The body response message corresponding to FULL_DUPLEX_STREAMED body mode.
+    The body response message corresponding to ``FULL_DUPLEX_STREAMED`` or ``GRPC`` body modes.
     """
 
     body: "bytes" = betterproto2.field(1, betterproto2.TYPE_BYTES)
     """
-    The body response chunk that will be passed to the upstream/downstream by the data plane.
+    In ``FULL_DUPLEX_STREAMED`` body send mode, contains the body response chunk that will be
+    passed to the upstream/downstream by the data plane. In ``GRPC`` body send mode, contains
+    a serialized gRPC message to be passed to the upstream/downstream by the data plane.
     """
 
     end_of_stream: "bool" = betterproto2.field(2, betterproto2.TYPE_BOOL)
     """
-    The server sets this flag to true if it has received a body request with
-    :ref:`end_of_stream <envoy_v3_api_field_service.ext_proc.v3.HttpBody.end_of_stream>` set to true,
-    and this is the last chunk of body responses.
+    The server sets this flag to ``true`` if it has received a body request with
+    :ref:`end_of_stream <envoy_v3_api_field_service.ext_proc.v3.HttpBody.end_of_stream>` set to
+    ``true``, and this is the last chunk of body responses.
+
+    Note that in ``GRPC`` body send mode, this allows the ext_proc server to tell the data plane
+    to send a half close after a client message, which will result in discarding any other
+    messages sent by the client application.
+    """
+
+    end_of_stream_without_message: "bool" = betterproto2.field(
+        3, betterproto2.TYPE_BOOL
+    )
+    """
+    This field is used in ``GRPC`` body send mode when ``end_of_stream`` is ``true`` and ``body``
+    is empty. Those values would normally indicate an empty message on the stream with the
+    end-of-stream bit set. However, if the half-close happens after the last message on the stream
+    was already sent, then this field will be ``true`` to indicate an end-of-stream with *no*
+    message (as opposed to an empty message).
+    """
+
+    grpc_message_compressed: "bool" = betterproto2.field(4, betterproto2.TYPE_BOOL)
+    """
+    This field is used in ``GRPC`` body send mode to indicate whether the message is compressed.
+    This will never be set to ``true`` by gRPC but may be set to ``true`` by a proxy like Envoy.
     """
 
 
 default_message_pool.register_message(
     "envoy.service.ext_proc.v3", "StreamedBodyResponse", StreamedBodyResponse
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class StreamedImmediateResponse(betterproto2.Message):
+    """
+    This message is sent by the external server to the data plane after ``HttpHeaders`` to initiate
+    local response streaming. The server may follow up with multiple messages containing
+    ``body_response``. The server must indicate end of stream by setting ``end_of_stream`` to
+    ``true`` in the ``headers_response`` or ``body_response`` message or by sending a
+    ``trailers_response`` message.
+
+    Oneofs:
+        - response:
+    """
+
+    headers_response: "HttpHeaders | None" = betterproto2.field(
+        1, betterproto2.TYPE_MESSAGE, optional=True, group="response"
+    )
+    """
+    Response headers to be sent downstream. The ``:status`` header must be set.
+    """
+
+    body_response: "StreamedBodyResponse | None" = betterproto2.field(
+        2, betterproto2.TYPE_MESSAGE, optional=True, group="response"
+    )
+    """
+    Response body to be sent downstream.
+    """
+
+    trailers_response: "___config__core__v3__.HeaderMap | None" = betterproto2.field(
+        3, betterproto2.TYPE_MESSAGE, optional=True, group="response"
+    )
+    """
+    Response trailers to be sent downstream.
+    """
+
+    @model_validator(mode="after")
+    def check_oneof(cls, values):
+        return cls._validate_field_groups(values)
+
+
+default_message_pool.register_message(
+    "envoy.service.ext_proc.v3", "StreamedImmediateResponse", StreamedImmediateResponse
 )
 
 
@@ -795,33 +914,27 @@ class ExternalProcessorSyncStub:
     """
     [#protodoc-title: External processing service]
 
-    A service that can access and modify HTTP requests and responses
-    as part of a filter chain.
+    A service that can access and modify HTTP requests and responses as part of a filter chain.
     The overall external processing protocol works like this:
 
     1. The data plane sends to the service information about the HTTP request.
-    2. The service sends back a ProcessingResponse message that directs
-       the data plane to either stop processing, continue without it, or send
-       it the next chunk of the message body.
-    3. If so requested, the data plane sends the server the message body in
-       chunks, or the entire body at once. In either case, the server may send
-       back a ProcessingResponse for each message it receives, or wait for
-       a certain amount of body chunks received before streaming back the
-       ProcessingResponse messages.
-    4. If so requested, the data plane sends the server the HTTP trailers,
-       and the server sends back a ProcessingResponse.
-    5. At this point, request processing is done, and we pick up again
-       at step 1 when the data plane receives a response from the upstream
-       server.
-    6. At any point above, if the server closes the gRPC stream cleanly,
-       then the data plane proceeds without consulting the server.
-    7. At any point above, if the server closes the gRPC stream with an error,
-       then the data plane returns a 500 error to the client, unless the filter
-       was configured to ignore errors.
+    2. The service sends back a ``ProcessingResponse`` message that directs the data plane to either
+       stop processing, continue without it, or send it the next chunk of the message body.
+    3. If so requested, the data plane sends the server the message body in chunks, or the entire
+       body at once. In either case, the server may send back a ``ProcessingResponse`` for each
+       message it receives, or wait for a certain amount of body chunks to be received before
+       streaming back the ``ProcessingResponse`` messages.
+    4. If so requested, the data plane sends the server the HTTP trailers, and the server sends back
+       a ``ProcessingResponse``.
+    5. At this point, request processing is done, and we pick up again at step 1 when the data plane
+       receives a response from the upstream server.
+    6. At any point above, if the server closes the gRPC stream cleanly, then the data plane
+       proceeds without consulting the server.
+    7. At any point above, if the server closes the gRPC stream with an error, then the data plane
+       returns a ``500`` error to the client, unless the filter was configured to ignore errors.
 
-    In other words, the process is a request/response conversation, but
-    using a gRPC stream to make it easier for the server to
-    maintain state.
+    In other words, the process is a request/response conversation, but using a gRPC stream to make
+    it easier for the server to maintain state.
     """
 
     def __init__(self, channel: grpc.Channel):
@@ -833,7 +946,7 @@ class ExternalProcessorSyncStub:
         """
         This begins the bidirectional stream that the data plane will use to
         give the server control over what the filter does. The actual
-        protocol is described by the ProcessingRequest and ProcessingResponse
+        protocol is described by the ``ProcessingRequest`` and ``ProcessingResponse``
         messages below.
         """
 
@@ -848,33 +961,27 @@ class ExternalProcessorAsyncStub(betterproto2_grpclib.ServiceStub):
     """
     [#protodoc-title: External processing service]
 
-    A service that can access and modify HTTP requests and responses
-    as part of a filter chain.
+    A service that can access and modify HTTP requests and responses as part of a filter chain.
     The overall external processing protocol works like this:
 
     1. The data plane sends to the service information about the HTTP request.
-    2. The service sends back a ProcessingResponse message that directs
-       the data plane to either stop processing, continue without it, or send
-       it the next chunk of the message body.
-    3. If so requested, the data plane sends the server the message body in
-       chunks, or the entire body at once. In either case, the server may send
-       back a ProcessingResponse for each message it receives, or wait for
-       a certain amount of body chunks received before streaming back the
-       ProcessingResponse messages.
-    4. If so requested, the data plane sends the server the HTTP trailers,
-       and the server sends back a ProcessingResponse.
-    5. At this point, request processing is done, and we pick up again
-       at step 1 when the data plane receives a response from the upstream
-       server.
-    6. At any point above, if the server closes the gRPC stream cleanly,
-       then the data plane proceeds without consulting the server.
-    7. At any point above, if the server closes the gRPC stream with an error,
-       then the data plane returns a 500 error to the client, unless the filter
-       was configured to ignore errors.
+    2. The service sends back a ``ProcessingResponse`` message that directs the data plane to either
+       stop processing, continue without it, or send it the next chunk of the message body.
+    3. If so requested, the data plane sends the server the message body in chunks, or the entire
+       body at once. In either case, the server may send back a ``ProcessingResponse`` for each
+       message it receives, or wait for a certain amount of body chunks to be received before
+       streaming back the ``ProcessingResponse`` messages.
+    4. If so requested, the data plane sends the server the HTTP trailers, and the server sends back
+       a ``ProcessingResponse``.
+    5. At this point, request processing is done, and we pick up again at step 1 when the data plane
+       receives a response from the upstream server.
+    6. At any point above, if the server closes the gRPC stream cleanly, then the data plane
+       proceeds without consulting the server.
+    7. At any point above, if the server closes the gRPC stream with an error, then the data plane
+       returns a ``500`` error to the client, unless the filter was configured to ignore errors.
 
-    In other words, the process is a request/response conversation, but
-    using a gRPC stream to make it easier for the server to
-    maintain state.
+    In other words, the process is a request/response conversation, but using a gRPC stream to make
+    it easier for the server to maintain state.
     """
 
     async def process(
@@ -888,7 +995,7 @@ class ExternalProcessorAsyncStub(betterproto2_grpclib.ServiceStub):
         """
         This begins the bidirectional stream that the data plane will use to
         give the server control over what the filter does. The actual
-        protocol is described by the ProcessingRequest and ProcessingResponse
+        protocol is described by the ``ProcessingRequest`` and ``ProcessingResponse``
         messages below.
         """
 
@@ -916,33 +1023,27 @@ class ExternalProcessorBase(betterproto2_grpclib.ServiceBase):
     """
     [#protodoc-title: External processing service]
 
-    A service that can access and modify HTTP requests and responses
-    as part of a filter chain.
+    A service that can access and modify HTTP requests and responses as part of a filter chain.
     The overall external processing protocol works like this:
 
     1. The data plane sends to the service information about the HTTP request.
-    2. The service sends back a ProcessingResponse message that directs
-       the data plane to either stop processing, continue without it, or send
-       it the next chunk of the message body.
-    3. If so requested, the data plane sends the server the message body in
-       chunks, or the entire body at once. In either case, the server may send
-       back a ProcessingResponse for each message it receives, or wait for
-       a certain amount of body chunks received before streaming back the
-       ProcessingResponse messages.
-    4. If so requested, the data plane sends the server the HTTP trailers,
-       and the server sends back a ProcessingResponse.
-    5. At this point, request processing is done, and we pick up again
-       at step 1 when the data plane receives a response from the upstream
-       server.
-    6. At any point above, if the server closes the gRPC stream cleanly,
-       then the data plane proceeds without consulting the server.
-    7. At any point above, if the server closes the gRPC stream with an error,
-       then the data plane returns a 500 error to the client, unless the filter
-       was configured to ignore errors.
+    2. The service sends back a ``ProcessingResponse`` message that directs the data plane to either
+       stop processing, continue without it, or send it the next chunk of the message body.
+    3. If so requested, the data plane sends the server the message body in chunks, or the entire
+       body at once. In either case, the server may send back a ``ProcessingResponse`` for each
+       message it receives, or wait for a certain amount of body chunks to be received before
+       streaming back the ``ProcessingResponse`` messages.
+    4. If so requested, the data plane sends the server the HTTP trailers, and the server sends back
+       a ``ProcessingResponse``.
+    5. At this point, request processing is done, and we pick up again at step 1 when the data plane
+       receives a response from the upstream server.
+    6. At any point above, if the server closes the gRPC stream cleanly, then the data plane
+       proceeds without consulting the server.
+    7. At any point above, if the server closes the gRPC stream with an error, then the data plane
+       returns a ``500`` error to the client, unless the filter was configured to ignore errors.
 
-    In other words, the process is a request/response conversation, but
-    using a gRPC stream to make it easier for the server to
-    maintain state.
+    In other words, the process is a request/response conversation, but using a gRPC stream to make
+    it easier for the server to maintain state.
     """
 
     async def process(
@@ -951,7 +1052,7 @@ class ExternalProcessorBase(betterproto2_grpclib.ServiceBase):
         """
         This begins the bidirectional stream that the data plane will use to
         give the server control over what the filter does. The actual
-        protocol is described by the ProcessingRequest and ProcessingResponse
+        protocol is described by the ``ProcessingRequest`` and ``ProcessingResponse``
         messages below.
         """
 

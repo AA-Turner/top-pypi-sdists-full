@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asgi-correlation-id
-Version: 5.0.0
+Version: 5.0.1
 Summary: Middleware correlating project logs to individual requests
 Keywords: asgi,fastapi,starlette,async,correlation,correlation-id,request-id,x-request-id,tracing,logging,middleware,sentry
 Author: Sondre Lillebø Gundersen

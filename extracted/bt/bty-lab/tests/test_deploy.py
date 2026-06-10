@@ -48,14 +48,19 @@ def test_compose_pins_to_current_bty_version(tmp_path: Path) -> None:
     assert "ghcr.io/safl/withcache:latest" in body
 
 
-def test_compose_wires_first_boot_withcache_env(tmp_path: Path) -> None:
-    """bty-web auto-discovers withcache via $BTY_WITHCACHE_URL on every
-    request -- the compose file is responsible for setting it. If this
-    assertion ever fails, first-boot becomes a UI-configuration step."""
+def test_compose_wires_first_boot_config_file(tmp_path: Path) -> None:
+    """v0.42+: bty-web's runtime config is the bty.toml file, not
+    per-knob env vars. The compose entry plumbs ONE env var
+    (``BTY_CONFIG_FILE``) + a bind-mount of ``bty.toml`` into the
+    container -- everything else (withcache URL, TFTP probe host,
+    admin password, ...) is keys in that file. Without this pin a
+    refactor could silently drop the mount and bty-web would come
+    up on the schema defaults."""
     dest = tmp_path / "bty-host"
     deploy_mod.init_main([str(dest)])
     body = (dest / "compose.yml").read_text(encoding="utf-8")
-    assert "BTY_WITHCACHE_URL: http://${HOST_ADDR" in body
+    assert "BTY_CONFIG_FILE: /etc/bty/bty.toml" in body
+    assert "./bty.toml:/etc/bty/bty.toml" in body
 
 
 def test_compose_uses_bind_mount_data_dirs(tmp_path: Path) -> None:
@@ -164,25 +169,31 @@ def test_env_example_has_required_keys(tmp_path: Path) -> None:
         assert f"# {var}=" in body, f"{var} not documented in envvars.example"
 
 
-def test_compose_plumbs_optional_env_vars_through(tmp_path: Path) -> None:
-    """The compose env block must reference every optional knob that
-    appears in envvars.example so uncommenting in envvars immediately
-    propagates -- without a corresponding ``VAR: ${{VAR:-}}`` entry
-    the operator's envvars change is silently ignored."""
+def test_compose_does_not_plumb_per_knob_env_vars(tmp_path: Path) -> None:
+    """v0.42+: every operator knob lives in ``bty.toml``, not in
+    individual env vars. The compose env block carries ONE entry --
+    ``BTY_CONFIG_FILE`` pointing at the bind-mounted TOML; the rest
+    that used to live here (``BTY_ADMIN_PASSWORD`` /
+    ``BTY_SESSION_SECRET`` / ...) were removed.
+
+    Per-key env overrides still work for operators who want them
+    (the loader recognises ``BTY_<SECTION>_<KEY>`` on top of TOML),
+    but they're not plumbed by default -- the operator sets them
+    on the container at run time / in their k8s manifest.
+    """
     dest = tmp_path / "bty-host"
     deploy_mod.init_main([str(dest)])
     body = (dest / "compose.yml").read_text(encoding="utf-8")
+    assert "BTY_CONFIG_FILE: /etc/bty/bty.toml" in body
     for var in (
         "BTY_ADMIN_PASSWORD",
-        "BTY_BOOT_RELEASE_REPO",
-        "BTY_TRUSTED_PROXY",
         "BTY_SESSION_SECRET",
         "BTY_MAX_UPLOAD_BYTES",
-        "BTY_CATALOG_MAX_PARALLEL",
-        "BTY_HASH_MAX_PARALLEL",
         "BTY_BACKUP_MAX_PARALLEL",
     ):
-        assert f"{var}: ${{{var}:-}}" in body, f"{var} not plumbed through compose"
+        assert f"{var}: ${{{var}:-}}" not in body, (
+            f"{var} should not be plumbed through compose any more"
+        )
 
 
 # ---- Mode flags --------------------------------------------------------------
@@ -363,8 +374,9 @@ def test_deploy_emits_envvars_and_runs_compose(
 ) -> None:
     """``deploy`` writes a real ``envvars`` (not just .example) with the
     detected HOST_ADDR + the historic-PAM "bty" admin password default
-    (session secret stays random crypto material), and runs ``podman
-    compose pull`` + ``up -d``."""
+    (session secret stays random crypto material). Root mode runs
+    ``podman compose pull`` + ``down`` (clean up leftovers; Quadlet
+    takes over from there)."""
     dest = tmp_path / "bty-host"
     deploy_mod.deploy_main([str(dest)])
 
@@ -379,7 +391,7 @@ def test_deploy_emits_envvars_and_runs_compose(
     )
     assert len(session_line.split("=", 1)[1]) >= 32
 
-    # podman compose pull + up -d both ran, with --profile tftp baked in.
+    # podman compose pull + down both ran, with --profile tftp baked in.
     run_cmds = [cmd for cmd, _ in _patched_runtime["run"]]
     assert ["podman", "compose", "--env-file", "envvars", "--profile", "tftp", "pull"] in run_cmds
     assert [
@@ -389,8 +401,7 @@ def test_deploy_emits_envvars_and_runs_compose(
         "envvars",
         "--profile",
         "tftp",
-        "up",
-        "-d",
+        "down",
     ] in run_cmds
 
 
@@ -398,14 +409,20 @@ def test_deploy_as_root_does_system_install(
     tmp_path: Path, _patched_runtime: dict[str, list]
 ) -> None:
     """Run as root, ``deploy`` does the full system install: TFTP
-    sidecar in the compose call + Quadlet units installed + systemctl
-    daemon-reload + service start."""
+    sidecar in the compose call + ``compose down`` to clear leftovers
+    + Quadlet units installed + systemctl daemon-reload + service start.
+
+    Critical: root mode must NOT ``compose up -d``. The Quadlet-managed
+    services bind the same ports (8080/3000/69); running both at once
+    blocks systemctl start with "port already in use" (v0.41.1 bug)."""
     dest = tmp_path / "bty-host"
     deploy_mod.deploy_main([str(dest)])  # _patched_runtime fakes geteuid==0
 
     # TFTP profile is included on the compose calls.
     run_cmds = [cmd for cmd, _ in _patched_runtime["run"]]
     assert ["podman", "compose", "--env-file", "envvars", "--profile", "tftp", "pull"] in run_cmds
+    # Root mode CLEARS leftover compose containers (idempotent on fresh
+    # hosts) but does NOT start any.
     assert [
         "podman",
         "compose",
@@ -413,15 +430,36 @@ def test_deploy_as_root_does_system_install(
         "envvars",
         "--profile",
         "tftp",
-        "up",
-        "-d",
+        "down",
     ] in run_cmds
+    # Regression: ``compose up -d`` must NOT appear in root mode.
+    assert not any(cmd[:2] == ["podman", "compose"] and "up" in cmd for cmd in run_cmds), (
+        "root-mode deploy must hand off to Quadlet, not start via compose"
+    )
     # Quadlet units installed + systemctl invocations.
     assert len(_patched_runtime["quadlets"]) == 1
     assert ["systemctl", "daemon-reload"] in run_cmds
     starts = [cmd for cmd in run_cmds if cmd[:2] == ["systemctl", "start"]]
     assert len(starts) == 1
     assert set(starts[0][2:]) == set(deploy_mod._SYSTEMD_SERVICES)
+
+    # v0.42+: the operator's runtime knobs live in bty.toml, not in
+    # Quadlet ``Environment=`` lines. The Quadlet bind-mounts
+    # ``<dest>/bty.toml`` in and sets ``BTY_CONFIG_FILE`` to point
+    # at it; ``deploy_main`` resolves the absolute dest path so
+    # that bind-mount target isn't a placeholder string.
+    bty_web_unit = (dest / "quadlet" / "bty-web.container").read_text(encoding="utf-8")
+    assert "HOST_ADDR_HERE" not in bty_web_unit
+    assert "BTY_TOML_HOST_PATH_HERE" not in bty_web_unit
+    assert "Environment=BTY_CONFIG_FILE=/etc/bty/bty.toml" in bty_web_unit
+    # Bind-mount of the toml file is present with an absolute host
+    # path that resolves to <dest>/bty.toml.
+    import re
+
+    m = re.search(r"Volume=(\S+):/etc/bty/bty.toml:Z", bty_web_unit)
+    assert m is not None, "bty.toml bind-mount missing from Quadlet"
+    assert m.group(1).endswith("/bty.toml")
+    assert m.group(1).startswith("/")  # absolute path
 
 
 def test_deploy_as_non_root_does_user_install(
@@ -611,6 +649,159 @@ def test_upgrade_refuses_without_existing_compose(
         deploy_mod.upgrade_main([str(tmp_path / "bty-host")])
     assert excinfo.value.code == 1
     assert "deploy" in capsys.readouterr().err
+
+
+def test_show_config_main_dumps_provenance(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """``bty-lab show-config --config <PATH>`` prints every Config
+    field with its current value + provenance tag. Useful for
+    operators tracing "where does this value come from?" without
+    booting bty-web."""
+    bty_toml = tmp_path / "bty.toml"
+    bty_toml.write_text(
+        '[admin]\npassword = "from-toml"\n[server]\nport = 9090\n',
+        encoding="utf-8",
+    )
+    deploy_mod.show_config_main(["--config", str(bty_toml)])
+    out = capsys.readouterr().out
+    # Header surfaces loaded files + primary write target.
+    assert str(bty_toml) in out
+    assert "primary toml:" in out
+    # TOML-sourced values are tagged with the file path.
+    assert f'password = "from-toml"    # toml({bty_toml})' in out
+    assert f"port = 9090    # toml({bty_toml})" in out
+    # Default values are tagged "default".
+    assert 'host = "0.0.0.0"    # default' in out
+
+
+def test_show_config_main_with_env_override_surfaces_env_tag(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """An env-override shows up tagged ``env(BTY_<NAME>)`` so the
+    operator can see exactly which env var beat the TOML."""
+    bty_toml = tmp_path / "bty.toml"
+    bty_toml.write_text('[admin]\npassword = "from-toml"\n', encoding="utf-8")
+    monkeypatch.setenv("BTY_ADMIN_PASSWORD", "from-env")
+    deploy_mod.show_config_main(["--config", str(bty_toml)])
+    out = capsys.readouterr().out
+    assert 'password = "from-env"    # env(BTY_ADMIN_PASSWORD)' in out
+
+
+def test_envvars_to_bty_toml_carries_overrides_across(tmp_path: Path) -> None:
+    """``_envvars_to_bty_toml`` translates a v0.41 ``envvars`` file
+    into the v0.42 bty.toml shape, mapping each ``BTY_*`` key to its
+    matching ``[section] key`` entry. Operator-tuned values (admin
+    password, custom state_dir, etc.) carry across the upgrade."""
+    env_path = tmp_path / "envvars"
+    env_path.write_text(
+        "HOST_ADDR=10.20.30.40\n"
+        "BTY_ADMIN_PASSWORD=changeme\n"
+        "BTY_SESSION_SECRET=fixed-secret\n"
+        "BTY_STATE_DIR=/srv/bty\n"
+        "# BTY_BOOT_DIR=...  # left commented\n"
+        'BTY_TRUSTED_PROXY="10.0.0.0/8"\n',
+        encoding="utf-8",
+    )
+    out = deploy_mod._envvars_to_bty_toml(env_path, host_addr="10.20.30.40")
+    # Operator-tuned values flow through.
+    assert 'password = "changeme"' in out
+    assert 'session_secret = "fixed-secret"' in out
+    assert 'state_dir = "/srv/bty"' in out
+    assert 'trusted_proxy = "10.0.0.0/8"' in out
+    # Commented-out lines in envvars don't leak through.
+    assert "boot_dir" not in out or "# boot_dir" in out
+    # HOST_ADDR seeds the derived withcache + TFTP probe entries.
+    assert 'url = "http://10.20.30.40:3000"' in out
+    assert 'tftp_probe_host = "10.20.30.40"' in out
+
+
+def test_envvars_to_bty_toml_uses_schema_defaults_when_envvars_empty(
+    tmp_path: Path,
+) -> None:
+    """An empty envvars file -> the migrator emits a bty.toml with
+    schema defaults + a freshly-generated session_secret. Lets a
+    v0.41 deploy that never customised anything upgrade cleanly."""
+    env_path = tmp_path / "envvars"
+    env_path.write_text("HOST_ADDR=10.0.0.5\n", encoding="utf-8")
+    out = deploy_mod._envvars_to_bty_toml(env_path, host_addr="10.0.0.5")
+    assert 'password = "bty"' in out  # default admin password
+    assert 'host = "0.0.0.0"' in out
+    assert "session_secret = " in out  # auto-generated, but present
+    assert 'url = "http://10.0.0.5:3000"' in out
+
+
+def test_upgrade_emits_bty_toml_when_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    _patched_runtime: dict[str, list],
+) -> None:
+    """A v0.41-era deploy on disk has compose + envvars but NO
+    bty.toml. ``bty-lab upgrade`` must emit one (translated from
+    envvars) so the new compose / Quadlet's bind-mount target
+    exists. An already-present bty.toml is preserved."""
+    dest = tmp_path / "bty-host"
+    deploy_mod.deploy_main([str(dest)])  # writes both envvars + bty.toml
+    # Simulate a v0.41 deploy: drop the bty.toml deploy_main wrote.
+    bty_toml = dest / "bty.toml"
+    bty_toml.unlink()
+    _patched_runtime["run"].clear()
+
+    # Force the Quadlet-detect check to see no installed units so
+    # upgrade takes the compose path (simpler runtime expectations).
+    # Wrap the real exists so unrelated Path.exists() calls (incl.
+    # the upgrade's own ``bty.toml.exists()`` test) keep their
+    # real filesystem semantics; only the Quadlet check is mocked.
+    real_exists = Path.exists
+
+    def _no_quadlets(self):  # type: ignore[no-untyped-def]
+        if str(self).startswith("/etc/containers/systemd"):
+            return False
+        return real_exists(self)
+
+    monkeypatch.setattr(Path, "exists", _no_quadlets)
+
+    deploy_mod.upgrade_main([str(dest)])
+    assert bty_toml.is_file(), "upgrade must emit bty.toml when missing"
+    # Mode 0640 (contains the admin password + session secret).
+    assert bty_toml.stat().st_mode & 0o777 == 0o640
+    body = bty_toml.read_text(encoding="utf-8")
+    assert "[admin]" in body
+    assert "[server]" in body
+    assert "[withcache]" in body
+
+
+def test_upgrade_preserves_existing_bty_toml(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    _patched_runtime: dict[str, list],
+) -> None:
+    """When bty.toml already exists, upgrade leaves it alone --
+    the operator's edits (made via the Settings page or by hand)
+    are preserved verbatim across version bumps."""
+    dest = tmp_path / "bty-host"
+    deploy_mod.deploy_main([str(dest)])
+    # Replace the deploy_main-emitted bty.toml with a fingerprinted
+    # operator-edited version.
+    bty_toml = dest / "bty.toml"
+    fingerprint = '# operator-edited fingerprint xyzzy\n[admin]\npassword = "operator-changed"\n'
+    bty_toml.write_text(fingerprint, encoding="utf-8")
+    _patched_runtime["run"].clear()
+
+    real_exists = Path.exists
+
+    def _no_quadlets(self):  # type: ignore[no-untyped-def]
+        if str(self).startswith("/etc/containers/systemd"):
+            return False
+        return real_exists(self)
+
+    monkeypatch.setattr(Path, "exists", _no_quadlets)
+
+    deploy_mod.upgrade_main([str(dest)])
+    # Verbatim preservation -- including the fingerprint comment.
+    assert bty_toml.read_text(encoding="utf-8") == fingerprint
 
 
 def test_upgrade_pulls_and_restarts_compose_managed(

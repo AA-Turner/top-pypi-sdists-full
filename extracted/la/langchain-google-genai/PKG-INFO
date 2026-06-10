@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-google-genai
-Version: 4.2.4
+Version: 4.2.5
 Summary: An integration package connecting Google's genai package and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/google
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_google_genai/

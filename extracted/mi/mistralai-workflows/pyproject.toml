@@ -39,7 +39,7 @@ dependencies = [
     "starlette>=1.0.1",  # Not used directly - pinned to override a vulnerable transitive dependency via mcp
     "asynciolimiter>=1.2.0,<2.0.0",
     "jsonpatch>=1.33,<2.0.0",
-    
+
     # OpenTelemetry core (observability)
     "opentelemetry-api>=1.30.0,<2.0.0",
     "opentelemetry-sdk>=1.30.0,<2.0.0",
@@ -75,6 +75,8 @@ gcs = ["mistralai[workflow-payload-offloading-gcs]"]
 s3 = ["mistralai[workflow-payload-offloading-s3]"]
 storage = ["mistralai[workflow-payload-offloading]"]
 
+evaluation = ["mistralai-workflows-plugins-evaluation>=3.0.0a1,<4.0.0"]
+
 # All optional features
 all = [
     "mistralai-workflows[mistralai]",
@@ -82,6 +84,7 @@ all = [
     "mistralai-workflows[encryption]",
     "mistralai-workflows[compression]",
     "mistralai-workflows[storage]",
+    "mistralai-workflows[evaluation]",
 ]
 
 # Plugin-focused bundle for CI and local plugin development
@@ -91,6 +94,7 @@ all-plugins = [
     "mistralai-workflows[encryption]",
     "mistralai-workflows[compression]",
     "mistralai-workflows[storage]",
+    "mistralai-workflows[evaluation]",
 ]
 
 [tool.uv]
@@ -99,6 +103,7 @@ exclude-newer-package = { mistralai = false }
 [tool.uv.sources]
 mistralai-workflows-plugins-mistralai = { path = "plugins/mistralai", editable = true }
 mistralai-workflows-plugins-webhook = { path = "plugins/webhook", editable = true }
+mistralai-workflows-plugins-evaluation = { path = "plugins/evaluation", editable = true }
 ovide = { path = "ovide", editable = true }
 
 [dependency-groups]
@@ -123,6 +128,7 @@ dev = [
     "ovide",
     "mistralai[workflow-payload-encryption]",
     "mistralai[workflow-payload-compression]",
+    "mistralai-workflows-plugins-evaluation",
 ]
 
 

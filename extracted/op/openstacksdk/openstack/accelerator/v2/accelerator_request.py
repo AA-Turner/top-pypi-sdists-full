@@ -10,6 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from collections.abc import MutableMapping
 from typing import Any, Self
 
 from keystoneauth1 import adapter
@@ -22,6 +23,8 @@ class AcceleratorRequest(resource.Resource):
     resource_key = 'arq'
     resources_key = 'arqs'
     base_path = '/accelerator_requests'
+
+    create_opts = resource.CreateOpts(request_key=None)
 
     # capabilities
     allow_create = True
@@ -50,7 +53,9 @@ class AcceleratorRequest(resource.Resource):
     #: The UUID of the ARQ
     uuid = resource.Body('uuid', alternate_id=True)
 
-    def _convert_patch(self, patch):
+    def _convert_patch(  # type: ignore[override]
+        self, patch: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         # This overrides the default behavior of _convert_patch because
         # the PATCH method consumes JSON, its key is the ARQ uuid
         # and its value is an ordinary JSON patch. spec:
@@ -99,7 +104,11 @@ class AcceleratorRequest(resource.Resource):
             retry_on_conflict=retry_on_conflict,
         )
 
-    def _consume_attrs(self, mapping, attrs):
+    def _consume_attrs(
+        self,
+        mapping: MutableMapping[str, Any],
+        attrs: MutableMapping[str, Any],
+    ) -> dict[str, Any]:
         # This overrides the default behavior of _consume_attrs because
         # cyborg api returns an ARQ as list. spec:
         # https://specs.openstack.org/openstack/cyborg-specs/specs/train/implemented/cyborg-api
@@ -107,26 +116,3 @@ class AcceleratorRequest(resource.Resource):
             if self.resources_key in attrs:
                 attrs = attrs[self.resources_key][0]
         return super()._consume_attrs(mapping, attrs)
-
-    def create(
-        self,
-        session: adapter.Adapter,
-        prepend_key: bool = False,
-        base_path: str | None = None,
-        *,
-        resource_request_key: str | None = None,
-        resource_response_key: str | None = None,
-        microversion: str | None = None,
-        **params: Any,
-    ) -> Self:
-        # This overrides the default behavior of resource creation because
-        # cyborg doesn't accept resource_key in its request.
-        return super().create(
-            session,
-            prepend_key=prepend_key,
-            base_path=base_path,
-            resource_request_key=resource_request_key,
-            resource_response_key=resource_response_key,
-            microversion=microversion,
-            **params,
-        )

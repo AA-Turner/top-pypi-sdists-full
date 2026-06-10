@@ -99,7 +99,6 @@ use crate::linalg::faer_ndarray::{FaerArrayView, FaerLlt};
 use crate::linalg::triangular::{
     cholesky_solve_matrix, cholesky_solve_vector, forward_substitution_lower_matrix,
 };
-use crate::solver::arrow_schur_beta_graph::BetaCouplingGraph;
 use crate::terms::analytic_penalties::{AnalyticPenaltyKind, AnalyticPenaltyRegistry, PenaltyTier};
 use crate::terms::latent_coord::{LatentCoordValues, LatentManifold};
 
@@ -118,6 +117,136 @@ const DEFAULT_PCG_RELATIVE_TOLERANCE: f64 = 1e-4;
 const PCG_ABSOLUTE_TOLERANCE_FLOOR: f64 = 1e-14;
 const DEFAULT_TRUST_REGION_RADIUS: f64 = f64::INFINITY;
 pub const DEFAULT_PROXIMAL_INITIAL_RIDGE: f64 = 1e-8;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct BetaEdge {
+    a: usize,
+    b: usize,
+}
+
+#[derive(Debug, Clone)]
+struct BetaCouplingGraph {
+    num_blocks: usize,
+    edges: Vec<BetaEdge>,
+    adj_start: Vec<usize>,
+    adj_targets: Vec<usize>,
+}
+
+impl BetaCouplingGraph {
+    fn build(block_offsets: &[Range<usize>], htbeta_rows: &[Array2<f64>]) -> Self {
+        let num_blocks = block_offsets.len();
+        if num_blocks == 0 {
+            return Self {
+                num_blocks: 0,
+                edges: Vec::new(),
+                adj_start: vec![0],
+                adj_targets: Vec::new(),
+            };
+        }
+
+        let mut edge_set = Vec::<(usize, usize)>::new();
+        for row in htbeta_rows {
+            let mut active = Vec::<usize>::new();
+            for (block, range) in block_offsets.iter().enumerate() {
+                if range
+                    .clone()
+                    .any(|col| (0..row.nrows()).any(|axis| row[[axis, col]] != 0.0))
+                {
+                    active.push(block);
+                }
+            }
+            for i in 0..active.len() {
+                for j in (i + 1)..active.len() {
+                    edge_set.push((active[i].min(active[j]), active[i].max(active[j])));
+                }
+            }
+        }
+        edge_set.sort_unstable();
+        edge_set.dedup();
+
+        let edges: Vec<_> = edge_set.iter().map(|&(a, b)| BetaEdge { a, b }).collect();
+        let mut degree = vec![0usize; num_blocks];
+        for &BetaEdge { a, b } in &edges {
+            degree[a] += 1;
+            degree[b] += 1;
+        }
+        let mut adj_start = vec![0usize; num_blocks + 1];
+        for block in 0..num_blocks {
+            adj_start[block + 1] = adj_start[block] + degree[block];
+        }
+        let mut adj_targets = vec![0usize; adj_start[num_blocks]];
+        let mut cursor = adj_start[..num_blocks].to_vec();
+        for &BetaEdge { a, b } in &edges {
+            adj_targets[cursor[a]] = b;
+            cursor[a] += 1;
+            adj_targets[cursor[b]] = a;
+            cursor[b] += 1;
+        }
+        Self {
+            num_blocks,
+            edges,
+            adj_start,
+            adj_targets,
+        }
+    }
+
+    fn neighbours(&self, node: usize) -> &[usize] {
+        &self.adj_targets[self.adj_start[node]..self.adj_start[node + 1]]
+    }
+
+    fn component_partition(&self) -> Vec<Vec<usize>> {
+        let mut parent: Vec<usize> = (0..self.num_blocks).collect();
+        let mut rank = vec![0u8; self.num_blocks];
+
+        fn find(parent: &mut [usize], mut x: usize) -> usize {
+            while parent[x] != x {
+                parent[x] = parent[parent[x]];
+                x = parent[x];
+            }
+            x
+        }
+
+        for &BetaEdge { a, b } in &self.edges {
+            let lhs = find(&mut parent, a);
+            let rhs = find(&mut parent, b);
+            if lhs != rhs {
+                if rank[lhs] < rank[rhs] {
+                    parent[lhs] = rhs;
+                } else if rank[lhs] > rank[rhs] {
+                    parent[rhs] = lhs;
+                } else {
+                    parent[rhs] = lhs;
+                    rank[lhs] += 1;
+                }
+            }
+        }
+
+        let mut label_map = vec![usize::MAX; self.num_blocks];
+        let mut parts = Vec::<Vec<usize>>::new();
+        for block in 0..self.num_blocks {
+            let root = find(&mut parent, block);
+            let label = if label_map[root] == usize::MAX {
+                label_map[root] = parts.len();
+                parts.push(Vec::new());
+                label_map[root]
+            } else {
+                label_map[root]
+            };
+            parts[label].push(block);
+        }
+        parts
+    }
+
+    fn expand_one_hop(&self, seed: &[usize]) -> Vec<usize> {
+        let mut expanded = seed.to_vec();
+        for &block in seed {
+            expanded.extend_from_slice(self.neighbours(block));
+        }
+        expanded.sort_unstable();
+        expanded.dedup();
+        expanded
+    }
+}
 pub const DEFAULT_PROXIMAL_RIDGE_GROWTH: f64 = 10.0;
 /// Number of geometric proximal-ridge escalations the adaptive correction
 /// attempts before giving up. Raised from 16 to 22 so the ridge can climb from
@@ -278,7 +407,7 @@ impl BetaPenaltyOp for DensePenaltyOp {
 
     fn fingerprint(&self, hasher: &mut Fingerprinter) {
         hasher.write_str("dense-penalty-op-v1");
-        write_array2_fingerprint(hasher, &self.0);
+        hasher.write_f64_array2(&self.0);
     }
 }
 
@@ -383,7 +512,7 @@ impl BetaPenaltyOp for BlockPenaltyOp {
         hasher.write_usize(self.blocks.len());
         for (off, local) in &self.blocks {
             hasher.write_usize(*off);
-            write_array2_fingerprint(hasher, local);
+            hasher.write_f64_array2(local);
         }
     }
 }
@@ -521,8 +650,8 @@ impl BetaPenaltyOp for KroneckerPenaltyOp {
         hasher.write_str("kronecker-penalty-op-v1");
         hasher.write_usize(self.global_offset);
         hasher.write_usize(self.k);
-        write_array2_fingerprint(hasher, &self.factor_a);
-        write_array2_fingerprint(hasher, &self.factor_b);
+        hasher.write_f64_array2(&self.factor_a);
+        hasher.write_f64_array2(&self.factor_b);
     }
 }
 
@@ -690,7 +819,7 @@ impl BetaPenaltyOp for SparseBlockKroneckerPenaltyOp {
         for blk in &self.blocks {
             hasher.write_usize(blk.row_off);
             hasher.write_usize(blk.col_off);
-            write_array2_fingerprint(hasher, &blk.data);
+            hasher.write_f64_array2(&blk.data);
         }
     }
 }
@@ -1498,8 +1627,17 @@ fn factor_one_row(
     // relative to the block's diagonal scale, so a genuinely broken block
     // (non-finite, or unboundedly indefinite) still surfaces as
     // `PerRowFactorFailed` for the outer loop to handle rather than looping.
+    // Per-row ridge escalation policy. The escalation starts at the caller's
+    // base ridge (or, if that is zero, a tiny seed scaled by the block's
+    // diagonal magnitude), multiplies geometrically each rejection, and is
+    // capped at a large multiple of the base scale so a genuinely broken block
+    // surfaces as an error instead of looping forever.
+    const RIDGE_GROWTH_FACTOR: f64 = 10.0;
+    const RIDGE_SEED_DIAG_FRACTION: f64 = 1.0e-10;
+    const RIDGE_CAP_DIAG_FRACTION: f64 = 1.0e-12;
+    const RIDGE_CAP_SCALE: f64 = 1.0e12;
     let diag_scale = row_block_diag_scale(row, d);
-    let ridge_cap = ridge_t.max(1.0e-12 * diag_scale) * 1.0e12;
+    let ridge_cap = ridge_t.max(RIDGE_CAP_DIAG_FRACTION * diag_scale) * RIDGE_CAP_SCALE;
     let mut ridge_eff = ridge_t;
     // Escalate the per-row ridge until the block is BOTH positive-definite AND
     // well-conditioned. Previously the escalation only fired on a *failed*
@@ -1538,9 +1676,9 @@ fn factor_one_row(
                     break factor;
                 }
                 let next = if ridge_eff > 0.0 {
-                    ridge_eff * 10.0
+                    ridge_eff * RIDGE_GROWTH_FACTOR
                 } else {
-                    1.0e-10 * diag_scale
+                    RIDGE_SEED_DIAG_FRACTION * diag_scale
                 };
                 if !next.is_finite() || next > ridge_cap {
                     return Err(ArrowSchurError::PerRowFactorIllConditioned {
@@ -1569,9 +1707,9 @@ fn factor_one_row(
                     });
                 }
                 let next = if ridge_eff > 0.0 {
-                    ridge_eff * 10.0
+                    ridge_eff * RIDGE_GROWTH_FACTOR
                 } else {
-                    1.0e-10 * diag_scale
+                    RIDGE_SEED_DIAG_FRACTION * diag_scale
                 };
                 if !next.is_finite() || next > ridge_cap {
                     return Err(ArrowSchurError::PerRowFactorFailed {
@@ -1629,15 +1767,15 @@ fn row_hessian_fingerprint_for_system(sys: &ArrowSchurSystem) -> u64 {
         .as_ref()
         .map(|op| Arc::as_ptr(op) as *const () as usize);
     for row in sys.rows.iter() {
-        write_array2_fingerprint(&mut hasher, &row.htt);
+        hasher.write_f64_array2(&row.htt);
         match htbeta_op_addr {
             Some(addr) => {
                 hasher.write_usize(addr);
                 if sys.htbeta_dense_supplement {
-                    write_array2_fingerprint(&mut hasher, &row.htbeta);
+                    hasher.write_f64_array2(&row.htbeta);
                 }
             }
-            None => write_array2_fingerprint(&mut hasher, &row.htbeta),
+            None => hasher.write_f64_array2(&row.htbeta),
         }
     }
     // Hash the β-block operator's defining state. When a structured
@@ -1652,7 +1790,7 @@ fn row_hessian_fingerprint_for_system(sys: &ArrowSchurSystem) -> u64 {
         }
         None => {
             hasher.write_bool(false);
-            write_array2_fingerprint(&mut hasher, &sys.hbb);
+            hasher.write_f64_array2(&sys.hbb);
         }
     }
     match sys.hbb_diag.as_ref() {
@@ -1677,14 +1815,6 @@ fn combine_row_and_registry_fingerprints(row: u64, registry: u64) -> u64 {
     hasher.write_u64(row);
     hasher.write_u64(registry);
     hasher.finish_u64()
-}
-
-fn write_array2_fingerprint(hasher: &mut Fingerprinter, values: &Array2<f64>) {
-    hasher.write_usize(values.nrows());
-    hasher.write_usize(values.ncols());
-    for &value in values.iter() {
-        hasher.write_f64(value);
-    }
 }
 
 fn analytic_penalty_row_hessian_fingerprint(
@@ -4961,8 +5091,15 @@ fn solve_arrow_newton_step_cross_row(
     // Solve the linear Newton system to tight relative accuracy. The cross-row
     // path is exact-CG (no trust region), so we drive the residual to machine-
     // scale relative tolerance; the spectrum I + M⁻¹P_cross makes this cheap.
-    let tol = 1e-12_f64.max(1e-13 * b_norm);
-    let max_iter = (total_dt + k).max(64) * 4;
+    // Absolute floor guards b_norm → 0; relative term tracks the RHS scale.
+    const CROSS_ROW_CG_ABS_TOL: f64 = 1e-12;
+    const CROSS_ROW_CG_REL_TOL: f64 = 1e-13;
+    // CG converges in at most (dim) iterations; allow a few passes over the
+    // dimension to absorb round-off, with a small floor for tiny systems.
+    const CROSS_ROW_CG_MIN_ITER_BUDGET: usize = 64;
+    const CROSS_ROW_CG_ITER_MULTIPLE: usize = 4;
+    let tol = CROSS_ROW_CG_ABS_TOL.max(CROSS_ROW_CG_REL_TOL * b_norm);
+    let max_iter = (total_dt + k).max(CROSS_ROW_CG_MIN_ITER_BUDGET) * CROSS_ROW_CG_ITER_MULTIPLE;
 
     let mut iters = 0usize;
     let mut converged = b_norm == 0.0;
@@ -5618,6 +5755,12 @@ pub struct JacobiPreconditioner {
 /// Maximum block size for which we attempt dense block-Jacobi factorization.
 const BLOCK_JACOBI_MAX_BLOCK: usize = 256;
 
+/// Positive-definiteness floor on a Schur-complement Jacobi diagonal entry.
+/// A diagonal at or below this value (or non-finite) signals a non-PD reduced
+/// system: the preconditioner cannot invert it, so the PCG solve fails loudly
+/// and demands operator regularization rather than returning a garbage scale.
+const JACOBI_DIAGONAL_PD_FLOOR: f64 = 1e-18;
+
 impl JacobiPreconditioner {
     /// Build the block-Jacobi (or scalar fallback) preconditioner from the
     /// Arrow-Schur system without materializing the full dense Schur
@@ -5700,7 +5843,7 @@ impl JacobiPreconditioner {
         let mut blocks = Vec::with_capacity(k);
         for a in 0..k {
             let v = diag[a];
-            if !v.is_finite() || v <= 1e-18 {
+            if !v.is_finite() || v <= JACOBI_DIAGONAL_PD_FLOOR {
                 return Err(ArrowSchurError::PcgFailed {
                     reason: format!(
                         "invalid Schur Jacobi diagonal at index {a}: {v}; \
@@ -5808,7 +5951,7 @@ impl JacobiPreconditioner {
                 let mut inv = Array1::<f64>::zeros(b);
                 for bi in 0..b {
                     let v = schur_block[[bi, bi]];
-                    if !v.is_finite() || v <= 1e-18 {
+                    if !v.is_finite() || v <= JACOBI_DIAGONAL_PD_FLOOR {
                         return Err(ArrowSchurError::PcgFailed {
                             reason: format!(
                                 "block Jacobi scalar fallback: non-PD diagonal at \
@@ -6231,7 +6374,7 @@ fn build_schur_scalar_inv<B: BatchedBlockSolver>(
             }
             s -= acc;
         }
-        if !s.is_finite() || s <= 1e-18 {
+        if !s.is_finite() || s <= JACOBI_DIAGONAL_PD_FLOOR {
             return Err(ArrowSchurError::PcgFailed {
                 reason: format!(
                     "cluster Schur scalar fallback: non-PD diagonal at index {gi}: {s}"

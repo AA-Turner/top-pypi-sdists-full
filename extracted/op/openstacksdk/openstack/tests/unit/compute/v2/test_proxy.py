@@ -32,6 +32,7 @@ from openstack.compute.v2 import quota_class_set
 from openstack.compute.v2 import quota_set
 from openstack.compute.v2 import server
 from openstack.compute.v2 import server_action
+from openstack.compute.v2 import server_external_event
 from openstack.compute.v2 import server_group
 from openstack.compute.v2 import server_interface
 from openstack.compute.v2 import server_ip
@@ -408,6 +409,19 @@ class TestKeyPairUrl(base.TestCase):
         )
 
         self.cloud.compute.delete_keypair("fake_keypair", user_id="fake_user")
+
+
+class TestServerExternalEvents(TestComputeProxy):
+    def test_server_external_event_create(self):
+        events = mock.sentinel
+        self._verify(
+            "openstack.proxy.Proxy._bulk_create",
+            self.proxy.create_server_external_events,
+            method_args=[
+                events,
+            ],
+            expected_args=[server_external_event.ServerExternalEvent, events],
+        )
 
 
 class TestAggregate(TestComputeProxy):
@@ -1279,7 +1293,7 @@ class TestCompute(TestComputeProxy):
             self.proxy.rescue_server,
             method_args=["value"],
             expected_args=[self.proxy],
-            expected_kwargs={"admin_pass": None, "image_ref": None},
+            expected_kwargs={"admin_pass": None, "image": None},
         )
 
     def test_server_rescue_with_options(self):
@@ -1288,7 +1302,7 @@ class TestCompute(TestComputeProxy):
             self.proxy.rescue_server,
             method_args=["value", 'PASS', 'IMG'],
             expected_args=[self.proxy],
-            expected_kwargs={"admin_pass": 'PASS', "image_ref": 'IMG'},
+            expected_kwargs={"admin_pass": 'PASS', "image": 'IMG'},
         )
 
     def test_server_unrescue(self):

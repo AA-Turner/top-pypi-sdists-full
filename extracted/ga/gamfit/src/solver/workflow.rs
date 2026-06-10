@@ -1,6 +1,5 @@
 use crate::custom_family::{
-    BlockwiseFitOptions, ParameterBlockSpec, PenaltyMatrix, fit_custom_family,
-    fit_custom_family_with_rho_prior,
+    BlockwiseFitOptions, ParameterBlockSpec, PenaltyMatrix, fit_custom_family_with_rho_prior,
 };
 use crate::estimate::{
     AdaptiveRegularizationOptions, EstimationError, FitOptions, FittedLinkState, UnifiedFitResult,
@@ -12,7 +11,7 @@ use crate::families::bms::{
 use crate::families::gamlss::{
     BinomialLocationScaleFitResult, BinomialLocationScaleTermSpec, BlockwiseTermFitResult,
     BlockwiseTermFitResultParts, BlockwiseTermWiggleFitResult, GaussianLocationScaleFitResult,
-    GaussianLocationScaleTermSpec, WiggleBlockConfig, fit_binomial_location_scale_terms,
+    GaussianLocationScaleTermSpec, fit_binomial_location_scale_terms,
     fit_binomial_location_scale_terms_with_selected_wiggle,
     fit_binomial_mean_wiggle_terms_with_selected_basis, fit_gaussian_location_scale_terms,
     fit_gaussian_location_scale_terms_with_selected_wiggle,
@@ -39,6 +38,7 @@ use crate::families::transformation_normal::{
     TransformationNormalConfig, TransformationNormalFitResult, TransformationWarmStart,
     fit_transformation_normal,
 };
+use crate::families::wiggle::WiggleBlockConfig;
 use crate::inference::model::{ColumnKindTag, DataSchema, SchemaColumn};
 use crate::mixture_link::{state_from_beta_logisticspec, state_from_sasspec, state_fromspec};
 use crate::smooth::{
@@ -452,6 +452,22 @@ pub struct SurvivalMarginalSlopeFitRequest<'a> {
     pub kappa_options: SpatialLengthScaleOptimizationOptions,
 }
 
+/// Lower floor applied before taking `ln(λ)` when mapping a smoothing parameter
+/// into the log-λ optimization coordinate. `λ` is non-negative by construction;
+/// flooring at the smallest positive normal `f64` keeps `ln` finite for an
+/// exactly-zero (fully-relaxed) penalty without perturbing any λ above the
+/// denormal range.
+const LOG_LAMBDA_UNDERFLOW_FLOOR: f64 = 1e-300;
+
+/// Inner-PIRLS controls shared by the survival-transformation baseline and
+/// smoothing-coordinate eval closures. The baseline geometry is mildly
+/// nonlinear, so the iteration budget is generous; the convergence/step floors
+/// match the working-model PIRLS contract used throughout the survival path.
+const SURVIVAL_TRANSFORMATION_PIRLS_MAX_ITERATIONS: usize = 400;
+const SURVIVAL_TRANSFORMATION_PIRLS_CONVERGENCE_TOL: f64 = 1e-6;
+const SURVIVAL_TRANSFORMATION_PIRLS_MAX_STEP_HALVING: usize = 40;
+const SURVIVAL_TRANSFORMATION_PIRLS_MIN_STEP_SIZE: f64 = 1e-12;
+
 pub struct LatentSurvivalFitRequest<'a> {
     pub data: ArrayView2<'a, f64>,
     pub spec: LatentSurvivalTermSpec,
@@ -575,11 +591,20 @@ impl<'a> FamilyFitRequest for StandardFitRequest<'a> {
         h.write_str(&format!("{:?}", self.family));
         h.write_usize(self.y.len());
         h.write_usize(self.data.ncols());
+        // Topology identity (#869): raw `data.ncols()` is blind to the smooth
+        // basis, so `s(..., type=AUTO)` candidates fit on the same data would
+        // otherwise share one warm-start key and cross-seed each other with
+        // incompatible β/ρ. Fold the term-collection structural shape in so
+        // each candidate keys distinctly while same-topology refits still hit.
+        self.spec.write_structural_shape_hash(h);
     }
     fn write_seed_hash(&self, h: &mut crate::cache::Fingerprinter) {
         h.write_str("standard-seed");
         h.write_str(&format!("{:?}", self.family));
         h.write_usize(self.data.ncols());
+        // Same topology disambiguation for the data-independent seed key: a
+        // sphere candidate must not seed a torus candidate across folds.
+        self.spec.write_structural_shape_hash(h);
     }
     fn attach_cache_session(&mut self, session: std::sync::Arc<crate::cache::Session>) {
         // The standard REML path opens its own session inside the outer
@@ -606,10 +631,24 @@ impl<'a> FamilyFitRequest for GaussianLocationScaleFitRequest<'a> {
         h.write_str("gauss-ls");
         h.write_usize(self.spec.y.len());
         h.write_usize(self.data.ncols());
+        // Topology identity (#869, extended): the location-scale outer
+        // cache session keys on this hash; an `ExactFinal` hit on it
+        // short-circuits the whole fit (see
+        // `outer_strategy::classify_cache_entry_for_outer`). Raw
+        // `data.ncols()` is blind to the smooth basis, so two AUTO-topology
+        // candidates (sphere vs euclidean) on the same data with the same
+        // penalty count would collide on one key and one would return the
+        // other's converged ρ as its own result. Fold each block's
+        // term-collection structural shape in so each candidate keys
+        // distinctly while same-topology refits still hit.
+        self.spec.meanspec.write_structural_shape_hash(h);
+        self.spec.log_sigmaspec.write_structural_shape_hash(h);
     }
     fn write_seed_hash(&self, h: &mut crate::cache::Fingerprinter) {
         h.write_str("gauss-ls-seed");
         h.write_usize(self.data.ncols());
+        self.spec.meanspec.write_structural_shape_hash(h);
+        self.spec.log_sigmaspec.write_structural_shape_hash(h);
     }
     fn attach_cache_session(&mut self, session: std::sync::Arc<crate::cache::Session>) {
         self.options.cache_session.get_or_insert(session);
@@ -632,11 +671,16 @@ impl<'a> FamilyFitRequest for BinomialLocationScaleFitRequest<'a> {
         h.write_usize(self.spec.y.len());
         h.write_usize(self.data.ncols());
         h.write_str(&format!("{:?}", self.spec.link_kind));
+        // Topology identity (#869, extended): see GaussianLocationScale.
+        self.spec.thresholdspec.write_structural_shape_hash(h);
+        self.spec.log_sigmaspec.write_structural_shape_hash(h);
     }
     fn write_seed_hash(&self, h: &mut crate::cache::Fingerprinter) {
         h.write_str("binom-ls-seed");
         h.write_usize(self.data.ncols());
         h.write_str(&format!("{:?}", self.spec.link_kind));
+        self.spec.thresholdspec.write_structural_shape_hash(h);
+        self.spec.log_sigmaspec.write_structural_shape_hash(h);
     }
     fn attach_cache_session(&mut self, session: std::sync::Arc<crate::cache::Session>) {
         self.options.cache_session.get_or_insert(session);
@@ -659,11 +703,16 @@ impl<'a> FamilyFitRequest for SurvivalLocationScaleFitRequest<'a> {
         h.write_usize(self.spec.age_entry.len());
         h.write_usize(self.data.ncols());
         h.write_str(&format!("{:?}", self.spec.inverse_link));
+        // Topology identity (#869, extended): see GaussianLocationScale.
+        self.spec.thresholdspec.write_structural_shape_hash(h);
+        self.spec.log_sigmaspec.write_structural_shape_hash(h);
     }
     fn write_seed_hash(&self, h: &mut crate::cache::Fingerprinter) {
         h.write_str("surv-ls-seed");
         h.write_usize(self.data.ncols());
         h.write_str(&format!("{:?}", self.spec.inverse_link));
+        self.spec.thresholdspec.write_structural_shape_hash(h);
+        self.spec.log_sigmaspec.write_structural_shape_hash(h);
     }
     fn attach_cache_session(&mut self, session: std::sync::Arc<crate::cache::Session>) {
         // Request-level slot is mirrored into the spec slot so the family
@@ -695,12 +744,15 @@ impl<'a> FamilyFitRequest for SurvivalTransformationFitRequest<'a> {
         h.write_usize(self.data.ncols());
         h.write_str(&format!("{:?}", self.spec.likelihood_mode));
         h.write_str(&self.spec.time_build.basisname);
+        // Topology identity (#869, extended): see GaussianLocationScale.
+        self.spec.covariate_spec.write_structural_shape_hash(h);
     }
     fn write_seed_hash(&self, h: &mut crate::cache::Fingerprinter) {
         h.write_str("surv-tn-seed");
         h.write_usize(self.data.ncols());
         h.write_str(&format!("{:?}", self.spec.likelihood_mode));
         h.write_str(&self.spec.time_build.basisname);
+        self.spec.covariate_spec.write_structural_shape_hash(h);
     }
     fn attach_cache_session(&mut self, session: std::sync::Arc<crate::cache::Session>) {
         // SurvivalTransformation uses WorkingModelPirlsOptions (different
@@ -731,11 +783,16 @@ impl<'a> FamilyFitRequest for BernoulliMarginalSlopeFitRequest<'a> {
         h.write_usize(self.spec.y.len());
         h.write_usize(self.data.ncols());
         h.write_str(&format!("{:?}", self.spec.base_link));
+        // Topology identity (#869, extended): see GaussianLocationScale.
+        self.spec.marginalspec.write_structural_shape_hash(h);
+        self.spec.logslopespec.write_structural_shape_hash(h);
     }
     fn write_seed_hash(&self, h: &mut crate::cache::Fingerprinter) {
         h.write_str("bern-ms-seed");
         h.write_usize(self.data.ncols());
         h.write_str(&format!("{:?}", self.spec.base_link));
+        self.spec.marginalspec.write_structural_shape_hash(h);
+        self.spec.logslopespec.write_structural_shape_hash(h);
     }
     fn attach_cache_session(&mut self, session: std::sync::Arc<crate::cache::Session>) {
         self.options.cache_session.get_or_insert(session);
@@ -759,12 +816,37 @@ impl<'a> FamilyFitRequest for SurvivalMarginalSlopeFitRequest<'a> {
         h.write_usize(self.data.ncols());
         h.write_str(&format!("{:?}", self.spec.base_link));
         h.write_str(&format!("{:?}", self.spec.frailty));
+        // Topology identity (#869, extended): see GaussianLocationScale.
+        self.spec.marginalspec.write_structural_shape_hash(h);
+        self.spec.logslopespec.write_structural_shape_hash(h);
+        match self.spec.logslopespecs.as_ref() {
+            Some(specs) => {
+                h.write_bool(true);
+                h.write_usize(specs.len());
+                for spec in specs {
+                    spec.write_structural_shape_hash(h);
+                }
+            }
+            None => h.write_bool(false),
+        }
     }
     fn write_seed_hash(&self, h: &mut crate::cache::Fingerprinter) {
         h.write_str("surv-ms-seed");
         h.write_usize(self.data.ncols());
         h.write_str(&format!("{:?}", self.spec.base_link));
         h.write_str(&format!("{:?}", self.spec.frailty));
+        self.spec.marginalspec.write_structural_shape_hash(h);
+        self.spec.logslopespec.write_structural_shape_hash(h);
+        match self.spec.logslopespecs.as_ref() {
+            Some(specs) => {
+                h.write_bool(true);
+                h.write_usize(specs.len());
+                for spec in specs {
+                    spec.write_structural_shape_hash(h);
+                }
+            }
+            None => h.write_bool(false),
+        }
     }
     fn attach_cache_session(&mut self, session: std::sync::Arc<crate::cache::Session>) {
         self.options.cache_session.get_or_insert(session);
@@ -787,11 +869,14 @@ impl<'a> FamilyFitRequest for LatentSurvivalFitRequest<'a> {
         h.write_usize(self.spec.age_entry.len());
         h.write_usize(self.data.ncols());
         h.write_str(&format!("{:?}", self.frailty));
+        // Topology identity (#869, extended): see GaussianLocationScale.
+        self.spec.meanspec.write_structural_shape_hash(h);
     }
     fn write_seed_hash(&self, h: &mut crate::cache::Fingerprinter) {
         h.write_str("lat-surv-seed");
         h.write_usize(self.data.ncols());
         h.write_str(&format!("{:?}", self.frailty));
+        self.spec.meanspec.write_structural_shape_hash(h);
     }
     fn attach_cache_session(&mut self, session: std::sync::Arc<crate::cache::Session>) {
         self.options.cache_session.get_or_insert(session);
@@ -814,11 +899,14 @@ impl<'a> FamilyFitRequest for LatentBinaryFitRequest<'a> {
         h.write_usize(self.spec.age_entry.len());
         h.write_usize(self.data.ncols());
         h.write_str(&format!("{:?}", self.frailty));
+        // Topology identity (#869, extended): see GaussianLocationScale.
+        self.spec.meanspec.write_structural_shape_hash(h);
     }
     fn write_seed_hash(&self, h: &mut crate::cache::Fingerprinter) {
         h.write_str("lat-bin-seed");
         h.write_usize(self.data.ncols());
         h.write_str(&format!("{:?}", self.frailty));
+        self.spec.meanspec.write_structural_shape_hash(h);
     }
     fn attach_cache_session(&mut self, session: std::sync::Arc<crate::cache::Session>) {
         self.options.cache_session.get_or_insert(session);
@@ -840,10 +928,13 @@ impl<'a> FamilyFitRequest for TransformationNormalFitRequest<'a> {
         h.write_str("tn");
         h.write_usize(self.response.len());
         h.write_usize(self.data.ncols());
+        // Topology identity (#869, extended): see GaussianLocationScale.
+        self.covariate_spec.write_structural_shape_hash(h);
     }
     fn write_seed_hash(&self, h: &mut crate::cache::Fingerprinter) {
         h.write_str("tn-seed");
         h.write_usize(self.data.ncols());
+        self.covariate_spec.write_structural_shape_hash(h);
     }
     fn attach_cache_session(&mut self, session: std::sync::Arc<crate::cache::Session>) {
         self.options.cache_session.get_or_insert(session);
@@ -1155,7 +1246,26 @@ fn fit_standard_model(request: StandardFitRequest<'_>) -> Result<StandardFitResu
         &wiggle.wiggle.penalty_orders,
     )?;
 
-    let solved = fit_binomial_mean_wiggle_terms_with_selected_basis(
+    // A penalized, monotone-constrained link-offset spline shrinks to zero at
+    // large smoothing, so the no-wiggle pilot fit (`result`) is the *exact*
+    // large-`λ` limit of the wiggle model — the wiggle model contains the
+    // baseline as a limiting case. The wiggle refit is a coupled joint
+    // Newton solve (`BinomialMeanWiggleFamily`) on top of that pilot; on the
+    // hardest binomial regimes it can still fail to certify KKT convergence:
+    // the I-spline warp `q = η + B(η)·β_w` can drive the linear predictor
+    // toward link saturation, where the per-cycle data curvature collapses
+    // and the joint trust region shrinks faster than the active-set QP can
+    // pin the binding monotonicity rows (gam#872). Aborting the entire fit
+    // there is wrong: a model that *contains* a fittable baseline must never
+    // be less fittable than that baseline. Fall back to the pilot — a valid,
+    // finite-deviance fit no worse than the wiggle model's own limit — rather
+    // than surfacing an `IntegrationError` to the caller. (The separate
+    // divergence failure mode, where the unconditional Jeffreys/Firth
+    // augmentation blew the augmented objective up to ~1e9 on this path, is
+    // fixed at the root by `BinomialMeanWiggleFamily::joint_jeffreys_term_required
+    // = false`; this fallback only catches the residual trust-region/active-set
+    // non-convergence.)
+    let solved = match fit_binomial_mean_wiggle_terms_with_selected_basis(
         request.data.view(),
         &result.resolvedspec,
         &result.design,
@@ -1166,7 +1276,17 @@ fn fit_standard_model(request: StandardFitRequest<'_>) -> Result<StandardFitResu
         selected_wiggle_basis,
         &wiggle_options,
         &request.kappa_options,
-    )?;
+    ) {
+        Ok(solved) => solved,
+        Err(e) => {
+            log::warn!(
+                "[linkwiggle] binomial mean link-wiggle joint solve did not converge ({e}); \
+                 falling back to the no-wiggle baseline fit (the large-smoothing limit of the \
+                 penalized wiggle model, which contains it as a limiting case)"
+            );
+            return Ok(result);
+        }
+    };
 
     Ok(StandardFitResult {
         saved_link_state: result.saved_link_state,
@@ -1554,12 +1674,18 @@ fn gaussian_response_sample_std(v: ArrayView1<'_, f64>) -> f64 {
 /// Reconstructing raw outputs requires
 ///
 ///   μ_raw  = s · μ_internal           ⇒ scale every Location/Mean coefficient by `s`,
-///   σ_raw  = s · σ_internal           ⇒ since σ = 0.01 + exp(η_σ), shifting the
+///   σ_raw  = s · σ_internal           ⇒ since σ = b + exp(η_σ), shifting the
 ///                                         log-σ **intercept** by `+ln(s)` turns
-///                                         `0.01 + exp(η)` into `0.01 + s·exp(η)`
-///                                         = s·σ_internal − 0.01·(s−1); the residual
-///                                         floor error `0.01·(s−1)` is negligible
-///                                         because σ ≫ floor in every realistic fit.
+///                                         `b + exp(η)` into `b + s·exp(η)`; the
+///                                         multiplicative `exp(η)` part is now
+///                                         correct, but the **floor must also be
+///                                         scaled** to `s·b` so the reconstructed
+///                                         σ = s·b + exp(η_raw) = s·σ_internal is
+///                                         response-scale-equivariant (#884). The
+///                                         floor cannot ride the intercept shift
+///                                         (it sits outside the exp), so consumers
+///                                         reconstruct with floor `s·LOGB_SIGMA_FLOOR`
+///                                         (see `GaussianLocationScalePredictor`).
 ///
 /// The link-wiggle lives on the mean (identity) channel, so its knots and
 /// coefficients scale by `s` exactly like the Location block. Doing the remap
@@ -1737,8 +1863,23 @@ fn survival_working_reml_score(state: &crate::pirls::WorkingState) -> f64 {
     0.5 * (state.deviance + state.penalty_term)
 }
 
+/// Recover the fitted Weibull baseline config from the anchor-CENTERED linear
+/// `[1, log t]` time-basis coefficients.
+///
+/// The fit centers the time basis at the survival time anchor
+/// (`center_survival_time_designs_at_anchor`), which zeroes the constant column,
+/// so the constant-column coefficient `beta[0]` is UNIDENTIFIED (left at its
+/// stale seed). The identified baseline the model carries is
+/// `eta(t) = beta[1] * (log t - log anchor)`, exactly the Weibull form
+/// `eta(t) = shape * (log t - log scale)` with `shape = beta[1]` and
+/// `scale = anchor`. Reconstructing `scale` from `beta[0]` (the old
+/// `exp(-beta[0]/shape)`) reads the stale constant column and produces a wrong
+/// saved scale, misleading every consumer that rebuilds `H0(t) = (t/scale)^shape`
+/// from the saved scale (e.g. competing-risks CIF). Recover `scale` from the
+/// identified anchor instead (issue #899).
 fn fitted_weibull_baseline_from_linear_time_beta(
     beta: &Array1<f64>,
+    anchor: f64,
 ) -> Option<crate::families::survival_construction::SurvivalBaselineConfig> {
     if beta.len() < 2 {
         return None;
@@ -1747,10 +1888,10 @@ fn fitted_weibull_baseline_from_linear_time_beta(
     if !shape.is_finite() || shape <= 0.0 {
         return None;
     }
-    let scale = (-beta[0] / shape).exp();
-    if !scale.is_finite() || scale <= 0.0 {
+    if !anchor.is_finite() || anchor <= 0.0 {
         return None;
     }
+    let scale = anchor;
     Some(
         crate::families::survival_construction::SurvivalBaselineConfig {
             target: SurvivalBaselineTarget::Weibull,
@@ -1898,11 +2039,11 @@ fn optimize_survival_transformation_smoothing(
             .set_penalty_lambdas(&lambdas)
             .map_err(|e| e.to_string())?;
         let opts = crate::pirls::WorkingModelPirlsOptions {
-            max_iterations: 400,
-            convergence_tolerance: 1e-6,
+            max_iterations: SURVIVAL_TRANSFORMATION_PIRLS_MAX_ITERATIONS,
+            convergence_tolerance: SURVIVAL_TRANSFORMATION_PIRLS_CONVERGENCE_TOL,
             adaptive_kkt_tolerance: None,
-            max_step_halving: 40,
-            min_step_size: 1e-12,
+            max_step_halving: SURVIVAL_TRANSFORMATION_PIRLS_MAX_STEP_HALVING,
+            min_step_size: SURVIVAL_TRANSFORMATION_PIRLS_MIN_STEP_SIZE,
             firth_bias_reduction: false,
             coefficient_lower_bounds: structural_lower_bounds.cloned(),
             linear_constraints: None,
@@ -2010,7 +2151,7 @@ fn survival_unified_fit_result(
     state: &crate::pirls::WorkingState,
     penalty_blocks: &[PenaltyBlock],
 ) -> Result<UnifiedFitResult, String> {
-    let log_lambdas = lambdas.mapv(|v| v.max(1e-300).ln());
+    let log_lambdas = lambdas.mapv(|v| v.max(LOG_LAMBDA_UNDERFLOW_FLOOR).ln());
     let reml_score = survival_working_reml_score(state);
     crate::estimate::validate_all_finite("survival fit beta", beta.iter().copied())?;
     crate::estimate::validate_all_finite("survival fit lambdas", lambdas.iter().copied())?;
@@ -2226,7 +2367,7 @@ fn fit_cause_specific_survival_transformation_custom(
                 .with_precision_label(format!("cause_specific_survival_penalty_{penalty_idx}")),
             );
             nullspace_dims.push(block.nullspace_dim);
-            initial_log_lambdas[penalty_idx] = block.lambda.max(1e-300).ln();
+            initial_log_lambdas[penalty_idx] = block.lambda.max(LOG_LAMBDA_UNDERFLOW_FLOOR).ln();
         }
         let beta_start = beta0_flat.slice(s![cause * p..(cause + 1) * p]).to_owned();
         block_specs.push(ParameterBlockSpec {
@@ -2251,12 +2392,8 @@ fn fit_cause_specific_survival_transformation_custom(
     };
     let rho_prior =
         cause_specific_survival_rho_prior(penalty_blocks.len(), penalty_block_gamma_priors)?;
-    let mut fit = if matches!(rho_prior, crate::types::RhoPrior::Flat) {
-        fit_custom_family(&family, &block_specs, &fit_options)
-    } else {
-        fit_custom_family_with_rho_prior(&family, &block_specs, &fit_options, rho_prior)
-    }
-    .map_err(|err| format!("cause-specific survival custom-family fit failed: {err}"))?;
+    let mut fit = fit_custom_family_with_rho_prior(&family, &block_specs, &fit_options, rho_prior)
+        .map_err(|err| format!("cause-specific survival custom-family fit failed: {err}"))?;
     fit.likelihood_family = Some(LikelihoodSpec::royston_parmar());
     let time_basis = crate::families::survival_construction::SavedSurvivalTimeBasis::from_build(
         &spec.time_build,
@@ -2270,8 +2407,10 @@ fn fit_cause_specific_survival_transformation_custom(
     // would build the CIF from the uninitialized baseline and collapse it to
     // null. For Weibull-without-timewiggle the time basis is the 2-column
     // `[1, log t]` linear basis whose per-cause coefficients carry the full
-    // log-cumulative-hazard, so the fitted scale/shape are recoverable from
-    // each cause's time-beta. The shared `SurvivalBaselineConfig` holds a
+    // log-cumulative-hazard. Because the basis is anchor-centered the constant
+    // column (and thus `beta[0]`) is unidentified, so the fitted scale is the
+    // identified anchor (`scale = anchor`, `shape = beta[1]`), not `beta[0]`
+    // (issue #899). The shared `SurvivalBaselineConfig` holds a
     // single (scale, shape), so we report the first cause's fitted baseline as
     // the representative shared value — the same pooled-baseline convention the
     // seed used, but post-fit rather than uninitialized.
@@ -2285,7 +2424,7 @@ fn fit_cause_specific_survival_transformation_custom(
             .beta
             .slice(s![..spec.time_build.x_exit_time.ncols()])
             .to_owned();
-        fitted_weibull_baseline_from_linear_time_beta(&time_beta).ok_or_else(|| {
+        fitted_weibull_baseline_from_linear_time_beta(&time_beta, spec.time_anchor).ok_or_else(|| {
             "failed to recover fitted Weibull scale/shape from the cause-specific linear time coefficients"
                 .to_string()
         })?
@@ -2409,7 +2548,7 @@ fn survival_transformation_log_lambdas(
 ) -> Vec<f64> {
     penalty_blocks
         .iter()
-        .map(|block| block.lambda.max(1e-300).ln())
+        .map(|block| block.lambda.max(LOG_LAMBDA_UNDERFLOW_FLOOR).ln())
         .collect()
 }
 
@@ -2769,11 +2908,11 @@ fn fit_survival_transformation_model(
                 let (_, _, beta0, structural_lower_bounds, mut model, _) =
                     build_working_model(candidate)?;
                 let opts = crate::pirls::WorkingModelPirlsOptions {
-                    max_iterations: 400,
-                    convergence_tolerance: 1e-6,
+                    max_iterations: SURVIVAL_TRANSFORMATION_PIRLS_MAX_ITERATIONS,
+                    convergence_tolerance: SURVIVAL_TRANSFORMATION_PIRLS_CONVERGENCE_TOL,
                     adaptive_kkt_tolerance: None,
-                    max_step_halving: 40,
-                    min_step_size: 1e-12,
+                    max_step_halving: SURVIVAL_TRANSFORMATION_PIRLS_MAX_STEP_HALVING,
+                    min_step_size: SURVIVAL_TRANSFORMATION_PIRLS_MIN_STEP_SIZE,
                     firth_bias_reduction: false,
                     coefficient_lower_bounds: structural_lower_bounds,
                     linear_constraints: None,
@@ -2842,11 +2981,11 @@ fn fit_survival_transformation_model(
         }
     }
     let opts = crate::pirls::WorkingModelPirlsOptions {
-        max_iterations: 400,
-        convergence_tolerance: 1e-6,
+        max_iterations: SURVIVAL_TRANSFORMATION_PIRLS_MAX_ITERATIONS,
+        convergence_tolerance: SURVIVAL_TRANSFORMATION_PIRLS_CONVERGENCE_TOL,
         adaptive_kkt_tolerance: None,
-        max_step_halving: 40,
-        min_step_size: 1e-12,
+        max_step_halving: SURVIVAL_TRANSFORMATION_PIRLS_MAX_STEP_HALVING,
+        min_step_size: SURVIVAL_TRANSFORMATION_PIRLS_MIN_STEP_SIZE,
         firth_bias_reduction: false,
         coefficient_lower_bounds: structural_lower_bounds,
         linear_constraints: None,
@@ -2915,7 +3054,7 @@ fn fit_survival_transformation_model(
             let time_beta = beta
                 .slice(s![..spec.time_build.x_exit_time.ncols()])
                 .to_owned();
-            fitted_weibull_baseline_from_linear_time_beta(&time_beta).ok_or_else(|| {
+            fitted_weibull_baseline_from_linear_time_beta(&time_beta, spec.time_anchor).ok_or_else(|| {
                 "failed to recover fitted Weibull scale/shape from the linear time coefficients"
                     .to_string()
             })?
@@ -3576,14 +3715,19 @@ fn crossfit_score_calibration(
         )?;
 
         // Evaluate the OOF score z and the OOF influence Jacobian J on fold f's
-        // held-out rows from this fold's fitted CTN.
+        // held-out rows from this fold's fitted CTN. The held-out offset rows
+        // enter the PIT operating point identically to the Stage-1 row build, so
+        // the emitted z matches the fitted model when the recipe carries an
+        // offset column (zeros otherwise ⇒ no-op).
         let held_cov = data.values.select(Axis(0), held);
         let held_resp = crossfit_select_rows_1d(&response_full, held);
+        let held_offset = crossfit_select_rows_1d(&offset_full, held);
 
         let jac = crate::families::marginal_slope_orthogonal::score_influence_jacobian(
             &fold_fit,
             &held_resp,
             held_cov.view(),
+            &held_offset,
         )?;
 
         if jac.columns.nrows() != held.len() {
@@ -6057,7 +6201,29 @@ fn materialize_standard<'a>(
         optimize_sas: false,
         compute_inference: true,
         max_iter: config.outer_max_iter.unwrap_or(200),
-        tol: 1e-7,
+        // Outer REML/LAML smoothing-selection tolerance. The outer convergence
+        // test (`outer_gradient_tolerance`) uses a `rel_cost` criterion whose
+        // effective projected-gradient threshold is ≈ `tol · (1 + |V(ρ)|)`. The
+        // LAML cost grows like O(n), so at the old `1e-7` the effective gradient
+        // threshold was ≈ `1e-7 · |V|` ≈ 1e-4 for a typical fit — far too coarse
+        // to *resolve* the smoothing parameter: the descent halted while λ̂ could
+        // still move several percent. That under-resolution is benign for a
+        // single fit but breaks an exact invariance — for a fixed-dispersion
+        // family a uniform prior weight `w = c` is exact `c`-fold replication, so
+        // the two encodings share a byte-identical LAML surface and an identical
+        // optimum, yet their (replication-equal) surfaces carry O(1e-7)
+        // floating-point differences AWAY from the optimum. With the coarse
+        // threshold the descent stopped at those encoding-dependent points,
+        // systematically over-smoothing the weighted encoding (gam#893; up to a
+        // ~22× λ ratio across seeds). Tightening to `1e-10` (effective gradient
+        // threshold ≈ 1e-7, ~100× below the FP-noise floor) drives both
+        // encodings to the shared optimum, restoring `w=c ⇔ c-fold replication`
+        // in smoothing selection to optimiser precision. Max-iter is handled
+        // best-effort (the optimiser returns its best ρ on budget exhaustion, it
+        // does not hard-fail), so a harder problem that cannot reach 1e-10 in
+        // `outer_max_iter` is no worse off than before — just better-resolved
+        // when it can.
+        tol: 1e-10,
         nullspace_dims: vec![],
         linear_constraints: None,
         firth_bias_reduction: config.firth,

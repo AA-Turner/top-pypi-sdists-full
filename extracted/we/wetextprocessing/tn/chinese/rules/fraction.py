@@ -12,30 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pynini.lib.pynutil import delete, insert
+
 from tn.chinese.rules.cardinal import Cardinal
 from tn.processor import Processor
-
-from pynini.lib.pynutil import delete, insert
 
 
 class Fraction(Processor):
 
-    def __init__(self):
-        super().__init__(name='fraction')
+    def __init__(self, cardinal=None):
+        super().__init__(name="fraction")
+        self.cardinal = cardinal or Cardinal()
         self.build_tagger()
         self.build_verbalizer()
 
     def build_tagger(self):
-        rmspace = delete(' ').ques
-        number = Cardinal().number
+        rmspace = delete(" ").ques
+        number = self.cardinal.number
 
-        tagger = (insert('numerator: "') + number + rmspace + delete('/') +
-                  rmspace + insert('" denominator: "') + number +
-                  insert('"')).optimize()
+        tagger = (
+            insert('numerator: "')
+            + number
+            + rmspace
+            + delete("/")
+            + rmspace
+            + insert('" denominator: "')
+            + number
+            + insert('"')
+        ).optimize()
         self.tagger = self.add_tokens(tagger)
 
     def build_verbalizer(self):
         denominator = delete('denominator: "') + self.SIGMA + delete('" ')
         numerator = delete('numerator: "') + self.SIGMA + delete('"')
-        verbalizer = denominator + insert('分之') + numerator
+        verbalizer = denominator + insert("分之") + numerator
         self.verbalizer = self.delete_tokens(verbalizer)

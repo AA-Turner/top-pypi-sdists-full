@@ -35,8 +35,10 @@ from .paginator import (
     ListBlockingInstancesForCapacityTaskPaginator,
     ListCapacityTasksPaginator,
     ListCatalogItemsPaginator,
+    ListOrderableInstanceTypesPaginator,
     ListOrdersPaginator,
     ListOutpostsPaginator,
+    ListQuotesPaginator,
     ListSitesPaginator,
 )
 from .type_defs import (
@@ -46,11 +48,14 @@ from .type_defs import (
     CreateOrderOutputTypeDef,
     CreateOutpostInputTypeDef,
     CreateOutpostOutputTypeDef,
+    CreateQuoteInputTypeDef,
+    CreateQuoteOutputTypeDef,
     CreateRenewalInputTypeDef,
     CreateRenewalOutputTypeDef,
     CreateSiteInputTypeDef,
     CreateSiteOutputTypeDef,
     DeleteOutpostInputTypeDef,
+    DeleteQuoteInputTypeDef,
     DeleteSiteInputTypeDef,
     GetCapacityTaskInputTypeDef,
     GetCapacityTaskOutputTypeDef,
@@ -68,6 +73,8 @@ from .type_defs import (
     GetOutpostOutputTypeDef,
     GetOutpostSupportedInstanceTypesInputTypeDef,
     GetOutpostSupportedInstanceTypesOutputTypeDef,
+    GetQuoteInputTypeDef,
+    GetQuoteOutputTypeDef,
     GetRenewalPricingInputTypeDef,
     GetRenewalPricingOutputTypeDef,
     GetSiteAddressInputTypeDef,
@@ -84,10 +91,14 @@ from .type_defs import (
     ListCapacityTasksOutputTypeDef,
     ListCatalogItemsInputTypeDef,
     ListCatalogItemsOutputTypeDef,
+    ListOrderableInstanceTypesInputTypeDef,
+    ListOrderableInstanceTypesOutputTypeDef,
     ListOrdersInputTypeDef,
     ListOrdersOutputTypeDef,
     ListOutpostsInputTypeDef,
     ListOutpostsOutputTypeDef,
+    ListQuotesInputTypeDef,
+    ListQuotesOutputTypeDef,
     ListSitesInputTypeDef,
     ListSitesOutputTypeDef,
     ListTagsForResourceRequestTypeDef,
@@ -102,6 +113,8 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateOutpostInputTypeDef,
     UpdateOutpostOutputTypeDef,
+    UpdateQuoteInputTypeDef,
+    UpdateQuoteOutputTypeDef,
     UpdateSiteAddressInputTypeDef,
     UpdateSiteAddressOutputTypeDef,
     UpdateSiteInputTypeDef,
@@ -197,6 +210,14 @@ class OutpostsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#create_outpost)
         """
 
+    def create_quote(self, **kwargs: Unpack[CreateQuoteInputTypeDef]) -> CreateQuoteOutputTypeDef:
+        """
+        Creates a quote for an Outpost.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/create_quote.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#create_quote)
+        """
+
     def create_renewal(
         self, **kwargs: Unpack[CreateRenewalInputTypeDef]
     ) -> CreateRenewalOutputTypeDef:
@@ -221,6 +242,14 @@ class OutpostsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/delete_outpost.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#delete_outpost)
+        """
+
+    def delete_quote(self, **kwargs: Unpack[DeleteQuoteInputTypeDef]) -> dict[str, Any]:
+        """
+        Deletes the specified quote.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/delete_quote.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#delete_quote)
         """
 
     def delete_site(self, **kwargs: Unpack[DeleteSiteInputTypeDef]) -> dict[str, Any]:
@@ -308,6 +337,14 @@ class OutpostsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#get_outpost_supported_instance_types)
         """
 
+    def get_quote(self, **kwargs: Unpack[GetQuoteInputTypeDef]) -> GetQuoteOutputTypeDef:
+        """
+        Gets information about the specified quote.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/get_quote.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#get_quote)
+        """
+
     def get_renewal_pricing(
         self, **kwargs: Unpack[GetRenewalPricingInputTypeDef]
     ) -> GetRenewalPricingOutputTypeDef:
@@ -386,6 +423,16 @@ class OutpostsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#list_catalog_items)
         """
 
+    def list_orderable_instance_types(
+        self, **kwargs: Unpack[ListOrderableInstanceTypesInputTypeDef]
+    ) -> ListOrderableInstanceTypesOutputTypeDef:
+        """
+        Lists the instance types that can be ordered for an Outpost.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/list_orderable_instance_types.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#list_orderable_instance_types)
+        """
+
     def list_orders(self, **kwargs: Unpack[ListOrdersInputTypeDef]) -> ListOrdersOutputTypeDef:
         """
         Lists the Outpost orders for your Amazon Web Services account.
@@ -402,6 +449,14 @@ class OutpostsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/list_outposts.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#list_outposts)
+        """
+
+    def list_quotes(self, **kwargs: Unpack[ListQuotesInputTypeDef]) -> ListQuotesOutputTypeDef:
+        """
+        Lists the quotes for your Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/list_quotes.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#list_quotes)
         """
 
     def list_sites(self, **kwargs: Unpack[ListSitesInputTypeDef]) -> ListSitesOutputTypeDef:
@@ -476,6 +531,14 @@ class OutpostsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/update_outpost.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#update_outpost)
+        """
+
+    def update_quote(self, **kwargs: Unpack[UpdateQuoteInputTypeDef]) -> UpdateQuoteOutputTypeDef:
+        """
+        Updates the specified quote.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/update_quote.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#update_quote)
         """
 
     def update_site(self, **kwargs: Unpack[UpdateSiteInputTypeDef]) -> UpdateSiteOutputTypeDef:
@@ -596,6 +659,17 @@ class OutpostsClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_orderable_instance_types"]
+    ) -> ListOrderableInstanceTypesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_orders"]
     ) -> ListOrdersPaginator:
         """
@@ -609,6 +683,17 @@ class OutpostsClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_outposts"]
     ) -> ListOutpostsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_quotes"]
+    ) -> ListQuotesPaginator:
         """
         Create a paginator for an operation.
 

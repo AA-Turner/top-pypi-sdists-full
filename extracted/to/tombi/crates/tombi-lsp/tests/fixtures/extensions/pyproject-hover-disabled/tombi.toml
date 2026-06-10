@@ -1,2 +1,0 @@
-[extensions]
-"tombi-toml/pyproject" = { lsp.hover.dependency-detail.enabled = false }

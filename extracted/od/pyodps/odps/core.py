@@ -17,11 +17,12 @@ import inspect
 import json  # noqa: F401
 import os
 import re
+import threading
 import warnings
 import weakref
+from urllib.parse import urlparse
 
 from . import accounts, errors, models, utils
-from .compat import six, urlparse
 from .config import options
 from .rest import RestClient
 from .tempobj import clean_stored_objects
@@ -39,13 +40,14 @@ _ENDPOINT_HOST_WITH_REGION_REGEX = re.compile(
     r"service\.([^\.]+)\.([a-z]{4,10})\.[a-z]{6}(|-inc)\.com", re.I
 )
 
+_host_cache_lock = threading.RLock()
 _logview_host_cache = dict()
 _jobinsight_host_cache = dict()
 _catalog_host_cache = dict()
 
 
 def _wrap_model_func(func):
-    @six.wraps(func)
+    @functools.wraps(func)
     def wrapped(self, *args, **kw):
         return func(self, *args, **kw)
 
@@ -56,7 +58,7 @@ def _wrap_model_func(func):
 
 
 @utils.attach_internal
-class ODPS(object):
+class ODPS:
     """
     Main entrance to ODPS.
 
@@ -158,6 +160,10 @@ class ODPS(object):
         **kw
     ):
         self._property_update_callbacks = set()
+        self._callbacks_lock = threading.RLock()
+        self._catalog_lock = threading.RLock()
+        self._catalog_endpoint = None
+        self._catalog_rest = None
 
         account = kw.pop("account", None)
         self.app_account = kw.pop("app_account", None)
@@ -399,7 +405,10 @@ class ODPS(object):
     @schema.setter
     def schema(self, value):
         self._schema = value
-        for cb in self._property_update_callbacks:
+        # Copy callbacks before iteration to avoid RuntimeError
+        with self._callbacks_lock:
+            callbacks = list(self._property_update_callbacks)
+        for cb in callbacks:
             cb(self)
 
     @property
@@ -409,7 +418,10 @@ class ODPS(object):
     @quota_name.setter
     def quota_name(self, value):
         self._quota_name = value
-        for cb in self._property_update_callbacks:
+        # Copy callbacks before iteration to avoid RuntimeError
+        with self._callbacks_lock:
+            callbacks = list(self._property_update_callbacks)
+        for cb in callbacks:
             cb(self)
 
     @property
@@ -426,37 +438,52 @@ class ODPS(object):
     @tunnel_endpoint.setter
     def tunnel_endpoint(self, value):
         self._tunnel_endpoint = value
-        for cb in self._property_update_callbacks:
+        # Copy callbacks before iteration to avoid RuntimeError
+        with self._callbacks_lock:
+            callbacks = list(self._property_update_callbacks)
+        for cb in callbacks:
             cb(self)
 
     @property
     def catalog_endpoint(self):
         if self._catalog_endpoint is not None:
             return self._catalog_endpoint
-        self._catalog_endpoint = self.get_catalog_host()
-        return self._catalog_endpoint
+
+        with self._catalog_lock:
+            if self._catalog_endpoint is not None:
+                return self._catalog_endpoint
+            catalog_ep = self.get_catalog_host()
+            if catalog_ep is not None and not urlparse(catalog_ep).scheme:
+                scheme = options.catalog.url_scheme or urlparse(self.endpoint).scheme
+                catalog_ep = f"{scheme}://{catalog_ep}"
+            self._catalog_endpoint = catalog_ep
+            return self._catalog_endpoint
 
     @property
     def catalog_rest(self):
         if self._catalog_rest is not None:
             return self._catalog_rest
 
-        if self.catalog_endpoint is None:
-            self._catalog_rest = None
-        else:
-            self._catalog_rest = self._rest_client_cls(
-                self.account,
-                self.catalog_endpoint.rstrip("/"),
-                self.project,
-                self.schema,
-                app_account=self.app_account,
-                proxy=options.api_proxy,
-                region_name=self.region_name,
-                namespace=self.namespace,
-                tag="Catalog",
-                **self._rest_client_kwargs
-            )
-        return self._catalog_rest
+        with self._catalog_lock:
+            if self._catalog_rest is not None:
+                return self._catalog_rest
+
+            if self.catalog_endpoint is None:
+                self._catalog_rest = None
+            else:
+                self._catalog_rest = self._rest_client_cls(
+                    self.account,
+                    self.catalog_endpoint.rstrip("/"),
+                    self.project,
+                    self.schema,
+                    app_account=self.app_account,
+                    proxy=options.api_proxy,
+                    region_name=self.region_name,
+                    namespace=self.namespace,
+                    tag="Catalog",
+                    **self._rest_client_kwargs
+                )
+            return self._catalog_rest
 
     def list_projects(
         self,
@@ -497,7 +524,7 @@ class ODPS(object):
     def job_insight_host(self):
         return self._job_insight_host
 
-    def get_quota(self, name=None, tenant_id=None):
+    def get_quota(self, name=None, tenant_id=None, region_id=None):
         """
         Get quota by name
 
@@ -507,9 +534,11 @@ class ODPS(object):
             name = name or self.quota_name
         if name is None:
             raise TypeError("Need to provide quota name")
-        return self._quotas.get(name, tenant_id=tenant_id)
+        return self._quotas.get(
+            name, tenant_id=tenant_id, region_id=region_id or self.region_id
+        )
 
-    def exist_quota(self, name):
+    def exist_quota(self, nickname=None, tenant_id=None, region_id=None):
         """
         If quota name which provided exists or not.
 
@@ -517,7 +546,17 @@ class ODPS(object):
         :return: True if exists or False
         :rtype: bool
         """
-        return name in self._quotas
+        from .models import Quota
+
+        if not isinstance(nickname, Quota):
+            nickname = Quota(
+                nickname=nickname,
+                tenant_id=tenant_id or self.default_tenant.tenant_id,
+                region_id=region_id or self.region_id,
+                client=self.rest,
+                _parent=self.quotas,
+            )
+        return nickname in self._quotas
 
     def list_quotas(self, region_id=None):
         """
@@ -565,16 +604,18 @@ class ODPS(object):
                     proj_obj._quota_name = odps._quota_name
                 proj_obj._tunnel_endpoint = odps.tunnel_endpoint
             else:
-                self._property_update_callbacks.difference_update(
-                    [project_update_callback]
-                )
+                with self._callbacks_lock:
+                    self._property_update_callbacks.difference_update(
+                        [project_update_callback]
+                    )
 
         # we need to update default schema value on the project
-        self._property_update_callbacks.add(
-            functools.partial(
-                project_update_callback, update_schema=default_schema is None
+        with self._callbacks_lock:
+            self._property_update_callbacks.add(
+                functools.partial(
+                    project_update_callback, update_schema=default_schema is None
+                )
             )
-        )
         return proj
 
     def exist_project(self, name):
@@ -716,7 +757,7 @@ class ODPS(object):
         .. seealso:: :class:`odps.models.Table`
         """
 
-        if isinstance(name, six.string_types) and "." in name:
+        if isinstance(name, str) and "." in name:
             project, schema, name = self._split_object_dots(name)
 
         parent = self._get_project_or_schema(project, schema)
@@ -734,7 +775,7 @@ class ODPS(object):
         :rtype: bool
         """
 
-        if isinstance(name, six.string_types) and "." in name:
+        if isinstance(name, str) and "." in name:
             project, schema, name = self._split_object_dots(name)
 
         parent = self._get_project_or_schema(project, schema)
@@ -790,7 +831,7 @@ class ODPS(object):
             if (
                 isinstance(schema, OdpsSchema)
                 or isinstance(schema, tuple)
-                or (isinstance(schema, six.string_types) and " " in schema)
+                or (isinstance(schema, str) and " " in schema)
             ):
                 table_schema, schema = schema, None
                 warnings.warn(
@@ -805,7 +846,7 @@ class ODPS(object):
         if table_schema is None:
             raise TypeError("`table_schema` argument not filled")
 
-        if isinstance(name, six.string_types) and "." in name:
+        if isinstance(name, str) and "." in name:
             project, schema, name = self._split_object_dots(name)
 
         if lifecycle is None and options.lifecycle is not None:
@@ -839,7 +880,7 @@ class ODPS(object):
         async_=False,
         table_type=None,
     ):
-        if isinstance(name, six.string_types) and "." in name:
+        if isinstance(name, str) and "." in name:
             project, schema, name = self._split_object_dots(name)
 
         parent = self._get_project_or_schema(project, schema)
@@ -1399,7 +1440,7 @@ class ODPS(object):
                 code_hints.update(hints or {})
                 hints = code_hints
             except Exception as ex:
-                warnings.warn("Failed to parse hints from SQL: %s" % ex, RuntimeWarning)
+                warnings.warn(f"Failed to parse hints from SQL: {ex}", RuntimeWarning)
 
         alter_table_match = _ALTER_TABLE_REGEX.match(sql)
         if alter_table_match:
@@ -1501,7 +1542,7 @@ class ODPS(object):
                 raise ValueError("Partition representation malformed.")
             if not kv[1].startswith('"') and not kv[1].startswith("'"):
                 kv[1] = repr(kv[1])
-            parts.append("%s=%s" % tuple(kv))
+            parts.append("=".join(kv))
         return ",".join(parts)
 
     def list_volumes(self, project=None, schema=None, owner=None):
@@ -2266,7 +2307,8 @@ class ODPS(object):
             logview_host = utils.get_default_logview_endpoint(
                 LOGVIEW_HOST_DEFAULT, self.endpoint
             )
-        _logview_host_cache[self.endpoint] = logview_host
+        with _host_cache_lock:
+            _logview_host_cache[self.endpoint] = logview_host
         return logview_host
 
     def get_job_insight_host(self):
@@ -2280,7 +2322,8 @@ class ODPS(object):
 
         jobinsight_host = self._get_job_insight_from_request()
         if jobinsight_host:
-            _jobinsight_host_cache[self.endpoint] = jobinsight_host
+            with _host_cache_lock:
+                _jobinsight_host_cache[self.endpoint] = jobinsight_host
         return jobinsight_host
 
     def get_catalog_host(self):
@@ -2301,7 +2344,8 @@ class ODPS(object):
                 else None
             )
         if catalog_host:
-            _catalog_host_cache[self.endpoint] = catalog_host
+            with _host_cache_lock:
+                _catalog_host_cache[self.endpoint] = catalog_host
         return catalog_host
 
     def _get_job_insight_from_request(self):

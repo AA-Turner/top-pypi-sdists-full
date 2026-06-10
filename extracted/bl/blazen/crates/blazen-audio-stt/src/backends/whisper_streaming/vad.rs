@@ -20,7 +20,7 @@
 //! **`vad-tract` takes precedence**: it is pure-Rust and links no native
 //! runtime, so it cannot collide at link/run time with the other native ML
 //! libraries that `--all-features` also pulls in (ONNX Runtime via `ort`,
-//! CTranslate2 via `ct2rs`, whisper.cpp) — a combination that otherwise
+//! `CTranslate2` via `ct2rs`, whisper.cpp) — a combination that otherwise
 //! SIGSEGVs when an `ort` session is created in the same process. A
 //! `compile_error!` fires if neither backend is enabled under
 //! `whisper-streaming`.
@@ -316,7 +316,8 @@ mod engine {
 
     fn find_output(model: &InferenceModel, name: &str) -> Result<usize, SttError> {
         for (ix, outlet) in model.outputs.iter().enumerate() {
-            if model.outlet_label(*outlet) == Some(name) || model.nodes()[outlet.node].name == name {
+            if model.outlet_label(*outlet) == Some(name) || model.nodes()[outlet.node].name == name
+            {
                 return Ok(ix);
             }
         }
@@ -614,7 +615,9 @@ mod tests {
             .collect();
 
         assert!(
-            probs.iter().all(|p| p.is_finite() && (0.0..=1.0).contains(p)),
+            probs
+                .iter()
+                .all(|p| p.is_finite() && (0.0..=1.0).contains(p)),
             "all VAD probabilities must be finite and in [0, 1]: {probs:?}"
         );
         let silence_prob = probs[0];

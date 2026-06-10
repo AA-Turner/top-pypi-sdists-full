@@ -11,6 +11,12 @@ Usage::
     from boto3.session import Session
     from mypy_boto3_odb import (
         Client,
+        ListAutonomousDatabaseBackupsPaginator,
+        ListAutonomousDatabaseCharacterSetsPaginator,
+        ListAutonomousDatabaseClonesPaginator,
+        ListAutonomousDatabasePeersPaginator,
+        ListAutonomousDatabaseVersionsPaginator,
+        ListAutonomousDatabasesPaginator,
         ListAutonomousVirtualMachinesPaginator,
         ListCloudAutonomousVmClustersPaginator,
         ListCloudExadataInfrastructuresPaginator,
@@ -28,6 +34,12 @@ Usage::
     session = Session()
     client: OdbClient = session.client("odb")
 
+    list_autonomous_database_backups_paginator: ListAutonomousDatabaseBackupsPaginator = client.get_paginator("list_autonomous_database_backups")
+    list_autonomous_database_character_sets_paginator: ListAutonomousDatabaseCharacterSetsPaginator = client.get_paginator("list_autonomous_database_character_sets")
+    list_autonomous_database_clones_paginator: ListAutonomousDatabaseClonesPaginator = client.get_paginator("list_autonomous_database_clones")
+    list_autonomous_database_peers_paginator: ListAutonomousDatabasePeersPaginator = client.get_paginator("list_autonomous_database_peers")
+    list_autonomous_database_versions_paginator: ListAutonomousDatabaseVersionsPaginator = client.get_paginator("list_autonomous_database_versions")
+    list_autonomous_databases_paginator: ListAutonomousDatabasesPaginator = client.get_paginator("list_autonomous_databases")
     list_autonomous_virtual_machines_paginator: ListAutonomousVirtualMachinesPaginator = client.get_paginator("list_autonomous_virtual_machines")
     list_cloud_autonomous_vm_clusters_paginator: ListCloudAutonomousVmClustersPaginator = client.get_paginator("list_cloud_autonomous_vm_clusters")
     list_cloud_exadata_infrastructures_paginator: ListCloudExadataInfrastructuresPaginator = client.get_paginator("list_cloud_exadata_infrastructures")
@@ -44,6 +56,12 @@ Usage::
 
 from .client import OdbClient
 from .paginator import (
+    ListAutonomousDatabaseBackupsPaginator,
+    ListAutonomousDatabaseCharacterSetsPaginator,
+    ListAutonomousDatabaseClonesPaginator,
+    ListAutonomousDatabasePeersPaginator,
+    ListAutonomousDatabasesPaginator,
+    ListAutonomousDatabaseVersionsPaginator,
     ListAutonomousVirtualMachinesPaginator,
     ListCloudAutonomousVmClustersPaginator,
     ListCloudExadataInfrastructuresPaginator,
@@ -61,6 +79,12 @@ Client = OdbClient
 
 __all__ = (
     "Client",
+    "ListAutonomousDatabaseBackupsPaginator",
+    "ListAutonomousDatabaseCharacterSetsPaginator",
+    "ListAutonomousDatabaseClonesPaginator",
+    "ListAutonomousDatabasePeersPaginator",
+    "ListAutonomousDatabaseVersionsPaginator",
+    "ListAutonomousDatabasesPaginator",
     "ListAutonomousVirtualMachinesPaginator",
     "ListCloudAutonomousVmClustersPaginator",
     "ListCloudExadataInfrastructuresPaginator",

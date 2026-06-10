@@ -1,3 +1,0 @@
-[[schemas]]
-path = "../schema.json"
-include = ["test.toml"]

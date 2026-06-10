@@ -783,6 +783,61 @@ impl WgpuStatevectorBackend {
         )
     }
 
+    /// **2-큐비트 Kraus 채널 trajectory 적용 (GPU-native)**.
+    ///
+    /// 각 Kraus 연산자 `Kᵢ` (4×4) 에 대해 `pᵢ = ‖Kᵢ|ψ⟩‖²` 를 GPU 의 2q 게이트
+    /// 커널(`two_qubit.wgsl`, 비유니터리 4×4 도 그대로 행렬·벡터곱)로 계산하고,
+    /// `u∈[0,1)` 로 `pᵢ` 분포에서 하나를 샘플해 `|ψ⟩ ← Kᵢ|ψ⟩/√pᵢ` 로 collapse·
+    /// 재정규화한다.  무거운 `O(2ⁿ)` 행렬 적용이 GPU 에서 수행된다 (이전엔
+    /// CPU-hybrid).  norm 합산·샘플링·스케일은 가벼운 CPU 작업.
+    ///
+    /// `kraus` 는 trace-preserving (`Σ Kᵢ†Kᵢ = I`) 가정.  CPU
+    /// [`qsim_core::operations`] 의 2q Kraus 와 분포 일치 (lavapipe 검증).
+    pub fn apply_kraus_2q_trajectory(
+        &self,
+        state: &mut [Complex<f32>],
+        kraus: &[[[Complex<f32>; 4]; 4]],
+        qubit0: usize,
+        qubit1: usize,
+        u: f32,
+    ) -> Result<(), GpuError> {
+        if kraus.is_empty() {
+            return Err(GpuError::Unsupported(
+                "apply_kraus_2q_trajectory: Kraus 비어 있음".into(),
+            ));
+        }
+        // pᵢ = ‖Kᵢ|ψ⟩‖² (GPU 로 Kᵢ 적용 후 host norm).
+        let mut probs = Vec::with_capacity(kraus.len());
+        for k in kraus {
+            let mut tmp = state.to_vec();
+            self.apply_two_qubit_gate(&mut tmp, k, qubit0, qubit1)?;
+            let p: f32 = tmp.iter().map(|c| c.norm_sqr()).sum();
+            probs.push(p);
+        }
+        let total: f32 = probs.iter().sum();
+        // u·total 누적분포로 Kraus 샘플 (수치 안전: 마지막 인덱스 fallback).
+        let target = u.clamp(0.0, 1.0) * total;
+        let mut acc = 0.0_f32;
+        let mut idx = kraus.len() - 1;
+        for (i, &p) in probs.iter().enumerate() {
+            acc += p;
+            if target < acc {
+                idx = i;
+                break;
+            }
+        }
+        // 선택된 Kᵢ 적용 + 재정규화.
+        self.apply_two_qubit_gate(state, &kraus[idx], qubit0, qubit1)?;
+        let nrm = probs[idx].sqrt();
+        if nrm > 1e-12 {
+            let inv = 1.0 / nrm;
+            for a in state.iter_mut() {
+                *a = Complex::new(a.re * inv, a.im * inv);
+            }
+        }
+        Ok(())
+    }
+
     /// Controlled 1-큐비트 gate (CNOT 등).  ctrl bit=1 인 amplitude pair 에만
     /// 1q matrix 적용.
     pub fn apply_controlled_1q(
@@ -3300,6 +3355,75 @@ mod tests {
             [Complex::new(0.0, 0.0), Complex::new(1.0, 0.0)],
             [Complex::new(1.0, 0.0), Complex::new(0.0, 0.0)],
         ]
+    }
+
+    #[test]
+    fn gpu_2q_kraus_trajectory_matches_dense() {
+        let Some(b) = make_backend() else { return };
+        let c = |re: f32, im: f32| Complex::new(re, im);
+        let n = 3usize;
+        let dim = 1usize << n;
+        // 임의 정규화 상태.
+        let mut psi: Vec<Complex<f32>> = (0..dim)
+            .map(|i| c((i as f32 * 0.31).cos(), (i as f32 * 0.17).sin()))
+            .collect();
+        let nrm: f32 = psi.iter().map(|a| a.norm_sqr()).sum::<f32>().sqrt();
+        for a in psi.iter_mut() {
+            *a = Complex::new(a.re / nrm, a.im / nrm);
+        }
+        let (q0, q1) = (0usize, 1usize);
+        let diag4 = |vals: [f32; 4]| {
+            let mut m = [[c(0.0, 0.0); 4]; 4];
+            for (i, row) in m.iter_mut().enumerate() {
+                row[i] = c(vals[i], 0.0);
+            }
+            m
+        };
+
+        // (1) 비유니터리 4×4 적용 정확성: damping-류 K = diag(1, 0.6, 0.8, 0.5).
+        let kd = diag4([1.0, 0.6, 0.8, 0.5]);
+        let mut gpu_kd = psi.clone();
+        b.apply_two_qubit_gate(&mut gpu_kd, &kd, q0, q1).unwrap();
+        // dense 참조: index 의 (bit q1, bit q0) → diag 인덱스 2·bit(q1)+bit(q0).
+        for (a, &amp) in psi.iter().enumerate() {
+            let d = 2 * ((a >> q1) & 1) + ((a >> q0) & 1);
+            let diag = [1.0_f32, 0.6, 0.8, 0.5][d];
+            assert!(
+                approx(gpu_kd[a], Complex::new(amp.re * diag, amp.im * diag), 1e-5),
+                "비유니터리 4×4 적용 불일치 idx={a}"
+            );
+        }
+
+        // (2) trajectory: 상관 dephasing {√(1-p)·I⊗I, √p·Z⊗Z}, p=0.3.
+        let p = 0.3_f32;
+        let s0 = (1.0 - p).sqrt();
+        let s1 = p.sqrt();
+        // Z⊗Z = diag(+,-,-,+) (index 2·q1+q0 → (-1)^(q0+q1)), ×s1.
+        let kraus = [diag4([s0, s0, s0, s0]), diag4([s1, -s1, -s1, s1])];
+
+        // u=0 → I 분기 → 상태 불변.
+        let mut su0 = psi.clone();
+        b.apply_kraus_2q_trajectory(&mut su0, &kraus, q0, q1, 0.0)
+            .unwrap();
+        for (a, &amp) in psi.iter().enumerate() {
+            assert!(approx(su0[a], amp, 1e-5), "u=0 (I 분기) 불일치 idx={a}");
+        }
+
+        // u=0.99 → Z⊗Z 분기 → ZZ 적용 상태.
+        let mut su1 = psi.clone();
+        b.apply_kraus_2q_trajectory(&mut su1, &kraus, q0, q1, 0.99)
+            .unwrap();
+        for (a, &amp) in psi.iter().enumerate() {
+            let sign = if (((a >> q0) & 1) + ((a >> q1) & 1)) % 2 == 1 {
+                -1.0
+            } else {
+                1.0
+            };
+            assert!(
+                approx(su1[a], Complex::new(amp.re * sign, amp.im * sign), 1e-5),
+                "u→1 (ZZ 분기) 불일치 idx={a}"
+            );
+        }
     }
     fn h() -> [[Complex<f32>; 2]; 2] {
         let s = 1.0_f32 / 2.0_f32.sqrt();

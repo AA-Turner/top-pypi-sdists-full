@@ -43,81 +43,39 @@ class Object:
 
     @classmethod
     def __init_subclass__(cls, type_prefix: typing.Optional[str] = None): ...
-
-    class ___init_spec(typing_extensions.Protocol):
-        def __call__(
-            self,
-            /,
-            rep: str,
-            load: typing.Optional[
-                collections.abc.Callable[
-                    [
-                        typing_extensions.Self,
-                        modal._resolver.Resolver,
-                        modal._load_context.LoadContext,
-                        typing.Optional[str],
-                    ],
-                    None,
-                ]
-            ] = None,
-            preload: typing.Optional[
-                collections.abc.Callable[
-                    [
-                        typing_extensions.Self,
-                        modal._resolver.Resolver,
-                        modal._load_context.LoadContext,
-                        typing.Optional[str],
-                    ],
-                    None,
-                ]
-            ] = None,
-            hydrate_lazily: bool = False,
-            skip_reload: bool = False,
-            deps: typing.Optional[collections.abc.Callable[..., collections.abc.Sequence[Object]]] = None,
-            deduplication_key: typing.Optional[collections.abc.Callable[[], collections.abc.Hashable]] = None,
-            name: typing.Optional[str] = None,
-            *,
-            load_context_overrides: typing.Optional[modal._load_context.LoadContext] = None,
-        ): ...
-        def aio(
-            self,
-            /,
-            rep: str,
-            load: typing.Optional[
-                collections.abc.Callable[
-                    [
-                        typing_extensions.Self,
-                        modal._resolver.Resolver,
-                        modal._load_context.LoadContext,
-                        typing.Optional[str],
-                    ],
-                    collections.abc.Awaitable[None],
-                ]
-            ] = None,
-            preload: typing.Optional[
-                collections.abc.Callable[
-                    [
-                        typing_extensions.Self,
-                        modal._resolver.Resolver,
-                        modal._load_context.LoadContext,
-                        typing.Optional[str],
-                    ],
-                    collections.abc.Awaitable[None],
-                ]
-            ] = None,
-            hydrate_lazily: bool = False,
-            skip_reload: bool = False,
-            deps: typing.Optional[collections.abc.Callable[..., collections.abc.Sequence[Object]]] = None,
-            deduplication_key: typing.Optional[
-                collections.abc.Callable[[], collections.abc.Awaitable[collections.abc.Hashable]]
-            ] = None,
-            name: typing.Optional[str] = None,
-            *,
-            load_context_overrides: typing.Optional[modal._load_context.LoadContext] = None,
-        ): ...
-
-    _init: ___init_spec
-
+    def _init(
+        self,
+        rep: str,
+        load: typing.Optional[
+            collections.abc.Callable[
+                [
+                    typing_extensions.Self,
+                    modal._resolver.Resolver,
+                    modal._load_context.LoadContext,
+                    typing.Optional[str],
+                ],
+                None,
+            ]
+        ] = None,
+        preload: typing.Optional[
+            collections.abc.Callable[
+                [
+                    typing_extensions.Self,
+                    modal._resolver.Resolver,
+                    modal._load_context.LoadContext,
+                    typing.Optional[str],
+                ],
+                None,
+            ]
+        ] = None,
+        hydrate_lazily: bool = False,
+        skip_reload: bool = False,
+        deps: typing.Optional[collections.abc.Callable[..., collections.abc.Sequence[Object]]] = None,
+        deduplication_key: typing.Optional[collections.abc.Callable[[], collections.abc.Hashable]] = None,
+        name: typing.Optional[str] = None,
+        *,
+        load_context_overrides: typing.Optional[modal._load_context.LoadContext] = None,
+    ): ...
     def _unhydrate(self): ...
     def _initialize_from_empty(self): ...
     def _initialize_from_other(self, other): ...
@@ -127,12 +85,6 @@ class Object:
     def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
     def _get_metadata(self) -> typing.Optional[google.protobuf.message.Message]: ...
     def _validate_is_hydrated(self): ...
-    def clone(self) -> typing_extensions.Self:
-        """mdmd:hidden Clone a given hydrated object.
-
-        Note: This is not intended to be public API and has no public use. It will be removed in a future release.
-        """
-        ...
 
     class ___from_loader_spec(typing_extensions.Protocol):
         def __call__(

@@ -23,8 +23,6 @@
 //! each smooth term directly from the data.
 
 use crate::solver::estimate::reml::{DirectionalHyperParam, RemlState};
-// BlockwiseFitResult and SurvivalLocationScaleFitResult are now type aliases
-// for UnifiedFitResult, defined in their respective modules.
 use std::fmt;
 use std::time::Instant;
 
@@ -34,7 +32,7 @@ use crate::inference::diagnostics::should_emit_h_min_eig_diag;
 use crate::inference::predict::se_from_covariance;
 use crate::linalg::utils::{
     KahanSum, add_relative_diag_ridge, enforce_symmetry, matrix_inversewith_regularization,
-    row_mismatch_message,
+    row_mismatch_message, stack_offsets,
 };
 use crate::matrix::{DesignMatrix, FactorizedSystem, LinearOperator};
 use crate::mixture_link::{state_from_beta_logisticspec, state_from_sasspec, state_fromspec};
@@ -674,10 +672,15 @@ impl ParametricColumnConditioning {
             inf.reparam_qs = None;
         }
         result.constraint_kkt = None;
-        result.artifacts = FitArtifacts {
-            pirls: None,
-            ..Default::default()
-        };
+        // `result.artifacts.pirls` is a self-consistent geometric bundle in the
+        // PIRLS internal basis (`x_transformed`, `beta_transformed`,
+        // `penalized_hessian_transformed`, and the per-observation
+        // `final_eta`/`finalmu`/`solveworking_response`/weights, all paired in
+        // that one frame). Observation-space quantities derived from it
+        // — η̂_i, leverages a_ii, sandwich SEs — are invariant under the
+        // invertible coefficient-space reparameterization that conditioning
+        // introduces, so the bundle stays correct in its own coordinates and
+        // we keep it instead of wiping `pirls: None`.
         result
     }
 }
@@ -700,25 +703,32 @@ fn map_hessian_to_original_basis(
     Ok(h)
 }
 
+/// Strictly-positive floor on a reported dispersion / scale parameter `φ`.
+/// Every GLM family resolves `φ` to a non-negative quantity, but downstream
+/// consumers (covariance scaling, deviance ratios) divide by it, so it is
+/// clamped to the smallest positive normal `f64` to keep those quotients
+/// finite without perturbing any `φ` above the denormal range.
+const DISPERSION_POSITIVE_FLOOR: f64 = 1e-300;
+
 fn dispersion_from_likelihood(
     likelihood: &GlmLikelihoodSpec,
     standard_deviation: f64,
 ) -> Dispersion {
     match &likelihood.spec.response {
-        ResponseFamily::Gaussian => {
-            Dispersion::Estimated((standard_deviation * standard_deviation).max(1e-300))
-        }
+        ResponseFamily::Gaussian => Dispersion::Estimated(
+            (standard_deviation * standard_deviation).max(DISPERSION_POSITIVE_FLOOR),
+        ),
         ResponseFamily::Gamma => {
             let phi = likelihood.scale.fixed_phi().unwrap_or_else(|| {
                 let shape = likelihood
                     .gamma_shape()
-                    .unwrap_or(standard_deviation.max(1e-300));
-                1.0 / shape.max(1e-300)
+                    .unwrap_or(standard_deviation.max(DISPERSION_POSITIVE_FLOOR));
+                1.0 / shape.max(DISPERSION_POSITIVE_FLOOR)
             });
             if likelihood.scale.gamma_shape_is_estimated() {
-                Dispersion::Estimated(phi.max(1e-300))
+                Dispersion::Estimated(phi.max(DISPERSION_POSITIVE_FLOOR))
             } else {
-                Dispersion::Known(phi.max(1e-300))
+                Dispersion::Known(phi.max(DISPERSION_POSITIVE_FLOOR))
             }
         }
         ResponseFamily::Tweedie { .. } => {
@@ -727,18 +737,24 @@ fn dispersion_from_likelihood(
             // estimate, issue #771). Reported as `Estimated` when the default
             // estimate-phi metadata is in force so downstream consumers know the
             // scale came from the data, not a frozen seed.
-            let phi = likelihood.fixed_phi().unwrap_or(1.0).max(1e-300);
+            let phi = likelihood
+                .fixed_phi()
+                .unwrap_or(1.0)
+                .max(DISPERSION_POSITIVE_FLOOR);
             if likelihood.scale.tweedie_phi_is_estimated() {
                 Dispersion::Estimated(phi)
             } else {
                 Dispersion::Known(phi)
             }
         }
-        ResponseFamily::NegativeBinomial { theta } => {
-            Dispersion::Known(likelihood.fixed_phi().unwrap_or(*theta).max(1e-300))
-        }
+        ResponseFamily::NegativeBinomial { theta } => Dispersion::Known(
+            likelihood
+                .fixed_phi()
+                .unwrap_or(*theta)
+                .max(DISPERSION_POSITIVE_FLOOR),
+        ),
         ResponseFamily::Beta { phi } => {
-            Dispersion::Known((1.0 / (1.0 + phi.max(1e-12))).max(1e-300))
+            Dispersion::Known((1.0 / (1.0 + phi.max(1e-12))).max(DISPERSION_POSITIVE_FLOOR))
         }
         ResponseFamily::Binomial | ResponseFamily::Poisson | ResponseFamily::RoystonParmar => {
             Dispersion::Known(1.0)
@@ -1420,6 +1436,27 @@ fn compute_smoothing_correction(
         .objective_innerhessian(final_rho)
         .unwrap_or_else(|_| final_fit.stabilizedhessian_transformed.to_dense());
 
+    // The IFT solve below feeds length-`n_coeffs_trans` right-hand sides into
+    // the Cholesky factor of `h_trans`, and faer asserts `rhs.len() == factor.n()`.
+    // A Hessian that does not match the coefficient dimension (e.g. a degenerate
+    // 0×0 placeholder from a geometry backend that failed to materialize a real
+    // dense inner Hessian) would otherwise abort the whole fit inside the solve.
+    // Bail to the no-correction branch exactly like the Cholesky-`Err` guard
+    // below, so the post-fit smoothing correction is simply skipped.
+    if h_trans.nrows() != n_coeffs_trans || h_trans.ncols() != n_coeffs_trans {
+        log::warn!(
+            "smoothing-correction inner Hessian shape {}x{} does not match coefficient dimension {}; skipping.",
+            h_trans.nrows(),
+            h_trans.ncols(),
+            n_coeffs_trans
+        );
+        return SmoothingCorrectionComputation {
+            correction: None,
+            hessian_rho: None,
+            active_rank: None,
+        };
+    }
+
     // Factor the Hessian for solving
     let h_chol = match h_trans.cholesky(faer::Side::Lower) {
         Ok(c) => c,
@@ -1442,6 +1479,12 @@ fn compute_smoothing_correction(
     // coefficient-space prediction correction and the joint-evidence
     // Arrow-Schur path on the same hand-derived IFT identity.
     let mut dg_drho_trans = Array2::<f64>::zeros((n_coeffs_trans, n_rho));
+    // Per-ρ_k support: the coefficient range its stationarity-gradient
+    // derivative ∂g/∂ρ_k is nonzero on. Each column is block-local (only the
+    // k-th penalty block), so this is exactly cp.col_range; structurally
+    // inactive columns keep an empty support and the cone-of-influence solve
+    // skips them entirely (their sensitivity is identically zero). See #779.
+    let mut col_supports: Vec<std::ops::Range<usize>> = vec![0..0; n_rho];
     for k in 0..n_rho {
         if k >= ct.len() {
             continue;
@@ -1452,6 +1495,7 @@ fn compute_smoothing_correction(
         }
         // S_k(β - μ) — block-local: R^T (R (β[block] - μ)), embedded into p-vector.
         let r = &cp.col_range;
+        col_supports[k] = r.start..r.end;
         let beta_block = beta_trans.slice(s![r.start..r.end]);
         let centered = &beta_block - &cp.prior_mean;
         let r_beta = cp.root.dot(&centered);
@@ -1462,9 +1506,15 @@ fn compute_smoothing_correction(
                     .sum::<f64>();
         }
     }
-    let jacobian_trans = match crate::solver::evidence::ift_dbeta_drho_from_solver(
-        n_coeffs_trans,
+    // Lazy/local cone-of-influence propagation (#779): confine each column's
+    // sensitivity to the coupling component of `h_trans` containing the moved
+    // penalty block, and skip structurally inactive columns. Exact on a
+    // block-decoupled Hessian (entries outside the cone are identically zero)
+    // and identical to the full joint solve on a fully coupled Hessian.
+    let jacobian_trans = match crate::solver::evidence::ift_dbeta_drho_coned(
+        h_trans.view(),
         dg_drho_trans.view(),
+        &col_supports,
         |rhs| h_chol.solvevec(rhs),
     ) {
         Some(jacobian) => jacobian,
@@ -1749,6 +1799,23 @@ pub enum EstimationError {
         rank: usize,
         num_unpenalized_columns: usize,
         min_eigenvalue: f64,
+        tolerance: f64,
+        column_indices: Vec<usize>,
+    },
+
+    #[error(
+        "Pre-fit near-degeneracy detected in the realized unpenalized design: the {num_unpenalized_columns} \
+        unpenalized columns span a numerically rank-degenerate direction (Gram condition number {condition_number:.3e} \
+        exceeds tolerance {tolerance:.3e}; min eigenvalue {min_eigenvalue:.3e}, max eigenvalue {max_eigenvalue:.3e}, \
+        columns {column_indices:?}). The unpenalized normal equations are effectively singular along this direction, \
+        so the fit would grind/diverge. Remove/reparameterize the near-aliased columns or add an explicit \
+        penalty/constraint before fitting."
+    )]
+    PrefitNearDegenerateDesignDetected {
+        num_unpenalized_columns: usize,
+        condition_number: f64,
+        min_eigenvalue: f64,
+        max_eigenvalue: f64,
         tolerance: f64,
         column_indices: Vec<usize>,
     },
@@ -2047,51 +2114,65 @@ fn resolved_external_config(
     Ok((cfg, effective_sas_link))
 }
 
+/// Shape/bounds validation for a single [`PenaltySpec`] against the total
+/// coefficient width `p`. Canonical home for the block/dense shape checks that
+/// were duplicated inline in `terms::construction`'s fused validate-and-
+/// destructure path; both call this so the diagnostics stay identical.
+pub(crate) fn validate_penalty_spec_shape(
+    idx: usize,
+    spec: &PenaltySpec,
+    p: usize,
+    context: &str,
+) -> Result<(), EstimationError> {
+    match spec {
+        PenaltySpec::Block {
+            local, col_range, ..
+        } => {
+            let bd = col_range.len();
+            if local.nrows() != bd || local.ncols() != bd {
+                crate::bail_invalid_estim!(
+                    "{context}: block penalty {idx} local matrix must be {bd}x{bd}, got {}x{}",
+                    local.nrows(),
+                    local.ncols()
+                );
+            }
+            if col_range.end > p {
+                crate::bail_invalid_estim!(
+                    "{context}: block penalty {idx} col_range {}..{} exceeds p={p}",
+                    col_range.start,
+                    col_range.end
+                );
+            }
+        }
+        PenaltySpec::Dense(m) => {
+            if m.nrows() != p || m.ncols() != p {
+                crate::bail_invalid_estim!(
+                    "{context}: dense penalty {idx} must be {p}x{p}, got {}x{}",
+                    m.nrows(),
+                    m.ncols()
+                );
+            }
+        }
+        PenaltySpec::DenseWithMean { matrix, .. } => {
+            if matrix.nrows() != p || matrix.ncols() != p {
+                crate::bail_invalid_estim!(
+                    "{context}: dense penalty {idx} must be {p}x{p}, got {}x{}",
+                    matrix.nrows(),
+                    matrix.ncols()
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
 fn validate_penalty_specs(
     specs: &[PenaltySpec],
     p: usize,
     context: &str,
 ) -> Result<(), EstimationError> {
     for (idx, spec) in specs.iter().enumerate() {
-        match spec {
-            PenaltySpec::Block {
-                local, col_range, ..
-            } => {
-                let bd = col_range.len();
-                if local.nrows() != bd || local.ncols() != bd {
-                    crate::bail_invalid_estim!(
-                        "{context}: block penalty {idx} local matrix must be {bd}x{bd}, got {}x{}",
-                        local.nrows(),
-                        local.ncols()
-                    );
-                }
-                if col_range.end > p {
-                    crate::bail_invalid_estim!(
-                        "{context}: block penalty {idx} col_range {}..{} exceeds p={p}",
-                        col_range.start,
-                        col_range.end
-                    );
-                }
-            }
-            PenaltySpec::Dense(m) => {
-                if m.nrows() != p || m.ncols() != p {
-                    crate::bail_invalid_estim!(
-                        "{context}: dense penalty {idx} must be {p}x{p}, got {}x{}",
-                        m.nrows(),
-                        m.ncols()
-                    );
-                }
-            }
-            PenaltySpec::DenseWithMean { matrix, .. } => {
-                if matrix.nrows() != p || matrix.ncols() != p {
-                    crate::bail_invalid_estim!(
-                        "{context}: dense penalty {idx} must be {p}x{p}, got {}x{}",
-                        matrix.nrows(),
-                        matrix.ncols()
-                    );
-                }
-            }
-        }
+        validate_penalty_spec_shape(idx, spec, p, context)?;
     }
     Ok(())
 }
@@ -2111,12 +2192,22 @@ struct PrefitLinearSeparationDiagnostic {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct PrefitRankDiagnostic {
-    rank: usize,
-    num_unpenalized_columns: usize,
-    min_eigenvalue: f64,
-    tolerance: f64,
-    column_indices: Vec<usize>,
+enum PrefitRegularityDiagnostic {
+    RankDeficient {
+        rank: usize,
+        num_unpenalized_columns: usize,
+        min_eigenvalue: f64,
+        tolerance: f64,
+        column_indices: Vec<usize>,
+    },
+    NearDegenerate {
+        num_unpenalized_columns: usize,
+        condition_number: f64,
+        min_eigenvalue: f64,
+        max_eigenvalue: f64,
+        tolerance: f64,
+        column_indices: Vec<usize>,
+    },
 }
 
 fn prefit_binary_response_classes(
@@ -2184,7 +2275,7 @@ fn detect_prefit_unpenalized_rank_deficiency_in_design(
     w: ArrayView1<'_, f64>,
     x: &DesignMatrix,
     unpenalized_columns: &[bool],
-) -> Result<Option<PrefitRankDiagnostic>, EstimationError> {
+) -> Result<Option<PrefitRegularityDiagnostic>, EstimationError> {
     if x.nrows() != w.len() || x.ncols() != unpenalized_columns.len() {
         return Ok(None);
     }
@@ -2255,19 +2346,57 @@ fn detect_prefit_unpenalized_rank_deficiency_in_design(
         .iter()
         .fold(0.0_f64, |scale, &value| scale.max(value.abs()))
         .max(1.0);
-    let tolerance = 1e-10 * spectral_scale;
+    // Rank tolerance is the floating-point noise floor for the Gram entries.
+    // Each Gram entry is a sum of `active_rows` products with error ~eps per
+    // term; the spectral perturbation bound is `O(active_rows · eps ·
+    // λ_max(Gram))`. A looser cutoff (the previous `1e-10 · λ_max`) demotes
+    // genuine full-rank-but-ill-conditioned designs as rank-deficient — e.g.
+    // two columns differing by a 1e-7 input perturbation yield λ_min ≈ 1e-14,
+    // well above the noise floor but inside the old 1e-10 cutoff. Such cases
+    // must be classified as NearDegenerate via the condition-number branch
+    // below, not as exact rank loss.
+    let noise_floor = (active_rows.max(q) as f64) * f64::EPSILON * spectral_scale;
+    let tolerance = noise_floor.max(8.0 * f64::EPSILON);
     let rank = eigenvalues
         .iter()
         .filter(|&&value| value > tolerance)
         .count();
+    let min_eigenvalue = eigenvalues.iter().copied().fold(f64::INFINITY, f64::min);
     if rank < q {
-        return Ok(Some(PrefitRankDiagnostic {
+        return Ok(Some(PrefitRegularityDiagnostic::RankDeficient {
             rank,
             num_unpenalized_columns: q,
-            min_eigenvalue: eigenvalues.iter().copied().fold(f64::INFINITY, f64::min),
+            min_eigenvalue,
             tolerance,
             column_indices,
         }));
+    }
+
+    // Full numeric rank, but the unpenalized normal equations may still be
+    // near-singular along a direction (quasi-/near-degenerate). The condition
+    // number of the unpenalized Gram is a cheap, principled upfront signal:
+    // beyond CONDITION_TOL the unpenalized solve loses too many digits and the
+    // fit grinds/diverges instead of converging. CONDITION_TOL is a Gram
+    // condition number (≈ design condition squared); 1e12 corresponds to a
+    // design condition ≈ 1e6, strictly looser than the noise-floor exact-rank
+    // tolerance above so the two checks are nested and consistent.
+    const CONDITION_TOL: f64 = 1e12;
+    let max_eigenvalue = eigenvalues
+        .iter()
+        .copied()
+        .fold(f64::NEG_INFINITY, f64::max);
+    if min_eigenvalue.is_finite() && min_eigenvalue > 0.0 && max_eigenvalue.is_finite() {
+        let condition_number = max_eigenvalue / min_eigenvalue;
+        if condition_number.is_finite() && condition_number > CONDITION_TOL {
+            return Ok(Some(PrefitRegularityDiagnostic::NearDegenerate {
+                num_unpenalized_columns: q,
+                condition_number,
+                min_eigenvalue,
+                max_eigenvalue,
+                tolerance: CONDITION_TOL,
+                column_indices,
+            }));
+        }
     }
 
     Ok(None)
@@ -2279,18 +2408,37 @@ fn reject_prefit_unpenalized_rank_deficiency(
     penalties: &[CanonicalPenalty],
 ) -> Result<(), EstimationError> {
     let unpenalized_columns = canonical_unpenalized_column_mask(penalties, x_fit.ncols());
-    if let Some(diagnostic) =
-        detect_prefit_unpenalized_rank_deficiency_in_design(w, x_fit, &unpenalized_columns)?
-    {
-        return Err(EstimationError::PrefitRankDeficientDesignDetected {
-            rank: diagnostic.rank,
-            num_unpenalized_columns: diagnostic.num_unpenalized_columns,
-            min_eigenvalue: diagnostic.min_eigenvalue,
-            tolerance: diagnostic.tolerance,
-            column_indices: diagnostic.column_indices,
-        });
+    match detect_prefit_unpenalized_rank_deficiency_in_design(w, x_fit, &unpenalized_columns)? {
+        Some(PrefitRegularityDiagnostic::RankDeficient {
+            rank,
+            num_unpenalized_columns,
+            min_eigenvalue,
+            tolerance,
+            column_indices,
+        }) => Err(EstimationError::PrefitRankDeficientDesignDetected {
+            rank,
+            num_unpenalized_columns,
+            min_eigenvalue,
+            tolerance,
+            column_indices,
+        }),
+        Some(PrefitRegularityDiagnostic::NearDegenerate {
+            num_unpenalized_columns,
+            condition_number,
+            min_eigenvalue,
+            max_eigenvalue,
+            tolerance,
+            column_indices,
+        }) => Err(EstimationError::PrefitNearDegenerateDesignDetected {
+            num_unpenalized_columns,
+            condition_number,
+            min_eigenvalue,
+            max_eigenvalue,
+            tolerance,
+            column_indices,
+        }),
+        None => Ok(()),
     }
-    Ok(())
 }
 
 fn separator_from_column_extrema(
@@ -3514,49 +3662,90 @@ where
             problem
         };
 
-        let prepass_seed: Option<Array1<f64>> =
-            if matches!(reml_seed_config.risk_profile, SeedRiskProfile::Gaussian) {
-                None
+        // Geometric-mean log prior-weight anchor `log g(w) = (1/n₊)·Σ log wᵢ`
+        // over the positive-weight rows. The pure-REML optimum for a *profiled*
+        // (Gaussian-identity) fit drifts by `ρ̂ → ρ̂ + log c` under a global
+        // prior-weight rescale `w → c·w` (`H = XᵀWX + λS`, so λ → c·λ keeps the
+        // penalised curvature proportional to the data curvature, β̂ / EDF /
+        // predictions fixed). The outer ρ-search seed and the relative-from-seed
+        // convergence test would otherwise be referenced to a weight-independent
+        // origin (0), so a heavily up-weighted fit starts `log c` further from
+        // its (shifted) optimum and the optimiser stops short — exactly the
+        // weight-scale non-invariance of λ̂ reported in issue #877. Anchoring the
+        // seed at `log g(w)` makes the search start the SAME relative distance
+        // from the optimum regardless of the weight magnitude.
+        //
+        // This is the SAME gated anchor the outer ρ-prior uses
+        // ([`RemlState::rho_weight_anchor`]): it is the geometric-mean
+        // log-weight for a profiled-dispersion family and *exactly 0* for a
+        // fixed-dispersion family (Poisson, binomial, …). For fixed dispersion
+        // `w = c` is exact `c`-fold replication: the two encodings share an
+        // identical LAML objective and optimum, so anchoring the seed by their
+        // (differing) per-row log-weight mean would seed the weighted encoding
+        // `log c` above its true optimum and the relative-convergence test would
+        // stop it short — over-smoothing vs replication (issue #893). With all
+        // weights 1 (or any fixed-dispersion family) the anchor is exactly 0, so
+        // those fits stay byte-identical.
+        let weight_log_geom_mean: f64 = reml_state.rho_weight_anchor();
+        let gaussian_risk = matches!(reml_seed_config.risk_profile, SeedRiskProfile::Gaussian);
+        // The Gaussian path historically skipped the objective-grid prepass and
+        // seeded the outer search from the weight-independent origin 0. That is
+        // exactly correct for an UNWEIGHTED fit (anchor 0), but breaks the
+        // weight-scale invariance of λ̂ the moment a global rescale shifts the
+        // optimum off 0 (issue #877). Run the anchored prepass for Gaussian ONLY
+        // when the weight scale is non-trivial, so unweighted Gaussian fits stay
+        // byte-identical while up-/down-weighted fits seed at the shifted optimum.
+        let run_gaussian_anchored_prepass = gaussian_risk && weight_log_geom_mean.abs() > 1e-12;
+        let prepass_seed: Option<Array1<f64>> = if gaussian_risk && !run_gaussian_anchored_prepass {
+            None
+        } else {
+            let bnds = reml_seed_config.bounds;
+            let (lo, hi) = if bnds.0 <= bnds.1 {
+                bnds
             } else {
-                let bnds = reml_seed_config.bounds;
-                let (lo, hi) = if bnds.0 <= bnds.1 {
-                    bnds
-                } else {
-                    (bnds.1, bnds.0)
-                };
-                // risk_shift is the default seed bias when no caller warm-start is given;
-                // it is NOT applied on top of a caller-supplied heuristic_lambdas.
-                let risk_shift: f64 = match reml_seed_config.risk_profile {
-                    SeedRiskProfile::Gaussian => 0.0,
-                    SeedRiskProfile::GeneralizedLinear => 1.0,
-                    SeedRiskProfile::Survival => 2.0,
-                };
-                let base = if let Some(h) = heuristic_lambdas.as_ref().filter(|h| h.len() == k) {
-                    Array1::from_iter(h.iter().map(|&v| v.max(1e-12).ln().clamp(lo, hi)))
-                } else {
-                    Array1::from_elem(k, risk_shift.clamp(lo, hi))
-                };
-                let refined = crate::seeding::select_objective_seed_on_log_lambda_grid(
-                    &base,
-                    (lo, hi),
-                    k,
-                    |rho| reml_state.compute_cost(rho).ok().filter(|c| c.is_finite()),
-                );
-                if refined
-                    .iter()
-                    .zip(base.iter())
-                    .any(|(&a, &b)| (a - b).abs() > 1e-12)
-                {
-                    log::info!(
-                        "[OUTER] standard REML objective-grid selected seed: {:?} -> {:?}",
-                        base.as_slice().unwrap_or(&[]),
-                        refined.as_slice().unwrap_or(&[])
-                    );
-                    Some(refined)
-                } else {
-                    None
-                }
+                (bnds.1, bnds.0)
             };
+            // risk_shift is the default seed bias when no caller warm-start is given;
+            // it is NOT applied on top of a caller-supplied heuristic_lambdas.
+            let risk_shift: f64 = match reml_seed_config.risk_profile {
+                SeedRiskProfile::Gaussian => 0.0,
+                SeedRiskProfile::GeneralizedLinear => 1.0,
+                SeedRiskProfile::Survival => 2.0,
+            };
+            // Anchor the default seed origin to the weight scale (issue #877). A
+            // caller-supplied `heuristic_lambdas` already carries the absolute λ
+            // scale, so it is used as-is; only the default risk-shift origin is
+            // weight-anchored.
+            let base = if let Some(h) = heuristic_lambdas.as_ref().filter(|h| h.len() == k) {
+                Array1::from_iter(h.iter().map(|&v| v.max(1e-12).ln().clamp(lo, hi)))
+            } else {
+                Array1::from_elem(k, (risk_shift + weight_log_geom_mean).clamp(lo, hi))
+            };
+            let refined = crate::seeding::select_objective_seed_on_log_lambda_grid(
+                &base,
+                (lo, hi),
+                k,
+                |rho| reml_state.compute_cost(rho).ok().filter(|c| c.is_finite()),
+            );
+            // Emit the seed when the grid moved it, or — on the Gaussian
+            // weight-anchored path — whenever the anchored `base` is itself
+            // offset from the unanchored origin (so the shifted optimum is
+            // actually seeded even if the coarse grid leaves `base` unchanged).
+            let grid_moved = refined
+                .iter()
+                .zip(base.iter())
+                .any(|(&a, &b)| (a - b).abs() > 1e-12);
+            if grid_moved || run_gaussian_anchored_prepass {
+                log::info!(
+                    "[OUTER] standard REML objective-grid selected seed: {:?} -> {:?}",
+                    base.as_slice().unwrap_or(&[]),
+                    refined.as_slice().unwrap_or(&[])
+                );
+                Some(refined)
+            } else {
+                None
+            }
+        };
         let problem = if let Some(seed) = prepass_seed {
             problem.with_initial_rho(seed)
         } else {
@@ -5008,10 +5197,6 @@ pub struct UnifiedFitResultParts {
 ///
 /// Standard models have a single block; GAMLSS and survival models have
 /// multiple blocks with different roles.
-///
-/// Backward-compatible field aliases are provided so that code written against
-/// the old `FitResult`, `BlockwiseFitResult`, and `SurvivalLocationScaleFitResult`
-/// types continues to compile after the unification.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UnifiedFitResult {
     // ── canonical fields ──────────────────────────────────────────────────
@@ -5348,14 +5533,6 @@ pub fn validate_explicit_dense_hessian_for_whitening(
         })
 }
 
-fn array1_values_equal(lhs: &Array1<f64>, rhs: &Array1<f64>) -> bool {
-    lhs.len() == rhs.len() && lhs.iter().zip(rhs.iter()).all(|(a, b)| a == b)
-}
-
-fn array2_values_equal(lhs: &Array2<f64>, rhs: &Array2<f64>) -> bool {
-    lhs.dim() == rhs.dim() && lhs.iter().zip(rhs.iter()).all(|(a, b)| a == b)
-}
-
 fn log_lambdas_match_lambdas(log_lambdas: &Array1<f64>, lambdas: &Array1<f64>) -> bool {
     if log_lambdas.len() != lambdas.len() {
         return false;
@@ -5370,30 +5547,23 @@ fn log_lambdas_match_lambdas(log_lambdas: &Array1<f64>, lambdas: &Array1<f64>) -
         })
 }
 
+/// Vertically stack a per-block `Array1<f64>` field (selected by `field`) into
+/// one contiguous vector, in block order. Single helper shared by the β and λ
+/// flatteners, routed through the canonical [`stack_offsets`] concatenation.
+fn flatten_blocks_field(
+    blocks: &[FittedBlock],
+    field: impl Fn(&FittedBlock) -> &Array1<f64>,
+) -> Array1<f64> {
+    let parts: Vec<&Array1<f64>> = blocks.iter().map(field).collect();
+    stack_offsets(&parts)
+}
+
 fn flatten_block_betas(blocks: &[FittedBlock]) -> Array1<f64> {
-    let total: usize = blocks.iter().map(|b| b.beta.len()).sum();
-    let mut flat = Array1::zeros(total);
-    let mut off = 0;
-    for block in blocks {
-        let p = block.beta.len();
-        flat.slice_mut(ndarray::s![off..off + p])
-            .assign(&block.beta);
-        off += p;
-    }
-    flat
+    flatten_blocks_field(blocks, |b| &b.beta)
 }
 
 fn flatten_block_lambdas(blocks: &[FittedBlock]) -> Array1<f64> {
-    let total: usize = blocks.iter().map(|b| b.lambdas.len()).sum();
-    let mut flat = Array1::zeros(total);
-    let mut off = 0;
-    for block in blocks {
-        let p = block.lambdas.len();
-        flat.slice_mut(ndarray::s![off..off + p])
-            .assign(&block.lambdas);
-        off += p;
-    }
-    flat
+    flatten_blocks_field(blocks, |b| &b.lambdas)
 }
 
 impl UnifiedFitResult {
@@ -5450,7 +5620,7 @@ impl UnifiedFitResult {
         }
         let beta = flatten_block_betas(&blocks);
         let block_lambdas = flatten_block_lambdas(&blocks);
-        if !array1_values_equal(&block_lambdas, &lambdas) {
+        if block_lambdas != lambdas {
             crate::bail_invalid_estim!("UnifiedFitResult top-level lambdas must match block lambdas concatenated in block order"
                     .to_string(),);
         }
@@ -5561,7 +5731,7 @@ impl UnifiedFitResult {
                     );
                 }
                 match covariance_conditional.as_ref() {
-                    Some(top) if array2_values_equal(cov, top) => {}
+                    Some(top) if **cov == *top => {}
                     Some(_) => {
                         crate::bail_invalid_estim!("UnifiedFitResult inference conditional covariance must match top-level covariance_conditional"
                                 .to_string(),);
@@ -5592,7 +5762,7 @@ impl UnifiedFitResult {
                     );
                 }
                 match covariance_corrected.as_ref() {
-                    Some(top) if array2_values_equal(cov, top) => {}
+                    Some(top) if **cov == *top => {}
                     Some(_) => {
                         crate::bail_invalid_estim!("UnifiedFitResult inference corrected covariance must match top-level covariance_corrected"
                                 .to_string(),);
@@ -5680,15 +5850,15 @@ impl UnifiedFitResult {
                 );
             }
             if let Some(inf) = inference.as_ref() {
-                if !array2_values_equal(&geom.penalized_hessian, &inf.penalized_hessian) {
+                if geom.penalized_hessian != inf.penalized_hessian {
                     crate::bail_invalid_estim!("UnifiedFitResult geometry penalized Hessian must match inference.penalized_hessian"
                             .to_string(),);
                 }
-                if !array1_values_equal(&geom.working_weights, &inf.working_weights) {
+                if geom.working_weights != inf.working_weights {
                     crate::bail_invalid_estim!("UnifiedFitResult geometry working_weights must match inference.working_weights"
                             .to_string(),);
                 }
-                if !array1_values_equal(&geom.working_response, &inf.working_response) {
+                if geom.working_response != inf.working_response {
                     crate::bail_invalid_estim!("UnifiedFitResult geometry working_response must match inference.working_response"
                             .to_string(),);
                 }
@@ -5734,7 +5904,7 @@ impl UnifiedFitResult {
     }
     pub fn validate_numeric_finiteness(&self) -> Result<(), EstimationError> {
         let expected_beta = flatten_block_betas(&self.blocks);
-        if !array1_values_equal(&self.beta, &expected_beta) {
+        if self.beta != expected_beta {
             crate::bail_invalid_estim!("UnifiedFitResult decoded beta must match coefficient blocks concatenated in block order"
                     .to_string(),);
         }
@@ -5972,12 +6142,6 @@ impl UnifiedFitResult {
         self.inference
             .as_ref()
             .and_then(|inf| inf.beta_covariance.as_ref())
-    }
-
-    /// Boundary accessor returning the raw covariance array for out-of-scope
-    /// consumers (CLI, GPU, families) that don't need the newtype.
-    pub fn beta_covariance_array(&self) -> Option<&Array2<f64>> {
-        self.beta_covariance_phi_scaled().map(|c| c.as_array())
     }
 
     /// Get working weights if available.
@@ -7705,13 +7869,24 @@ mod estimate_policy_tests {
         .expect("rank check should stream dense design")
         .expect("duplicate unpenalized columns are rank deficient");
 
-        assert_eq!(diagnostic.rank, 2);
-        assert_eq!(diagnostic.num_unpenalized_columns, 3);
-        assert_eq!(diagnostic.column_indices, vec![0, 1, 2]);
-        assert!(
-            diagnostic.min_eigenvalue.abs() <= diagnostic.tolerance,
-            "duplicate-column min eigenvalue should be at the rank tolerance"
-        );
+        match diagnostic {
+            PrefitRegularityDiagnostic::RankDeficient {
+                rank,
+                num_unpenalized_columns,
+                min_eigenvalue,
+                tolerance,
+                column_indices,
+            } => {
+                assert_eq!(rank, 2);
+                assert_eq!(num_unpenalized_columns, 3);
+                assert_eq!(column_indices, vec![0, 1, 2]);
+                assert!(
+                    min_eigenvalue.abs() <= tolerance,
+                    "duplicate-column min eigenvalue should be at the rank tolerance"
+                );
+            }
+            other => panic!("expected exact rank deficiency, got {other:?}"),
+        }
     }
 
     #[test]
@@ -7758,6 +7933,78 @@ mod estimate_policy_tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn prefit_rank_check_detects_near_degenerate_unpenalized_design() {
+        // Two near-collinear columns (alias to ~1e-7 perturbation) keep full
+        // numeric rank but blow the Gram condition number past the
+        // near-degeneracy tolerance, so the fit would grind/diverge.
+        let x = array![
+            [1.0, -2.0, -2.0 + 1e-7],
+            [1.0, -1.0, -1.0 - 1e-7],
+            [1.0, 1.0, 1.0 + 1e-7],
+            [1.0, 2.0, 2.0 - 1e-7]
+        ];
+        let w = Array1::ones(x.nrows());
+        let design = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(x));
+        let diagnostic = detect_prefit_unpenalized_rank_deficiency_in_design(
+            w.view(),
+            &design,
+            &[true, true, true],
+        )
+        .expect("rank check should stream dense design")
+        .expect("near-collinear unpenalized columns are near-degenerate");
+
+        match diagnostic {
+            PrefitRegularityDiagnostic::NearDegenerate {
+                num_unpenalized_columns,
+                condition_number,
+                tolerance,
+                column_indices,
+                ..
+            } => {
+                assert_eq!(num_unpenalized_columns, 3);
+                assert_eq!(column_indices, vec![0, 1, 2]);
+                assert!(
+                    condition_number > tolerance,
+                    "near-degenerate Gram condition number {condition_number:.3e} should exceed tolerance {tolerance:.3e}"
+                );
+            }
+            other => panic!("expected near-degenerate diagnostic, got {other:?}"),
+        }
+
+        let err = reject_prefit_unpenalized_rank_deficiency(w.view(), &design, &[])
+            .expect_err("near-degenerate unpenalized design should fail before REML/PIRLS");
+        assert!(matches!(
+            err,
+            EstimationError::PrefitNearDegenerateDesignDetected {
+                num_unpenalized_columns: 3,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn prefit_rank_check_accepts_well_conditioned_unpenalized_design() {
+        let x = array![
+            [1.0, -2.0, 4.0],
+            [1.0, -1.0, 1.0],
+            [1.0, 1.0, 1.0],
+            [1.0, 2.0, 4.0]
+        ];
+        let w = Array1::ones(x.nrows());
+        let design = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(x));
+        let diagnostic = detect_prefit_unpenalized_rank_deficiency_in_design(
+            w.view(),
+            &design,
+            &[true, true, true],
+        )
+        .expect("rank check should stream dense design");
+        assert_eq!(
+            diagnostic, None,
+            "a well-conditioned full-rank unpenalized design must not be pre-fit rejected"
+        );
     }
 
     #[test]

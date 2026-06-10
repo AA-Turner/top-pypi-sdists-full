@@ -80,6 +80,91 @@ def parse_slack_thread_url(url: str) -> tuple[str, str]:
     return channel_id, thread_ts
 
 
+def _post_message(
+    channel_id: str,
+    text: str,
+    *,
+    thread_ts: str | None = None,
+    token: str | None = None,
+) -> str:
+    """Low-level helper: post a `chat.postMessage` call and return the `ts`.
+
+    Args:
+        channel_id: Slack channel ID.
+        text: Message text in Slack mrkdwn format.
+        thread_ts: If provided, the message is posted as a thread reply.
+        token: Slack bot token. Resolved from environment if not provided.
+
+    Raises:
+        SlackAPIError: If the API call fails or returns a non-OK response.
+    """
+    if token is None:
+        token = _resolve_slack_bot_token()
+
+    payload: dict = {
+        "channel": channel_id,
+        "text": text,
+        "unfurl_links": False,
+        "unfurl_media": False,
+    }
+    if thread_ts is not None:
+        payload["thread_ts"] = thread_ts
+
+    response = requests.post(
+        "https://slack.com/api/chat.postMessage",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json; charset=utf-8",
+        },
+        json=payload,
+        timeout=30,
+    )
+
+    if not response.ok:
+        raise SlackAPIError(
+            f"Slack API HTTP error: {response.status_code} {response.text[:200]}"
+        )
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise SlackAPIError(
+            f"Slack API returned non-JSON response for {channel_id}: "
+            f"{response.text[:200]}"
+        ) from exc
+
+    if not data.get("ok"):
+        raise SlackAPIError(
+            f"Slack API error posting to {channel_id}: {data.get('error', 'unknown')}"
+        )
+
+    return data.get("ts", "")
+
+
+def post_channel_message(
+    channel_id: str,
+    text: str,
+    *,
+    token: str | None = None,
+) -> str:
+    """Post a message to a Slack channel.
+
+    Args:
+        channel_id: Slack channel ID (e.g. `C06D5RCLBV4`).
+        text: Message text in Slack mrkdwn format.
+        token: Slack bot token. Resolved from environment if not provided.
+
+    Returns:
+        The `ts` of the posted message.
+
+    Raises:
+        SlackAPIError: If the API call fails.
+    """
+    msg_ts = _post_message(channel_id, text, token=token)
+    logger.info("Posted message to channel=%s -> ts=%s", channel_id, msg_ts)
+    return msg_ts
+
+
 def post_thread_reply(
     channel_id: str,
     thread_ts: str,
@@ -101,38 +186,7 @@ def post_thread_reply(
     Raises:
         SlackAPIError: If the API call fails.
     """
-    if token is None:
-        token = _resolve_slack_bot_token()
-
-    response = requests.post(
-        "https://slack.com/api/chat.postMessage",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json; charset=utf-8",
-        },
-        json={
-            "channel": channel_id,
-            "thread_ts": thread_ts,
-            "text": message,
-            "unfurl_links": False,
-            "unfurl_media": False,
-        },
-        timeout=30,
-    )
-
-    if not response.ok:
-        raise SlackAPIError(
-            f"Slack API HTTP error: {response.status_code} {response.text[:200]}"
-        )
-
-    data = response.json()
-    if not data.get("ok"):
-        raise SlackAPIError(
-            f"Slack API error posting thread reply to {channel_id} "
-            f"(thread_ts={thread_ts}): {data.get('error', 'unknown')}"
-        )
-
-    reply_ts: str = data.get("ts", "")
+    reply_ts = _post_message(channel_id, message, thread_ts=thread_ts, token=token)
     logger.info(
         "Posted thread reply to channel=%s thread_ts=%s -> reply_ts=%s",
         channel_id,

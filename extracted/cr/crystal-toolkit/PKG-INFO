@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crystal_toolkit
-Version: 2026.4.30
+Version: 2026.6.9
 Summary: Crystal Toolkit is a web app framework from the Materials Project allowing Python
 Author-email: Matt Horton <mkhorton@lbl.gov>
 License: Crystal Toolkit Copyright (c) 2017, The Regents of the University of
@@ -55,7 +55,7 @@ Project-URL: docs, https://docs.crystaltoolkit.org
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: dash-mp-components<0.5.2,>=0.5.1rc9
+Requires-Dist: dash-mp-components>=0.5.2
 Requires-Dist: dash<4.0.0,>=2.11.0
 Requires-Dist: flask-caching
 Requires-Dist: frozendict

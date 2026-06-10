@@ -13,6 +13,7 @@ a `fastmcp.Context`, so this module has no presentation-layer dependencies.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
@@ -46,7 +47,14 @@ from airbyte_ops_mcp.cloud_admin.version_guard import (
     check_existing_pins,
 )
 from airbyte_ops_mcp.constants import USER_AGENT
+from airbyte_ops_mcp.slack_api import SlackAPIError
+from airbyte_ops_mcp.slack_posting import post_channel_message
 from airbyte_ops_mcp.tier_cache import TierFilter, get_org_tier, resolve_workspace
+
+logger = logging.getLogger(__name__)
+
+# Slack channel for version override audit trail (mirrors Retool notifications).
+_VERSION_OVERRIDE_SLACK_CHANNEL = "C06D5RCLBV4"
 
 
 @dataclass(frozen=True)
@@ -160,6 +168,54 @@ def _build_audit_reason(
     if ai_agent_session_url:
         parts.append(f"AI Session: {ai_agent_session_url}")
     return " | ".join(parts)
+
+
+def _notify_version_override_slack(
+    *,
+    action: Literal["set", "removed"],
+    scope_type: str,
+    scope_id: str,
+    connector_name: str,
+    connector_type: str,
+    version: str | None,
+    admin_user_email: str | None,
+    override_reason: str | None,
+    issue_url: str | None,
+    ai_agent_session_url: str | None,
+    override_reason_reference_url: str | None,
+) -> None:
+    """Post a version-override audit notification to the Slack channel.
+
+    Best-effort: logs and swallows errors so a Slack failure never blocks
+    the override operation itself.
+    """
+    action_label = "set" if action == "set" else "removed"
+    header = f"Devin (via MCP) {action_label} a connector version override:"
+
+    lines = [header]
+    lines.append(f">*Connector:* `{connector_name}` ({connector_type})")
+    lines.append(f">*Scope:* {scope_type} (`{scope_id}`)")
+    if version:
+        lines.append(f">*Version:* `{version}`")
+    if admin_user_email:
+        lines.append(f">*Approved by:* {admin_user_email}")
+    if override_reason:
+        lines.append(f">*Reason:* {override_reason}")
+    if issue_url:
+        lines.append(f">*Issue:* {issue_url}")
+    if override_reason_reference_url:
+        lines.append(f">*Reference URL:* {override_reason_reference_url}")
+    if ai_agent_session_url:
+        lines.append(f">*AI Session:* {ai_agent_session_url}")
+
+    text = "\n".join(lines)
+    try:
+        post_channel_message(_VERSION_OVERRIDE_SLACK_CHANNEL, text)
+    except (SlackAPIError, _requests.RequestException):
+        logger.warning(
+            "Failed to post version-override notification to Slack",
+            exc_info=True,
+        )
 
 
 def get_connector_version_info(
@@ -401,6 +457,22 @@ def set_actor_version_override(
         if tier_warning:
             message = f"{tier_warning} {message}"
 
+        # Only notify when something actually changed (skip no-op unsets).
+        if not unset or result:
+            _notify_version_override_slack(
+                action="removed" if unset else "set",
+                scope_type="actor",
+                scope_id=actor_id,
+                connector_name=f"{actor_type} ({actor_id})",
+                connector_type=actor_type,
+                version=version,
+                admin_user_email=admin_user_email,
+                override_reason=override_reason,
+                issue_url=issue_url,
+                ai_agent_session_url=ai_agent_session_url,
+                override_reason_reference_url=override_reason_reference_url,
+            )
+
         return VersionOverrideOperationResult(
             success=True,
             message=message,
@@ -568,6 +640,22 @@ def set_workspace_version_override(
         if tier_warning:
             message = f"{tier_warning} {message}"
 
+        # Only notify when something actually changed (skip no-op unsets).
+        if not unset or result:
+            _notify_version_override_slack(
+                action="removed" if unset else "set",
+                scope_type="workspace",
+                scope_id=workspace_id,
+                connector_name=connector_name,
+                connector_type=connector_type,
+                version=version,
+                admin_user_email=admin_user_email,
+                override_reason=override_reason,
+                issue_url=issue_url,
+                ai_agent_session_url=ai_agent_session_url,
+                override_reason_reference_url=override_reason_reference_url,
+            )
+
         return WorkspaceVersionOverrideResult(
             success=True,
             message=message,
@@ -721,6 +809,22 @@ def set_organization_version_override(
 
         if tier_warning:
             message = f"{tier_warning} {message}"
+
+        # Only notify when something actually changed (skip no-op unsets).
+        if not unset or result:
+            _notify_version_override_slack(
+                action="removed" if unset else "set",
+                scope_type="organization",
+                scope_id=organization_id,
+                connector_name=connector_name,
+                connector_type=connector_type,
+                version=version,
+                admin_user_email=admin_user_email,
+                override_reason=override_reason,
+                issue_url=issue_url,
+                ai_agent_session_url=ai_agent_session_url,
+                override_reason_reference_url=override_reason_reference_url,
+            )
 
         return OrganizationVersionOverrideResult(
             success=True,

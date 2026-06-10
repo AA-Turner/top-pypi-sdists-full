@@ -2,8 +2,6 @@ import re
 import sys
 from types import CodeType, FrameType, TracebackType
 
-from ..six import raise_from
-
 try:
     from __pypy__ import tproxy
 except ImportError:
@@ -32,7 +30,7 @@ class _AttrDict(dict):
         try:
             return self[name]
         except KeyError:
-            raise_from(AttributeError(name), None)
+            raise AttributeError(name) from None
 
 
 # noinspection PyPep8Naming
@@ -44,7 +42,7 @@ class TracebackParseError(Exception):
     pass
 
 
-class Code(object):
+class Code:
     """
     Class that replicates just enough of the builtin Code object to enable serialization and traceback rendering.
     """
@@ -74,7 +72,7 @@ class Code(object):
                 return getattr(self, operation)(*args, **kwargs)
 
 
-class Frame(object):
+class Frame:
     """
     Class that replicates just enough of the builtin Frame object to enable serialization and traceback rendering.
 
@@ -116,7 +114,7 @@ class Frame(object):
                 return getattr(self, operation)(*args, **kwargs)
 
 
-class Traceback(object):
+class Traceback:
     """
     Class that wraps builtin Traceback objects.
 

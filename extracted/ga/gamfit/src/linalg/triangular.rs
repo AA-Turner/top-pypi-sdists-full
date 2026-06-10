@@ -1,5 +1,10 @@
 //! Dense triangular and Cholesky-factor solves.
 //!
+//! Solving `A x = b` once `A = L Lᵀ` is split is a tidy two-pass affair: walk
+//! down the staircase resolving one unknown per step (`L y = b`), then climb
+//! back up the transpose to recover `x`. Every unknown is already pinned down
+//! by the time we reach it — no guessing, no iteration, just substitution.
+//!
 //! A single home for the forward/back substitution kernels that several solver
 //! and GPU host paths previously hand-rolled (one per call site). Given a
 //! lower-triangular Cholesky factor `L` (so the symmetric positive-definite
@@ -18,6 +23,12 @@
 //! their factor and right-hand side without ceremony.
 
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
+
+/// Diagonal magnitude below which a pivot in the guarded back-substitution is
+/// treated as a rank-deficient (zero) direction, yielding a zero draw component
+/// rather than a non-finite value. Chosen near `f64` working precision so that
+/// only genuinely degenerate conditional precisions are zeroed.
+const RANK_DEFICIENT_PIVOT_FLOOR: f64 = 1e-14;
 
 /// Validation strictness for [`cholesky_factor_in_place`].
 ///
@@ -155,7 +166,11 @@ pub(crate) fn back_substitution_lower_transpose_guarded_into(
             v -= l[[j, i]] * out[j];
         }
         let d = l[[i, i]];
-        out[i] = if d.abs() > 1e-14 { v / d } else { 0.0 };
+        out[i] = if d.abs() > RANK_DEFICIENT_PIVOT_FLOOR {
+            v / d
+        } else {
+            0.0
+        };
     }
 }
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: esp-idf-kconfig
-Version: 3.11.0
+Version: 3.11.1
 Summary: Kconfig tooling for esp-idf
 Author: Espressif Systems
 License: 
@@ -235,6 +235,7 @@ Requires-Dist: czespressif; python_version >= "3.9" and extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pexpect; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-rerunfailures; extra == "dev"
 Requires-Dist: coverage[toml]; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: esp-docs; extra == "docs"

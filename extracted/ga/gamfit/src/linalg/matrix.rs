@@ -23,6 +23,11 @@ use std::sync::{Arc, OnceLock};
 
 const MATRIX_FREE_PCG_MIN_P: usize = 2048;
 const MATRIX_FREE_PCG_REL_TOL: f64 = 1e-8;
+/// Minimum numerical ridge added to the (penalized) normal matrix before an SPD
+/// solve. Near `f64` precision: large enough to lift an exactly-singular system
+/// off zero so the factorization succeeds, small enough not to bias a
+/// well-conditioned solve. Acts as a floor on any caller-supplied `ridge_floor`.
+const SPD_SOLVE_RIDGE_FLOOR: f64 = 1e-15;
 const MATRIX_FREE_PCG_MAX_ITER: usize = 2000;
 const MAX_SINGLE_DENSE_MATERIALIZATION_BYTES: usize = 256 * 1024 * 1024;
 const MAX_PERSISTENT_SPARSE_DENSE_CACHE_BYTES: usize = 256 * 1024 * 1024;
@@ -42,240 +47,11 @@ const TENSOR_GEMM_MAX_INTERMEDIATE_BYTES: usize = 128 * 1024 * 1024; // 128 MB
 
 pub use crate::linalg::utils::PcgSolveInfo;
 
-// ---------------------------------------------------------------------------
-// Typed weight views
-//
-// Sign character of a working-weight vector is a *static* property of the
-// caller's math (Fisher-scoring vs observed-Hessian, PSD-Gram vs asymmetric
-// `X_iᵀ W X_j`, IRLS-diagonal vs derivative-correction). Encoding it in the
-// type system pushes the runtime sign-scan back to the call site where the
-// vector was constructed — one scan, at the boundary — instead of asserting
-// inside every kernel that consumes the weights.
-//
-// Conventions:
-// * `PsdWeightsView<'_>` is owned/lifetime-bound to a 1D float view whose
-//   constructor has already discharged the `w_i ≥ 0` obligation. PSD-Gram
-//   kernels (`weighted_crossprod_dense_view`, `dense_diag_gram_view`,
-//   `sparse_csr_weighted_xtwx_*`) accept only this view, so the `assert!`
-//   that previously fired inside the kernels migrates entirely to
-//   `PsdWeights::try_new`. PSD callers either go through this constructor,
-//   `from_view_unchecked` (audited site, recorded reason), or
-//   `SignedWeightsView::as_psd` (consolidating the few scan sites that
-//   still need to ask the question at runtime — e.g. PIRLS step
-//   acceptance).
-// * `SignedWeightsView<'_>` is the universal sign-honest view, freely
-//   constructable from any `&Array1<f64>` / `ArrayView1<'_, f64>` / `&[f64]`.
-//   The diagonal-Gram kernels and the shared per-row accumulator
-//   `weighted_crossprod_dense_rows` consume it — they are linear in `w` and
-//   sign-correct without a PSD precondition (and are reused by the
-//   asymmetric `X_iᵀ W X_j` path inside `BlockDesignOperator::cross_block`,
-//   where `c · X v` is genuinely signed).
-//
-// The two newtypes are zero-cost: `repr(transparent)` over `ArrayView1<'_,
-// f64>`, with `into_view()` / `as_slice()` / `len()` projections so kernel
-// bodies still see the underlying array view.
+mod sparse_hessian;
+pub use sparse_hessian::SparseHessianAccumulator;
 
-#[derive(Copy, Clone)]
-#[repr(transparent)]
-pub struct SignedWeightsView<'a>(ArrayView1<'a, f64>);
-
-impl<'a> SignedWeightsView<'a> {
-    /// Borrow any `ArrayView1<'_, f64>` as a sign-honest weight view. This is
-    /// free of obligation: signed weights are the most general case, and the
-    /// consumers (`weighted_crossprod_dense_rows`, observed-Hessian Gram
-    /// kernels, `BlockDesignOperator::cross_block`) all do sign-correct math.
-    #[inline]
-    pub fn new(view: ArrayView1<'a, f64>) -> Self {
-        Self(view)
-    }
-
-    /// Borrow an `&Array1<f64>` as a sign-honest weight view.
-    #[inline]
-    pub fn from_array(array: &'a Array1<f64>) -> Self {
-        Self(array.view())
-    }
-
-    /// Borrow a contiguous slice as a sign-honest weight view.
-    #[inline]
-    pub fn from_slice(slice: &'a [f64]) -> Self {
-        Self(ArrayView1::from(slice))
-    }
-
-    /// Underlying `ArrayView1<'_, f64>` for kernel bodies.
-    #[inline]
-    pub fn view(&self) -> ArrayView1<'a, f64> {
-        self.0
-    }
-
-    /// Length of the weight vector (= row count of the design it weights).
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    /// True iff the underlying view is empty (parity with `Array1::is_empty`).
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    /// Contiguous slice if the underlying view is in standard layout.
-    #[inline]
-    pub fn as_slice(&self) -> Option<&[f64]> {
-        self.0.as_slice()
-    }
-
-    /// Attempt to promote a signed view to a PSD view. Performs one linear
-    /// sign-scan; consolidates the runtime check at the few sites that still
-    /// need to ask the question (e.g. PIRLS step acceptance, where the same
-    /// scan was previously inlined as `weights.iter().any(|&w| w < 0.0)`).
-    #[inline]
-    pub fn as_psd(self) -> Option<PsdWeightsView<'a>> {
-        if self.0.iter().all(|&w| w >= 0.0) {
-            Some(PsdWeightsView(self.0))
-        } else {
-            None
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-#[repr(transparent)]
-pub struct PsdWeightsView<'a>(ArrayView1<'a, f64>);
-
-impl<'a> PsdWeightsView<'a> {
-    /// Construct a PSD weight view, discharging the `w_i ≥ 0` precondition
-    /// once at the call site. The previous runtime `assert!` inside
-    /// `weighted_crossprod_dense_view` / `dense_diag_gram_view` migrates entirely to this
-    /// constructor — kernels that accept `PsdWeightsView` no longer need to
-    /// recheck.
-    #[inline]
-    pub fn try_new(view: ArrayView1<'a, f64>) -> Result<Self, String> {
-        if view.iter().all(|&w| w >= 0.0) {
-            Ok(Self(view))
-        } else {
-            Err("PsdWeights::try_new: weights must be nonneg (use SignedWeightsView for observed-Hessian assembly)".to_string())
-        }
-    }
-
-    /// As `try_new`, taking an owned `&Array1<f64>`.
-    #[inline]
-    pub fn try_from_array(array: &'a Array1<f64>) -> Result<Self, String> {
-        Self::try_new(array.view())
-    }
-
-    /// Construct a PSD view *without* re-scanning. The caller asserts (in
-    /// human review) that the weights are nonneg by construction — e.g. the
-    /// canonical-link Fisher weights `μ(1-μ)` for Binomial-logit, the squared
-    /// magnitude of a vector, or the result of a prior scan that the type
-    /// system cannot reproject through the call graph (e.g. across an FFI
-    /// boundary). Pair with a comment explaining *why* the scan is redundant.
-    #[inline]
-    pub fn from_view_unchecked(view: ArrayView1<'a, f64>) -> Self {
-        Self(view)
-    }
-
-    /// Forget the PSD guarantee and degrade to the sign-honest view. The
-    /// signed kernels accept this view directly; useful when the same buffer
-    /// is consumed by both a PSD-Gram path and a sign-honest accumulator.
-    #[inline]
-    pub fn as_signed(self) -> SignedWeightsView<'a> {
-        SignedWeightsView(self.0)
-    }
-
-    /// Underlying `ArrayView1<'_, f64>` for kernel bodies.
-    #[inline]
-    pub fn view(&self) -> ArrayView1<'a, f64> {
-        self.0
-    }
-
-    /// Length of the weight vector.
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    /// True iff the underlying view is empty.
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    /// Contiguous slice if the underlying view is in standard layout.
-    #[inline]
-    pub fn as_slice(&self) -> Option<&[f64]> {
-        self.0.as_slice()
-    }
-}
-
-/// Owned, shareable counterpart to [`SignedWeightsView`].
-///
-/// A handful of long-lived hyper-derivative operator structs in
-/// `solver/reml/{hyper,unified}.rs` (`TauTauPairHyperOperator`,
-/// `ImplicitHyperOperator`, `SparseDirectionalHyperOperator`) cache the
-/// observed-Hessian working weight diagonal as `Arc<Array1<f64>>` and consume
-/// it via several distinct signed kernels inside their `mul_vec` bodies
-/// (`Wᵀ X v`, `Wᵀ X_τ v`, `Xᵀ diag(c ⊙ X_τ β̂) X v`, ...). Encoding the
-/// sign character at the struct boundary closes the residual implicit-sign
-/// gap that the function-boundary [`SignedWeightsView`] / [`PsdWeightsView`]
-/// could not reach: those views are constructed at the kernel call site, so
-/// the cached struct field is the only place the sign character could
-/// otherwise leak as untyped `Arc<Array1<f64>>`.
-///
-/// The newtype derefs to `Array1<f64>` so existing arithmetic like
-/// `&*self.w_diag * &x_v` is unchanged. `view_signed()` produces the
-/// borrowed function-boundary view when a kernel is called.
-#[derive(Clone)]
-#[repr(transparent)]
-pub struct SignedWeightsArc(Arc<Array1<f64>>);
-
-impl SignedWeightsArc {
-    /// Wrap an existing `Arc<Array1<f64>>` as a sign-honest owned weight
-    /// buffer. Cheap (Arc clone is a refcount bump); no allocation, no scan.
-    #[inline]
-    pub fn from_arc(arc: Arc<Array1<f64>>) -> Self {
-        Self(arc)
-    }
-
-    /// Take ownership of an `Array1<f64>` and wrap it in an Arc.
-    #[inline]
-    pub fn from_array(array: Array1<f64>) -> Self {
-        Self(Arc::new(array))
-    }
-
-    /// Borrow as a function-boundary [`SignedWeightsView`] for crossing into
-    /// a signed kernel (`weighted_crossprod_dense_rows`, `xt_diag_x_signed_op`,
-    /// `BlockDesignOperator::cross_block`).
-    #[inline]
-    pub fn view_signed(&self) -> SignedWeightsView<'_> {
-        SignedWeightsView::from_array(self.0.as_ref())
-    }
-
-    /// Inner `Arc<Array1<f64>>` for sites that genuinely need the shared
-    /// pointer (e.g. cloning into a sibling operator that holds its own
-    /// `SignedWeightsArc`). Prefer `Clone` on the newtype itself when the
-    /// destination accepts a `SignedWeightsArc`.
-    #[inline]
-    pub fn as_arc(&self) -> &Arc<Array1<f64>> {
-        &self.0
-    }
-}
-
-impl Deref for SignedWeightsArc {
-    type Target = Array1<f64>;
-
-    #[inline]
-    fn deref(&self) -> &Array1<f64> {
-        self.0.as_ref()
-    }
-}
-
-impl AsRef<Array1<f64>> for SignedWeightsArc {
-    #[inline]
-    fn as_ref(&self) -> &Array1<f64> {
-        self.0.as_ref()
-    }
-}
+mod weights;
+pub use weights::{PsdWeightsView, SignedWeightsArc, SignedWeightsView};
 
 /// Typed error for `src/linalg/matrix.rs` operations.  All error sites in this
 /// module construct a `MatrixError` variant; trait method bodies that still
@@ -3121,9 +2897,19 @@ impl LinearOperator for MultiChannelOperator {
                 self.nrows()
             ));
         }
+        // PSD-clamp the weights to match this operator's own `diag_xtw_x` and
+        // `compute_xtwy` semantics. Per-channel `diag_gram_view` is backed by
+        // `PsdWeights::try_new`, which rejects negative entries outright: a
+        // negative working weight would surface as a hard error here while
+        // `diag_xtw_x(weights)` succeeds, so the operator's own Gram diagonal
+        // would disagree with the diagonal of its full Gram for the same
+        // signed weights. Multi-channel Grams are always consumed as PSD
+        // preconditioners (gam#846), so clamping is the correct shared
+        // semantics.
+        let w_pos = weights.mapv(|w: f64| w.max(0.0));
         let mut diag = Array1::<f64>::zeros(self.p);
         for (i, ch) in self.channels.iter().enumerate() {
-            diag += &ch.diag_gram_view(weights.slice(s![i * n..(i + 1) * n]))?;
+            diag += &ch.diag_gram_view(w_pos.slice(s![i * n..(i + 1) * n]))?;
         }
         Ok(diag)
     }
@@ -3145,10 +2931,19 @@ impl DenseDesignOperator for MultiChannelOperator {
                 total
             ));
         }
+        // Clamp signed weights to non-negative to match this operator's
+        // `diag_xtw_x` / `diag_gram` semantics (multi-channel Grams are PSD
+        // preconditioners — gam#846). The dense per-channel
+        // `compute_xtwy_view` path is signed-safe by design (it preserves the
+        // sign through XᵀWy so observed-Hessian assembly is exact), while the
+        // sparse path clamps internally — passing raw signed weights would
+        // therefore produce different XᵀWy depending on which channels are
+        // sparse vs dense for the same operator+weights.
+        let w_pos = weights.mapv(|w: f64| w.max(0.0));
         let mut out = Array1::<f64>::zeros(self.p);
         for (i, ch) in self.channels.iter().enumerate() {
             out += &ch.compute_xtwy_view(
-                weights.slice(s![i * n..(i + 1) * n]),
+                w_pos.slice(s![i * n..(i + 1) * n]),
                 y.slice(s![i * n..(i + 1) * n]),
             )?;
         }
@@ -5514,251 +5309,6 @@ fn add_sparse_symmetric_upper(
         .map_err(|_| "add_sparse_symmetric_upper failed to assemble CSC".to_string())
 }
 
-// ── Sparse Hessian accumulator ───────────────────────────────────────────────
-
-/// Immutable symbolic sparsity pattern for a banded upper-triangle CSC Hessian.
-///
-/// Shared via `Arc` across all parallel workers so that only the mutable values
-/// buffer needs to be cloned per worker.
-struct SparseHessianSymbolic {
-    dim: usize,
-    nnz: usize,
-    /// CSC column pointers, length `dim + 1`.
-    col_ptrs: Vec<usize>,
-    /// CSC row indices (upper triangle: row ≤ col), length `nnz`.
-    row_indices: Vec<usize>,
-    /// First row index in each column.  For banded patterns the rows within a
-    /// column are contiguous, so `offset = col_ptrs[c] + (r - first_row[c])`.
-    /// Columns with zero entries store `usize::MAX`.
-    first_row: Vec<usize>,
-    /// Whether every column has strictly contiguous row indices (true for
-    /// B-spline bases).  When true, `add` is O(1) arithmetic instead of a
-    /// linear scan.
-    contiguous: bool,
-}
-
-impl SparseHessianSymbolic {
-    fn build(csrs: &[&SparseRowMat<usize, f64>], dim: usize) -> Self {
-        use std::collections::BTreeSet;
-
-        let n = csrs[0].nrows();
-        let mut rows_by_col = vec![BTreeSet::<usize>::new(); dim];
-
-        let mut cols = Vec::with_capacity(32);
-        for i in 0..n {
-            cols.clear();
-            for csr in csrs {
-                let sym = csr.symbolic();
-                let rp = sym.row_ptr();
-                let ci = sym.col_idx();
-                for p in rp[i]..rp[i + 1] {
-                    cols.push(ci[p]);
-                }
-            }
-            cols.sort_unstable();
-            cols.dedup();
-            for (ai, &ca) in cols.iter().enumerate() {
-                assert!(
-                    ca < dim,
-                    "SparseHessianSymbolic::build: column index {ca} out of Hessian dimension {dim}"
-                );
-                for &cb in &cols[ai..] {
-                    assert!(
-                        cb < dim,
-                        "SparseHessianSymbolic::build: column index {cb} out of Hessian dimension {dim}"
-                    );
-                    rows_by_col[cb].insert(ca);
-                }
-            }
-        }
-
-        // Convert column buckets to CSC.
-        let nnz = rows_by_col.iter().map(BTreeSet::len).sum();
-        let mut col_ptrs = Vec::with_capacity(dim + 1);
-        let mut row_indices = Vec::with_capacity(nnz);
-        col_ptrs.push(0);
-        for rows in rows_by_col {
-            row_indices.extend(rows);
-            col_ptrs.push(row_indices.len());
-        }
-
-        // Detect contiguity and record first_row per column.
-        let mut first_row = vec![usize::MAX; dim];
-        let mut contiguous = true;
-        for c in 0..dim {
-            let start = col_ptrs[c];
-            let end = col_ptrs[c + 1];
-            if start == end {
-                continue;
-            }
-            first_row[c] = row_indices[start];
-            // Check rows are first_row, first_row+1, ..., first_row+(end-start-1).
-            for (off, &ri) in row_indices[start..end].iter().enumerate() {
-                if ri != first_row[c] + off {
-                    contiguous = false;
-                    break;
-                }
-            }
-            if !contiguous {
-                break;
-            }
-        }
-
-        SparseHessianSymbolic {
-            dim,
-            nnz,
-            col_ptrs,
-            row_indices,
-            first_row,
-            contiguous,
-        }
-    }
-}
-
-/// Pre-computed upper-triangle CSC sparsity pattern + flat values buffer for
-/// assembling `X^T diag(w) X` directly in sparse form.
-///
-/// Designed for B-spline / local-support bases where the Hessian is banded and
-/// the dense `p×p` representation wastes most of its storage.  The pattern is
-/// computed once from the design matrices; each parallel worker then owns a
-/// cheap values buffer (the symbolic structure is `Arc`-shared) and accumulates
-/// with `O(nnz)` memory instead of `O(p²)`.
-pub struct SparseHessianAccumulator {
-    sym: Arc<SparseHessianSymbolic>,
-    /// Values buffer, length `sym.nnz`. Crate-visible for reductions; callers
-    /// must not resize it because unchecked accumulation relies on this invariant.
-    pub(crate) values: Vec<f64>,
-}
-
-// Manual Clone: only the values buffer is duplicated; the symbolic pattern is
-// Arc-shared.
-impl Clone for SparseHessianAccumulator {
-    fn clone(&self) -> Self {
-        SparseHessianAccumulator {
-            sym: Arc::clone(&self.sym),
-            values: self.values.clone(),
-        }
-    }
-}
-
-impl SparseHessianAccumulator {
-    // ── pattern builders ─────────────────────────────────────────────
-
-    /// Build the symbolic upper-triangle pattern of `X^T X` from a single
-    /// sparse CSR design matrix.
-    pub fn from_single_csr(csr: &SparseRowMat<usize, f64>, dim: usize) -> Self {
-        Self::from_multi_csr(&[csr], dim)
-    }
-
-    /// Build the symbolic upper-triangle pattern of the block Hessian produced
-    /// by multiple sparse CSR designs that share the same column space.
-    pub fn from_multi_csr(csrs: &[&SparseRowMat<usize, f64>], dim: usize) -> Self {
-        let sym = Arc::new(SparseHessianSymbolic::build(csrs, dim));
-        let nnz = sym.nnz;
-        SparseHessianAccumulator {
-            sym,
-            values: vec![0.0; nnz],
-        }
-    }
-
-    // ── accumulation ─────────────────────────────────────────────────
-
-    /// Add `val` to the upper-triangle entry `(r, c)`.
-    ///
-    /// **Caller must ensure `r <= c`.**  This method does NOT canonicalize —
-    /// it is the caller's responsibility to only emit upper-triangle pairs.
-    /// This avoids the double-counting bug that arises when both `(ca, cb)`
-    /// and `(cb, ca)` are mapped to the same upper-triangle slot.
-    #[inline(always)]
-    pub fn add_upper(&mut self, r: usize, c: usize, val: f64) {
-        assert!(r <= c, "add_upper requires r <= c, got ({r}, {c})");
-        let s = &*self.sym;
-        if s.contiguous {
-            // O(1) direct-index path: rows within each column are contiguous
-            // integers starting at first_row[c], so the offset is arithmetic.
-            let start = s.col_ptrs[c];
-            let end = s.col_ptrs[c + 1];
-            let offset = r.wrapping_sub(s.first_row[c]);
-            assert!(
-                r >= s.first_row[c] && offset < end - start,
-                "add_upper contiguous OOB"
-            );
-            let idx = start + offset;
-            // SAFETY: the assert! immediately above proves idx is in
-            // start..end, and SparseHessianAccumulator preserves values.len()
-            // == s.nnz with end <= s.nnz.
-            unsafe {
-                *self.values.get_unchecked_mut(idx) += val;
-            }
-        } else {
-            // Fallback linear scan for non-contiguous patterns.
-            let start = s.col_ptrs[c];
-            let end = s.col_ptrs[c + 1];
-            let slice = &s.row_indices[start..end];
-            for (off, &ri) in slice.iter().enumerate() {
-                if ri == r {
-                    // SAFETY: off comes from row_indices[start..end], so start+off < end.
-                    // The values.len() == s.nnz invariant and end <= s.nnz make the slot valid.
-                    unsafe {
-                        *self.values.get_unchecked_mut(start + off) += val;
-                    }
-                    return;
-                }
-            }
-            assert!(
-                false,
-                "SparseHessianAccumulator::add_upper: ({r}, {c}) not in pattern"
-            );
-        }
-    }
-
-    /// Element-wise `self.values += other`.
-    #[inline]
-    pub fn add_values(&mut self, other: &[f64]) {
-        assert_eq!(self.values.len(), other.len());
-        for (a, &b) in self.values.iter_mut().zip(other.iter()) {
-            *a += b;
-        }
-    }
-
-    /// Create a zero-valued copy sharing the same symbolic structure.
-    pub fn empty_clone(&self) -> Self {
-        SparseHessianAccumulator {
-            sym: Arc::clone(&self.sym),
-            values: vec![0.0; self.values.len()],
-        }
-    }
-
-    // ── finalization ─────────────────────────────────────────────────
-
-    /// Consume the accumulator and return a `SparseColMat` (upper-triangle).
-    ///
-    /// Constructs the CSC matrix directly from the symbolic structure — no
-    /// triplet roundtrip.  If this is the last reference to the symbolic
-    /// pattern, it is moved rather than cloned.
-    pub fn into_sparse_col_mat(self) -> SparseColMat<usize, f64> {
-        use faer::sparse::SymbolicSparseColMat;
-
-        // Try to take ownership of the symbolic data (avoids clone when the
-        // parallel reduction has already discarded all other Arcs).
-        let (col_ptrs, row_indices, dim) = match Arc::try_unwrap(self.sym) {
-            Ok(owned) => (owned.col_ptrs, owned.row_indices, owned.dim),
-            Err(shared) => (
-                shared.col_ptrs.clone(),
-                shared.row_indices.clone(),
-                shared.dim,
-            ),
-        };
-        let symbolic = {
-            // col_ptrs is dim+1 monotone 0..row_indices.len(); ca/cb assert row<dim.
-            // BTreeSet iter ⇒ each column sorted + duplicate-free.
-            // SAFETY: invariants enforced by the assertions above.
-            unsafe { SymbolicSparseColMat::new_unchecked(dim, dim, col_ptrs, None, row_indices) }
-        };
-        SparseColMat::new(symbolic, self.values)
-    }
-}
-
 /// A generic abstraction over a factorized symmetric positive-definite (or regularized) system.
 pub trait FactorizedSystem: Send + Sync {
     /// Solve $H x = b$ for a single right-hand side.
@@ -5971,7 +5521,7 @@ pub trait LinearOperator {
             weights,
             rhs,
             penalty,
-            1e-15,
+            SPD_SOLVE_RIDGE_FLOOR,
             RidgePolicy::explicit_stabilization_pospart(),
         )
     }
@@ -5991,7 +5541,7 @@ pub trait LinearOperator {
             ));
         }
         let baseridge = if ridge_policy.include_laplacehessian {
-            ridge_floor.max(1e-15)
+            ridge_floor.max(SPD_SOLVE_RIDGE_FLOOR)
         } else {
             0.0
         };
@@ -7735,7 +7285,7 @@ impl DesignMatrix {
             weights,
             rhs,
             penalty,
-            ridge_floor.max(1e-15),
+            ridge_floor.max(SPD_SOLVE_RIDGE_FLOOR),
         )
     }
 
@@ -7751,7 +7301,7 @@ impl DesignMatrix {
             weights,
             rhs,
             penalty,
-            ridge_floor.max(1e-15),
+            ridge_floor.max(SPD_SOLVE_RIDGE_FLOOR),
         )
     }
 
@@ -7841,9 +7391,8 @@ mod tests {
         ChunkedKernelDesignOperator, CoefficientTransformOperator, DenseDesignMatrix,
         DenseDesignOperator, DesignMatrix, EmbeddedColumnBlock, MultiChannelOperator,
         PsdWeightsView, ReparamOperator, ResidualisedDesignOperator, RowwiseKroneckerOperator,
-        SignedWeightsView, SparseDesignMatrix, SparseHessianAccumulator, dense_matvec,
-        dense_operator_to_dense_by_chunks, dense_transpose_matvec,
-        dense_transpose_weighted_response, streaming_sparse_csc_xt_diag_x,
+        SignedWeightsView, SparseDesignMatrix, dense_matvec, dense_operator_to_dense_by_chunks,
+        dense_transpose_matvec, dense_transpose_weighted_response, streaming_sparse_csc_xt_diag_x,
         weighted_crossprod_dense_view,
     };
     use crate::linalg::matrix::LinearOperator;
@@ -8147,25 +7696,6 @@ mod tests {
         assert_eq!(operator.ncols(), 3);
         let chunk = operator.row_chunk_combined(0..2);
         assert_eq!(chunk.dim(), (2, 3));
-    }
-
-    #[test]
-    fn sparse_hessian_pattern_is_column_major_csc() {
-        let sparse = SparseColMat::try_new_from_triplets(
-            1,
-            3,
-            &[
-                Triplet::new(0, 0, 1.0),
-                Triplet::new(0, 1, 1.0),
-                Triplet::new(0, 2, 1.0),
-            ],
-        )
-        .expect("sparse column matrix");
-        let csr = sparse.to_row_major().expect("csr conversion");
-        let accumulator = SparseHessianAccumulator::from_single_csr(&csr, 3);
-
-        assert_eq!(accumulator.sym.col_ptrs, vec![0, 1, 3, 6]);
-        assert_eq!(accumulator.sym.row_indices, vec![0, 0, 1, 0, 1, 2]);
     }
 
     #[test]

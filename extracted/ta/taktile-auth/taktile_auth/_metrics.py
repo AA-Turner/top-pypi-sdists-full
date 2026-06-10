@@ -1,19 +1,20 @@
 import typing as t
 
-_emit: t.Optional[t.Callable[[str, float, t.Dict[str, str]], None]] = None
+_emit: t.Optional[t.Callable[[str, float, t.Dict[str, str], str], None]] = None
 
 try:
     from aws_lambda_powertools.metrics import MetricUnit, single_metric
 
     def _powertools_emit(
         name: str,
-        duration_ms: float,
+        value: float,
         dimensions: t.Dict[str, str],
+        unit: str,
     ) -> None:
         with single_metric(
             name=name,
-            unit=MetricUnit.Milliseconds,
-            value=duration_ms,
+            unit=MetricUnit(unit),
+            value=value,
             namespace="TaktileAuth",
         ) as metric:
             for k, v in dimensions.items():
@@ -26,8 +27,15 @@ except ImportError:  # pragma: no cover
 
 def emit_metric(
     name: str,
-    duration_ms: float,
+    value: float,
     dimensions: t.Dict[str, str],
+    unit: str = "Milliseconds",
 ) -> None:
+    """Emit a CloudWatch metric via aws-lambda-powertools.
+
+    ``unit`` must be one of the CloudWatch metric unit strings
+    (``"Count"``, ``"Milliseconds"``, ``"Seconds"``, ``"Bytes"``, ...).
+    No-op when aws-lambda-powertools isn't importable.
+    """
     if _emit is not None:
-        _emit(name, duration_ms, dimensions)
+        _emit(name, value, dimensions, unit)

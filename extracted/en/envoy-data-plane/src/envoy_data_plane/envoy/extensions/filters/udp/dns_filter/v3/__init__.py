@@ -64,6 +64,21 @@ class DnsFilterConfig(betterproto2.Message):
     2. Otherwise, uses the default c-ares DNS resolver.
     """
 
+    access_log: "list[_____config__accesslog__v3__.AccessLog]" = betterproto2.field(
+        4, betterproto2.TYPE_MESSAGE, repeated=True
+    )
+    """
+    Configuration for :ref:`access logs <arch_overview_access_logs>`
+    emitted by the DNS filter for each DNS query received.
+    Supports custom format commands for DNS-specific attributes:
+    - ``QUERY_NAME``: The DNS query name being resolved
+    - ``QUERY_TYPE``: The DNS query type (A, AAAA, SRV, etc.)
+    - ``QUERY_CLASS``: The DNS query class
+    - ``ANSWER_COUNT``: Number of answers in the response
+    - ``RESPONSE_CODE``: DNS response code
+    - ``PARSE_STATUS``: Whether the query was successfully parsed
+    """
+
 
 default_message_pool.register_message(
     "envoy.extensions.filters.udp.dns_filter.v3", "DnsFilterConfig", DnsFilterConfig
@@ -207,5 +222,6 @@ default_message_pool.register_message(
 
 
 from .......google import protobuf as ______google__protobuf__
+from ......config.accesslog import v3 as _____config__accesslog__v3__
 from ......config.core import v3 as _____config__core__v3__
 from ......data.dns import v3 as _____data__dns__v3__

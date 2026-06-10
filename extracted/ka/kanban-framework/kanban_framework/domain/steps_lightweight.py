@@ -11,12 +11,21 @@ LIGHTWEIGHT_STEPS: dict[str, list[StepDef]] = {
 参考文件：$task_dir/task.json（任务标题和描述）
 如果 task.json 中有 biz_tag 字段，所有知识库查询命令必须带 --biz $biz_tag 参数
 
-执行步骤：
+执行步骤（多策略检索，确保覆盖全面）：
 1. 读取 task.json 获取任务标题和描述
-2. kanban knowledge hybrid "<任务标题+描述关键词>" --biz $biz_tag --json --summary-only
-3. 对搜索结果逐一判断相关性，筛选出 medium/high 的条目
-4. 如无匹配，kanban knowledge search "<关键词>" --biz $biz_tag --intent experience_reuse --json --summary-only
-5. 仍无匹配则记录原因（如：全新领域、无相关经验）
+2. 混合检索：kanban knowledge hybrid "<任务标题+描述关键词>" --biz $biz_tag --json --summary-only
+3. 踩坑预警：kanban knowledge search "<关键词> 踩坑 注意事项 错误" --biz $biz_tag --intent pitfall_check --json --summary-only
+4. 流程规范：kanban knowledge search "<领域关键词> 流程 规范 开发约定 执行步骤" --biz $biz_tag --json --summary-only
+5. 编码规范：kanban knowledge search "<领域关键词> 代码规范 命名 架构 模式 best-practice" --biz $biz_tag --json --summary-only
+6. 如以上无匹配，kanban knowledge semantic "<任务描述>" --json --summary-only 兜底
+7. 如仍无匹配则记录原因（如：全新领域、无相关经验）
+
+筛选规则：
+- 从所有结果中去重合并，保留 relevance > 0.3 的条目
+- 按类别整理到 knowledge_used.json：
+  { "matched": [{"id": "K001", "title": "...", "relevance": "high", "category": "踩坑/流程/编码/经验"}], "no_match_reason": "..." }
+- 筛选出 medium/high 的条目作为 matched
+- 最多保留 8 条（最相关的）
 
 $knowledge_protocol
 

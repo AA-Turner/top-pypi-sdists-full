@@ -47,7 +47,7 @@ if is_accelerate_available():
     from accelerate.hooks import remove_hook_from_module
 
 if is_gptqmodel_available():
-    from gptqmodel import BACKEND, QuantizeConfig, exllama_set_max_input_length
+    from gptqmodel import BACKEND, QuantizeConfig
     from gptqmodel.quantization import FORMAT, GPTQ, METHOD
     from gptqmodel.utils.importer import hf_select_quant_linear_v2
     from gptqmodel.utils.model import hf_convert_gptq_v1_to_v2_format, hf_convert_gptq_v2_to_v1_format
@@ -669,8 +669,18 @@ class GPTQQuantizer(object):
         model.quantize_config = StoreAttr()
         model.quantize_config.desc_act = self.desc_act
         model = gptq_post_init(model, use_act_order=self.desc_act)
-        if self.desc_act and self.backend == BACKEND.EXLLAMA_V1 and self.max_input_length is not None:
+        # Keep this compatibility guard for older gptqmodel versions where EXLLAMA_V1 still exists.
+        # This branch can be removed once we bump the minimum gptqmodel version and drop v1 support.
+        if (
+            hasattr(BACKEND, "EXLLAMA_V1")
+            and self.backend == BACKEND.EXLLAMA_V1
+            and self.desc_act
+            and self.max_input_length is not None
+        ):
+            from gptqmodel import exllama_set_max_input_length
+
             model = exllama_set_max_input_length(model, self.max_input_length)
+
         return model
 
     def pack_model(
@@ -691,7 +701,13 @@ class GPTQQuantizer(object):
         layers = get_layers(model)
         layers = {n: layers[n] for n in quantizers}
 
-        self.select_quant_linear(device_map=model.hf_device_map, pack=True)
+        if hasattr(model, "hf_device_map"):
+            device_map = model.hf_device_map
+        else:
+            # Transformers: skip accelerate hooks when device_map resolves to a single device
+            device_map = {"": next(model.parameters()).device}
+
+        self.select_quant_linear(device_map=device_map, pack=True)
 
         self._replace_by_quant_layers(model, quantizers)
         qlayers = get_layers(model, [self.quant_linear])

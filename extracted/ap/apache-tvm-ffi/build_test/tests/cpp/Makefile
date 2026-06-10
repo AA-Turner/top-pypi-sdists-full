@@ -185,6 +185,30 @@ tvm_ffi_tests/fast:
 	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build
 .PHONY : tvm_ffi_tests/fast
 
+extra/test_access_path_repr.o: extra/test_access_path_repr.cc.o
+.PHONY : extra/test_access_path_repr.o
+
+# target to build an object file
+extra/test_access_path_repr.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_access_path_repr.cc.o
+.PHONY : extra/test_access_path_repr.cc.o
+
+extra/test_access_path_repr.i: extra/test_access_path_repr.cc.i
+.PHONY : extra/test_access_path_repr.i
+
+# target to preprocess a source file
+extra/test_access_path_repr.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_access_path_repr.cc.i
+.PHONY : extra/test_access_path_repr.cc.i
+
+extra/test_access_path_repr.s: extra/test_access_path_repr.cc.s
+.PHONY : extra/test_access_path_repr.s
+
+# target to generate assembly for a file
+extra/test_access_path_repr.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_access_path_repr.cc.s
+.PHONY : extra/test_access_path_repr.cc.s
+
 extra/test_c_env_api.o: extra/test_c_env_api.cc.o
 .PHONY : extra/test_c_env_api.o
 
@@ -208,6 +232,30 @@ extra/test_c_env_api.s: extra/test_c_env_api.cc.s
 extra/test_c_env_api.cc.s:
 	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_c_env_api.cc.s
 .PHONY : extra/test_c_env_api.cc.s
+
+extra/test_dataclass.o: extra/test_dataclass.cc.o
+.PHONY : extra/test_dataclass.o
+
+# target to build an object file
+extra/test_dataclass.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_dataclass.cc.o
+.PHONY : extra/test_dataclass.cc.o
+
+extra/test_dataclass.i: extra/test_dataclass.cc.i
+.PHONY : extra/test_dataclass.i
+
+# target to preprocess a source file
+extra/test_dataclass.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_dataclass.cc.i
+.PHONY : extra/test_dataclass.cc.i
+
+extra/test_dataclass.s: extra/test_dataclass.cc.s
+.PHONY : extra/test_dataclass.s
+
+# target to generate assembly for a file
+extra/test_dataclass.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_dataclass.cc.s
+.PHONY : extra/test_dataclass.cc.s
 
 extra/test_json_parser.o: extra/test_json_parser.cc.o
 .PHONY : extra/test_json_parser.o
@@ -328,6 +376,30 @@ extra/test_structural_key.s: extra/test_structural_key.cc.s
 extra/test_structural_key.cc.s:
 	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_structural_key.cc.s
 .PHONY : extra/test_structural_key.cc.s
+
+extra/test_visit_error_context.o: extra/test_visit_error_context.cc.o
+.PHONY : extra/test_visit_error_context.o
+
+# target to build an object file
+extra/test_visit_error_context.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_visit_error_context.cc.o
+.PHONY : extra/test_visit_error_context.cc.o
+
+extra/test_visit_error_context.i: extra/test_visit_error_context.cc.i
+.PHONY : extra/test_visit_error_context.i
+
+# target to preprocess a source file
+extra/test_visit_error_context.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_visit_error_context.cc.i
+.PHONY : extra/test_visit_error_context.cc.i
+
+extra/test_visit_error_context.s: extra/test_visit_error_context.cc.s
+.PHONY : extra/test_visit_error_context.s
+
+# target to generate assembly for a file
+extra/test_visit_error_context.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/extra/test_visit_error_context.cc.s
+.PHONY : extra/test_visit_error_context.cc.s
 
 test_any.o: test_any.cc.o
 .PHONY : test_any.o
@@ -895,9 +967,15 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... test"
 	@echo "... tvm_ffi_tests"
+	@echo "... extra/test_access_path_repr.o"
+	@echo "... extra/test_access_path_repr.i"
+	@echo "... extra/test_access_path_repr.s"
 	@echo "... extra/test_c_env_api.o"
 	@echo "... extra/test_c_env_api.i"
 	@echo "... extra/test_c_env_api.s"
+	@echo "... extra/test_dataclass.o"
+	@echo "... extra/test_dataclass.i"
+	@echo "... extra/test_dataclass.s"
 	@echo "... extra/test_json_parser.o"
 	@echo "... extra/test_json_parser.i"
 	@echo "... extra/test_json_parser.s"
@@ -913,6 +991,9 @@ help:
 	@echo "... extra/test_structural_key.o"
 	@echo "... extra/test_structural_key.i"
 	@echo "... extra/test_structural_key.s"
+	@echo "... extra/test_visit_error_context.o"
+	@echo "... extra/test_visit_error_context.i"
+	@echo "... extra/test_visit_error_context.s"
 	@echo "... test_any.o"
 	@echo "... test_any.i"
 	@echo "... test_any.s"

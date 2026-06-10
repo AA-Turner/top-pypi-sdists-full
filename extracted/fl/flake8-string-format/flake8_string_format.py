@@ -11,9 +11,6 @@ import sys
 from string import Formatter
 
 
-__version__ = '0.3.0'
-
-
 class TextVisitor(ast.NodeVisitor):
 
     """
@@ -34,16 +31,33 @@ class TextVisitor(ast.NodeVisitor):
         self.nodes += [node]
 
     def is_base_string(self, node):
-        typ = (ast.Str,)
-        if sys.version_info[0] > 2:
-            typ += (ast.Bytes,)
-        return isinstance(node, typ)
+        # Python 3.14 removed ast.Str/ast.Bytes, but older versions still use
+        # or expose them, so accept modern Constant nodes first and then fall
+        # back to whichever legacy node types still exist on this interpreter.
+        if isinstance(node, ast.Constant):
+            return isinstance(node.value, (str, bytes))
+
+        types = []
+        if hasattr(ast, 'Str'):
+            types.append(ast.Str)
+        if sys.version_info[0] > 2 and hasattr(ast, 'Bytes'):
+            types.append(ast.Bytes)
+
+        return isinstance(node, tuple(types))
 
     def visit_Str(self, node):
+        # Constant with Python 3.8 uses the value-property
+        node.value = node.s
         self._add_node(node)
 
     def visit_Bytes(self, node):
+        # Constant with Python 3.8 uses the value-property
+        node.value = node.s
         self._add_node(node)
+
+    def visit_Constant(self, node):
+        if type(node.value) in (str, bytes):
+            self._add_node(node)
 
     def _visit_definition(self, node):
         # Manually traverse class or function definition
@@ -103,17 +117,16 @@ class StringFormatChecker(object):
     _FORMATTER = Formatter()
     FIELD_REGEX = re.compile(r'^((?:\s|.)*?)(\..*|\[.*\])?$')
 
-    version = __version__
     name = 'flake8-string-format'
 
     ERRORS = {
-        101: 'format string does contain unindexed parameters',
-        102: 'docstring does contain unindexed parameters',
-        103: 'other string does contain unindexed parameters',
-        201: 'format call uses too large index ({idx})',
+        101: 'format string contains unindexed parameters',
+        102: 'docstring contains unindexed parameters',
+        103: 'other string contains unindexed parameters',
+        201: 'format call index too large ({idx})',
         202: 'format call uses missing keyword ({kw})',
-        203: 'format call uses keyword arguments but no named entries',
-        204: 'format call uses variable arguments but no numbered entries',
+        203: 'format call uses keyword arguments but there are no keyword entries',
+        204: 'format call uses indexed arguments but there are no indexed entries',
         205: 'format call uses implicit and explicit indexes together',
         301: 'format call provides unused index ({idx})',
         302: 'format call provides unused keyword ({kw})',
@@ -131,7 +144,7 @@ class StringFormatChecker(object):
             # Due to https://bugs.python.org/issue21295 we cannot use the
             # Call object
             node = node.func.value
-        msg = 'P{0} {1}'.format(code, self.ERRORS[code])
+        msg = 'FMT{0} {1}'.format(code, self.ERRORS[code])
         msg = msg.format(**params)
         return node.lineno, node.col_offset, msg, type(self)
 
@@ -162,7 +175,7 @@ class StringFormatChecker(object):
         visitor.visit(self.tree)
         assert not (set(visitor.calls) - set(visitor.nodes))
         for node in visitor.nodes:
-            text = node.s
+            text = node.value
             if sys.version_info[0] > 2 and isinstance(text, bytes):
                 try:
                     # TODO: Maybe decode using file encoding?

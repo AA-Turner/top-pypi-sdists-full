@@ -12,6 +12,12 @@ Usage::
 
     from mypy_boto3_odb.client import OdbClient
     from mypy_boto3_odb.paginator import (
+        ListAutonomousDatabaseBackupsPaginator,
+        ListAutonomousDatabaseCharacterSetsPaginator,
+        ListAutonomousDatabaseClonesPaginator,
+        ListAutonomousDatabasePeersPaginator,
+        ListAutonomousDatabaseVersionsPaginator,
+        ListAutonomousDatabasesPaginator,
         ListAutonomousVirtualMachinesPaginator,
         ListCloudAutonomousVmClustersPaginator,
         ListCloudExadataInfrastructuresPaginator,
@@ -28,6 +34,12 @@ Usage::
     session = Session()
     client: OdbClient = session.client("odb")
 
+    list_autonomous_database_backups_paginator: ListAutonomousDatabaseBackupsPaginator = client.get_paginator("list_autonomous_database_backups")
+    list_autonomous_database_character_sets_paginator: ListAutonomousDatabaseCharacterSetsPaginator = client.get_paginator("list_autonomous_database_character_sets")
+    list_autonomous_database_clones_paginator: ListAutonomousDatabaseClonesPaginator = client.get_paginator("list_autonomous_database_clones")
+    list_autonomous_database_peers_paginator: ListAutonomousDatabasePeersPaginator = client.get_paginator("list_autonomous_database_peers")
+    list_autonomous_database_versions_paginator: ListAutonomousDatabaseVersionsPaginator = client.get_paginator("list_autonomous_database_versions")
+    list_autonomous_databases_paginator: ListAutonomousDatabasesPaginator = client.get_paginator("list_autonomous_databases")
     list_autonomous_virtual_machines_paginator: ListAutonomousVirtualMachinesPaginator = client.get_paginator("list_autonomous_virtual_machines")
     list_cloud_autonomous_vm_clusters_paginator: ListCloudAutonomousVmClustersPaginator = client.get_paginator("list_cloud_autonomous_vm_clusters")
     list_cloud_exadata_infrastructures_paginator: ListCloudExadataInfrastructuresPaginator = client.get_paginator("list_cloud_exadata_infrastructures")
@@ -50,6 +62,18 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    ListAutonomousDatabaseBackupsInputPaginateTypeDef,
+    ListAutonomousDatabaseBackupsOutputTypeDef,
+    ListAutonomousDatabaseCharacterSetsInputPaginateTypeDef,
+    ListAutonomousDatabaseCharacterSetsOutputTypeDef,
+    ListAutonomousDatabaseClonesInputPaginateTypeDef,
+    ListAutonomousDatabaseClonesOutputTypeDef,
+    ListAutonomousDatabasePeersInputPaginateTypeDef,
+    ListAutonomousDatabasePeersOutputTypeDef,
+    ListAutonomousDatabasesInputPaginateTypeDef,
+    ListAutonomousDatabasesOutputTypeDef,
+    ListAutonomousDatabaseVersionsInputPaginateTypeDef,
+    ListAutonomousDatabaseVersionsOutputTypeDef,
     ListAutonomousVirtualMachinesInputPaginateTypeDef,
     ListAutonomousVirtualMachinesOutputTypeDef,
     ListCloudAutonomousVmClustersInputPaginateTypeDef,
@@ -80,6 +104,12 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "ListAutonomousDatabaseBackupsPaginator",
+    "ListAutonomousDatabaseCharacterSetsPaginator",
+    "ListAutonomousDatabaseClonesPaginator",
+    "ListAutonomousDatabasePeersPaginator",
+    "ListAutonomousDatabaseVersionsPaginator",
+    "ListAutonomousDatabasesPaginator",
     "ListAutonomousVirtualMachinesPaginator",
     "ListCloudAutonomousVmClustersPaginator",
     "ListCloudExadataInfrastructuresPaginator",
@@ -92,6 +122,124 @@ __all__ = (
     "ListOdbPeeringConnectionsPaginator",
     "ListSystemVersionsPaginator",
 )
+
+if TYPE_CHECKING:
+    _ListAutonomousDatabaseBackupsPaginatorBase = Paginator[
+        ListAutonomousDatabaseBackupsOutputTypeDef
+    ]
+else:
+    _ListAutonomousDatabaseBackupsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAutonomousDatabaseBackupsPaginator(_ListAutonomousDatabaseBackupsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListAutonomousDatabaseBackups.html#Odb.Paginator.ListAutonomousDatabaseBackups)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listautonomousdatabasebackupspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAutonomousDatabaseBackupsInputPaginateTypeDef]
+    ) -> PageIterator[ListAutonomousDatabaseBackupsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListAutonomousDatabaseBackups.html#Odb.Paginator.ListAutonomousDatabaseBackups.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listautonomousdatabasebackupspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAutonomousDatabaseCharacterSetsPaginatorBase = Paginator[
+        ListAutonomousDatabaseCharacterSetsOutputTypeDef
+    ]
+else:
+    _ListAutonomousDatabaseCharacterSetsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAutonomousDatabaseCharacterSetsPaginator(
+    _ListAutonomousDatabaseCharacterSetsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListAutonomousDatabaseCharacterSets.html#Odb.Paginator.ListAutonomousDatabaseCharacterSets)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listautonomousdatabasecharactersetspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAutonomousDatabaseCharacterSetsInputPaginateTypeDef]
+    ) -> PageIterator[ListAutonomousDatabaseCharacterSetsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListAutonomousDatabaseCharacterSets.html#Odb.Paginator.ListAutonomousDatabaseCharacterSets.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listautonomousdatabasecharactersetspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAutonomousDatabaseClonesPaginatorBase = Paginator[
+        ListAutonomousDatabaseClonesOutputTypeDef
+    ]
+else:
+    _ListAutonomousDatabaseClonesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAutonomousDatabaseClonesPaginator(_ListAutonomousDatabaseClonesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListAutonomousDatabaseClones.html#Odb.Paginator.ListAutonomousDatabaseClones)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listautonomousdatabaseclonespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAutonomousDatabaseClonesInputPaginateTypeDef]
+    ) -> PageIterator[ListAutonomousDatabaseClonesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListAutonomousDatabaseClones.html#Odb.Paginator.ListAutonomousDatabaseClones.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listautonomousdatabaseclonespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAutonomousDatabasePeersPaginatorBase = Paginator[ListAutonomousDatabasePeersOutputTypeDef]
+else:
+    _ListAutonomousDatabasePeersPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAutonomousDatabasePeersPaginator(_ListAutonomousDatabasePeersPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListAutonomousDatabasePeers.html#Odb.Paginator.ListAutonomousDatabasePeers)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listautonomousdatabasepeerspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAutonomousDatabasePeersInputPaginateTypeDef]
+    ) -> PageIterator[ListAutonomousDatabasePeersOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListAutonomousDatabasePeers.html#Odb.Paginator.ListAutonomousDatabasePeers.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listautonomousdatabasepeerspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAutonomousDatabaseVersionsPaginatorBase = Paginator[
+        ListAutonomousDatabaseVersionsOutputTypeDef
+    ]
+else:
+    _ListAutonomousDatabaseVersionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAutonomousDatabaseVersionsPaginator(_ListAutonomousDatabaseVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListAutonomousDatabaseVersions.html#Odb.Paginator.ListAutonomousDatabaseVersions)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listautonomousdatabaseversionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAutonomousDatabaseVersionsInputPaginateTypeDef]
+    ) -> PageIterator[ListAutonomousDatabaseVersionsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListAutonomousDatabaseVersions.html#Odb.Paginator.ListAutonomousDatabaseVersions.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listautonomousdatabaseversionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAutonomousDatabasesPaginatorBase = Paginator[ListAutonomousDatabasesOutputTypeDef]
+else:
+    _ListAutonomousDatabasesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAutonomousDatabasesPaginator(_ListAutonomousDatabasesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListAutonomousDatabases.html#Odb.Paginator.ListAutonomousDatabases)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listautonomousdatabasespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAutonomousDatabasesInputPaginateTypeDef]
+    ) -> PageIterator[ListAutonomousDatabasesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/odb/paginator/ListAutonomousDatabases.html#Odb.Paginator.ListAutonomousDatabases.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_odb/paginators/#listautonomousdatabasespaginator)
+        """
 
 if TYPE_CHECKING:
     _ListAutonomousVirtualMachinesPaginatorBase = Paginator[

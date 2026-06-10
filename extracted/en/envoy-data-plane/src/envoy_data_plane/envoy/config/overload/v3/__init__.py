@@ -13,6 +13,7 @@ __all__ = (
     "ScaleTimersOverloadActionConfigScaleTimer",
     "ScaleTimersOverloadActionConfigTimerType",
     "ScaledTrigger",
+    "ShrinkHeapConfig",
     "ThresholdTrigger",
     "Trigger",
 )
@@ -367,6 +368,44 @@ default_message_pool.register_message(
     "envoy.config.overload.v3",
     "ScaleTimersOverloadActionConfig.ScaleTimer",
     ScaleTimersOverloadActionConfigScaleTimer,
+)
+
+
+@dataclass(eq=False, repr=False, config={"extra": "forbid"})
+class ShrinkHeapConfig(betterproto2.Message):
+    """
+    Typed configuration for the "envoy.overload_actions.shrink_heap" action.
+    See :ref:`the docs <config_overload_manager_shrink_heap>` for an example of how to configure
+    this action.
+    """
+
+    timer_interval: "datetime.timedelta | None" = betterproto2.field(
+        1,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ____google__protobuf__.Duration,
+        optional=True,
+    )
+    """
+    The interval at which shrink heap action checks if memory should be released.
+    If not specified, defaults to 10 seconds.
+    """
+
+    max_unfreed_memory_bytes: "int | None" = betterproto2.field(
+        2,
+        betterproto2.TYPE_MESSAGE,
+        unwrap=lambda: ____google__protobuf__.UInt64Value,
+        optional=True,
+    )
+    """
+    Maximum amount of unfreed memory in bytes to keep before releasing memory
+    back to the system. This is used as the threshold passed to
+    tcmalloc::MallocExtension::ReleaseMemoryToSystem().
+    If not specified, defaults to 104857600 (100MB).
+    """
+
+
+default_message_pool.register_message(
+    "envoy.config.overload.v3", "ShrinkHeapConfig", ShrinkHeapConfig
 )
 
 

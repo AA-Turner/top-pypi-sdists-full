@@ -1,3 +1,4 @@
+import importlib
 import os
 import tempfile
 import threading
@@ -7,12 +8,16 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from safetensors import SafetensorError, safe_open, serialize
+from safetensors import SafetensorError, TensorSpec, safe_open, serialize
 from safetensors.numpy import load, load_file, save, save_file
 from safetensors.torch import _find_shared_tensors
 from safetensors.torch import load_file as load_file_pt
 from safetensors.torch import save_file as save_file_pt
 from safetensors.torch import storage_ptr, storage_size
+
+
+def test_safetensor_error_module_is_importable():
+    importlib.import_module(SafetensorError.__module__)
 
 
 class TestCase(unittest.TestCase):
@@ -215,8 +220,8 @@ class ReadmeTestCase(unittest.TestCase):
 
     def test_torch_example(self):
         tensors = {
-            "a": torch.zeros((2, 2)),
-            "b": torch.zeros((2, 3), dtype=torch.uint8),
+            "a": torch.randn((2, 2)),
+            "b": torch.randint(0, 128, (2, 3), dtype=torch.uint8),
         }
         # Saving modifies the tensors to type numpy, so we must copy for the
         # test to be correct.
@@ -229,11 +234,33 @@ class ReadmeTestCase(unittest.TestCase):
         loaded = load_file_pt(filename)
         self.assertTensorEqual(tensors2, loaded, torch.allclose)
 
-    def test_exception(self):
-        flattened = {"test": {"dtype": "float32", "shape": [1]}}
+        # XXX: On Windows, if we write to a file that is currently open with mmap, we get "error 1224" (ERROR_USER_MAPPED_FILE)
+        # which occurs when trying to write to a file that has an active memory-mapped section.
+        # To avoid this, we delete the loaded object before saving again.
+        del loaded
 
+        save_file_pt(tensors, filename)
+
+        loaded = load_file_pt(filename)
+        self.assertTensorEqual(tensors2, loaded, torch.allclose)
+
+    def test_exception(self):
+        # Unknown dtype is rejected by TensorSpec's constructor.
         with self.assertRaises(SafetensorError):
-            serialize(flattened)
+            TensorSpec(dtype="nonsense", shape=[1], data_ptr=0, data_len=0)
+
+        # Raw dicts are no longer accepted by `serialize` (API moved to TensorSpec in 0.8.0).
+        with self.assertRaises(TypeError):
+            serialize(
+                {
+                    "test": {
+                        "dtype": "float32",
+                        "shape": [1],
+                        "data_ptr": 0,
+                        "data_len": 0,
+                    }
+                }
+            )
 
     def test_torch_slice(self):
         A = torch.randn((10, 5))

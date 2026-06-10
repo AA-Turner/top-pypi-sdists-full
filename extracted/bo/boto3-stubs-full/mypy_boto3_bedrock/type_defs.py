@@ -43,6 +43,7 @@ from .literals import (
     CustomizationTypeType,
     CustomModelDeploymentStatusType,
     CustomModelDeploymentUpdateStatusType,
+    DataRetentionModeType,
     EntitlementAvailabilityType,
     EvaluationJobStatusType,
     EvaluationJobTypeType,
@@ -326,6 +327,7 @@ __all__ = (
     "FoundationModelSummaryTypeDef",
     "GenerationConfigurationOutputTypeDef",
     "GenerationConfigurationTypeDef",
+    "GetAccountDataRetentionResponseTypeDef",
     "GetAdvancedPromptOptimizationJobRequestTypeDef",
     "GetAdvancedPromptOptimizationJobResponseTypeDef",
     "GetAutomatedReasoningPolicyAnnotationsRequestTypeDef",
@@ -534,6 +536,8 @@ __all__ = (
     "PromptRouterTargetModelTypeDef",
     "PromptTemplateTypeDef",
     "ProvisionedModelSummaryTypeDef",
+    "PutAccountDataRetentionRequestTypeDef",
+    "PutAccountDataRetentionResponseTypeDef",
     "PutEnforcedGuardrailConfigurationRequestTypeDef",
     "PutEnforcedGuardrailConfigurationResponseTypeDef",
     "PutModelInvocationLoggingConfigurationRequestTypeDef",
@@ -1705,6 +1709,10 @@ QueryTransformationConfigurationTypeDef = TypedDict(
 )
 
 
+class PutAccountDataRetentionRequestTypeDef(TypedDict):
+    mode: DataRetentionModeType
+
+
 class PutResourcePolicyRequestTypeDef(TypedDict):
     resourceArn: str
     resourcePolicy: str
@@ -2090,6 +2098,12 @@ class CreateProvisionedModelThroughputResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetAccountDataRetentionResponseTypeDef(TypedDict):
+    mode: DataRetentionModeType
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetAutomatedReasoningPolicyBuildWorkflowResponseTypeDef(TypedDict):
     policyArn: str
     buildWorkflowId: str
@@ -2188,6 +2202,12 @@ class ListAutomatedReasoningPolicyTestCasesResponseTypeDef(TypedDict):
     testCases: list[AutomatedReasoningPolicyTestCaseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class PutAccountDataRetentionResponseTypeDef(TypedDict):
+    mode: DataRetentionModeType
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class PutEnforcedGuardrailConfigurationResponseTypeDef(TypedDict):

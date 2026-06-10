@@ -41,7 +41,7 @@ from etcd3gw import watch
 _SORT_ORDER = ['none', 'ascend', 'descend']
 _SORT_TARGET = ['key', 'version', 'create', 'mod', 'value']
 
-_EXCEPTIONS_BY_CODE: dict[int, type[exceptions.Etcd3Exception]] = {
+_EXCEPTIONS_BY_CODE: dict[int | None, type[exceptions.Etcd3Exception]] = {
     requests.codes['internal_server_error']: exceptions.InternalServerError,
     requests.codes['service_unavailable']: exceptions.ConnectionFailedError,
     requests.codes['request_timeout']: exceptions.ConnectionTimeoutError,
@@ -168,7 +168,7 @@ class Etcd3Client:
         :return: json response
         """
         try:
-            resp = self.session.post(
+            resp = self.session.post(  # type: ignore[misc]
                 url, *args, json=json, timeout=self.timeout, **kwargs
             )
         except requests.exceptions.Timeout as ex:
@@ -226,8 +226,8 @@ class Etcd3Client:
 
     def create(
         self,
-        key: str,
-        value: str,
+        key: str | bytes,
+        value: str | bytes,
         lease: Lease | None = None,
     ) -> bool:
         """Atomically create the given key only if the key doesn't exist.
@@ -273,8 +273,8 @@ class Etcd3Client:
 
     def put(
         self,
-        key: str,
-        value: str,
+        key: str | bytes,
+        value: str | bytes,
         lease: Lease | None = None,
     ) -> bool:
         """Put puts the given key into the key-value store.
@@ -299,7 +299,7 @@ class Etcd3Client:
     @overload
     def get(
         self,
-        key: str,
+        key: str | bytes,
         metadata: Literal[False] = False,
         sort_order: Literal['none', 'ascend', 'descend'] | None = None,
         sort_target: (
@@ -322,7 +322,7 @@ class Etcd3Client:
     @overload
     def get(
         self,
-        key: str,
+        key: str | bytes,
         metadata: Literal[True] = ...,
         sort_order: Literal['none', 'ascend', 'descend'] | None = None,
         sort_target: (
@@ -344,7 +344,7 @@ class Etcd3Client:
 
     def get(
         self,
-        key: str,
+        key: str | bytes,
         metadata: bool = False,
         sort_order: Literal['none', 'ascend', 'descend'] | None = None,
         sort_target: (
@@ -465,7 +465,7 @@ class Etcd3Client:
 
     def get_prefix(
         self,
-        key_prefix: str,
+        key_prefix: str | bytes,
         sort_order: Literal['none', 'ascend', 'descend'] | None = None,
         sort_target: (
             Literal['key', 'version', 'create', 'mod', 'value'] | None
@@ -486,7 +486,12 @@ class Etcd3Client:
             sort_target=sort_target,
         )
 
-    def replace(self, key: str, initial_value: str, new_value: str) -> bool:
+    def replace(
+        self,
+        key: str | bytes,
+        initial_value: str | bytes,
+        new_value: str | bytes,
+    ) -> bool:
         """Atomically replace the value of a key with a new value.
 
         This compares the current value of a key, then replaces it with a new
@@ -529,7 +534,7 @@ class Etcd3Client:
 
     def delete(
         self,
-        key: str,
+        key: str | bytes,
         *,
         range_end: str | None = None,
         prev_kv: bool | None = None,
@@ -569,7 +574,7 @@ class Etcd3Client:
             return True
         return False
 
-    def delete_prefix(self, key_prefix: str) -> bool:
+    def delete_prefix(self, key_prefix: str | bytes) -> bool:
         """Delete a range of keys with a prefix in etcd."""
         return self.delete(
             key_prefix, range_end=_increment_last_byte(key_prefix)
@@ -597,7 +602,7 @@ class Etcd3Client:
 
     def watch(
         self,
-        key: str,
+        key: str | bytes,
         *,
         start_revision: int | None = None,
         progress_notify: bool | None = None,
@@ -661,7 +666,7 @@ class Etcd3Client:
 
     def watch_prefix(
         self,
-        key_prefix: str,
+        key_prefix: str | bytes,
         *,
         start_revision: int | None = None,
         progress_notify: bool | None = None,
@@ -685,7 +690,7 @@ class Etcd3Client:
         """
         return self.watch(
             key_prefix,
-            range_end=_encode(_increment_last_byte(key_prefix)),
+            range_end=_increment_last_byte(key_prefix),
             start_revision=start_revision,
             progress_notify=progress_notify,
             filters=filters,
@@ -695,7 +700,7 @@ class Etcd3Client:
 
     def watch_once(
         self,
-        key: str,
+        key: str | bytes,
         timeout: float | int | None = None,
         *,
         start_revision: int | None = None,
@@ -747,7 +752,7 @@ class Etcd3Client:
 
     def watch_prefix_once(
         self,
-        key_prefix: str,
+        key_prefix: str | bytes,
         timeout: float | int | None = None,
         *,
         start_revision: int | None = None,
