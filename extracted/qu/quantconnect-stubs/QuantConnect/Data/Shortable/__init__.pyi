@@ -10,20 +10,18 @@ import QuantConnect.Python
 import System
 
 
-class ShortableProviderPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.Interfaces.IShortableProvider], QuantConnect.Interfaces.IShortableProvider):
-    """Python wrapper for custom shortable providers"""
+class NullShortableProvider(System.Object, QuantConnect.Interfaces.IShortableProvider):
+    """
+    Defines the default shortable provider in the case that no local data exists.
+    This will allow for all assets to be infinitely shortable, with no restrictions.
+    """
 
-    def __init__(self, shortable_provider: typing.Any) -> None:
-        """
-        Creates a new instance
-        
-        :param shortable_provider: The python custom shortable provider
-        """
-        ...
+    INSTANCE: QuantConnect.Data.Shortable.NullShortableProvider
+    """The null shortable provider instance"""
 
     def fee_rate(self, symbol: QuantConnect.Symbol, local_time: datetime.datetime) -> float:
         """
-        Gets the fee rate for the Symbol at the given date.
+        Gets interest rate charged on borrowed shares for a given asset.
         
         :param symbol: Symbol to lookup fee rate
         :param local_time: Time of the algorithm
@@ -44,11 +42,11 @@ class ShortableProviderPythonWrapper(QuantConnect.Python.BasePythonWrapper[Quant
 
     def shortable_quantity(self, symbol: QuantConnect.Symbol, local_time: datetime.datetime) -> typing.Optional[int]:
         """
-        Gets the quantity shortable for a Symbol, from python custom shortable provider
+        Gets the quantity shortable for the Symbol at the given time.
         
-        :param symbol: Symbol to check shortable quantity
+        :param symbol: Symbol to check
         :param local_time: Local time of the algorithm
-        :returns: The quantity shortable for the given Symbol as a positive number. Null if the Symbol is shortable without restrictions.
+        :returns: null, indicating that it is infinitely shortable.
         """
         ...
 
@@ -118,26 +116,20 @@ class LocalDiskShortableProvider(System.Object, QuantConnect.Interfaces.IShortab
         ...
 
 
-class InteractiveBrokersShortableProvider(QuantConnect.Data.Shortable.LocalDiskShortableProvider):
-    """Sources the InteractiveBrokers short availability data from the local disk for the given brokerage"""
+class ShortableProviderPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.Interfaces.IShortableProvider], QuantConnect.Interfaces.IShortableProvider):
+    """Python wrapper for custom shortable providers"""
 
-    def __init__(self) -> None:
-        """Creates a new instance"""
+    def __init__(self, shortable_provider: typing.Any) -> None:
+        """
+        Creates a new instance
+        
+        :param shortable_provider: The python custom shortable provider
+        """
         ...
-
-
-class NullShortableProvider(System.Object, QuantConnect.Interfaces.IShortableProvider):
-    """
-    Defines the default shortable provider in the case that no local data exists.
-    This will allow for all assets to be infinitely shortable, with no restrictions.
-    """
-
-    INSTANCE: QuantConnect.Data.Shortable.NullShortableProvider
-    """The null shortable provider instance"""
 
     def fee_rate(self, symbol: QuantConnect.Symbol, local_time: datetime.datetime) -> float:
         """
-        Gets interest rate charged on borrowed shares for a given asset.
+        Gets the fee rate for the Symbol at the given date.
         
         :param symbol: Symbol to lookup fee rate
         :param local_time: Time of the algorithm
@@ -158,12 +150,20 @@ class NullShortableProvider(System.Object, QuantConnect.Interfaces.IShortablePro
 
     def shortable_quantity(self, symbol: QuantConnect.Symbol, local_time: datetime.datetime) -> typing.Optional[int]:
         """
-        Gets the quantity shortable for the Symbol at the given time.
+        Gets the quantity shortable for a Symbol, from python custom shortable provider
         
-        :param symbol: Symbol to check
+        :param symbol: Symbol to check shortable quantity
         :param local_time: Local time of the algorithm
-        :returns: null, indicating that it is infinitely shortable.
+        :returns: The quantity shortable for the given Symbol as a positive number. Null if the Symbol is shortable without restrictions.
         """
+        ...
+
+
+class InteractiveBrokersShortableProvider(QuantConnect.Data.Shortable.LocalDiskShortableProvider):
+    """Sources the InteractiveBrokers short availability data from the local disk for the given brokerage"""
+
+    def __init__(self) -> None:
+        """Creates a new instance"""
         ...
 
 

@@ -8,6 +8,7 @@ import difflib
 import json
 from os import getenv
 import pathlib
+import random
 import re
 import secrets
 import time
@@ -26,6 +27,7 @@ import yaml
 from anyscale import __version__ as anyscale_version
 from anyscale.aws_iam_policies import get_anyscale_iam_permissions_ec2_restricted
 from anyscale.cli_logger import CloudSetupLogger
+from anyscale.client.openapi_client.exceptions import ApiException
 from anyscale.client.openapi_client.models import (
     AWSConfig,
     AWSMemoryDBClusterConfig,
@@ -161,6 +163,19 @@ except ValueError:
     )
 
 IGNORE_CAPACITY_ERRORS = getenv("IGNORE_CAPACITY_ERRORS") is not None
+
+
+# Cloud registration creates the cloud record asynchronously, so the subsequent
+# `add_resource` call can briefly race ahead of backend provisioning and return a
+# transient 5xx. Retry it (with backoff) for up to this long before giving up.
+try:
+    ADD_CLOUD_RESOURCE_TIMEOUT_SECONDS = int(
+        getenv("ADD_CLOUD_RESOURCE_TIMEOUT_SECONDS", "300")
+    )
+except ValueError:
+    raise Exception(
+        f"ADD_CLOUD_RESOURCE_TIMEOUT_SECONDS is set to {getenv('ADD_CLOUD_RESOURCE_TIMEOUT_SECONDS')}, which is not a valid integer."
+    )
 
 # Constants forked from ray.autoscaler._private.aws.config
 RAY = "ray-autoscaler"
@@ -1802,14 +1817,24 @@ class CloudController(BaseController):
         assert cloud_id is not None  # get_cloud_id_and_name raises if unresolvable
         cloud = self.api_client.get_cloud_api_v2_clouds_cloud_id_get(cloud_id).result
 
+        is_byor = cloud.is_bring_your_own_resource is not False
+        if enable_head_node_fault_tolerance and is_byor:
+            raise ClickException(
+                "--enable-head-node-fault-tolerance is used to provision fault-tolerance "
+                "infrastructure for Anyscale-managed clouds (created via `anyscale cloud setup`). "
+                "For manually registered clouds, configure fault tolerance by editing your cloud "
+                "resource YAML to reference the required provider resources, then apply it with "
+                "`anyscale cloud update --resources-file <path>`. See "
+                "https://docs.anyscale.com/administration/resource-management/head-node-fault-tolerance#clouds-created-with-cloud-register"
+                " for details."
+            )
+
         if enable_auto_add_user is not None:
             self._update_auto_add_user_field(enable_auto_add_user, cloud)
 
         if migrate_dm_to_im:
             self.migrate_gcp_dm_to_im(cloud_id=cloud_id)
-        elif (
-            cloud.is_bring_your_own_resource or cloud.is_bring_your_own_resource is None
-        ):
+        elif is_byor:
             # Customer-managed resources (cloud register), use resources file.
             if resources_file:
                 self.update_cloud_resources(
@@ -2415,6 +2440,27 @@ class CloudController(BaseController):
 
         return role, iam_role_original_policy
 
+    def _set_aws_external_id_for_skipped_preprocessing(
+        self, cloud_id: str, deployment: CloudDeployment
+    ) -> None:
+        """Set the AWS external_id that _preprocess_aws would normally set.
+
+        When verification (and therefore preprocessing) is skipped, the local
+        AWS credentials are not available to derive values. The trust policy
+        external_id defaults to the cloud id, so set it here to keep parity
+        with the non-skipped path.
+        """
+        if deployment.provider != CloudProviders.AWS or not deployment.aws_config:
+            return
+        aws_config = (
+            AWSConfig(**deployment.aws_config)
+            if isinstance(deployment.aws_config, dict)
+            else deployment.aws_config
+        )
+        if aws_config.external_id is None:
+            aws_config.external_id = cloud_id
+        deployment.aws_config = aws_config
+
     def _preprocess_gcp(
         self, deployment: CloudDeployment,
     ):
@@ -2502,7 +2548,14 @@ class CloudController(BaseController):
         except Exception as e:  # noqa: BLE001
             raise ClickException(f"Failed to parse cloud resource: {e}")
 
-        if new_deployment.provider == CloudProviders.AWS:
+        # When verification is skipped, skip preprocessing as well since it
+        # requires local AWS/GCP credentials. The provided spec is sent to the
+        # backend as-is.
+        if skip_verification:
+            self._set_aws_external_id_for_skipped_preprocessing(
+                cloud_id=cloud_id, deployment=new_deployment
+            )
+        elif new_deployment.provider == CloudProviders.AWS:
             self._preprocess_aws(cloud_id=cloud_id, deployment=new_deployment)
         elif new_deployment.provider == CloudProviders.GCP:
             self._preprocess_gcp(deployment=new_deployment)
@@ -2671,7 +2724,14 @@ class CloudController(BaseController):
 
         # Preprocess the deployments if necessary.
         for deployment in updated_deployments:
-            if deployment.provider == CloudProviders.AWS:
+            # When verification is skipped, skip preprocessing as well since it
+            # requires local AWS/GCP credentials. The provided spec is sent to
+            # the backend as-is.
+            if skip_verification:
+                self._set_aws_external_id_for_skipped_preprocessing(
+                    cloud_id=cloud_id, deployment=deployment
+                )
+            elif deployment.provider == CloudProviders.AWS:
                 self._preprocess_aws(cloud_id=cloud_id, deployment=deployment)
             elif deployment.provider == CloudProviders.GCP:
                 self._preprocess_gcp(deployment=deployment)
@@ -3029,6 +3089,58 @@ class CloudController(BaseController):
                 )
             functions_to_verify.add(fn)
         return list(functions_to_verify)
+
+    @staticmethod
+    def _is_retryable_add_resource_error(e: Exception) -> bool:
+        """Return True if ``e`` is a transient 5xx from the add_resource call.
+
+        Cloud registration creates the cloud record asynchronously, so the
+        immediately-following ``add_resource`` PUT can briefly race ahead of
+        backend provisioning and return a 504/5xx. Those are worth retrying;
+        client errors (4xx) and everything else are not, so they re-raise.
+
+        The internal API client normally converts ``ApiException`` into a
+        ``ClickException`` via ``format_api_exception`` (the status is embedded
+        in the message, e.g. ``API Exception (504) ...``). When
+        ``ANYSCALE_DEBUG=1`` the raw ``ApiException`` is raised instead, so we
+        handle both shapes.
+        """
+        if isinstance(e, ApiException):
+            return e.status is not None and 500 <= e.status <= 599
+        if isinstance(e, ClickException):
+            return bool(re.search(r"API Exception \(5\d\d\)", e.message))
+        return False
+
+    def _add_cloud_resource_with_retries(
+        self, *, cloud_id: str, cloud_deployment: CloudDeployment,
+    ):
+        """Call add_resource, retrying on transient 5xx with exponential backoff.
+
+        See ``_is_retryable_add_resource_error`` for why this is needed. Non-5xx
+        errors re-raise immediately; on timeout the last error re-raises.
+        """
+        end_time = time.time() + ADD_CLOUD_RESOURCE_TIMEOUT_SECONDS
+        delay = 1
+        max_delay = 64
+        while True:
+            try:
+                return self.api_client.add_cloud_resource_api_v2_clouds_cloud_id_add_resource_put(
+                    cloud_id=cloud_id, cloud_deployment=cloud_deployment,
+                )
+            except (ApiException, ClickException) as e:
+                if (
+                    not self._is_retryable_add_resource_error(e)
+                    or time.time() >= end_time
+                ):
+                    raise
+                self.log.info(
+                    "The cloud is still being provisioned; retrying in a moment..."
+                )
+                delay = min(delay, max_delay)
+                # Add jitter to avoid synchronized retries.
+                jitter = random.uniform(0, delay / 2)
+                time.sleep(delay + jitter)
+                delay *= 2  # exponential backoff
 
     def _run_functional_verification_on_all_resources(
         self,
@@ -3672,7 +3784,7 @@ class CloudController(BaseController):
         # Attempt to create the cloud resource.
         try:
             with self.log.spinner("Registering Anyscale cloud resources..."):
-                self.api_client.add_cloud_resource_api_v2_clouds_cloud_id_add_resource_put(
+                self._add_cloud_resource_with_retries(
                     cloud_id=cloud_id, cloud_deployment=cloud_resource,
                 )
 
@@ -3915,7 +4027,7 @@ class CloudController(BaseController):
                 "Updating Anyscale cloud with cloud resource..."
             ) as spinner:
                 # Update cloud with verified cloud resources.
-                self.api_client.add_cloud_resource_api_v2_clouds_cloud_id_add_resource_put(
+                self._add_cloud_resource_with_retries(
                     cloud_id=cloud_id, cloud_deployment=cloud_resource,
                 )
             # For now, only wait for the cloud to be active if the compute stack is VM.
@@ -4410,7 +4522,7 @@ class CloudController(BaseController):
         try:
             with self.log.spinner("Updating Anyscale cloud with cloud resources..."):
                 # Update cloud with verified cloud resources.
-                self.api_client.add_cloud_resource_api_v2_clouds_cloud_id_add_resource_put(
+                self._add_cloud_resource_with_retries(
                     cloud_id=cloud_id, cloud_deployment=cloud_resource,
                 )
             # For now, only wait for the cloud to be active if the compute stack is VM.
@@ -4472,6 +4584,7 @@ class CloudController(BaseController):
         cloud_name: Optional[str],
         cloud_id: Optional[str],
         skip_confirmation: bool,
+        force: bool = False,
     ) -> bool:
         """
         Deletes a cloud by name or id.
@@ -4495,6 +4608,18 @@ class CloudController(BaseController):
             CloudProviders.GENERIC,
         ), f"Cloud provider {cloud_provider} not supported yet"
 
+        if force:
+            # Force bypasses the backend's active-cluster check, so any clusters
+            # that are still running will not be terminated by this deletion.
+            confirm(
+                "Force-deleting this cloud will bypass the check for active "
+                "clusters. Any clusters that are still running will NOT be "
+                "terminated, and you will remain responsible for any costs they "
+                "incur until you clean them up yourself.\n"
+                "Continue with force deletion?",
+                skip_confirmation,
+            )
+
         # Get cloud resources using the new API
         cloud_resources = self.api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
             cloud_id=cloud_id,
@@ -4504,7 +4629,7 @@ class CloudController(BaseController):
             # No cloud resources found, directly delete the cloud
             try:
                 self.api_client.delete_cloud_api_v2_clouds_cloud_id_delete(
-                    cloud_id=cloud_id
+                    cloud_id=cloud_id, force=force
                 )
             except ClickException as e:
                 self.log.error(e)
@@ -4563,7 +4688,7 @@ class CloudController(BaseController):
         with self.log.spinner("Deleting Anyscale cloud (this may take 2-5 minutes)..."):
             try:
                 self.api_client.delete_cloud_api_v2_clouds_cloud_id_delete(
-                    cloud_id=cloud_id
+                    cloud_id=cloud_id, force=force
                 )
             except ClickException as e:
                 self.log.error(e)

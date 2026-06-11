@@ -23,7 +23,7 @@ def test_create_or_alter(api_integrations, secret, database, schema):
         api_hook=GitHook(allow_any_secret=True),
         api_allowed_prefixes=["https://github.com"],
         enabled=True,
-        api_blocked_prefixes=["https://github.com/snowflakedb/snowpy"],
+        api_blocked_prefixes=["https://github.com/snowflake-eng/snowpy"],
         comment="created by test_create_or_alter",
     )
     ai = api_integrations[ai_name]

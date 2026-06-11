@@ -61,7 +61,7 @@ DEFAULT_PINNED_TOOLS: tuple[str, ...] = (
     "ha_manage_backup",
     "ha_get_overview",
     "ha_report_issue",
-    "ha_search_entities",
+    "ha_search",
     "ha_config_get_automation",
     "ha_config_set_automation",
     # Skill guide must stay visible when tool search hides the catalog —
@@ -387,8 +387,10 @@ class CategorizedSearchTransform(BM25SearchTransform):
                 arguments = arguments.get("arguments") or {}
 
             if name not in allowed:
-                # Provide a helpful error with the correct proxy name
-                actual_category = "unknown"
+                # Provide a helpful error with the correct proxy name.
+                # actual_category/correct_proxy are assigned in every branch
+                # below that reaches the raise (the else branch raises early),
+                # so no initial sentinel value is needed.
                 correct_proxy = ""
                 if name in transform._read_tools:
                     actual_category = "read"

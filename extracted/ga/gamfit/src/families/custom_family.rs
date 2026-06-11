@@ -1,6 +1,6 @@
 use crate::cache::Fingerprinter;
 use crate::faer_ndarray::FaerEigh;
-use crate::faer_ndarray::{FaerCholesky, fast_ab, fast_atb, fast_av};
+use crate::faer_ndarray::{FaerCholesky, fast_atb, fast_av};
 use crate::matrix::{
     DesignMatrix, EmbeddedColumnBlock, LinearOperator, SignedWeightsView, SymmetricMatrix,
     dense_rowwise_kronecker,
@@ -12,11 +12,12 @@ use crate::solver::active_set::{
 };
 use crate::solver::estimate::reml::penalty_logdet::PenaltyPseudologdet;
 use crate::solver::estimate::reml::unified::{
-    BlockCoupledOperator, DenseSpectralOperator, DispersionHandling, DriftDerivResult,
-    FixedDriftDerivFn, HessianDerivativeProvider, HessianOperator, HyperCoord, HyperCoordDrift,
-    HyperCoordPair, HyperOperator, MatrixFreeSpdOperator, PenaltySubspaceTrace,
-    ProjectedKktResidual, StochasticTraceState, compute_block_penalty_logdet_derivs,
-    exact_pseudo_logdet, positive_eigenvalue_threshold, spectral_epsilon, spectral_regularize,
+    BlockCoupledOperator, ContractedPsiSecondOrder, ContractedPsiSecondOrderFn,
+    DenseSpectralOperator, DispersionHandling, DriftDerivResult, FixedDriftDerivFn,
+    HessianDerivativeProvider, HessianOperator, HyperCoord, HyperCoordDrift, HyperCoordPair,
+    HyperOperator, MatrixFreeSpdOperator, PenaltySubspaceTrace, ProjectedKktResidual,
+    StochasticTraceState, compute_block_penalty_logdet_derivs, exact_pseudo_logdet,
+    positive_eigenvalue_threshold, spectral_epsilon, spectral_regularize,
 };
 use crate::solver::estimate::{
     EstimationError, FitGeometry, ensure_finite_scalar_estimation, validate_all_finite_estimation,
@@ -1388,7 +1389,7 @@ impl ExactOuterDerivativeOrder {
 /// Exact outer derivative order for families that expose second-order
 /// coefficient geometry.
 ///
-/// This used to be a cost gate that demoted large biobank-scale problems to
+/// This used to be a cost gate that demoted large large-scale problems to
 /// first-order BFGS. That was a policy leak into the math layer: if the family
 /// supplies analytic dense Hessian blocks or an analytic profiled-Hessian HVP,
 /// the outer optimizer should see the exact second-order objective. Runtime
@@ -1589,7 +1590,7 @@ pub struct OuterDerivativePolicy {
 
 impl OuterDerivativePolicy {
     /// Per-eval gradient work ceiling above which the κ schedule switches
-    /// to the staged pilot/polish path. At biobank scale (n ≳ 100 k) even
+    /// to the staged pilot/polish path. At large scale (n ≳ 100 k) even
     /// the gradient sweep takes minutes per outer iter; subsampling the
     /// pilot stage cuts that to seconds and leaves the final polish on
     /// full data to recover the MLE.
@@ -1774,7 +1775,7 @@ pub fn block_offsets_from_specs(specs: &[ParameterBlockSpec]) -> Arc<[Range<usiz
 }
 
 /// Bound first-order outer iterations when each analytic-gradient evaluation is
-/// already biobank-scale work. This is only applied after the planner has
+/// already large-scale work. This is only applied after the planner has
 /// selected a gradient-only route; second-order/ARC plans keep their requested
 /// iteration budget.
 pub fn cost_gated_first_order_max_iter(
@@ -1798,7 +1799,7 @@ pub fn cost_gated_first_order_max_iter(
 /// One unit in `rho = log(lambda)` is an `e`-fold smoothing-parameter change.
 /// Previously this cap was `1.0`, which throttled BFGS to ~1/5 of its
 /// quasi-Newton step on flat REML surfaces (the natural BFGS direction has
-/// `|d|_inf` of ~5 in log-λ for biobank-scale survival fits). Probes whose
+/// `|d|_inf` of ~5 in log-λ for large-scale survival fits). Probes whose
 /// `step_inf > cap` are rejected for free in `OuterFirstOrderBridge::eval_cost`
 /// (returning `BFGS_LINE_SEARCH_REJECT_COST` without running an inner solve),
 /// so a larger cap costs nothing on rejection — it only lets Strong-Wolfe
@@ -1916,7 +1917,7 @@ pub trait CustomFamily {
     /// Families that consult `options.outer_score_subsample` (or other
     /// per-call options that affect the LL value) must override this so the
     /// joint-Newton line search and the post-accept gradient reload agree
-    /// on which row subset is being evaluated. Biobank-scale outer-only
+    /// on which row subset is being evaluated. Large-scale outer-only
     /// callers (including the joint-Newton line-search screening path) can
     /// override this to evaluate a deterministic paired Horvitz-Thompson
     /// estimate without constructing a full exact-Newton workspace.
@@ -2033,7 +2034,7 @@ pub trait CustomFamily {
     ///   `n · p²` reduces correctly to `n · p_resp² · p_cov²`.
     /// * **Matrix-free Hessian operator**: families that expose
     ///   [`Self::exact_newton_joint_hessian_workspace`] with operator-form
-    ///   directional derivatives (CTN at biobank scale) may instead return
+    ///   directional derivatives (CTN at large scale) may instead return
     ///   the per-`Hv` matvec cost (e.g. `n·(p_resp + p_cov)` for Khatri–Rao)
     ///   so the gate reflects the operator path rather than the dense
     ///   build that the unified evaluator skips.
@@ -2497,25 +2498,6 @@ pub trait CustomFamily {
         self.exact_newton_joint_hessian_workspace(states, specs)
     }
 
-    /// Optional line-search evaluator that can return the exact workspace
-    /// corresponding to a full accepted-trial log-likelihood sweep.
-    ///
-    /// Implementations must preserve the same accept/reject semantics as
-    /// [`Self::log_likelihood_only_with_options`], including any certified
-    /// early-exit rejection. Returning a workspace is only valid when the full
-    /// log-likelihood was evaluated at the same coefficient state.
-    fn joint_line_search_log_likelihood_workspace(
-        &self,
-        states: &[ParameterBlockState],
-        specs: &[ParameterBlockSpec],
-        options: &BlockwiseFitOptions,
-    ) -> Result<Option<(f64, Arc<dyn ExactNewtonJointHessianWorkspace>)>, String> {
-        assert_valid_blockspecs(specs, "joint line-search workspace");
-        assert_states_match_specs(states, specs, "joint line-search workspace");
-        assert_valid_options(options, "joint line-search workspace");
-        Ok(None)
-    }
-
     /// Optional batched analytic-gradient hook.
     ///
     /// Returns the K per-θ_j gradient contributions ([`BatchedOuterGradientTerms`])
@@ -2531,7 +2513,7 @@ pub trait CustomFamily {
     ///                   with `m` = per-row predictor dimension; m = 2 for
     ///                   GAMLSS location-scale, 1 for scalar GLMs).
     ///
-    /// At biobank scale with K ≈ 15, p ≈ 64, m = 2 the batched path is
+    /// At large scale with K ≈ 15, p ≈ 64, m = 2 the batched path is
     /// ≈ K·p²/(p² + K·m²) ≈ 15× cheaper.
     ///
     /// # Default
@@ -2764,7 +2746,7 @@ pub trait CustomFamily {
         //
         // * Multi-block coupled with `has_explicit_joint_hessian = true` —
         //   the family override IS the only trusted joint Hessian.  If it
-        //   returns None (e.g. dense form too large for memory at biobank
+        //   returns None (e.g. dense form too large for memory at large-scale
         //   scale), propagate None.  Substituting the working-sets
         //   block-diagonal would silently drop the cross-block
         //   ∂²L/∂β_a∂β_b curvature the family is the only source of —
@@ -2858,7 +2840,7 @@ pub trait CustomFamily {
     /// term is pure overhead: each evaluation runs `p` directional
     /// derivatives of the joint Hessian (`O(n·p²)` per call for the SCOP
     /// directional derivative), called multiple times per inner cycle and
-    /// once per outer evaluation. At biobank scale (`p=144`, `n=20000`) the
+    /// once per outer evaluation. At large scale (`p=144`, `n=20000`) the
     /// overhead is the dominant per-cycle cost and exhausts the CI budget
     /// long before the inner Newton converges, while contributing
     /// essentially zero to the converged gradient and curvature.
@@ -3420,14 +3402,6 @@ pub struct BlockwiseFitOptions {
     /// this is only a budget: capped solves still have to earn the ordinary
     /// KKT certificate before derivatives may be exposed.
     pub outer_inner_max_iterations: Option<Arc<AtomicUsize>>,
-    /// If true, the joint-Newton line search may reuse an exact-Newton
-    /// workspace to read trial log-likelihood values. This preserves the
-    /// legacy path for A/B regression tests, but defaults to false because
-    /// rejected backtracking attempts discard that workspace and can dominate
-    /// FLEX marginal-slope fits — the cheap scalar log-likelihood is
-    /// sufficient for the accept/reject decision; the full state is built
-    /// only after a step is accepted.
-    pub line_search_prefer_workspace: bool,
     /// Optional line-search objective ceiling for lazy log-likelihood-only
     /// evaluations. Families whose per-row log-likelihood contributions are
     /// non-positive may stop once the partial negative log-likelihood is already
@@ -3448,7 +3422,7 @@ pub struct BlockwiseFitOptions {
     pub outer_score_subsample:
         Option<Arc<crate::families::marginal_slope_shared::OuterScoreSubsample>>,
     /// Gate for marginal-slope families to auto-derive a stratified
-    /// outer-score subsample at biobank scale (see
+    /// outer-score subsample at large scale (see
     /// [`crate::families::marginal_slope_shared::auto_outer_score_subsample`]).
     ///
     /// **Default `true`.** Auto-subsampling makes the early rho-gradient
@@ -3560,7 +3534,7 @@ pub const DEFAULT_CUSTOM_FAMILY_INNER_MAX_CYCLES: usize = 1200;
 impl Default for BlockwiseFitOptions {
     fn default() -> Self {
         Self {
-            // Biobank-scale custom-family marginal-slope fits can have a
+            // Large-scale custom-family marginal-slope fits can have a
             // long, monotone joint-Newton tail: objective and step size keep
             // shrinking, but the exact KKT residual may need several hundred
             // additional cycles after the old 300-cycle cap. The outer
@@ -3593,7 +3567,6 @@ impl Default for BlockwiseFitOptions {
             screening_max_inner_iterations: None,
             outer_inner_max_iterations: None,
             seed_screening: false,
-            line_search_prefer_workspace: false,
             early_exit_threshold: None,
             outer_score_subsample: None,
             auto_outer_subsample: true,
@@ -3810,6 +3783,7 @@ fn nonconverged_outer_efs_result(
             psi_gradient: None,
             psi_indices: None,
             inner_hessian_scale: None,
+            logdet_enclosure_gap: None,
         },
         constrained_warm_start_from_inner(rho, inner),
         false,
@@ -3931,7 +3905,6 @@ fn persistent_custom_family_key<F: CustomFamily + ?Sized>(
     hasher.write_bool(options.use_remlobjective);
     hasher.write_bool(options.use_outer_hessian);
     hasher.write_bool(options.compute_covariance);
-    hasher.write_bool(options.line_search_prefer_workspace);
     hasher.write_bool(options.early_exit_threshold.is_some());
     if let Some(value) = options.early_exit_threshold {
         hasher.write_f64(value);
@@ -4141,6 +4114,10 @@ pub struct BlockwiseFitResultParts {
     /// or trivial early-exit); `Some(g)` = measured norm. `outer_converged`
     /// is the authoritative convergence signal.
     pub outer_gradient_norm: Option<f64>,
+    /// First-order optimality certificate from the outer smoothing solve
+    /// (#934); `None` when no outer ran (fixed-λ, one-cycle probe) or the
+    /// audit could not evaluate.
+    pub criterion_certificate: Option<crate::solver::outer_strategy::CriterionCertificate>,
     pub inner_cycles: usize,
     pub outer_converged: bool,
     pub geometry: Option<FitGeometry>,
@@ -4393,6 +4370,7 @@ pub fn blockwise_fit_from_parts(
         penalized_objective,
         outer_iterations,
         outer_gradient_norm,
+        criterion_certificate,
         inner_cycles,
         outer_converged,
         geometry,
@@ -4628,6 +4606,7 @@ pub fn blockwise_fit_from_parts(
         constraint_kkt: None,
         artifacts: crate::solver::estimate::FitArtifacts {
             pirls: None,
+            criterion_certificate,
             ..Default::default()
         },
         inner_cycles,
@@ -5123,7 +5102,7 @@ impl MaterializablePsiDerivativeOperator for EmbeddedImplicitPsiDerivativeOperat
 /// All matvec/transpose_mul methods return zero vectors of the correct
 /// length, all row-chunk methods return chunk-sized zero matrices. The
 /// operator never allocates an `(n, p)` dense buffer, which saves ~1.45 GiB
-/// at the biobank-scale spatial-adaptive overlay (n ≈ 320 000, p ≈ 101,
+/// at the large-scale spatial-adaptive overlay (n ≈ 320 000, p ≈ 101,
 /// six hyperparameters).
 pub(crate) struct ZeroPsiDerivativeOperator {
     n: usize,
@@ -6940,6 +6919,43 @@ pub struct ExactNewtonJointPsiSecondOrderTerms {
     pub hessian_psi_psi_operator: Option<Box<dyn HyperOperator>>,
 }
 
+/// Direction-contracted second-order ψ terms for the profiled θ-HVP (#740).
+///
+/// The per-pair [`ExactNewtonJointPsiSecondOrderTerms`] are the `(ψ_i, ψ_j)`
+/// entries of the joint hyper-Hessian; assembling the full outer Hessian from
+/// them costs one O(n) family row pass per pair, i.e. `K²·n`. A matrix-free
+/// profiled θ-HVP never needs the individual pairs — it needs, for one applied
+/// outer direction with ψ-weights `α_ψ`, the `α`-contraction of those pairs
+/// against the combined ψ-direction `ψ(α) = Σ_j α_j ψ_j`:
+///
+/// ```text
+///   objective[i] = Σ_j α_j V_{ψ_i ψ_j}
+///   score[i]     = Σ_j α_j g_{ψ_i ψ_j}          (a p-vector per output row i)
+///   hessian[i]   = Σ_j α_j D²_β H_L[ψ_i, ψ_j]
+///                = D²_β H_L[ψ_i, ψ(α)]            (bilinearity)
+/// ```
+///
+/// All `psi_dim` output rows share the SAME contracted second leg `ψ(α)`, so a
+/// family that streams its rows once over `ψ(α)` (carrying every fixed first
+/// leg `ψ_i` as a batched factor column) produces every row in a SINGLE n-pass.
+/// That is the cost the profiled θ-HVP turns into `K·n`-to-densify /
+/// `m·n`-in-CG instead of the dense path's `K²·n`.
+///
+/// Indexing is over the flattened ψ coordinates in the same order as
+/// [`ExactNewtonJointPsiWorkspace::second_order_terms`]; `hessian[i]` carries
+/// the `D²_β H_L[ψ_i, ψ(α)]` drift as a [`DriftDerivResult`] (dense or
+/// operator-backed) plus any block-local `S_{ψ_i ψ_j}` penalty motion folded by
+/// the family, exactly mirroring the per-pair `hessian_psi_psi(_operator)`.
+pub struct ExactNewtonJointPsiSecondOrderContracted {
+    /// `objective[i] = Σ_j α_j V_{ψ_i ψ_j}`, one scalar per ψ output row.
+    pub objective: Array1<f64>,
+    /// `score[i] = Σ_j α_j g_{ψ_i ψ_j}`, the `psi_dim × total` matrix whose
+    /// row `i` is the contracted fixed-β score derivative for output row `i`.
+    pub score: Array2<f64>,
+    /// `hessian[i] = D²_β H_L[ψ_i, ψ(α)]` for each ψ output row `i`.
+    pub hessian: Vec<DriftDerivResult>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum JointHessianSourcePreference {
     Dense,
@@ -7075,7 +7091,7 @@ pub trait ExactNewtonJointHessianWorkspace: Send + Sync {
     /// Write-into variant of `hessian_matvec`. The default implementation
     /// delegates to the legacy owned-return form and copies the result into
     /// `out`, providing back-compat without per-impl work. Concrete impls in
-    /// the inner-Newton biobank-scale hot path (Bernoulli marginal-slope and
+    /// the inner-Newton large-scale hot path (Bernoulli marginal-slope and
     /// survival marginal-slope) override this to write directly into the
     /// caller-owned buffer, eliminating per-PCG-iter `Array1` allocations.
     fn hessian_matvec_into(&self, v: &Array1<f64>, out: &mut Array1<f64>) -> Result<bool, String> {
@@ -7244,6 +7260,32 @@ pub trait ExactNewtonJointPsiWorkspace: Send + Sync {
         psi_i: usize,
         psi_j: usize,
     ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String>;
+
+    /// Direction-contracted second-order ψ terms for the profiled θ-HVP (#740).
+    ///
+    /// Given the ψ-block weights `alpha_psi` (length `psi_dim`, the ψ slice of
+    /// one applied outer direction α), return the `α`-contraction of every
+    /// `(ψ_i, ψ_j)` second-order term against the combined ψ-direction
+    /// `ψ(α) = Σ_j alpha_psi[j] · ψ_j`, as
+    /// [`ExactNewtonJointPsiSecondOrderContracted`]. A family that can stream
+    /// its rows once over `ψ(α)` overrides this so the profiled outer-Hessian
+    /// operator applies one combined-direction n-pass per matvec instead of the
+    /// dense path's `K²` per-pair [`Self::second_order_terms`] passes.
+    ///
+    /// Default returns `None`: the profiled θ-HVP operator is then not built and
+    /// the evaluator keeps the exact per-pair assembly (dense
+    /// `compute_outer_hessian` / `build_outer_hessian_operator`). Overriding
+    /// this method is purely a representation/cost choice — it must produce the
+    /// exact same contraction the per-pair terms would, which the
+    /// `profiled_theta_hvp_outer_hessian_fd` finite-difference cross-check
+    /// guards.
+    fn second_order_terms_contracted(
+        &self,
+        alpha_psi: &[f64],
+    ) -> Result<Option<ExactNewtonJointPsiSecondOrderContracted>, String> {
+        assert!(alpha_psi.len() < usize::MAX);
+        Ok(None)
+    }
 
     fn hessian_directional_derivative(
         &self,
@@ -10439,7 +10481,7 @@ enum JointHessianSource {
         apply: Arc<dyn Fn(&Array1<f64>) -> Result<Array1<f64>, String> + Send + Sync>,
         /// Write-into matvec used by the inner-Newton PCG hot path so the
         /// matvec result no longer allocates an `Array1<f64>` per CG iter.
-        /// At biobank scale (~6400 inner CG iters per outer iter, p~200) this
+        /// At large scale (~6400 inner CG iters per outer iter, p~200) this
         /// removes thousands of small Vec<f64> allocations from the tightest
         /// loop. Wired from `workspace.hessian_matvec_into`.
         apply_into: Arc<dyn Fn(&Array1<f64>, &mut Array1<f64>) -> Result<(), String> + Send + Sync>,
@@ -12072,7 +12114,7 @@ fn blockwise_logdet_terms_with_workspace<F: CustomFamily + Clone + Send + Sync +
         // exact traces violates that identity and gives ARC a Hessian for a
         // different objective.  Materializing the coefficient Hessian by
         // canonical-basis HVPs keeps the objective/derivative pair exact.  At
-        // biobank CTN scale `total` is a few hundred, so this is sub-MiB; the
+        // large-scale CTN scale `total` is a few hundred, so this is sub-MiB; the
         // materializer below refuses oversized systems before allocation.
         let mut h_joint = materialize_joint_hessian_source(
             &source,
@@ -12381,7 +12423,7 @@ fn joint_objective_roundoff_slack(old_objective: f64, trial_objective: f64) -> f
 // `outer_lamlgradient_matches_finite_differencewhen_joint_exact_path_is_active`
 // at HardPseudo σ_min ~ 1e-10 fails when symmetric. The asymmetric guard
 // preserves the spin avoidance for the common (negative-noise) case at
-// biobank scale while leaving the rank-deficient FD identity intact.
+// large scale while leaving the rank-deficient FD identity intact.
 fn joint_objective_floor_reached(
     old_objective: f64,
     trial_objective: f64,
@@ -12662,7 +12704,7 @@ fn apply_joint_feasibility_limit<F: CustomFamily + ?Sized>(
     // neither δ̂ nor α·δ̂ and is not, in general, a descent direction on
     // the joint quadratic.
     //
-    // Production survival_marginal_slope failure mode at biobank scale:
+    // Production survival_marginal_slope failure mode at large scale:
     // the time block returned α ≈ 1e-4 (monotonicity guard); per-block
     // scaling crushed δ_time to ~2.3e-4 while logslope kept its full
     // unconstrained Newton step. The joint step was no longer a Newton
@@ -12857,18 +12899,6 @@ const KKT_REFUSAL_RANK_TOL: f64 = 1e-10;
 /// curvature on a well-conditioned problem.
 const JOINT_SPECTRAL_LEVENBERG_FACTOR: f64 = 1.0e-3;
 
-/// Condition number above which the range-restricted spectral Newton step is
-/// numerically unsafe (the small-curvature modes oscillate under the trust
-/// region) and the self-vanishing Levenberg–Marquardt damping `μ` must engage
-/// even on a FULL-RANK Hessian (`nullity == 0`). Set well above the conditioning
-/// of any healthy quadratic-Newton fit (whose range spectrum is comfortably
-/// `O(1e2)`–`O(1e4)`) so the damping never perturbs a well-conditioned solve,
-/// but below the `~5.8e6` cond of the #808 clustered-PC survival marginal-slope
-/// inner that this gate exists to stabilise. Because `μ ∝ ‖∇L − Sβ‖∞ → 0` at the
-/// fixed point, engaging it here changes the convergence PATH (oscillation →
-/// bounded descent) but not the converged β / KKT certificate.
-const COND_NEWTON_SAFETY: f64 = 1.0e5;
-
 #[derive(Clone, Debug)]
 struct JointSpectralNewtonStep {
     delta: Array1<f64>,
@@ -12887,361 +12917,562 @@ struct JointSpectralNewtonStep {
     most_negative_eigenvalue: f64,
 }
 
-fn solve_joint_newton_step_on_spectral_range(
-    h_pen: &Array2<f64>,
-    rhs: &Array1<f64>,
-    rank_tol: f64,
-    null_tol: f64,
-    levenberg_mu: f64,
-    engage_ill_conditioned_levenberg: bool,
-) -> Result<JointSpectralNewtonStep, String> {
-    let p = h_pen.nrows();
-    if h_pen.ncols() != p || rhs.len() != p {
-        return Err(format!(
-            "joint Newton spectral solve dimension mismatch: H={}x{}, rhs={}",
-            h_pen.nrows(),
-            h_pen.ncols(),
-            rhs.len()
-        ));
-    }
-    if p == 0 {
-        return Ok(JointSpectralNewtonStep {
-            delta: Array1::zeros(0),
-            range_rhs_inf: 0.0,
-            null_rhs_inf: 0.0,
-            lambda_max_abs: 0.0,
-            lambda_min_positive: f64::INFINITY,
-            nullity: 0,
-            rank_tol,
-            reflected_negative_modes: 0,
-            most_negative_eigenvalue: 0.0,
-        });
+/// Production home for the exact trust-region engine ([`WhitenedHessianSpectrum`]),
+/// wired into the unconstrained dense-spectral joint-Newton step in
+/// `inner_blockwise_fit` (gam#979). Kept in its own module so the engine's
+/// helpers stay namespaced; the parent reaches it via `whitened_spectrum::`.
+mod whitened_spectrum {
+    use super::*;
+
+    /// Eigendecomposition of the metric-whitened penalized Hessian, retained so
+    /// every trust-radius shrink within one Newton cycle re-solves the
+    /// trust-region subproblem from the SAME `O(p³)` factorization at `O(p)` cost.
+    ///
+    /// # Why this exists (gam#979)
+    ///
+    /// The coupled marginal↔logslope inner Newton needs ONE globalization, not a
+    /// stack of approximations. Historically the joint step was a *modified-Newton*
+    /// (reflect indefinite eigenvalues to `|λ|`) wrapped in a *heuristically gated*
+    /// multiplicative Marquardt damping (engaged on `nullity>0`, or condition number
+    /// over a threshold, or after N non-improving cycles) and then a *dogleg* between
+    /// that step and the Cauchy point, truncated to per-block step-norm trust radii.
+    /// Each piece approximates a different facet of the one exact object below, and
+    /// each had to be gated so it would not re-break the case another piece was added
+    /// for (#826 vs #808 vs #733/#734 vs #787). When none of the gates matched the
+    /// operating point — well-conditioned `H_pen`, yet a coupled near-aliased
+    /// direction with a huge raw Newton component — the truncated direction made only
+    /// Cauchy-sized progress, the gain ratio never justified growing the radius, and
+    /// the residual crawled for hundreds of cycles (the #979 "phantom multiplier"
+    /// grind / survival hang).
+    ///
+    /// [`Self::trust_region_step`] replaces all of that with the *exact* solution of
+    /// the trust-region subproblem
+    ///   minimize  `−rhsᵀδ + ½ δᵀ H_pen δ`   subject to  `‖δ‖_D ≤ r`,
+    /// via the Moré–Sorensen characterization: the minimizer is `δ(λ) = (H_pen +
+    /// λD)⁻¹ rhs` for the unique `λ ≥ max(0, −γ_min)` with `‖δ(λ)‖_D = r` (or `λ = 0`
+    /// when the Newton step is interior and `H_pen ≻ 0`). Working in the `D`-metric
+    /// generalized eigenbasis this is a scalar secular equation in `λ`, solved by a
+    /// safeguarded Newton iteration on the already-computed spectrum. Properties that
+    /// make it the right object:
+    ///   * indefiniteness is handled exactly (`λ ≥ −γ_min` makes `H_pen+λD ⪰ 0` on
+    ///     the boundary — no reflection heuristic, no negative-curvature special case
+    ///     other than the rigorous hard case);
+    ///   * the damping `λ` is determined by the trust radius, not by nullity /
+    ///     condition / stall gates — those gates disappear;
+    ///   * it self-vanishes: at the KKT fixed point `rhs → 0 ⇒ δ → 0`, and once the
+    ///     iterate is in a region where `H_pen ≻ 0` the Newton step goes interior so
+    ///     `λ = 0` and convergence is quadratic — the converged β, the KKT
+    ///     certificate, and the REML/LAML the residual feeds are byte-identical to an
+    ///     undamped exact-Newton solve;
+    ///   * it is affine covariant in the `D` metric, so blocks at wildly different
+    ///     curvature scales (the penalty `λ ~ e²⁴` modes vs the `XᵀWX` likelihood
+    ///     modes at an oversmoothed seed) are damped uniformly by `1/(γ_k+λ)` — the
+    ///     scale-invariance the per-block radii and the multiplicative-Marquardt form
+    ///     were each hand-built to approximate.
+    ///
+    /// The genuine penalty null space (`|γ_k| ≤ null_cutoff`) is still projected out
+    /// (the gam#553 Moore–Penrose range restriction): an unidentified gauge direction
+    /// carries no finite Newton step and is left unchanged, its stationarity-residual
+    /// component reported via [`JointSpectralNewtonStep::null_rhs_inf`].
+    pub(super) struct WhitenedHessianSpectrum {
+        /// Generalized eigenvalues `γ_k` of `(H_pen, D)` = eigenvalues of the
+        /// whitened matrix `A = D^{-1/2} H_pen D^{-1/2}`.
+        gamma: Array1<f64>,
+        /// Whitened eigenvectors `v_k` (columns) of `A`.
+        evecs: Array2<f64>,
+        /// rhs in the whitened eigenbasis: `c_k = v_kᵀ D^{-1/2} rhs`.
+        c: Array1<f64>,
+        /// `D^{-1/2}` diagonal, mapping a whitened step `η` back to `δ = D^{-1/2} η`.
+        d_inv_sqrt: Array1<f64>,
+        /// `max_k |γ_k|` (the curvature scale; `D`-whitened).
+        lambda_max_abs: f64,
+        /// Curvature magnitude at/below which a direction is treated as genuinely
+        /// unidentified (penalty null space) and dropped from the step.
+        null_cutoff: f64,
     }
 
-    let (evals, evecs) = FaerEigh::eigh(h_pen, Side::Lower)
-        .map_err(|e| format!("joint Newton spectral solve eigendecomposition failed: {e}"))?;
-    let lambda_max_abs = evals.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
-    if !lambda_max_abs.is_finite() || lambda_max_abs <= 0.0 {
-        let rhs_inf = rhs.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
-        if rhs_inf <= null_tol {
-            return Ok(JointSpectralNewtonStep {
-                delta: Array1::zeros(p),
-                range_rhs_inf: 0.0,
-                null_rhs_inf: rhs_inf,
+    impl WhitenedHessianSpectrum {
+        /// Eigendecompose the `D`-whitened penalized Hessian once. `metric_diag`
+        /// supplies the positive trust-region metric `D` (each entry is passed
+        /// through [`positive_joint_diagonal_entry`] so a non-positive curvature
+        /// estimate becomes a safe positive scale). `rank_tol` is the relative
+        /// near-singularity cutoff; the genuine numerical-rank floor is derived from
+        /// the whitened spectrum exactly as the legacy spectral solve did.
+        pub(super) fn decompose(
+            h_pen: &Array2<f64>,
+            rhs: &Array1<f64>,
+            metric_diag: &Array1<f64>,
+            rank_tol: f64,
+        ) -> Result<Self, String> {
+            let p = h_pen.nrows();
+            if h_pen.ncols() != p || rhs.len() != p || metric_diag.len() != p {
+                return Err(format!(
+                    "whitened trust-region decomposition dimension mismatch: H={}x{}, rhs={}, metric={}",
+                    h_pen.nrows(),
+                    h_pen.ncols(),
+                    rhs.len(),
+                    metric_diag.len()
+                ));
+            }
+            let d_inv_sqrt = Array1::from_iter(
+                metric_diag
+                    .iter()
+                    .map(|w| 1.0 / positive_joint_diagonal_entry(*w).sqrt()),
+            );
+            // A = D^{-1/2} H D^{-1/2}; symmetric since H is symmetric and D diagonal.
+            let mut a = Array2::<f64>::zeros((p, p));
+            for i in 0..p {
+                for j in 0..p {
+                    a[[i, j]] = h_pen[[i, j]] * d_inv_sqrt[i] * d_inv_sqrt[j];
+                }
+            }
+            symmetrize_dense_in_place(&mut a);
+            let (gamma, evecs) = FaerEigh::eigh(&a, Side::Lower)
+                .map_err(|e| format!("whitened trust-region eigendecomposition failed: {e}"))?;
+            // c = Vᵀ (D^{-1/2} rhs).
+            let whitened_rhs = &d_inv_sqrt * rhs;
+            let c = evecs.t().dot(&whitened_rhs);
+            let lambda_max_abs = gamma.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+            let numerical_floor = lambda_max_abs * (p as f64).sqrt() * f64::EPSILON;
+            let cutoff = rank_tol * lambda_max_abs;
+            let null_cutoff = cutoff.min(numerical_floor);
+            Ok(Self {
+                gamma,
+                evecs,
+                c,
+                d_inv_sqrt,
                 lambda_max_abs,
-                lambda_min_positive: f64::INFINITY,
-                nullity: p,
-                rank_tol,
-                reflected_negative_modes: 0,
-                most_negative_eigenvalue: 0.0,
-            });
+                null_cutoff,
+            })
         }
-        return Err(format!(
-            "joint Newton model-space error: penalized Hessian is numerically zero but \
-             stationarity RHS has |P0 rhs|∞={rhs_inf:.3e} > tol={null_tol:.3e}; no finite \
-             Newton/KKT stationary point exists in the current parameterization"
-        ));
+
+        /// `‖η(λ)‖²_2 = Σ_{identified k} c_k² / (γ_k + λ)²` — the squared `D`-metric
+        /// norm of the trial step as a function of the Levenberg shift `λ`. Only
+        /// identified (above-`null_cutoff`) modes participate; the null space carries
+        /// no step.
+        fn step_norm_sq(&self, lambda: f64) -> f64 {
+            let mut acc = 0.0;
+            for k in 0..self.gamma.len() {
+                if self.gamma[k].abs() <= self.null_cutoff {
+                    continue;
+                }
+                let denom = self.gamma[k] + lambda;
+                if denom.abs() <= f64::MIN_POSITIVE {
+                    return f64::INFINITY;
+                }
+                let t = self.c[k] / denom;
+                acc += t * t;
+            }
+            acc
+        }
+
+        /// Assemble the whitened step `η(λ) = Σ c_k/(γ_k+λ) v_k` over identified
+        /// modes and map it back to `δ = D^{-1/2} η`. Returns `(δ, range_rhs_inf,
+        /// null_rhs_inf, nullity, lambda_min_positive, reflected_negative_modes,
+        /// most_negative)` diagnostics consistent with the legacy spectral step.
+        fn assemble(
+            &self,
+            lambda: f64,
+            extra_min_mode: Option<(usize, f64)>,
+        ) -> JointSpectralNewtonStep {
+            let p = self.gamma.len();
+            let mut eta = Array1::<f64>::zeros(p);
+            let mut range_rhs_inf = 0.0_f64;
+            let mut null_rhs_inf = 0.0_f64;
+            let mut lambda_min_positive = f64::INFINITY;
+            let mut nullity = 0usize;
+            let mut reflected_negative_modes = 0usize;
+            let mut most_negative = 0.0_f64;
+            for k in 0..p {
+                let g = self.gamma[k];
+                if g.abs() <= self.null_cutoff {
+                    nullity += 1;
+                    null_rhs_inf = null_rhs_inf.max(self.c[k].abs());
+                    continue;
+                }
+                range_rhs_inf = range_rhs_inf.max(self.c[k].abs());
+                if g < 0.0 {
+                    reflected_negative_modes += 1;
+                    most_negative = most_negative.min(g);
+                } else {
+                    lambda_min_positive = lambda_min_positive.min(g);
+                }
+                let denom = g + lambda;
+                if denom.abs() > f64::MIN_POSITIVE {
+                    let coeff = self.c[k] / denom;
+                    for i in 0..p {
+                        eta[i] += coeff * self.evecs[[i, k]];
+                    }
+                }
+            }
+            // Hard case: add τ·v_min along a minimal-curvature eigenvector to reach
+            // the trust boundary when rhs has no component there.
+            if let Some((k_min, tau)) = extra_min_mode {
+                for i in 0..p {
+                    eta[i] += tau * self.evecs[[i, k_min]];
+                }
+            }
+            // δ = D^{-1/2} η.
+            let delta = &self.d_inv_sqrt * &eta;
+            JointSpectralNewtonStep {
+                delta,
+                range_rhs_inf,
+                null_rhs_inf,
+                lambda_max_abs: self.lambda_max_abs,
+                lambda_min_positive,
+                nullity,
+                rank_tol: KKT_REFUSAL_RANK_TOL,
+                reflected_negative_modes,
+                most_negative_eigenvalue: most_negative,
+            }
+        }
+
+        /// Exact solution of the trust-region subproblem inside the `D`-metric ball
+        /// of radius `trust_radius`. When `trust_radius` is non-finite or `≤ 0` the
+        /// unconstrained (Moore–Penrose, range-restricted) Newton step is returned —
+        /// i.e. the caller opted out of the trust region.
+        pub(super) fn trust_region_step(&self, trust_radius: f64) -> JointSpectralNewtonStep {
+            // Smallest identified curvature (signed). Empty identified set ⇒ pure
+            // null space ⇒ zero step.
+            let mut gamma_min_id = f64::INFINITY;
+            let mut any_identified = false;
+            for k in 0..self.gamma.len() {
+                if self.gamma[k].abs() <= self.null_cutoff {
+                    continue;
+                }
+                any_identified = true;
+                gamma_min_id = gamma_min_id.min(self.gamma[k]);
+            }
+            if !any_identified {
+                return self.assemble(0.0, None);
+            }
+
+            let unconstrained_radius = !(trust_radius.is_finite() && trust_radius > 0.0);
+            // Interior Newton step is admissible only when the model is convex on the
+            // identified range (γ_min > 0); then λ = 0 gives the exact Newton step.
+            if gamma_min_id > 0.0 {
+                let newton_norm = self.step_norm_sq(0.0).sqrt();
+                if unconstrained_radius || newton_norm <= trust_radius {
+                    return self.assemble(0.0, None);
+                }
+            } else if unconstrained_radius {
+                // No trust region but an indefinite/semidefinite model: the
+                // unconstrained problem is unbounded below. Fall back to the
+                // reflected modified-Newton step (|γ| curvature) so the caller still
+                // receives a finite descent direction; the downstream accept/reject
+                // validates it. This path is only hit when a caller explicitly
+                // disables the trust region on an indefinite model.
+                return self.assemble_reflected();
+            }
+
+            // Boundary solution: find λ ≥ λ_lo with ‖η(λ)‖ = trust_radius.
+            let lambda_lo = (-gamma_min_id).max(0.0);
+            // Hard case detection: is rhs orthogonal to the minimal-curvature
+            // eigenspace? If so ‖η(λ_lo)‖ is finite and may be below the radius.
+            let min_mode_tol = self.null_cutoff.max(self.lambda_max_abs * 1e-12);
+            let mut hard_case_component_sq = 0.0;
+            let mut k_min_witness = None;
+            for k in 0..self.gamma.len() {
+                if self.gamma[k].abs() <= self.null_cutoff {
+                    continue;
+                }
+                if (self.gamma[k] - gamma_min_id).abs() <= min_mode_tol {
+                    hard_case_component_sq += self.c[k] * self.c[k];
+                    k_min_witness = Some(k);
+                }
+            }
+            // Evaluate the norm just above the pole. With a real rhs component at the
+            // minimal mode the norm diverges at λ_lo, so the secular root is interior
+            // to (λ_lo, ∞) and a small relative offset brackets it. With no such
+            // component (hard case) the norm at λ_lo is finite.
+            let lambda_lo_eval = lambda_lo + self.lambda_max_abs.max(1.0) * 1e-12;
+            if hard_case_component_sq <= (self.lambda_max_abs.max(1.0) * 1e-12).powi(2) {
+                let norm_at_lo = self.step_norm_sq(lambda_lo_eval).sqrt();
+                if norm_at_lo < trust_radius {
+                    // Hard case: λ = λ_lo, then add τ·v_min to reach the boundary.
+                    if let Some(k_min) = k_min_witness {
+                        let deficit =
+                            (trust_radius * trust_radius - norm_at_lo * norm_at_lo).max(0.0);
+                        let tau = deficit.sqrt();
+                        return self.assemble(lambda_lo, Some((k_min, tau)));
+                    }
+                    return self.assemble(lambda_lo, None);
+                }
+            }
+            // Safeguarded Newton on φ(λ) = 1/‖η(λ)‖ − 1/r (well-behaved, ~linear),
+            // bracketed in [lo, hi]. φ is increasing in λ (‖η‖ decreasing), φ(lo)<0,
+            // and we grow hi until φ(hi)>0.
+            let target = trust_radius;
+            let mut lo = lambda_lo_eval;
+            let mut hi = lambda_lo_eval.max(self.lambda_max_abs).max(1.0);
+            let mut grow_guard = 0;
+            while self.step_norm_sq(hi).sqrt() > target && grow_guard < 200 {
+                hi *= 2.0;
+                grow_guard += 1;
+            }
+            let mut lambda = 0.5 * (lo + hi);
+            for _ in 0..100 {
+                let q = self.step_norm_sq(lambda);
+                let norm = q.sqrt();
+                if !norm.is_finite() {
+                    lo = lambda;
+                    lambda = 0.5 * (lo + hi);
+                    continue;
+                }
+                // Maintain the bracket on φ(λ) = 1/norm − 1/target.
+                if norm > target {
+                    lo = lambda;
+                } else {
+                    hi = lambda;
+                }
+                let phi = 1.0 / norm - 1.0 / target;
+                if phi.abs() <= 1e-12 / target {
+                    break;
+                }
+                // q'(λ) = -2 Σ c_k²/(γ_k+λ)³ ⇒ d/dλ (1/norm) = -½ q^{-3/2} q'.
+                let mut q_prime = 0.0;
+                for k in 0..self.gamma.len() {
+                    if self.gamma[k].abs() <= self.null_cutoff {
+                        continue;
+                    }
+                    let denom = self.gamma[k] + lambda;
+                    if denom.abs() <= f64::MIN_POSITIVE {
+                        continue;
+                    }
+                    q_prime += -2.0 * self.c[k] * self.c[k] / (denom * denom * denom);
+                }
+                let phi_prime = -0.5 * q.powf(-1.5) * q_prime;
+                let next = if phi_prime.abs() > f64::MIN_POSITIVE {
+                    lambda - phi / phi_prime
+                } else {
+                    0.5 * (lo + hi)
+                };
+                // Safeguard into the bracket.
+                lambda = if next.is_finite() && next > lo && next < hi {
+                    next
+                } else {
+                    0.5 * (lo + hi)
+                };
+                if (hi - lo) <= 1e-14 * (1.0 + hi.abs()) {
+                    break;
+                }
+            }
+            self.assemble(lambda, None)
+        }
+
+        /// Reflected modified-Newton step (`|γ_k|` curvature, no trust region). Only
+        /// used when a caller disables the trust region on an indefinite model — the
+        /// trust-region path proper never reflects.
+        fn assemble_reflected(&self) -> JointSpectralNewtonStep {
+            let p = self.gamma.len();
+            let mut eta = Array1::<f64>::zeros(p);
+            let mut range_rhs_inf = 0.0_f64;
+            let mut null_rhs_inf = 0.0_f64;
+            let mut lambda_min_positive = f64::INFINITY;
+            let mut nullity = 0usize;
+            let mut reflected_negative_modes = 0usize;
+            let mut most_negative = 0.0_f64;
+            for k in 0..p {
+                let g = self.gamma[k];
+                if g.abs() <= self.null_cutoff {
+                    nullity += 1;
+                    null_rhs_inf = null_rhs_inf.max(self.c[k].abs());
+                    continue;
+                }
+                range_rhs_inf = range_rhs_inf.max(self.c[k].abs());
+                let curvature = if g < 0.0 {
+                    reflected_negative_modes += 1;
+                    most_negative = most_negative.min(g);
+                    g.abs()
+                } else {
+                    lambda_min_positive = lambda_min_positive.min(g);
+                    g
+                };
+                let coeff = self.c[k] / curvature;
+                for i in 0..p {
+                    eta[i] += coeff * self.evecs[[i, k]];
+                }
+            }
+            let delta = &self.d_inv_sqrt * &eta;
+            JointSpectralNewtonStep {
+                delta,
+                range_rhs_inf,
+                null_rhs_inf,
+                lambda_max_abs: self.lambda_max_abs,
+                lambda_min_positive,
+                nullity,
+                rank_tol: KKT_REFUSAL_RANK_TOL,
+                reflected_negative_modes,
+                most_negative_eigenvalue: most_negative,
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod trust_region_subproblem_tests {
+    use super::whitened_spectrum::WhitenedHessianSpectrum;
+    use super::*;
+    use ndarray::array;
+
+    fn metric_norm(delta: &Array1<f64>, d: &Array1<f64>) -> f64 {
+        delta
+            .iter()
+            .zip(d.iter())
+            .map(|(x, w)| x * x * positive_joint_diagonal_entry(*w))
+            .sum::<f64>()
+            .sqrt()
     }
 
-    // Two distinct thresholds on the eigenvalue magnitude:
-    //
-    //   * `cutoff = rank_tol · λ_max` is the caller's relative near-singularity
-    //     tol. Directions at or below it are "small curvature" — historically
-    //     they were *dropped* as null.
-    //   * `numerical_floor = λ_max · √p · f64::EPSILON` is the genuine numerical
-    //     rank floor: a curvature below it is indistinguishable from zero given
-    //     the matrix's own working precision.
-    //
-    // The two coincide when the spectrum has moderate dynamic range, but they
-    // diverge by many orders of magnitude at the oversmoothed-ρ operating point
-    // of a coupled location-scale inner solve (#826): there `λ_max` is dominated
-    // by the huge `S_λ` eigenvalues (`λ ~ exp(2·EXACT_JOINT_RHO_BOUND)`), so the
-    // RELATIVE `cutoff = 1e-10·λ_max` rises into the regime of the GENUINE
-    // likelihood curvature of the penalty-null (trend/mean) directions. Dropping
-    // those as null is the bug: they are identified by the data (curvature > 0),
-    // their Newton component is finite, and silently zeroing it freezes the
-    // block's stationarity residual at the unpenalized gradient while β stays at
-    // 0 — the "non-descent / frozen residual" stall the issue describes.
-    //
-    // Fix: only directions below the TRUE numerical floor are dropped as null.
-    // Directions in the band `(numerical_floor, cutoff]` carry small-but-real
-    // curvature; they are solved (range branch below) with the self-vanishing LM
-    // damping `relative_mu` that already caps the `component/λ` step on the
-    // near-singular modes the relative `cutoff` was meant to tame. Because μ ∝
-    // ‖∇L − Sβ‖∞ → 0 at the KKT fixed point, the converged β and the
-    // well-identified fast path are unchanged; far from the optimum the band is
-    // a bounded descent step instead of a discarded gradient component.
-    let cutoff = rank_tol * lambda_max_abs;
-    let numerical_floor = lambda_max_abs * (p as f64).sqrt() * f64::EPSILON;
-    let null_cutoff = cutoff.min(numerical_floor);
-    let mut delta = Array1::<f64>::zeros(p);
-    let mut range_rhs_inf = 0.0_f64;
-    let mut null_rhs_inf = 0.0_f64;
-    let mut lambda_min_positive = f64::INFINITY;
-    let mut nullity = 0usize;
-    let mut most_negative = 0.0_f64;
-    let mut reflected_negative_modes = 0usize;
-
-    // Spectral modified-Newton step. The penalized inner Hessian is positive
-    // semidefinite for canonical single-block GLMs (Xᵀ W X + Sλ with W ≥ 0),
-    // so the reflection branch below is a no-op there. For two-block GAMLSS /
-    // location-scale likelihoods the *observed* joint Hessian is genuinely
-    // indefinite away from the optimum (the cross block 2κm and the κ'(a−n)
-    // piece of the scale curvature are residual-linear and mean-zero, so a
-    // single negative residual fluctuation tips an eigenvalue negative at
-    // small/medium n). Erroring out there aborts an otherwise well-posed fit;
-    // instead we reflect each negative eigenvalue to |λ| (Gill–Murray–Wright /
-    // Greenstadt eigenvalue modification). On a direction u_k with curvature
-    // λ_k < 0 the modified step component is (u_kᵀ rhs / |λ_k|) u_k, so the
-    // assembled δ satisfies (∇L − Sβ)·δ = Σ_k (u_kᵀ rhs)²/|λ_k| > 0, i.e. δ is
-    // a strict descent direction for the penalized objective. The downstream
-    // trust-region globalization (full-objective accept/reject + gradient
-    // fallback) then validates the actual decrease, so no curvature guarantee
-    // is weakened — an indefinite model yields a safe descent step rather than
-    // a hard failure, and a PSD model still gets the exact Newton step.
-    //
-    // `levenberg_mu` is a self-vanishing Levenberg–Marquardt damping added to
-    // each range-space curvature: the per-direction step is
-    // `(u_kᵀ rhs)/(|λ_k| + μ)` rather than `(u_kᵀ rhs)/|λ_k|`. It is chosen by
-    // the caller proportional to the current stationarity-residual norm
-    // (μ = c·‖∇L − Sβ‖∞), so it has two regimes that make the inner solve
-    // converge on a genuinely ill-conditioned degenerate design WITHOUT moving
-    // the KKT fixed point:
-    //   * Far from the optimum (residual O(1)), a direction whose curvature
-    //     `|λ_k|` is tiny-but-above-`cutoff` (a near-singular but not-quite-null
-    //     mode of the n=23 binary-covariate CTM Hessian) would otherwise take an
-    //     enormous `component/λ_k` step. Those modes are exactly what makes the
-    //     undamped range-restricted Newton step oscillate: the trust region
-    //     clips a huge proposal every cycle and the residual along that mode
-    //     never settles, so neither `step_inf ≤ step_tol` nor the identified-
-    //     subspace residual ever reaches tolerance and the solve burns its
-    //     cycle budget. Adding μ caps the component at ≈ `component/μ`, turning
-    //     the proposal into a bounded, stable descent step.
-    //   * At the optimum (residual → 0 ⇒ μ → 0), the damping vanishes and the
-    //     step is exactly the undamped range-restricted (Moore–Penrose) Newton
-    //     step, so the converged β and the KKT certificate are identical to the
-    //     undamped solve. A well-identified problem (e.g. the #720 continuous
-    //     fast path) sits at small residual quickly, so μ is negligible there
-    //     and quadratic Newton convergence is preserved.
-    //
-    // The damping is only ever needed when `H_pen` carries a numerical
-    // nullspace (`nullity > 0`): that is when near-singular-but-above-cutoff
-    // modes exist whose undamped `component/λ` step oscillates. On a FULLY
-    // IDENTIFIED Hessian (`nullity == 0`, e.g. the post-reduction
-    // constant-scale AFT, #736/#735/#721/#733/#734) every range curvature is a
-    // genuine non-degenerate eigenvalue and the exact Newton step converges
-    // quadratically; applying even the self-vanishing μ then throttles the
-    // step by the geometric ratio λ/(λ+μ) per cycle and stalls the small-
-    // curvature blocks (an unpenalized intercept at small n) at a residual
-    // plateau orders above `residual_tol`. So count the nullity first and use
-    // μ only when the model is genuinely rank-deficient.
-    //
-    // CRITICAL (#826): the rank test that gates the damping must use the TRUE
-    // numerical rank floor `null_cutoff`, NOT the penalty-inflated RELATIVE
-    // `cutoff = 1e-10·λ_max`. At the maximally-oversmoothed continuation seed
-    // (λ ~ exp(2·EXACT_JOINT_RHO_BOUND) ≈ e²⁴) λ_max is dominated by the huge
-    // S_λ eigenvalues, so `cutoff` rises to O(1)–O(10) — right into the band of
-    // the GENUINE likelihood curvature of the penalty-null mean/threshold/wiggle
-    // trend directions (XᵀWX ~ O(n·w), but per-direction curvature can be O(1)).
-    // Counting those data-identified directions as "rank-deficient" engages the
-    // self-vanishing μ on them, and because μ = c·‖∇L − Sβ‖∞ is set by the
-    // PENALTY-inflated joint residual it can exceed their small likelihood
-    // curvature, throttling their Newton step by λ/(λ+μ) ≪ 1. β then barely
-    // moves while ‖∇L − Sβ‖∞ stays frozen — exactly the "block β ≈ 0, residual
-    // large" stall the issue reports, which leaves the inner solve unconverged
-    // at every oversmooth seed and forces the continuation to expand the offset
-    // outward (making the problem strictly worse) until it gives up.
-    //
-    // The genuine-rank test (`null_cutoff = min(cutoff, numerical_floor)`)
-    // separates penalty scale from likelihood scale: a likelihood-identified
-    // mean-trend direction sits far above `numerical_floor` even when the penalty
-    // eigenvalues are astronomically large, so it is correctly classified as
-    // identified and — under the scale-invariant multiplicative damping below —
-    // takes the same `1/(1+ν)` fraction of its Newton component as every other
-    // mode (ν → 0 at the fixed point), so the near-exact Newton
-    // step `component/λ` drives the trend to its oversmoothed optimum in O(1)
-    // cycles. Genuine numerical rank deficiency (curvature below the working-
-    // precision floor) still engages μ. The ill-conditioned-Newton branch below
-    // (gated on `engage_ill_conditioned_levenberg`) independently handles the
-    // full-rank-but-ill-conditioned survival regime (#808).
-    let spectral_nullity = evals
-        .iter()
-        .filter(|v| !v.is_finite() || v.abs() <= null_cutoff)
-        .count();
-    // The `nullity > 0` gate above (which engages the self-vanishing μ) is too
-    // narrow for the survival marginal-slope path: it assumes `nullity == 0 ⇒
-    // well-conditioned ⇒ exact Newton converges quadratically`. That misses the
-    // FULL-RANK-but-ILL-CONDITIONED regime (#808: the clustered-PC survival
-    // marginal-slope inner has `λ_min ≈ 17`, `λ_max ≈ 4.5e8`, cond ≈ 5.8e6,
-    // nullity == 0 because every mode is above the rank cutoff). That spectrum is
-    // EXACTLY the first regime the μ doc above describes — a tiny-but-above-cutoff
-    // curvature whose undamped `component/λ` step makes the trust-region Newton
-    // oscillate and never settle (the #733/#734 oscillation μ exists to tame) —
-    // so it needs the same self-vanishing damping, but the nullity-only gate
-    // leaves `μ = 0` and the solve burns its cycle budget at a frozen residual.
-    //
-    // So also engage μ when the range spectrum is numerically ill-conditioned for
-    // Newton (cond > COND_NEWTON_SAFETY), via a cheap pre-pass over the already-
-    // computed `evals` for the smallest positive (above-null) curvature. This is
-    // SOUND and SELF-VANISHING: μ ∝ ‖∇L − Sβ‖∞ → 0 at the KKT fixed point, so the
-    // damping shapes only the TRAJECTORY (oscillation → bounded descent), NOT the
-    // fixed point — the converged β is the EXACT unconditioned solution, zero
-    // bias. It is BINARY-SAFE / no-op where μ is already on: a near-separating
-    // rank-deficient fit (binary c12) has nullity > 0 → μ already engaged → the
-    // cond clause adds nothing; and it does NOT throttle genuinely well-
-    // conditioned fits (the doc's concern) because those have cond ≪
-    // COND_NEWTON_SAFETY so the clause stays off.
-    let ill_conditioned_for_newton = if engage_ill_conditioned_levenberg {
-        let mut lmax = 0.0_f64;
-        let mut lmin = f64::INFINITY;
-        for &lambda in evals.iter() {
-            if !lambda.is_finite() {
-                continue;
-            }
-            let a = lambda.abs();
-            if a <= null_cutoff {
-                continue;
-            }
-            lmax = lmax.max(a);
-            lmin = lmin.min(a);
-        }
-        let range_cond = if lmin.is_finite() && lmin > 0.0 && lmax > 0.0 {
-            lmax / lmin
-        } else {
-            0.0
-        };
-        range_cond > COND_NEWTON_SAFETY
-    } else {
-        false
-    };
-    // CRITICAL (#826, scale-invariant damping). The caller passes
-    // `levenberg_mu = JOINT_SPECTRAL_LEVENBERG_FACTOR · ‖∇L − Sβ‖∞`, an
-    // ABSOLUTE damping in the units of the residual. Adding it directly to a
-    // range curvature (`curvature + μ`) is correct on a single-scale Hessian,
-    // but it is the residual stall on a coupled location-scale joint Hessian:
-    // there the spectrum spans the penalty scale (`λ ~ exp(2·ρ_bound) ≈ e²⁴`
-    // at the oversmoothed continuation seed) AND the likelihood scale (the
-    // mean/threshold/wiggle block's XᵀWX curvature, per-direction O(n·w)). The
-    // residual ‖∇L − Sβ‖∞ that sets μ is dominated by the huge `Sβ` term, so μ
-    // is astronomically larger than the small likelihood curvature of the
-    // mean/wiggle directions. The additive throttle on those directions is then
-    // `λ/(λ+μ) ≈ λ/μ → 0`: β in that block barely moves while its stationarity
-    // residual stays frozen — EXACTLY the "block β ≈ 0, residual large" stall
-    // the issue reports, which never escapes the oversmooth seed and forces the
-    // continuation to expand outward until it gives up.
-    //
-    // Fix: damp MULTIPLICATIVELY (Marquardt's diagonal scaling), not additively.
-    // In the eigenbasis `diag(H)` per-direction IS the curvature, so Marquardt
-    // damping `H + ν·diag(H)` is `curvature·(1 + ν)`, giving the SCALE-INVARIANT
-    // per-direction throttle `λ/(λ·(1+ν)) = 1/(1+ν)` — identical for the huge
-    // penalty modes and the small likelihood modes. No block is frozen relative
-    // to another: a near-singular mode is bounded relative to its OWN curvature
-    // scale (stopping the `component/λ` oscillation the absolute μ existed to
-    // tame), while the small mean/wiggle modes still take a full `1/(1+ν)`
-    // fraction of their exact Newton component and descend normally. `ν` is the
-    // dimensionless residual-to-spectrum ratio `μ/λ_max`, self-vanishing as the
-    // residual → 0, so at the KKT fixed point ν → 0 and the step collapses to
-    // the EXACT range-restricted (Moore–Penrose) Newton step — the converged β,
-    // the KKT certificate, and the well-identified fast path are all unchanged.
-    let raw_mu = if spectral_nullity > 0 || ill_conditioned_for_newton {
-        levenberg_mu.max(0.0)
-    } else {
-        0.0
-    };
-    let relative_mu = if raw_mu > 0.0 && lambda_max_abs > 0.0 {
-        raw_mu / lambda_max_abs
-    } else {
-        0.0
-    };
-    for k in 0..p {
-        let lambda = evals[k];
-        let u_k = evecs.column(k);
-        let component = u_k.iter().zip(rhs.iter()).map(|(u, r)| u * r).sum::<f64>();
-        // Drop ONLY directions at the true numerical floor (genuine rank
-        // deficiency). Directions in the small-but-real band
-        // `(numerical_floor, cutoff]` are identified and solved below with the
-        // self-vanishing LM damping — see the threshold derivation above (#826).
-        if !lambda.is_finite() || lambda.abs() <= null_cutoff {
-            nullity += 1;
-            null_rhs_inf = null_rhs_inf.max(component.abs());
-            continue;
-        }
-        let curvature = if lambda < 0.0 {
-            most_negative = most_negative.min(lambda);
-            reflected_negative_modes += 1;
-            lambda.abs()
-        } else {
-            lambda
-        };
-        range_rhs_inf = range_rhs_inf.max(component.abs());
-        lambda_min_positive = lambda_min_positive.min(curvature);
-        // Scale-invariant (Marquardt) self-vanishing damping on the range-space
-        // curvature, applied only when the Hessian is genuinely rank-deficient
-        // OR full-rank-but-ill-conditioned-for-Newton (`relative_mu` is `0.0` on
-        // a well-conditioned identified model — see the gate above). `ν ≥ 0` and
-        // `curvature > null_cutoff > 0`, so the denominator stays strictly
-        // positive and the descent property
-        // (∇L − Sβ)·δ = Σ_k (u_kᵀ rhs)²/(|λ_k|·(1+ν)) > 0 is preserved.
-        let damped_curvature = curvature * (1.0 + relative_mu);
-        let scale = component / damped_curvature;
-        for i in 0..p {
-            delta[i] += scale * u_k[i];
-        }
-    }
-
-    if reflected_negative_modes > 0 {
-        log::debug!(
-            "[PIRLS/joint-Newton] modified-Newton reflection: {reflected}/{p} indefinite \
-             modes reflected to |λ| (λ_min={most_negative:.3e}, cutoff={cutoff:.3e}); \
-             step is a descent direction validated by the trust-region accept/reject test",
-            reflected = reflected_negative_modes,
+    /// Interior case: a positive-definite model with a generous trust radius
+    /// must return the exact (full) Newton step `H⁻¹ rhs`, i.e. λ = 0.
+    #[test]
+    fn interior_returns_exact_newton_step() {
+        let h = array![[3.0, 1.0], [1.0, 2.0]];
+        let rhs = array![1.0, -2.0];
+        let d = array![1.0, 1.0];
+        let spec = WhitenedHessianSpectrum::decompose(&h, &rhs, &d, KKT_REFUSAL_RANK_TOL).unwrap();
+        let step = spec.trust_region_step(1e6);
+        // Exact Newton: H δ = rhs.
+        let resid = h.dot(&step.delta) - &rhs;
+        assert!(
+            resid.iter().all(|v| v.abs() < 1e-10),
+            "interior step must solve H δ = rhs exactly, residual {resid:?}"
         );
     }
-    if null_rhs_inf > null_tol {
-        // The penalized joint Hessian carries a numerical nullspace and the
-        // stationarity RHS has a nonzero component inside it. That component
-        // lies along an *unidentified* direction: no finite Newton/KKT step
-        // can reduce a gradient component in `ker(H)` (the quadratic model is
-        // flat there), so the direction contributes nothing to the fit. The
-        // accumulation loop above already projected the step onto the Hessian
-        // *range* — every null direction hit the `continue` branch and was
-        // dropped from `delta` — so `delta` is exactly the range-restricted
-        // (Moore–Penrose) Newton step `H⁺(−g)`, well-defined regardless of the
-        // null-RHS magnitude.
-        //
-        // Historically this was a hard error on the theory that a residual
-        // nullspace meant the canonical-gauge identifiability pass had failed.
-        // But for genuinely degenerate small-n designs (e.g. an n=23 binary-
-        // covariate CTM with a degenerate two-arm split) the joint Hessian is
-        // structurally singular along a direction the pairwise-RRQR alias scan
-        // cannot attribute to a single block, so the gauge pass legitimately
-        // cannot drop it. Refusing there aborts an otherwise well-posed fit.
-        // Projecting the RHS onto the range (which the loop already did) is the
-        // principled repair: the unidentified direction is simply left at its
-        // current value, and the downstream trust-region globalization
-        // validates the resulting step by actual objective decrease.
-        log::debug!(
-            "[PIRLS/joint-Newton] range-projected Newton step over a residual Hessian nullspace \
-             (|P0 rhs|∞={null_rhs_inf:.3e} > tol={null_tol:.3e}, |P+ rhs|∞={range_rhs_inf:.3e}, \
-             λ_min+={lambda_min_positive:.3e}, λ_max={lambda_max_abs:.3e}, nullity@{rank_tol:.0e}={nullity}/{p}); \
-             the unidentified null direction is left unchanged and contributes nothing to the fit.",
+
+    /// Boundary case: a tight radius forces `‖δ‖_D = r` and the KKT condition
+    /// `(H + λD) δ = rhs` with `λ > 0`.
+    #[test]
+    fn boundary_satisfies_more_sorensen_kkt() {
+        let h = array![[3.0, 1.0], [1.0, 2.0]];
+        let rhs = array![1.0, -2.0];
+        let d = array![1.0, 1.0];
+        let spec = WhitenedHessianSpectrum::decompose(&h, &rhs, &d, KKT_REFUSAL_RANK_TOL).unwrap();
+        let r = 0.3;
+        let step = spec.trust_region_step(r);
+        let norm = metric_norm(&step.delta, &d);
+        assert!(
+            (norm - r).abs() < 1e-8,
+            "boundary step must lie on the trust boundary: ‖δ‖_D={norm} vs r={r}"
+        );
+        // Recover λ from one coordinate of (H+λD)δ = rhs and check the whole
+        // system is satisfied at that λ.
+        let hd = h.dot(&step.delta);
+        // Solve λ minimizing ‖(H+λD)δ − rhs‖ in least squares over the single
+        // scalar λ: λ* = (Dδ)·(rhs − Hδ) / (Dδ)·(Dδ).
+        let dd = &d * &step.delta;
+        let lam = dd.dot(&(&rhs - &hd)) / dd.dot(&dd);
+        assert!(lam > 0.0, "boundary multiplier must be positive, got {lam}");
+        let resid = &hd + &(lam * &dd) - &rhs;
+        assert!(
+            resid.iter().all(|v| v.abs() < 1e-7),
+            "(H+λD)δ = rhs must hold at the recovered λ={lam}, residual {resid:?}"
         );
     }
-    if !delta.iter().all(|v| v.is_finite()) {
-        return Err("joint Newton spectral solve produced non-finite step".to_string());
+
+    /// Indefinite model: the exact subproblem still returns a finite boundary
+    /// step that is a descent direction (rhsᵀδ > 0) and lies on the boundary.
+    #[test]
+    fn indefinite_model_returns_descent_step_on_boundary() {
+        // Eigenvalues +4 and -1: genuinely indefinite.
+        let h = array![[1.5, 2.5], [2.5, 1.5]];
+        let rhs = array![1.0, 0.4];
+        let d = array![1.0, 1.0];
+        let spec = WhitenedHessianSpectrum::decompose(&h, &rhs, &d, KKT_REFUSAL_RANK_TOL).unwrap();
+        let r = 0.7;
+        let step = spec.trust_region_step(r);
+        assert!(step.reflected_negative_modes >= 1 || step.most_negative_eigenvalue < 0.0);
+        let norm = metric_norm(&step.delta, &d);
+        assert!(
+            (norm - r).abs() < 1e-7,
+            "indefinite boundary step ‖δ‖_D={norm} vs r={r}"
+        );
+        assert!(
+            rhs.dot(&step.delta) > 0.0,
+            "step must be a descent direction for −rhsᵀδ + ½δᵀHδ (rhsᵀδ>0)"
+        );
+        // (H+λD) must be PSD at the chosen λ (most negative eigenvalue ≥ -λ).
+        let dd = &d * &step.delta;
+        let lam = dd.dot(&(&rhs - &h.dot(&step.delta))) / dd.dot(&dd);
+        assert!(lam >= 1.0 - 1e-6, "λ must dominate -γ_min=1, got {lam}");
     }
 
-    Ok(JointSpectralNewtonStep {
-        delta,
-        range_rhs_inf,
-        null_rhs_inf,
-        lambda_max_abs,
-        lambda_min_positive,
-        nullity,
-        rank_tol,
-        reflected_negative_modes,
-        most_negative_eigenvalue: most_negative,
-    })
+    /// Self-vanishing: as rhs → 0 the step → 0 regardless of the radius, so the
+    /// converged β and the KKT fixed point are unchanged by the globalization.
+    #[test]
+    fn step_vanishes_as_rhs_vanishes() {
+        let h = array![[3.0, 1.0], [1.0, 2.0]];
+        let rhs = array![1e-13, -2e-13];
+        let d = array![1.0, 1.0];
+        let spec = WhitenedHessianSpectrum::decompose(&h, &rhs, &d, KKT_REFUSAL_RANK_TOL).unwrap();
+        let step = spec.trust_region_step(0.5);
+        assert!(
+            step.delta.iter().all(|v| v.abs() < 1e-11),
+            "near-zero rhs must give near-zero step, got {:?}",
+            step.delta
+        );
+    }
+
+    /// Null space: a genuinely zero-curvature direction is dropped from the step
+    /// (Moore–Penrose range restriction) and reported via `null_rhs_inf`.
+    #[test]
+    fn null_direction_is_dropped_and_reported() {
+        // Second coordinate has zero curvature; rhs has mass there.
+        let h = array![[2.0, 0.0], [0.0, 0.0]];
+        let rhs = array![1.0, 0.5];
+        let d = array![1.0, 1.0];
+        let spec = WhitenedHessianSpectrum::decompose(&h, &rhs, &d, KKT_REFUSAL_RANK_TOL).unwrap();
+        let step = spec.trust_region_step(1e6);
+        assert_eq!(step.nullity, 1, "one null direction expected");
+        assert!(
+            step.null_rhs_inf >= 0.5 - 1e-9,
+            "null-space rhs component must be reported, got {}",
+            step.null_rhs_inf
+        );
+        // The identified direction takes its exact Newton component (1/2).
+        assert!((step.delta[0] - 0.5).abs() < 1e-10);
+        assert!(step.delta[1].abs() < 1e-10, "null coordinate left at 0");
+    }
+
+    /// Non-identity metric: the boundary is measured in the `D` norm, so a step
+    /// with a large lightly-weighted coordinate is admissible.
+    #[test]
+    fn respects_non_identity_metric() {
+        let h = array![[2.0, 0.0], [0.0, 8.0]];
+        let rhs = array![1.0, 1.0];
+        let d = array![1.0, 16.0];
+        let spec = WhitenedHessianSpectrum::decompose(&h, &rhs, &d, KKT_REFUSAL_RANK_TOL).unwrap();
+        let r = 0.2;
+        let step = spec.trust_region_step(r);
+        let norm = metric_norm(&step.delta, &d);
+        assert!(
+            (norm - r).abs() < 1e-8,
+            "step must lie on the D-metric boundary, ‖δ‖_D={norm} vs r={r}"
+        );
+    }
+
+    /// Shrinking the radius re-solves the subproblem (the direction bends toward
+    /// the gradient) rather than rescaling a fixed direction — the property the
+    /// dogleg/truncation lacked. A halved radius must not merely halve the step.
+    #[test]
+    fn radius_shrink_bends_direction_not_just_scale() {
+        let h = array![[50.0, 0.0], [0.0, 0.5]];
+        let rhs = array![1.0, 1.0];
+        let d = array![1.0, 1.0];
+        let spec = WhitenedHessianSpectrum::decompose(&h, &rhs, &d, KKT_REFUSAL_RANK_TOL).unwrap();
+        let big = spec.trust_region_step(1.0).delta;
+        let small = spec.trust_region_step(0.25).delta;
+        // Direction (unit vectors) must differ: a pure truncation keeps the
+        // direction fixed; the exact subproblem rotates toward the steep mode.
+        let big_u = &big / metric_norm(&big, &d);
+        let small_u = &small / metric_norm(&small, &d);
+        let cos = big_u.dot(&small_u);
+        assert!(
+            cos < 0.9999,
+            "exact TR step must bend the direction under radius shrink (cos={cos})"
+        );
+    }
 }
 
 /// Numerical nullity of a symmetric penalized Hessian at the shared
@@ -13838,31 +14069,9 @@ fn joint_preconditioned_descent_delta(
 
 fn joint_line_search_log_likelihood<F: CustomFamily + Clone + Send + Sync + 'static>(
     family: &F,
-    specs: &[ParameterBlockSpec],
     line_search_options: &BlockwiseFitOptions,
-    workspace_options: &BlockwiseFitOptions,
     states: &[ParameterBlockState],
-    prefer_workspace: bool,
 ) -> Result<(f64, Option<Arc<dyn ExactNewtonJointHessianWorkspace>>), String> {
-    if prefer_workspace
-        && let Some((log_likelihood, workspace)) =
-            family.joint_line_search_log_likelihood_workspace(states, specs, workspace_options)?
-    {
-        return Ok((log_likelihood, Some(workspace)));
-    }
-    if (!family.supports_log_likelihood_early_exit()
-        || line_search_options.early_exit_threshold.is_none())
-        && prefer_workspace
-        && family.inner_joint_workspace_log_likelihood_available(specs)
-        && let Some(workspace) = family.exact_newton_joint_hessian_workspace_with_options(
-            states,
-            specs,
-            workspace_options,
-        )?
-        && let Some(log_likelihood) = workspace.joint_log_likelihood_evaluation()?
-    {
-        return Ok((log_likelihood, Some(workspace)));
-    }
     family
         .log_likelihood_only_with_options(states, line_search_options)
         .map(|log_likelihood| (log_likelihood, None))
@@ -14148,12 +14357,12 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
     options: &BlockwiseFitOptions,
     warm_start: Option<&ConstrainedWarmStart>,
 ) -> Result<BlockwiseInnerResult, String> {
-    // Inner-blockwise prelude waypoints. At biobank n the cold-start
+    // Inner-blockwise prelude waypoints. At large-scale n the cold-start
     // path between function entry and the first PIRLS/JN cycle-summary
     // log can run for many minutes (sometimes hours) silently while
     // row-kernel workspace builds run. Emit a `[STAGE] PIRLS/inner`
     // line at each transition so the next failed run pinpoints which
-    // named step holds time. Gated on biobank-scale n so small-fit
+    // named step holds time. Gated on large-scale n so small-fit
     // tests stay quiet.
     let inner_started = std::time::Instant::now();
     let mut states = buildblock_states(family, specs)?;
@@ -14466,7 +14675,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
         // regime, the Fisher information is `O(n)` on every identified
         // direction by construction, and each Jeffreys evaluation costs
         // `p` directional-derivative calls into the family's exact joint
-        // Hessian — at biobank scale (CTN duchon16d, p=144, n=20000) that
+        // Hessian — at large scale (CTN duchon16d, p=144, n=20000) that
         // is the dominant per-cycle cost (~200 s/cycle on three calls per
         // cycle), exhausting the inner budget before the algorithm converges
         // while contributing essentially zero to the gradient/curvature.
@@ -14561,7 +14770,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
         // that one requires the log-likelihood to be unchanged for K
         // cycles AND the per-block Newton step pinned at the cap.
         //
-        // Biobank-scale survival marginal-slope hits a different pattern —
+        // Large-scale survival marginal-slope hits a different pattern —
         // the joint objective decreases monotonically by O(1) per cycle
         // (so loglik is NOT frozen), the TR repeatedly clamps proposals
         // with |prop|∞ >> trust_radius, and the post-step KKT residual
@@ -14606,7 +14815,9 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
         // solve crosses it, which is exactly when the damping is sound. Set a
         // few cycles below the stall-exit window so the damping gets a chance to
         // rescue the solve well before the early-exit / budget tripwire fires.
-        const COND_LEVENBERG_ARM_AFTER_NO_IMPROVE_CYCLES: usize = 4;
+        // (The conditioning-gated self-vanishing μ this armed now lives ONLY in the
+        // test-retained `solve_joint_newton_step_on_spectral_range`; the production
+        // joint step takes the exact trust-region multiplier λ instead — gam#979.)
         // Recent KKT-residual values (oldest→newest) used to detect STEADY
         // geometric descent at the certificate-refusal gate. A still-converging
         // Newton direction (residual dropping by a steady factor < 1 each cycle)
@@ -14638,10 +14849,14 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
         // per-block + spectrum breakdown without re-materializing H_pen.
         let mut last_kkt_refusal_report: Option<KktRefusalReport> = None;
         let mut prev_kkt_norm: Option<f64> = None;
-        // Plateau detector: count consecutive cycles whose |Δobj| sits
-        // below `objective_tol`; when the streak hits the threshold
-        // the linearized stall exit fires.
-        let mut consecutive_obj_flat_cycles: usize = 0;
+        // Plateau streak on |Δobj| ≤ objective_tol. The scale-aware
+        // flatness predicate stays local to this loop; the streak/window
+        // discipline (grow on flat, reset on recovery) is the shared
+        // loop_guard::FlatStreak so it cannot drift from the other
+        // stagnation detectors in the tree (#968).
+        let mut obj_flat_streak = crate::solver::loop_guard::FlatStreak::new(
+            crate::solver::loop_guard::PLATEAU_DEFAULT_WINDOW,
+        );
         // Total descent budget across the joint-Newton loop, used by
         // the end-of-loop summary to report `descent_total`.
         let initial_joint_objective: f64 = lastobjective;
@@ -14663,8 +14878,6 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
         // directly. Extra damping must be wired through an accepted/rejected
         // step policy before it belongs here; keep the matvec faithful to the
         // objective until then.
-        // EMA of per-cycle wall-clock for timing-driven adaptive early-exit (#289).
-        let mut ema_joint_cycle_secs: Option<f64> = None;
         for cycle in 0..inner_loop_hard_ceiling {
             if cycle >= inner_max_cycles {
                 break;
@@ -14680,7 +14893,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
             // log at end of cycle.
             // Per-cycle phase-timing accumulators. Surface where the inner
             // joint-Newton spends time so a 18-min silent cycle 0 (the
-            // bernoulli marginal-slope FLEX biobank failure mode) becomes a
+            // bernoulli marginal-slope FLEX large-scale failure mode) becomes a
             // logged timeline at the end of the cycle. Phases:
             //   * hessian: joint Hessian source build (matrix-free workspace
             //     OR dense fallback assembly)
@@ -14932,6 +15145,15 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
             let solve_joint_constraints_dense = joint_constraints.is_some()
                 || !matrix_free_joint_requested
                 || joint_hessian_is_dense;
+            // Exact trust-region subproblem factorization (gam#979). Populated on
+            // the unconstrained dense-spectral path with the metric-whitened
+            // eigendecomposition of the penalized Hessian, so the trust loop below
+            // re-solves the *exact* Moré–Sorensen subproblem at each trust radius
+            // from one factorization — replacing the dogleg/Cauchy/box-truncation
+            // globalization with the single object they all approximate. `None` on
+            // the constrained-QP and matrix-free PCG paths, which keep their
+            // existing globalization untouched.
+            let mut joint_spectrum: Option<whitened_spectrum::WhitenedHessianSpectrum> = None;
             let (candidate_beta, joint_active_set, joint_step_spectral_nullity) =
                 if solve_joint_constraints_dense
                     && let Some(constraints) = joint_constraints.as_ref()
@@ -15141,16 +15363,6 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                     let inner_jeffreys_hphi: Option<Arc<Array2<f64>>> = inner_jeffreys_term
                         .as_ref()
                         .map(|(_grad_phi, hphi)| Arc::new(hphi.clone()));
-                    let grad_inf_for_solve = grad_joint
-                        .iter()
-                        .map(|x: &f64| x.abs())
-                        .fold(0.0_f64, f64::max);
-                    let penalty_inf_for_solve = penalty_beta
-                        .iter()
-                        .map(|x: &f64| x.abs())
-                        .fold(0.0_f64, f64::max);
-                    let residual_tol_for_solve =
-                        inner_tol * (1.0 + grad_inf_for_solve.max(penalty_inf_for_solve));
                     let pcg_started = std::time::Instant::now();
                     let pcg_requested = matrix_free_joint_requested && !joint_hessian_is_dense;
                     let mut spectral_nullity_for_step = 0usize;
@@ -15177,7 +15389,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                         };
                         // Pre-allocate the penalty workspace ONCE outside the
                         // PCG closure so each CG iter (called hundreds-to-
-                        // thousands of times per outer iter at biobank scale)
+                        // thousands of times per outer iter at large scale)
                         // reuses the buffer instead of allocating per call.
                         // RefCell because solve_spd_pcg* expects `Fn` (immutable
                         // borrow of captures) and we need interior mutability
@@ -15321,41 +15533,34 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                         if let Some((_grad_phi, hphi)) = inner_jeffreys_term.as_ref() {
                             lhs_true += hphi;
                         }
-                        // Self-vanishing Levenberg–Marquardt damping for the
-                        // range-restricted spectral step. Scaled to the current
-                        // stationarity-residual magnitude ‖∇L − Sβ‖∞ so it is
-                        // dimensionally consistent with the eigenvalues it floors
-                        // (μ = JOINT_SPECTRAL_LEVENBERG_FACTOR · ‖rhs‖∞). As the
-                        // inner solve converges (‖rhs‖∞ → 0) μ → 0 and the step
-                        // collapses to the exact range-restricted Newton step, so
-                        // the KKT fixed point and the well-identified #720 fast
-                        // path are unchanged; far from the optimum on a
-                        // near-singular degenerate design it caps the otherwise
-                        // unbounded component/λ step along ill-conditioned modes
-                        // and stops the oscillation that prevented the n=23
-                        // binary-covariate CTM from settling (#733/#734).
-                        let rhs_inf = spectral_rhs.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
-                        let spectral_levenberg_mu = JOINT_SPECTRAL_LEVENBERG_FACTOR * rhs_inf;
-                        // Engage the conditioning-based self-vanishing μ when the
-                        // family always wants it (survival marginal-slope, #808)
-                        // OR when this solve has stopped making progress for a few
-                        // consecutive cycles — the universal oscillation signature
-                        // on a full-rank-but-ill-conditioned penalized Hessian at
-                        // the oversmoothed-ρ seed (#826). A quadratically
-                        // converging fit never trips the cycle threshold, so this
-                        // is byte-identical for well-conditioned / AFT endgames;
-                        // see `COND_LEVENBERG_ARM_AFTER_NO_IMPROVE_CYCLES`.
-                        let cond_levenberg_armed = family.levenberg_on_ill_conditioning()
-                            || cycles_since_residual_improved
-                                >= COND_LEVENBERG_ARM_AFTER_NO_IMPROVE_CYCLES;
-                        let spectral_step = solve_joint_newton_step_on_spectral_range(
+                        // Single metric-whitened eigendecomposition drives BOTH the
+                        // seed step and every trust-region re-solve this cycle
+                        // (gam#979). The prior code ran a SECOND O(p³)
+                        // eigendecomposition of the raw Hessian here purely to form
+                        // the seed step — doubling the dominant per-cycle cost on the
+                        // ~5 s/cycle ill-conditioned survival marginal-slope inner.
+                        // The exact trust-region multiplier λ (chosen so ‖δ‖_D = r)
+                        // subsumes the old self-vanishing Levenberg-μ seed: `decompose`
+                        // whitens by the trust metric so the penalty (λ~e²⁴) and the
+                        // likelihood scales are throttled uniformly — the scale
+                        // invariance the multiplicative μ approximated. `lhs_true`
+                        // already carries the penalty and the Firth/Jeffreys curvature
+                        // H_Φ and `spectral_rhs` the augmented stationarity RHS, so the
+                        // subproblem model matches the predicted-reduction model and the
+                        // accept/reject gain ratio exactly.
+                        let spectrum = whitened_spectrum::WhitenedHessianSpectrum::decompose(
                             &lhs_true,
                             &spectral_rhs,
+                            &joint_trust_metric_diag,
                             KKT_REFUSAL_RANK_TOL,
-                            residual_tol_for_solve,
-                            spectral_levenberg_mu,
-                            cond_levenberg_armed,
                         )?;
+                        // Seed = the unconstrained (Moore–Penrose, range-restricted)
+                        // exact step, so cycle 0 can take the full Newton step on a
+                        // well-conditioned model (the cycle-0 radius bump below relies
+                        // on this); the trust loop re-solves at finite radius for every
+                        // subsequent attempt. An indefinite model reflects negative
+                        // curvature to |λ|, exactly as the prior spectral solve did.
+                        let spectral_step = spectrum.trust_region_step(f64::INFINITY);
                         spectral_nullity_for_step = spectral_step.nullity;
                         if spectral_step.reflected_negative_modes > 0 {
                             log::info!(
@@ -15382,6 +15587,9 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                             );
                         }
                         delta = Some(spectral_step.delta);
+                        // The same factorization powers every trust-radius re-solve
+                        // in the loop below (gam#979) — no second eigendecomposition.
+                        joint_spectrum = Some(spectrum);
                     }
 
                     let Some(delta) = delta else {
@@ -15409,7 +15617,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
 
             // Trust-region globalization for the joint Newton proposal.  The
             // previous implementation used up to eight backtracking likelihood
-            // evaluations (each can build the exact joint workspace at biobank
+            // evaluations (each can build the exact joint workspace at large-scale
             // scale).  Here the step is truncated before evaluation and the
             // single trial objective is accepted only when the actual decrease
             // is positive relative to the local quadratic model.
@@ -15504,7 +15712,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
             // Scale the KKT residual tolerance against the natural magnitude
             // of ‖Sβ − ∇L‖∞ (i.e. max(‖∇L‖∞, ‖Sβ‖∞)), not the objective. The
             // gradient and Sβ scale independently of the likelihood — at
-            // biobank scale with |β|∞ ~ 10²–10³ and non-trivial smoothing,
+            // large scale with |β|∞ ~ 10²–10³ and non-trivial smoothing,
             // ‖Sβ‖∞ can sit orders of magnitude above |obj| and FP noise
             // alone keeps the residual above any obj-scaled tol, so KKT is
             // never certified even when the iterate is the true optimum.
@@ -15627,7 +15835,20 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 // or after the preconditioned-descent fallback replaced
                 // `search_delta`) fall back to box-truncating the search step.
                 let mut trial_delta;
-                let mut block_step_norms = if let Some(cauchy) = dogleg_cauchy.as_ref()
+                let mut block_step_norms = if let Some(spectrum) = joint_spectrum.as_ref() {
+                    // Exact Moré–Sorensen trust-region step at the current radius
+                    // (gam#979). The step already lies in the `D`-metric ball, so
+                    // no dogleg blend or box-truncation is applied: on a shrink the
+                    // direction is RE-SOLVED (bending toward the gradient), the
+                    // property the dogleg/truncation lacked. Re-solving reuses the
+                    // cached factorization at O(p) cost.
+                    trial_delta = spectrum.trust_region_step(joint_trust_radius).delta;
+                    joint_trust_region_block_metric_norms(
+                        &trial_delta,
+                        &ranges,
+                        &joint_trust_metric_diag,
+                    )
+                } else if let Some(cauchy) = dogleg_cauchy.as_ref()
                     && !tried_preconditioned_descent
                 {
                     trial_delta = Array1::<f64>::zeros(total_p);
@@ -15691,7 +15912,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 // predicted = ½·rhs·δ while actual = rhs·δ, giving ρ = 2
                 // exactly. The trust-region loop then accepts the step
                 // (ρ > 0.75 expands the radius), and the same regime
-                // repeats every cycle — exactly the biobank-saturated
+                // repeats every cycle — exactly the large-scale-saturated
                 // failure trace. Pinned by
                 // `ridge_stabilization_gap_produces_exact_rho_two_in_null_direction`.
                 //
@@ -15858,13 +16079,10 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                     );
                 }
                 // Cheap-LL line-search path: rejected backtracking attempts
-                // discard the exact-Newton workspace they build, so by default
-                // we evaluate just the scalar full-data log-likelihood for the
-                // accept/reject decision and only build the full state once the
-                // step is accepted (via the gradient reload below). The
-                // workspace path is preserved behind
-                // `options.line_search_prefer_workspace` for A/B regression
-                // checks against the legacy numerics.
+                // discard the exact-Newton workspace they build, so we evaluate
+                // just the scalar full-data log-likelihood for the accept/reject
+                // decision and only build the full state once the step is
+                // accepted (via the gradient reload below).
                 //
                 // EARLY-EXIT THRESHOLD MUST BOUND THE NLL, NOT THE FULL OBJECTIVE
                 // (was a stall — gam#787/#785, duchon centers≥20). The family's
@@ -15886,35 +16104,29 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 // penalty so the threshold is the NLL the trial must beat.
                 let line_search_options =
                     coefficient_line_search_options(options, old_objective + 1e-10 - trial_penalty);
-                let trial_ll = match joint_line_search_log_likelihood(
-                    family,
-                    specs,
-                    &line_search_options,
-                    options,
-                    &states,
-                    joint_workspace_requested && options.line_search_prefer_workspace,
-                ) {
-                    Ok((value, workspace)) => {
-                        accepted_joint_workspace = workspace;
-                        value
-                    }
-                    Err(e) => {
-                        likelihood_rejects += 1;
-                        if first_likelihood_reject.is_none() {
-                            first_likelihood_reject = Some(e);
+                let trial_ll =
+                    match joint_line_search_log_likelihood(family, &line_search_options, &states) {
+                        Ok((value, workspace)) => {
+                            accepted_joint_workspace = workspace;
+                            value
                         }
-                        for (b, old) in old_beta.iter().enumerate() {
-                            states[b].beta.assign(old);
+                        Err(e) => {
+                            likelihood_rejects += 1;
+                            if first_likelihood_reject.is_none() {
+                                first_likelihood_reject = Some(e);
+                            }
+                            for (b, old) in old_beta.iter().enumerate() {
+                                states[b].beta.assign(old);
+                            }
+                            refresh_all_block_etas(family, specs, &mut states)?;
+                            joint_trust_radius = shrink_active_joint_block_trust_radii(
+                                &mut joint_block_trust_radii,
+                                &block_step_norms,
+                                0.25,
+                            );
+                            continue;
                         }
-                        refresh_all_block_etas(family, specs, &mut states)?;
-                        joint_trust_radius = shrink_active_joint_block_trust_radii(
-                            &mut joint_block_trust_radii,
-                            &block_step_norms,
-                            0.25,
-                        );
-                        continue;
-                    }
-                };
+                    };
                 let trialobjective = -trial_ll + trial_penalty;
                 // Row measure observed by the trial objective at β + δ. The
                 // line-search helper above runs under `coefficient_line_search_options`,
@@ -16058,7 +16270,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 // Surface the TR-policy decision so future failures
                 // distinguish "TR is throttling Newton" from "TR is not
                 // the bottleneck — Newton itself finds short steps".
-                // For the biobank linear-convergence pattern the policy
+                // For the large-scale linear-convergence pattern the policy
                 // is consistently `hold_inside` (ρ≈1, |δ| ≪ radius),
                 // which proves the TR is not what is keeping the step
                 // small — that came up before via "(held)" alone but
@@ -16417,12 +16629,12 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
             // Scale-aware tolerances. The objective check was already
             // relative (`inner_tol * (1 + |obj|)`), but the step and
             // residual checks were absolute against the bare `inner_tol`
-            // — at biobank scale (n ≈ 320k), β iterates can keep moving
+            // — at large scale (n ≈ 320k), β iterates can keep moving
             // by ~1e-5 per cycle along the monotonicity-feasible
             // manifold even after the likelihood has gone flat, and the
             // joint gradient ‖·‖_∞ is O(|obj|), not O(1). Running
             // 50-100 cycles past objective convergence is the
-            // dominant inner-PIRLS cost at biobank scale. Switching to
+            // dominant inner-PIRLS cost at large scale. Switching to
             // relative scaling (`inner_tol * (1 + ‖β‖_∞)` for steps,
             // `inner_tol * (1 + |obj|)` for the gradient residual)
             // exits PIRLS as soon as the optimum is statistically
@@ -16438,7 +16650,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
             let objective_tol = inner_tol * (1.0 + lastobjective.abs());
             // KKT residual tolerance must scale with the natural magnitude of
             // ‖Sβ − ∇L‖∞ (i.e. max(‖∇L‖∞, ‖Sβ‖∞)), not the objective. At
-            // biobank scale with |β|∞ in the 10²–10³ range the gradient and
+            // large scale with |β|∞ in the 10²–10³ range the gradient and
             // penalty norms can sit orders of magnitude above |obj| and FP
             // noise alone keeps the residual above any obj-scaled tol. The
             // pre-line-search check at the head of the cycle already uses
@@ -16552,14 +16764,34 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
             // this, the only visible signal is the objective itself,
             // which is insufficient to choose the right algorithmic
             // remedy.
+            //
+            // gam#979 discriminator: the PER-BLOCK projected stationarity
+            // breakdown. The aggregate `residual` alone cannot distinguish a
+            // genuinely-coupled stall from one block dragging the others — for
+            // the survival marginal↔logslope grind the question "is the total
+            // residual dominated by a single block (the multiplicative
+            // z·exp(logslope) coupling channel), or spread evenly (global
+            // conditioning)?" is answerable only from the split. `block_resid`
+            // is already computed above for the convergence test, so surfacing
+            // it per cycle is free; reading it across a 75 s repro under
+            // RUST_LOG=info tells whether the slowdown is a single stuck block
+            // (curvature/coupling channel) or an evenly slow descent
+            // (conditioning) — without it the four #979 candidates are not
+            // separable from the timeline.
+            let block_resid_sig = block_stationarity_norms
+                .iter()
+                .map(|n| format!("{n:.3e}"))
+                .collect::<Vec<_>>()
+                .join(",");
             log::info!(
-                "[PIRLS/joint-Newton convergence] cycle {:>3} | step_inf={:.3e} (tol={:.3e}) | accepted_step_inf={:.3e} | residual={:.3e} (tol={:.3e}) | obj_change={:.3e} (tol={:.3e}) | beta_inf={:.3e}",
+                "[PIRLS/joint-Newton convergence] cycle {:>3} | step_inf={:.3e} (tol={:.3e}) | accepted_step_inf={:.3e} | residual={:.3e} (tol={:.3e}) | per_block_resid=[{}] | obj_change={:.3e} (tol={:.3e}) | beta_inf={:.3e}",
                 cycle,
                 step_inf,
                 step_tol,
                 accepted_step_inf,
                 residual,
                 residual_tol,
+                block_resid_sig,
                 objective_change,
                 objective_tol,
                 beta_inf,
@@ -16896,7 +17128,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                     // in the direction of g, so Hδ ≈ 0 along the null
                     // direction regardless of whether g is a multiplier or a
                     // real defect. Case (b) is the survival marginal-slope
-                    // pathology at biobank scale: H σ_min ≈ 1e-12 and Newton
+                    // pathology at large scale: H σ_min ≈ 1e-12 and Newton
                     // genuinely cannot move g, but the residual is NOT a
                     // captured multiplier — it's an unresolved KKT defect in
                     // the H-null subspace.
@@ -17313,7 +17545,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
             // Residual-stall early-exit. The strict and noise-floor
             // certificates above require the KKT residual to land within
             // a small multiple of residual_tol. On survival marginal-slope
-            // at biobank scale the residual oscillates in a band that is
+            // at large scale the residual oscillates in a band that is
             // orders of magnitude above tol without trending down while
             // the unconstrained proposal has |prop|∞ in the 10³–10⁶ range,
             // the TR clamps it, and each clamped step moves β by O(1)
@@ -17410,16 +17642,13 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                     || superconverged_stationarity)
             {
                 log::info!(
-                    "[JN-EXIT] cycle={cycle} reason=plateau_objective_flat residual={residual:.3e} residual_tol={residual_tol:.3e} obj_change={objective_change:.3e} objective_tol={objective_tol:.3e} consecutive_flat={consecutive_obj_flat_cycles} accepted_step_inf={accepted_step_inf:.3e} step_tol={step_tol:.3e}",
+                    "[JN-EXIT] cycle={cycle} reason=plateau_objective_flat residual={residual:.3e} residual_tol={residual_tol:.3e} obj_change={objective_change:.3e} objective_tol={objective_tol:.3e} consecutive_flat={} accepted_step_inf={accepted_step_inf:.3e} step_tol={step_tol:.3e}",
+                    obj_flat_streak.streak(),
                 );
                 converged = true;
                 break;
             }
-            if objective_change <= objective_tol {
-                consecutive_obj_flat_cycles = consecutive_obj_flat_cycles.saturating_add(1);
-            } else {
-                consecutive_obj_flat_cycles = 0;
-            }
+            obj_flat_streak.note(objective_change <= objective_tol);
             // Carry the KKT-stationarity / objective-stagnation signals
             // into the next cycle so the line-search-failure path above
             // can recognise a true KKT optimum on a rank-deficient null
@@ -17427,36 +17656,21 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
             last_cycle_residual_below_tol = residual <= residual_tol;
             last_cycle_obj_change_below_tol = objective_change <= objective_tol;
 
-            // ── Timing-driven adaptive early-exit (#289) ────────────────────
-            // Mirror the EMA predicate from the PIRLS LM loop: when cycles
-            // become trivially cheap AND objective/residual are near-stationary,
-            // accept convergence rather than spinning to inner_max_cycles.
-            let cycle_secs_joint = cycle_started.elapsed().as_secs_f64();
-            let ema_joint = match ema_joint_cycle_secs {
-                None => cycle_secs_joint,
-                Some(prev) => 0.3 * cycle_secs_joint + 0.7 * prev,
-            };
-            ema_joint_cycle_secs = Some(ema_joint);
-            if cycle >= 2 {
-                let cycle_cheap = ema_joint > 0.0 && cycle_secs_joint < 0.25 * ema_joint;
-                let f_abs = lastobjective.abs().max(1.0);
-                let deviance_ok = (objective_change / f_abs) < inner_tol * 10.0;
-                let residual_ok = residual <= residual_tol * 10.0;
-                if cycle_cheap && deviance_ok && residual_ok {
-                    log::info!(
-                        "[PIRLS/joint-Newton] cycle {} timing-driven adaptive early-exit: \
-                         cycle={:.4}s ema={:.4}s obj_rel={:.3e} residual={:.3e}",
-                        cycle,
-                        cycle_secs_joint,
-                        ema_joint,
-                        objective_change / f_abs,
-                        residual,
-                    );
-                    converged = true;
-                    break;
-                }
-            }
-            // ── end timing-driven adaptive early-exit ────────────────────────
+            // NOTE: there is deliberately NO wall-clock-driven "adaptive
+            // early-exit" here. A convergence verdict that fires when a cycle's
+            // wall-clock happens to fall below a fraction of a running EMA is
+            // non-deterministic — under CPU contention (a parallel sweep) the
+            // same fit accepts at a different iterate than it does run alone,
+            // which cascades into a different outer seed and a different
+            // continuation-pre-warm fire/collapse decision (gam#979's
+            // "collapses sequentially, fires in parallel" instability). It also
+            // accepts iterates up to 10× outside the real KKT/objective
+            // tolerance, biasing the REML/LAML criterion the inner residual
+            // feeds. Convergence is certified ONLY by the mathematical tests
+            // above (KKT residual / Newton step / objective change at their
+            // scale-aware tolerances); whether convergence is *reachable within
+            // the cycle budget* is judged by the deterministic descent-rate
+            // guard alongside the residual-stall detector above.
         }
 
         // Explicit terminal verdict for the joint-Newton inner solve.
@@ -17484,9 +17698,18 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
             } else {
                 "early-exit non-converged (divergence/stall guard)"
             };
+            // `solve_wall` (whole inner-solve elapsed) + `cycles` make the
+            // per-solve cost explicit on ONE line: gam#979's "outer
+            // multiplication" candidate is read off by counting these terminal
+            // lines across a repro and summing their wall-times, and the
+            // overhead candidate by comparing `solve_wall / cycles` against the
+            // [joint-newton-tr] phase splits. Together with the per-cycle
+            // `per_block_resid` (which block stalls) and the existing TR line
+            // (ρ gain-ratio + decision: model infidelity vs TR throttling), a
+            // single RUST_LOG=info run separates all four #979 candidates.
             let verdict = format!(
                 "[PIRLS/joint-Newton terminal] converged={} terminator={} cycles={}/{} \
-                 best_residual_inf={:.3e} (tol={:.3e}) last_residual_below_tol={} \
+                 solve_wall={:.3}s best_residual_inf={:.3e} (tol={:.3e}) last_residual_below_tol={} \
                  last_obj_change_below_tol={} objective={:.6e}; this is the status the inner \
                  solve reports to the outer REML/LAML evaluation — a non-converged exit \
                  (residual ≫ tol with only the objective stalled) is rejected, not accepted",
@@ -17494,6 +17717,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 terminator,
                 cycles_done,
                 inner_max_cycles,
+                inner_started.elapsed().as_secs_f64(),
                 best_residual_seen,
                 last_residual_tol,
                 last_cycle_residual_below_tol,
@@ -17835,7 +18059,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
     // MAX_NEWTON_STEP every cycle while β grows linearly along it; the
     // log-likelihood stays frozen, only the penalty changes (slowly).
     // Without an early-exit the loop runs to inner_max_cycles producing
-    // the same -loglik over and over, which at biobank scale (each cycle
+    // the same -loglik over and over, which at large scale (each cycle
     // ~0.5s) burns ~50s per ρ-cost call and stacks up to a 2400s timeout.
     //
     // Detect the pattern and bail with `converged = false` so the cost
@@ -17859,7 +18083,12 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
     let mut block_max_step: Vec<f64> = vec![BLOCK_NEWTON_STEP_INITIAL; specs.len()];
 
     let mut prev_log_likelihood_for_divergence_check = cached_eval.log_likelihood;
-    let mut consecutive_frozen_loglik_cycles: usize = 0;
+    // Frozen-loglik streak rides the shared window discipline
+    // (loop_guard::FlatStreak, #968); the frozen-loglik predicate and the
+    // clamped-step side condition below stay local — they are policy about
+    // what counts as flat, which this loop rightly owns.
+    let mut frozen_loglik_streak =
+        crate::solver::loop_guard::FlatStreak::new(DIVERGENCE_FROZEN_LOGLIK_CYCLES);
     // Coordinate descent visits each block in turn, so `max_proposed_step`
     // (the per-cycle max across blocks) only fires the cap on cycles where
     // the divergent block is the active one. On a near-null direction this
@@ -18293,7 +18522,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
         }
 
         // Scale-aware tolerances — see the matching joint-Newton path
-        // above for the rationale. At biobank scale absolute step/residual
+        // above for the rationale. At large scale absolute step/residual
         // tolerances against `inner_tol = 1e-6` keep this loop spinning
         // long after the objective has gone flat.
         let beta_inf = states
@@ -18352,24 +18581,25 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
         let loglik_frozen_tol_for_divergence_check =
             inner_tol * (1.0 + cached_eval.log_likelihood.abs());
         let step_clamped_for_divergence_check = trust_boundary_hit_in_cycle;
-        if loglik_change_for_divergence_check <= loglik_frozen_tol_for_divergence_check {
-            consecutive_frozen_loglik_cycles += 1;
+        let loglik_frozen =
+            loglik_change_for_divergence_check <= loglik_frozen_tol_for_divergence_check;
+        let frozen_verdict = frozen_loglik_streak.note(loglik_frozen);
+        if loglik_frozen {
             if step_clamped_for_divergence_check {
                 clamped_step_in_frozen_run = true;
             }
         } else {
-            consecutive_frozen_loglik_cycles = 0;
             clamped_step_in_frozen_run = false;
         }
         prev_log_likelihood_for_divergence_check = cached_eval.log_likelihood;
-        if consecutive_frozen_loglik_cycles >= DIVERGENCE_FROZEN_LOGLIK_CYCLES
+        if frozen_verdict == crate::solver::loop_guard::LoopVerdict::Plateaued
             && clamped_step_in_frozen_run
         {
             log::warn!(
                 "[PIRLS/blockwise convergence] divergence early-exit at cycle {} | -loglik={:.6e} frozen for {} consecutive cycles | max_proposed_step={:.3e} (trust-boundary hit observed in frozen run) | step_tol={:.3e}; near-null Hessian direction detected — returning unconverged so the outer optimizer backs off this region instead of running to inner_max_cycles.",
                 cycle,
                 -cached_eval.log_likelihood,
-                consecutive_frozen_loglik_cycles,
+                frozen_loglik_streak.streak(),
                 max_proposed_beta_step,
                 step_tol,
             );
@@ -18541,7 +18771,7 @@ fn inner_blockwise_fit<F: CustomFamily + Clone + Send + Sync + 'static>(
                 .map(|(v, _)| v.abs())
                 .fold(0.0_f64, f64::max);
             // Scale-aware residual tolerance — the joint stationarity
-            // residual ‖∇ℓ − Sβ‖_∞ scales with |obj| (≈ O(n) at biobank
+            // residual ‖∇ℓ − Sβ‖_∞ scales with |obj| (≈ O(n) at large-scale
             // scale), so the historical absolute `inner_tol = 1e-6` is
             // unachievable here even at the true minimum. Same rationale
             // as the joint-Newton convergence test above.
@@ -19256,6 +19486,13 @@ struct ExtCoordBundle {
     ext_ext_fn: Option<Box<dyn Fn(usize, usize) -> HyperCoordPair + Send + Sync>>,
     rho_ext_fn: Option<Box<dyn Fn(usize, usize) -> HyperCoordPair + Send + Sync>>,
     drift_fn: Option<FixedDriftDerivFn>,
+    /// Direction-contracted ψψ second-order hook (#740). When `Some`, the
+    /// outer-Hessian operator builder skips the `K²` per-pair ψψ assembly
+    /// (`ext_ext_fn`) and applies this once per matvec. `ext_ext_fn` is still
+    /// kept as the documented fallback for the dense `compute_outer_hessian`
+    /// path and for outer evaluations that do not build the matrix-free
+    /// operator.
+    contracted_psi_fn: Option<ContractedPsiSecondOrderFn>,
 }
 
 struct ScaledHyperOperator {
@@ -19378,11 +19615,33 @@ impl ExtCoordBundle {
                 callback(ext_idx, direction).map(|result| scale_drift_deriv_result(result, scale))
             }) as FixedDriftDerivFn
         });
+        // The contracted ψψ hook is a (scaled) linear functional of the same
+        // family curvature `ext_ext_fn` reproduces, so the `rho_curvature_scale`
+        // applies term-for-term: objective/score/ld_s by `scale`, and each
+        // `hessian[i]` drift via `scale_drift_deriv_result` (matching how
+        // `scale_hypercoord_pair` scales the per-pair `b_mat`/`b_operator`).
+        let contracted_psi_fn = self.contracted_psi_fn.map(|callback| {
+            Arc::new(move |alpha_psi: &[f64]| {
+                callback(alpha_psi).map(|opt| {
+                    opt.map(|contracted| ContractedPsiSecondOrder {
+                        objective: contracted.objective.mapv(|v| scale * v),
+                        score: contracted.score.mapv(|v| scale * v),
+                        hessian: contracted
+                            .hessian
+                            .into_iter()
+                            .map(|drift| scale_drift_deriv_result(drift, scale))
+                            .collect(),
+                        ld_s: contracted.ld_s.mapv(|v| scale * v),
+                    })
+                })
+            }) as ContractedPsiSecondOrderFn
+        });
         Self {
             coords,
             ext_ext_fn,
             rho_ext_fn,
             drift_fn,
+            contracted_psi_fn,
         }
     }
 }
@@ -19450,16 +19709,17 @@ fn build_custom_family_inner_assembly<'dp>(
     let n_observations = inner.block_states.first().map(|s| s.eta.len()).unwrap_or(0);
 
     // Unpack optional ext-coord bundle.
-    let (ext_coords, ext_coord_pair_fn, rho_ext_pair_fn, fixed_drift_deriv) =
+    let (ext_coords, ext_coord_pair_fn, rho_ext_pair_fn, fixed_drift_deriv, contracted_psi_fn) =
         if let Some(bundle) = ext_bundle {
             (
                 bundle.coords,
                 bundle.ext_ext_fn,
                 bundle.rho_ext_fn,
                 bundle.drift_fn,
+                bundle.contracted_psi_fn,
             )
         } else {
-            (Vec::new(), None, None, None)
+            (Vec::new(), None, None, None, None)
         };
 
     let ext_dim = ext_coords.len();
@@ -19494,6 +19754,7 @@ fn build_custom_family_inner_assembly<'dp>(
         ext_coord_pair_fn,
         rho_ext_pair_fn,
         fixed_drift_deriv,
+        contracted_psi_second_order: contracted_psi_fn,
         kkt_residual: inner.kkt_residual.clone(),
         active_constraints: inner.active_constraints.clone(),
     };
@@ -19932,6 +20193,7 @@ fn unified_joint_efs_eval(
                 Some(hybrid.psi_indices)
             },
             inner_hessian_scale,
+            logdet_enclosure_gap: None,
         })
     } else {
         let inner_hessian_scale = crate::estimate::reml::unified::hessian_operator_geometric_scale(
@@ -19948,6 +20210,7 @@ fn unified_joint_efs_eval(
             psi_gradient: None,
             psi_indices: None,
             inner_hessian_scale,
+            logdet_enclosure_gap: None,
         })
     }
 }
@@ -19969,23 +20232,21 @@ fn joint_penalty_subspace_trace_parts(
         return Ok((0.0, None));
     }
 
+    // Structural-null gate: with no positive penalty eigenvalue there is no
+    // `log|Sλ|₊` term in the LAML ratio, hence no Hessian-side correction to
+    // pair with it — the caller keeps the operator's own logdet untouched.
+    // (The kernel itself no longer uses the Sλ eigenvectors: since #901 it is
+    // the full spectral `M⁺`, built from M's own eigendecomposition below.)
     let mut s_lambda = Array2::<f64>::zeros((total, total));
     add_joint_penalty_to_matrix(&mut s_lambda, ranges, s_lambdas, 0.0, None);
-    let (s_evals, s_evecs) = s_lambda
+    let s_evals = s_lambda
         .eigh(Side::Lower)
-        .map_err(|e| format!("joint penalty subspace eigendecomposition failed: {e}"))?;
+        .map_err(|e| format!("joint penalty subspace eigendecomposition failed: {e}"))?
+        .0;
     let s_threshold = positive_eigenvalue_threshold(s_evals.as_slice().unwrap());
-    let positive_cols: Vec<usize> = (0..total).filter(|&j| s_evals[j] > s_threshold).collect();
-    let rank = positive_cols.len();
+    let rank = (0..total).filter(|&j| s_evals[j] > s_threshold).count();
     if rank == 0 {
         return Ok((0.0, None));
-    }
-
-    let mut u_s = Array2::<f64>::zeros((total, rank));
-    for (out_col, &src_col) in positive_cols.iter().enumerate() {
-        for row in 0..total {
-            u_s[[row, out_col]] = s_evecs[[row, src_col]];
-        }
     }
 
     // ── REML log|H + Sλ|₊ and its trace kernel over the FULL identifiable
@@ -20018,11 +20279,20 @@ fn joint_penalty_subspace_trace_parts(
     // directions `½ log|Sλ|₊` also omits, keeping value and gradient consistent.
     //
     // To preserve value/gradient consistency the trace kernel must be the
-    // range(Sλ) BLOCK of the FULL pseudo-inverse `(H+Sλ)⁺` (its Schur reduction
-    // onto range(Sλ)), NOT `M_rr⁻¹`. Then
-    //   tr(h_proj_inverse · U_Sᵀ ∂Sλ U_S) = tr((H+Sλ)⁺ ∂Sλ) = ∂_ρ log|H+Sλ|₊,
-    // since ∂Sλ/∂ρ is supported on range(Sλ). Both are derived from the same
-    // materialized `M = H + Sλ` so they cannot drift apart.
+    // FULL pseudo-inverse `M⁺ = (H+Sλ)⁺` itself, carried in spectral form
+    // `(U_M, diag(1/σ_a))` over the kept eigenpairs (#901; supersedes the
+    // intermediate #752 realization that reduced `M⁺` to its range(Sλ)
+    // block). For penalty-supported drifts `∂Sλ/∂ρ` the two coincide:
+    //   tr(M⁺ ∂Sλ) = tr(U_Sᵀ M⁺ U_S · U_Sᵀ ∂Sλ U_S) = ∂_ρ log|H+Sλ|₊.
+    // But the joint adaptive/ψ hyper-coordinates trace drifts with
+    // null(Sλ) support (basis κ-derivatives, the GLM cubic correction
+    // `D_β H[v]` through the intercept column), for which the range(Sλ)
+    // reduction silently discards the leaked component while the FD of
+    // `log|M|₊` keeps it. `tr(M⁺ Ḣ)` is the exact pseudo-logdet derivative
+    // for EVERY drift on a constant-rank stratum (first-order eigenvector
+    // motion cancels), so one spectral object serves the whole θ-vector.
+    // Value and kernel come from the same eigendecomposition of the same
+    // materialized `M` so they cannot drift apart.
     //
     // The #752 fix requires the full identifiable-subspace determinant. There
     // is no lower-dimensional fallback that preserves that objective: the old
@@ -20044,30 +20314,32 @@ fn joint_penalty_subspace_trace_parts(
     })?;
     let m_threshold = positive_eigenvalue_threshold(m_evals.as_slice().unwrap());
     let logdet = exact_pseudo_logdet(m_evals.as_slice().unwrap(), m_threshold);
-    // Full Moore-Penrose pseudo-inverse `M+` (drop ker(H+Sλ)), then its
-    // range(Sλ) block `U_S^T M+ U_S` as the trace kernel.
-    let mut m_pinv = Array2::<f64>::zeros((total, total));
-    for eig_idx in 0..total {
-        let sigma = m_evals[eig_idx];
-        if sigma <= m_threshold {
-            continue;
-        }
-        let inv = 1.0 / sigma;
-        for i in 0..total {
-            let vi = inv * m_evecs[[i, eig_idx]];
-            for j in 0..total {
-                m_pinv[[i, j]] += vi * m_evecs[[j, eig_idx]];
-            }
-        }
+    // Full Moore–Penrose pseudo-inverse `M⁺` (drop ker(H+Sλ)) in spectral
+    // form: kept eigenvectors as the kernel basis, diag(1/σ) as the reduced
+    // kernel. In this basis `h_proj_inverse = (U_Mᵀ M U_M)⁻¹ = diag(1/σ)`
+    // exactly, so every `PenaltySubspaceTrace` consumer evaluates the one
+    // true `tr(M⁺ ·)` / `M⁺`-bilinear — exact for penalty-supported AND
+    // null(Sλ)-leaking drifts alike (#901).
+    let kept: Vec<usize> = (0..total)
+        .filter(|&eig_idx| m_evals[eig_idx] > m_threshold)
+        .collect();
+    if kept.is_empty() {
+        return Ok((0.0, None));
     }
-    symmetrize_dense_in_place(&mut m_pinv);
-    let mut h_proj_inverse = fast_atb(&u_s, &fast_ab(&m_pinv, &u_s));
-    symmetrize_dense_in_place(&mut h_proj_inverse);
+    let r_kept = kept.len();
+    let mut u_m = Array2::<f64>::zeros((total, r_kept));
+    let mut h_proj_inverse = Array2::<f64>::zeros((r_kept, r_kept));
+    for (out_col, &src_col) in kept.iter().enumerate() {
+        for row in 0..total {
+            u_m[[row, out_col]] = m_evecs[[row, src_col]];
+        }
+        h_proj_inverse[[out_col, out_col]] = 1.0 / m_evals[src_col];
+    }
 
     Ok((
         logdet,
         Some(PenaltySubspaceTrace {
-            u_s,
+            u_s: u_m,
             h_proj_inverse,
         }),
     ))
@@ -21503,6 +21775,202 @@ pub fn build_psi_hyper_coords<F: CustomFamily + Clone + Send + Sync + 'static>(
     Ok(coords)
 }
 
+/// Build the direction-contracted ψψ second-order hook for the profiled θ-HVP
+/// (#740).
+///
+/// Returns `Some(hook)` only when the family's psi workspace supplies a
+/// combined-direction likelihood kernel (`second_order_terms_contracted`);
+/// otherwise `None`, which keeps the outer-Hessian operator on the exact
+/// per-pair `ext_ext_fn` assembly.
+///
+/// The hook produces, for the ψ-direction weights `α_ψ`, the
+/// [`ContractedPsiSecondOrder`] ψψ-block contraction: it sums the family
+/// likelihood contraction (from the workspace) with the generic ψψ penalty
+/// motion, mirroring exactly the `α`-contraction of the per-pair `ext_ext`
+/// callback's penalty terms (`½βᵀS_{ψiψj}β` into `objective`, `S_{ψiψj}β` into
+/// `score`, `S_{ψiψj}` as a `BlockLocalDrift` into `hessian`, and the
+/// `tau_hessian_component` into `ld_s`). Same-block-only, matching `ext_ext`.
+///
+/// `pub(crate)` so the #740 in-crate gate
+/// `bernoulli_contracted_psi_hook_matches_per_pair_with_penalty` can assert the
+/// generic penalty fold here equals `Σ_j α_j · build_psi_pair_callbacks().ext_ext(i, j)`.
+pub(crate) fn build_contracted_psi_hook(
+    specs: &[ParameterBlockSpec],
+    derivative_blocks: SharedDerivativeBlocks,
+    beta_flat: &Array1<f64>,
+    rho: &[f64],
+    penalty_counts: &[usize],
+    s_logdet_blocks: Option<&[PenaltyPseudologdet]>,
+    psi_workspace: Option<Arc<dyn ExactNewtonJointPsiWorkspace>>,
+) -> Result<Option<ContractedPsiSecondOrderFn>, String> {
+    // The contraction is a representation/cost choice for the family likelihood
+    // ψψ second-order; without a contracted family kernel there is nothing to
+    // accelerate, so decline (the per-pair `ext_ext_fn` path stays).
+    let Some(workspace) = psi_workspace else {
+        return Ok(None);
+    };
+
+    let total = beta_flat.len();
+    let ranges = block_param_ranges(specs);
+    let per_block = Arc::new(split_log_lambdas(
+        &Array1::from_vec(rho.to_vec()),
+        penalty_counts,
+    )?);
+    let beta_arc = Arc::new(beta_flat.clone());
+    let ranges_arc = Arc::new(ranges);
+    let s_logdet_block_cache = Arc::new(s_logdet_blocks.map(|blocks| blocks.to_vec()));
+
+    // ψ → (block, local) location and block-local S_ψ for every ψ axis, built
+    // once. `s_local` (block-local S_ψ) is reused for the τ-Hessian and as the
+    // first leg of the bilinear `tr(S⁺ S_ψi S⁺ S_ψj)` penalty-logdet term.
+    struct PsiAxis {
+        block: usize,
+        local: usize,
+        start: usize,
+        end: usize,
+        s_psi_local: Array2<f64>,
+    }
+    let mut axes: Vec<PsiAxis> = Vec::new();
+    for (block_idx, block_derivs) in derivative_blocks.iter().enumerate() {
+        let (start, end) = ranges_arc[block_idx];
+        let p_block = end - start;
+        for (local_idx, deriv) in block_derivs.iter().enumerate() {
+            let s_psi_local = assemble_block_local_s_psi(deriv, &per_block[block_idx], p_block);
+            axes.push(PsiAxis {
+                block: block_idx,
+                local: local_idx,
+                start,
+                end,
+                s_psi_local,
+            });
+        }
+    }
+    let axes = Arc::new(axes);
+    let psi_dim = axes.len();
+    if psi_dim == 0 {
+        return Ok(None);
+    }
+
+    let derivative_blocks = Arc::clone(&derivative_blocks);
+
+    let hook = move |alpha_psi: &[f64]| -> Result<Option<ContractedPsiSecondOrder>, String> {
+        if alpha_psi.len() != psi_dim {
+            return Err(format!(
+                "contracted ψψ hook: alpha_psi length {} != psi_dim {psi_dim}",
+                alpha_psi.len()
+            ));
+        }
+        // Family likelihood ψψ contraction (one combined-direction row pass).
+        // Declining here (e.g. a σ-aux axis carried weight) declines the whole
+        // hook so the operator builder keeps the per-pair assembly.
+        let Some(likelihood) = workspace.second_order_terms_contracted(alpha_psi)? else {
+            return Ok(None);
+        };
+        let mut objective = likelihood.objective;
+        let mut score = likelihood.score;
+        let mut ld_s = Array1::<f64>::zeros(psi_dim);
+        // Per-output-row penalty drift `Σ_j α_j S_{ψi ψj}` (block-local),
+        // composed onto the likelihood `hessian[i]` operator below.
+        let mut hessian: Vec<DriftDerivResult> = likelihood.hessian;
+        if objective.len() != psi_dim || score.nrows() != psi_dim || hessian.len() != psi_dim {
+            return Err(format!(
+                "contracted ψψ hook: family kernel shape mismatch (objective={}, score_rows={}, hessian={}, psi_dim={psi_dim})",
+                objective.len(),
+                score.nrows(),
+                hessian.len(),
+            ));
+        }
+
+        for (i, axis_i) in axes.iter().enumerate() {
+            let p_block = axis_i.end - axis_i.start;
+            let beta_block = beta_arc.slice(s![axis_i.start..axis_i.end]).to_owned();
+            // Combined same-block penalty second derivative
+            //   S_{ψi ψ(α)}_local = Σ_{j: block_j == block_i} α_j S_{ψi ψj}_local,
+            // and the combined first-leg penalty derivative
+            //   S_ψ(α)_local = Σ_{j: block_j == block_i} α_j S_ψj_local
+            // (the second leg of the bilinear penalty-logdet cross term).
+            let mut s_psi_psi_alpha = Array2::<f64>::zeros((p_block, p_block));
+            let mut s_psi_alpha = Array2::<f64>::zeros((p_block, p_block));
+            for (j, axis_j) in axes.iter().enumerate() {
+                let aj = alpha_psi[j];
+                if aj == 0.0 || axis_j.block != axis_i.block {
+                    continue;
+                }
+                let deriv_i = &derivative_blocks[axis_i.block][axis_i.local];
+                let s_ij = assemble_block_local_s_psi_psi(
+                    deriv_i,
+                    axis_j.local,
+                    &per_block[axis_i.block],
+                    p_block,
+                );
+                s_psi_psi_alpha.scaled_add(aj, &s_ij);
+                s_psi_alpha.scaled_add(aj, &axis_j.s_psi_local);
+            }
+
+            // objective += 0.5 βᵀ S_{ψi ψ(α)} β  (matches ext_ext `a`).
+            let s_beta = s_psi_psi_alpha.dot(&beta_block);
+            objective[i] += 0.5 * beta_block.dot(&s_beta);
+            // score[i] (block-local slice) += S_{ψi ψ(α)} β  (matches ext_ext `g`).
+            {
+                let mut score_local = score.row_mut(i);
+                let mut slot = score_local.slice_mut(s![axis_i.start..axis_i.end]);
+                slot += &s_beta;
+            }
+            // hessian[i] += S_{ψi ψ(α)} as a block-local drift (matches the
+            // ext_ext `b_operator` BlockLocalDrift composite).
+            let block_drift: Arc<dyn HyperOperator> =
+                Arc::new(crate::solver::estimate::reml::unified::BlockLocalDrift {
+                    local: s_psi_psi_alpha.clone(),
+                    start: axis_i.start,
+                    end: axis_i.end,
+                    total_dim: total,
+                });
+            let combined = match std::mem::replace(
+                &mut hessian[i],
+                DriftDerivResult::Operator(Arc::clone(&block_drift)),
+            ) {
+                DriftDerivResult::Operator(existing) => DriftDerivResult::Operator(Arc::new(
+                    crate::solver::estimate::reml::unified::CompositeHyperOperator {
+                        dense: None,
+                        operators: vec![existing, block_drift],
+                        dim_hint: total,
+                    },
+                )),
+                DriftDerivResult::Dense(dense) => DriftDerivResult::Operator(Arc::new(
+                    crate::solver::estimate::reml::unified::CompositeHyperOperator {
+                        dense: Some(dense),
+                        operators: vec![block_drift],
+                        dim_hint: total,
+                    },
+                )),
+            };
+            hessian[i] = combined;
+
+            // ld_s[i] += Σ_j α_j tau_hessian_component(S_ψi, S_ψj, S_{ψiψj})
+            //         = tau_hessian_component(S_ψi, S_ψ(α), S_{ψi ψ(α)})
+            // by the (linearity in the second leg + bilinearity of the cross)
+            // of the τ-Hessian; matches the ext_ext `ld_s` contraction.
+            if let Some(ref logdet_blocks) = *s_logdet_block_cache {
+                let pld = &logdet_blocks[axis_i.block];
+                ld_s[i] = pld.tau_hessian_component(
+                    &axis_i.s_psi_local,
+                    &s_psi_alpha,
+                    Some(&s_psi_psi_alpha),
+                );
+            }
+        }
+
+        Ok(Some(ContractedPsiSecondOrder {
+            objective,
+            score,
+            hessian,
+            ld_s,
+        }))
+    };
+
+    Ok(Some(Arc::new(hook) as ContractedPsiSecondOrderFn))
+}
+
 /// Build pair callbacks for ψ-ψ and ρ-ψ Hessian entries.
 ///
 /// Returns two closures:
@@ -22196,37 +22664,59 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
                 psi_workspace.clone(),
             )?;
 
-            let (ext_ext_fn, rho_ext_fn, drift_fn) = if eval_mode == EvalMode::ValueGradientHessian
-            {
-                let (ext_ext_fn, rho_ext_fn) = build_psi_pair_callbacks(
-                    family,
-                    synced_joint_states.as_ref(),
-                    specs,
-                    Arc::clone(&derivative_blocks),
-                    &beta_flat,
-                    rho_slice,
-                    penalty_counts,
-                    s_logdet_blocks.as_deref(),
-                    psi_workspace.clone(),
-                )?;
-                let drift_fn = build_psi_drift_deriv_callback(
-                    family,
-                    synced_joint_states.as_ref(),
-                    specs,
-                    Arc::clone(&derivative_blocks),
-                    hessian_beta_independent,
-                    psi_workspace,
-                );
-                (Some(ext_ext_fn), Some(rho_ext_fn), drift_fn)
-            } else {
-                (None, None, None)
-            };
+            let (ext_ext_fn, rho_ext_fn, drift_fn, contracted_psi_fn) =
+                if eval_mode == EvalMode::ValueGradientHessian {
+                    let (ext_ext_fn, rho_ext_fn) = build_psi_pair_callbacks(
+                        family,
+                        synced_joint_states.as_ref(),
+                        specs,
+                        Arc::clone(&derivative_blocks),
+                        &beta_flat,
+                        rho_slice,
+                        penalty_counts,
+                        s_logdet_blocks.as_deref(),
+                        psi_workspace.clone(),
+                    )?;
+                    // #740: build the direction-contracted ψψ hook from the same psi
+                    // workspace + penalty data the per-pair `ext_ext_fn` uses, so the
+                    // matrix-free outer-Hessian operator collapses the `K²` per-pair
+                    // ψψ assembly to one combined-direction family row pass per
+                    // matvec. `None` (no contracted family kernel) keeps the exact
+                    // per-pair `ext_ext_fn` path. Built before the drift callback
+                    // moves `psi_workspace`.
+                    let contracted_psi_fn = build_contracted_psi_hook(
+                        specs,
+                        Arc::clone(&derivative_blocks),
+                        &beta_flat,
+                        rho_slice,
+                        penalty_counts,
+                        s_logdet_blocks.as_deref(),
+                        psi_workspace.clone(),
+                    )?;
+                    let drift_fn = build_psi_drift_deriv_callback(
+                        family,
+                        synced_joint_states.as_ref(),
+                        specs,
+                        Arc::clone(&derivative_blocks),
+                        hessian_beta_independent,
+                        psi_workspace,
+                    );
+                    (
+                        Some(ext_ext_fn),
+                        Some(rho_ext_fn),
+                        drift_fn,
+                        contracted_psi_fn,
+                    )
+                } else {
+                    (None, None, None, None)
+                };
 
             Some(ExtCoordBundle {
                 coords: psi_coords,
                 ext_ext_fn,
                 rho_ext_fn,
                 drift_fn,
+                contracted_psi_fn,
             })
         };
 
@@ -22734,7 +23224,7 @@ fn evaluate_custom_family_hyper_internal_shared<F: CustomFamily + Clone + Send +
                             });
                         // Same X'(W·Y) pattern as the parallel sibling at
                         // line ~9258; route through faer for SIMD GEMM
-                        // (n × p² flops at biobank moderate scale).
+                        // (n × p² flops at large-scale moderate scale).
                         correction_mat += &fast_atb(&dx, &wx);
                         correction_mat += &fast_atb(&x_dense, &wdx);
                     }
@@ -23005,7 +23495,7 @@ fn derivative_quality_options_and_warm_start(
     }
     //
     // Do not hard-force f64-precision KKT solves for every ψ-bearing model:
-    // biobank-scale survival marginal-slope fits have row-summed objectives
+    // large-scale survival marginal-slope fits have row-summed objectives
     // around 1e5-1e6, so `1e-10 * objective` asks the inner loop to resolve
     // gradient components far below the outer optimizer's own `outer_tol`.
     // Matching the inner target to the outer target keeps the IFT gradient
@@ -23275,6 +23765,7 @@ fn evaluate_custom_family_joint_hyper_efs_internal_shared<
         ext_ext_fn: None,
         rho_ext_fn: None,
         drift_fn: None,
+        contracted_psi_fn: None,
     };
 
     let compute_dh = exact_newton_dh_closure(
@@ -23810,7 +24301,7 @@ fn joint_observation_count(states: &[ParameterBlockState]) -> usize {
 /// families with matrix-free operators can branch their `coefficient_hessian_cost`
 /// estimate on the same predicate the evaluator will use at fit time.
 ///
-/// For biobank-scale row counts with only tens of coefficients, exact
+/// For large-scale row counts with only tens of coefficients, exact
 /// materialization is bounded by `total_p` Hessian-vector products and then a
 /// tiny dense factorization. That is cheaper and more predictable than PCG when
 /// each matrix-free product streams all rows through expensive FLEX marginal-
@@ -23849,7 +24340,7 @@ fn apply_joint_block_penalty(
 ///
 /// Uses `fast_av_view_into` to write directly into the per-block slice of
 /// `out`, avoiding the per-block intermediate `Array1` from `fast_av`. At
-/// biobank scale this is invoked inside the PCG matvec closure (called
+/// large scale this is invoked inside the PCG matvec closure (called
 /// once per CG iter, hundreds-to-thousands of times per outer iter per
 /// the perf-scout report).
 fn apply_joint_block_penalty_into(
@@ -25034,7 +25525,7 @@ pub fn fit_custom_family<F: CustomFamily + Clone + Send + Sync + 'static>(
 }
 
 /// Lift reduced-space `ParameterBlockState`s back to the raw block
-/// dimensions described by `canonical.per_block_transform`. Each block's
+/// dimensions described by `canonical.gauge`. Each block's
 /// `beta` becomes `T_i · θ_i` (selection-T zeros dropped raw entries);
 /// `eta = design · beta` is invariant under the transform, so the
 /// reduced-space `eta` field carries through unchanged.
@@ -25043,7 +25534,7 @@ fn lift_block_states_to_raw(
     reduced: Vec<ParameterBlockState>,
 ) -> Vec<ParameterBlockState> {
     let theta_blocks: Vec<Array1<f64>> = reduced.iter().map(|s| s.beta.clone()).collect();
-    let raw_betas = canonical.lift_block_betas_to_raw(&theta_blocks);
+    let raw_betas = canonical.gauge.lift_block_betas(&theta_blocks);
     reduced
         .into_iter()
         .zip(raw_betas.into_iter())
@@ -25066,10 +25557,10 @@ fn lift_fit_geometry_to_raw(
     covariance_conditional: Option<Array2<f64>>,
     geometry: Option<FitGeometry>,
 ) -> (Option<Array2<f64>>, Option<FitGeometry>) {
-    let lifted_cov = covariance_conditional.map(|c| canonical.lift_joint_matrix_to_raw(&c));
+    let lifted_cov = covariance_conditional.map(|c| canonical.gauge.lift_covariance(&c));
     let lifted_geom = geometry.map(|g| {
         let h_red = g.penalized_hessian.into_array();
-        let h_raw = canonical.lift_joint_matrix_to_raw(&h_red);
+        let h_raw = canonical.gauge.lift_covariance(&h_red);
         FitGeometry {
             penalized_hessian: h_raw.into(),
             working_weights: g.working_weights,
@@ -25088,6 +25579,7 @@ struct BlockwiseFitAssembly<'a> {
     penalized_objective: f64,
     outer_iterations: usize,
     outer_gradient_norm: Option<f64>,
+    criterion_certificate: Option<crate::solver::outer_strategy::CriterionCertificate>,
     outer_converged: bool,
     context: &'static str,
 }
@@ -25105,6 +25597,7 @@ fn assemble_custom_family_fit_result(
         penalized_objective,
         outer_iterations,
         outer_gradient_norm,
+        criterion_certificate,
         outer_converged,
         context,
     } = assembly;
@@ -25137,6 +25630,7 @@ fn assemble_custom_family_fit_result(
             penalized_objective,
             outer_iterations,
             outer_gradient_norm,
+            criterion_certificate,
             inner_cycles: inner.cycles,
             outer_converged,
             geometry,
@@ -25676,6 +26170,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                 penalized_objective,
                 outer_iterations: 0,
                 outer_gradient_norm: None,
+                criterion_certificate: None,
                 outer_converged: inner_converged,
                 context: "fit_custom_family no-smoothing result assembly",
             },
@@ -25721,6 +26216,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                 penalized_objective,
                 outer_iterations: 0,
                 outer_gradient_norm: Some(0.0),
+                criterion_certificate: None,
                 outer_converged: inner_converged,
                 context: "fit_custom_family one-cycle result assembly",
             },
@@ -26167,7 +26663,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
     // infinite-width intervals that masquerade as a fit — see the finite-mode
     // check after the refit). The result carries the existing escalation's
     // degraded / sampled-not-certified flagging so confidence is honest.
-    let (rho_star, outer_grad_norm, outer_iters, nonconvergence_escalation) = match outer_result {
+    let (rho_star, outer_grad_norm, outer_iters, nonconvergence_escalation, outer_certificate) = match outer_result {
         Ok(outer_result) => {
             // Geometry-driven terminal escalation. When the outer smoothing
             // optimizer cannot certify convergence, the objective is always
@@ -26194,6 +26690,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                 outer_result.final_grad_norm,
                 outer_result.iterations,
                 nonconvergence_escalation,
+                outer_result.criterion_certificate,
             )
         }
         Err(e) if outer_startup_failure_is_escalatable(&e) => {
@@ -26203,7 +26700,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                  AUTO-ESCALATE to never-fail posterior sampling about the initial ρ seed; the \
                  degraded refit below still raises if even the seed produces a non-finite mode.",
             );
-            (rho0.clone(), None, 0, true)
+            (rho0.clone(), None, 0, true, None)
         }
         Err(e) => {
             return Err(format!(
@@ -26458,6 +26955,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
             penalized_objective,
             outer_iterations: outer_iters,
             outer_gradient_norm: outer_grad_norm,
+            criterion_certificate: outer_certificate,
             outer_converged,
             context: "fit_custom_family result assembly",
         },
@@ -26524,6 +27022,7 @@ pub(crate) fn fit_custom_family_fixed_log_lambdas<
             penalized_objective,
             outer_iterations,
             outer_gradient_norm,
+            criterion_certificate: None,
             outer_converged,
             context: "fit_custom_family_fixed_log_lambdas result assembly",
         },
@@ -26719,6 +27218,7 @@ mod tests {
                 penalized_objective: 1.0,
                 outer_iterations: 0,
                 outer_gradient_norm: Some(0.0),
+                criterion_certificate: None,
                 inner_cycles: 0,
                 outer_converged: true,
                 geometry: Some(FitGeometry {
@@ -26896,7 +27396,7 @@ mod tests {
     }
 
     #[test]
-    fn default_inner_cycle_budget_covers_biobank_joint_newton_tail() {
+    fn default_inner_cycle_budget_covers_large_scale_joint_newton_tail() {
         let options = BlockwiseFitOptions::default();
 
         assert_eq!(
@@ -26946,10 +27446,12 @@ mod tests {
         let penalties = vec![s_lambda];
         let h = array![[4.0, 0.2, 7.0], [0.2, 9.0, -3.0], [7.0, -3.0, 30.0]];
         // `∂Sλ/∂ρ` is supported on range(Sλ) (here the leading 2×2 block, the
-        // positive-eigenvalue subspace of `S`); the trace kernel differentiates
-        // the FULL `log|H+Sλ|₊` only for such penalty-supported perturbations.
-        // Use a range(Sλ)-supported drift so the FD exercises the same contract
-        // the production `∂Sλ/∂ρ` does.
+        // positive-eigenvalue subspace of `S`). Since #901 the kernel is the
+        // full spectral `M⁺`, whose trace differentiates `log|H+Sλ|₊` exactly
+        // for EVERY drift; a range(Sλ)-supported drift exercises the same
+        // contract the production `∂Sλ/∂ρ` does (and is where the old
+        // range(Sλ)-block kernel and `M⁺` agree, so this pin is stable
+        // across the kernel generalization).
         let drift = array![[0.7, -0.4, 0.0], [-0.4, 1.3, 0.0], [0.0, 0.0, 0.0]];
 
         let (logdet, kernel) = joint_penalty_subspace_trace_parts(
@@ -26962,7 +27464,9 @@ mod tests {
         )
         .expect("projection parts build");
         let kernel = kernel.expect("rank-deficient penalty still has an identified subspace");
-        assert_eq!(kernel.u_s.ncols(), 2);
+        // Kernel basis = kept eigenvectors of M = H + Sλ (full rank 3 here),
+        // NOT the rank-2 range(Sλ) basis of the pre-#901 reduced kernel.
+        assert_eq!(kernel.u_s.ncols(), 3);
         // logdet is the FULL identifiable-subspace `log|H + Sλ|₊`. Here H + Sλ
         // is full rank (3), so this is the ordinary log-det of
         //   M = [[5, 0.2, 7], [0.2, 11, -3], [7, -3, 30]],  det(M) = 1056.4.
@@ -27160,7 +27664,7 @@ mod tests {
 
     // Experimental scan documenting that on THIS fixture's geometry the
     // joint_outer_evaluate path does not show divergence between
-    // project_hessian_logdet=true and =false at biobank-scale ρ: the dominant
+    // project_hessian_logdet=true and =false at large-scale ρ: the dominant
     // term ½ λ β'Sβ grows linearly in λ regardless of projection, and the trace
     // pair cancels in both routes here. The clustered-PC marginal-slope failure
     // (#808/#787) is a DIFFERENT geometry — a near-collinear penalty-null trend
@@ -27170,7 +27674,7 @@ mod tests {
     // `use_projected_penalty_logdet()` (default true), so value and analytic
     // gradient share the range(H+Sλ) generalized determinant.
     #[test]
-    fn biobank_scale_rho_scan_joint_outer_evaluate_is_projection_invariant() {
+    fn large_scale_rho_scan_joint_outer_evaluate_is_projection_invariant() {
         // Same fixture shape as the rank-deficient projected-trace test,
         // but with H_unpen scaled to data-Hessian magnitude (n ~ 2e5).
         let ranges = vec![(0, 3)];
@@ -27185,7 +27689,7 @@ mod tests {
                       _v: &Array1<f64>|
          -> Result<Option<DriftDerivResult>, String> { Ok(None) };
 
-        eprintln!("\n=== biobank rho-scan: unprojected vs projected outer gradient ===");
+        eprintln!("\n=== large-scale rho-scan: unprojected vs projected outer gradient ===");
         eprintln!(
             "{:>5}  {:>10}  {:>16}  {:>16}  {:>10}",
             "rho", "lambda", "g_unprojected", "g_projected", "ratio"
@@ -27336,7 +27840,7 @@ mod tests {
         // Finding: at this fixture geometry the two routes agree to
         // ~1e-6 relative precision at every ρ in [0, 10].  Both grow
         // linearly in λ (≈ ½ λ β'Sβ + bounded trace contribution).
-        // The optimizer-visible blow-up in biobank therefore cannot be
+        // The optimizer-visible blow-up in large-scale therefore cannot be
         // a missing projection in joint_outer_evaluate — it must live
         // in the survival-marginal-slope custom gradient path.
         let rel_diff = (g_un_at_10 - g_pr_at_10).abs() / g_pr_at_10.max(1e-30);
@@ -27350,20 +27854,20 @@ mod tests {
         );
     }
 
-    // ── Biobank-shape reproducer for the marginal-slope ρ-saturation
+    // ── Large-scale reproducer for the marginal-slope ρ-saturation
     // failure ────────────────────────────────────────────────────────────
     //
     // Failure being investigated:
     //   outer iter=60, |g|=4.18e13, three of four ρ-coords pinned at the
     //   box bound ±10 (`with_rho_bound(10.0)`). The dominant explicit term
-    //   ½λβ'Sβ at biobank scale (n≈2e5, p≈60, β'Sβ~10⁴, λ=exp(10)≈22k) is
+    //   ½λβ'Sβ at large scale (n≈2e5, p≈60, β'Sβ~10⁴, λ=exp(10)≈22k) is
     //   only ~10⁸ — observed gradient is ~10¹³, FIVE orders of magnitude
     //   beyond what the projected-trace kernel cancellation predicts.
     //
-    // The existing `biobank_scale_rho_scan_joint_outer_evaluate_is_projection_invariant`
+    // The existing `large_scale_rho_scan_joint_outer_evaluate_is_projection_invariant`
     // test uses single-block, p=3, nullspace_dims=1, and supplies
     // `compute_dh = Ok(None)` — that path SKIPS the trace pair entirely and
-    // therefore cannot reproduce the failure. The biobank fit has:
+    // therefore cannot reproduce the failure. The large-scale fit has:
     //   - 3 blocks (time_surface, marginal_surface, logslope_surface)
     //   - 4 penalty coords (time:1, marginal:2 [anisotropic], logslope:1)
     //   - Duchon-shape penalties: large nullspace_dims (d+1=4 for d=3 PCs)
@@ -27372,8 +27876,8 @@ mod tests {
     //   - Realistic `compute_dh(d)` returning the per-coord penalty drift
     //     ∂H/∂ρ_k = λ_k S_k (chained through the direction d)
     //
-    // This test reproduces the SHAPE: builds biobank-dimensioned blocks
-    // with rank-deficient Duchon-shape penalties, scales H to biobank
+    // This test reproduces the SHAPE: builds large-scale-dimensioned blocks
+    // with rank-deficient Duchon-shape penalties, scales H to large-scale
     // magnitude, supplies a realistic penalty-drift `compute_dh`, evaluates
     // `joint_outer_evaluate` at the actual failure ρ point
     // [time=10, marg=10, marg=10, logslope=4.5], and asserts every gradient
@@ -27385,12 +27889,12 @@ mod tests {
     //   specific drift derivatives (`evaluate_exact_newton_joint_gradient_*`
     //   in survival_marginal_slope.rs) that feed the closure.
     // If this test fails: joint_outer_evaluate has a numerical defect that
-    //   surfaces at biobank scale + realistic Ḣ. We then bisect inside the
+    //   surfaces at large scale + realistic Ḣ. We then bisect inside the
     //   evaluator.
     //
     #[test]
-    fn biobank_multiblock_outer_gradient_with_realistic_drift_is_bounded() {
-        // Biobank-realistic dimensions for hypertension marginal-slope.
+    fn large_scale_multiblock_outer_gradient_with_realistic_drift_is_bounded() {
+        // LargeScale-realistic dimensions for binary-outcome marginal-slope.
         // Duchon(PC1,PC2,PC3, centers=10, order=1) → p_basis = centers +
         // null_basis(d+1=4) = 14 columns per spatial block, nullspace dim=4.
         // The actual fit has time_surface with a different basis (B-spline
@@ -27470,10 +27974,10 @@ mod tests {
             s_logs.mapv(|v| v * lams[3]),
         ];
 
-        // β at biobank scale: |β|∞ ~ 1, β'Sβ ~ trace(S) ~ O(p) ~ 10.
+        // β at large scale: |β|∞ ~ 1, β'Sβ ~ trace(S) ~ O(p) ~ 10.
         let beta_flat = Array1::<f64>::from_iter((0..p_total).map(|i| ((i as f64) * 0.13).sin()));
 
-        // ── Biobank-scale joint unpenalized Hessian.
+        // ── Large-scale joint unpenalized Hessian.
         // Real survival Hessian = Xᵀ W X with W diagonal and n=2e5. We
         // mimic the SCALE by H = n * (I + small dense perturbation).
         let n_scale = 2.0e5_f64;
@@ -27501,7 +28005,7 @@ mod tests {
         // For an idealized H_unpen that is independent of β (linear model
         // limit, no nonlinear inner geometry), `D_beta H = 0` and the
         // closure returns `Ok(None)`. This is exactly the regime the
-        // existing single-block `biobank_scale_rho_scan_*` test exercises
+        // existing single-block `large_scale_rho_scan_*` test exercises
         // and finds projection-invariant. The marginal-slope family's
         // Hessian DOES depend on β (through the joint geometry), so the
         // closure is non-trivial in production — and that is the
@@ -27513,7 +28017,7 @@ mod tests {
         // PASSES (gradient bounded), the bug must live in the family's
         // `hessian_derivative_correction_result` β-chain — not in the
         // evaluator. If it FAILS, the evaluator itself has the defect at
-        // biobank scale + Duchon-shape S.
+        // large scale + Duchon-shape S.
         let no_dh = |_v_k: &Array1<f64>| -> Result<Option<DriftDerivResult>, String> { Ok(None) };
         let compute_dh = no_dh;
         let no_d2h = |_u: &Array1<f64>,
@@ -27659,9 +28163,9 @@ mod tests {
             None,
             None,
         )
-        .expect("biobank-shape projected eval");
+        .expect("large-scale projected eval");
 
-        eprintln!("\n=== biobank multi-block reproducer with realistic Ḣ ===");
+        eprintln!("\n=== large-scale multi-block reproducer with realistic Ḣ ===");
         eprintln!("ρ = {:?}", rho.as_slice().unwrap());
         eprintln!("λ = {:?}", lams.as_slice().unwrap());
         eprintln!(
@@ -27672,7 +28176,7 @@ mod tests {
         eprintln!("gradient = {:?}", projected.gradient.as_slice().unwrap());
 
         // Physical-bound check: ½λ_k β'_k S_k β_k is the dominant explicit
-        // term per coord. For biobank shape this is ~10⁸ at ρ=10 with
+        // term per coord. For large-scale shape this is ~10⁸ at ρ=10 with
         // β-scale O(1). The full gradient including the projected trace
         // pair should be of THE SAME ORDER (or smaller after cancellation),
         // never 10⁵× larger.
@@ -27711,14 +28215,14 @@ mod tests {
         {
             // Bound: trace pair adds ~p contributions, plus H⁻¹ Ḣ trace
             // bounded by Σ |λ_k| / |H_diag| × p ~ λ_k p / n ~ tiny at
-            // biobank scale. Total gradient should be within 10× of the
+            // large scale. Total gradient should be within 10× of the
             // dominant term (allowing for projection-correction sign).
             let bound = dominant_term.abs().max(1.0) * 100.0;
             assert!(g.is_finite(), "gradient[{k}] is non-finite: {g}");
             assert!(
                 g.abs() <= bound,
                 "gradient[{k}] = {:.6e} exceeds physical bound 100·|½λβ'Sβ| = {:.6e} \
-                 (dominant_term={:.6e}); this reproduces the biobank blowup \
+                 (dominant_term={:.6e}); this reproduces the large-scale blowup \
                  inside joint_outer_evaluate.",
                 g,
                 bound,
@@ -27747,10 +28251,10 @@ mod tests {
             strict_warm_start.is_none(),
             "loosening to the outer scale should not discard cached inner state"
         );
-        let biobank_scale_objective = 3.689e5;
+        let large_scale_objective = 3.689e5;
         let posted_residual = 6.788e-1;
         let posted_objective_change = 4.209e-2;
-        let eval_tol = eval_options.inner_tol * (1.0 + biobank_scale_objective);
+        let eval_tol = eval_options.inner_tol * (1.0 + large_scale_objective);
         assert!(
             posted_residual <= 2.0 * eval_tol && posted_objective_change <= eval_tol,
             "the exact outer startup validation should accept numerically flat inner solves at outer scale"
@@ -27801,10 +28305,10 @@ mod tests {
             "loosening an over-tight caller tolerance should preserve the cached inner state"
         );
 
-        let biobank_scale_objective = 3.689e5;
+        let large_scale_objective = 3.689e5;
         let posted_residual_plateau = 6.788e-1;
         let posted_objective_change = 4.209e-2;
-        let eval_tol = eval_options.inner_tol * (1.0 + biobank_scale_objective);
+        let eval_tol = eval_options.inner_tol * (1.0 + large_scale_objective);
         assert!(
             posted_residual_plateau <= eval_tol && posted_objective_change <= eval_tol,
             "the posted saturated Newton plateau is below the spatial outer derivative accuracy target"
@@ -27946,7 +28450,7 @@ mod tests {
     }
 
     #[test]
-    fn biobank_exact_adaptive_hessian_order_stays_second_order() {
+    fn large_scale_exact_adaptive_hessian_order_stays_second_order() {
         let n_train = 320_000u64;
         let p = 101usize;
         let retained_rho_dim = 3usize;
@@ -27988,7 +28492,7 @@ mod tests {
         assert!(!use_joint_matrix_free_path(511, 1));
 
         // n ≥ 50_000 AND p ≥ 128: both must hold. This keeps p≈51 FLEX
-        // marginal-slope biobank fits on the bounded dense-materialized path.
+        // marginal-slope large-scale fits on the bounded dense-materialized path.
         assert!(use_joint_matrix_free_path(128, 50_000));
         assert!(!use_joint_matrix_free_path(127, 50_000));
         assert!(!use_joint_matrix_free_path(128, 31_249));
@@ -28006,7 +28510,7 @@ mod tests {
     }
 
     #[test]
-    fn biobank_shape_margslope_flex_cycle0_uses_bounded_dense_route() {
+    fn large_scale_shape_margslope_flex_cycle0_uses_bounded_dense_route() {
         let total_p = 51;
         let total_n = 320_000;
         let max_pcg_hvps_before_fix = JOINT_PCG_MAX_ITER_MULTIPLIER * total_p;
@@ -29865,7 +30369,6 @@ mod tests {
             screening_max_inner_iterations: None,
             outer_inner_max_iterations: None,
             seed_screening: false,
-            line_search_prefer_workspace: false,
             early_exit_threshold: None,
             outer_score_subsample: None,
             auto_outer_subsample: false,
@@ -29919,7 +30422,6 @@ mod tests {
             screening_max_inner_iterations: None,
             outer_inner_max_iterations: None,
             seed_screening: false,
-            line_search_prefer_workspace: false,
             early_exit_threshold: None,
             outer_score_subsample: None,
             auto_outer_subsample: false,
@@ -29976,7 +30478,6 @@ mod tests {
             screening_max_inner_iterations: None,
             outer_inner_max_iterations: None,
             seed_screening: false,
-            line_search_prefer_workspace: false,
             early_exit_threshold: None,
             outer_score_subsample: None,
             auto_outer_subsample: false,
@@ -30261,7 +30762,7 @@ mod tests {
     }
 
     /// Independent derivation and direct numerical proof of the
-    /// ρ ≈ 2 inner-PIRLS pathology pinned by the biobank saturated-probit
+    /// ρ ≈ 2 inner-PIRLS pathology pinned by the large-scale saturated-probit
     /// failure trace.
     ///
     /// # Mechanism
@@ -30318,7 +30819,7 @@ mod tests {
     #[test]
     fn ridge_stabilization_gap_produces_exact_rho_two_in_null_direction() {
         // Synthetic 3D joint Hessian with the structure of the
-        // saturated-probit failure case at biobank scale:
+        // saturated-probit failure case at large scale:
         //   - dim 0: indefinite contribution (eigenvalue −1) from the
         //     concave entry-survival term `+w·log Φ(−η₀)`. This triggers
         //     the SPD stabilizer in the solver.
@@ -32775,7 +33276,7 @@ mod tests {
     ///   3. `|Δobjective|` ≤ `objective_tol`
     ///      — the objective has ceased moving.
     ///
-    /// Reproduces the AoU survival-marginal-slope failure numerics:
+    /// Reproduces the large-scale survival-marginal-slope failure numerics:
     /// `old_kkt ≈ 8.6e5`, `linearized_next ≈ 8.6e5`, `actual ≈ pred ≈ 1.6e-2`.
     #[test]
     fn joint_newton_math_constrained_stationary_signature_matches_aou_failure() {
@@ -32793,7 +33294,7 @@ mod tests {
         let linearized_rel = math.linearized_next_kkt_inf / (1.0 + math.old_kkt_inf);
         assert!(
             linearized_rel >= 0.5,
-            "AoU exit has linearized_rel = {:.3e}, must be >= 0.5 for the \
+            "large-scale exit has linearized_rel = {:.3e}, must be >= 0.5 for the \
              constrained-stationary certificate to fire",
             linearized_rel,
         );
@@ -32801,7 +33302,7 @@ mod tests {
         let relerr = math.scalar_model_relative_error();
         assert!(
             relerr <= 1e-3,
-            "AoU exit has scalar_model_relerr = {:.3e}, must be <= 1e-3 \
+            "large-scale exit has scalar_model_relerr = {:.3e}, must be <= 1e-3 \
              (model agrees with actual ⇒ residual is a real multiplier)",
             relerr,
         );
@@ -32811,13 +33312,13 @@ mod tests {
         let objective_tol = 1e-6 * (1.0 + 3.484783e5_f64);
         assert!(
             objective_change <= objective_tol,
-            "AoU exit has |Δobj| = {:.3e}, must be <= obj_tol {:.3e}",
+            "large-scale exit has |Δobj| = {:.3e}, must be <= obj_tol {:.3e}",
             objective_change,
             objective_tol,
         );
     }
 
-    /// Reproduces the post-diagnostic biobank trace: the scalar Newton model
+    /// Reproduces the post-diagnostic large-scale trace: the scalar Newton model
     /// and objective plateau tests alone look like a constrained-stationary
     /// point, but the projected KKT residual is hundreds of times above
     /// tolerance and the accepted Newton step is still macroscopic. That is
@@ -33273,7 +33774,7 @@ mod tests {
         assert!(op.as_materializable().is_none());
     }
 
-    /// At biobank scale (n=320 000, p=101) a dense `Array2::zeros((n, p))`
+    /// At large scale (n=320 000, p=101) a dense `Array2::zeros((n, p))`
     /// for an unused ψ-derivative slot consumes ≈ 0.24 GiB; the spatial-
     /// adaptive baseline used to allocate one per ψ coordinate (≈ 1.4 GiB
     /// of guaranteed-zero memory at six coords). Replacing the dense zero
@@ -33446,150 +33947,6 @@ mod tests {
     }
 
     #[test]
-    fn spectral_joint_newton_step_uses_pseudoinverse_when_null_gradient_is_zero() {
-        let h = array![[4.0, 0.0], [0.0, 0.0]];
-        let rhs = array![8.0, 0.0];
-        let step =
-            solve_joint_newton_step_on_spectral_range(&h, &rhs, 1.0e-10, 1.0e-12, 0.0, false)
-                .expect("range-only RHS should have a minimum-norm Newton step");
-
-        assert_relative_eq!(step.delta[0], 2.0, epsilon = 1.0e-12);
-        assert_relative_eq!(step.delta[1], 0.0, epsilon = 1.0e-12);
-        assert_eq!(step.nullity, 1);
-        assert_relative_eq!(step.null_rhs_inf, 0.0, epsilon = 1.0e-12);
-
-        let residual = h.dot(&step.delta) - &rhs;
-        assert!(
-            residual.iter().all(|v| v.abs() <= 1.0e-12),
-            "range RHS should satisfy Hδ = rhs, residual={residual:?}"
-        );
-    }
-
-    #[test]
-    fn spectral_joint_newton_step_reflects_indefinite_curvature_to_descent_step() {
-        // Genuinely indefinite penalized inner Hessian: eigenvalues +4 (along
-        // [1,0]) and −1 (along [0,1]). This is the structural situation a
-        // two-block Gaussian location-scale joint Newton hits away from the
-        // optimum at small/medium n, where the residual-linear cross/scale
-        // curvature tips an eigenvalue negative. The exact-Newton inner solve
-        // must NOT abort here (issue #365): it must reflect the negative
-        // eigenvalue to |λ| and return a modified-Newton descent step that the
-        // trust region then globalizes.
-        let h = array![[4.0, 0.0], [0.0, -1.0]];
-        let rhs = array![8.0, 3.0];
-        let step =
-            solve_joint_newton_step_on_spectral_range(&h, &rhs, 1.0e-10, 1.0e-12, 0.0, false)
-                .expect("indefinite model must yield a modified-Newton step, not an error");
-
-        // Exactly one negative-curvature mode was reflected.
-        assert_eq!(step.reflected_negative_modes, 1);
-        assert!(step.most_negative_eigenvalue < 0.0);
-
-        // Greenstadt reflection: δ = (rhsᵀu₀/|λ₀|)u₀ + (rhsᵀu₁/|λ₁|)u₁ with the
-        // negative eigenvalue replaced by its magnitude.
-        // u₀=[1,0] λ₀=+4 -> 8/4 = 2; u₁=[0,1] λ₁=−1 -> reflected to +1 -> 3/1 = 3.
-        assert_relative_eq!(step.delta[0], 2.0, epsilon = 1.0e-12);
-        assert_relative_eq!(step.delta[1], 3.0, epsilon = 1.0e-12);
-
-        // The returned step is a strict descent direction for the penalized
-        // objective whose negative gradient is `rhs`: the directional
-        // derivative −rhs·δ must be strictly negative, i.e. rhs·δ > 0.
-        let directional = rhs.dot(&step.delta);
-        assert!(
-            directional > 0.0,
-            "reflected step must be a descent direction (rhs·δ={directional} must be > 0)"
-        );
-        assert!(step.delta.iter().all(|v| v.is_finite()));
-    }
-
-    #[test]
-    fn spectral_joint_newton_step_range_projects_nonzero_null_gradient() {
-        // A nonzero stationarity component inside ker(H_pen) is an *unidentified*
-        // direction: the quadratic model is flat there, so no finite Newton/KKT
-        // step can reduce it and it contributes nothing to the fit. The
-        // principled response (the #720/#733 range-projection repair) is NOT to
-        // error — that aborts an otherwise well-posed degenerate small-n fit —
-        // but to return the range-restricted (Moore–Penrose) Newton step that
-        // leaves the null direction untouched, while reporting the leftover null
-        // residual so the caller's identified-subspace KKT certificate can fire.
-        let h = array![[4.0, 0.0], [0.0, 0.0]];
-        let rhs = array![8.0, 0.25];
-        let step =
-            solve_joint_newton_step_on_spectral_range(&h, &rhs, 1.0e-10, 1.0e-12, 0.0, false)
-                .expect("nonzero null RHS must range-project, not error");
-
-        // Identified direction [1,0] (λ=4): 8/4 = 2. Null direction [0,1] (λ=0):
-        // dropped, so the step leaves coordinate 1 unchanged at 0.
-        assert_relative_eq!(step.delta[0], 2.0, epsilon = 1.0e-12);
-        assert_relative_eq!(step.delta[1], 0.0, epsilon = 1.0e-12);
-        assert_eq!(step.nullity, 1);
-        // The unidentified null mass is surfaced (not silently zeroed) so the
-        // caller can distinguish "stationary on the identified subspace" from a
-        // genuine non-stationarity in the curved subspace.
-        assert_relative_eq!(step.null_rhs_inf, 0.25, epsilon = 1.0e-12);
-        assert!(step.delta.iter().all(|v| v.is_finite()));
-    }
-
-    #[test]
-    fn spectral_joint_newton_levenberg_is_scale_invariant_across_blocks() {
-        // #826 cross-scale stall: the coupled location-scale joint Hessian at the
-        // oversmoothed continuation seed spans the penalty scale (a huge `Sλ`
-        // eigenvalue) and the likelihood scale (a small mean/wiggle XᵀWX
-        // curvature). When the ill-conditioned-Newton damping engages, the
-        // damping magnitude `μ = factor·‖∇L − Sβ‖∞` is set by the penalty-
-        // inflated residual. An ADDITIVE damping (`curvature + μ`) would then
-        // swamp the small likelihood curvature — `λ_small/(λ_small + μ) → 0` —
-        // freezing that block's step at ≈ 0 while the residual stays large (the
-        // reported stall). The scale-invariant MULTIPLICATIVE (Marquardt) form
-        // `curvature·(1 + μ/λ_max)` throttles every direction by the same factor
-        // `1/(1+ν)`, so the small block still takes a healthy fraction of its
-        // exact Newton component.
-        let lambda_penalty = 1.0e12; // oversmoothed `Sλ` eigenvalue.
-        let lambda_likelihood = 5.0; // small mean/wiggle curvature.
-        let h = array![[lambda_penalty, 0.0], [0.0, lambda_likelihood]];
-        // Residual dominated by the penalty mode (β off its penalized optimum).
-        let rhs: Array1<f64> = array![1.0e11, 10.0];
-        let rhs_inf = rhs.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
-        let levenberg_mu = JOINT_SPECTRAL_LEVENBERG_FACTOR * rhs_inf;
-        // Engage the ill-conditioned-for-Newton damping (cond = 2e11 ≫
-        // COND_NEWTON_SAFETY): this is the regime where the additive form froze.
-        let step = solve_joint_newton_step_on_spectral_range(
-            &h,
-            &rhs,
-            KKT_REFUSAL_RANK_TOL,
-            1.0e-12,
-            levenberg_mu,
-            true,
-        )
-        .expect("ill-conditioned cross-scale solve must produce a finite step");
-
-        // Both blocks are identified (above the numerical floor), so the damping
-        // is purely multiplicative: ν = μ/λ_max with μ = 1e-3·1e11 = 1e8 and
-        // λ_max = 1e12, so ν = 1e-4. Each direction's step is
-        // `component/(λ·(1+ν))`.
-        let nu = levenberg_mu / lambda_penalty;
-        let expected_penalty = rhs[0] / (lambda_penalty * (1.0 + nu));
-        let expected_likelihood = rhs[1] / (lambda_likelihood * (1.0 + nu));
-        assert_relative_eq!(step.delta[0], expected_penalty, epsilon = 1.0e-9);
-        assert_relative_eq!(step.delta[1], expected_likelihood, epsilon = 1.0e-9);
-
-        // The load-bearing assertion: the small-curvature block is NOT frozen.
-        // Its exact (undamped) Newton component is 10/5 = 2; the multiplicative
-        // throttle 1/(1+1e-4) leaves it ≈ 2, far from the 0 the additive form
-        // produced (10/(5 + 1e8) ≈ 1e-7). Require it stays within 1% of the
-        // exact Newton step.
-        let exact_likelihood_step = rhs[1] / lambda_likelihood;
-        assert!(
-            (step.delta[1] - exact_likelihood_step).abs() / exact_likelihood_step < 1.0e-2,
-            "small-curvature block must take ~full Newton step, got {} vs exact {}",
-            step.delta[1],
-            exact_likelihood_step,
-        );
-        assert_eq!(step.nullity, 0);
-        assert!(step.delta.iter().all(|v| v.is_finite()));
-    }
-
-    #[test]
     fn joint_trust_region_noise_floor_accepts_round_off_negative_actual() {
         // Near-converged iterate at large objective scale: both the
         // model-predicted decrease and the realized objective change are
@@ -33628,13 +33985,13 @@ mod tests {
     }
 
     #[test]
-    fn joint_objective_roundoff_slack_accepts_biobank_scale_wobble() {
+    fn joint_objective_roundoff_slack_accepts_large_scale_wobble() {
         let old_objective = 1.218530e5;
         let trial_objective = old_objective + 2.183e-10;
         assert!(
             trial_objective
                 <= old_objective + joint_objective_roundoff_slack(old_objective, trial_objective),
-            "sub-nanounit objective wobble at biobank scale should not burn all trust attempts"
+            "sub-nanounit objective wobble at large scale should not burn all trust attempts"
         );
     }
 
@@ -33653,7 +34010,7 @@ mod tests {
                 predicted_reduction,
                 objective_tol,
             ),
-            "the repeated biobank-scale roundoff wobble should terminate immediately"
+            "the repeated large-scale roundoff wobble should terminate immediately"
         );
 
         assert!(
@@ -34149,7 +34506,7 @@ mod tests {
     }
 
     /// Regression canary: a synthetic 3-block fixture chosen to mimic the
-    /// biobank rank-deficient-H_pen failure mode — block-diagonal H with
+    /// large-scale rank-deficient-H_pen failure mode — block-diagonal H with
     /// a fully degenerate third block and zero s_lambdas — must classify
     /// as `RankDeficientHPen` with nullity matching the structural rank
     /// deficiency. When `nullspace-lead`'s smooth-construction
@@ -34160,7 +34517,7 @@ mod tests {
     /// per the lead's note; the diagnosis half here is active so the
     /// canary fires today on the failure mode the rework targets.
     #[test]
-    fn rank_deficient_hpen_canary_fires_on_biobank_shaped_failure() {
+    fn rank_deficient_hpen_canary_fires_on_large_scale_shaped_failure() {
         let block_widths = [4usize, 4, 4];
         let total_p: usize = block_widths.iter().sum();
         let block_count = block_widths.len();
@@ -34256,7 +34613,7 @@ mod tests {
         assert_eq!(
             report.diagnosis,
             KktRefusalDiagnosis::RankDeficientHPen,
-            "biobank-shaped marginal-slope failure must classify as RankDeficientHPen \
+            "large-scale-shaped marginal-slope failure must classify as RankDeficientHPen \
              (this is the canary nullspace-lead's smooth-construction rework targets)",
         );
         assert!(

@@ -89,7 +89,7 @@
 //! `O(m · k_directions)` row passes vs the existing single row pass.
 //! See `bernoulli_marginal_slope::row_primary_third_trace_gradient_with_moments`.
 //!
-//! ## Orthogonal axis: row subsampling for biobank-scale fits
+//! ## Orthogonal axis: row subsampling for large-scale fits
 //!
 //! Trace estimators here reduce work *within* the Hessian structure
 //! for a fixed row set. The marginal-slope families have a separate,
@@ -460,7 +460,7 @@ pub trait HessianOperator: Send + Sync {
     ///
     /// Streams the rows of `X` through the design's `try_row_chunk` so
     /// operator-backed (Lazy) designs never materialize the full (n×p)
-    /// block at biobank scale.
+    /// block at large scale.
     fn xt_logdet_kernel_x_diagonal(&self, x: &DesignMatrix) -> Array1<f64> {
         assert!(self.logdet_traces_match_hinv_kernel());
         let n = x.nrows();
@@ -1055,7 +1055,7 @@ impl HessianDerivativeProvider for SinglePredictorGlmDerivatives {
         //
         // This method returns the correction (dH/dρₖ − Aₖ), which is NEGATIVE.
         // Stays matrix-free: `matrixvectormultiply` and `xt_diag_x_signed_op`
-        // route through the operator-backed design's chunked kernels at biobank
+        // route through the operator-backed design's chunked kernels at large-scale
         // scale, so we never materialize the full (n×p) dense block.
         let x_v = self.x_transformed.matrixvectormultiply(v_k); // X vₖ: n-vector
 
@@ -1076,6 +1076,37 @@ impl HessianDerivativeProvider for SinglePredictorGlmDerivatives {
         Ok(Some(result))
     }
 
+    /// #901 layer-2 fix: the first-order correction stays in OPERATOR form.
+    ///
+    /// `coord_corrections` (the ρ AND ψ logdet-gradient drifts) are built
+    /// through this method; returning `DriftDerivResult::Operator` routes
+    /// every downstream spectral-kernel trace through
+    /// `reduce_operator`/`trace_operator`, whose `C·u_a` probes evaluate the
+    /// near-null quadratic forms stably (see
+    /// [`GlmCurvatureCorrectionOperator`]). The dense
+    /// `hessian_derivative_correction` above remains for consumers that
+    /// genuinely need the materialized block (outer-Hessian pair assembly).
+    fn hessian_derivative_correction_result(
+        &self,
+        v_k: &Array1<f64>,
+    ) -> Result<Option<DriftDerivResult>, String> {
+        let x_v = self.x_transformed.matrixvectormultiply(v_k);
+        let crate::pirls::DirectionalWorkingCurvature::Diagonal(mut neg_c_xv) =
+            crate::pirls::directionalworking_curvature_from_c_array(
+                &self.c_array,
+                &self.hessian_weights,
+                &x_v,
+            );
+        neg_c_xv.mapv_inplace(|value| -value);
+        Ok(Some(DriftDerivResult::Operator(Arc::new(
+            GlmCurvatureCorrectionOperator {
+                x_design: self.x_transformed.clone(),
+                neg_c_xv,
+                p: self.x_transformed.ncols(),
+            },
+        ))))
+    }
+
     fn hessian_second_derivative_correction(
         &self,
         v_k: &Array1<f64>,
@@ -1086,7 +1117,7 @@ impl HessianDerivativeProvider for SinglePredictorGlmDerivatives {
         // H_{kl} includes contributions from both c (third) and d (fourth) derivatives:
         //   Xᵀ diag(c ⊙ X u_{kl} + d ⊙ (X vₖ) ⊙ (X vₗ)) X
         // Stays matrix-free via the design's `matrixvectormultiply` and
-        // `xt_diag_x_signed_op` so biobank-scale designs never densify the (n×p)
+        // `xt_diag_x_signed_op` so large-scale designs never densify the (n×p)
         // block.
         let x_vk = self.x_transformed.matrixvectormultiply(v_k);
         let x_vl = self.x_transformed.matrixvectormultiply(v_l);
@@ -1214,6 +1245,39 @@ impl HessianDerivativeProvider for FirthAwareGlmDerivatives {
         result -= &firth_first;
         result -= &firth_second;
         Ok(Some(result))
+    }
+
+    /// #901 layer-2: keep the base GLM cubic correction in operator form and
+    /// graft the (dense, well-conditioned) Firth part on through
+    /// [`CompositeHyperOperator`], mirroring `BarrierDerivativeProvider`.
+    /// The roundoff-critical near-null quadratic forms live entirely in the
+    /// base `Xᵀ diag(c⊙Xv) X` sandwich; the Firth `−D(Hφ)[B_k]` block stays
+    /// dense as before.
+    fn hessian_derivative_correction_result(
+        &self,
+        v_k: &Array1<f64>,
+    ) -> Result<Option<DriftDerivResult>, String> {
+        let base = self.base.hessian_derivative_correction_result(v_k)?;
+
+        let deta_k: Array1<f64> =
+            crate::faer_ndarray::fast_av(&self.firth_op.x_dense, v_k).mapv(|v| -v);
+        let dir_k = self.firth_op.direction_from_deta(deta_k);
+        let neg_firth_corr = -self.firth_op.hphi_direction(&dir_k);
+
+        match base {
+            Some(DriftDerivResult::Operator(operator)) => Ok(Some(DriftDerivResult::Operator(
+                Arc::new(CompositeHyperOperator {
+                    dense: Some(neg_firth_corr),
+                    operators: vec![operator],
+                    dim_hint: self.base.x_transformed.ncols(),
+                }),
+            ))),
+            Some(DriftDerivResult::Dense(mut dense)) => {
+                dense += &neg_firth_corr;
+                Ok(Some(DriftDerivResult::Dense(dense)))
+            }
+            None => Ok(Some(DriftDerivResult::Dense(neg_firth_corr))),
+        }
     }
 
     fn has_corrections(&self) -> bool {
@@ -1921,6 +1985,42 @@ impl DriftDerivResult {
 pub type FixedDriftDerivFn =
     Box<dyn Fn(usize, &Array1<f64>) -> Option<DriftDerivResult> + Send + Sync>;
 
+/// Direction-contracted ψψ-block second-order terms for the profiled θ-HVP
+/// (#740).
+///
+/// The argument `alpha_psi` is the ψ slice (length `ext_dim`) of one applied
+/// outer direction. The result is the `α`-contraction over the ψ COLUMNS of
+/// every `(ψ_i, ψ_j)` second-order term against the combined ψ-direction
+/// `ψ(α) = Σ_j alpha_psi[j] ψ_j`, returned per ψ output row `i`. This covers
+/// the ψψ block ONLY — the ρρ and ρψ blocks stay in the operator's precomputed
+/// tables (they are cheap, `O(K·p²)`, and carry no family row pass), so each
+/// block is assembled in exactly one place with no overlap.
+///
+/// Indexing of every field is the ψ output row (`ext_dim` of them, in the order
+/// of `solution.ext_coords`):
+/// - `objective[i] = Σ_j α_ψ[j] V_{ψ_i ψ_j}` (likelihood + penalty
+///   `½βᵀS_{ψ_iψ_j}β`),
+/// - `score.row(i) = Σ_j α_ψ[j] g_{ψ_i ψ_j}` (likelihood + penalty
+///   `S_{ψ_iψ_j}β`), an `ext_dim × p` matrix,
+/// - `hessian[i] = Σ_j α_ψ[j] D²_ψ H_L[ψ_i, ψ_j]` (+ penalty `S_{ψ_iψ_j}`), the
+///   `base_h2` ψψ contribution as a `tr`-able drift,
+/// - `ld_s[i] = Σ_j α_ψ[j] ∂²log|S|/∂ψ_i∂ψ_j`, the `pair_ld_s` ψ-row
+///   contribution.
+///
+/// One call produces every output row in a single family row pass (the family
+/// likelihood part) plus cheap block-local penalty assembly, so densifying the
+/// operator costs `K` such passes instead of the dense path's `K²`. `None`
+/// declines the fast path (the builder keeps the exact per-pair assembly).
+pub struct ContractedPsiSecondOrder {
+    pub objective: Array1<f64>,
+    pub score: Array2<f64>,
+    pub hessian: Vec<DriftDerivResult>,
+    pub ld_s: Array1<f64>,
+}
+
+pub type ContractedPsiSecondOrderFn =
+    Arc<dyn Fn(&[f64]) -> Result<Option<ContractedPsiSecondOrder>, String> + Send + Sync>;
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  Implicit Hessian-drift operators for scalable anisotropic REML
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2199,7 +2299,7 @@ fn projected_factor_value_fingerprint(factor: ArrayView2<'_, f64>) -> (u64, u64)
 ///
 /// The cache trades memory for arithmetic: a 32-axis ψ-sweep that would
 /// otherwise repeat the same `O(n · p · rank)` GEMM for every axis hits
-/// the same cache slot 32 times. At biobank scale that is the
+/// the same cache slot 32 times. At large scale that is the
 /// difference between minutes and seconds of design-GEMM work (see
 /// [`ImplicitHyperOperator::trace_projected_factor_cached`] for the
 /// usage rationale).
@@ -2209,7 +2309,7 @@ fn projected_factor_value_fingerprint(factor: ArrayView2<'_, f64>) -> (u64, u64)
 /// evicted until it fits. A budget of `0` (or `usize::MAX`) disables
 /// eviction. The default is `Self::DEFAULT_BUDGET_BYTES` — large
 /// enough to hold any realistic working set for in-memory problems
-/// while still bounding worst-case peak resident memory at biobank
+/// while still bounding worst-case peak resident memory at large-scale
 /// scale, where a single `(n, rank) = (320K, 95)` projection consumes
 /// ~243 MiB and a sweep over many distinct factors could otherwise
 /// pin tens of GiB.
@@ -2256,7 +2356,7 @@ impl Default for ProjectedFactorCache {
 }
 
 impl ProjectedFactorCache {
-    /// Default byte budget for the cache. Aligned with the biobank-scale
+    /// Default byte budget for the cache. Aligned with the large-scale
     /// `ResourcePolicy::max_single_materialization_bytes` (2 GiB) so
     /// production REML evaluations on typical hardware stay bounded
     /// without artificially throttling small problems whose entire
@@ -2885,11 +2985,25 @@ fn penalty_subspace_trace_factor(kernel: &PenaltySubspaceTrace) -> Array2<f64> {
         .eigh(faer::Side::Lower)
         .expect("PenaltySubspaceTrace kernel factor eigendecomposition failed");
     let r = evals.len();
-    let max_eval = evals.iter().fold(0.0_f64, |acc, &v| acc.max(v.abs()));
-    let floor = f64::EPSILON.sqrt() * (r as f64).max(1.0) * max_eval.max(1.0);
+    // F must satisfy F·Fᵀ = K exactly: the batched `tr(FᵀAF)` is consumed as
+    // the gradient of the SAME pseudo-logdet criterion whose exact kernel the
+    // per-coordinate path contracts via `h_proj_inverse` directly. The kernel
+    // eigenvalues are `1/σ_a` over the kept Hessian spectrum, so their
+    // dynamic range is the Hessian condition number — clamp ONLY the
+    // roundoff-negative tail to zero (K is PSD by construction; a negative
+    // eigenvalue is O(ε)·‖K‖ eigensolver noise, and √(max(λ,0)) is the
+    // honest PSD square root). A relative floor here is NOT a stabilization:
+    // raising `1/σ_max` to `√ε·r·(1/σ_min)` rewrites the criterion's
+    // sensitivity along exactly the stiffest directions — where the ρ-drifts
+    // `λ_k·S_k` live — inflating the analytic trace by up to `√ε·r·κ(H_pen)`
+    // (O(1) once κ ≳ 1e7) while FD differentiates the true criterion. That
+    // desync red-lined every iso-κ Duchon probit/logit FD test and starved
+    // the spatial κ-optimizer of descent directions; Gaussian was immune
+    // because the intrinsic kernel is only installed for c-nontrivial
+    // families (#901).
     let mut root = evecs.clone();
     for col in 0..r {
-        let scale = evals[col].max(floor).sqrt();
+        let scale = evals[col].max(0.0).sqrt();
         for row in 0..r {
             root[[row, col]] *= scale;
         }
@@ -2914,10 +3028,16 @@ fn penalty_subspace_reduce_drifts_batched(
         .iter()
         .map(|drift| match drift {
             DriftDerivResult::Dense(matrix) => kernel.reduce(matrix),
-            DriftDerivResult::Operator(op) => {
-                let dense = op.to_dense();
-                kernel.reduce(&dense)
-            }
+            // #901 layer-2 (outer-Hessian path): reduce the operator via
+            // `U_Sᵀ·A·U_S = U_Sᵀ·A.mul_mat(U_S)` — NOT `op.to_dense()` then
+            // reduce. For the GLM cubic correction `C[v] = Xᵀdiag(c⊙Xv)X` the
+            // dense materialization computes near-null quadratic forms by
+            // cancelling O(‖C‖) entries, and the spectral kernel's `1/σ_min`
+            // then amplifies the roundoff (the +39-vs-−0.30 / ~−7.7e5 blow-up).
+            // `reduce_operator` probes through the `X·U_S` matvecs instead, so
+            // tiny² stays tiny — the same stability cure as the first-order
+            // `trace_operator` path.
+            DriftDerivResult::Operator(op) => kernel.reduce_operator(op.as_ref()),
         })
         .collect()
 }
@@ -3636,9 +3756,9 @@ impl HyperOperator for ImplicitHyperOperator {
     /// which calls `mul_vec_into` per column of `F` (rank columns). On a
     /// lazy Duchon / Matérn / CTN design each `mul_vec_into` triggers a
     /// full `O(n · p · kernel_eval)` row-streamed matvec — and with rank ≈ p
-    /// at biobank shape (16D-Duchon-aniso 32 ψ-axes, p ≈ 95, n = 320 K)
+    /// at large-scale shape (16D-Duchon-aniso 32 ψ-axes, p ≈ 95, n = 320 K)
     /// the per-axis trace landed at ~30 s. With 32 axes per outer Hessian
-    /// eval and ~5 outer iters that's the ~1 hr biobank timeout.
+    /// eval and ~5 outer iters that's the ~1 hr large-scale timeout.
     ///
     /// Algebra:
     /// ```text
@@ -3659,7 +3779,7 @@ impl HyperOperator for ImplicitHyperOperator {
     /// the chunk, never materialising full XF or DXF.
     ///
     /// This replaces the previous `rank`-many `forward_mul` apply loop. On
-    /// the biobank-shape margslope-aniso-duchon16d shard each per-axis trace
+    /// the large-scale margslope-aniso-duchon16d shard each per-axis trace
     /// drops from ~30 s to a single chunked-GEMM cost.
     fn trace_projected_factor(&self, factor: &Array2<f64>) -> f64 {
         assert_eq!(factor.nrows(), self.p);
@@ -3672,7 +3792,7 @@ impl HyperOperator for ImplicitHyperOperator {
         self.trace_projected_factor_with_xf(factor, xf.view())
     }
 
-    /// Cached variant — *the* hot-path optimisation for biobank-shape outer
+    /// Cached variant — *the* hot-path optimisation for large-scale outer
     /// gradient/Hessian sweeps. Every ψ-axis built atop the same `x_design`
     /// (e.g. all 32 ψ-axes of a marginal-slope model, or the same axis hit
     /// from `g_factor` and `w_factor` traces) shares one chunked
@@ -3680,7 +3800,7 @@ impl HyperOperator for ImplicitHyperOperator {
     /// [`ProjectedFactorCache`]. With 32 axes per outer-gradient sweep and
     /// O(rank) more cross-axis traces inside the outer-Hessian build, the
     /// cache turns 32× redundant `O(n · p · rank)` GEMMs into a single one
-    /// per outer iter. At biobank shape (`n = 320 K`, `p = rank = 95`) that
+    /// per outer iter. At large-scale shape (`n = 320 K`, `p = rank = 95`) that
     /// is the difference between minutes and seconds of design-GEMM work.
     fn trace_projected_factor_cached(
         &self,
@@ -3714,7 +3834,7 @@ fn byte_balanced_row_chunk(cols: usize, n_rows: usize) -> usize {
 impl ImplicitHyperOperator {
     /// Chunked `X · F` via faer SIMD-parallel GEMM. The chunk-row sizing
     /// targets ~8 MiB live blocks so the (chunk_n × p) row slice and
-    /// (chunk_n × rank) result both stay in L2/L3 across realistic biobank
+    /// (chunk_n × rank) result both stay in L2/L3 across realistic large-scale
     /// shapes; the kernel mirrors `xt_logdet_kernel_x_diagonal`'s sizing
     /// rule. Caller wraps this in [`Self::cached_xf`] when invariance
     /// across ψ-axes lets one matrix serve every axis at this `(x_design,
@@ -3776,7 +3896,7 @@ impl ImplicitHyperOperator {
         let u_knot = self.implicit_deriv.unproject_matrix(&factor.view());
 
         // Match the chunk sizing `xt_logdet_kernel_x_diagonal` uses so the
-        // live block stays in L2/L3 across realistic biobank shapes.
+        // live block stays in L2/L3 across realistic large-scale shapes.
         let chunk_rows = byte_balanced_row_chunk(self.p + rank, n_obs);
 
         let w = self.w_diag.as_ref();
@@ -4129,6 +4249,54 @@ impl HyperOperator for SparseDirectionalHyperOperator {
     }
     fn as_sparse_directional(&self) -> Option<&SparseDirectionalHyperOperator> {
         Some(self)
+    }
+}
+
+/// Matrix-free GLM cubic-correction drift `C[v] = −Xᵀ diag(c ⊙ X v) X`
+/// (rows masked to the active Hessian-curvature surface, sign folded into
+/// the stored diagonal).
+///
+/// # Why this must stay an operator (#901 layer 2)
+///
+/// The spectral logdet kernel evaluates `tr(H⁺ · C)` as
+/// `Σ_a (1/σ_a) · u_aᵀ C u_a` over the eigenpairs of `H_pen`. For a
+/// near-null eigenvector (`σ_min ~ 1e−4` on the Duchon fixtures) the true
+/// quadratic form is tiny — `‖X u_a‖² ≲ σ_a / w_min` — but a DENSE
+/// materialization of `C` computes it as a cancellation across entries of
+/// magnitude `‖C‖`, leaving roundoff `~ ε‖C‖p` that the kernel then
+/// amplifies by `1/σ_min`. On the iso-κ Duchon binomial FD drivers this
+/// turned a true cubic trace of `−0.30` into `+39.0`, and `~−7.7e5` on the
+/// κ-scaled ψ arms where `‖C‖ ~ λ · ∂S/∂ψ` — the dominant #901 blow-up.
+///
+/// In operator form the kernel probes `C · u_a = −Xᵀ(d ⊙ (X u_a))`: the
+/// cancellation happens inside the `X u_a` matvec (error `~ ε‖X‖‖u_a‖`),
+/// and the quadratic form is the *square* of that already-small vector —
+/// tiny² stays tiny, so the `1/σ_a` amplification acts on a relatively
+/// accurate value. This is the same stability argument as evaluating
+/// leverages via `(X u)ᵀ d (X u)` instead of `uᵀ (XᵀdX) u`.
+pub struct GlmCurvatureCorrectionOperator {
+    /// Design matrix X in the transformed basis (matrix-free capable).
+    pub(crate) x_design: DesignMatrix,
+    /// Pre-masked, sign-folded diagonal `−(c ⊙ X v)` over active rows.
+    pub(crate) neg_c_xv: Array1<f64>,
+    /// Total coefficient dimension.
+    pub(crate) p: usize,
+}
+
+impl HyperOperator for GlmCurvatureCorrectionOperator {
+    fn dim(&self) -> usize {
+        self.p
+    }
+
+    fn mul_vec(&self, v: &Array1<f64>) -> Array1<f64> {
+        assert_eq!(v.len(), self.p);
+        let x_v = self.x_design.matrixvectormultiply(v);
+        let weighted = &self.neg_c_xv * &x_v;
+        self.x_design.transpose_vector_multiply(&weighted)
+    }
+
+    fn is_implicit(&self) -> bool {
+        false
     }
 }
 
@@ -4826,27 +4994,40 @@ pub(crate) fn exact_pseudo_logdet(eigenvalues: &[f64], threshold: f64) -> f64 {
 // have been replaced by the canonical PenaltyPseudologdet in
 // super::penalty_logdet. All callers now use that module directly.
 
-/// Projected-logdet trace kernel for rank-deficient penalty geometries.
+/// Reduced trace kernel `K = U · M · Uᵀ` for pseudo-logdet REML/LAML
+/// criteria: an orthonormal column basis `u_s` (p × r) plus the r × r
+/// symmetric reduced kernel `h_proj_inverse`, with `tr(K · A)` evaluated as
+/// `tr(M · Uᵀ A U)` so contractions run on the r-dimensional subspace.
 ///
-/// When the outer cost is evaluated as `log|U_Sᵀ H U_S|_+` on the positive
-/// eigenspace of `S_λ` (see `hessian_logdet_correction`), the derivative
-/// `d log|U_Sᵀ H U_S|/dτ = tr(U_S · (U_Sᵀ H U_S)⁻¹ · U_Sᵀ · Ḣ)` uses the
-/// **projected** inverse kernel, not the full-space `H⁻¹`.  The two agree
-/// only when `Ḣ` has no support on `null(S)` — true for ρ-direction
-/// penalty drifts `A_k = λ_k S_k` (S_k vanishes on null(S) by construction),
-/// but **false** for the IFT correction `D_β H[v] = X' diag(c ⊙ X v) X`
-/// of non-Gaussian GLMs, because the intercept column `X[:,0] = 1_n`
-/// typically lies in `null(S)` and gives `D_β H[v]` non-zero rows/columns
-/// on that direction.
+/// Two producers install it, with different (documented) exactness domains:
 ///
-/// Evaluating `tr(H⁻¹ · Ḣ)` then picks up a spurious null-space
-/// contribution that is absent from the cost's projected logdet derivative.
-/// For Gaussian identity, `c = 0` so `D_β H[v] = 0` and the leakage vanishes,
-/// which is why Gaussian fixtures pass untouched.
+/// 1. **Intrinsic spectral form (#901, the GLM dense paths in runtime.rs —
+///    `intrinsic_hessian_pseudo_logdet_parts`):** `u_s = U_H`, the kept
+///    eigenvectors of the penalized Hessian `H_pen`, and `h_proj_inverse =
+///    diag(1/σ_a)`. Then `K = H_pen⁺` exactly, and `tr(K · Ḣ)` is the exact
+///    first derivative of the cost's `log|H_pen|₊` along **every** drift
+///    direction — penalty-supported or not, moving-subspace ψ drifts
+///    included — because on a constant-rank stratum first-order eigenvector
+///    motion cancels out of the pseudo-logdet derivative. This object can be
+///    traced against the GLM IFT correction `D_β H[v] = X' diag(c ⊙ X v) X`
+///    (which leaks onto `null(S)` via the intercept column) without error.
 ///
-/// `u_s`           — p × r orthonormal basis of `range(S_+)`.
-/// `h_proj_inverse` — r × r symmetric matrix `(U_Sᵀ H U_S)⁻¹`, precomputed
-/// from the same `H_proj = U_Sᵀ · H · U_S` that feeds `log|H_proj|_+`.
+/// 2. **Range(Sλ) Schur block (#752, `joint_penalty_subspace_trace_parts`
+///    in custom_family.rs):** `u_s` spans `range(Sλ)` and `h_proj_inverse =
+///    U_Sᵀ (H+Sλ)⁺ U_S`. For penalty-supported `A` (`A = ∂Sλ/∂ρ`), the
+///    identity `U_S U_Sᵀ A U_S U_Sᵀ = A` gives `tr(K · A) = tr((H+Sλ)⁺ A) =
+///    d log|H+Sλ|₊/dρ` — exact for the ρ family. It is **not** exact for
+///    drifts with `null(Sλ)` support (GLM cubic corrections, ψ basis
+///    drifts); paths that carry such drifts must install form 1.
+///
+/// Historically this struct carried a third reading — `(U_Sᵀ H U_S)⁻¹`, the
+/// plain projected inverse paired with the projected cost `log|U_Sᵀ H U_S|₊`.
+/// That object is WRONG as a REML determinant term: splitting `H` over
+/// `range(S) ⊕ ker(S)` as `[[A,B],[Bᵀ,C]]`, the projected logdet is
+/// `log det A`, dropping the θ-dependent Schur curvature
+/// `log det(C − BᵀA⁻¹B)` of the likelihood-identified, penalty-null block
+/// (sign-flipped ρ-gradients, ~1e5 ψ blow-ups vs FD — #901). No producer
+/// builds it anymore.
 #[derive(Clone, Debug)]
 pub struct PenaltySubspaceTrace {
     pub u_s: Array2<f64>,
@@ -4854,19 +5035,11 @@ pub struct PenaltySubspaceTrace {
 }
 
 impl PenaltySubspaceTrace {
-    /// Compute `tr(K · A)` where `K = U_S · H_proj⁻¹ · U_Sᵀ` — the
-    /// projected logdet kernel.
+    /// Compute `tr(K · A)` where `K = U_S · h_proj_inverse · U_Sᵀ` — the
+    /// pseudo-logdet trace kernel (see the struct doc for the two producer
+    /// forms and their exactness domains).
     ///
-    /// `H_proj⁻¹` is the range(Sλ) block of the FULL pseudo-inverse `(H+Sλ)⁺`
-    /// (its Schur reduction onto range(Sλ)). For a penalty-supported `A`
-    /// (`A = ∂Sλ/∂τ`, whose support lies in range(Sλ)), the identity
-    /// `U_S U_Sᵀ A U_S U_Sᵀ = A` gives
-    ///   `tr(K · A) = tr((H+Sλ)⁺ · A) = d log|H + Sλ|₊ / dτ`,
-    /// i.e. the kernel differentiates the FULL identifiable-subspace logdet
-    /// `log|H + Sλ|₊` (not the narrower `log|U_Sᵀ(H+Sλ)U_S|`). See
-    /// `joint_penalty_subspace_trace_parts`.
-    ///
-    /// Uses the identity `tr(K · A) = tr(H_proj⁻¹ · U_Sᵀ A U_S)` so the
+    /// Uses the identity `tr(K · A) = tr(h_proj_inverse · U_Sᵀ A U_S)` so the
     /// reduction runs on the r × r subspace rather than materializing K.
     pub fn trace_projected_logdet(&self, a: &Array2<f64>) -> f64 {
         crate::construction::trace_penalty_covariance_in_orthogonal_basis(
@@ -4938,7 +5111,7 @@ impl PenaltySubspaceTrace {
     /// total cost `O(n · p · r + n · r²)` — strictly cheaper than `n` calls
     /// to [`Self::apply`] because the `n × p · p × r` GEMM streams the
     /// `p`-axis once.  Streams `X` through `try_row_chunk` so operator-backed
-    /// (Lazy) designs at biobank scale never densify the full `(n × p)` block.
+    /// (Lazy) designs at large scale never densify the full `(n × p)` block.
     pub fn xt_projected_kernel_x_diagonal(&self, x: &DesignMatrix) -> Array1<f64> {
         let n = x.nrows();
         let p = x.ncols();
@@ -5017,7 +5190,7 @@ impl PenaltySubspaceTrace {
     /// outer-gradient/Hessian formulas when the rank-deficient LAML fix is
     /// active (`penalty_subspace_trace = Some`). The full `H⁻¹ · a` solve
     /// amplifies any component of `a` outside `range(H_free)` by
-    /// `1/σ_min(H_active_normal)` — which on biobank-scale survival
+    /// `1/σ_min(H_active_normal)` — which on large-scale survival
     /// marginal-slope is ~10¹² and propagates into outer gradients of
     /// magnitude 10¹⁴, suppressed by the envelope tripwire downstream and
     /// killing every seed before the fit can take a step. This operator may
@@ -5031,9 +5204,18 @@ impl PenaltySubspaceTrace {
     /// solve — strictly cheaper than the `O(p²)` full `hop.solve_multi`
     /// when `r ≪ p`, and bounded regardless of `σ_min(H)`.
     pub fn apply_pseudo_inverse(&self, a: &Array1<f64>) -> Array1<f64> {
-        let proj_a = crate::faer_ndarray::fast_atv(&self.u_s, a);
-        let h_proj_inv_a = self.h_proj_inverse.dot(&proj_a);
-        crate::faer_ndarray::fast_av(&self.u_s, &h_proj_inv_a)
+        // The one sensitivity operator (#935): the projected inverse action
+        // `U_S · H_proj⁻¹ · U_Sᵀ · a` has a single spelling, shared with every
+        // other consumer of `FittedInverse::Projected`.
+        self.sensitivity().apply(a)
+    }
+
+    /// View this projected trace kernel as the unified [`FitSensitivity`]
+    /// (#935) over the rank-deficient LAML convention `K = U_S · H_proj⁻¹ ·
+    /// U_Sᵀ`. The trace machinery stays here; the *inverse action* is the
+    /// shared operator, so no site can disagree about what `H⁻¹` means.
+    pub fn sensitivity(&self) -> crate::solver::sensitivity::FitSensitivity<'_> {
+        crate::solver::sensitivity::FitSensitivity::from_projected(&self.u_s, &self.h_proj_inverse)
     }
 
     /// Build the **constrained pseudo-inverse kernel**
@@ -5538,6 +5720,14 @@ pub struct InnerSolution<'dp> {
     /// Arguments: (ext_index, direction) → correction matrix.
     pub fixed_drift_deriv: Option<FixedDriftDerivFn>,
 
+    /// Direction-contracted second-order ψ hook for the profiled θ-HVP (#740).
+    /// When present, the outer-Hessian operator builder skips the `K²` per-pair
+    /// `base_h2` ψψ assembly and instead applies this once per matvec to obtain
+    /// every output row's `tr(K · D²_ψ H_L[ψ_i, ψ(α)])` in a single family row
+    /// pass. `None` keeps the exact per-pair assembly. See
+    /// [`ContractedPsiSecondOrderFn`].
+    pub contracted_psi_second_order: Option<ContractedPsiSecondOrderFn>,
+
     /// Optional log-barrier configuration for monotonicity-constrained coefficients.
     /// When present, the barrier cost and Hessian corrections are added to the
     /// outer REML/LAML objective.
@@ -5611,6 +5801,7 @@ pub struct InnerSolutionBuilder<'dp> {
     ext_coord_pair_fn: Option<Box<dyn Fn(usize, usize) -> HyperCoordPair + Send + Sync>>,
     rho_ext_pair_fn: Option<Box<dyn Fn(usize, usize) -> HyperCoordPair + Send + Sync>>,
     fixed_drift_deriv: Option<FixedDriftDerivFn>,
+    contracted_psi_second_order: Option<ContractedPsiSecondOrderFn>,
     barrier_config: Option<BarrierConfig>,
     kkt_residual: Option<ProjectedKktResidual>,
     active_constraints: Option<Arc<ActiveLinearConstraintBlock>>,
@@ -5651,6 +5842,7 @@ impl<'dp> InnerSolutionBuilder<'dp> {
             ext_coord_pair_fn: None,
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,
@@ -5731,6 +5923,14 @@ impl<'dp> InnerSolutionBuilder<'dp> {
 
     pub fn fixed_drift_deriv(mut self, f: FixedDriftDerivFn) -> Self {
         self.fixed_drift_deriv = Some(f);
+        self
+    }
+
+    /// Install the direction-contracted second-order ψ hook (#740). When set,
+    /// the outer-Hessian operator builder uses it instead of the `K²` per-pair
+    /// `base_h2` ψψ assembly. See [`ContractedPsiSecondOrderFn`].
+    pub fn contracted_psi_second_order(mut self, f: Option<ContractedPsiSecondOrderFn>) -> Self {
+        self.contracted_psi_second_order = f;
         self
     }
 
@@ -5879,6 +6079,7 @@ impl<'dp> InnerSolutionBuilder<'dp> {
             ext_coord_pair_fn: self.ext_coord_pair_fn,
             rho_ext_pair_fn: self.rho_ext_pair_fn,
             fixed_drift_deriv: self.fixed_drift_deriv,
+            contracted_psi_second_order: self.contracted_psi_second_order,
             barrier_config: self.barrier_config,
             kkt_residual: self.kkt_residual,
             active_constraints: self.active_constraints,
@@ -7114,6 +7315,10 @@ fn try_tangent_projected_evaluate(
         ext_coords: solution.ext_coords.clone(),
         ext_coord_pair_fn: None,
         rho_ext_pair_fn: None,
+        // Second-order pair callbacks are dropped on the projected path (same
+        // reason as the ext-coord/rho pair fns: the tangent hessian wrapper
+        // cannot re-project their p-space second-drift outputs).
+        contracted_psi_second_order: None,
         fixed_drift_deriv: None,
         barrier_config: solution.barrier_config.clone(),
         kkt_residual: projected_kkt,
@@ -7407,15 +7612,17 @@ pub fn reml_laml_evaluate(
         // Cost-side IFT correction `−½ rᵀ H⁻¹ r`. When the rank-deficient
         // LAML fix is active (`penalty_subspace_trace = Some`), the
         // mathematically correct inverse here is the Moore-Penrose
-        // pseudo-inverse projected onto `range(S_+)` — not the full
-        // `H⁻¹`. The full-H solve at near-singular boundary states
-        // (the biobank survival marginal-slope pathology) amplifies
-        // floating-point noise in `r` outside `range(S_+)` by
+        // pseudo-inverse on the kernel's identified subspace (`range(H_pen)`
+        // in the intrinsic #901 form; historically `range(S_+)`) — not the
+        // regularized full `H⁻¹`. The full-H solve at near-singular boundary
+        // states (the large-scale survival marginal-slope pathology) amplifies
+        // floating-point noise in `r` along sub-threshold directions by
         // `1/σ_min(H) ≈ 10¹²`, which then propagates into a 10¹³-magnitude
         // gradient component and traps the outer optimizer at max-iter.
-        // The projected pseudo-inverse kills any spurious null-space
-        // component of `r` before the inverse is applied, recovering
-        // the honest correction.
+        // The spectral pseudo-inverse zeroes any component of `r` on
+        // directions excluded from the cost's pseudo-logdet before the
+        // inverse is applied — the same threshold for value and correction —
+        // recovering the honest correction.
         let (cost_correction, branch) =
             if let Some(kernel) = solution.penalty_subspace_trace.as_ref() {
                 (-0.5_f64 * kernel.bilinear_pseudo_inverse(r, r), "projected")
@@ -7582,7 +7789,7 @@ pub fn reml_laml_evaluate(
         //     lives in T and the lifted kernel gives the minimum-norm
         //     solution there. The full `hop.solve_multi` amplifies any
         //     component of `a` outside `range(H_free)` by
-        //     `1/σ_min(H_active_normal)` — which on biobank-scale
+        //     `1/σ_min(H_active_normal)` — which on large-scale
         //     survival marginal-slope (commit d6b17a7f) is ~10¹² and
         //     trips the envelope-consistency check downstream; the
         //     lifted kernel drops that null-space contribution by
@@ -7972,7 +8179,7 @@ pub fn reml_laml_evaluate(
     // Both ρ and ext coordinates are processed through outer_gradient_entry()
     // so that the three-term formula (penalty + trace − det) is written once.
 
-    // Exact trace batching for operator-backed ρ corrections.  The hot biobank
+    // Exact trace batching for operator-backed ρ corrections.  The hot large-scale
     // GAMLSS path has many Duchon smoothing coordinates whose correction
     // operators share the same design and spectral factor.  Evaluating them one
     // by one repeats the same `X·F` projection and row-kernel setup for every
@@ -8048,13 +8255,15 @@ pub fn reml_laml_evaluate(
             // Trace term: tr(K · Ḣₖ) where Ḣₖ = Aₖ + C[vₖ].
             //
             // Kernel choice mirrors the ψ/τ block: full-space `G_ε(H)` when the
-            // cost uses the unprojected `log|H|`, or the identified-subspace
-            // kernel `U_S · (U_Sᵀ H U_S)⁻¹ · U_Sᵀ` when the rank-deficient LAML
-            // fix is active.  `Aₖ = λₖ Sₖ` is zero on `null(S)` by construction,
-            // but the third-derivative correction `C[vₖ] = X'·diag(c ⊙ X vₖ)·X`
-            // leaks onto the intercept direction for non-Gaussian families — so
-            // the two kernels disagree whenever `hessian_logdet_correction ≠ 0`
-            // and `c_array ≠ 0`.
+            // cost uses the smooth-floored `log|H|`, or the intrinsic spectral
+            // kernel `K = H_pen⁺` when the rank-deficient LAML fix is active
+            // (#901) — the exact derivative of the cost's `log|H_pen|₊` for the
+            // TOTAL drift, including the third-derivative correction
+            // `C[vₖ] = X'·diag(c ⊙ X vₖ)·X` that leaks onto `null(S)` for
+            // non-Gaussian families. The two kernels disagree whenever
+            // `hessian_logdet_correction ≠ 0` (they treat sub-threshold
+            // eigendirections differently), so the pairing with the cost
+            // identity is what keeps analytic and FD gradients on one surface.
             let trace_logdet_i = if !incl_logdet_h {
                 0.0
             } else if let Some(ref stoch_traces) = stochastic_trace_values {
@@ -8148,7 +8357,7 @@ pub fn reml_laml_evaluate(
     //
     // The correction strictly vanishes when r = 0.  When the inner exit
     // accepts ‖r‖ > 0 on a coordinate whose H block is poorly conditioned
-    // (e.g., the failing biobank survival marginal-slope case where ‖H⁻¹‖
+    // (e.g., the failing large-scale survival marginal-slope case where ‖H⁻¹‖
     // is ~10¹² on the one unpinned λ), the dropped term inflates by
     // ‖H⁻¹‖·‖r‖ and the envelope reports a gradient component orders of
     // magnitude past anything the function can actually produce — TR
@@ -8209,33 +8418,38 @@ pub fn reml_laml_evaluate(
             // Kernel choice pairs with the cost:
             //   * Default cost `½ log|H|` (or `Σ log r_ε(σ_j)` under Smooth spectral
             //     regularization) → K = G_ε(H), computed full-space.
-            //   * Rank-deficient LAML fix (`hessian_logdet_correction ≠ 0`) uses
-            //     cost `½ log|U_Sᵀ H U_S|_+` on the identified subspace, which
-            //     pairs with K = U_S · (U_Sᵀ H U_S)⁻¹ · U_Sᵀ.
+            //   * Rank-deficient LAML fix (`hessian_logdet_correction ≠ 0`, #901)
+            //     uses cost `½ log|H_pen|₊` over `range(H_pen)`, which pairs with
+            //     the intrinsic spectral kernel K = H_pen⁺.
             //
-            // For non-Gaussian families the total drift includes
-            // `D_β H[−v_i]`, which has non-zero
-            // support on `null(S)` whenever `X` contains an all-ones intercept
-            // column — the null direction of `S_λ`.  Using the full-space
-            // `G_ε(H)` there picks up a spurious null-space contribution absent
-            // from `d log|U_Sᵀ H U_S|_+/dτ`; the projected kernel reroutes the
-            // trace through `range(S_+)` only, matching the cost exactly.
+            // `tr(H_pen⁺ · Ḣ)` is the exact pseudo-logdet derivative for the
+            // TOTAL drift on a constant-rank stratum: the ψ basis drift `B_i`
+            // (whose `range(Sλ(ψ))` rotates with ψ — first-order eigenvector
+            // motion cancels, so no `dU/dψ` term exists for the intrinsic
+            // object) AND the non-Gaussian IFT correction `D_β H[−v_i]`,
+            // which has support on `null(S)` whenever `X` contains an
+            // all-ones intercept column. The historical range(S_+)-projected
+            // kernel dropped both the penalty-null Schur curvature (ρ sign
+            // flips) and the moving-subspace ψ term (~1e5 FD blow-ups).
             // For canonical Gaussian (Identity link) the assembly skips
             // installing `penalty_subspace_trace` at all — `c ≡ 0` forces
             // `D_β H ≡ 0`, the classical Gaussian REML cost identity reads
-            // `log|H|` (not `log|H_proj|`), and the unprojected `G_ε(H)`
-            // kernel is the formula that matches that cost surface within
-            // FD precision (the moving-`U_S(ψ)` projection would otherwise
-            // add a `dU_S/dψ` term to the cost that the analytic gradient
-            // does not capture — see the `c_nontrivial` gate in
-            // `build_dense_assembly` / `build_dense_original_assembly`).
+            // smooth-floored `log|H|`, and `G_ε(H)` is the kernel matching
+            // that cost surface within FD precision — see the `c_nontrivial`
+            // gate in `build_dense_assembly` / `build_dense_original_assembly`.
             // Drops into the `None` arm below in that branch.
             // Diagnostic stash for the iso-κ Duchon FD investigation. Filled
-            // only for the first extended coordinate (`ext_idx == 0`) and only
-            // when the log|H| contribution is included; pushed back to the
-            // calling thread via the per-call sink after the par_iter loop.
+            // only for the first extended coordinate (`ext_idx == 0`), only
+            // when the log|H| contribution is included, and only while a test
+            // holds a `debug_stash::CaptureGuard`. The capture is far from
+            // free — it re-derives the drift, runs three extra spectral
+            // traces (one of them the unprojected full-space trace) and a
+            // second cubic IFT-correction pass — which at large scale
+            // multiplied the dominant `ext_coord_trace` stage several-fold
+            // per outer eval. Production gradient evals therefore skip it
+            // entirely; the consuming FD tests opt in via the guard.
             let mut diag_stash: Option<debug_stash::TermStash> =
-                if incl_logdet_h && ext_idx == 0 {
+                if incl_logdet_h && ext_idx == 0 && debug_stash::capture_requested() {
                     Some(debug_stash::TermStash::default())
                 } else {
                     None
@@ -8286,6 +8500,53 @@ pub fn reml_laml_evaluate(
                     DriftDerivResult::Operator(op) => hop.trace_logdet_operator(op.as_ref()),
                 };
                 stash.unprojected_tr = Some(unprojected);
+
+                // #901-layer-2 split: the same kernel K traced against the
+                // FROZEN drift B_i (no cubic correction) and against the
+                // cubic correction D_βH[−v_i] alone, so the FD reference can
+                // attribute the desync to one component.
+                let frozen_only = hyper_coord_total_drift_result(&coord.drift, None, hop.dim());
+                let trace_with_kernel = |d: &DriftDerivResult| -> f64 {
+                    match (&solution.penalty_subspace_trace, d) {
+                        (Some(kernel), DriftDerivResult::Dense(m)) => {
+                            kernel.trace_projected_logdet(m)
+                        }
+                        (Some(kernel), DriftDerivResult::Operator(op)) => {
+                            kernel.trace_operator(op.as_ref())
+                        }
+                        (None, DriftDerivResult::Dense(m)) => hop.trace_logdet_h_k(m, None),
+                        (None, DriftDerivResult::Operator(op)) => {
+                            hop.trace_logdet_operator(op.as_ref())
+                        }
+                    }
+                };
+                let frozen_tr = trace_with_kernel(&frozen_only);
+                stash.frozen_tr = Some(frozen_tr);
+                stash.correction_tr = Some(trace_logdet_i - frozen_tr);
+
+                // #901-layer-2 candidate fix: recompute the cubic correction
+                // with the IFT direction taken from the SAME pseudo-inverse the
+                // cost uses (`v = H_pen⁺·coord.g`) instead of the full
+                // `hop.solve`. The intrinsic kernel keeps the null(S₊)
+                // curvature the old range(S₊) projection dropped AND floors the
+                // truly-unidentified `ker(H_pen)` directions the full solve
+                // over-amplifies. If this matches the FD cubic (≈ fd_total −
+                // frozen_tr), the desync is the IFT direction using a different
+                // inverse than the criterion.
+                if let Some(kernel) = solution.penalty_subspace_trace.as_ref() {
+                    let v_proj = kernel.apply_pseudo_inverse(&coord.g);
+                    if let Ok(corr_proj) =
+                        effective_deriv.hessian_derivative_correction_result(&v_proj)
+                    {
+                        let total_proj = hyper_coord_total_drift_result(
+                            &coord.drift,
+                            corr_proj.as_ref(),
+                            hop.dim(),
+                        );
+                        let proj_total_tr = trace_with_kernel(&total_proj);
+                        stash.correction_tr_proj = Some(proj_total_tr - frozen_tr);
+                    }
+                }
             }
 
             // Per-row diagnostic stash: captures term4's `c · X_τβ̂` diagonal
@@ -8382,7 +8643,7 @@ pub fn reml_laml_evaluate(
     // still predicts a sqrt(eps)-step cost change > 4*|cost|, it is not a
     // valid local derivative of this cost surface. The Hessian computed from
     // the same ill-conditioned inner state would also be untrustworthy and
-    // would just be discarded by the outer optimizer, and for biobank-scale
+    // would just be discarded by the outer optimizer, and for large-scale
     // custom families the assembly can take 20+ minutes per evaluation.
     // Decide once here, then reuse the verdict for both the gradient and
     // Hessian outputs.
@@ -8501,9 +8762,9 @@ pub fn reml_laml_evaluate(
         }
         let hessian_kernel = effective_deriv.outer_hessian_derivative_kernel();
         // Cost selects representation (operator vs dense), not capability.
-        // The (n, p, K) scale rule routes biobank-scale problems through the
+        // The (n, p, K) scale rule routes large-scale problems through the
         // matrix-free Hv operator path even when the per-axis thresholds
-        // (`p >= 512` or `K >= 32`) alone do not fire.  At Matern biobank
+        // (`p >= 512` or `K >= 32`) alone do not fire.  At Matern large-scale
         // scale (n=320 000, p=101, K=6) the dense path's per-outer-eval
         // O(K·n·p²) assembly is ≈ 2·10¹⁰ FLOPs and dominates wall-clock; the
         // operator path absorbs it via O(n·p) HVPs.
@@ -8532,7 +8793,14 @@ pub fn reml_laml_evaluate(
             callback_operator_kernel,
             has_subspace_trace,
         );
-        let use_operator = route_plan.use_operator;
+        // #740: when the direction-contracted ψψ hook is installed, the operator
+        // route is strictly cheaper than dense at every scale — the dense
+        // `compute_outer_hessian` path would re-run the `K²` per-pair ψψ
+        // assembly the hook exists to avoid, whereas the operator applies the
+        // hook once per matvec. So force the operator representation whenever the
+        // hook is present (it still requires a kernel to build the operator).
+        let use_operator = route_plan.use_operator
+            || (solution.contracted_psi_second_order.is_some() && hessian_kernel.is_some());
         let route_choice = route_plan.choice();
         let route_reason = route_plan.reason;
         log::info!(
@@ -8928,7 +9196,7 @@ fn compute_adjoint_z_c(
         .and(leverage)
         .for_each(|w, &c, &h| *w = c * h);
     // Matrix-free Xᵀ · weighted via DesignMatrix transpose-apply, so
-    // operator-backed (Lazy) designs at biobank scale never densify.
+    // operator-backed (Lazy) designs at large scale never densify.
     let v = ing.x.transpose_vector_multiply(&weighted);
     // Adjoint identity: tr(Kernel · C[u]) = uᵀ · Xᵀ(c ⊙ h^G), where the
     // kernel and the leverage `h^G` must come from the SAME operator.
@@ -8972,7 +9240,7 @@ fn compute_fourth_derivative_trace(
         return Ok(None);
     };
     // Matrix-free X·v via DesignMatrix matvec; operator-backed (Lazy)
-    // designs at biobank scale stream through their chunked kernels
+    // designs at large scale stream through their chunked kernels
     // instead of materializing the full (n×p) block.
     let x_vk = ing.x.matrixvectormultiply(v_k);
     let x_vl = ing.x.matrixvectormultiply(v_l);
@@ -9235,7 +9503,7 @@ fn compute_base_h2_traces(
     // Dense-spectral batched path: collect every operator-backed pair into a
     // single chunked sweep so the implicit design (compute_xf + per-axis
     // kernel scalars) is traversed once instead of `pairs.len()` times. At
-    // biobank scale this turns the 16+ per-call `trace_logdet_operator`
+    // large scale this turns the 16+ per-call `trace_logdet_operator`
     // hot spots into a single batched evaluation.
     if subspace.is_none()
         && let Some(ds) = hop.as_exact_dense_spectral()
@@ -9772,15 +10040,20 @@ fn compute_outer_hessian(
 
     // Build pure Aₖ = λₖ Rₖᵀ Rₖ and Ḣₖ = Aₖ + correction for all k.
     //
-    // We store both because:
-    //   - Ḣₖ (first derivative of H) is needed for cross-trace Y_k = H⁻¹ Ḣₖ
-    //   - Aₖ (penalty derivative only) is needed for the Ḧ_{kl} base and for
-    //     the second implicit derivative β_{kl} = H⁻¹(Ḣₗ vₖ + Aₖ vₗ − δₖₗ Aₖ β̂)
-    let mut a_k_matrices: Vec<Array2<f64>> = Vec::with_capacity(k);
+    // Both quantities are consumed downstream:
+    //   - Ḣₖ (first derivative of H) drives the cross-trace Y_k = H⁻¹ Ḣₖ
+    //   - Aₖ (penalty derivative only) drives the Ḧ_{kl} base and the second
+    //     implicit derivative β_{kl} = H⁻¹(Ḣₗ vₖ + Aₖ vₗ − δₖₗ Aₖ β̂)
+    //
+    // But Aₖ ≡ Ḣₖ unless a correction was applied to that coordinate, so
+    // `a_k_matrices[idx]` stores the pure Aₖ only in that case; otherwise it is
+    // `None` and the diagonal base term reads `h_k_matrices[idx]` directly. This
+    // drops the per-coordinate Aₖ clone (issue #922) in the common no-correction
+    // (Gaussian) path.
+    let mut a_k_matrices: Vec<Option<Array2<f64>>> = Vec::with_capacity(k);
     let mut h_k_matrices: Vec<Array2<f64>> = Vec::with_capacity(k);
     for idx in 0..k {
         let mut a_k = solution.penalty_coords[idx].scaled_dense_matrix(curvature_lambdas[idx]);
-        a_k_matrices.push(a_k.clone());
 
         let correction: Option<Array2<f64>> = match workspace {
             Some(ws) => match ws.coord_corrections[idx].as_ref() {
@@ -9803,7 +10076,10 @@ fn compute_outer_hessian(
             }
         };
         if let Some(corr) = correction {
+            a_k_matrices.push(Some(a_k.clone()));
             a_k += &corr;
+        } else {
+            a_k_matrices.push(None);
         }
         h_k_matrices.push(a_k);
     }
@@ -9971,13 +10247,16 @@ fn compute_outer_hessian(
     // The outer Hessian uses -tr(H^{-1} Hj H^{-1} Hi) = -(this value).
     let stochastic_cross_traces: Option<Array2<f64>> = if use_stochastic_cross_traces {
         let total_coords = k + ext_dim;
-        let mut dense_mats: Vec<Array2<f64>> = Vec::new();
+        // Borrow the rho-coordinate Ḣₖ drifts and the dense ext drifts directly
+        // — the estimator only ever reads them, so the previous per-coordinate
+        // clones (issue #922) were pure copies of `h_k_matrices` / `ext_h_drifts`.
+        let mut dense_mats: Vec<&Array2<f64>> = Vec::new();
         let mut coord_has_operator: Vec<bool> = Vec::with_capacity(total_coords);
         let mut operator_arcs: Vec<Arc<dyn HyperOperator>> = Vec::new();
 
         // rho coordinates: always dense.
-        for idx in 0..k {
-            dense_mats.push(h_k_matrices[idx].clone());
+        for h_k in h_k_matrices.iter().take(k) {
+            dense_mats.push(h_k);
             coord_has_operator.push(false);
         }
 
@@ -9987,7 +10266,7 @@ fn compute_outer_hessian(
         for drift in &ext_h_drifts {
             match drift {
                 DriftDerivResult::Dense(matrix) => {
-                    dense_mats.push(matrix.clone());
+                    dense_mats.push(matrix);
                     coord_has_operator.push(false);
                 }
                 DriftDerivResult::Operator(operator) => {
@@ -10107,7 +10386,7 @@ fn compute_outer_hessian(
     // disjoint hess[[kk, ll]]/hess[[ll, kk]] cell pair) and the dominant
     // per-pair cost — `compute_ift_correction_trace` → `kernel.trace_operator`
     // → `op.mul_mat(U_S)` materialising a CompositeHyperOperator over a
-    // (p × r) factor — scales like O(family_callback × r × n). At biobank
+    // (p × r) factor — scales like O(family_callback × r × n). At large-scale
     // shape (n ≈ 2·10⁵, r ≈ 24, K = 8) the sequential walk dominates the
     // outer-Hessian wall-clock by 1–2 orders of magnitude, so we dispatch
     // the pair list through rayon and stitch the symmetric Array2 sequentially.
@@ -10219,14 +10498,17 @@ fn compute_outer_hessian(
                 // projected kernel so the outer Hessian matches the projected
                 // `½ log|U_Sᵀ H U_S|_+` cost.
                 let base = if kk == ll {
+                    // Pure Aₖ for the diagonal base term: the stored override when
+                    // a correction made Aₖ ≠ Ḣₖ, else Ḣₖ itself (they coincide).
+                    let a_kk = a_k_matrices[kk].as_ref().unwrap_or(&h_k_matrices[kk]);
                     if let Some(kernel) = subspace {
-                        kernel.trace_projected_logdet(&a_k_matrices[kk])
+                        kernel.trace_projected_logdet(a_kk)
                     } else if solution.penalty_coords[kk].is_block_local() {
                         let (block, start, end) =
                             solution.penalty_coords[kk].scaled_block_local(1.0);
                         hop.trace_logdet_block_local(&block, curvature_lambdas[kk], start, end)
                     } else {
-                        hop.trace_logdet_gradient(&a_k_matrices[kk])
+                        hop.trace_logdet_gradient(a_kk)
                     }
                 } else {
                     0.0
@@ -10902,6 +11184,16 @@ impl HyperOperator for WeightedHyperOperator {
     }
 }
 
+/// Per-matvec contraction of the ψψ-block second-order hook (#740), with each
+/// `D²_ψ H_L` drift already traced through the logdet kernel into `base_h2`.
+/// Indexed by ψ output row `i = idx - k_rho`.
+struct PsiContractedContrib {
+    objective: Array1<f64>,
+    score: Array2<f64>,
+    ld_s: Array1<f64>,
+    base_h2: Vec<f64>,
+}
+
 struct OuterHessianCoord {
     a: f64,
     g: Array1<f64>,
@@ -10948,6 +11240,18 @@ struct UnifiedOuterHessianOperator {
     leverage: Option<Array1<f64>>,
     fourth_trace: Option<Array2<f64>>,
     callback_second_modes: Option<Vec<Array1<f64>>>,
+    /// Number of ρ (penalty) coordinates; coords `k_rho..` are the ψ rows. Used
+    /// only when `contracted_psi` is present, to map an output index to its ψ
+    /// output row.
+    k_rho: usize,
+    /// Direction-contracted ψψ second-order hook (#740). When `Some`, the build
+    /// SKIPPED the `K²` per-pair `ext_coord_pair_fn` ψψ assembly (the `pair_a` /
+    /// `pair_ld_s` / `base_h2` ψψ-block entries and the ψψ `pair_g` are left
+    /// zero / `None`), and `matvec`/`apply_into` apply this once per call to add
+    /// the ψ-row ψψ contributions in a single family row pass. The ρρ and ρψ
+    /// blocks remain in the precomputed tables (cheap), so this changes only the
+    /// representation of the ψψ block, not the math.
+    contracted_psi: Option<ContractedPsiSecondOrderFn>,
 }
 
 impl UnifiedOuterHessianOperator {
@@ -11032,6 +11336,7 @@ impl UnifiedOuterHessianOperator {
         alpha: &Array1<f64>,
         v_i: &Array1<f64>,
         m_alpha: &Array1<f64>,
+        psi_score_alpha: Option<&Array1<f64>>,
     ) -> Result<f64, String> {
         let OuterHessianDerivativeKernel::ScalarGlm {
             c_array,
@@ -11066,6 +11371,15 @@ impl UnifiedOuterHessianOperator {
                 continue;
             }
             c_trace += alpha_j * self.pair_rhs_dot(idx, j, z_c.view());
+        }
+        // #740: `pair_rhs_dot` reads `pair_g[idx][j]` for the `−g_{ij}·z_c`
+        // adjoint term, but the build SKIPPED the ψψ `pair_g` when the contracted
+        // hook is installed. `pair_rhs_dot` therefore drops the `−Σ_j α_j
+        // g_{ψ_i ψ_j}` ψψ contribution; the hook supplies it as `score.row(i)`,
+        // so add the missing `−score·z_c` here (mirrors the `−score` rhs
+        // injection on the Callback path in `outer_hessian_index_entry`).
+        if let Some(score_alpha) = psi_score_alpha {
+            c_trace -= score_alpha.dot(z_c);
         }
         let d_trace = if let Some(trace) = self.fourth_trace.as_ref() {
             let mut combo = 0.0;
@@ -11115,10 +11429,63 @@ impl UnifiedOuterHessianOperator {
         }
     }
 
+    /// Per-call contraction of the ψψ-block second-order hook (#740).
+    ///
+    /// Calls `contracted_psi` once with the ψ slice of `alpha` and pre-traces
+    /// each per-output-row `D²_ψ H_L[ψ_i, ψ(α)]` drift through the logdet kernel
+    /// so `outer_hessian_index_entry` reads scalars. Returns `None` when no hook
+    /// is installed (the ψψ block then lives entirely in the precomputed
+    /// tables). The `score` rows are carried through unchanged for injection
+    /// into the callback-correction rhs (they replace the ψψ `pair_g` the build
+    /// skipped). Indexed by ψ output row `i = idx - k_rho`.
+    fn psi_contracted_contrib(
+        &self,
+        alpha: &Array1<f64>,
+    ) -> Result<Option<PsiContractedContrib>, String> {
+        let Some(hook) = self.contracted_psi.as_ref() else {
+            return Ok(None);
+        };
+        let alpha_psi: Vec<f64> = alpha.iter().skip(self.k_rho).copied().collect();
+        let Some(contracted) = hook(&alpha_psi)? else {
+            // The hook declined this direction (e.g. a σ-aux axis carried
+            // weight): this operator must not have been built with a skipped
+            // ψψ assembly, so a decline here is a contract violation.
+            return Err(RemlError::InvalidKernelMode {
+                reason: "contracted ψψ hook declined a direction after the outer-Hessian \
+                         build skipped per-pair ψψ assembly; the build-time and apply-time \
+                         hook availability disagree"
+                    .to_string(),
+            }
+            .into());
+        };
+        let base_h2: Vec<f64> = contracted
+            .hessian
+            .iter()
+            .map(|drift| match (self.subspace.as_deref(), drift) {
+                (Some(kernel), DriftDerivResult::Dense(m)) => kernel.trace_projected_logdet(m),
+                (Some(kernel), DriftDerivResult::Operator(op)) => {
+                    kernel.trace_operator(op.as_ref())
+                }
+                (None, DriftDerivResult::Dense(m)) => self.hop.trace_logdet_gradient(m),
+                (None, DriftDerivResult::Operator(op)) => {
+                    self.hop.trace_logdet_operator(op.as_ref())
+                }
+            })
+            .collect();
+        Ok(Some(PsiContractedContrib {
+            objective: contracted.objective,
+            score: contracted.score,
+            ld_s: contracted.ld_s,
+            base_h2,
+        }))
+    }
+
     /// Per-coordinate outer-Hessian-row × `alpha` contraction shared by the
     /// `matvec` and zero-alloc `apply_into` paths. `a_alpha`,
     /// `correction_m_alpha`, and `callback_neg_m_alpha` are the
     /// alpha-dependent quantities precomputed once per call by the caller.
+    /// `psi_contrib` carries the per-call ψψ-block hook contraction (#740);
+    /// `None` keeps the ψψ block in the precomputed tables.
     fn outer_hessian_index_entry(
         &self,
         idx: usize,
@@ -11126,13 +11493,25 @@ impl UnifiedOuterHessianOperator {
         a_alpha: f64,
         correction_m_alpha: &Array1<f64>,
         callback_neg_m_alpha: Option<&Array1<f64>>,
+        psi_contrib: Option<&PsiContractedContrib>,
     ) -> Result<f64, String> {
         let coord = &self.coords[idx];
-        let pair_a = self.pair_a.row(idx).dot(alpha);
-        let pair_ld_s = self.pair_ld_s.row(idx).dot(alpha);
+        // ψ output row index into the hook contraction (when this idx is a ψ
+        // coordinate and the hook is active); `None` for ρ rows or no hook.
+        let psi_row = psi_contrib
+            .and_then(|contrib| (idx >= self.k_rho).then(|| (contrib, idx - self.k_rho)));
+        let mut pair_a = self.pair_a.row(idx).dot(alpha);
+        let mut pair_ld_s = self.pair_ld_s.row(idx).dot(alpha);
         let g_dot_v_alpha = self.g_dot_v.row(idx).dot(alpha);
-        let base_h2 = self.base_h2.row(idx).dot(alpha);
+        let mut base_h2 = self.base_h2.row(idx).dot(alpha);
         let m_terms = self.m_pair_trace.row(idx).dot(alpha);
+        if let Some((contrib, i)) = psi_row {
+            // The build skipped the ψψ-block entries of these tables; add the
+            // hook's α-contraction of the ψψ block (likelihood + ψψ penalty).
+            pair_a += contrib.objective[i];
+            pair_ld_s += contrib.ld_s[i];
+            base_h2 += contrib.base_h2[i];
+        }
 
         let cross_trace = match self.cross_trace.as_ref() {
             Some(ct) => ct.row(idx).dot(alpha),
@@ -11143,14 +11522,31 @@ impl UnifiedOuterHessianOperator {
             match &self.kernel {
                 OuterHessianDerivativeKernel::Gaussian => 0.0,
                 OuterHessianDerivativeKernel::ScalarGlm { .. } => {
-                    self.scalar_correction_trace(idx, alpha, &coord.v, correction_m_alpha)?
+                    // For ψ rows with the contracted hook, supply the
+                    // `−Σ_j α_j g_{ψ_i ψ_j}` (= score.row(i)) that the skipped ψψ
+                    // `pair_g` no longer provides to the scalar adjoint trace.
+                    let psi_score = psi_row.map(|(contrib, i)| contrib.score.row(i).to_owned());
+                    self.scalar_correction_trace(
+                        idx,
+                        alpha,
+                        &coord.v,
+                        correction_m_alpha,
+                        psi_score.as_ref(),
+                    )?
                 }
                 OuterHessianDerivativeKernel::Callback { .. } => {
                     let second_v = &self
                         .callback_second_modes
                         .as_ref()
                         .expect("callback second modes")[idx];
-                    let rhs = self.pair_rhs_combo(idx, alpha);
+                    let mut rhs = self.pair_rhs_combo(idx, alpha);
+                    // The build skipped the ψψ `pair_g`; the callback-correction
+                    // second mode-response rhs needs `−Σ_j α_j g_{ψ_i ψ_j}`,
+                    // which the hook supplies as `score.row(i)`. Inject it so the
+                    // rhs matches the dense path's `pair_rhs_combo` exactly.
+                    if let Some((contrib, i)) = psi_row {
+                        rhs.scaled_add(-1.0, &contrib.score.row(i));
+                    }
                     self.callback_correction_trace(
                         &rhs,
                         second_v,
@@ -11207,6 +11603,9 @@ impl crate::solver::outer_strategy::OuterHessianOperator for UnifiedOuterHessian
         let callback_neg_m_alpha =
             matches!(self.kernel, OuterHessianDerivativeKernel::Callback { .. })
                 .then(|| -&correction_m_alpha);
+        // #740: one ψψ-block hook contraction per matvec (one family row pass),
+        // shared read-only across the parallel per-row entries below.
+        let psi_contrib = self.psi_contracted_contrib(alpha)?;
         use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
         let values: Result<Vec<f64>, String> = (0..self.coords.len())
@@ -11218,6 +11617,7 @@ impl crate::solver::outer_strategy::OuterHessianOperator for UnifiedOuterHessian
                     a_alpha,
                     &correction_m_alpha,
                     callback_neg_m_alpha.as_ref(),
+                    psi_contrib.as_ref(),
                 )
             })
             .collect();
@@ -11266,6 +11666,8 @@ impl crate::solver::outer_strategy::OuterHessianOperator for UnifiedOuterHessian
         let callback_neg_m_alpha =
             matches!(self.kernel, OuterHessianDerivativeKernel::Callback { .. })
                 .then(|| -&correction_m_alpha);
+        // #740: one ψψ-block hook contraction per matvec (see `matvec`).
+        let psi_contrib = self.psi_contracted_contrib(alpha)?;
         let slice = out
             .as_slice_mut()
             .ok_or_else(|| "outer Hessian apply_into: non-contiguous output buffer".to_string())?;
@@ -11279,6 +11681,7 @@ impl crate::solver::outer_strategy::OuterHessianOperator for UnifiedOuterHessian
                     a_alpha,
                     &correction_m_alpha,
                     callback_neg_m_alpha.as_ref(),
+                    psi_contrib.as_ref(),
                 )?;
                 Ok(())
             })
@@ -11612,7 +12015,18 @@ fn build_outer_hessian_operator(
         }
     }
 
-    if let Some(ext_pair_fn) = solution.ext_coord_pair_fn.as_ref() {
+    // #740: when the direction-contracted ψψ hook is installed, the ψψ-block
+    // entries of pair_a / pair_ld_s / base_h2 and the ψψ pair_g are supplied
+    // per-matvec by the hook in a single family row pass — so SKIP this `K²`
+    // per-pair assembly entirely (each `ext_pair_fn(ii,jj)` is an O(n) family
+    // row fold and `compute_base_h2_traces` then traces each at O(n·r)). The ρρ
+    // and ρψ blocks above stay in the tables (cheap, no family row pass). The
+    // ψψ entries left zero here are exactly the ones the hook adds in
+    // `outer_hessian_index_entry`.
+    if let (Some(ext_pair_fn), None) = (
+        solution.ext_coord_pair_fn.as_ref(),
+        solution.contracted_psi_second_order.as_ref(),
+    ) {
         use rayon::iter::{IntoParallelIterator, ParallelIterator};
         let pair_count = ext_dim * (ext_dim + 1) / 2;
         let entries: Vec<(usize, usize, HyperCoordPair)> = (0..pair_count)
@@ -12078,6 +12492,8 @@ fn build_outer_hessian_operator(
         leverage,
         fourth_trace,
         callback_second_modes,
+        k_rho: k,
+        contracted_psi: solution.contracted_psi_second_order.clone(),
     })
 }
 
@@ -14108,19 +14524,30 @@ impl HessianOperator for DenseSpectralOperator {
 
     fn xt_logdet_kernel_x_diagonal(&self, x: &DesignMatrix) -> Array1<f64> {
         // h^G_i = ‖(X G)_{i,:}‖² where G_ε = G Gᵀ and G = self.g_factor.
-        // The dominant cost at biobank scale is the (n × p)·(p × rank) matmul
+        // The dominant cost at large scale is the (n × p)·(p × rank) matmul
         // — for matern60 with n=320K, p=101 that's ~3.3 GFLOPs and the
         // ndarray default `.dot()` runs single-threaded (no BLAS feature
         // enabled in this crate's build), so we route through faer's parallel
         // SIMD GEMM. For operator-backed (Lazy) designs we additionally
         // stream by row chunk so we never materialize the full (n×p) block
-        // at biobank scale.
+        // at large scale.
         let n = x.nrows();
         let p = x.ncols();
         let rank = self.g_factor.ncols();
         let mut h = Array1::<f64>::zeros(n);
         if n == 0 || p == 0 || rank == 0 {
             return h;
+        }
+        // Issue #922: offload this n-dependent pass to the device pool when a
+        // GPU was probed and n·p² clears the dispatch floor. The result is the
+        // same f64 arithmetic (X·G then row-wise ‖·‖²), just relocated across
+        // every device via `scatter_batched`; any failure falls through to the
+        // faer CPU stream below so the REML criterion is byte-for-byte
+        // unchanged on machines without a GPU.
+        if let Some(gpu) =
+            crate::gpu::linalg::try_fast_spectral_leverage_diagonal(x, self.g_factor.view())
+        {
+            return gpu;
         }
         let chunk_rows = byte_balanced_row_chunk(p + rank, n);
         let mut start = 0usize;
@@ -16982,9 +17409,12 @@ fn stochastic_trace_hinv_crosses<'a>(
     generic_ops: &[&'a dyn HyperOperator],
     implicit_ops: &[&'a ImplicitHyperOperator],
 ) -> Array2<f64> {
+    // The `_with_floor` variant takes a slice of references; adapt the owned
+    // slice without copying the matrices.
+    let dense_refs: Vec<&'a Array2<f64>> = dense_matrices.iter().collect();
     stochastic_trace_hinv_crosses_with_floor(
         hop,
-        dense_matrices,
+        &dense_refs,
         coord_has_operator,
         generic_ops,
         implicit_ops,
@@ -16994,7 +17424,7 @@ fn stochastic_trace_hinv_crosses<'a>(
 
 fn stochastic_trace_hinv_crosses_with_floor<'a>(
     hop: &dyn HessianOperator,
-    dense_matrices: &'a [Array2<f64>],
+    dense_matrices: &[&'a Array2<f64>],
     coord_has_operator: &[bool],
     generic_ops: &[&'a dyn HyperOperator],
     implicit_ops: &[&'a ImplicitHyperOperator],
@@ -17008,11 +17438,10 @@ fn stochastic_trace_hinv_crosses_with_floor<'a>(
         ),
         None => StochasticTraceEstimator::for_outer_hessian(hop.dim(), coord_has_operator.len()),
     };
-    let dense_refs: Vec<&Array2<f64>> = dense_matrices.iter().collect();
     let raw_cross = if generic_ops.len() == implicit_ops.len() {
-        estimator.estimate_second_order_traces(hop, &dense_refs, implicit_ops)
+        estimator.estimate_second_order_traces(hop, dense_matrices, implicit_ops)
     } else {
-        estimator.estimate_second_order_traces_with_operators(hop, &dense_refs, generic_ops)
+        estimator.estimate_second_order_traces_with_operators(hop, dense_matrices, generic_ops)
     };
 
     let total_coords = coord_has_operator.len();
@@ -17397,6 +17826,75 @@ mod tests {
     use approx::assert_relative_eq;
     use ndarray::array;
 
+    // ─── Batched kernel-trace factor must reproduce the exact kernel ─────
+    //
+    // `penalty_subspace_trace_drifts_batched` evaluates `tr(K·A_i)` for the
+    // intrinsic pseudo-logdet kernel `K = U·M·Uᵀ` through a square-root
+    // factor `F` with `F·Fᵀ = K`. The per-coordinate path contracts `M`
+    // exactly, so the batched values must agree to roundoff — for ANY kernel
+    // spectrum. The regression this pins: a relative eigenvalue floor inside
+    // the factor (√ε·r·‖M‖) silently rewrote the kernel's stiffest-direction
+    // sensitivities once the Hessian condition number exceeded ~1/(√ε·r),
+    // biasing every ρ-trace whose drift `λ_k S_k` concentrates on those
+    // directions — the iso-κ Duchon probit/logit FD red-line. The spectrum
+    // below spans 12 decades, comfortably past the old floor.
+    #[test]
+    fn batched_penalty_subspace_traces_match_exact_kernel_on_ill_conditioned_spectrum() {
+        let p = 6usize;
+        let r = 4usize;
+        // Orthonormal U (p × r): columns of a fixed Householder-style basis.
+        let mut u_s = Array2::<f64>::zeros((p, r));
+        for col in 0..r {
+            for row in 0..p {
+                let x = ((row * r + col) as f64 * 0.7311).sin();
+                u_s[[row, col]] = x;
+            }
+        }
+        // Gram-Schmidt to make the columns exactly orthonormal.
+        for col in 0..r {
+            for prev in 0..col {
+                let dot = u_s.column(col).dot(&u_s.column(prev));
+                let prev_col = u_s.column(prev).to_owned();
+                let mut c = u_s.column_mut(col);
+                c.scaled_add(-dot, &prev_col);
+            }
+            let norm = u_s.column(col).dot(&u_s.column(col)).sqrt();
+            u_s.column_mut(col).mapv_inplace(|v| v / norm);
+        }
+        // Kernel reduced block M = diag(1/σ) over a 12-decade spectrum:
+        // σ ∈ {1e-6, 1e-2, 1e2, 1e6} ⇒ kernel evals {1e6, 1e2, 1e-2, 1e-6}.
+        let sigmas = [1.0e-6_f64, 1.0e-2, 1.0e2, 1.0e6];
+        let mut m = Array2::<f64>::zeros((r, r));
+        for (a, &s) in sigmas.iter().enumerate() {
+            m[[a, a]] = 1.0 / s;
+        }
+        let kernel = PenaltySubspaceTrace {
+            u_s: u_s.clone(),
+            h_proj_inverse: m,
+        };
+        // Drift concentrated on the STIFFEST direction (kernel eval 1e-6):
+        // A = σ_max · u₃u₃ᵀ + a mild symmetric background.
+        let u3 = u_s.column(r - 1).to_owned();
+        let mut a_drift = Array2::<f64>::zeros((p, p));
+        for i in 0..p {
+            for j in 0..p {
+                a_drift[[i, j]] = 1.0e6 * u3[i] * u3[j]
+                    + 0.5 * (((i + 2 * j) as f64) * 0.3719).cos()
+                    + 0.5 * (((j + 2 * i) as f64) * 0.3719).cos();
+            }
+        }
+        let drifts = vec![DriftDerivResult::Dense(a_drift.clone())];
+        let batched = penalty_subspace_trace_drifts_batched(&kernel, &drifts);
+        let exact = kernel.trace_projected_logdet(&a_drift);
+        assert!(
+            (batched[0] - exact).abs() <= 1e-10 * (1.0 + exact.abs()),
+            "batched kernel trace must reproduce the exact per-coordinate \
+             contraction on an ill-conditioned spectrum: batched={} exact={}",
+            batched[0],
+            exact
+        );
+    }
+
     // ─── Can't-desync invariant for GuardedCorrection ────────────────────
     //
     // A `GuardedCorrection` carries a scalar VALUE and its analytic ρ-GRADIENT
@@ -17662,7 +18160,7 @@ mod tests {
 
     /// **Mechanism test, line of evidence 1**: when the near-null
     /// eigenvalue of H sits in `null(S_+)` (the unpenalized parametric
-    /// direction — intercept/sex/prs_z for the failing biobank survival
+    /// direction — intercept/sex/prs_z for the failing large-scale survival
     /// marginal-slope), the full-H `r ↦ H⁻¹ r` solve amplifies any
     /// spurious noise component of `r` in that direction by
     /// `1/σ_min(H)`, while the projected pseudo-inverse drops that
@@ -17705,7 +18203,7 @@ mod tests {
     /// **Mechanism test, line of evidence 2** — the failure mode itself:
     /// when `r` AND `a_k` both have spurious components in the near-null
     /// direction (the realistic floating-point pattern at the failing
-    /// biobank iterate), the full-H solve produces a `~ηξ/σ_min`-scale
+    /// large-scale iterate), the full-H solve produces a `~ηξ/σ_min`-scale
     /// blow-up while the projected pseudo-inverse stays bounded. With
     /// `η = ξ = 1e-3` and `σ_min = 1e-12`, the full-H result is `1e6`
     /// while the projection drops it to 0 — six orders of magnitude
@@ -17734,7 +18232,7 @@ mod tests {
         );
         // Full-H solve: `η · (1/σ_min) · ξ = 1e-3 · 1e12 · 1e-3 = 1e6`.
         // This is the noise-amplification mechanism behind the observed
-        // |g|∞ ≈ 10¹³ on the failing biobank iterate (scale it by the
+        // |g|∞ ≈ 10¹³ on the failing large-scale iterate (scale it by the
         // tighter noise floor and the per-coord magnitude of a_k).
         let expected_full = eta * xi / small_eig;
         assert_relative_eq!(corr_full, expected_full, max_relative = 1e-12);
@@ -17753,7 +18251,7 @@ mod tests {
     /// projection cannot help — `H_proj` inherits the same small
     /// eigenvalue and the bilinear form has the same amplification. This
     /// test pins that limit so future readers know exactly where the fix
-    /// breaks down; if the failing-biobank H matches this geometry the
+    /// breaks down; if the failing-large-scale H matches this geometry the
     /// fix is the wrong remediation and we need truncated-SVD /
     /// Tikhonov regularization instead. The current production
     /// experience (gradient drops by orders of magnitude after the fix)
@@ -17841,7 +18339,7 @@ mod tests {
 
     /// **Mechanism test, line of evidence 5 (production geometry)**: an
     /// SPD `H` with a small eigenvalue whose eigenvector MIXES
-    /// `range(S_+)` and `null(S_+)`. This is the geometry the biobank
+    /// `range(S_+)` and `null(S_+)`. This is the geometry the large-scale
     /// survival marginal-slope hits at the failing iterate: the unpenalized
     /// parametric columns (intercept, sex, prs_z) interact with the
     /// penalized Duchon centers via `Xᵀ W X` off-diagonal coupling, so the
@@ -17872,7 +18370,7 @@ mod tests {
     ///         the other eigenvalues; `H_proj⁻¹` stays `O(1)`).
     ///       - Result: `r_S · H_proj⁻¹ · a_k_S` is `O(1)`.
     ///
-    /// This test reproduces the FAILING-BIOBANK geometry and asserts
+    /// This test reproduces the FAILING-LARGE_SCALE geometry and asserts
     /// FOUR INDEPENDENT properties:
     ///   (P1) helper matches an independent eigendecomposition-based
     ///        ground-truth bilinear to 1e-12 (validates the inversion
@@ -18357,6 +18855,7 @@ mod tests {
             ext_coord_pair_fn: None,
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual,
             active_constraints: None,
@@ -18445,6 +18944,7 @@ mod tests {
             ext_coord_pair_fn: None,
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,
@@ -18461,7 +18961,7 @@ mod tests {
     }
 
     // ───────────────────────────────────────────────────────────────────────
-    // Replicates the AoU biobank marginal-slope failure mechanism in three
+    // Replicates the large-scale large-scale marginal-slope failure mechanism in three
     // tiers, each pinning a distinct code-level math issue observed in
     // the failing log:
     //
@@ -18700,7 +19200,7 @@ mod tests {
         }
     }
 
-    /// Hard reproducer for the AoU missing-residual path. In fixed-dispersion
+    /// Hard reproducer for the large-scale missing-residual path. In fixed-dispersion
     /// LAML, an envelope-inconsistent derivative request with
     /// `kkt_residual=None` is not a recoverable value-gradient result: the
     /// evaluator cannot distinguish "exact KKT" from "convergent inner path
@@ -19077,6 +19577,7 @@ mod tests {
                 ld_s: 0.04,
             })),
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,
@@ -19109,6 +19610,337 @@ mod tests {
             assert!(
                 (hvp[i] - dense_hvp[i]).abs() <= tolerance,
                 "outer Hessian HVP mismatch at {i}: operator={}, dense={}",
+                hvp[i],
+                dense_hvp[i]
+            );
+        }
+    }
+
+    /// #740: the operator built with a direction-contracted ψψ hook (which
+    /// SKIPS the per-pair ψψ `base_h2`/`pair_a`/`pair_ld_s`/`pair_g` assembly and
+    /// applies the hook once per matvec) must materialize to the SAME dense outer
+    /// Hessian as the exact per-pair `compute_outer_hessian` path. The hook here
+    /// returns precisely the `α`-contraction of the same constant ψψ
+    /// `HyperCoordPair` the per-pair `ext_coord_pair_fn` produces, so any
+    /// divergence is a bug in the operator's hook injection (zeroed tables, the
+    /// `pair_a`/`ld_s`/`base_h2` adds, or the `-score` rhs replacement), not in
+    /// the contraction math. This is the solver-side half of the #740 exactness
+    /// gate (the family-side half — contracted kernel == per-pair — lives in
+    /// `bernoulli_contracted_psi_second_order_matches_per_pair_contraction`).
+    #[test]
+    fn operator_hessian_with_contracted_psi_hook_matches_per_pair_dense() {
+        // WELL-CONDITIONED inner Hessian: both eigenvalues are O(1). A
+        // near-singular H (e.g. a 1e-7 diagonal entry, as the sibling
+        // spectral-regularization test deliberately uses) sends H⁻¹ ~1e7 and the
+        // logdet-Hessian / IFT-correction terms to ~1e26, which drowns the O(1)
+        // base_h2 ψψ contribution and makes the no-double-count guard see it as
+        // ~0. With a sane H both ddot_H_ij terms are comparable, so the guard and
+        // the equivalence both exercise a live base_h2 ψψ.
+        let h = array![[1.3, 0.2], [0.2, 2.1]];
+        let hop = Arc::new(DenseSpectralOperator::from_symmetric(&h).unwrap());
+        let beta = array![0.4, -0.7];
+        let penalty_root = array![[1.2, 0.1], [0.0, 0.8]];
+        let ext_drift = array![[0.45, -0.15], [-0.15, 0.35]];
+        let x = array![[1.0, 0.2], [-0.4, 1.1], [0.7, -0.8]];
+        let c_array = array![0.31, -0.27, 0.19];
+        let d_array = array![0.17, -0.11, 0.23];
+
+        // The constant ψψ pair the per-pair `ext_coord_pair_fn` returns; the hook
+        // must reproduce its `α`-contraction exactly (ext_dim = 1, so the only
+        // ψψ pair is (0, 0)). `psi_pair_b` (the ψψ second drift = base_h2 source)
+        // is sized O(1) so its trace is a meaningful fraction of the total ψ-row
+        // diagonal once H is well-conditioned — the no-double-count guard then
+        // sees a genuinely live base_h2 ψψ.
+        let psi_pair_a = 0.09_f64;
+        let psi_pair_g = array![0.16_f64, -0.12];
+        let psi_pair_b = array![[0.85_f64, 0.30], [0.30, 0.62]];
+        let psi_pair_ld_s = -0.05_f64;
+
+        // Build the solution twice from a shared closure so the per-pair fixture
+        // (used by the dense path) and the hook (used by the operator) draw from
+        // the SAME constant ψψ pair.
+        let build_solution = |with_hook: bool| {
+            let deriv_provider = SinglePredictorGlmDerivatives {
+                c_array: c_array.clone(),
+                d_array: Some(d_array.clone()),
+                hessian_weights: Array1::ones(3),
+                x_transformed: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
+                    x.clone(),
+                )),
+            };
+            let contracted_psi_second_order: Option<ContractedPsiSecondOrderFn> = if with_hook {
+                let g = psi_pair_g.clone();
+                let b = psi_pair_b.clone();
+                Some(Arc::new(move |alpha_psi: &[f64]| {
+                    let a0 = alpha_psi[0];
+                    Ok(Some(ContractedPsiSecondOrder {
+                        objective: array![a0 * psi_pair_a],
+                        score: {
+                            let mut s = Array2::<f64>::zeros((1, 2));
+                            s.row_mut(0).assign(&g.mapv(|v| a0 * v));
+                            s
+                        },
+                        hessian: vec![DriftDerivResult::Dense(b.mapv(|v| a0 * v))],
+                        ld_s: array![a0 * psi_pair_ld_s],
+                    }))
+                }) as ContractedPsiSecondOrderFn)
+            } else {
+                None
+            };
+            let pair_b_for_dense = psi_pair_b.clone();
+            InnerSolution {
+                log_likelihood: -2.3,
+                penalty_quadratic: 0.6,
+                hessian_op: hop.clone(),
+                beta: beta.clone(),
+                penalty_coords: vec![PenaltyCoordinate::from_dense_root(penalty_root.clone())],
+                penalty_logdet: PenaltyLogdetDerivs {
+                    value: 0.0,
+                    first: array![0.4],
+                    second: Some(array![[0.13]]),
+                },
+                deriv_provider: Box::new(deriv_provider),
+                tk_correction: 0.0,
+                tk_gradient: None,
+                firth: None,
+                hessian_logdet_correction: 0.0,
+                penalty_subspace_trace: None,
+                rho_curvature_scale: 1.0,
+                rho_prior: crate::types::RhoPrior::Flat,
+                n_observations: 3,
+                nullspace_dim: 0.0,
+                gaussian_weight_log_sum_half: 0.0,
+                dispersion: DispersionHandling::Fixed {
+                    phi: 1.0,
+                    include_logdet_h: true,
+                    include_logdet_s: true,
+                },
+                ext_coords: vec![HyperCoord {
+                    a: -0.21,
+                    g: array![0.33, -0.42],
+                    drift: HyperCoordDrift::from_operator(Arc::new(DenseMatrixHyperOperator {
+                        matrix: ext_drift.clone(),
+                    })),
+                    ld_s: 0.07,
+                    b_depends_on_beta: false,
+                    is_penalty_like: false,
+                    firth_g: None,
+                    tk_eta_fixed: None,
+                    tk_x_fixed: None,
+                }],
+                ext_coord_pair_fn: Some(Box::new(move |_, _| HyperCoordPair {
+                    a: psi_pair_a,
+                    g: array![0.16, -0.12],
+                    b_mat: pair_b_for_dense.clone(),
+                    b_operator: None,
+                    ld_s: psi_pair_ld_s,
+                })),
+                rho_ext_pair_fn: Some(Box::new(|_, _| HyperCoordPair {
+                    a: -0.14,
+                    g: array![-0.18, 0.22],
+                    b_mat: array![[0.05, -0.02], [-0.02, 0.07]],
+                    b_operator: None,
+                    ld_s: 0.04,
+                })),
+                fixed_drift_deriv: None,
+                contracted_psi_second_order,
+                barrier_config: None,
+                kkt_residual: None,
+                active_constraints: None,
+                stochastic_trace_state: Arc::new(Mutex::new(StochasticTraceState::default())),
+            }
+        };
+
+        let rho: Vec<f64> = vec![0.2_f64];
+        let lambdas: Vec<f64> = rho.iter().map(|value| value.exp()).collect();
+
+        // Per-pair dense path (no hook).
+        let dense_solution = build_solution(false);
+        let dense = compute_outer_hessian(
+            &dense_solution,
+            &rho,
+            &lambdas,
+            dense_solution.hessian_op.as_ref(),
+            dense_solution.deriv_provider.as_ref(),
+            None,
+        )
+        .unwrap();
+
+        // Operator path WITH the contracted hook (ψψ tables skipped at build,
+        // hook applied per matvec).
+        let hook_solution = build_solution(true);
+        let kernel = hook_solution
+            .deriv_provider
+            .outer_hessian_derivative_kernel()
+            .unwrap();
+        let operator = build_outer_hessian_operator(
+            &hook_solution,
+            &lambdas,
+            hook_solution.deriv_provider.as_ref(),
+            kernel,
+            None,
+            None,
+        )
+        .unwrap();
+
+        // #740 pin: the operator must NOT advertise dense materialization, so the
+        // outer solver consumes it matrix-free (m CG matvecs) instead of
+        // re-paying K basis-column probes — the asymptotic win. A future edit
+        // flipping this to a cheap-to-materialize capability would silently
+        // re-introduce K-column densification and kill the win; this pin fails
+        // if that happens.
+        assert!(
+            matches!(
+                crate::solver::outer_strategy::OuterHessianOperator::materialization_capability(
+                    &operator
+                ),
+                crate::solver::outer_strategy::OuterHessianMaterialization::Unavailable
+            ),
+            "#740 operator must advertise Unavailable materialization to stay matrix-free"
+        );
+
+        let materialized =
+            crate::solver::outer_strategy::OuterHessianOperator::materialize_dense(&operator)
+                .unwrap();
+
+        // CONTROL: the SAME operator built WITHOUT the hook (ψψ block filled from
+        // the per-pair ext_coord_pair_fn tables) must already match the dense
+        // per-pair path — this is the pre-existing UnifiedOuterHessianOperator
+        // path, unrelated to #740. If this control matches dense but the
+        // hook-operator above does not, the divergence is isolated to the #740
+        // hook-injection arithmetic (psi_contracted_contrib / the ψψ-skip).
+        let control_solution = build_solution(false);
+        let control_kernel = control_solution
+            .deriv_provider
+            .outer_hessian_derivative_kernel()
+            .unwrap();
+        let control_operator = build_outer_hessian_operator(
+            &control_solution,
+            &lambdas,
+            control_solution.deriv_provider.as_ref(),
+            control_kernel,
+            None,
+            None,
+        )
+        .unwrap();
+        let control_mat = crate::solver::outer_strategy::OuterHessianOperator::materialize_dense(
+            &control_operator,
+        )
+        .unwrap();
+
+        for row in 0..dense.nrows() {
+            for col in 0..dense.ncols() {
+                let c = control_mat[[row, col]];
+                let d = dense[[row, col]];
+                let tol = 1e-9_f64.max(1e-9 * d.abs());
+                assert!(
+                    (c - d).abs() <= tol,
+                    "#740 CONTROL (no-hook operator) mismatch at ({row}, {col}): no-hook-op={c}, \
+                     per-pair-dense={d} — pre-existing operator path differs from dense, so the \
+                     #740 hook comparison below is not the right oracle; investigate the table fill"
+                );
+            }
+        }
+
+        for row in 0..dense.nrows() {
+            for col in 0..dense.ncols() {
+                let m = materialized[[row, col]];
+                let d = dense[[row, col]];
+                let c = control_mat[[row, col]];
+                let tol = 1e-9_f64.max(1e-9 * d.abs());
+                assert!(
+                    (m - d).abs() <= tol,
+                    "#740 contracted-hook operator mismatch at ({row}, {col}): \
+                     hook-operator={m}, per-pair-dense={d}, no-hook-control={c} \
+                     (control==dense ⇒ bug is in the #740 hook injection at this entry)"
+                );
+            }
+        }
+
+        // The ψ-row diagonal must carry BOTH second-order terms that legitimately
+        // appear in ddot_H_ij, so the operator-vs-dense match above genuinely
+        // rules out a DOUBLE-COUNT or a dropped term (a ρ-only comparison would
+        // not):
+        //   * base_h2 ψψ  = tr(K · D²_ψ H_L[ψ,ψ])  — the per-pair pair.b_mat /
+        //     the hook's `hessian`; and
+        //   * the callback `correction` (term2) = tr(K · D²_β H_L[β̇,·]) via the
+        //     family compute_d2h on the ext mode response.
+        // Both must be individually NONZERO at the ψ diagonal (coord index 1).
+        // Recompute the dense ψ diagonal with each term suppressed and require a
+        // measurable shift, so the equivalence test sits on a point where the
+        // two distinct curvature terms both contribute.
+        let psi_diag_full = dense[[1, 1]];
+        // term2-only: zero the ψψ second drift (pair.b_mat) → removes base_h2 ψψ.
+        let dense_no_base = {
+            let mut sol = build_solution(false);
+            sol.ext_coord_pair_fn = Some(Box::new(move |_, _| HyperCoordPair {
+                a: psi_pair_a,
+                g: array![0.16, -0.12],
+                b_mat: Array2::zeros((2, 2)),
+                b_operator: None,
+                ld_s: psi_pair_ld_s,
+            }));
+            compute_outer_hessian(
+                &sol,
+                &rho,
+                &lambdas,
+                sol.hessian_op.as_ref(),
+                sol.deriv_provider.as_ref(),
+                None,
+            )
+            .unwrap()[[1, 1]]
+        };
+        // base_h2-only: zero c/d so the family correction (term2) vanishes.
+        let dense_no_term2 = {
+            let mut sol = build_solution(false);
+            sol.deriv_provider = Box::new(SinglePredictorGlmDerivatives {
+                c_array: Array1::zeros(3),
+                d_array: Some(Array1::zeros(3)),
+                hessian_weights: Array1::ones(3),
+                x_transformed: DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
+                    x.clone(),
+                )),
+            });
+            compute_outer_hessian(
+                &sol,
+                &rho,
+                &lambdas,
+                sol.hessian_op.as_ref(),
+                sol.deriv_provider.as_ref(),
+                None,
+            )
+            .unwrap()[[1, 1]]
+        };
+        assert!(
+            (psi_diag_full - dense_no_base).abs() > 1e-6,
+            "#740 test is vacuous: base_h2 ψψ contributes ~0 at the ψ diagonal \
+             (full={psi_diag_full}, term2-only={dense_no_base}); pick a fixture where it is live"
+        );
+        assert!(
+            (psi_diag_full - dense_no_term2).abs() > 1e-6,
+            "#740 test is vacuous: the family correction (term2) contributes ~0 at the ψ \
+             diagonal (full={psi_diag_full}, base_h2-only={dense_no_term2}); pick a fixture \
+             where it is live"
+        );
+
+        // Mixed ρψ-direction HVP arm: a pure-ρ and a pure-ψ matvec can both be
+        // green while a ρψ/ψψ block-split error (a double-count, or a ψψ table
+        // entry zeroed at build but not re-added by the hook) hides in the
+        // cross. Apply the operator to a direction with BOTH a ρ and a ψ
+        // component nonzero and require operator·v == dense·v — the matvec mixes
+        // the blocks, so this is what exposes such a split error. (This is the
+        // matvec path, distinct from the materialize column-probes above, so it
+        // also exercises the hook's per-matvec injection directly.)
+        let mixed = array![0.6_f64, -1.1_f64]; // [ρ, ψ], both live
+        let hvp = crate::solver::outer_strategy::OuterHessianOperator::matvec(&operator, &mixed)
+            .expect("mixed-direction operator HVP");
+        let dense_hvp = dense.dot(&mixed);
+        for i in 0..hvp.len() {
+            let tol = 1e-10_f64.max(1e-10 * dense_hvp[i].abs());
+            assert!(
+                (hvp[i] - dense_hvp[i]).abs() <= tol,
+                "#740 mixed-ρψ HVP mismatch at {i}: hook-operator={}, per-pair-dense={} \
+                 — a ρψ/ψψ block-split error (double-count or dropped entry) in the cross",
                 hvp[i],
                 dense_hvp[i]
             );
@@ -19349,6 +20181,7 @@ mod tests {
             ext_coord_pair_fn: None,
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,
@@ -19469,6 +20302,7 @@ mod tests {
                 ld_s: 0.04,
             })),
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,
@@ -19591,6 +20425,7 @@ mod tests {
             ext_coord_pair_fn: None,
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,
@@ -19768,6 +20603,7 @@ mod tests {
             ext_coord_pair_fn: None,
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,
@@ -19847,6 +20683,7 @@ mod tests {
             ext_coord_pair_fn: None,
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,
@@ -20012,6 +20849,7 @@ mod tests {
             ext_coord_pair_fn: None,
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,
@@ -20081,6 +20919,7 @@ mod tests {
             ext_coord_pair_fn: None,
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,
@@ -20193,6 +21032,7 @@ mod tests {
             ext_coord_pair_fn: None,
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,
@@ -20274,6 +21114,7 @@ mod tests {
             ext_coord_pair_fn: None,
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,
@@ -20492,6 +21333,7 @@ mod tests {
             ext_coord_pair_fn: None,
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,
@@ -20547,6 +21389,7 @@ mod tests {
             ext_coord_pair_fn: None,
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,
@@ -22352,6 +23195,7 @@ mod tests {
             ext_coord_pair_fn: None,
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,
@@ -22610,6 +23454,7 @@ mod tests {
             ext_coord_pair_fn: None,
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual,
             active_constraints: None,
@@ -22790,7 +23635,7 @@ mod tests {
         // This is the parameterisation under which the IFT correction is
         // exact (∂V/∂β = r, no `denom/dp` chain factor as in the profiled
         // Gaussian path).  Matches the production survival-marginal-slope
-        // path that the biobank failure exercises.
+        // path that the large-scale failure exercises.
         fn to_fixed<'a>(mut sol: InnerSolution<'a>) -> InnerSolution<'a> {
             sol.dispersion = DispersionHandling::Fixed {
                 phi: 1.0,
@@ -22916,7 +23761,7 @@ mod tests {
 
     /// The analytic rho Hessian must differentiate the same KKT-residual
     /// correction used by the value and gradient. This is the minimized
-    /// reproduction of the biobank failure mode: an off-KKT inner mode with a
+    /// reproduction of the large-scale failure mode: an off-KKT inner mode with a
     /// finite residual made the envelope Hessian inconsistent, so ARC chased a
     /// curvature model for the wrong objective.
     #[test]
@@ -23182,6 +24027,7 @@ mod tests {
             ext_coord_pair_fn: None,
             rho_ext_pair_fn: None,
             fixed_drift_deriv: None,
+            contracted_psi_second_order: None,
             barrier_config: None,
             kkt_residual: None,
             active_constraints: None,

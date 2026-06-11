@@ -17,7 +17,7 @@ classifiers = [
     "Typing :: Typed",
     "Topic :: Software Development :: Libraries",
 ]
-version = "3.9.2"
+version = "4.0.0"
 
 [project.optional-dependencies]
 fastapi = [
@@ -29,7 +29,7 @@ faststream = [
 
 [project.urls]
 repository = "https://github.com/modern-python/that-depends"
-docs = "https://that-depends.readthedocs.io"
+docs = "https://that-depends.modern-python.org"
 
 [dependency-groups]
 dev = [
@@ -47,7 +47,7 @@ dev = [
     "mkdocs>=1.6.1",
     "pytest-randomly",
     "mkdocs-llmstxt>=0.4.0",
-    "pydantic<2.12.4" # causes tests to fail because of: TypeError: _eval_type() got an unexpected keyword argument 'prefer_fwd_module'
+    "pyrefly>=0.61.1",
 ]
 
 [build-system]
@@ -61,6 +61,7 @@ module-root = ""
 [tool.mypy]
 python_version = "3.10"
 strict = true
+
 
 [tool.ruff]
 fix = true
@@ -101,3 +102,7 @@ filterwarnings = [
 
 [tool.coverage.report]
 exclude_also = ["if typing.TYPE_CHECKING:"]
+
+[tool.pyrefly]
+python-version = "3.10"
+preset = "legacy"

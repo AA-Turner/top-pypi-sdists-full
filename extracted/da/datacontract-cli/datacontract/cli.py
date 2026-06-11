@@ -7,6 +7,7 @@ from typing import Iterable, Optional
 
 import typer
 from click import Context
+from dotenv import find_dotenv, load_dotenv
 from rich.console import Console
 from typer.core import TyperGroup
 from typing_extensions import Annotated
@@ -21,6 +22,7 @@ debug_option = Annotated[bool, typer.Option(help="Enable debug logging")]
 # Order in which top-level commands appear in `datacontract --help` (cf. README.md)
 COMMAND_ORDER = [
     "init",
+    "edit",
     "lint",
     "changelog",
     "test",
@@ -58,14 +60,17 @@ class OrderedCommandsWithMigrationHints(OrderedCommands):
     }
 
     def parse_args(self, ctx: Context, args):
-        # First positional argument
-        subcommand = next((a for a in args if isinstance(a, str) and not a.startswith("-")), None)
+        positionals = [a for a in args if isinstance(a, str) and not a.startswith("-")]
+        subcommand = positionals[0] if positionals else None
+
+        # this function is called by both `datacontract` and `datacontract import`
+        is_import_snowflake = (positionals[:1] == ["snowflake"]) or (positionals[:2] == ["import", "snowflake"])
 
         rewritten_args = []
         for arg in args:
             if isinstance(arg, str) and arg.startswith("--"):
                 flag, _, value = arg.partition("=")
-                if flag == "--schema":
+                if flag == "--schema" and not is_import_snowflake:
                     typer.secho(
                         "Warning: --schema was replaced with --json-schema in v0.12.0 and will be removed in v0.13.0.",
                         err=True,
@@ -122,7 +127,10 @@ def common(
     connect to data sources and execute schema and quality tests,
     and export to different formats.
     """
-    pass
+    # Load environment variables (e.g., credentials) from a .env file in the
+    # current working directory, walking up parent directories until one is found.
+    # Already-set environment variables take precedence.
+    load_dotenv(dotenv_path=find_dotenv(usecwd=True), override=False)
 
 
 def enable_debug_logging(debug: bool, otherwise_disable_stderr: bool = False):
@@ -184,6 +192,7 @@ from datacontract import (  # noqa: E402, F401
     command_changelog,
     command_ci,
     command_dbt,
+    command_edit,
     command_export,
     command_import,
     command_init,

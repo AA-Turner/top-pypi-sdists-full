@@ -17,6 +17,7 @@ anyscale.resource_quota.create(
         cloud="my-cloud",
         project="my-project",
         num_cpus=2,
+        is_soft_quota=True,
     ),
 )
 """

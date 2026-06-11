@@ -1,7 +1,8 @@
 //! OpenQASM 2.0 / 3.0 토크나이저.
 //!
-//! single-pass byte scan, allocation 최소화. 코멘트 (`// ...`) 와 공백을 건너뛰고
-//! 키워드/식별자/숫자/문자열/심볼을 [`Token`] 으로 emit 한다.
+//! single-pass byte scan, allocation 최소화. 코멘트 (`// ...` 라인 코멘트와
+//! `/* ... */` 블록 코멘트) 와 공백을 건너뛰고 키워드/식별자/숫자/문자열/심볼을
+//! [`Token`] 으로 emit 한다.  unterminated 블록 코멘트는 [`QasmError::Lex`].
 
 use crate::error::{QasmError, QasmResult};
 
@@ -129,7 +130,7 @@ impl<'a> Lexer<'a> {
         Some(c)
     }
 
-    fn skip_whitespace_and_comments(&mut self) {
+    fn skip_whitespace_and_comments(&mut self) -> QasmResult<()> {
         loop {
             match self.peek() {
                 Some(c) if c.is_ascii_whitespace() => {
@@ -143,13 +144,38 @@ impl<'a> Lexer<'a> {
                         self.advance();
                     }
                 }
+                // OpenQASM 3.0 block comment `/* ... */` (2.0 spec 도 C 계열
+                // 코멘트 허용).  중첩 없음 (C 와 동일) — 첫 `*/` 에서 종료.
+                Some(b'/') if self.peek_at(1) == Some(b'*') => {
+                    let (start_line, start_col) = (self.line, self.col);
+                    self.advance(); // '/'
+                    self.advance(); // '*'
+                    let mut terminated = false;
+                    while let Some(c) = self.peek() {
+                        if c == b'*' && self.peek_at(1) == Some(b'/') {
+                            self.advance(); // '*'
+                            self.advance(); // '/'
+                            terminated = true;
+                            break;
+                        }
+                        self.advance();
+                    }
+                    if !terminated {
+                        return Err(QasmError::Lex {
+                            line: start_line,
+                            col: start_col,
+                            message: "unterminated block comment (missing `*/`)".into(),
+                        });
+                    }
+                }
                 _ => break,
             }
         }
+        Ok(())
     }
 
     fn next_token(&mut self) -> QasmResult<Token> {
-        self.skip_whitespace_and_comments();
+        self.skip_whitespace_and_comments()?;
         let line = self.line;
         let col = self.col;
         let Some(c) = self.peek() else {
@@ -496,6 +522,59 @@ mod tests {
             .count();
         assert_eq!(n_h, 1);
         assert_eq!(n_x, 1);
+    }
+
+    #[test]
+    fn test_block_comment_skip() {
+        // OpenQASM 3.0 `/* ... */` — inline / 멀티라인 / 토큰 사이 모두 skip.
+        let toks = kinds("/* header\n   comment */ h q[0]; /* mid */ x /* tight */q[0];");
+        assert_eq!(
+            toks,
+            vec![
+                Tok::Ident("h".into()),
+                Tok::Ident("q".into()),
+                Tok::LBracket,
+                Tok::Int(0),
+                Tok::RBracket,
+                Tok::Semicolon,
+                Tok::Ident("x".into()),
+                Tok::Ident("q".into()),
+                Tok::LBracket,
+                Tok::Int(0),
+                Tok::RBracket,
+                Tok::Semicolon,
+                Tok::Eof,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_block_comment_with_stars_and_slashes_inside() {
+        // 내부의 `*`, `/`, `//` 는 종료 시퀀스가 아님.
+        let toks = kinds("h q[0]; /* a * b / c // d \n still comment */ x q[0];");
+        let n_idents = toks
+            .iter()
+            .filter(|t| matches!(t, Tok::Ident(s) if s == "h" || s == "x"))
+            .count();
+        assert_eq!(n_idents, 2);
+    }
+
+    #[test]
+    fn test_unterminated_block_comment_errors() {
+        let r = Lexer::new("h q[0]; /* never closed ...").tokenize();
+        match r {
+            Err(QasmError::Lex { message, .. }) => {
+                assert!(message.contains("unterminated block comment"), "{message}");
+            }
+            other => panic!("expected Lex error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_division_still_lexes_after_block_comment_support() {
+        // `/` 단독 (나눗셈) 토큰은 그대로 동작해야.
+        let toks = kinds("rx(pi/2) q[0];");
+        assert!(toks.contains(&Tok::Slash));
     }
 
     #[test]

@@ -11,7 +11,7 @@
 
 use std::ffi::c_void;
 
-use cudarc::driver::{CudaSlice, DeviceRepr, ValidAsZeroBits};
+use cudarc::driver::{CudaSlice, CudaStream, DevicePtrMut, DeviceRepr, ValidAsZeroBits};
 use num_complex::Complex;
 
 use super::safe::{CuStateVecHandle, CudaContext};
@@ -125,7 +125,7 @@ impl CudaStatevectorBackend {
                     let m_host = flatten_2x2(matrix);
                     let targets = [*target as i32];
                     unsafe {
-                        let dev_ptr = dev_sv_mut_ptr(&mut dev_sv);
+                        let dev_ptr = dev_sv_mut_ptr(&mut dev_sv, &stream);
                         self.handle.apply_matrix(
                             dev_ptr,
                             n_qubits,
@@ -146,7 +146,7 @@ impl CudaStatevectorBackend {
                     // panta-sim 의 4×4 matrix 는 |q1 q0⟩ basis 라 [q0, q1] 순서.
                     let targets = [*q0 as i32, *q1 as i32];
                     unsafe {
-                        let dev_ptr = dev_sv_mut_ptr(&mut dev_sv);
+                        let dev_ptr = dev_sv_mut_ptr(&mut dev_sv, &stream);
                         self.handle.apply_matrix(
                             dev_ptr,
                             n_qubits,
@@ -169,7 +169,7 @@ impl CudaStatevectorBackend {
                     let controls = [*ctrl as i32];
                     let control_values = [1_i32]; // ctrl=1 일 때 fire.
                     unsafe {
-                        let dev_ptr = dev_sv_mut_ptr(&mut dev_sv);
+                        let dev_ptr = dev_sv_mut_ptr(&mut dev_sv, &stream);
                         self.handle.apply_matrix(
                             dev_ptr,
                             n_qubits,
@@ -204,7 +204,7 @@ impl CudaStatevectorBackend {
                     let controls = [*c0 as i32, *c1 as i32];
                     let control_values = [1_i32, 1_i32];
                     unsafe {
-                        let dev_ptr = dev_sv_mut_ptr(&mut dev_sv);
+                        let dev_ptr = dev_sv_mut_ptr(&mut dev_sv, &stream);
                         self.handle.apply_matrix(
                             dev_ptr,
                             n_qubits,
@@ -239,7 +239,7 @@ impl CudaStatevectorBackend {
                     let controls = [*ctrl as i32];
                     let control_values = [1_i32];
                     unsafe {
-                        let dev_ptr = dev_sv_mut_ptr(&mut dev_sv);
+                        let dev_ptr = dev_sv_mut_ptr(&mut dev_sv, &stream);
                         self.handle.apply_matrix(
                             dev_ptr,
                             n_qubits,
@@ -290,18 +290,16 @@ fn flatten_4x4(m: &[[Complex<f32>; 4]; 4]) -> [f32; 32] {
     out
 }
 
-/// CudaSlice 의 mutable raw device pointer 추출.  cuStateVec FFI 에 직접 전달
-/// 해야 하므로 cudarc 0.16.x 의 `as_view_mut` / `cu_device_ptr()` 활용.
+/// CudaSlice 의 mutable raw **device** pointer 추출 — cuStateVec FFI 전달용.
 ///
-/// cudarc 0.16.x 의 정확한 API 가 여기서 결정됨.  사용자 PC 검증 시 v0.5.x
-/// 에서 fix 할 수 있음 (cudarc API 변경 가능성).
-#[allow(unused_variables)]
-unsafe fn dev_sv_mut_ptr(sv: &mut CudaSlice<CudaCF32>) -> *mut c_void {
-    // cudarc 0.16.x: CudaSlice 는 device pointer + length 보유.  raw pointer 는
-    // unsafe accessor.  여기서는 임시 placeholder — 실제 NVIDIA 환경 검증 시 적용.
-    // 정확한 호출: `sv.device_ptr(...)` 또는 `&*sv as *const _ as *mut c_void`.
-    // 안전한 path 는 `cudarc::driver::CudaSlice::device_ptr` (있으면) 사용.
-    sv as *mut _ as *mut c_void
+/// cudarc 0.16.x 의 `DevicePtrMut::device_ptr_mut` 가 CUdeviceptr (u64) 를
+/// 반환한다.  이전 placeholder 는 호스트 측 `CudaSlice` 구조체 자체의 주소를
+/// 넘겨 cuStateVec 이 호스트 메모리를 device pointer 로 읽던 버그 (gpu-cuda
+/// 경로 전체 비동작).  반환된 `SyncOnDrop` 가드는 single-stream 모드에서
+/// no-op 이라 즉시 drop 해도 안전하다 — slice 가 살아 있는 동안 포인터 유효.
+unsafe fn dev_sv_mut_ptr(sv: &mut CudaSlice<CudaCF32>, stream: &CudaStream) -> *mut c_void {
+    let (ptr, _sync) = sv.device_ptr_mut(stream);
+    ptr as usize as *mut c_void
 }
 
 // =====================================================================
@@ -363,9 +361,10 @@ pub enum CudaGateOpF64 {
     },
 }
 
-#[allow(unused_variables)]
-unsafe fn dev_sv_mut_ptr_f64(sv: &mut CudaSlice<CudaCF64>) -> *mut c_void {
-    sv as *mut _ as *mut c_void
+/// f64 변종 — [`dev_sv_mut_ptr`] 와 동일 (실 device pointer 반환).
+unsafe fn dev_sv_mut_ptr_f64(sv: &mut CudaSlice<CudaCF64>, stream: &CudaStream) -> *mut c_void {
+    let (ptr, _sync) = sv.device_ptr_mut(stream);
+    ptr as usize as *mut c_void
 }
 
 fn flatten_2x2_f64(m: &[[Complex<f64>; 2]; 2]) -> [CudaCF64; 4] {
@@ -424,7 +423,7 @@ impl CudaStatevectorBackend {
                     let m_host = flatten_2x2_f64(matrix);
                     let targets = [*target as i32];
                     unsafe {
-                        let dev_ptr = dev_sv_mut_ptr_f64(&mut dev_sv);
+                        let dev_ptr = dev_sv_mut_ptr_f64(&mut dev_sv, &stream);
                         self.handle.apply_matrix(
                             dev_ptr,
                             n_qubits,
@@ -443,7 +442,7 @@ impl CudaStatevectorBackend {
                     let m_host = flatten_4x4_f64(matrix);
                     let targets = [*q0 as i32, *q1 as i32];
                     unsafe {
-                        let dev_ptr = dev_sv_mut_ptr_f64(&mut dev_sv);
+                        let dev_ptr = dev_sv_mut_ptr_f64(&mut dev_sv, &stream);
                         self.handle.apply_matrix(
                             dev_ptr,
                             n_qubits,
@@ -466,7 +465,7 @@ impl CudaStatevectorBackend {
                     let controls = [*ctrl as i32];
                     let control_values = [1_i32];
                     unsafe {
-                        let dev_ptr = dev_sv_mut_ptr_f64(&mut dev_sv);
+                        let dev_ptr = dev_sv_mut_ptr_f64(&mut dev_sv, &stream);
                         self.handle.apply_matrix(
                             dev_ptr,
                             n_qubits,
@@ -499,7 +498,7 @@ impl CudaStatevectorBackend {
                     let controls = [*c0 as i32, *c1 as i32];
                     let control_values = [1_i32, 1_i32];
                     unsafe {
-                        let dev_ptr = dev_sv_mut_ptr_f64(&mut dev_sv);
+                        let dev_ptr = dev_sv_mut_ptr_f64(&mut dev_sv, &stream);
                         self.handle.apply_matrix(
                             dev_ptr,
                             n_qubits,
@@ -532,7 +531,7 @@ impl CudaStatevectorBackend {
                     let controls = [*ctrl as i32];
                     let control_values = [1_i32];
                     unsafe {
-                        let dev_ptr = dev_sv_mut_ptr_f64(&mut dev_sv);
+                        let dev_ptr = dev_sv_mut_ptr_f64(&mut dev_sv, &stream);
                         self.handle.apply_matrix(
                             dev_ptr,
                             n_qubits,

@@ -16,191 +16,6 @@ QuantConnect_Scheduling__EventContainer_Callable = typing.TypeVar("QuantConnect_
 QuantConnect_Scheduling__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Scheduling__EventContainer_ReturnType")
 
 
-class TimeConsumer(System.Object):
-    """Represents a timer consumer instance"""
-
-    @property
-    def finished(self) -> bool:
-        """True if the consumer already finished it's work and no longer consumes time"""
-        ...
-
-    @finished.setter
-    def finished(self, value: bool) -> None:
-        ...
-
-    @property
-    def time_provider(self) -> QuantConnect.ITimeProvider:
-        """The time provider associated with this consumer"""
-        ...
-
-    @time_provider.setter
-    def time_provider(self, value: QuantConnect.ITimeProvider) -> None:
-        ...
-
-    @property
-    def isolator_limit_provider(self) -> QuantConnect.IIsolatorLimitResultProvider:
-        """The isolator limit provider to be used with this consumer"""
-        ...
-
-    @isolator_limit_provider.setter
-    def isolator_limit_provider(self, value: QuantConnect.IIsolatorLimitResultProvider) -> None:
-        ...
-
-    @property
-    def next_time_request(self) -> typing.Optional[datetime.datetime]:
-        """
-        The next time, base on the time_provider, that time should be requested
-        to be isolator_limit_provider
-        """
-        ...
-
-    @next_time_request.setter
-    def next_time_request(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-
-class ScheduledEvent(System.Object, System.IDisposable):
-    """Real time self scheduling event"""
-
-    SECURITY_END_OF_DAY_DELTA: datetime.timedelta = ...
-    """Gets the default time before market close end of trading day events will fire"""
-
-    ALGORITHM_END_OF_DAY_DELTA: datetime.timedelta = ...
-    """Gets the default time before midnight end of day events will fire"""
-
-    @property
-    def event_fired(self) -> _EventContainer[typing.Callable[[str, datetime.datetime], typing.Any], typing.Any]:
-        """Event that fires each time this scheduled event happens"""
-        ...
-
-    @event_fired.setter
-    def event_fired(self, value: _EventContainer[typing.Callable[[str, datetime.datetime], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def enabled(self) -> bool:
-        """Gets or sets whether this event is enabled"""
-        ...
-
-    @enabled.setter
-    def enabled(self, value: bool) -> None:
-        ...
-
-    @property
-    def next_event_utc_time(self) -> datetime.datetime:
-        """Gets the next time this scheduled event will fire in UTC"""
-        ...
-
-    @property
-    def name(self) -> str:
-        """Gets an identifier for this event"""
-        ...
-
-    @overload
-    def __init__(self, name: str, event_utc_time: typing.Union[datetime.datetime, datetime.date], callback: typing.Callable[[str, datetime.datetime], typing.Any] = None) -> None:
-        """
-        Initializes a new instance of the ScheduledEvent class
-        
-        :param name: An identifier for this event
-        :param event_utc_time: The date time the event should fire
-        :param callback: Delegate to be called when the event time passes
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, ordered_event_utc_times: typing.List[datetime.datetime], callback: typing.Callable[[str, datetime.datetime], typing.Any] = None) -> None:
-        """
-        Initializes a new instance of the ScheduledEvent class
-        
-        :param name: An identifier for this event
-        :param ordered_event_utc_times: An enumerable that emits event times
-        :param callback: Delegate to be called each time an event passes
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, ordered_event_utc_times: System.Collections.Generic.IEnumerator[datetime.datetime], callback: typing.Callable[[str, datetime.datetime], typing.Any] = None) -> None:
-        """
-        Initializes a new instance of the ScheduledEvent class
-        
-        :param name: An identifier for this event
-        :param ordered_event_utc_times: An enumerator that emits event times
-        :param callback: Delegate to be called each time an event passes
-        """
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified object is equal to the current object.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Serves as the default hash function.
-        
-        :returns: A hash code for the current object.
-        """
-        ...
-
-    def on_event_fired(self, trigger_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Event invocator for the event_fired event
-        
-        
-        This Class is protected.
-        
-        :param trigger_time: The event's time in UTC
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Will return the ScheduledEvents name"""
-        ...
-
-
-class ScheduledEventException(System.Exception):
-    """Throw this if there is an exception in the callback function of the scheduled event"""
-
-    @property
-    def scheduled_event_name(self) -> str:
-        """Gets the name of the scheduled event"""
-        ...
-
-    def __init__(self, name: str, message: str, inner_exception: System.Exception) -> None:
-        """
-        ScheduledEventException constructor
-        
-        :param name: The name of the scheduled event
-        :param message: The exception as a string
-        :param inner_exception: The exception that is the cause of the current exception
-        """
-        ...
-
-
-class ITimeRule(metaclass=abc.ABCMeta):
-    """Specifies times times on dates for events, used in conjunction with IDateRule"""
-
-    @property
-    @abc.abstractmethod
-    def name(self) -> str:
-        """Gets a name for this rule"""
-        ...
-
-    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Sequence[datetime.datetime]:
-        """
-        Creates the event times for the specified dates in UTC
-        
-        :param dates: The dates to apply times to
-        :returns: An enumerable of date times that is the result
-        of applying this rule to the specified dates.
-        """
-        ...
-
-
 class BaseScheduleRules(System.Object):
     """Base rule scheduler"""
 
@@ -699,6 +514,127 @@ class DateRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
 
+class TimeConsumer(System.Object):
+    """Represents a timer consumer instance"""
+
+    @property
+    def finished(self) -> bool:
+        """True if the consumer already finished it's work and no longer consumes time"""
+        ...
+
+    @finished.setter
+    def finished(self, value: bool) -> None:
+        ...
+
+    @property
+    def time_provider(self) -> QuantConnect.ITimeProvider:
+        """The time provider associated with this consumer"""
+        ...
+
+    @time_provider.setter
+    def time_provider(self, value: QuantConnect.ITimeProvider) -> None:
+        ...
+
+    @property
+    def isolator_limit_provider(self) -> QuantConnect.IIsolatorLimitResultProvider:
+        """The isolator limit provider to be used with this consumer"""
+        ...
+
+    @isolator_limit_provider.setter
+    def isolator_limit_provider(self, value: QuantConnect.IIsolatorLimitResultProvider) -> None:
+        ...
+
+    @property
+    def next_time_request(self) -> typing.Optional[datetime.datetime]:
+        """
+        The next time, base on the time_provider, that time should be requested
+        to be isolator_limit_provider
+        """
+        ...
+
+    @next_time_request.setter
+    def next_time_request(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+
+class TimeMonitor(System.Object, System.IDisposable):
+    """
+    Helper class that will monitor timer consumers and request more time if required.
+    Used by IsolatorLimitResultProvider
+    """
+
+    @property
+    def time_consumers(self) -> typing.List[QuantConnect.Scheduling.TimeConsumer]:
+        """
+        List to store the coming TimeConsumer objects
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def count(self) -> int:
+        """Returns the number of time consumers currently being monitored"""
+        ...
+
+    def __init__(self, monitor_interval_ms: int = 100) -> None:
+        """Creates a new instance"""
+        ...
+
+    def add(self, consumer: QuantConnect.Scheduling.TimeConsumer) -> None:
+        """
+        Adds a new time consumer element to be monitored
+        
+        :param consumer: Time consumer instance
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Disposes of the inner timer"""
+        ...
+
+    def process_consumer(self, consumer: QuantConnect.Scheduling.TimeConsumer) -> None:
+        """
+        Process the TimeConsumer object in TimeConsumers list
+        
+        
+        This Class is protected.
+        
+        :param consumer: The TimeConsumer object to be processed
+        """
+        ...
+
+    def remove_all(self) -> None:
+        """
+        Remove all TimeConsumer objects where the `Finished` field is marked as true
+        
+        
+        This Class is protected.
+        """
+        ...
+
+
+class ITimeRule(metaclass=abc.ABCMeta):
+    """Specifies times times on dates for events, used in conjunction with IDateRule"""
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        """Gets a name for this rule"""
+        ...
+
+    def create_utc_event_times(self, dates: typing.List[datetime.datetime]) -> typing.Sequence[datetime.datetime]:
+        """
+        Creates the event times for the specified dates in UTC
+        
+        :param dates: The dates to apply times to
+        :returns: An enumerable of date times that is the result
+        of applying this rule to the specified dates.
+        """
+        ...
+
+
 class FuncTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
     """Uses a function to define a time rule as a projection of date times to date times"""
 
@@ -734,26 +670,6 @@ class FuncTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
         :param dates: The dates to apply times to
         :returns: An enumerable of date times that is the result
         of applying this rule to the specified dates.
-        """
-        ...
-
-
-class IEventSchedule(metaclass=abc.ABCMeta):
-    """Provides the ability to add/remove scheduled events from the real time handler"""
-
-    def add(self, scheduled_event: QuantConnect.Scheduling.ScheduledEvent) -> None:
-        """
-        Adds the specified event to the schedule
-        
-        :param scheduled_event: The event to be scheduled, including the date/times the event fires and the callback
-        """
-        ...
-
-    def remove(self, scheduled_event: QuantConnect.Scheduling.ScheduledEvent) -> None:
-        """
-        Removes the specified event from the schedule
-        
-        :param scheduled_event: The event to be removed
         """
         ...
 
@@ -1011,6 +927,109 @@ class TimeRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
 
+class ScheduledEvent(System.Object, System.IDisposable):
+    """Real time self scheduling event"""
+
+    SECURITY_END_OF_DAY_DELTA: datetime.timedelta = ...
+    """Gets the default time before market close end of trading day events will fire"""
+
+    ALGORITHM_END_OF_DAY_DELTA: datetime.timedelta = ...
+    """Gets the default time before midnight end of day events will fire"""
+
+    @property
+    def event_fired(self) -> _EventContainer[typing.Callable[[str, datetime.datetime], typing.Any], typing.Any]:
+        """Event that fires each time this scheduled event happens"""
+        ...
+
+    @event_fired.setter
+    def event_fired(self, value: _EventContainer[typing.Callable[[str, datetime.datetime], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def enabled(self) -> bool:
+        """Gets or sets whether this event is enabled"""
+        ...
+
+    @enabled.setter
+    def enabled(self, value: bool) -> None:
+        ...
+
+    @property
+    def next_event_utc_time(self) -> datetime.datetime:
+        """Gets the next time this scheduled event will fire in UTC"""
+        ...
+
+    @property
+    def name(self) -> str:
+        """Gets an identifier for this event"""
+        ...
+
+    @overload
+    def __init__(self, name: str, event_utc_time: typing.Union[datetime.datetime, datetime.date], callback: typing.Callable[[str, datetime.datetime], typing.Any] = None) -> None:
+        """
+        Initializes a new instance of the ScheduledEvent class
+        
+        :param name: An identifier for this event
+        :param event_utc_time: The date time the event should fire
+        :param callback: Delegate to be called when the event time passes
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, ordered_event_utc_times: typing.List[datetime.datetime], callback: typing.Callable[[str, datetime.datetime], typing.Any] = None) -> None:
+        """
+        Initializes a new instance of the ScheduledEvent class
+        
+        :param name: An identifier for this event
+        :param ordered_event_utc_times: An enumerable that emits event times
+        :param callback: Delegate to be called each time an event passes
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, ordered_event_utc_times: System.Collections.Generic.IEnumerator[datetime.datetime], callback: typing.Callable[[str, datetime.datetime], typing.Any] = None) -> None:
+        """
+        Initializes a new instance of the ScheduledEvent class
+        
+        :param name: An identifier for this event
+        :param ordered_event_utc_times: An enumerator that emits event times
+        :param callback: Delegate to be called each time an event passes
+        """
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified object is equal to the current object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Serves as the default hash function.
+        
+        :returns: A hash code for the current object.
+        """
+        ...
+
+    def on_event_fired(self, trigger_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Event invocator for the event_fired event
+        
+        
+        This Class is protected.
+        
+        :param trigger_time: The event's time in UTC
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Will return the ScheduledEvents name"""
+        ...
+
+
 class IFluentSchedulingRunnable(QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier, metaclass=abc.ABCMeta):
     """Specifies the callback component of a scheduled event, as well as final filters"""
 
@@ -1118,6 +1137,26 @@ class IFluentSchedulingDateSpecifier(metaclass=abc.ABCMeta):
 
     def where(self, predicate: typing.Callable[[datetime.datetime], bool]) -> QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier:
         """Filters the event times using the predicate"""
+        ...
+
+
+class IEventSchedule(metaclass=abc.ABCMeta):
+    """Provides the ability to add/remove scheduled events from the real time handler"""
+
+    def add(self, scheduled_event: QuantConnect.Scheduling.ScheduledEvent) -> None:
+        """
+        Adds the specified event to the schedule
+        
+        :param scheduled_event: The event to be scheduled, including the date/times the event fires and the callback
+        """
+        ...
+
+    def remove(self, scheduled_event: QuantConnect.Scheduling.ScheduledEvent) -> None:
+        """
+        Removes the specified event from the schedule
+        
+        :param scheduled_event: The event to be removed
+        """
         ...
 
 
@@ -1292,6 +1331,39 @@ class ScheduleManager(System.Object, QuantConnect.Scheduling.IEventSchedule):
         ...
 
 
+class FluentScheduledEventBuilder(System.Object, QuantConnect.Scheduling.IFluentSchedulingDateSpecifier, QuantConnect.Scheduling.IFluentSchedulingRunnable):
+    """Provides a builder class to allow for fluent syntax when constructing new events"""
+
+    def __init__(self, schedule: QuantConnect.Scheduling.ScheduleManager, securities: QuantConnect.Securities.SecurityManager, name: str = None) -> None:
+        """
+        Initializes a new instance of the FluentScheduledEventBuilder class
+        
+        :param schedule: The schedule to send created events to
+        :param securities: The algorithm's security manager
+        :param name: A specific name for this event
+        """
+        ...
+
+
+class ScheduledEventException(System.Exception):
+    """Throw this if there is an exception in the callback function of the scheduled event"""
+
+    @property
+    def scheduled_event_name(self) -> str:
+        """Gets the name of the scheduled event"""
+        ...
+
+    def __init__(self, name: str, message: str, inner_exception: System.Exception) -> None:
+        """
+        ScheduledEventException constructor
+        
+        :param name: The name of the scheduled event
+        :param message: The exception as a string
+        :param inner_exception: The exception that is the cause of the current exception
+        """
+        ...
+
+
 class CompositeTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
     """Combines multiple time rules into a single rule that emits for each rule"""
 
@@ -1330,78 +1402,6 @@ class CompositeTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
         :param dates: The dates to apply times to
         :returns: An enumerable of date times that is the result
         of applying this rule to the specified dates.
-        """
-        ...
-
-
-class FluentScheduledEventBuilder(System.Object, QuantConnect.Scheduling.IFluentSchedulingDateSpecifier, QuantConnect.Scheduling.IFluentSchedulingRunnable):
-    """Provides a builder class to allow for fluent syntax when constructing new events"""
-
-    def __init__(self, schedule: QuantConnect.Scheduling.ScheduleManager, securities: QuantConnect.Securities.SecurityManager, name: str = None) -> None:
-        """
-        Initializes a new instance of the FluentScheduledEventBuilder class
-        
-        :param schedule: The schedule to send created events to
-        :param securities: The algorithm's security manager
-        :param name: A specific name for this event
-        """
-        ...
-
-
-class TimeMonitor(System.Object, System.IDisposable):
-    """
-    Helper class that will monitor timer consumers and request more time if required.
-    Used by IsolatorLimitResultProvider
-    """
-
-    @property
-    def time_consumers(self) -> typing.List[QuantConnect.Scheduling.TimeConsumer]:
-        """
-        List to store the coming TimeConsumer objects
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def count(self) -> int:
-        """Returns the number of time consumers currently being monitored"""
-        ...
-
-    def __init__(self, monitor_interval_ms: int = 100) -> None:
-        """Creates a new instance"""
-        ...
-
-    def add(self, consumer: QuantConnect.Scheduling.TimeConsumer) -> None:
-        """
-        Adds a new time consumer element to be monitored
-        
-        :param consumer: Time consumer instance
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Disposes of the inner timer"""
-        ...
-
-    def process_consumer(self, consumer: QuantConnect.Scheduling.TimeConsumer) -> None:
-        """
-        Process the TimeConsumer object in TimeConsumers list
-        
-        
-        This Class is protected.
-        
-        :param consumer: The TimeConsumer object to be processed
-        """
-        ...
-
-    def remove_all(self) -> None:
-        """
-        Remove all TimeConsumer objects where the `Finished` field is marked as true
-        
-        
-        This Class is protected.
         """
         ...
 

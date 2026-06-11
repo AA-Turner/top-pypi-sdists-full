@@ -46,6 +46,8 @@ class MeetingTypedDict(TypedDict):
     transcript_language: str
     calendar_invitees: List[InviteeTypedDict]
     recorded_by: FathomUserTypedDict
+    meeting_url: NotRequired[Nullable[str]]
+    r"""The underlying meeting join URL (Zoom, Google Meet, Microsoft Teams, or Slack huddle) from the calendar event. `null` when there is no associated calendar meeting."""
     transcript: NotRequired[Nullable[List[TranscriptItemTypedDict]]]
     default_summary: NotRequired[Nullable[MeetingSummaryTypedDict]]
     action_items: NotRequired[Nullable[List[ActionItemTypedDict]]]
@@ -91,6 +93,9 @@ class Meeting(BaseModel):
 
     recorded_by: FathomUser
 
+    meeting_url: OptionalNullable[str] = UNSET
+    r"""The underlying meeting join URL (Zoom, Google Meet, Microsoft Teams, or Slack huddle) from the calendar event. `null` when there is no associated calendar meeting."""
+
     transcript: OptionalNullable[List[TranscriptItem]] = UNSET
 
     default_summary: OptionalNullable[MeetingSummary] = UNSET
@@ -108,6 +113,7 @@ class Meeting(BaseModel):
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         optional_fields = [
+            "meeting_url",
             "transcript",
             "default_summary",
             "action_items",
@@ -117,6 +123,7 @@ class Meeting(BaseModel):
         nullable_fields = [
             "meeting_title",
             "meeting_type",
+            "meeting_url",
             "transcript",
             "default_summary",
             "action_items",

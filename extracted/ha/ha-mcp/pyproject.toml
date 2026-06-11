@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ha-mcp"
-version = "7.6.0"
+version = "7.7.0"
 description = "Home Assistant MCP Server - Complete control of Home Assistant through MCP"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
@@ -24,14 +24,14 @@ classifiers = [
 ]
 
 dependencies = [
-    "fastmcp==3.3.1",
+    "fastmcp==3.4.2",
     "httpx[socks]==0.28.1",
     "pydantic==2.13.4",
     "python-dotenv==1.2.2",
     "truststore==0.10.4",
     "websockets==16.0",
     "cryptography==48.0.0",
-    "pydantic-monty==0.0.17",
+    "pydantic-monty==0.0.18",
 ]
 
 [project.urls]
@@ -52,7 +52,7 @@ package-dir = {"" = "src", "tests" = "tests"}
 packages = { find = { where = ["src", "."], include = ["ha_mcp*", "tests"] } }
 
 [tool.setuptools.package-data]
-ha_mcp = ["py.typed", "_pypi_marker", "resources/skills-vendor/**/*"]
+ha_mcp = ["py.typed", "_pypi_marker", "settings.js", "settings.css", "resources/skills-vendor/**/*"]
 
 [tool.mypy]
 python_version = "3.13"
@@ -96,7 +96,13 @@ ignore_missing_imports = true
 [tool.ruff]
 target-version = "py313"
 line-length = 88
-extend-exclude = ["tests/initial_test_state"]
+extend-exclude = [
+    "tests/initial_test_state",
+    # HA integration manifests must be strict JSON (no trailing commas);
+    # ruff 0.15+ formats .json files as JSONC and inserts trailing commas
+    # which makes Python's json.load() reject the file at HA startup.
+    "custom_components/**/*.json",
+]
 
 [tool.ruff.lint]
 select = [
@@ -125,7 +131,6 @@ ignore = [
     "RUF001",  # ambiguous unicode — HA entity names use degree symbols etc
     "RUF003",  # ambiguous unicode in comments
     "RUF010",  # explicit f-string type conversion — str(x) is clearer than !s
-    "F841",    # unused variable — too many to fix now
     "RUF059",  # unused unpacked variable
     "SIM118",  # in-dict-keys — style preference
     "PIE810",  # multiple-starts-ends-with — style preference
@@ -139,13 +144,10 @@ ignore = [
 "tests/**/*" = ["E501", "B011"]
 # C901 ignores for tools files with complex methods (see #925).
 # Remove lines as individual methods are simplified below threshold.
-"src/ha_mcp/tools/tools_addons.py" = ["C901"]
 "src/ha_mcp/tools/tools_config_dashboards.py" = ["C901"]
-"src/ha_mcp/tools/tools_config_helpers.py" = ["C901"]
 "src/ha_mcp/tools/tools_entities.py" = ["C901"]
 "src/ha_mcp/tools/tools_registry.py" = ["C901"]
 "src/ha_mcp/tools/tools_search.py" = ["C901"]
-"src/ha_mcp/tools/smart_search.py" = ["C901"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

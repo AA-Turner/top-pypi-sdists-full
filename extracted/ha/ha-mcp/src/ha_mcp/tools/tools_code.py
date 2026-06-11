@@ -237,9 +237,9 @@ def _classify_sandbox_error(exc: Exception) -> tuple[ErrorCode, str, list[str]]:
             f"Sandbox memory limit exceeded: {short}",
             [
                 "Reduce memory usage in your code (smaller intermediate "
-                "data structures, no large list accumulation).",
+                + "data structures, no large list accumulation).",
                 "Stream results via call_tool calls rather than building "
-                "them up in-process.",
+                + "them up in-process.",
                 "Operator can raise CODE_MODE_MAX_MEMORY (max 256 MB).",
             ],
         )
@@ -249,7 +249,7 @@ def _classify_sandbox_error(exc: Exception) -> tuple[ErrorCode, str, list[str]]:
             f"Sandbox recursion limit exceeded: {short}",
             [
                 "Convert deep recursion to iteration (while/for with an "
-                "explicit stack).",
+                + "explicit stack).",
                 "Operator can raise CODE_MODE_MAX_RECURSION (max 10000).",
             ],
         )
@@ -271,7 +271,7 @@ def _classify_sandbox_error(exc: Exception) -> tuple[ErrorCode, str, list[str]]:
             [
                 "Remove all 'import' / 'from ... import' statements.",
                 "Use the injected helpers instead: api_get, api_post, "
-                "ws_send, call_tool, delete_saved_tool.",
+                + "ws_send, call_tool, delete_saved_tool.",
             ],
         )
     if _matches("NotImplementedError", "does not yet support", "context manager"):
@@ -280,8 +280,8 @@ def _classify_sandbox_error(exc: Exception) -> tuple[ErrorCode, str, list[str]]:
             f"Sandbox does not support this Python feature: {short}",
             [
                 "Monty's sandboxed interpreter is a Python subset — "
-                "context managers (with), match statements, class "
-                "definitions, and some builtins are unavailable.",
+                + "context managers (with), match statements, class "
+                + "definitions, and some builtins are unavailable.",
                 "Rewrite using basic statements and the injected helpers.",
             ],
         )
@@ -292,7 +292,7 @@ def _classify_sandbox_error(exc: Exception) -> tuple[ErrorCode, str, list[str]]:
             [
                 "Fix the syntax error and retry.",
                 "Reminder: no class definitions, no imports, no 'with' "
-                "or 'match' statements.",
+                + "or 'match' statements.",
             ],
         )
 
@@ -302,7 +302,7 @@ def _classify_sandbox_error(exc: Exception) -> tuple[ErrorCode, str, list[str]]:
         [
             f"Exception type: {exc_type}",
             "Some Python builtins behave differently in Monty (e.g. "
-            "next() requires an iterator, not a list).",
+            + "next() requires an iterator, not a list).",
             "Check the values you're passing to api_get/api_post/ws_send/call_tool.",
             "Use 'await' before any call to api_get/api_post/ws_send/call_tool.",
         ],
@@ -1047,7 +1047,7 @@ def register_code_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
 
         Example — chain existing tools:
         ```python
-        result = await call_tool("ha_search_entities", {"query": "light", "limit": 5})
+        result = await call_tool("ha_search", {"query": "light", "limit": 5})
         data = result.get("data", result)
         lights = data.get("results", [])
         for e in lights:
@@ -1154,9 +1154,9 @@ def register_code_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                         message,
                         suggestions=[
                             "The saved code may no longer work in the "
-                            "current sandbox or HA configuration.",
+                            + "current sandbox or HA configuration.",
                             "Use ha_manage_custom_tool(code=...) to "
-                            "create an updated version.",
+                            + "create an updated version.",
                             *suggestions,
                         ],
                         context={
@@ -1289,6 +1289,17 @@ def register_code_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                     "write failed; the entry was rolled back from the "
                     "in-memory cache. Check operator logs for the "
                     "underlying I/O error."
+                )
+            elif not settings.code_mode_saved_tools_path:
+                # Blank path = persistence disabled: the in-memory save
+                # succeeded but is lost on restart. Surface a warning so
+                # the agent doesn't assume the entry is durable — mirrors
+                # the write-failure branch above.
+                response["data"]["save_warning"] = (
+                    f"save_as={save_as!r} is kept in memory only — "
+                    "code_mode_saved_tools_path is unset, so custom tools "
+                    "are not persisted and are lost on restart. Set a path "
+                    "on persistent storage to keep them."
                 )
 
         return response

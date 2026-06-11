@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
@@ -34,6 +35,20 @@ from langchain.agents.middleware.summarization import (
 )
 from langchain.chat_models import init_chat_model
 from tests.unit_tests.agents.model import FakeToolCallingModel
+
+
+def _langchain_pyproject_major_version() -> int:
+    """Read the `langchain` package major version from `pyproject.toml`."""
+    pyproject = next(
+        parent / "pyproject.toml"
+        for parent in Path(__file__).parents
+        if (parent / "pyproject.toml").exists()
+    )
+    for line in pyproject.read_text().splitlines():
+        if line.startswith("version = "):
+            return int(line.split('"')[1].split(".")[0])
+    msg = "Could not find project version in pyproject.toml"
+    raise AssertionError(msg)
 
 
 class MockChatModel(BaseChatModel):
@@ -1150,7 +1165,7 @@ def test_trigger_copies_mutable_inputs() -> None:
 
     assert middleware.trigger == [{"tokens": 1000}]
 
-    def token_counter_low(messages: Iterable[MessageLikeRepresentation]) -> int:
+    def token_counter_low(_messages: Iterable[MessageLikeRepresentation]) -> int:
         return 500
 
     middleware.token_counter = token_counter_low
@@ -1173,8 +1188,11 @@ def test_trigger_clauses_are_canonical_representation() -> None:
     ]
 
 
-def test_trigger_conditions_preserve_legacy_tuple_view() -> None:
-    """Test `_trigger_conditions` remains a tuple-shaped compatibility view."""
+def test_trigger_conditions_legacy_tuple_view_remove_in_2_0() -> None:
+    """Test `_trigger_conditions` remains a temporary tuple-shaped compatibility view."""
+    assert _langchain_pyproject_major_version() < 2, (
+        "Remove `_trigger_conditions` and this compatibility test in LangChain 2.0."
+    )
     middleware = SummarizationMiddleware(
         model=FakeToolCallingModel(),
         trigger=[("messages", 5), {"tokens": 1000}, {"tokens": 2000, "messages": 10}],
@@ -1207,7 +1225,7 @@ def test_and_trigger_conditions() -> None:
 
     # Test case 1: Only tokens threshold met (messages = 3 < 5)
     # Should NOT trigger summarization
-    def token_counter_high(messages: Iterable[MessageLikeRepresentation]) -> int:
+    def token_counter_high(_messages: Iterable[MessageLikeRepresentation]) -> int:
         return 1500  # Above token threshold
 
     middleware.token_counter = token_counter_high
@@ -1223,7 +1241,7 @@ def test_and_trigger_conditions() -> None:
 
     # Test case 2: Only messages threshold met (tokens = 500 < 1000)
     # Should NOT trigger summarization
-    def token_counter_low(messages: Iterable[MessageLikeRepresentation]) -> int:
+    def token_counter_low(_messages: Iterable[MessageLikeRepresentation]) -> int:
         return 500  # Below token threshold
 
     middleware.token_counter = token_counter_low
@@ -1265,7 +1283,7 @@ def test_or_trigger_conditions_with_and_clauses() -> None:
 
     # Test case 1: First clause met (tokens = 5500, messages = 4)
     # Should trigger summarization
-    def token_counter_5500(messages: Iterable[MessageLikeRepresentation]) -> int:
+    def token_counter_5500(_messages: Iterable[MessageLikeRepresentation]) -> int:
         return 5500
 
     middleware.token_counter = token_counter_5500
@@ -1282,7 +1300,7 @@ def test_or_trigger_conditions_with_and_clauses() -> None:
 
     # Test case 2: Second clause met (tokens = 3500, messages = 7)
     # Should trigger summarization
-    def token_counter_3500(messages: Iterable[MessageLikeRepresentation]) -> int:
+    def token_counter_3500(_messages: Iterable[MessageLikeRepresentation]) -> int:
         return 3500
 
     middleware.token_counter = token_counter_3500
@@ -1294,7 +1312,7 @@ def test_or_trigger_conditions_with_and_clauses() -> None:
     # (tokens = 4500 meets second token threshold but not message count)
     # (messages = 4 meets first message threshold but not token count)
     # Should NOT trigger summarization
-    def token_counter_4500(messages: Iterable[MessageLikeRepresentation]) -> int:
+    def token_counter_4500(_messages: Iterable[MessageLikeRepresentation]) -> int:
         return 4500
 
     middleware.token_counter = token_counter_4500
@@ -1320,7 +1338,7 @@ async def test_and_trigger_conditions_async() -> None:
     state = {"messages": [HumanMessage(content=str(i)) for i in range(6)]}
 
     # Only the messages threshold met (tokens below) -> should not summarize.
-    def token_counter_low(messages: Iterable[MessageLikeRepresentation]) -> int:
+    def token_counter_low(_messages: Iterable[MessageLikeRepresentation]) -> int:
         return 500
 
     middleware.token_counter = token_counter_low
@@ -1328,7 +1346,7 @@ async def test_and_trigger_conditions_async() -> None:
     assert result is None, "Should not summarize when only messages condition is met"
 
     # Both conditions met -> should summarize.
-    def token_counter_high(messages: Iterable[MessageLikeRepresentation]) -> int:
+    def token_counter_high(_messages: Iterable[MessageLikeRepresentation]) -> int:
         return 1500
 
     middleware.token_counter = token_counter_high
@@ -1350,7 +1368,7 @@ async def test_or_trigger_conditions_with_and_clauses_async() -> None:
     state = {"messages": [HumanMessage(content=str(i)) for i in range(4)]}
 
     # First clause met (tokens = 5500, messages = 4) -> should summarize.
-    def token_counter_5500(messages: Iterable[MessageLikeRepresentation]) -> int:
+    def token_counter_5500(_messages: Iterable[MessageLikeRepresentation]) -> int:
         return 5500
 
     middleware.token_counter = token_counter_5500
@@ -1358,7 +1376,7 @@ async def test_or_trigger_conditions_with_and_clauses_async() -> None:
     assert result is not None, "Should summarize when first OR clause is met"
 
     # Neither clause fully met (tokens = 4500, messages = 4) -> should not summarize.
-    def token_counter_4500(messages: Iterable[MessageLikeRepresentation]) -> int:
+    def token_counter_4500(_messages: Iterable[MessageLikeRepresentation]) -> int:
         return 4500
 
     middleware.token_counter = token_counter_4500
@@ -1377,7 +1395,7 @@ def test_backward_compatibility_tuple_trigger() -> None:
         keep=("messages", 1),
     )
 
-    def token_counter_high(messages: Iterable[MessageLikeRepresentation]) -> int:
+    def token_counter_high(_messages: Iterable[MessageLikeRepresentation]) -> int:
         return 1500
 
     middleware_single.token_counter = token_counter_high
@@ -1399,7 +1417,7 @@ def test_backward_compatibility_tuple_trigger() -> None:
     assert result is not None, "List of tuples should trigger when any condition met"
 
     # Should trigger with many messages (second condition met)
-    def token_counter_low(messages: Iterable[MessageLikeRepresentation]) -> int:
+    def token_counter_low(_messages: Iterable[MessageLikeRepresentation]) -> int:
         return 100
 
     middleware_list.token_counter = token_counter_low
@@ -1423,7 +1441,7 @@ def test_mixed_and_or_conditions() -> None:
     )
 
     # Test case 1: First AND clause met
-    def token_counter_high(messages: Iterable[MessageLikeRepresentation]) -> int:
+    def token_counter_high(_messages: Iterable[MessageLikeRepresentation]) -> int:
         return 4500
 
     middleware.token_counter = token_counter_high
@@ -1432,7 +1450,7 @@ def test_mixed_and_or_conditions() -> None:
     assert result is not None, "Should trigger when AND clause is met"
 
     # Test case 2: Second simple condition met
-    def token_counter_low(messages: Iterable[MessageLikeRepresentation]) -> int:
+    def token_counter_low(_messages: Iterable[MessageLikeRepresentation]) -> int:
         return 1000
 
     middleware.token_counter = token_counter_low

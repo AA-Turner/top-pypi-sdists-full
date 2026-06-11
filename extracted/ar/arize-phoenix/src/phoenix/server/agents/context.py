@@ -122,16 +122,25 @@ PlaygroundModelContext = Annotated[
 
 
 class PlaygroundInstanceContext(_ChatContextBase):
-    """One mounted playground instance and its current model selection."""
+    """One mounted playground instance and its current model selection.
+
+    ``experiment_id`` carries the relay node id of the experiment produced by
+    this instance's last dataset-backed run, or ``None`` when the instance has
+    not produced one. Ephemeral experiments are included: they remain queryable
+    until the server sweeps them ~24h after their last update.
+    """
 
     instance_id: int = Field(alias="instanceId")
     model: PlaygroundModelContext | None = None
+    experiment_id: str | None = Field(default=None, alias="experimentId")
 
 
 class PlaygroundContext(_ChatContextBase):
     """Playground prompt editor state mounted in the current browser route."""
 
     type: Literal["playground"]
+    record_experiments: bool = Field(default=True, alias="recordExperiments")
+    repetitions: int = 1
     instances: list[PlaygroundInstanceContext] = Field(default_factory=list)
 
 

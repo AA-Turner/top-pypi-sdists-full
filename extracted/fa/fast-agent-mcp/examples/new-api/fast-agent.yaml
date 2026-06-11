@@ -1,6 +1,0 @@
-mcp:
-  targets:
-    - target: "npx -y @modelcontextprotocol/server-filesystem ."
-      name: filesystem
-    - target: "uvx mcp-server-fetch"
-      name: fetch

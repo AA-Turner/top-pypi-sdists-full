@@ -691,7 +691,7 @@ fn fmt_file_location<'db>(
 ) -> fmt::Result {
     let path = file.path(db);
     let path = match path {
-        FilePath::System(path) => Cow::Owned(FilePath::System(
+        FilePath::System(path) => Cow::Owned(FilePath::from(
             path.strip_prefix(db.system().current_directory())
                 .unwrap_or(path)
                 .to_path_buf(),
@@ -1094,9 +1094,12 @@ impl<'db> FmtDetailed<'db> for DisplayRepresentation<'db> {
                         };
                         f.set_invalid_type_annotation();
                         f.write_str("bound method ")?;
-                        self_ty
-                            .display_with(self.db, self.settings.singleline())
-                            .fmt_detailed(f)?;
+                        DisplayMaybeParenthesizedType {
+                            ty: self_ty,
+                            db: self.db,
+                            settings: self.settings.singleline(),
+                        }
+                        .fmt_detailed(f)?;
                         f.write_char('.')?;
                         f.with_type(self.ty).write_str(function.name(self.db))?;
                         type_parameters.fmt_detailed(f)?;

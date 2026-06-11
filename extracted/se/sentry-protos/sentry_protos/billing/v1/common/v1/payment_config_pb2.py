@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n7sentry_protos/billing/v1/common/v1/payment_config.proto\x12\"sentry_protos.billing.v1.common.v1\"\x91\x01\n\x11StripePaymentData\x12\x1f\n\x12\x63ustomer_stripe_id\x18\x01 \x01(\tH\x00\x88\x01\x01\x12&\n\x19\x64\x65\x66\x61ult_payment_method_id\x18\x02 \x01(\tH\x01\x88\x01\x01\x42\x15\n\x13_customer_stripe_idB\x1c\n\x1a_default_payment_method_id\"b\n\rPaymentConfig\x12G\n\x06stripe\x18\x01 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.StripePaymentDataH\x00\x42\x08\n\x06\x63onfigb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n7sentry_protos/billing/v1/common/v1/payment_config.proto\x12\"sentry_protos.billing.v1.common.v1\"\xc5\x01\n\x11StripePaymentData\x12\x1f\n\x12\x63ustomer_stripe_id\x18\x01 \x01(\tH\x00\x88\x01\x01\x12&\n\x19\x64\x65\x66\x61ult_payment_method_id\x18\x02 \x01(\tH\x01\x88\x01\x01\x12\x1d\n\x10has_card_on_file\x18\x03 \x01(\x08H\x02\x88\x01\x01\x42\x15\n\x13_customer_stripe_idB\x1c\n\x1a_default_payment_method_idB\x13\n\x11_has_card_on_file\"b\n\rPaymentConfig\x12G\n\x06stripe\x18\x01 \x01(\x0b\x32\x35.sentry_protos.billing.v1.common.v1.StripePaymentDataH\x00\x42\x08\n\x06\x63onfigb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,7 +32,7 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.co
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_STRIPEPAYMENTDATA']._serialized_start=96
-  _globals['_STRIPEPAYMENTDATA']._serialized_end=241
-  _globals['_PAYMENTCONFIG']._serialized_start=243
-  _globals['_PAYMENTCONFIG']._serialized_end=341
+  _globals['_STRIPEPAYMENTDATA']._serialized_end=293
+  _globals['_PAYMENTCONFIG']._serialized_start=295
+  _globals['_PAYMENTCONFIG']._serialized_end=393
 # @@protoc_insertion_point(module_scope)

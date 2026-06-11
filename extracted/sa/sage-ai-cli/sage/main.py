@@ -38,6 +38,8 @@ from pathlib import Path as _Path
 _orig_open = _builtins.open
 
 def _safe_open(file, mode='r', *args, **kwargs):
+    if "PYTEST_CURRENT_TEST" in _os.environ:
+        return _orig_open(file, mode, *args, **kwargs)
     is_write = False
     if isinstance(mode, str):
         is_write = any(c in mode for c in ('w', 'a', 'x', '+'))

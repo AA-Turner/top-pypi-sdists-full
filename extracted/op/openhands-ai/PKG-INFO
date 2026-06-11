@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openhands-ai
-Version: 1.7.0
+Version: 1.8.0
 Summary: OpenHands: Code Less, Make More
 License-Expression: MIT
 License-File: LICENSE
@@ -10,7 +10,7 @@ Requires-Python: >=3.12,<3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: aiohttp (>=3.13.5)
+Requires-Dist: aiohttp (>=3.13.4)
 Requires-Dist: anthropic[vertex]
 Requires-Dist: anyio (==4.9)
 Requires-Dist: asyncpg (>=0.30)
@@ -24,6 +24,7 @@ Requires-Dist: dirhash
 Requires-Dist: docker
 Requires-Dist: fastapi
 Requires-Dist: fastmcp (>=3.2,<4)
+Requires-Dist: gitpython (>=3.1.49)
 Requires-Dist: google-api-python-client (>=2.164)
 Requires-Dist: google-auth-httplib2
 Requires-Dist: google-auth-oauthlib
@@ -34,21 +35,20 @@ Requires-Dist: httpx-aiohttp (>=0.1.8)
 Requires-Dist: ipywidgets (>=8.1.5)
 Requires-Dist: jinja2 (>=3.1.6)
 Requires-Dist: joblib
+Requires-Dist: joserfc (>=1.0.0)
 Requires-Dist: json-repair
 Requires-Dist: jupyter-kernel-gateway
-Requires-Dist: jwcrypto (>=1.5.6)
 Requires-Dist: kubernetes (>=33.1)
 Requires-Dist: libtmux (>=0.46.2)
-Requires-Dist: litellm (>=1.74.3)
+Requires-Dist: litellm (==1.84.1)
 Requires-Dist: lmnr (>=0.7.20)
 Requires-Dist: mcp (>=1.25)
 Requires-Dist: memory-profiler (>=0.61)
 Requires-Dist: numpy
-Requires-Dist: openai (==2.8)
-Requires-Dist: openhands-aci (==0.3.3)
-Requires-Dist: openhands-agent-server (==1.19.1)
-Requires-Dist: openhands-sdk (==1.19.1)
-Requires-Dist: openhands-tools (==1.19.1)
+Requires-Dist: openai (==2.33.0)
+Requires-Dist: openhands-agent-server (==1.27.0)
+Requires-Dist: openhands-sdk (==1.27.0)
+Requires-Dist: openhands-tools (==1.27.0)
 Requires-Dist: opentelemetry-api (>=1.33.1)
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc (>=1.33.1)
 Requires-Dist: orjson (>=3.11.6)
@@ -57,7 +57,7 @@ Requires-Dist: pexpect
 Requires-Dist: pg8000 (>=1.31.5)
 Requires-Dist: pillow (>=12.1.1)
 Requires-Dist: playwright (>=1.55)
-Requires-Dist: poetry (>=2.3.3)
+Requires-Dist: poetry (>=2.3.4,<2.4.0)
 Requires-Dist: prompt-toolkit (>=3.0.50)
 Requires-Dist: protobuf (>=5.29.6,<6)
 Requires-Dist: psutil
@@ -65,12 +65,12 @@ Requires-Dist: pybase62 (>=1)
 Requires-Dist: pygithub (>=2.5)
 Requires-Dist: pyjwt (>=2.12)
 Requires-Dist: pylatexenc
-Requires-Dist: pypdf (>=6.9.2)
+Requires-Dist: pypdf (>=6.10.2)
 Requires-Dist: python-docx
 Requires-Dist: python-dotenv
 Requires-Dist: python-frontmatter (>=1.1)
 Requires-Dist: python-json-logger (>=3.2.1)
-Requires-Dist: python-multipart (>=0.0.26)
+Requires-Dist: python-multipart (>=0.0.28)
 Requires-Dist: python-pptx
 Requires-Dist: python-socketio (==5.14)
 Requires-Dist: pythonnet ; sys_platform == "win32"
@@ -88,8 +88,9 @@ Requires-Dist: tenacity (>=8.5,<10)
 Requires-Dist: termcolor
 Requires-Dist: toml
 Requires-Dist: tornado (>=6.5)
+Requires-Dist: tree-sitter-language-pack (>=0.7.3)
 Requires-Dist: types-toml
-Requires-Dist: urllib3 (>=2.6.3)
+Requires-Dist: urllib3 (>=2.7.0)
 Requires-Dist: uvicorn
 Requires-Dist: whatthepatch (>=1.0.6)
 Requires-Dist: zope-interface (==7.2)

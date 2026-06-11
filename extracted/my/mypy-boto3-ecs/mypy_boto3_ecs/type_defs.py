@@ -48,6 +48,8 @@ from .literals import (
     CpuManufacturerType,
     DaemonDeploymentRollbackMonitorsStatusType,
     DaemonDeploymentStatusType,
+    DaemonIpcModeType,
+    DaemonPidModeType,
     DaemonPropagateTagsType,
     DaemonStatusType,
     DaemonTaskDefinitionStatusFilterType,
@@ -3069,6 +3071,8 @@ class DaemonTaskDefinitionTypeDef(TypedDict):
     registeredAt: NotRequired[datetime]
     deleteRequestedAt: NotRequired[datetime]
     registeredBy: NotRequired[str]
+    pidMode: NotRequired[DaemonPidModeType]
+    ipcMode: NotRequired[DaemonIpcModeType]
 
 
 class ServiceDeploymentTypeDef(TypedDict):
@@ -3678,6 +3682,8 @@ class RegisterDaemonTaskDefinitionRequestTypeDef(TypedDict):
     memory: NotRequired[str]
     volumes: NotRequired[Sequence[DaemonVolumeTypeDef]]
     tags: NotRequired[Sequence[TagTypeDef]]
+    pidMode: NotRequired[DaemonPidModeType]
+    ipcMode: NotRequired[DaemonIpcModeType]
 
 
 class RegisterTaskDefinitionRequestTypeDef(TypedDict):

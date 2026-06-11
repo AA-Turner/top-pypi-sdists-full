@@ -10,13 +10,13 @@ import System.Collections.ObjectModel
 import System.Collections.Specialized
 import System.ComponentModel
 
-System_Collections_ObjectModel_Collection_T = typing.TypeVar("System_Collections_ObjectModel_Collection_T")
+System_Collections_ObjectModel_ReadOnlyCollection_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyCollection_T")
+System_Collections_ObjectModel_ReadOnlySet_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlySet_T")
 System_Collections_ObjectModel_ReadOnlyDictionary_TKey = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyDictionary_TKey")
 System_Collections_ObjectModel_ReadOnlyDictionary_TValue = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyDictionary_TValue")
-System_Collections_ObjectModel_ReadOnlySet_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlySet_T")
-System_Collections_ObjectModel_ReadOnlyCollection_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyCollection_T")
-System_Collections_ObjectModel_ReadOnlyObservableCollection_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyObservableCollection_T")
+System_Collections_ObjectModel_Collection_T = typing.TypeVar("System_Collections_ObjectModel_Collection_T")
 System_Collections_ObjectModel_ObservableCollection_T = typing.TypeVar("System_Collections_ObjectModel_ObservableCollection_T")
+System_Collections_ObjectModel_ReadOnlyObservableCollection_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyObservableCollection_T")
 System_Collections_ObjectModel_KeyedCollection_TItem = typing.TypeVar("System_Collections_ObjectModel_KeyedCollection_TItem")
 System_Collections_ObjectModel_KeyedCollection_TKey = typing.TypeVar("System_Collections_ObjectModel_KeyedCollection_TKey")
 System_Collections_ObjectModel__EventContainer_Callable = typing.TypeVar("System_Collections_ObjectModel__EventContainer_Callable")
@@ -25,74 +25,122 @@ System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T = typing.Ty
 System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T = typing.TypeVar("System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T")
 
 
-class Collection(typing.Generic[System_Collections_ObjectModel_Collection_T], System.Object, System.Collections.Generic.IList[System_Collections_ObjectModel_Collection_T], System.Collections.IList, System.Collections.Generic.IReadOnlyList[System_Collections_ObjectModel_Collection_T], typing.Iterable[System_Collections_ObjectModel_Collection_T]):
+class _Typed_ReadOnlyCollection_CreateCollection(typing.Generic[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T]):
+    """"""
+
+    @overload
+    def __call__(self, *values: typing.Union[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T, typing.Iterable[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T]]) -> System.Collections.ObjectModel.ReadOnlyCollection[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T]:
+        ...
+
+
+class _ReadOnlyCollection_CreateCollection:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T]) -> System.Collections.ObjectModel._Typed_ReadOnlyCollection_CreateCollection[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T]:
+        ...
+
+
+class _Typed_ReadOnlyCollection_CreateSet(typing.Generic[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T]):
+    """"""
+
+    @overload
+    def __call__(self, *values: typing.Union[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T, typing.Iterable[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T]]) -> System.Collections.ObjectModel.ReadOnlySet[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T]:
+        ...
+
+
+class _ReadOnlyCollection_CreateSet:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T]) -> System.Collections.ObjectModel._Typed_ReadOnlyCollection_CreateSet[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T]:
+        ...
+
+
+class ReadOnlyCollection(typing.Generic[System_Collections_ObjectModel_ReadOnlyCollection_T], System.Object, System.Collections.Generic.IList[System_Collections_ObjectModel_ReadOnlyCollection_T], System.Collections.IList, System.Collections.Generic.IReadOnlyList[System_Collections_ObjectModel_ReadOnlyCollection_T], typing.Iterable[System_Collections_ObjectModel_ReadOnlyCollection_T]):
     """This class has no documentation."""
+
+    EMPTY: System.Collections.ObjectModel.ReadOnlyCollection[System_Collections_ObjectModel_ReadOnlyCollection_T]
 
     @property
     def count(self) -> int:
         ...
 
     @property
-    def items(self) -> typing.List[System_Collections_ObjectModel_Collection_T]:
+    def items(self) -> typing.List[System_Collections_ObjectModel_ReadOnlyCollection_T]:
         ...
 
-    def __getitem__(self, index: int) -> System_Collections_ObjectModel_Collection_T:
+    create_collection: System.Collections.ObjectModel._ReadOnlyCollection_CreateCollection
+
+    create_set: System.Collections.ObjectModel._ReadOnlyCollection_CreateSet
+
+    def __getitem__(self, index: int) -> System_Collections_ObjectModel_ReadOnlyCollection_T:
         ...
 
-    @overload
-    def __init__(self) -> None:
+    def __init__(self, list: System.Collections.Generic.IList[System_Collections_ObjectModel_ReadOnlyCollection_T]) -> None:
         ...
 
-    @overload
-    def __init__(self, list: System.Collections.Generic.IList[System_Collections_ObjectModel_Collection_T]) -> None:
-        ...
-
-    def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_Collection_T]:
+    def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_ReadOnlyCollection_T]:
         ...
 
     def __len__(self) -> int:
         ...
 
-    def __setitem__(self, index: int, value: System_Collections_ObjectModel_Collection_T) -> None:
+    def contains(self, value: System_Collections_ObjectModel_ReadOnlyCollection_T) -> bool:
         ...
 
-    def add(self, item: System_Collections_ObjectModel_Collection_T) -> None:
+    def copy_to(self, array: typing.List[System_Collections_ObjectModel_ReadOnlyCollection_T], index: int) -> None:
         ...
 
-    def clear(self) -> None:
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_ObjectModel_ReadOnlyCollection_T]:
         ...
 
-    def clear_items(self) -> None:
+    def index_of(self, value: System_Collections_ObjectModel_ReadOnlyCollection_T) -> int:
         ...
 
-    def contains(self, item: System_Collections_ObjectModel_Collection_T) -> bool:
+
+class ReadOnlySet(typing.Generic[System_Collections_ObjectModel_ReadOnlySet_T], System.Object, System.Collections.Generic.IReadOnlySet[System_Collections_ObjectModel_ReadOnlySet_T], System.Collections.Generic.ISet[System_Collections_ObjectModel_ReadOnlySet_T], System.Collections.ICollection, typing.Iterable[System_Collections_ObjectModel_ReadOnlySet_T]):
+    """This class has no documentation."""
+
+    EMPTY: System.Collections.ObjectModel.ReadOnlySet[System_Collections_ObjectModel_ReadOnlySet_T]
+
+    @property
+    def set(self) -> System.Collections.Generic.ISet[System_Collections_ObjectModel_ReadOnlySet_T]:
         ...
 
-    def copy_to(self, array: typing.List[System_Collections_ObjectModel_Collection_T], index: int) -> None:
+    @property
+    def count(self) -> int:
         ...
 
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_ObjectModel_Collection_T]:
+    def __init__(self, set: System.Collections.Generic.ISet[System_Collections_ObjectModel_ReadOnlySet_T]) -> None:
         ...
 
-    def index_of(self, item: System_Collections_ObjectModel_Collection_T) -> int:
+    def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_ReadOnlySet_T]:
         ...
 
-    def insert(self, index: int, item: System_Collections_ObjectModel_Collection_T) -> None:
+    def __len__(self) -> int:
         ...
 
-    def insert_item(self, index: int, item: System_Collections_ObjectModel_Collection_T) -> None:
+    def contains(self, item: System_Collections_ObjectModel_ReadOnlySet_T) -> bool:
         ...
 
-    def remove(self, item: System_Collections_ObjectModel_Collection_T) -> bool:
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_ObjectModel_ReadOnlySet_T]:
         ...
 
-    def remove_at(self, index: int) -> None:
+    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
         ...
 
-    def remove_item(self, index: int) -> None:
+    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
         ...
 
-    def set_item(self, index: int, item: System_Collections_ObjectModel_Collection_T) -> None:
+    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
+        ...
+
+    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
+        ...
+
+    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
+        ...
+
+    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
         ...
 
 
@@ -183,153 +231,74 @@ class ReadOnlyDictionary(typing.Generic[System_Collections_ObjectModel_ReadOnlyD
         ...
 
 
-class ReadOnlySet(typing.Generic[System_Collections_ObjectModel_ReadOnlySet_T], System.Object, System.Collections.Generic.IReadOnlySet[System_Collections_ObjectModel_ReadOnlySet_T], System.Collections.Generic.ISet[System_Collections_ObjectModel_ReadOnlySet_T], System.Collections.ICollection, typing.Iterable[System_Collections_ObjectModel_ReadOnlySet_T]):
+class Collection(typing.Generic[System_Collections_ObjectModel_Collection_T], System.Object, System.Collections.Generic.IList[System_Collections_ObjectModel_Collection_T], System.Collections.IList, System.Collections.Generic.IReadOnlyList[System_Collections_ObjectModel_Collection_T], typing.Iterable[System_Collections_ObjectModel_Collection_T]):
     """This class has no documentation."""
-
-    EMPTY: System.Collections.ObjectModel.ReadOnlySet[System_Collections_ObjectModel_ReadOnlySet_T]
-
-    @property
-    def set(self) -> System.Collections.Generic.ISet[System_Collections_ObjectModel_ReadOnlySet_T]:
-        ...
-
-    @property
-    def count(self) -> int:
-        ...
-
-    def __init__(self, set: System.Collections.Generic.ISet[System_Collections_ObjectModel_ReadOnlySet_T]) -> None:
-        ...
-
-    def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_ReadOnlySet_T]:
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-    def contains(self, item: System_Collections_ObjectModel_ReadOnlySet_T) -> bool:
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_ObjectModel_ReadOnlySet_T]:
-        ...
-
-    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
-        ...
-
-    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
-        ...
-
-    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
-        ...
-
-    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
-        ...
-
-    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
-        ...
-
-    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_ObjectModel_ReadOnlySet_T]) -> bool:
-        ...
-
-
-class _Typed_ReadOnlyCollection_CreateCollection(typing.Generic[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T]):
-    """"""
-
-    @overload
-    def __call__(self, *values: typing.Union[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T, typing.Iterable[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T]]) -> System.Collections.ObjectModel.ReadOnlyCollection[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T]:
-        ...
-
-
-class _ReadOnlyCollection_CreateCollection:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T]) -> System.Collections.ObjectModel._Typed_ReadOnlyCollection_CreateCollection[System_Collections_ObjectModel_ReadOnlyCollection_CreateCollection_T]:
-        ...
-
-
-class _Typed_ReadOnlyCollection_CreateSet(typing.Generic[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T]):
-    """"""
-
-    @overload
-    def __call__(self, *values: typing.Union[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T, typing.Iterable[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T]]) -> System.Collections.ObjectModel.ReadOnlySet[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T]:
-        ...
-
-
-class _ReadOnlyCollection_CreateSet:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T]) -> System.Collections.ObjectModel._Typed_ReadOnlyCollection_CreateSet[System_Collections_ObjectModel_ReadOnlyCollection_CreateSet_T]:
-        ...
-
-
-class ReadOnlyCollection(typing.Generic[System_Collections_ObjectModel_ReadOnlyCollection_T], System.Object, System.Collections.Generic.IList[System_Collections_ObjectModel_ReadOnlyCollection_T], System.Collections.IList, System.Collections.Generic.IReadOnlyList[System_Collections_ObjectModel_ReadOnlyCollection_T], typing.Iterable[System_Collections_ObjectModel_ReadOnlyCollection_T]):
-    """This class has no documentation."""
-
-    EMPTY: System.Collections.ObjectModel.ReadOnlyCollection[System_Collections_ObjectModel_ReadOnlyCollection_T]
 
     @property
     def count(self) -> int:
         ...
 
     @property
-    def items(self) -> typing.List[System_Collections_ObjectModel_ReadOnlyCollection_T]:
+    def items(self) -> typing.List[System_Collections_ObjectModel_Collection_T]:
         ...
 
-    create_collection: System.Collections.ObjectModel._ReadOnlyCollection_CreateCollection
-
-    create_set: System.Collections.ObjectModel._ReadOnlyCollection_CreateSet
-
-    def __getitem__(self, index: int) -> System_Collections_ObjectModel_ReadOnlyCollection_T:
+    def __getitem__(self, index: int) -> System_Collections_ObjectModel_Collection_T:
         ...
 
-    def __init__(self, list: System.Collections.Generic.IList[System_Collections_ObjectModel_ReadOnlyCollection_T]) -> None:
+    @overload
+    def __init__(self) -> None:
         ...
 
-    def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_ReadOnlyCollection_T]:
+    @overload
+    def __init__(self, list: System.Collections.Generic.IList[System_Collections_ObjectModel_Collection_T]) -> None:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System_Collections_ObjectModel_Collection_T]:
         ...
 
     def __len__(self) -> int:
         ...
 
-    def contains(self, value: System_Collections_ObjectModel_ReadOnlyCollection_T) -> bool:
+    def __setitem__(self, index: int, value: System_Collections_ObjectModel_Collection_T) -> None:
         ...
 
-    def copy_to(self, array: typing.List[System_Collections_ObjectModel_ReadOnlyCollection_T], index: int) -> None:
+    def add(self, item: System_Collections_ObjectModel_Collection_T) -> None:
         ...
 
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_ObjectModel_ReadOnlyCollection_T]:
+    def clear(self) -> None:
         ...
 
-    def index_of(self, value: System_Collections_ObjectModel_ReadOnlyCollection_T) -> int:
+    def clear_items(self) -> None:
         ...
 
-
-class ReadOnlyObservableCollection(typing.Generic[System_Collections_ObjectModel_ReadOnlyObservableCollection_T], System.Collections.ObjectModel.ReadOnlyCollection[System_Collections_ObjectModel_ReadOnlyObservableCollection_T], System.Collections.Specialized.INotifyCollectionChanged, System.ComponentModel.INotifyPropertyChanged):
-    """This class has no documentation."""
-
-    EMPTY: System.Collections.ObjectModel.ReadOnlyObservableCollection[System_Collections_ObjectModel_ReadOnlyObservableCollection_T]
-
-    @property
-    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], typing.Any], typing.Any]:
+    def contains(self, item: System_Collections_ObjectModel_Collection_T) -> bool:
         ...
 
-    @collection_changed.setter
-    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], typing.Any], typing.Any]) -> None:
+    def copy_to(self, array: typing.List[System_Collections_ObjectModel_Collection_T], index: int) -> None:
         ...
 
-    @property
-    def property_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]:
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_ObjectModel_Collection_T]:
         ...
 
-    @property_changed.setter
-    def property_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]) -> None:
+    def index_of(self, item: System_Collections_ObjectModel_Collection_T) -> int:
         ...
 
-    def __init__(self, list: System.Collections.ObjectModel.ObservableCollection[System_Collections_ObjectModel_ReadOnlyObservableCollection_T]) -> None:
+    def insert(self, index: int, item: System_Collections_ObjectModel_Collection_T) -> None:
         ...
 
-    def on_collection_changed(self, args: System.Collections.Specialized.NotifyCollectionChangedEventArgs) -> None:
+    def insert_item(self, index: int, item: System_Collections_ObjectModel_Collection_T) -> None:
         ...
 
-    def on_property_changed(self, args: System.ComponentModel.PropertyChangedEventArgs) -> None:
+    def remove(self, item: System_Collections_ObjectModel_Collection_T) -> bool:
+        ...
+
+    def remove_at(self, index: int) -> None:
+        ...
+
+    def remove_item(self, index: int) -> None:
+        ...
+
+    def set_item(self, index: int, item: System_Collections_ObjectModel_Collection_T) -> None:
         ...
 
 
@@ -392,6 +361,37 @@ class ObservableCollection(typing.Generic[System_Collections_ObjectModel_Observa
         ...
 
     def set_item(self, index: int, item: System_Collections_ObjectModel_ObservableCollection_T) -> None:
+        ...
+
+
+class ReadOnlyObservableCollection(typing.Generic[System_Collections_ObjectModel_ReadOnlyObservableCollection_T], System.Collections.ObjectModel.ReadOnlyCollection[System_Collections_ObjectModel_ReadOnlyObservableCollection_T], System.Collections.Specialized.INotifyCollectionChanged, System.ComponentModel.INotifyPropertyChanged):
+    """This class has no documentation."""
+
+    EMPTY: System.Collections.ObjectModel.ReadOnlyObservableCollection[System_Collections_ObjectModel_ReadOnlyObservableCollection_T]
+
+    @property
+    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], typing.Any], typing.Any]:
+        ...
+
+    @collection_changed.setter
+    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def property_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]:
+        ...
+
+    @property_changed.setter
+    def property_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    def __init__(self, list: System.Collections.ObjectModel.ObservableCollection[System_Collections_ObjectModel_ReadOnlyObservableCollection_T]) -> None:
+        ...
+
+    def on_collection_changed(self, args: System.Collections.Specialized.NotifyCollectionChangedEventArgs) -> None:
+        ...
+
+    def on_property_changed(self, args: System.ComponentModel.PropertyChangedEventArgs) -> None:
         ...
 
 

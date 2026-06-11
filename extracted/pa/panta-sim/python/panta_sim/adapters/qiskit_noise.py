@@ -184,10 +184,9 @@ def _decode_1q(
         if len(seq) != 1:
             return None
         op = seq[0]
-        if op.get("qubits") not in ([0], [0]):
-            # qubit 인덱스가 0 이어야 (1q error 의 standard form).
-            if op.get("qubits") != [0]:
-                return None
+        # qubit 인덱스가 0 이어야 (1q error 의 standard form).
+        if op.get("qubits") != [0]:
+            return None
         name = op.get("name")
         if name not in ("i", "id", "x", "y", "z"):
             return None

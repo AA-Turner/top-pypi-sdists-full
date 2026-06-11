@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comfy-cli
-Version: 1.10.3
+Version: 1.10.4
 Summary: A CLI tool for installing and using ComfyUI.
 Maintainer-email: Yoland Yan <yoland@drip.art>, James Kwon <hongilkwon316@gmail.com>, Robin Huang <robin@drip.art>, "Dr.Lt.Data" <dr.lt.data@gmail.com>
 License: GPL-3.0-only

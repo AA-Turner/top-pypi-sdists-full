@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Literal, TypeAlias
 
-from .api import NamedReference, Prefix
+from .api import NamedReference, Prefix, Reference
 
 
 def _r(p: str, i: str, n: str) -> NamedReference:
@@ -44,6 +44,10 @@ has_creator = _r("dcterms", "creator", "creator")
 has_source = _r("dcterms", "source", "source")
 has_date = _r("dcterms", "date", "date")
 conforms_to = _r("dcterms", "conformsTo", "conforms to")
+
+# PAV
+
+has_author = _r("pav", "authoredBy", "authored by")
 
 # OBO in OWL
 
@@ -281,6 +285,8 @@ match_typedefs: Sequence[NamedReference] = (
     equivalent_property,  # for properties
     has_dbxref,
     see_also,
+    subclass_of,
+    subproperty_of,
 )
 
 # Extension past the SSSOM spec
@@ -335,7 +341,7 @@ has_suborganization = _r("org", "hasSubOrganization", "has suborganization")
 is_suborganization_of = _r("org", "subOrganizationOf", "is suborganization of")
 
 #: A mapping of inverse relationships that can be applied when inverting mappings
-inversions = {
+inversions: dict[Reference, NamedReference] = {
     broad_match: narrow_match,
     narrow_match: broad_match,
     exact_match: exact_match,

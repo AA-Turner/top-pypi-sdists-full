@@ -90,7 +90,7 @@
 //! find yourself extending `ArrowSchurSystem` with an outer-REML gradient
 //! hook, re-read the inner/outer cost split documented above first.
 
-use ndarray::{Array1, Array2, ArrayView1};
+use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -117,6 +117,14 @@ const DEFAULT_PCG_RELATIVE_TOLERANCE: f64 = 1e-4;
 const PCG_ABSOLUTE_TOLERANCE_FLOOR: f64 = 1e-14;
 const DEFAULT_TRUST_REGION_RADIUS: f64 = f64::INFINITY;
 pub const DEFAULT_PROXIMAL_INITIAL_RIDGE: f64 = 1e-8;
+const F32_UNIT_ROUNDOFF: f64 = (f32::EPSILON as f64) * 0.5;
+const DEFAULT_MIXED_PRECISION_MAX_REFINEMENTS: usize = 6;
+const DEFAULT_MIXED_PRECISION_CERTIFICATE_TOLERANCE: f64 = 1e-11;
+const DEFAULT_MIXED_PRECISION_KAPPA_MARGIN: f64 = 0.5;
+/// Backward-error certificate floor, expressed as a small multiple of f64 epsilon.
+const MIXED_PRECISION_CERTIFICATE_EPSILON_MULTIPLIER: f64 = 64.0;
+/// User-supplied kappa margins above this are no stricter than the unit gate.
+const MIXED_PRECISION_KAPPA_MARGIN_CEILING: f64 = 1.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct BetaEdge {
@@ -655,6 +663,128 @@ impl BetaPenaltyOp for KroneckerPenaltyOp {
     }
 }
 
+/// Kronecker-product penalty with an identity right factor:
+/// `P = A ⊗ I_p`.
+///
+/// This is the hot SAE smoothness case. Storing `I_p` as a dense matrix costs
+/// `O(p²)` memory per atom and makes every matvec pay an unnecessary right-factor
+/// loop. This operator stores only the identity dimension and keeps the same
+/// layout as [`KroneckerPenaltyOp`]: local index `i_a * p + i_b`.
+pub struct IdentityRightKroneckerPenaltyOp {
+    /// Left factor `A`, shape `(p_a, p_a)`.
+    pub factor_a: Array2<f64>,
+    /// Identity right-factor dimension `p`.
+    pub p: usize,
+    /// Global offset into the β vector where this block starts.
+    pub global_offset: usize,
+    /// Full β dimension `K`.
+    pub k: usize,
+}
+
+impl BetaPenaltyOp for IdentityRightKroneckerPenaltyOp {
+    fn dim(&self) -> usize {
+        self.k
+    }
+
+    fn matvec(&self, x: &[f64], y: &mut [f64]) {
+        let p_a = self.factor_a.nrows();
+        let p = self.p;
+        let off = self.global_offset;
+        for i_a in 0..p_a {
+            for i_b in 0..p {
+                let gi = off + i_a * p + i_b;
+                let mut acc = 0.0_f64;
+                for j_a in 0..p_a {
+                    let a_ij = self.factor_a[[i_a, j_a]];
+                    if a_ij == 0.0 {
+                        continue;
+                    }
+                    acc += a_ij * x[off + j_a * p + i_b];
+                }
+                y[gi] += acc;
+            }
+        }
+    }
+
+    fn gradient(&self, beta: &[f64], out: &mut [f64]) {
+        self.matvec(beta, out);
+    }
+
+    fn diagonal(&self, diag: &mut [f64]) {
+        let p_a = self.factor_a.nrows();
+        let p = self.p;
+        let off = self.global_offset;
+        for i_a in 0..p_a {
+            let a_ii = self.factor_a[[i_a, i_a]];
+            for i_b in 0..p {
+                diag[off + i_a * p + i_b] += a_ii;
+            }
+        }
+    }
+
+    fn block(&self, id: BetaBlockId, offsets: &[Range<usize>], out: &mut Array2<f64>) {
+        let range = &offsets[id.0];
+        let b = range.end - range.start;
+        let p_a = self.factor_a.nrows();
+        let p = self.p;
+        let off = self.global_offset;
+        let block_end = off + p_a * p;
+        if block_end <= range.start || off >= range.end {
+            return;
+        }
+        for bi in 0..b {
+            let gi = range.start + bi;
+            if gi < off || gi >= block_end {
+                continue;
+            }
+            let li = gi - off;
+            let i_a = li / p;
+            let i_b = li % p;
+            for bj in 0..b {
+                let gj = range.start + bj;
+                if gj < off || gj >= block_end {
+                    continue;
+                }
+                let lj = gj - off;
+                let j_a = lj / p;
+                let j_b = lj % p;
+                if i_b == j_b {
+                    out[[bi, bj]] += self.factor_a[[i_a, j_a]];
+                }
+            }
+        }
+    }
+
+    fn to_dense(&self) -> Array2<f64> {
+        let p_a = self.factor_a.nrows();
+        let p = self.p;
+        let off = self.global_offset;
+        let mut out = Array2::<f64>::zeros((self.k, self.k));
+        for i_a in 0..p_a {
+            for j_a in 0..p_a {
+                let a_ij = self.factor_a[[i_a, j_a]];
+                if a_ij == 0.0 {
+                    continue;
+                }
+                for i_b in 0..p {
+                    let gi = off + i_a * p + i_b;
+                    let gj = off + j_a * p + i_b;
+                    out[[gi, gj]] += a_ij;
+                }
+            }
+        }
+        out
+    }
+
+    fn fingerprint(&self, hasher: &mut Fingerprinter) {
+        hasher.write_str("identity-right-kronecker-penalty-op-v1");
+        hasher.write_usize(self.global_offset);
+        hasher.write_usize(self.k);
+        hasher.write_usize(self.p);
+        hasher.write_f64_array2(&self.factor_a);
+    }
+}
+
 /// One co-occurring atom-pair block of a block-sparse left factor `A`.
 ///
 /// `data` is the dense `(m_i × m_j)` coupling between the basis columns of
@@ -820,6 +950,365 @@ impl BetaPenaltyOp for SparseBlockKroneckerPenaltyOp {
             hasher.write_usize(blk.row_off);
             hasher.write_usize(blk.col_off);
             hasher.write_f64_array2(&blk.data);
+        }
+    }
+}
+
+/// One co-occurring `(atom_i, atom_j)` block of the **frame-factored** data-fit
+/// Gauss–Newton β-Hessian (issue #972 / #977 T1). Carries the basis-space Gram
+/// `g` (`m_i × m_j`) AND the per-pair frame output factor `w = U_iᵀ U_j`
+/// (`r_i × r_j`); the contributed Hessian sub-block is the Kronecker product
+/// `g ⊗ w`.
+#[derive(Debug, Clone)]
+pub struct FactoredFrameGBlock {
+    /// Atom index of the row factor (selects rank `r_i` and β offset).
+    pub atom_i: usize,
+    /// Atom index of the column factor (selects rank `r_j` and β offset).
+    pub atom_j: usize,
+    /// Basis-space coupling `G_{ij}` (`m_i × m_j`).
+    pub g: Array2<f64>,
+    /// Frame output factor `U_iᵀ U_j` (`r_i × r_j`). For `i == j` with an
+    /// orthonormal frame this is `I_{r_i}` (the clean within-atom `g ⊗ I_r`
+    /// collapse); across atoms it is the dense principal-angle cosine matrix
+    /// between the two frames.
+    pub w: Array2<f64>,
+}
+
+/// Frame-factored data-fit Gauss–Newton β-Hessian operator (#972 / #977 T1):
+/// the `Σ_k M_k·r_k` reduced-border analogue of [`SparseBlockKroneckerPenaltyOp`].
+///
+/// When every atom's decoder `B_k = C_k U_kᵀ` is profiled onto a Grassmann
+/// frame `U_k ∈ St(p, r_k)`, the border carries only the shape coefficients
+/// `C_k` (`M_k · r_k` entries) instead of the full `B_k` (`M_k · p`). The data
+/// Gram in this reduced space is, for the isotropic likelihood,
+/// `H[(i,li,a),(j,lj,b)] = G_{ij}[li,lj] · (U_iᵀ U_j)[a,b]` — within an atom the
+/// orthonormal frame gives `U_iᵀU_i = I_{r_i}` and the block is the clean
+/// `G ⊗ I_r` collapse; across co-active atoms the frames do not share a basis
+/// so the output factor is the dense `U_iᵀU_j`.
+///
+/// The β layout is `μ`-major / frame-minor with a **variable** per-atom width
+/// `r_k`: the index of (atom `k`, basis `li`, frame coord `a`) is
+/// `offset[k] + li·r_k + a`, where `offset` is the prefix sum of `M_k · r_k`.
+/// With every `r_k = p` and `U_k = I_p` this reproduces
+/// [`SparseBlockKroneckerPenaltyOp`] exactly (a unit test pins the reduction),
+/// so it is a strict generalization, not a separate code path.
+pub struct FactoredFrameKroneckerOp {
+    /// Per-atom frame rank `r_k` (the factored output width).
+    pub ranks: Vec<usize>,
+    /// Per-atom basis size `M_k`.
+    pub basis_sizes: Vec<usize>,
+    /// Per-atom β offset (prefix sum of `M_k · r_k`); `offsets[k]` is the start
+    /// of atom `k`'s `C_k` block, `offsets[n_atoms]` the total dim.
+    pub offsets: Vec<usize>,
+    /// Total reduced β dimension `Σ_k M_k · r_k`.
+    pub dim: usize,
+    /// Non-empty co-occurring `(atom_i, atom_j)` blocks.
+    pub blocks: Vec<FactoredFrameGBlock>,
+}
+
+/// Frame output Gram `U_iᵀ U_j` (`r_i × r_j`) between two per-atom output
+/// frames (each `p × r`). This is the dense principal-angle cosine matrix that
+/// becomes the `w` factor of a [`FactoredFrameGBlock`]; for `i == j` with an
+/// orthonormal frame it is `I_{r_i}`. Shared with `sae_manifold.rs`, which
+/// builds the same factors when profiling decoders onto Grassmann frames.
+pub fn frame_output_gram(u_i: ArrayView2<f64>, u_j: ArrayView2<f64>) -> Array2<f64> {
+    let (p_i, r_i) = u_i.dim();
+    let (p_j, r_j) = u_j.dim();
+    assert_eq!(
+        p_i, p_j,
+        "frame_output_gram: frames live in different ambient dims ({p_i} vs {p_j})"
+    );
+    let mut w = Array2::<f64>::zeros((r_i, r_j));
+    for a in 0..r_i {
+        for b in 0..r_j {
+            let mut acc = 0.0;
+            for c in 0..p_i {
+                acc += u_i[[c, a]] * u_j[[c, b]];
+            }
+            w[[a, b]] = acc;
+        }
+    }
+    w
+}
+
+impl FactoredFrameKroneckerOp {
+    /// Build from per-atom ranks + basis sizes and the co-occurring blocks.
+    /// Computes the β offsets (prefix sum of `M_k·r_k`) and validates that each
+    /// block's `g`/`w` shapes match the atoms' `(M, r)`.
+    pub fn new(
+        ranks: Vec<usize>,
+        basis_sizes: Vec<usize>,
+        blocks: Vec<FactoredFrameGBlock>,
+    ) -> Result<Self, String> {
+        if ranks.len() != basis_sizes.len() {
+            return Err(format!(
+                "FactoredFrameKroneckerOp: {} ranks but {} basis sizes",
+                ranks.len(),
+                basis_sizes.len()
+            ));
+        }
+        let n_atoms = ranks.len();
+        let mut offsets = Vec::with_capacity(n_atoms + 1);
+        let mut acc = 0usize;
+        for k in 0..n_atoms {
+            offsets.push(acc);
+            acc += basis_sizes[k] * ranks[k];
+        }
+        offsets.push(acc);
+        let dim = acc;
+        for blk in &blocks {
+            if blk.atom_i >= n_atoms || blk.atom_j >= n_atoms {
+                return Err(format!(
+                    "FactoredFrameKroneckerOp: block atom indices ({}, {}) out of range (n_atoms = {n_atoms})",
+                    blk.atom_i, blk.atom_j
+                ));
+            }
+            if blk.g.dim() != (basis_sizes[blk.atom_i], basis_sizes[blk.atom_j]) {
+                return Err(format!(
+                    "FactoredFrameKroneckerOp: block ({}, {}) g has shape {:?} but expected ({}, {})",
+                    blk.atom_i,
+                    blk.atom_j,
+                    blk.g.dim(),
+                    basis_sizes[blk.atom_i],
+                    basis_sizes[blk.atom_j]
+                ));
+            }
+            if blk.w.dim() != (ranks[blk.atom_i], ranks[blk.atom_j]) {
+                return Err(format!(
+                    "FactoredFrameKroneckerOp: block ({}, {}) w has shape {:?} but expected ({}, {})",
+                    blk.atom_i,
+                    blk.atom_j,
+                    blk.w.dim(),
+                    ranks[blk.atom_i],
+                    ranks[blk.atom_j]
+                ));
+            }
+        }
+        Ok(Self {
+            ranks,
+            basis_sizes,
+            offsets,
+            dim,
+            blocks,
+        })
+    }
+
+    /// Convenience constructor that builds the operator directly from per-atom
+    /// output frames + the basis-space Gram block map, computing the per-pair
+    /// frame factors `W_ij = U_iᵀ U_j` itself.
+    ///
+    /// `frames[k]` is either `Some(U_k)` — a `p × r_k` (`r_k ≤ p`) output frame
+    /// (a Grassmann representative `St(p, r_k)` need not be orthonormal here; the
+    /// `W` factor carries whatever frame is supplied) — or `None`, meaning atom
+    /// `k` keeps the full ambient output (`U_k = I_p`, so `r_k = p`). For each
+    /// non-empty Gram block `(atom_i, atom_j)` the factor `W` is
+    /// `U_iᵀ U_j` (`r_i × r_j`), with the `None` frame standing in for `I_p`:
+    /// a framed×unframed cross gives `W = U_iᵀ` (`r_i × p`) and an unframed
+    /// diagonal gives `W = I_p` — exactly reproducing the `g ⊗ I_p` full-`B`
+    /// block. The resulting blocks are handed to [`Self::new`], which validates
+    /// the `(M, r)` shapes and computes the β offsets.
+    pub fn from_frames_and_blocks(
+        frames: &[Option<Array2<f64>>],
+        basis_sizes: &[usize],
+        p: usize,
+        g_blocks: &std::collections::BTreeMap<(usize, usize), Array2<f64>>,
+    ) -> Result<Self, String> {
+        if frames.len() != basis_sizes.len() {
+            return Err(format!(
+                "FactoredFrameKroneckerOp::from_frames_and_blocks: {} frames but {} basis sizes",
+                frames.len(),
+                basis_sizes.len()
+            ));
+        }
+        let n_atoms = frames.len();
+        // Per-atom rank: ncols of a supplied frame, else the ambient dim p.
+        let mut ranks = Vec::with_capacity(n_atoms);
+        for (k, frame) in frames.iter().enumerate() {
+            match frame {
+                Some(u) => {
+                    let (pr, r) = u.dim();
+                    if pr != p {
+                        return Err(format!(
+                            "FactoredFrameKroneckerOp::from_frames_and_blocks: frame {k} has {pr} rows but ambient dim is {p}"
+                        ));
+                    }
+                    if r > p {
+                        return Err(format!(
+                            "FactoredFrameKroneckerOp::from_frames_and_blocks: frame {k} has rank {r} > ambient dim {p}"
+                        ));
+                    }
+                    ranks.push(r);
+                }
+                None => ranks.push(p),
+            }
+        }
+        // Materialize each atom's frame as a `p × r_k` view source: the supplied
+        // `U_k`, or `I_p` for the unframed atoms.
+        let identity = Array2::<f64>::eye(p);
+        let frame_or_ident = |k: usize| -> ArrayView2<f64> {
+            match &frames[k] {
+                Some(u) => u.view(),
+                None => identity.view(),
+            }
+        };
+        let mut blocks = Vec::with_capacity(g_blocks.len());
+        for (&(atom_i, atom_j), g) in g_blocks {
+            if atom_i >= n_atoms || atom_j >= n_atoms {
+                return Err(format!(
+                    "FactoredFrameKroneckerOp::from_frames_and_blocks: block atom indices ({atom_i}, {atom_j}) out of range (n_atoms = {n_atoms})"
+                ));
+            }
+            let w = frame_output_gram(frame_or_ident(atom_i), frame_or_ident(atom_j));
+            blocks.push(FactoredFrameGBlock {
+                atom_i,
+                atom_j,
+                g: g.clone(),
+                w,
+            });
+        }
+        Self::new(ranks, basis_sizes.to_vec(), blocks)
+    }
+}
+
+impl BetaPenaltyOp for FactoredFrameKroneckerOp {
+    fn dim(&self) -> usize {
+        self.dim
+    }
+
+    fn matvec(&self, x: &[f64], y: &mut [f64]) {
+        for blk in &self.blocks {
+            let r_i = self.ranks[blk.atom_i];
+            let r_j = self.ranks[blk.atom_j];
+            let off_i = self.offsets[blk.atom_i];
+            let off_j = self.offsets[blk.atom_j];
+            let (m_i, m_j) = blk.g.dim();
+            for li in 0..m_i {
+                let yi_base = off_i + li * r_i;
+                for lj in 0..m_j {
+                    let g = blk.g[[li, lj]];
+                    if g == 0.0 {
+                        continue;
+                    }
+                    let xj_base = off_j + lj * r_j;
+                    // y_block[li, a] += g · Σ_b w[a, b] · x_block[lj, b]
+                    for a in 0..r_i {
+                        let mut acc = 0.0;
+                        for b in 0..r_j {
+                            acc += blk.w[[a, b]] * x[xj_base + b];
+                        }
+                        y[yi_base + a] += g * acc;
+                    }
+                }
+            }
+        }
+    }
+
+    fn gradient(&self, beta: &[f64], out: &mut [f64]) {
+        self.matvec(beta, out);
+    }
+
+    fn diagonal(&self, diag: &mut [f64]) {
+        for blk in &self.blocks {
+            // Only on-diagonal atom blocks carry diagonal mass; the entry at
+            // (atom k, basis li, coord a) is g[li,li]·w[a,a].
+            if blk.atom_i != blk.atom_j {
+                continue;
+            }
+            let r = self.ranks[blk.atom_i];
+            let off = self.offsets[blk.atom_i];
+            let (m_i, m_j) = blk.g.dim();
+            let m = m_i.min(m_j);
+            for li in 0..m {
+                let gii = blk.g[[li, li]];
+                let base = off + li * r;
+                for a in 0..r {
+                    diag[base + a] += gii * blk.w[[a, a]];
+                }
+            }
+        }
+    }
+
+    fn block(&self, id: BetaBlockId, offsets: &[Range<usize>], out: &mut Array2<f64>) {
+        // Dense sub-block over the β index range `offsets[id.0]`. Mirror the
+        // global (i,a) ↔ (j,b) coupling, keeping only indices inside the range.
+        let range = &offsets[id.0];
+        let b_dim = range.end - range.start;
+        for blk in &self.blocks {
+            let r_i = self.ranks[blk.atom_i];
+            let r_j = self.ranks[blk.atom_j];
+            let off_i = self.offsets[blk.atom_i];
+            let off_j = self.offsets[blk.atom_j];
+            let (m_i, m_j) = blk.g.dim();
+            for li in 0..m_i {
+                for a in 0..r_i {
+                    let gi = off_i + li * r_i + a;
+                    if gi < range.start || gi >= range.end {
+                        continue;
+                    }
+                    let bi = gi - range.start;
+                    for lj in 0..m_j {
+                        let g = blk.g[[li, lj]];
+                        if g == 0.0 {
+                            continue;
+                        }
+                        for b in 0..r_j {
+                            let gj = off_j + lj * r_j + b;
+                            if gj < range.start || gj >= range.end {
+                                continue;
+                            }
+                            let bj = gj - range.start;
+                            if bi < b_dim && bj < b_dim {
+                                out[[bi, bj]] += g * blk.w[[a, b]];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn to_dense(&self) -> Array2<f64> {
+        let mut out = Array2::<f64>::zeros((self.dim, self.dim));
+        for blk in &self.blocks {
+            let r_i = self.ranks[blk.atom_i];
+            let r_j = self.ranks[blk.atom_j];
+            let off_i = self.offsets[blk.atom_i];
+            let off_j = self.offsets[blk.atom_j];
+            let (m_i, m_j) = blk.g.dim();
+            for li in 0..m_i {
+                for lj in 0..m_j {
+                    let g = blk.g[[li, lj]];
+                    if g == 0.0 {
+                        continue;
+                    }
+                    for a in 0..r_i {
+                        let gi = off_i + li * r_i + a;
+                        for b in 0..r_j {
+                            let gj = off_j + lj * r_j + b;
+                            out[[gi, gj]] += g * blk.w[[a, b]];
+                        }
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    fn fingerprint(&self, hasher: &mut Fingerprinter) {
+        hasher.write_str("factored-frame-kronecker-op-v1");
+        hasher.write_usize(self.dim);
+        for &r in &self.ranks {
+            hasher.write_usize(r);
+        }
+        for &m in &self.basis_sizes {
+            hasher.write_usize(m);
+        }
+        hasher.write_usize(self.blocks.len());
+        for blk in &self.blocks {
+            hasher.write_usize(blk.atom_i);
+            hasher.write_usize(blk.atom_j);
+            hasher.write_f64_array2(&blk.g);
+            hasher.write_f64_array2(&blk.w);
         }
     }
 }
@@ -1069,6 +1558,26 @@ pub struct PcgDiagnostics {
     pub final_relative_residual: f64,
     /// Why the loop stopped.
     pub stopping_reason: PcgStopReason,
+    /// Mixed-precision certificate outcome for this solve.
+    pub mixed_precision_status: MixedPrecisionStatus,
+    /// True when this Direct-mode point solve was served by the fully
+    /// device-resident batched Arrow-Schur sequence (#1017). Lets harnesses and
+    /// parity tests observe that the production auto-selection routed to the
+    /// device rather than the CPU dense Cholesky, without changing the numbers.
+    pub used_device_arrow: bool,
+}
+
+/// Outcome of an opt-in mixed-precision arrow solve.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum MixedPrecisionStatus {
+    /// The caller did not request mixed precision or this solve mode cannot use it.
+    #[default]
+    Off,
+    /// The f32 factor solve was refined until the f64 backward-error certificate held.
+    Certified { refinement_steps: usize },
+    /// The kappa gate or solve shape rejected mixed precision and the f64 path ran.
+    /// The declining reason is logged at `info` level when the fallback fires.
+    F64Fallback,
 }
 
 /// PCG controls for BA's inexact reduced-camera-system solve.
@@ -1115,6 +1624,49 @@ impl Default for ArrowTrustRegionOptions {
     }
 }
 
+/// Opt-in Carson--Higham mixed-precision refinement for dense arrow solves.
+///
+/// Default is [`MixedPrecisionPolicy::Off`]: exact f64 solves remain the default.
+/// [`MixedPrecisionPolicy::Certified`] stores f32 copies of the per-row Cholesky
+/// factors and dense Schur factor, solves corrections in f32, and recomputes the
+/// residual in f64 against the original arrow blocks. The standard refinement
+/// certificate is the normwise backward error
+///
+/// `||r||_inf / (||H||_inf ||x||_inf + ||b||_inf) <= residual_relative_tolerance`.
+///
+/// The kappa gate enforces `kappa_estimate * u_f32 < kappa_unit_roundoff_margin`;
+/// when it fails, the solve reports [`MixedPrecisionStatus::F64Fallback`] and
+/// logs the reason before using the f64 path.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MixedPrecisionPolicy {
+    Off,
+    Certified {
+        max_refinement_steps: usize,
+        residual_relative_tolerance: f64,
+        kappa_unit_roundoff_margin: f64,
+    },
+}
+
+impl Default for MixedPrecisionPolicy {
+    fn default() -> Self {
+        Self::Off
+    }
+}
+
+impl MixedPrecisionPolicy {
+    pub fn certified() -> Self {
+        Self::Certified {
+            max_refinement_steps: DEFAULT_MIXED_PRECISION_MAX_REFINEMENTS,
+            residual_relative_tolerance: DEFAULT_MIXED_PRECISION_CERTIFICATE_TOLERANCE,
+            kappa_unit_roundoff_margin: DEFAULT_MIXED_PRECISION_KAPPA_MARGIN,
+        }
+    }
+
+    fn is_enabled(self) -> bool {
+        matches!(self, MixedPrecisionPolicy::Certified { .. })
+    }
+}
+
 /// Complete BA Schur solve options.
 ///
 /// Use [`ArrowSolveOptions::automatic`] for normal latent-coordinate fits;
@@ -1155,6 +1707,8 @@ pub struct ArrowSolveOptions {
     ///
     /// Default `false`: ordinary solves keep the full guard.
     pub tolerate_ill_conditioning: bool,
+    /// Opt-in certified mixed-precision direct solve. Default is off.
+    pub mixed_precision: MixedPrecisionPolicy,
 }
 
 impl std::fmt::Debug for ArrowSolveOptions {
@@ -1167,6 +1721,7 @@ impl std::fmt::Debug for ArrowSolveOptions {
             .field("riemannian_trust_region", &self.riemannian_trust_region)
             .field("gpu_matvec", &self.gpu_matvec.is_some())
             .field("tolerate_ill_conditioning", &self.tolerate_ill_conditioning)
+            .field("mixed_precision", &self.mixed_precision)
             .finish()
     }
 }
@@ -1241,6 +1796,7 @@ impl ArrowSolveOptions {
             riemannian_trust_region: false,
             gpu_matvec: None,
             tolerate_ill_conditioning: false,
+            mixed_precision: MixedPrecisionPolicy::Off,
         }
     }
 
@@ -1255,6 +1811,7 @@ impl ArrowSolveOptions {
             riemannian_trust_region: false,
             gpu_matvec: None,
             tolerate_ill_conditioning: false,
+            mixed_precision: MixedPrecisionPolicy::Off,
         }
     }
 
@@ -1268,6 +1825,7 @@ impl ArrowSolveOptions {
             riemannian_trust_region: false,
             gpu_matvec: None,
             tolerate_ill_conditioning: false,
+            mixed_precision: MixedPrecisionPolicy::Off,
         }
     }
 
@@ -1281,6 +1839,7 @@ impl ArrowSolveOptions {
             riemannian_trust_region: false,
             gpu_matvec: None,
             tolerate_ill_conditioning: false,
+            mixed_precision: MixedPrecisionPolicy::Off,
         }
     }
 
@@ -1299,6 +1858,27 @@ impl ArrowSolveOptions {
     pub fn with_ill_conditioning_tolerated(mut self) -> Self {
         self.tolerate_ill_conditioning = true;
         self
+    }
+
+    pub fn with_mixed_precision_policy(mut self, policy: MixedPrecisionPolicy) -> Self {
+        self.mixed_precision = policy;
+        self
+    }
+
+    /// Turn certified mixed precision ON for the streaming/residency reduced
+    /// solve unless the caller already pinned an explicit policy (#1014).
+    ///
+    /// Only `Off` (the inherited default) is upgraded to `Certified`; a caller
+    /// that deliberately set a policy keeps it. The reduced-Schur f64 factor and
+    /// every evidence log-determinant are unaffected — see
+    /// [`mixed_precision_reduced_beta`].
+    #[must_use]
+    pub fn with_streaming_mixed_precision_default(&self) -> Self {
+        let mut out = self.clone();
+        if matches!(out.mixed_precision, MixedPrecisionPolicy::Off) {
+            out.mixed_precision = MixedPrecisionPolicy::certified();
+        }
+        out
     }
 }
 
@@ -1321,16 +1901,28 @@ pub trait BatchedBlockSolver {
         ridge_t: f64,
         d: usize,
         tolerate_ill_conditioning: bool,
-    ) -> Result<Vec<Array2<f64>>, ArrowSchurError>;
+    ) -> Result<ArrowFactorSlab, ArrowSchurError>;
 
     /// Solve one factored point block against a vector RHS.
-    fn solve_block_vector(&self, factor: &Array2<f64>, rhs: &Array1<f64>) -> Array1<f64>;
+    fn solve_block_vector(
+        &self,
+        factor: ArrayView2<'_, f64>,
+        rhs: ArrayView1<'_, f64>,
+    ) -> Array1<f64>;
 
     /// Solve one factored point block against a dense matrix RHS.
-    fn solve_block_matrix(&self, factor: &Array2<f64>, rhs: &Array2<f64>) -> Array2<f64>;
+    fn solve_block_matrix(
+        &self,
+        factor: ArrayView2<'_, f64>,
+        rhs: ArrayView2<'_, f64>,
+    ) -> Array2<f64>;
 
     /// Apply the Square-Root BA lower-triangular solve `L_i^-1 rhs`.
-    fn sqrt_solve_block_matrix(&self, factor: &Array2<f64>, rhs: &Array2<f64>) -> Array2<f64>;
+    fn sqrt_solve_block_matrix(
+        &self,
+        factor: ArrayView2<'_, f64>,
+        rhs: ArrayView2<'_, f64>,
+    ) -> Array2<f64>;
 
     /// Subtract a row-local Schur product from the dense reduced system.
     fn block_gemm_subtract(&self, schur: &mut Array2<f64>, left: &Array2<f64>, right: &Array2<f64>);
@@ -1351,13 +1943,15 @@ impl BatchedBlockSolver for CpuBatchedBlockSolver {
         ridge_t: f64,
         d: usize,
         tolerate_ill_conditioning: bool,
-    ) -> Result<Vec<Array2<f64>>, ArrowSchurError> {
+    ) -> Result<ArrowFactorSlab, ArrowSchurError> {
         // Multi-GPU fast path: the per-row blocks `H_tt^(i) + ridge_t·I` are
         // independent same-size SPD systems — exactly the batch
         // `crate::gpu::try_cholesky_batched_lower_inplace` spreads across ALL
         // usable devices (the batched POTRF tiles over the pool). It is only
-        // valid when every row is the uniform `d×d` shape (heterogeneous rows
-        // keep the per-row CPU loop) and only succeeds when EVERY block is PD at
+        // valid when every row is the uniform `d×d` shape; heterogeneous row
+        // dimensions keep the per-row CPU loop because the current cuSOLVER
+        // batched POTRF wrapper accepts one `(d, d)` shape per launch. It only
+        // succeeds when EVERY block is PD at
         // the base ridge; a non-PD block returns `None`, so we fall back to the
         // exact per-row CPU path that performs minimal per-block ridge
         // escalation. After a successful batched factorization we re-apply the
@@ -1381,18 +1975,36 @@ impl BatchedBlockSolver for CpuBatchedBlockSolver {
                 tolerate_ill_conditioning,
             )?);
         }
-        Ok(out)
+        Ok(ArrowFactorSlab::from_blocks(out))
     }
 
-    fn solve_block_vector(&self, factor: &Array2<f64>, rhs: &Array1<f64>) -> Array1<f64> {
-        cholesky_solve_vector(factor, rhs)
+    fn solve_block_vector(
+        &self,
+        factor: ArrayView2<'_, f64>,
+        rhs: ArrayView1<'_, f64>,
+    ) -> Array1<f64> {
+        match (factor.nrows(), factor.ncols(), rhs.len()) {
+            (1, 1, 1) => cholesky_solve_vector_fixed::<1>(factor, rhs),
+            (2, 2, 2) => cholesky_solve_vector_fixed::<2>(factor, rhs),
+            (3, 3, 3) => cholesky_solve_vector_fixed::<3>(factor, rhs),
+            (4, 4, 4) => cholesky_solve_vector_fixed::<4>(factor, rhs),
+            _ => cholesky_solve_vector(factor, rhs),
+        }
     }
 
-    fn solve_block_matrix(&self, factor: &Array2<f64>, rhs: &Array2<f64>) -> Array2<f64> {
+    fn solve_block_matrix(
+        &self,
+        factor: ArrayView2<'_, f64>,
+        rhs: ArrayView2<'_, f64>,
+    ) -> Array2<f64> {
         cholesky_solve_matrix(factor, rhs)
     }
 
-    fn sqrt_solve_block_matrix(&self, factor: &Array2<f64>, rhs: &Array2<f64>) -> Array2<f64> {
+    fn sqrt_solve_block_matrix(
+        &self,
+        factor: ArrayView2<'_, f64>,
+        rhs: ArrayView2<'_, f64>,
+    ) -> Array2<f64> {
         forward_substitution_lower_matrix(factor, rhs)
     }
 
@@ -1450,11 +2062,12 @@ fn try_factor_blocks_batched(
     ridge_t: f64,
     d: usize,
     tolerate_ill_conditioning: bool,
-) -> Option<Vec<Array2<f64>>> {
+) -> Option<ArrowFactorSlab> {
     if d == 0 || rows.is_empty() {
         return None;
     }
-    // Uniform-shape gate: a heterogeneous row defeats the single batched POTRF.
+    // Uniform-shape gate: a heterogeneous row defeats the single-shape batched
+    // POTRF and deliberately falls through to per-row CPU escalation.
     if rows
         .iter()
         .any(|row| row.htt.dim() != (d, d) || row.gt.len() != d)
@@ -1494,7 +2107,7 @@ fn try_factor_blocks_batched(
             }
         }
     }
-    Some(blocks)
+    Some(ArrowFactorSlab::from_blocks(blocks))
 }
 
 fn row_block_diag_scale(row: &ArrowRowBlock, d: usize) -> f64 {
@@ -1584,6 +2197,114 @@ fn safe_spd_kappa_max(dim: usize) -> f64 {
     1.0 / (f64::EPSILON.sqrt() * d_scale)
 }
 
+fn factor_row_block_cholesky(
+    row: &ArrowRowBlock,
+    ridge_eff: f64,
+    d: usize,
+) -> Result<Array2<f64>, String> {
+    match d {
+        1 => factor_row_block_cholesky_fixed::<1>(row, ridge_eff),
+        2 => factor_row_block_cholesky_fixed::<2>(row, ridge_eff),
+        3 => factor_row_block_cholesky_fixed::<3>(row, ridge_eff),
+        4 => factor_row_block_cholesky_fixed::<4>(row, ridge_eff),
+        _ => factor_row_block_cholesky_dynamic(row, ridge_eff, d),
+    }
+}
+
+fn factor_row_block_cholesky_dynamic(
+    row: &ArrowRowBlock,
+    ridge_eff: f64,
+    d: usize,
+) -> Result<Array2<f64>, String> {
+    let mut block = row.htt.clone();
+    for a in 0..d {
+        block[[a, a]] += ridge_eff;
+    }
+    cholesky_lower(&block)
+}
+
+fn factor_row_block_cholesky_fixed<const D: usize>(
+    row: &ArrowRowBlock,
+    ridge_eff: f64,
+) -> Result<Array2<f64>, String> {
+    for i in 0..D {
+        for j in 0..D {
+            let value = if i == j {
+                row.htt[[i, j]] + ridge_eff
+            } else {
+                row.htt[[i, j]]
+            };
+            if !value.is_finite() {
+                let idx = i * D + j;
+                return Err(format!(
+                    "cholesky_lower: non-finite entry at linear index {idx}"
+                ));
+            }
+        }
+    }
+
+    let mut l = [[0.0_f64; D]; D];
+    for i in 0..D {
+        for j in 0..=i {
+            let mut sum = if i == j {
+                row.htt[[i, j]] + ridge_eff
+            } else {
+                row.htt[[i, j]]
+            };
+            for kk in 0..j {
+                sum -= l[i][kk] * l[j][kk];
+            }
+            if i == j {
+                if !sum.is_finite() || sum <= 0.0 {
+                    return Err(format!(
+                        "non-PD pivot {sum} at index {i} (matrix is not positive definite)"
+                    ));
+                }
+                l[i][j] = sum.sqrt();
+            } else {
+                l[i][j] = sum / l[j][j];
+            }
+        }
+    }
+
+    let mut out = Array2::<f64>::zeros((D, D));
+    for i in 0..D {
+        for j in 0..=i {
+            out[[i, j]] = l[i][j];
+        }
+    }
+    Ok(out)
+}
+
+fn cholesky_solve_vector_fixed<const D: usize>(
+    l: ArrayView2<'_, f64>,
+    b: ArrayView1<'_, f64>,
+) -> Array1<f64> {
+    let mut y = [0.0_f64; D];
+    for i in 0..D {
+        let mut sum = b[i];
+        for k in 0..i {
+            sum -= l[[i, k]] * y[k];
+        }
+        y[i] = sum / l[[i, i]];
+    }
+
+    let mut x = [0.0_f64; D];
+    for i in (0..D).rev() {
+        let mut sum = y[i];
+        for k in (i + 1)..D {
+            sum -= l[[k, i]] * x[k];
+        }
+        x[i] = sum / l[[i, i]];
+    }
+
+    let mut out = Array1::<f64>::zeros(D);
+    for i in 0..D {
+        out[i] = x[i];
+    }
+    out
+}
+
 fn factor_one_row(
     row: &ArrowRowBlock,
     ridge_t: f64,
@@ -1653,11 +2374,7 @@ fn factor_one_row(
     // is bit-for-bit unchanged; only a block that cannot be conditioned even at
     // `ridge_cap` (1e12 × base) still surfaces an error for the outer loop.
     let factor = loop {
-        let mut block = row.htt.clone();
-        for a in 0..d {
-            block[[a, a]] += ridge_eff;
-        }
-        match cholesky_lower(&block) {
+        match factor_row_block_cholesky(row, ridge_eff, d) {
             Ok(factor) => {
                 // Evidence/log-det-only callers tolerate ill-conditioning: the
                 // factor is genuinely PD, so its diagonal gives an exact log|S|
@@ -2030,9 +2747,17 @@ impl ArrowRowBlock {
     /// Allocate one BA point-block row: local latent Hessian, point-camera
     /// cross block, and point gradient.
     pub fn new(d: usize, k: usize) -> Self {
+        Self::new_with_htbeta_cols(d, k)
+    }
+
+    /// Allocate one BA row whose dense cross-block slab has `htbeta_cols`
+    /// columns. This is used by matrix-free assemblers that keep the shared
+    /// beta tier at one width while dense row supplements live in another
+    /// coordinate system.
+    pub fn new_with_htbeta_cols(d: usize, htbeta_cols: usize) -> Self {
         Self {
             htt: Array2::<f64>::zeros((d, d)),
-            htbeta: Array2::<f64>::zeros((d, k)),
+            htbeta: Array2::<f64>::zeros((d, htbeta_cols)),
             gt: Array1::<f64>::zeros(d),
         }
     }
@@ -2172,6 +2897,31 @@ pub struct ArrowSchurSystem {
     pub cross_row_penalties: Vec<CrossRowLatentPenalty>,
 }
 
+impl Clone for ArrowSchurSystem {
+    fn clone(&self) -> Self {
+        Self {
+            rows: self.rows.clone(),
+            hbb: self.hbb.clone(),
+            hbb_matvec: self.hbb_matvec.clone(),
+            htbeta_matvec: self.htbeta_matvec.clone(),
+            htbeta_transpose_matvec: self.htbeta_transpose_matvec.clone(),
+            htbeta_dense_supplement: self.htbeta_dense_supplement,
+            hbb_diag: self.hbb_diag.clone(),
+            gb: self.gb.clone(),
+            d: self.d,
+            row_dims: Arc::clone(&self.row_dims),
+            row_offsets: Arc::clone(&self.row_offsets),
+            k: self.k,
+            manifold_mode_fingerprint: self.manifold_mode_fingerprint,
+            row_hessian_fingerprint: self.row_hessian_fingerprint,
+            analytic_row_hessian_fingerprint: self.analytic_row_hessian_fingerprint,
+            block_offsets: Arc::clone(&self.block_offsets),
+            penalty_op: self.penalty_op.clone(),
+            cross_row_penalties: self.cross_row_penalties.clone(),
+        }
+    }
+}
+
 /// A captured cross-row Psi-tier analytic penalty: the penalty kind plus the
 /// global-ρ slice (`rho_local`) it was registered with.
 ///
@@ -2200,12 +2950,82 @@ impl ArrowSchurSystem {
     /// Allocate an empty BA reduced-camera-system instance sized
     /// `(N point/latent rows × d, K shared decoder parameters)`.
     pub fn new(n: usize, d: usize, k: usize) -> Self {
-        let rows = (0..n).map(|_| ArrowRowBlock::new(d, k)).collect();
+        Self::new_with_hbb(n, d, k, Array2::<f64>::zeros((k, k)))
+    }
+
+    /// Allocate an arrow system with no dense shared `H_ββ` block.
+    ///
+    /// Callers must install a penalty operator before solving if the shared block
+    /// has nonzero curvature. This keeps large structured systems from allocating
+    /// a `k × k` dense placeholder when all β curvature is supplied by operators.
+    pub fn new_with_empty_hbb(n: usize, d: usize, k: usize) -> Self {
+        Self::new_with_empty_hbb_and_htbeta_cols(n, d, k, k)
+    }
+
+    /// Allocate an arrow system with no dense shared `H_ββ` block and with
+    /// per-row dense `H_tβ` slabs allocated at `htbeta_cols` columns.
+    pub fn new_with_empty_hbb_and_htbeta_cols(
+        n: usize,
+        d: usize,
+        k: usize,
+        htbeta_cols: usize,
+    ) -> Self {
+        let rows = (0..n)
+            .map(|_| ArrowRowBlock::new_with_htbeta_cols(d, htbeta_cols))
+            .collect();
         let row_dims: Arc<[usize]> = (0..n).map(|_| d).collect::<Vec<_>>().into();
         let row_offsets: Arc<[usize]> = (0..=n).map(|i| i * d).collect::<Vec<_>>().into();
         let mut sys = Self {
             rows,
-            hbb: Array2::<f64>::zeros((k, k)),
+            hbb: Array2::<f64>::zeros((0, 0)),
+            hbb_matvec: None,
+            htbeta_matvec: None,
+            htbeta_transpose_matvec: None,
+            htbeta_dense_supplement: false,
+            hbb_diag: None,
+            gb: Array1::<f64>::zeros(k),
+            d,
+            row_dims,
+            row_offsets,
+            k,
+            manifold_mode_fingerprint: EUCLIDEAN_MANIFOLD_MODE_FINGERPRINT,
+            row_hessian_fingerprint: 0,
+            analytic_row_hessian_fingerprint: 0,
+            block_offsets: Arc::from([] as [Range<usize>; 0]),
+            penalty_op: None,
+            cross_row_penalties: Vec::new(),
+        };
+        sys.refresh_row_hessian_fingerprint();
+        sys
+    }
+
+    /// Allocate an arrow system using a caller-owned dense shared-block buffer.
+    /// The buffer must already have shape `(k, k)` and is zeroed in place before
+    /// use so callers can recycle it across assemblies without changing
+    /// numerics.
+    pub fn new_with_hbb(n: usize, d: usize, k: usize, hbb: Array2<f64>) -> Self {
+        Self::new_with_hbb_and_htbeta_cols(n, d, k, hbb, k)
+    }
+
+    /// Allocate an arrow system with a caller-owned dense shared-block buffer and
+    /// per-row dense `H_tβ` slabs allocated at `htbeta_cols` columns.
+    pub fn new_with_hbb_and_htbeta_cols(
+        n: usize,
+        d: usize,
+        k: usize,
+        mut hbb: Array2<f64>,
+        htbeta_cols: usize,
+    ) -> Self {
+        assert_eq!(hbb.dim(), (k, k));
+        hbb.fill(0.0);
+        let rows = (0..n)
+            .map(|_| ArrowRowBlock::new_with_htbeta_cols(d, htbeta_cols))
+            .collect();
+        let row_dims: Arc<[usize]> = (0..n).map(|_| d).collect::<Vec<_>>().into();
+        let row_offsets: Arc<[usize]> = (0..=n).map(|i| i * d).collect::<Vec<_>>().into();
+        let mut sys = Self {
+            rows,
+            hbb,
             hbb_matvec: None,
             htbeta_matvec: None,
             htbeta_transpose_matvec: None,
@@ -2288,6 +3108,79 @@ impl ArrowSchurSystem {
     /// hard-concrete) where the active-set size varies per observation.
     /// `sys.d` is set to `max(per_row_dims)` (or 0 for an empty system).
     pub fn new_with_per_row_dims(per_row_dims: Vec<usize>, k: usize) -> Self {
+        Self::new_with_per_row_dims_and_hbb(per_row_dims, k, Array2::<f64>::zeros((k, k)))
+    }
+
+    /// Allocate a heterogeneous-row arrow system with no dense shared `H_ββ`
+    /// block. See [`Self::new_with_empty_hbb`].
+    pub fn new_with_per_row_dims_empty_hbb(per_row_dims: Vec<usize>, k: usize) -> Self {
+        Self::new_with_per_row_dims_empty_hbb_and_htbeta_cols(per_row_dims, k, k)
+    }
+
+    /// Allocate a heterogeneous-row arrow system with no dense shared `H_ββ`
+    /// block and with row `H_tβ` slabs allocated at `htbeta_cols` columns.
+    pub fn new_with_per_row_dims_empty_hbb_and_htbeta_cols(
+        per_row_dims: Vec<usize>,
+        k: usize,
+        htbeta_cols: usize,
+    ) -> Self {
+        let n = per_row_dims.len();
+        let d = per_row_dims.iter().copied().max().unwrap_or(0);
+        let mut offsets = Vec::with_capacity(n + 1);
+        let mut cursor = 0usize;
+        offsets.push(cursor);
+        for &dim in &per_row_dims {
+            cursor += dim;
+            offsets.push(cursor);
+        }
+        let rows = per_row_dims
+            .iter()
+            .map(|&dim| ArrowRowBlock::new_with_htbeta_cols(dim, htbeta_cols))
+            .collect();
+        let mut sys = Self {
+            rows,
+            hbb: Array2::<f64>::zeros((0, 0)),
+            hbb_matvec: None,
+            htbeta_matvec: None,
+            htbeta_transpose_matvec: None,
+            htbeta_dense_supplement: false,
+            hbb_diag: None,
+            gb: Array1::<f64>::zeros(k),
+            d,
+            row_dims: Arc::from(per_row_dims.into_boxed_slice()),
+            row_offsets: Arc::from(offsets.into_boxed_slice()),
+            k,
+            manifold_mode_fingerprint: EUCLIDEAN_MANIFOLD_MODE_FINGERPRINT,
+            row_hessian_fingerprint: 0,
+            analytic_row_hessian_fingerprint: 0,
+            block_offsets: Arc::from([] as [Range<usize>; 0]),
+            penalty_op: None,
+            cross_row_penalties: Vec::new(),
+        };
+        sys.refresh_row_hessian_fingerprint();
+        sys
+    }
+
+    /// Allocate a heterogeneous-row system using a caller-owned dense
+    /// shared-block buffer. See [`Self::new_with_hbb`] for the reuse contract.
+    pub fn new_with_per_row_dims_and_hbb(
+        per_row_dims: Vec<usize>,
+        k: usize,
+        hbb: Array2<f64>,
+    ) -> Self {
+        Self::new_with_per_row_dims_and_hbb_and_htbeta_cols(per_row_dims, k, hbb, k)
+    }
+
+    /// Allocate a heterogeneous-row system using a caller-owned dense shared
+    /// block and row `H_tβ` slabs allocated at `htbeta_cols` columns.
+    pub fn new_with_per_row_dims_and_hbb_and_htbeta_cols(
+        per_row_dims: Vec<usize>,
+        k: usize,
+        mut hbb: Array2<f64>,
+        htbeta_cols: usize,
+    ) -> Self {
+        assert_eq!(hbb.dim(), (k, k));
+        hbb.fill(0.0);
         let n = per_row_dims.len();
         let max_d = per_row_dims.iter().copied().max().unwrap_or(0);
         let row_dims: Arc<[usize]> = per_row_dims.iter().copied().collect::<Vec<_>>().into();
@@ -2301,11 +3194,11 @@ impl ArrowSchurSystem {
         let row_offsets: Arc<[usize]> = off_vec.into();
         let rows = per_row_dims
             .iter()
-            .map(|&di| ArrowRowBlock::new(di, k))
+            .map(|&di| ArrowRowBlock::new_with_htbeta_cols(di, htbeta_cols))
             .collect();
         let mut sys = Self {
             rows,
-            hbb: Array2::<f64>::zeros((k, k)),
+            hbb,
             hbb_matvec: None,
             htbeta_matvec: None,
             htbeta_transpose_matvec: None,
@@ -3145,7 +4038,7 @@ impl StreamingArrowSchur {
             let htbeta = self.row_htbeta(row_idx, &row, di);
             let factor =
                 factor_one_row(&row, ridge_t, di, row_idx, self.tolerate_ill_conditioning)?;
-            let v = backend.solve_block_vector(&factor, &row.gt);
+            let v = backend.solve_block_vector(factor.view(), row.gt.view());
             for c in 0..di {
                 let vc = v[c];
                 if vc == 0.0 {
@@ -3166,11 +4059,11 @@ impl StreamingArrowSchur {
                 // rejection at this site is lifted because chunked assembly is
                 // exactly the matrix-free reduction the PCG path wants.
                 ArrowSolverMode::Direct | ArrowSolverMode::InexactPCG => {
-                    let solved = backend.solve_block_matrix(&factor, &htbeta);
+                    let solved = backend.solve_block_matrix(factor.view(), htbeta.view());
                     backend.block_gemm_subtract(&mut self.s_acc, &htbeta, &solved);
                 }
                 ArrowSolverMode::SqrtBA => {
-                    let whitened = backend.sqrt_solve_block_matrix(&factor, &htbeta);
+                    let whitened = backend.sqrt_solve_block_matrix(factor.view(), htbeta.view());
                     backend.block_gemm_subtract(&mut self.s_acc, &whitened, &whitened);
                 }
             }
@@ -3216,11 +4109,12 @@ impl StreamingArrowSchur {
                 }
                 match options.mode {
                     ArrowSolverMode::Direct | ArrowSolverMode::InexactPCG => {
-                        let solved = backend.solve_block_matrix(&factor, &htbeta);
+                        let solved = backend.solve_block_matrix(factor.view(), htbeta.view());
                         backend.block_gemm_subtract(&mut self.s_acc, &htbeta, &solved);
                     }
                     ArrowSolverMode::SqrtBA => {
-                        let whitened = backend.sqrt_solve_block_matrix(&factor, &htbeta);
+                        let whitened =
+                            backend.sqrt_solve_block_matrix(factor.view(), htbeta.view());
                         backend.block_gemm_subtract(&mut self.s_acc, &whitened, &whitened);
                     }
                 }
@@ -3328,7 +4222,7 @@ impl StreamingArrowSchur {
                 for c in 0..di {
                     rhs[c] = row.gt[c] + htbeta_delta[c];
                 }
-                let dt_i = backend.solve_block_vector(&factor, &rhs);
+                let dt_i = backend.solve_block_vector(factor.view(), rhs.view());
                 let row_base = self.row_offsets[row_idx];
                 for c in 0..di {
                     delta_t[row_base + c] = -dt_i[c];
@@ -3437,9 +4331,65 @@ fn analytic_penalty_is_row_block_diagonal(penalty: &AnalyticPenaltyKind) -> bool
 /// predicted by re-using these factors against a refreshed RHS, saving
 /// the dominant `O(N d³ + K³)` factorization cost.
 #[derive(Clone)]
+pub struct ArrowFactorSlab {
+    data: Arc<[f64]>,
+    offsets: Arc<[usize]>,
+    dims: Arc<[usize]>,
+}
+
+impl ArrowFactorSlab {
+    pub fn from_blocks(blocks: Vec<Array2<f64>>) -> Self {
+        let mut data = Vec::new();
+        let mut offsets = Vec::with_capacity(blocks.len() + 1);
+        let mut dims = Vec::with_capacity(blocks.len());
+        offsets.push(0);
+        for block in blocks {
+            let (rows, cols) = block.dim();
+            assert_eq!(rows, cols, "ArrowFactorSlab stores square row factors");
+            dims.push(rows);
+            data.extend(block.iter().copied());
+            offsets.push(data.len());
+        }
+        Self {
+            data: data.into(),
+            offsets: offsets.into(),
+            dims: dims.into(),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.dims.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.dims.is_empty()
+    }
+
+    pub fn factor(&self, row: usize) -> ArrayView2<'_, f64> {
+        let dim = self.dims[row];
+        let range = self.offsets[row]..self.offsets[row + 1];
+        ArrayView2::from_shape((dim, dim), &self.data[range])
+            .expect("ArrowFactorSlab row offset/dim invariant violated")
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = ArrayView2<'_, f64>> + '_ {
+        (0..self.len()).map(|row| self.factor(row))
+    }
+}
+
+impl std::fmt::Debug for ArrowFactorSlab {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ArrowFactorSlab")
+            .field("rows", &self.len())
+            .field("values", &self.data.len())
+            .finish()
+    }
+}
+
+#[derive(Clone)]
 pub enum ArrowUndampedFactors {
     SameAsDamped,
-    Owned(Arc<[Array2<f64>]>),
+    Owned(ArrowFactorSlab),
 }
 
 impl std::fmt::Debug for ArrowUndampedFactors {
@@ -3720,7 +4670,7 @@ pub struct ArrowFactorCache {
     ///
     /// These are the *damped* factors used inside the Newton solve. The IFT
     /// predictor must NOT use them — see [`Self::htt_factors_undamped`].
-    pub htt_factors: Arc<[Array2<f64>]>,
+    pub htt_factors: ArrowFactorSlab,
     /// Per-row lower-triangular Cholesky factors of the UNDAMPED
     /// `H_tt^(i)` (no `ridge_t` added).
     ///
@@ -3771,6 +4721,104 @@ pub struct ArrowFactorCache {
     pub pcg_diagnostics: PcgDiagnostics,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ArrowFactorMinPivot {
+    pub min_row_pivot: Option<f64>,
+    pub min_schur_pivot: Option<f64>,
+    pub min_pivot: Option<f64>,
+}
+
+impl ArrowFactorMinPivot {
+    fn combine(row: Option<f64>, schur: Option<f64>) -> Self {
+        let min_pivot = match (row, schur) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (Some(a), None) => Some(a),
+            (None, Some(b)) => Some(b),
+            (None, None) => None,
+        };
+        Self {
+            min_row_pivot: row,
+            min_schur_pivot: schur,
+            min_pivot,
+        }
+    }
+}
+
+fn lower_cholesky_min_pivot(factor: ArrayView2<'_, f64>) -> Option<f64> {
+    let width = factor.nrows().min(factor.ncols());
+    let mut out = None;
+    for idx in 0..width {
+        let pivot = factor[[idx, idx]] * factor[[idx, idx]];
+        out = Some(match out {
+            Some(current) => f64::min(current, pivot),
+            None => pivot,
+        });
+    }
+    out
+}
+
+fn lower_cholesky_max_pivot(factor: ArrayView2<'_, f64>) -> Option<f64> {
+    let width = factor.nrows().min(factor.ncols());
+    let mut out = None;
+    for idx in 0..width {
+        let pivot = factor[[idx, idx]] * factor[[idx, idx]];
+        out = Some(match out {
+            Some(current) => f64::max(current, pivot),
+            None => pivot,
+        });
+    }
+    out
+}
+
+/// Smallest cached Cholesky pivot for row blocks and the dense Schur factor.
+///
+/// Pivots are returned as squared lower-factor diagonals, matching the Hessian
+/// scale rather than the Cholesky-factor scale. In inexact PCG mode the dense
+/// Schur factor is absent, so `min_schur_pivot` is `None`.
+pub fn arrow_factor_min_pivot(cache: &ArrowFactorCache) -> ArrowFactorMinPivot {
+    let mut min_row_pivot = None;
+    for factor in cache.htt_factors.iter() {
+        if let Some(pivot) = lower_cholesky_min_pivot(factor) {
+            min_row_pivot = Some(match min_row_pivot {
+                Some(current) => f64::min(current, pivot),
+                None => pivot,
+            });
+        }
+    }
+    let min_schur_pivot = cache
+        .schur_factor
+        .as_ref()
+        .and_then(|factor| lower_cholesky_min_pivot(factor.view()));
+    ArrowFactorMinPivot::combine(min_row_pivot, min_schur_pivot)
+}
+
+/// Largest cached Cholesky pivot across the row blocks and the dense Schur
+/// factor (Hessian scale, i.e. squared lower-factor diagonal). This is the
+/// diagonal magnitude scale a safe-SPD pivot floor is measured against: the
+/// curvature-homotopy tracker (#1007) compares the min pivot against
+/// `√eps · max(this, 1)`, the same floor the inner solver's
+/// [`safe_spd_pivot_min`] uses. `None` only for an empty cache.
+pub fn arrow_factor_max_pivot(cache: &ArrowFactorCache) -> Option<f64> {
+    let mut max_pivot: Option<f64> = None;
+    for factor in cache.htt_factors.iter() {
+        if let Some(pivot) = lower_cholesky_max_pivot(factor) {
+            max_pivot = Some(match max_pivot {
+                Some(current) => f64::max(current, pivot),
+                None => pivot,
+            });
+        }
+    }
+    if let Some(factor) = cache.schur_factor.as_ref()
+        && let Some(pivot) = lower_cholesky_max_pivot(factor.view())
+    {
+        max_pivot = Some(match max_pivot {
+            Some(current) => f64::max(current, pivot),
+            None => pivot,
+        });
+    }
+    max_pivot
+}
+
 impl ArrowFactorCache {
     pub fn n_rows(&self) -> usize {
         self.htt_factors.len()
@@ -3780,10 +4828,10 @@ impl ArrowFactorCache {
         self.htbeta.is_available()
     }
 
-    pub fn undamped_factor(&self, row: usize) -> &Array2<f64> {
+    pub fn undamped_factor(&self, row: usize) -> ArrayView2<'_, f64> {
         match &self.htt_factors_undamped {
-            ArrowUndampedFactors::SameAsDamped => &self.htt_factors[row],
-            ArrowUndampedFactors::Owned(factors) => &factors[row],
+            ArrowUndampedFactors::SameAsDamped => self.htt_factors.factor(row),
+            ArrowUndampedFactors::Owned(factors) => factors.factor(row),
         }
     }
 
@@ -3794,7 +4842,7 @@ impl ArrowFactorCache {
         }
     }
 
-    pub fn undamped_factors_iter(&self) -> impl Iterator<Item = &Array2<f64>> {
+    pub fn undamped_factors_iter(&self) -> impl Iterator<Item = ArrayView2<'_, f64>> + '_ {
         (0..self.undamped_factor_count()).map(|row| self.undamped_factor(row))
     }
 
@@ -3845,96 +4893,6 @@ impl ArrowFactorCache {
             .apply_row_transpose_accumulate(row, v, out, di, self.k, fallback_op)
     }
 
-    /// Apply `Δt_i = -(H_tt^(i))⁻¹ · (H_tβ^(i) · Δβ)` per row, returning
-    /// the flat `Δt` of total length `row_offsets[N]`.
-    ///
-    /// IFT first-order predictor for the latent field under a
-    /// shape-coefficient perturbation `Δβ`. BA analogue: back-substitution
-    /// after the reduced-camera-system solve.
-    pub fn predict_delta_t_from_delta_beta(&self, delta_beta: ArrayView1<'_, f64>) -> Array1<f64> {
-        let n = self.undamped_factor_count();
-        let total_len = self.delta_t_len();
-        assert_eq!(delta_beta.len(), self.k);
-        if !self.htbeta_available() {
-            return Array1::<f64>::zeros(total_len);
-        }
-        let mut out = Array1::<f64>::zeros(total_len);
-        let mut rhs = Array1::<f64>::zeros(self.d);
-        for i in 0..n {
-            let di = self.row_dims[i];
-            rhs.fill(0.0);
-            let rhs_i = rhs.slice_mut(ndarray::s![..di]);
-            let mut rhs_slice = rhs_i.to_owned();
-            if !self.apply_htbeta_row(i, delta_beta.view(), &mut rhs_slice) {
-                return Array1::<f64>::zeros(total_len);
-            }
-            let v = cholesky_solve_vector(self.undamped_factor(i), &rhs_slice);
-            let row_base = self.row_offsets[i];
-            for c in 0..di {
-                out[row_base + c] = -v[c];
-            }
-        }
-        out
-    }
-
-    /// Apply the *combined* IFT predictor
-    /// `Δt_i = -(H_tt^(i))⁻¹ · (H_tβ^(i) Δβ + δg_t^(i))` per row.
-    ///
-    /// This is the canonical single-pass form of the IFT formula. Compared to
-    /// the legacy split
-    /// path (`predict_delta_t_from_delta_beta` + `predict_delta_t_from_delta_gt`),
-    /// this routine performs *one* per-row Cholesky back-substitution
-    /// instead of two — halving the IFT predictor cost for callers that
-    /// have both a β perturbation and a per-row gradient perturbation.
-    pub fn predict_delta_t_combined(
-        &self,
-        delta_beta: Option<ArrayView1<'_, f64>>,
-        delta_gt: Option<ArrayView1<'_, f64>>,
-    ) -> Array1<f64> {
-        let n = self.undamped_factor_count();
-        let total_len = self.delta_t_len();
-        if let Some(db) = delta_beta.as_ref() {
-            assert_eq!(db.len(), self.k);
-        }
-        if let Some(dg) = delta_gt.as_ref() {
-            assert_eq!(dg.len(), total_len);
-        }
-        let mut out = Array1::<f64>::zeros(total_len);
-        // Hoist per-row scratch outside the loop; sized to max_d.
-        let mut rhs = Array1::<f64>::zeros(self.d);
-        let mut htbeta_delta = Array1::<f64>::zeros(self.d);
-        for i in 0..n {
-            let di = self.row_dims[i];
-            let row_base = self.row_offsets[i];
-            for c in 0..di {
-                rhs[c] = 0.0;
-            }
-            if let Some(db) = delta_beta.as_ref() {
-                for c in 0..di {
-                    htbeta_delta[c] = 0.0;
-                }
-                let mut htbeta_slice = htbeta_delta.slice_mut(ndarray::s![..di]).to_owned();
-                if !self.apply_htbeta_row(i, db.view(), &mut htbeta_slice) {
-                    return Array1::<f64>::zeros(total_len);
-                }
-                for c in 0..di {
-                    rhs[c] += htbeta_slice[c];
-                }
-            }
-            if let Some(dg) = delta_gt.as_ref() {
-                for c in 0..di {
-                    rhs[c] += dg[row_base + c];
-                }
-            }
-            let rhs_slice = rhs.slice(ndarray::s![..di]).to_owned();
-            let v = cholesky_solve_vector(self.undamped_factor(i), &rhs_slice);
-            for c in 0..di {
-                out[row_base + c] = -v[c];
-            }
-        }
-        out
-    }
-
     /// Arrow log-determinant
     /// `log|H| = Σ_i log|H_{t_i t_i}| + log|Schur_β|`
     /// using the cached (damped) factors.
@@ -3963,36 +4921,6 @@ impl ArrowFactorCache {
             2.0 * s
         });
         (log_det_tt, log_det_schur)
-    }
-
-    /// Apply `Δt_i = -(H_tt^(i))⁻¹ · δg_t^(i)` per row.
-    ///
-    /// IFT first-order predictor for the latent field under a
-    /// per-row gradient perturbation (typically `∂g_t/∂ρ · Δρ`
-    /// resolved externally by the driver). BA analogue: reuse point-block
-    /// factors for local point updates after shared parameters move.
-    pub fn predict_delta_t_from_delta_gt(&self, delta_gt: ArrayView1<'_, f64>) -> Array1<f64> {
-        let n = self.undamped_factor_count();
-        let total_len = self.delta_t_len();
-        assert_eq!(delta_gt.len(), total_len);
-        assert_eq!(
-            self.undamped_factor_count(),
-            n,
-            "undamped factor cache and N must agree"
-        );
-        let mut out = Array1::<f64>::zeros(total_len);
-        for i in 0..n {
-            let di = self.row_dims[i];
-            let row_base = self.row_offsets[i];
-            let rhs = delta_gt
-                .slice(ndarray::s![row_base..row_base + di])
-                .to_owned();
-            let v = cholesky_solve_vector(self.undamped_factor(i), &rhs);
-            for c in 0..di {
-                out[row_base + c] = -v[c];
-            }
-        }
-        out
     }
 
     /// Diagonal of the latent (`t`-block) of the *full* bordered-arrow
@@ -4091,6 +5019,106 @@ impl ArrowFactorCache {
         Ok(out)
     }
 
+    /// Solve the full bordered-arrow system `H·u = w` on the cached factor
+    /// (#1006): `w` arrives in arrow layout — `w_t` flat per
+    /// [`Self::delta_t_len`] / `row_offsets`, `w_beta` of length `K` — and the
+    /// solution comes back in the same layout. Standard block elimination on
+    /// the SAME factors whose log-determinant the evidence reports:
+    ///
+    /// ```text
+    ///   y_i      = H_tt^(i)⁻¹ · w_t^(i)
+    ///   r_β      = w_β − Σ_i H_βt^(i) · y_i
+    ///   u_β      = Schur⁻¹ · r_β
+    ///   u_t^(i)  = y_i − H_tt^(i)⁻¹ · (H_tβ^(i) · u_β)
+    /// ```
+    ///
+    /// This is the IFT / adjoint back-solve the analytic outer ρ-gradient
+    /// consumes: `u_j = H⁻¹ (∂g/∂ρ_j)` per outer coordinate and the
+    /// `H⁻¹`-side of the third-order correction `−½·Γᵀ·H⁻¹·(∂g/∂ρ_j)`.
+    /// Contract: the cache must be the ridge-0 Direct evidence factor
+    /// (undamped per-row factors + dense Schur), so the solve is against the
+    /// criterion's own `H` — never a damped surrogate (that would desync the
+    /// gradient from the reported evidence).
+    pub fn full_inverse_apply(
+        &self,
+        w_t: ArrayView1<'_, f64>,
+        w_beta: ArrayView1<'_, f64>,
+    ) -> Result<(Array1<f64>, Array1<f64>), ArrowSchurError> {
+        let total_len = self.delta_t_len();
+        if w_t.len() != total_len || w_beta.len() != self.k {
+            return Err(ArrowSchurError::SchurFactorFailed {
+                reason: format!(
+                    "full_inverse_apply: rhs shapes (w_t={}, w_beta={}) != (delta_t_len={}, K={})",
+                    w_t.len(),
+                    w_beta.len(),
+                    total_len,
+                    self.k
+                ),
+            });
+        }
+        let n = self.undamped_factor_count();
+        // Forward pass: y_i = H_tt^(i)⁻¹ w_t^(i), accumulating the border RHS.
+        let mut y = Array1::<f64>::zeros(total_len);
+        let mut r_beta = w_beta.to_owned();
+        for i in 0..n {
+            let di = self.row_dims[i];
+            let base = self.row_offsets[i];
+            let factor = self.undamped_factor(i);
+            let w_row = w_t.slice(ndarray::s![base..base + di]).to_owned();
+            let y_row = cholesky_solve_vector(factor, &w_row);
+            if self.k > 0 {
+                // r_β −= H_βt^(i) y_i: accumulate into a scratch then subtract,
+                // because the helper ACCUMULATES (+=) into its output.
+                let mut acc = Array1::<f64>::zeros(self.k);
+                if !self.apply_htbeta_row_transpose(i, y_row.view(), &mut acc, None) {
+                    return Err(ArrowSchurError::SchurFactorFailed {
+                        reason: format!(
+                            "full_inverse_apply: H_βt^({i}) apply failed (htbeta cache \
+                             could not supply row {i})"
+                        ),
+                    });
+                }
+                for c in 0..self.k {
+                    r_beta[c] -= acc[c];
+                }
+            }
+            for j in 0..di {
+                y[base + j] = y_row[j];
+            }
+        }
+        // Border solve + back-substitution.
+        let u_beta = if self.k > 0 {
+            self.schur_inverse_apply(r_beta.view())?
+        } else {
+            Array1::<f64>::zeros(0)
+        };
+        let mut u_t = y;
+        if self.k > 0 {
+            let mut cross = Array1::<f64>::zeros(self.d);
+            for i in 0..n {
+                let di = self.row_dims[i];
+                let base = self.row_offsets[i];
+                let mut cross_row = cross.slice_mut(ndarray::s![..di]);
+                cross_row.fill(0.0);
+                let mut cross_owned = cross_row.to_owned();
+                if !self.apply_htbeta_row(i, u_beta.view(), &mut cross_owned) {
+                    return Err(ArrowSchurError::SchurFactorFailed {
+                        reason: format!(
+                            "full_inverse_apply: H_tβ^({i}) apply failed (htbeta cache \
+                             could not supply row {i})"
+                        ),
+                    });
+                }
+                let factor = self.undamped_factor(i);
+                let corr = cholesky_solve_vector(factor, &cross_owned);
+                for j in 0..di {
+                    u_t[base + j] -= corr[j];
+                }
+            }
+        }
+        Ok((u_t, u_beta))
+    }
+
     /// Apply the β-block of the full inverse, `(H⁻¹)_ββ · rhs = S_β⁻¹ · rhs`,
     /// where `S_β` is the Schur complement on β whose Cholesky factor this
     /// cache holds in [`Self::schur_factor`].
@@ -4138,34 +5166,6 @@ impl ArrowFactorCache {
         }
         let rhs_owned = rhs.to_owned();
         Ok(cholesky_solve_vector(schur_factor, &rhs_owned))
-    }
-
-    /// Diagonal of the β-block of the full inverse, `diag((H⁻¹)_ββ) = diag(S_β⁻¹)`,
-    /// length `K`.
-    ///
-    /// Convenience built from `K` Cholesky back-substitutions against the
-    /// unit vectors (`[S_β⁻¹]_{jj} = e_jᵀ S_β⁻¹ e_j`), reusing the cached
-    /// factor. Useful for the per-β-coordinate effective dof. Same dense-Schur
-    /// requirement / error contract as [`Self::schur_inverse_apply`].
-    pub fn schur_inverse_diagonal(&self) -> Result<Array1<f64>, ArrowSchurError> {
-        let Some(schur_factor) = self.schur_factor.as_ref() else {
-            return Err(ArrowSchurError::SchurFactorFailed {
-                reason: "schur_inverse_diagonal requires a dense Schur factor; \
-                         the InexactPCG mode does not form one"
-                    .to_string(),
-            });
-        };
-        let mut out = Array1::<f64>::zeros(self.k);
-        let mut e_j = Array1::<f64>::zeros(self.k);
-        for j in 0..self.k {
-            for c in 0..self.k {
-                e_j[c] = 0.0;
-            }
-            e_j[j] = 1.0;
-            let col = cholesky_solve_vector(schur_factor, &e_j);
-            out[j] = col[j];
-        }
-        Ok(out)
     }
 
     /// Dense principal sub-block of the β-block of the full inverse,
@@ -4276,15 +5276,16 @@ pub fn solve_arrow_newton_step_with_options(
     // ridge_t was zero the damped and undamped factors coincide and we
     // can alias htt_factors directly; otherwise pay a second per-row
     // Cholesky (O(N d³), same complexity class as the Newton solve).
-    let htt_factors = Arc::<[Array2<f64>]>::from(step.htt_factors);
+    let htt_factors = step.htt_factors;
     let htt_factors_undamped = if ridge_t == 0.0 {
         ArrowUndampedFactors::SameAsDamped
     } else {
-        ArrowUndampedFactors::Owned(
-            backend
-                .factor_blocks(&sys.rows, 0.0, sys.d, options.tolerate_ill_conditioning)?
-                .into(),
-        )
+        ArrowUndampedFactors::Owned(backend.factor_blocks(
+            &sys.rows,
+            0.0,
+            sys.d,
+            options.tolerate_ill_conditioning,
+        )?)
     };
     let cache = ArrowFactorCache {
         htt_factors,
@@ -4325,13 +5326,168 @@ pub fn solve_arrow_newton_step_core(
     options: &ArrowSolveOptions,
 ) -> Result<(Array1<f64>, Array1<f64>, PcgDiagnostics), ArrowSchurError> {
     if let Some(chunk_size) = options.streaming_chunk_size {
+        // #1014: the streaming/residency path is the memory-bound assembly wall,
+        // so its reduced dense Schur solve runs certified mixed precision by
+        // default (κ-gated f32 factor + f64 residual refinement, automatic f64
+        // fallback). The reduced-Schur f64 factor — and therefore every evidence
+        // log-determinant — is unaffected: only the Δβ solve drops to f32. An
+        // explicit caller policy is honored as-is.
+        let streaming_options = options.with_streaming_mixed_precision_default();
         let mut streaming = StreamingArrowSchur::from_system(sys, chunk_size);
         return streaming
-            .solve(ridge_t, ridge_beta, options)
+            .solve(ridge_t, ridge_beta, &streaming_options)
             .map(|(delta_t, delta_beta, _)| (delta_t, delta_beta, PcgDiagnostics::default()));
+    }
+    // #1017 phase-3 production seam: when a device is present and the dense
+    // Schur work clears the work-based dispatch threshold (LLM/SAE shapes —
+    // few rows, thousands of border columns), route the Direct-mode point solve
+    // through the fully device-resident batched Arrow-Schur sequence. The host
+    // never sees the factors here (this `_core` entry discards the IFT cache),
+    // so the device's scalars-only `(Δt, Δβ)` readback is exactly the contract.
+    // Magic-by-default: no flag — the predicate fires from the shape. Any
+    // non-admission or device failure falls through to the bit-identical CPU
+    // path below, so the numbers are unchanged when the device declines.
+    if let Some(device_step) = try_device_arrow_direct(sys, ridge_t, ridge_beta, options) {
+        return device_step;
+    }
+    // #1017 production seam for the matrix-free SAE path: the real SAE decoder
+    // β-block is the Kronecker operator (`htbeta_matvec`), never a dense slab,
+    // so the dense device-resident solve above declines and the mode is
+    // `InexactPCG`. The reduced-Schur matvec `Σ_i Y_i^T(Y_i x)` is the PCG hot
+    // loop and is exactly what `gpu_schur_matvec_backend` offloads (dense rows)
+    // or the row-procedural Kronecker apply handles (matrix-free). When the
+    // device admits and the caller did not already supply a matvec, build one
+    // and inject it through a cloned options so the existing InexactPCG branch
+    // consumes it. On any device decline the original (CPU) options are used
+    // unchanged, so results are bit-identical.
+    if let Some(device_options) = maybe_inject_gpu_schur_matvec(sys, ridge_t, ridge_beta, options) {
+        return solve_arrow_newton_step_artifacts(sys, ridge_t, ridge_beta, &device_options).map(
+            |step| {
+                let mut diagnostics = step.pcg_diagnostics;
+                diagnostics.used_device_arrow = true;
+                (step.delta_t, step.delta_beta, diagnostics)
+            },
+        );
     }
     solve_arrow_newton_step_artifacts(sys, ridge_t, ridge_beta, options)
         .map(|step| (step.delta_t, step.delta_beta, step.pcg_diagnostics))
+}
+
+/// Build and inject the GPU reduced-Schur matvec backend for an admitted
+/// `InexactPCG` solve, returning a cloned `ArrowSolveOptions` carrying it.
+///
+/// Returns `None` (caller keeps the original CPU options) when: the mode is not
+/// `InexactPCG`; the caller already supplied a `gpu_matvec`; no device is
+/// present; the work-based predicate declines the shape; or the backend build
+/// fails for any reason. The PCG numerics are identical whether the matvec runs
+/// on host or device (same reduced Schur operator, same f64 accumulation), so
+/// injecting it changes only where the `Σ_i Y_i^T(Y_i x)` flops execute.
+fn maybe_inject_gpu_schur_matvec(
+    sys: &ArrowSchurSystem,
+    ridge_t: f64,
+    ridge_beta: f64,
+    options: &ArrowSolveOptions,
+) -> Option<ArrowSolveOptions> {
+    if options.mode != ArrowSolverMode::InexactPCG || options.gpu_matvec.is_some() {
+        return None;
+    }
+    if !sys.cross_row_penalties.is_empty() || options.streaming_chunk_size.is_some() {
+        return None;
+    }
+    let runtime = crate::gpu::runtime::GpuRuntime::global()?;
+    // Key the work predicate on (n_rows, border_k): the reduced Schur matvec is
+    // O(n · d · k) per apply and the PCG runs many applies, so the per-iteration
+    // border work `k` is the dense-Hessian width the threshold is calibrated on.
+    if !runtime
+        .policy()
+        .dense_hessian_work_target_is_gpu(sys.rows.len(), sys.k)
+    {
+        return None;
+    }
+    let matvec =
+        crate::gpu::arrow_schur::gpu_schur_matvec_backend(sys, ridge_t, ridge_beta).ok()?;
+    let mut device_options = options.clone();
+    device_options.gpu_matvec = Some(matvec);
+    Some(device_options)
+}
+
+/// Admission + dispatch for the device-resident Direct Arrow-Schur point solve.
+///
+/// Returns `Some(Ok(..))` when the device path produced a step, `Some(Err(..))`
+/// only for a genuine numerical failure the device surfaced that the caller
+/// must see (a non-PD pivot the LM escalation should respond to), and `None`
+/// when the device declined for any reason — shape below threshold, no CUDA,
+/// matrix-free operators present, or a transient device-unavailable — so the
+/// caller transparently falls back to the CPU path.
+///
+/// The predicate is the same work-based gate the device-resident PIRLS loop
+/// uses (`dense_hessian_work_target_is_gpu`) keyed on `(n_rows, border_k)`:
+/// the reduced Schur assembly is `O(n · d · k²)`, dominated by the `k²` border,
+/// so `k` is the dense-Hessian width. Below `DEVICE_LOOP_MIN_P` border columns
+/// or below the flop floor the launch/staging overhead loses to the CPU dense
+/// Cholesky, so the device is not engaged.
+fn try_device_arrow_direct(
+    sys: &ArrowSchurSystem,
+    ridge_t: f64,
+    ridge_beta: f64,
+    options: &ArrowSolveOptions,
+) -> Option<Result<(Array1<f64>, Array1<f64>, PcgDiagnostics), ArrowSchurError>> {
+    // Only the dense Direct mode maps onto the device dense-Schur sequence.
+    // SqrtBA / InexactPCG have distinct numerics (square-root factors,
+    // truncated-CG trust region) and must stay on their CPU implementations so
+    // results are unchanged.
+    if options.mode != ArrowSolverMode::Direct {
+        return None;
+    }
+    // Cross-row penalties, streaming, and matrix-free H_ββ / H_tβ operators are
+    // all outside the dense device path; the GPU entry itself rejects the
+    // matrix-free cases, but short-circuit here so we never pay a device probe
+    // for a system that cannot route.
+    if !sys.cross_row_penalties.is_empty()
+        || options.streaming_chunk_size.is_some()
+        || sys.hbb_matvec.is_some()
+        || sys.htbeta_matvec.is_some()
+    {
+        return None;
+    }
+    let runtime = crate::gpu::runtime::GpuRuntime::global()?;
+    let admitted = runtime
+        .policy()
+        .dense_hessian_work_target_is_gpu(sys.rows.len(), sys.k);
+    if !admitted {
+        return None;
+    }
+    match crate::gpu::arrow_schur::solve_arrow_newton_step(sys, ridge_t, ridge_beta) {
+        Ok(solution) => {
+            let diagnostics = PcgDiagnostics {
+                used_device_arrow: true,
+                ..PcgDiagnostics::default()
+            };
+            Some(Ok((solution.delta_t, solution.delta_beta, diagnostics)))
+        }
+        // A non-PD per-row block or Schur pivot is a real numerical condition
+        // the LM escalation around this solve must respond to; surface it as the
+        // matching CPU error variant so `solve_with_lm_escalation_inner` bumps
+        // the ridge and retries (it re-enters here and may route to device again
+        // at the larger ridge, or fall to CPU if the device keeps declining).
+        Err(crate::gpu::arrow_schur::ArrowSchurGpuFailure::RidgeBumpRequired { row, bump }) => {
+            Some(Err(ArrowSchurError::PerRowFactorFailed {
+                row,
+                reason: format!("device per-row block non-PD; suggested ridge bump {bump:e}"),
+            }))
+        }
+        // A non-PD reduced Schur is a real numerical condition the LM escalation
+        // must respond to (bump the β-ridge and retry); surface it as the
+        // matching CPU error rather than re-running the same factorisation on
+        // the CPU only to fail identically.
+        Err(crate::gpu::arrow_schur::ArrowSchurGpuFailure::SchurFactorFailed { reason }) => {
+            Some(Err(ArrowSchurError::SchurFactorFailed { reason }))
+        }
+        // Unavailable (transient / below device policy) and
+        // GpuRequiresDenseSystem (matrix-free, already filtered above) both mean
+        // "device declined" — fall back to CPU transparently.
+        Err(_) => None,
+    }
 }
 
 /// LM-style ridge escalation around `solve_arrow_newton_step_core`.
@@ -4756,9 +5912,447 @@ fn arrow_gradient_dot_step(
 struct ArrowNewtonStepArtifacts {
     delta_t: Array1<f64>,
     delta_beta: Array1<f64>,
-    htt_factors: Vec<Array2<f64>>,
+    htt_factors: ArrowFactorSlab,
     schur_factor: Option<Array2<f64>>,
     pcg_diagnostics: PcgDiagnostics,
+}
+
+enum MixedPrecisionAttempt {
+    Certified {
+        delta_t: Array1<f64>,
+        delta_beta: Array1<f64>,
+        schur_factor: Array2<f64>,
+        refinement_steps: usize,
+    },
+    Fallback {
+        reason: String,
+    },
+}
+
+fn back_substitute_delta_t<B: BatchedBlockSolver>(
+    sys: &ArrowSchurSystem,
+    htt_factors: &ArrowFactorSlab,
+    delta_beta: ArrayView1<'_, f64>,
+    backend: &B,
+) -> Array1<f64> {
+    let n = sys.rows.len();
+    let total_dt_len = sys.row_offsets[n];
+    let mut delta_t = Array1::<f64>::zeros(total_dt_len);
+    let mut rhs = Array1::<f64>::zeros(sys.d);
+    let mut htbeta_delta = Array1::<f64>::zeros(sys.d);
+    for i in 0..n {
+        let di = sys.row_dims[i];
+        let row_base = sys.row_offsets[i];
+        assert_eq!(sys.rows[i].gt.len(), di);
+        for c in 0..di {
+            htbeta_delta[c] = 0.0;
+        }
+        let mut htbeta_slice = htbeta_delta.slice_mut(ndarray::s![..di]).to_owned();
+        sys_htbeta_apply_row(sys, i, &sys.rows[i], delta_beta, &mut htbeta_slice);
+        {
+            let mut rhs_i = rhs.slice_mut(ndarray::s![..di]);
+            for c in 0..di {
+                rhs_i[c] = sys.rows[i].gt[c] + htbeta_slice[c];
+            }
+        }
+        let rhs_slice = rhs.slice(ndarray::s![..di]).to_owned();
+        let dt_i = backend.solve_block_vector(htt_factors.factor(i), rhs_slice.view());
+        for c in 0..di {
+            delta_t[row_base + c] = -dt_i[c];
+        }
+    }
+    delta_t
+}
+
+fn try_mixed_precision_arrow_solve(
+    sys: &ArrowSchurSystem,
+    ridge_t: f64,
+    ridge_beta: f64,
+    htt_factors: &ArrowFactorSlab,
+    schur: &Array2<f64>,
+    options: &ArrowSolveOptions,
+) -> Result<Option<MixedPrecisionAttempt>, ArrowSchurError> {
+    let MixedPrecisionPolicy::Certified {
+        max_refinement_steps,
+        residual_relative_tolerance,
+        kappa_unit_roundoff_margin,
+    } = options.mixed_precision
+    else {
+        return Ok(None);
+    };
+
+    if options.trust_region.radius.is_finite() {
+        return Ok(Some(MixedPrecisionAttempt::Fallback {
+            reason: "trust-region-truncated dense solves are not certified by the mixed-precision refinement path".to_string(),
+        }));
+    }
+
+    let schur_factor =
+        cholesky_lower(schur).map_err(|e| ArrowSchurError::SchurFactorFailed { reason: e })?;
+    if !options.tolerate_ill_conditioning {
+        let schur_kappa = cholesky_factor_kappa_estimate(&schur_factor);
+        if !schur_kappa.is_finite() || schur_kappa > safe_spd_kappa_max(schur.nrows()) {
+            return Err(ArrowSchurError::SchurFactorFailed {
+                reason: format!(
+                    "reduced Schur complement Cholesky succeeded but is ill-conditioned \
+                     (kappa_estimate={schur_kappa:e}); accumulated per-row \
+                     (H_tt)^-1 contamination would yield an inaccurate delta_beta"
+                ),
+            });
+        }
+    }
+
+    if let Some(reason) =
+        mixed_precision_kappa_gate_failure(htt_factors, &schur_factor, kappa_unit_roundoff_margin)
+    {
+        return Ok(Some(MixedPrecisionAttempt::Fallback { reason }));
+    }
+
+    let row_factors_f32 = arrow_factor_slab_to_f32(htt_factors);
+    let schur_factor_f32 = schur_factor.mapv(|v| v as f32);
+    let (rhs_t, rhs_beta) = arrow_rhs(sys);
+    let mut x = solve_arrow_system_f32(
+        sys,
+        &row_factors_f32,
+        &schur_factor_f32,
+        rhs_t.view(),
+        rhs_beta.view(),
+    );
+    let certificate_tol = residual_relative_tolerance
+        .max(MIXED_PRECISION_CERTIFICATE_EPSILON_MULTIPLIER * f64::EPSILON);
+    for refinement_steps in 0..=max_refinement_steps {
+        let (res_t, res_beta) = arrow_residual(
+            sys,
+            ridge_t,
+            ridge_beta,
+            x.0.view(),
+            x.1.view(),
+            rhs_t.view(),
+            rhs_beta.view(),
+        );
+        let certificate = arrow_backward_error_certificate(
+            sys,
+            ridge_t,
+            ridge_beta,
+            x.0.view(),
+            x.1.view(),
+            rhs_t.view(),
+            rhs_beta.view(),
+            res_t.view(),
+            res_beta.view(),
+        );
+        if certificate <= certificate_tol {
+            return Ok(Some(MixedPrecisionAttempt::Certified {
+                delta_t: x.0,
+                delta_beta: x.1,
+                schur_factor,
+                refinement_steps,
+            }));
+        }
+        if refinement_steps == max_refinement_steps {
+            return Ok(Some(MixedPrecisionAttempt::Fallback {
+                reason: format!(
+                    "f64 residual certificate did not converge after {max_refinement_steps} refinement steps \
+                     (backward_error={certificate:e}, tolerance={certificate_tol:e})"
+                ),
+            }));
+        }
+        let correction = solve_arrow_system_f32(
+            sys,
+            &row_factors_f32,
+            &schur_factor_f32,
+            res_t.view(),
+            res_beta.view(),
+        );
+        if !correction
+            .0
+            .iter()
+            .chain(correction.1.iter())
+            .all(|v| v.is_finite())
+        {
+            return Ok(Some(MixedPrecisionAttempt::Fallback {
+                reason: "f32 refinement correction produced a non-finite value".to_string(),
+            }));
+        }
+        for i in 0..x.0.len() {
+            x.0[i] += correction.0[i];
+        }
+        for i in 0..x.1.len() {
+            x.1[i] += correction.1[i];
+        }
+    }
+
+    Ok(Some(MixedPrecisionAttempt::Fallback {
+        reason: "mixed refinement loop exhausted without certification".to_string(),
+    }))
+}
+
+fn mixed_precision_kappa_gate_failure(
+    htt_factors: &ArrowFactorSlab,
+    schur_factor: &Array2<f64>,
+    margin: f64,
+) -> Option<String> {
+    let mut max_kappa = cholesky_factor_kappa_estimate(schur_factor);
+    let mut min_pivot = lower_cholesky_min_pivot(schur_factor.view());
+    let mut max_pivot = lower_cholesky_max_pivot(schur_factor.view());
+    for factor in htt_factors.iter() {
+        let owned = factor.to_owned();
+        max_kappa = max_kappa.max(cholesky_factor_kappa_estimate(&owned));
+        if let Some(pivot) = lower_cholesky_min_pivot(owned.view()) {
+            min_pivot = Some(match min_pivot {
+                Some(current) => current.min(pivot),
+                None => pivot,
+            });
+        }
+        if let Some(pivot) = lower_cholesky_max_pivot(owned.view()) {
+            max_pivot = Some(match max_pivot {
+                Some(current) => current.max(pivot),
+                None => pivot,
+            });
+        }
+    }
+    if let (Some(min_pivot), Some(max_pivot)) = (min_pivot, max_pivot) {
+        if min_pivot > 0.0 && max_pivot.is_finite() {
+            max_kappa = max_kappa.max(max_pivot / min_pivot);
+        } else {
+            max_kappa = f64::INFINITY;
+        }
+    }
+    let kappa_u = max_kappa * F32_UNIT_ROUNDOFF;
+    let threshold = margin
+        .min(MIXED_PRECISION_KAPPA_MARGIN_CEILING)
+        .max(F32_UNIT_ROUNDOFF);
+    if !(max_kappa.is_finite() && kappa_u < threshold) {
+        Some(format!(
+            "kappa gate refused f32 refinement: kappa_estimate={max_kappa:e}, \
+             kappa*u_f32={kappa_u:e}, required < {threshold:e}"
+        ))
+    } else {
+        None
+    }
+}
+
+fn arrow_factor_slab_to_f32(htt_factors: &ArrowFactorSlab) -> Vec<Array2<f32>> {
+    htt_factors
+        .iter()
+        .map(|factor| factor.mapv(|v| v as f32))
+        .collect()
+}
+
+fn arrow_rhs(sys: &ArrowSchurSystem) -> (Array1<f64>, Array1<f64>) {
+    let n = sys.rows.len();
+    let mut rhs_t = Array1::<f64>::zeros(sys.row_offsets[n]);
+    for i in 0..n {
+        let di = sys.row_dims[i];
+        let base = sys.row_offsets[i];
+        for c in 0..di {
+            rhs_t[base + c] = -sys.rows[i].gt[c];
+        }
+    }
+    let mut rhs_beta = Array1::<f64>::zeros(sys.k);
+    for c in 0..sys.k {
+        rhs_beta[c] = -sys.gb[c];
+    }
+    (rhs_t, rhs_beta)
+}
+
+fn solve_arrow_system_f32(
+    sys: &ArrowSchurSystem,
+    row_factors: &[Array2<f32>],
+    schur_factor: &Array2<f32>,
+    rhs_t: ArrayView1<'_, f64>,
+    rhs_beta: ArrayView1<'_, f64>,
+) -> (Array1<f64>, Array1<f64>) {
+    let n = sys.rows.len();
+    let mut y_rows = Vec::<Array1<f32>>::with_capacity(n);
+    let mut reduced_beta = rhs_beta.mapv(|v| v as f32);
+    for i in 0..n {
+        let di = sys.row_dims[i];
+        let base = sys.row_offsets[i];
+        let rhs_i = rhs_t.slice(ndarray::s![base..base + di]).mapv(|v| v as f32);
+        let y_i = cholesky_solve_lower_f32(&row_factors[i], &rhs_i);
+        let htbeta = sys_htbeta_materialize_row(sys, i, &sys.rows[i]).mapv(|v| v as f32);
+        for beta_col in 0..sys.k {
+            let mut acc = 0.0_f32;
+            for row_axis in 0..di {
+                acc += htbeta[[row_axis, beta_col]] * y_i[row_axis];
+            }
+            reduced_beta[beta_col] -= acc;
+        }
+        y_rows.push(y_i);
+    }
+
+    let x_beta_f32 = cholesky_solve_lower_f32(schur_factor, &reduced_beta);
+    let mut x_t = Array1::<f64>::zeros(sys.row_offsets[n]);
+    for i in 0..n {
+        let di = sys.row_dims[i];
+        let base = sys.row_offsets[i];
+        let htbeta = sys_htbeta_materialize_row(sys, i, &sys.rows[i]).mapv(|v| v as f32);
+        let mut cross = Array1::<f32>::zeros(di);
+        for row_axis in 0..di {
+            let mut acc = 0.0_f32;
+            for beta_col in 0..sys.k {
+                acc += htbeta[[row_axis, beta_col]] * x_beta_f32[beta_col];
+            }
+            cross[row_axis] = acc;
+        }
+        let correction = cholesky_solve_lower_f32(&row_factors[i], &cross);
+        for row_axis in 0..di {
+            x_t[base + row_axis] = (y_rows[i][row_axis] - correction[row_axis]) as f64;
+        }
+    }
+    let x_beta = x_beta_f32.mapv(|v| v as f64);
+    (x_t, x_beta)
+}
+
+fn cholesky_solve_lower_f32(l: &Array2<f32>, b: &Array1<f32>) -> Array1<f32> {
+    let n = l.nrows();
+    let mut y = Array1::<f32>::zeros(n);
+    for i in 0..n {
+        let mut sum = b[i];
+        for j in 0..i {
+            sum -= l[[i, j]] * y[j];
+        }
+        y[i] = sum / l[[i, i]];
+    }
+    let mut x = Array1::<f32>::zeros(n);
+    for i in (0..n).rev() {
+        let mut sum = y[i];
+        for j in (i + 1)..n {
+            sum -= l[[j, i]] * x[j];
+        }
+        x[i] = sum / l[[i, i]];
+    }
+    x
+}
+
+fn arrow_residual(
+    sys: &ArrowSchurSystem,
+    ridge_t: f64,
+    ridge_beta: f64,
+    x_t: ArrayView1<'_, f64>,
+    x_beta: ArrayView1<'_, f64>,
+    rhs_t: ArrayView1<'_, f64>,
+    rhs_beta: ArrayView1<'_, f64>,
+) -> (Array1<f64>, Array1<f64>) {
+    let (ax_t, ax_beta) = arrow_operator_apply(sys, ridge_t, ridge_beta, x_t, x_beta);
+    let mut res_t = rhs_t.to_owned();
+    let mut res_beta = rhs_beta.to_owned();
+    for i in 0..res_t.len() {
+        res_t[i] -= ax_t[i];
+    }
+    for i in 0..res_beta.len() {
+        res_beta[i] -= ax_beta[i];
+    }
+    (res_t, res_beta)
+}
+
+fn arrow_operator_apply(
+    sys: &ArrowSchurSystem,
+    ridge_t: f64,
+    ridge_beta: f64,
+    x_t: ArrayView1<'_, f64>,
+    x_beta: ArrayView1<'_, f64>,
+) -> (Array1<f64>, Array1<f64>) {
+    let n = sys.rows.len();
+    let mut y_t = Array1::<f64>::zeros(sys.row_offsets[n]);
+    let mut y_beta = Array1::<f64>::zeros(sys.k);
+    {
+        let x_slice = x_beta.as_slice().expect("x_beta contiguous");
+        let y_slice = y_beta.as_slice_mut().expect("y_beta contiguous");
+        sys.penalty_matvec_add(x_slice, y_slice);
+    }
+    for beta_col in 0..sys.k {
+        y_beta[beta_col] += ridge_beta * x_beta[beta_col];
+    }
+    for i in 0..n {
+        let di = sys.row_dims[i];
+        let base = sys.row_offsets[i];
+        let row = &sys.rows[i];
+        for a in 0..di {
+            let mut acc = ridge_t * x_t[base + a];
+            for b in 0..di {
+                acc += row.htt[[a, b]] * x_t[base + b];
+            }
+            y_t[base + a] = acc;
+        }
+        let mut htbeta_xb = Array1::<f64>::zeros(di);
+        sys_htbeta_apply_row(sys, i, row, x_beta, &mut htbeta_xb);
+        for a in 0..di {
+            y_t[base + a] += htbeta_xb[a];
+        }
+        let x_ti = x_t.slice(ndarray::s![base..base + di]).to_owned();
+        sys_htbeta_accumulate_transpose(sys, i, row, x_ti.view(), &mut y_beta);
+    }
+    (y_t, y_beta)
+}
+
+fn arrow_backward_error_certificate(
+    sys: &ArrowSchurSystem,
+    ridge_t: f64,
+    ridge_beta: f64,
+    x_t: ArrayView1<'_, f64>,
+    x_beta: ArrayView1<'_, f64>,
+    rhs_t: ArrayView1<'_, f64>,
+    rhs_beta: ArrayView1<'_, f64>,
+    res_t: ArrayView1<'_, f64>,
+    res_beta: ArrayView1<'_, f64>,
+) -> f64 {
+    let residual_norm = infinity_norm_pair(res_t, res_beta);
+    let operator_norm = arrow_operator_infinity_norm(sys, ridge_t, ridge_beta);
+    let solution_norm = infinity_norm_pair(x_t, x_beta);
+    let rhs_norm = infinity_norm_pair(rhs_t, rhs_beta);
+    let denom = operator_norm * solution_norm + rhs_norm;
+    if denom > 0.0 {
+        residual_norm / denom
+    } else {
+        residual_norm
+    }
+}
+
+fn infinity_norm_pair(lhs: ArrayView1<'_, f64>, rhs: ArrayView1<'_, f64>) -> f64 {
+    let mut out = 0.0_f64;
+    for &v in lhs.iter().chain(rhs.iter()) {
+        out = out.max(v.abs());
+    }
+    out
+}
+
+fn arrow_operator_infinity_norm(sys: &ArrowSchurSystem, ridge_t: f64, ridge_beta: f64) -> f64 {
+    let mut out = 0.0_f64;
+    for i in 0..sys.rows.len() {
+        let di = sys.row_dims[i];
+        let row = &sys.rows[i];
+        let htbeta = sys_htbeta_materialize_row(sys, i, row);
+        for a in 0..di {
+            let mut row_sum = 0.0_f64;
+            for b in 0..di {
+                row_sum += row.htt[[a, b]].abs();
+            }
+            row_sum += ridge_t;
+            for beta_col in 0..sys.k {
+                row_sum += htbeta[[a, beta_col]].abs();
+            }
+            out = out.max(row_sum);
+        }
+    }
+    let hbb = sys.effective_penalty_op().to_dense();
+    for beta_row in 0..sys.k {
+        let mut row_sum = 0.0_f64;
+        for beta_col in 0..sys.k {
+            row_sum += hbb[[beta_row, beta_col]].abs();
+        }
+        row_sum += ridge_beta;
+        for i in 0..sys.rows.len() {
+            let di = sys.row_dims[i];
+            let htbeta = sys_htbeta_materialize_row(sys, i, &sys.rows[i]);
+            for a in 0..di {
+                row_sum += htbeta[[a, beta_row]].abs();
+            }
+        }
+        out = out.max(row_sum);
+    }
+    out
 }
 
 fn solve_arrow_newton_step_artifacts(
@@ -4782,12 +6376,11 @@ fn solve_arrow_newton_step_artifacts(
         return Ok(ArrowNewtonStepArtifacts {
             delta_t,
             delta_beta,
-            htt_factors: Vec::new(),
+            htt_factors: ArrowFactorSlab::from_blocks(Vec::new()),
             schur_factor,
             pcg_diagnostics: PcgDiagnostics::default(),
         });
     }
-    let n = sys.rows.len();
     let backend = CpuBatchedBlockSolver;
 
     // 1. BA point elimination: per-row Cholesky factors of
@@ -4804,20 +6397,91 @@ fn solve_arrow_newton_step_artifacts(
     let trust_metric_weights = None;
 
     // 3. Solve reduced shared system using the selected BA mode.
-    let (delta_beta, schur_factor, pcg_diagnostics) = match options.mode {
+    let mut mixed_precision_status = MixedPrecisionStatus::Off;
+    let (delta_beta, schur_factor, mut pcg_diagnostics) = match options.mode {
         ArrowSolverMode::Direct => {
             let schur = build_dense_schur_direct(sys, &htt_factors, ridge_beta, &backend)?;
+            if let Some(attempt) = try_mixed_precision_arrow_solve(
+                sys,
+                ridge_t,
+                ridge_beta,
+                &htt_factors,
+                &schur,
+                options,
+            )? {
+                match attempt {
+                    MixedPrecisionAttempt::Certified {
+                        delta_t,
+                        delta_beta,
+                        schur_factor,
+                        refinement_steps,
+                    } => {
+                        let mut pcg_diagnostics = PcgDiagnostics::default();
+                        pcg_diagnostics.mixed_precision_status =
+                            MixedPrecisionStatus::Certified { refinement_steps };
+                        return Ok(ArrowNewtonStepArtifacts {
+                            delta_t,
+                            delta_beta,
+                            htt_factors,
+                            schur_factor: Some(schur_factor),
+                            pcg_diagnostics,
+                        });
+                    }
+                    MixedPrecisionAttempt::Fallback { reason } => {
+                        log::info!("arrow-Schur mixed precision fallback to f64: {reason}");
+                        mixed_precision_status = MixedPrecisionStatus::F64Fallback;
+                    }
+                }
+            }
             let (db, sf, diag) =
                 solve_dense_reduced_system(&schur, &rhs_beta, options, trust_metric_weights)?;
             (db, sf, diag)
         }
         ArrowSolverMode::SqrtBA => {
             let schur = build_dense_schur_sqrt_ba(sys, &htt_factors, ridge_beta, &backend)?;
+            if let Some(attempt) = try_mixed_precision_arrow_solve(
+                sys,
+                ridge_t,
+                ridge_beta,
+                &htt_factors,
+                &schur,
+                options,
+            )? {
+                match attempt {
+                    MixedPrecisionAttempt::Certified {
+                        delta_t,
+                        delta_beta,
+                        schur_factor,
+                        refinement_steps,
+                    } => {
+                        let mut pcg_diagnostics = PcgDiagnostics::default();
+                        pcg_diagnostics.mixed_precision_status =
+                            MixedPrecisionStatus::Certified { refinement_steps };
+                        return Ok(ArrowNewtonStepArtifacts {
+                            delta_t,
+                            delta_beta,
+                            htt_factors,
+                            schur_factor: Some(schur_factor),
+                            pcg_diagnostics,
+                        });
+                    }
+                    MixedPrecisionAttempt::Fallback { reason } => {
+                        log::info!("arrow-Schur mixed precision fallback to f64: {reason}");
+                        mixed_precision_status = MixedPrecisionStatus::F64Fallback;
+                    }
+                }
+            }
             let (db, sf, diag) =
                 solve_dense_reduced_system(&schur, &rhs_beta, options, trust_metric_weights)?;
             (db, sf, diag)
         }
         ArrowSolverMode::InexactPCG => {
+            if options.mixed_precision.is_enabled() {
+                log::info!(
+                    "arrow-Schur mixed precision fallback to f64: InexactPCG does not expose a dense Schur factor for certified f32 refinement"
+                );
+                mixed_precision_status = MixedPrecisionStatus::F64Fallback;
+            }
             // Auto-select preconditioner level: starts with JacobiPreconditioner
             // (Diagonal / BetaBlockJacobi) and escalates to ClusterJacobi or
             // AdditiveSchwarz when K > 100 and PCG exhausts max_iterations.
@@ -4835,38 +6499,12 @@ fn solve_arrow_newton_step_artifacts(
             (delta, None, diag)
         }
     };
+    if mixed_precision_status != MixedPrecisionStatus::Off {
+        pcg_diagnostics.mixed_precision_status = mixed_precision_status;
+    }
 
     // 4. Back-substitute Δt_i = -(H_tt^(i))⁻¹ (g_t^(i) + H_tβ^(i) Δβ).
-    //
-    // H_tβ^(i) · Δβ is routed through sys.htbeta_matvec when the dense slab
-    // is absent; otherwise indexed directly from row.htbeta.
-    // `row_offsets[n]` gives the total delta_t length for hetereogeneous dims.
-    let total_dt_len = sys.row_offsets[n];
-    let mut delta_t = Array1::<f64>::zeros(total_dt_len);
-    // Allocate scratch at max_d so no per-row realloc.
-    let mut rhs = Array1::<f64>::zeros(sys.d);
-    let mut htbeta_delta = Array1::<f64>::zeros(sys.d);
-    for i in 0..n {
-        let di = sys.row_dims[i];
-        let row_base = sys.row_offsets[i];
-        assert_eq!(sys.rows[i].gt.len(), di);
-        for c in 0..di {
-            htbeta_delta[c] = 0.0;
-        }
-        let mut htbeta_slice = htbeta_delta.slice_mut(ndarray::s![..di]).to_owned();
-        sys_htbeta_apply_row(sys, i, &sys.rows[i], delta_beta.view(), &mut htbeta_slice);
-        {
-            let mut rhs_i = rhs.slice_mut(ndarray::s![..di]);
-            for c in 0..di {
-                rhs_i[c] = sys.rows[i].gt[c] + htbeta_slice[c];
-            }
-        }
-        let rhs_slice = rhs.slice(ndarray::s![..di]).to_owned();
-        let dt_i = backend.solve_block_vector(&htt_factors[i], &rhs_slice);
-        for c in 0..di {
-            delta_t[row_base + c] = -dt_i[c];
-        }
-    }
+    let delta_t = back_substitute_delta_t(sys, &htt_factors, delta_beta.view(), &backend);
 
     Ok(ArrowNewtonStepArtifacts {
         delta_t,
@@ -4888,7 +6526,7 @@ fn solve_arrow_newton_step_artifacts(
 struct ArrowBlockDiagInverse<'a, B: BatchedBlockSolver> {
     sys: &'a ArrowSchurSystem,
     backend: &'a B,
-    htt_factors: Vec<Array2<f64>>,
+    htt_factors: ArrowFactorSlab,
     schur_factor: Array2<f64>,
 }
 
@@ -4934,7 +6572,9 @@ impl<'a, B: BatchedBlockSolver> ArrowBlockDiagInverse<'a, B> {
             let di = sys.row_dims[i];
             let base = sys.row_offsets[i];
             let r_ti = r_t.slice(ndarray::s![base..base + di]).to_owned();
-            let u_i = self.backend.solve_block_vector(&self.htt_factors[i], &r_ti);
+            let u_i = self
+                .backend
+                .solve_block_vector(self.htt_factors.factor(i), r_ti.view());
             let mut acc = Array1::<f64>::zeros(k);
             sys_htbeta_accumulate_transpose(sys, i, &sys.rows[i], u_i.view(), &mut acc);
             for a in 0..k {
@@ -4961,7 +6601,7 @@ impl<'a, B: BatchedBlockSolver> ArrowBlockDiagInverse<'a, B> {
             }
             let xi = self
                 .backend
-                .solve_block_vector(&self.htt_factors[i], &rhs_i);
+                .solve_block_vector(self.htt_factors.factor(i), rhs_i.view());
             for c in 0..di {
                 x_t[base + c] = xi[c];
             }
@@ -5166,6 +6806,8 @@ fn solve_arrow_newton_step_cross_row(
             0.0
         },
         stopping_reason: PcgStopReason::Converged,
+        mixed_precision_status: MixedPrecisionStatus::Off,
+        used_device_arrow: false,
     };
 
     Ok(ArrowNewtonStepArtifacts {
@@ -5215,7 +6857,7 @@ fn cholesky_solve_lower(l: &Array2<f64>, b: &Array1<f64>) -> Array1<f64> {
 
 fn reduced_rhs_beta<B: BatchedBlockSolver>(
     sys: &ArrowSchurSystem,
-    htt_factors: &[Array2<f64>],
+    htt_factors: &ArrowFactorSlab,
     backend: &B,
 ) -> Array1<f64> {
     // Numerical invariant: each per-row `H_tt^(i)` factor must be PD
@@ -5223,7 +6865,7 @@ fn reduced_rhs_beta<B: BatchedBlockSolver>(
     let k = sys.k;
     let mut rhs_beta = Array1::<f64>::zeros(k);
     for (i, row) in sys.rows.iter().enumerate() {
-        let v = backend.solve_block_vector(&htt_factors[i], &row.gt);
+        let v = backend.solve_block_vector(htt_factors.factor(i), row.gt.view());
         // H_βt^(i) · v accumulates into rhs_beta.  Routes through
         // sys.htbeta_matvec when the dense block is absent.
         sys_htbeta_accumulate_transpose(sys, i, row, v.view(), &mut rhs_beta);
@@ -5253,7 +6895,7 @@ fn row_schur_contribution_factors<B: BatchedBlockSolver>(
     sys: &ArrowSchurSystem,
     row_idx: usize,
     row: &ArrowRowBlock,
-    htt_factor: &Array2<f64>,
+    htt_factor: ArrayView2<'_, f64>,
     backend: &B,
     kind: SchurReductionKind,
 ) -> (Array2<f64>, Array2<f64>) {
@@ -5262,11 +6904,11 @@ fn row_schur_contribution_factors<B: BatchedBlockSolver>(
     let htbeta = sys_htbeta_materialize_row(sys, row_idx, row);
     match kind {
         SchurReductionKind::Direct => {
-            let solved = backend.solve_block_matrix(htt_factor, &htbeta);
+            let solved = backend.solve_block_matrix(htt_factor, htbeta.view());
             (htbeta, solved)
         }
         SchurReductionKind::SqrtBa => {
-            let whitened = backend.sqrt_solve_block_matrix(htt_factor, &htbeta);
+            let whitened = backend.sqrt_solve_block_matrix(htt_factor, htbeta.view());
             (whitened.clone(), whitened)
         }
     }
@@ -5281,7 +6923,7 @@ fn subtract_row_schur_contribution<B: BatchedBlockSolver>(
     sys: &ArrowSchurSystem,
     row_idx: usize,
     row: &ArrowRowBlock,
-    htt_factor: &Array2<f64>,
+    htt_factor: ArrayView2<'_, f64>,
     backend: &B,
     kind: SchurReductionKind,
     schur: &mut Array2<f64>,
@@ -5304,7 +6946,7 @@ fn subtract_row_schur_contribution<B: BatchedBlockSolver>(
 /// `schur += partial` reproduces the serial `schur -= Σ contribution`.
 fn tile_schur_partial<B: BatchedBlockSolver>(
     sys: &ArrowSchurSystem,
-    htt_factors: &[Array2<f64>],
+    htt_factors: &ArrowFactorSlab,
     backend: &B,
     kind: SchurReductionKind,
     ordinal: usize,
@@ -5317,15 +6959,26 @@ fn tile_schur_partial<B: BatchedBlockSolver>(
     let mut factors: Vec<(Array2<f64>, Array2<f64>)> = Vec::with_capacity(range.len());
     let mut total_d = 0usize;
     for i in range.clone() {
-        let (left, right) =
-            row_schur_contribution_factors(sys, i, &sys.rows[i], &htt_factors[i], backend, kind);
+        let (left, right) = row_schur_contribution_factors(
+            sys,
+            i,
+            &sys.rows[i],
+            htt_factors.factor(i),
+            backend,
+            kind,
+        );
         total_d += left.nrows();
         factors.push((left, right));
     }
 
     // Stack into (total_d × k) left/right matrices for one device AᵀB GEMM on
     // this tile's bound ordinal. `try_fast_atb_on_ordinal` returns leftᵀ·right
-    // (k×k); negate into the partial.
+    // (k×k); negate into the partial. At an SAE-shaped whole-fit tile with
+    // n=2000 rows, k=2048 shared columns, M=12 local rows per observation, and
+    // K=8 candidate/atom batches, the stacked GEMM is
+    // 2*(n*M)*k^2 = 201_326_592_000 flops per batch, or
+    // 1_610_612_736_000 flops across K=8, so the policy work gate is cleared
+    // even though the observation count is far below the old row floor.
     if total_d > 0 && k > 0 {
         let mut left_stack = Array2::<f64>::zeros((total_d, k));
         let mut right_stack = Array2::<f64>::zeros((total_d, k));
@@ -5375,7 +7028,7 @@ fn tile_schur_partial<B: BatchedBlockSolver>(
 /// is bit-for-bit the original behaviour.
 fn reduce_row_schur_contributions<B: BatchedBlockSolver + Sync>(
     sys: &ArrowSchurSystem,
-    htt_factors: &[Array2<f64>],
+    htt_factors: &ArrowFactorSlab,
     backend: &B,
     kind: SchurReductionKind,
     schur: &mut Array2<f64>,
@@ -5390,7 +7043,15 @@ fn reduce_row_schur_contributions<B: BatchedBlockSolver + Sync>(
     let Some(tiles) = tiles else {
         // Single-device / CPU: reduce serially in place (original order).
         for (i, row) in sys.rows.iter().enumerate() {
-            subtract_row_schur_contribution(sys, i, row, &htt_factors[i], backend, kind, schur);
+            subtract_row_schur_contribution(
+                sys,
+                i,
+                row,
+                htt_factors.factor(i),
+                backend,
+                kind,
+                schur,
+            );
         }
         return;
     };
@@ -5448,7 +7109,7 @@ fn reduce_row_schur_contributions<B: BatchedBlockSolver + Sync>(
 
 fn build_dense_schur_direct<B: BatchedBlockSolver + Sync>(
     sys: &ArrowSchurSystem,
-    htt_factors: &[Array2<f64>],
+    htt_factors: &ArrowFactorSlab,
     ridge_beta: f64,
     backend: &B,
 ) -> Result<Array2<f64>, ArrowSchurError> {
@@ -5478,7 +7139,7 @@ fn build_dense_schur_direct<B: BatchedBlockSolver + Sync>(
 
 fn build_dense_schur_sqrt_ba<B: BatchedBlockSolver + Sync>(
     sys: &ArrowSchurSystem,
-    htt_factors: &[Array2<f64>],
+    htt_factors: &ArrowFactorSlab,
     ridge_beta: f64,
     backend: &B,
 ) -> Result<Array2<f64>, ArrowSchurError> {
@@ -5504,6 +7165,98 @@ fn build_dense_schur_sqrt_ba<B: BatchedBlockSolver + Sync>(
     );
     symmetrize_upper_from_lower(&mut schur);
     Ok(schur)
+}
+
+/// Certified Carson–Higham mixed-precision solve of the reduced dense Schur
+/// system `S Δβ = rhs` (#1014), specialized to the streaming/residency path.
+///
+/// Returns `Some(Δβ)` when certified mixed precision is enabled AND the κ gate
+/// admits the f32 factorization AND the f64 backward-error certificate closes;
+/// `None` in every other case so the caller falls back to the exact f64
+/// triangular solve. The f64 `factor` (whose diagonal carries the exact
+/// `log|S|`) is supplied by the caller and never re-derived here — the logdet
+/// the evidence path reads stays f64 by construction.
+///
+/// Method: store the f64 Cholesky factor as f32, solve in f32, then refine with
+/// residuals `r = rhs − S·x` computed in f64 against the f64 `S`. With
+/// `κ(S)·u_f32 < margin` the refinement contracts at rate `κ·u`, and the
+/// terminating certificate is the normwise backward error
+/// `‖r‖∞ / (‖S‖∞‖x‖∞ + ‖rhs‖∞) ≤ tol`. A non-decreasing residual or an
+/// unmet certificate after `max_refinement_steps` returns `None`.
+fn mixed_precision_reduced_beta(
+    schur: &Array2<f64>,
+    factor: &Array2<f64>,
+    rhs: &Array1<f64>,
+    options: &ArrowSolveOptions,
+) -> Option<Array1<f64>> {
+    let MixedPrecisionPolicy::Certified {
+        max_refinement_steps,
+        residual_relative_tolerance,
+        kappa_unit_roundoff_margin,
+    } = options.mixed_precision
+    else {
+        return None;
+    };
+    // The reduced-system mixed-precision path is the dense reduced solve only;
+    // a trust-region-truncated step takes the Steihaug branch below in f64.
+    if options.trust_region.radius.is_finite() {
+        return None;
+    }
+    let n = schur.nrows();
+    if n == 0 {
+        return None;
+    }
+
+    // κ gate: the f32 factorization is only admissible when κ(S)·u_f32 leaves
+    // the refinement contraction headroom the certificate needs.
+    let kappa = cholesky_factor_kappa_estimate(factor);
+    if !kappa.is_finite() || kappa * F32_UNIT_ROUNDOFF >= kappa_unit_roundoff_margin {
+        return None;
+    }
+
+    let factor_f32 = factor.mapv(|v| v as f32);
+    let s_inf = matrix_inf_norm(schur);
+    let rhs_inf = rhs.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+    let certificate_tol = residual_relative_tolerance
+        .max(MIXED_PRECISION_CERTIFICATE_EPSILON_MULTIPLIER * f64::EPSILON);
+
+    // f32 solve of the seed system, then f64-residual refinement steps.
+    let mut x = cholesky_solve_lower_f32(&factor_f32, &rhs.mapv(|v| v as f32)).mapv(|v| v as f64);
+    let mut last_residual = f64::INFINITY;
+    for _ in 0..=max_refinement_steps {
+        // Residual r = rhs − S·x in f64 against the f64 model.
+        let sx = schur.dot(&x);
+        let mut r = rhs.clone();
+        r -= &sx;
+        let r_inf = r.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+        let x_inf = x.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+        let denom = s_inf * x_inf + rhs_inf;
+        let backward_error = if denom > 0.0 { r_inf / denom } else { 0.0 };
+        if backward_error <= certificate_tol {
+            return Some(x);
+        }
+        // Refinement must make monotone progress, else hand back to f64.
+        if !(r_inf < last_residual) {
+            return None;
+        }
+        last_residual = r_inf;
+        // Correction solve in f32 against the f32 factor: S·δ = r.
+        let delta = cholesky_solve_lower_f32(&factor_f32, &r.mapv(|v| v as f32)).mapv(|v| v as f64);
+        x += &delta;
+    }
+    None
+}
+
+/// Infinity norm (max absolute row sum) of a dense matrix.
+fn matrix_inf_norm(a: &Array2<f64>) -> f64 {
+    let mut max_row = 0.0_f64;
+    for row in a.rows() {
+        let s: f64 = row.iter().map(|v| v.abs()).sum();
+        if s > max_row {
+            max_row = s;
+        }
+    }
+    max_row
 }
 
 fn solve_dense_reduced_system(
@@ -5544,7 +7297,14 @@ fn solve_dense_reduced_system(
             });
         }
     }
-    let direct = cholesky_solve_vector(&factor, rhs_beta);
+    // Reduced-system solve. The f64 `factor` is always retained and returned —
+    // its diagonal is the EXACT `log|S|` the evidence path reads, so the logdet
+    // stays f64 regardless of how Δβ is computed (#1014 invariant). When the
+    // streaming/residency path enabled certified mixed precision, the Δβ solve
+    // itself runs f32-then-f64-refined (κ-gated, with the f64 triangular solve
+    // as the automatic fallback); the certificate is the f64 backward error.
+    let direct = mixed_precision_reduced_beta(schur, &factor, rhs_beta, options)
+        .unwrap_or_else(|| cholesky_solve_vector(&factor, rhs_beta));
     if step_inside_trust_region(direct.view(), options.trust_region.radius, metric_weights) {
         return Ok((direct, Some(factor), PcgDiagnostics::default()));
     }
@@ -5648,7 +7408,7 @@ fn step_inside_trust_region(
 
 fn schur_matvec<B: BatchedBlockSolver>(
     sys: &ArrowSchurSystem,
-    htt_factors: &[Array2<f64>],
+    htt_factors: &ArrowFactorSlab,
     ridge_beta: f64,
     x: &Array1<f64>,
     out: &mut Array1<f64>,
@@ -5684,7 +7444,7 @@ fn schur_matvec<B: BatchedBlockSolver>(
         let mut local_i = local.slice_mut(ndarray::s![..di]).to_owned();
         local_i.fill(0.0);
         sys_htbeta_apply_row(sys, i, row, x.view(), &mut local_i);
-        let solved = backend.solve_block_vector(&htt_factors[i], &local_i);
+        let solved = backend.solve_block_vector(htt_factors.factor(i), local_i.view());
         // H_βt^(i) · solved accumulates into neg_contrib (length k), then
         // subtracted from out.  Routed through sys.htbeta_matvec when needed.
         neg_contrib.fill(0.0);
@@ -5771,7 +7531,7 @@ impl JacobiPreconditioner {
     /// stored.  Otherwise every column gets its own scalar entry.
     pub fn from_arrow_schur<B: BatchedBlockSolver>(
         sys: &ArrowSchurSystem,
-        htt_factors: &[Array2<f64>],
+        htt_factors: &ArrowFactorSlab,
         ridge_beta: f64,
         backend: &B,
     ) -> Result<Self, ArrowSchurError> {
@@ -5797,7 +7557,7 @@ impl JacobiPreconditioner {
     /// each column is probed via the matvec (one call per column per row).
     fn build_scalar_jacobi<B: BatchedBlockSolver>(
         sys: &ArrowSchurSystem,
-        htt_factors: &[Array2<f64>],
+        htt_factors: &ArrowFactorSlab,
         ridge_beta: f64,
         backend: &B,
     ) -> Result<Self, ArrowSchurError> {
@@ -5832,7 +7592,7 @@ impl JacobiPreconditioner {
                         col_i[c] = row.htbeta[[c, a]];
                     }
                 }
-                let solved = backend.solve_block_vector(&htt_factors[i], &col_i);
+                let solved = backend.solve_block_vector(htt_factors.factor(i), col_i.view());
                 let mut acc = 0.0;
                 for c in 0..di {
                     acc += col_i[c] * solved[c];
@@ -5863,7 +7623,7 @@ impl JacobiPreconditioner {
     /// `sys.block_offsets`.
     fn build_block_jacobi<B: BatchedBlockSolver>(
         sys: &ArrowSchurSystem,
-        htt_factors: &[Array2<f64>],
+        htt_factors: &ArrowFactorSlab,
         ridge_beta: f64,
         backend: &B,
     ) -> Result<Self, ArrowSchurError> {
@@ -5910,8 +7670,8 @@ impl JacobiPreconditioner {
                 let mut solved_cols = Array2::<f64>::zeros((di, b));
                 for bj in 0..b {
                     let gj = range.start + bj;
-                    let solved = backend
-                        .solve_block_vector(&htt_factors[i], &htbeta_full.column(gj).to_owned());
+                    let rhs = htbeta_full.column(gj).to_owned();
+                    let solved = backend.solve_block_vector(htt_factors.factor(i), rhs.view());
                     for c in 0..di {
                         solved_cols[[c, bj]] = solved[c];
                     }
@@ -6080,7 +7840,7 @@ pub struct ClusterJacobiPreconditioner {
 impl ClusterJacobiPreconditioner {
     pub fn from_arrow_schur<B: BatchedBlockSolver>(
         sys: &ArrowSchurSystem,
-        htt_factors: &[Array2<f64>],
+        htt_factors: &ArrowFactorSlab,
         ridge_beta: f64,
         backend: &B,
     ) -> Result<Self, ArrowSchurError> {
@@ -6112,7 +7872,7 @@ impl ClusterJacobiPreconditioner {
 
     fn build_from_column_groups<B: BatchedBlockSolver>(
         sys: &ArrowSchurSystem,
-        htt_factors: &[Array2<f64>],
+        htt_factors: &ArrowFactorSlab,
         ridge_beta: f64,
         backend: &B,
         col_groups: &[Vec<usize>],
@@ -6147,7 +7907,8 @@ impl ClusterJacobiPreconditioner {
                     for c in 0..d {
                         col_vec[c] = row.htbeta[[c, gj]];
                     }
-                    let solved = backend.solve_block_vector(&htt_factors[row_idx], &col_vec);
+                    let solved =
+                        backend.solve_block_vector(htt_factors.factor(row_idx), col_vec.view());
                     for c in 0..d {
                         solved_cols[[c, bj]] = solved[c];
                     }
@@ -6205,7 +7966,7 @@ pub struct AdditiveSchwarzPreconditioner {
 impl AdditiveSchwarzPreconditioner {
     pub fn from_arrow_schur<B: BatchedBlockSolver>(
         sys: &ArrowSchurSystem,
-        htt_factors: &[Array2<f64>],
+        htt_factors: &ArrowFactorSlab,
         ridge_beta: f64,
         backend: &B,
         overlap: usize,
@@ -6347,7 +8108,7 @@ fn apply_cluster(
 /// Used when a cluster is non-PD or exceeds `CLUSTER_JACOBI_MAX_CLUSTER`.
 fn build_schur_scalar_inv<B: BatchedBlockSolver>(
     sys: &ArrowSchurSystem,
-    htt_factors: &[Array2<f64>],
+    htt_factors: &ArrowFactorSlab,
     ridge_beta: f64,
     backend: &B,
     cols: &[usize],
@@ -6367,7 +8128,7 @@ fn build_schur_scalar_inv<B: BatchedBlockSolver>(
             for c in 0..d {
                 col_vec[c] = row.htbeta[[c, gi]];
             }
-            let solved = backend.solve_block_vector(&htt_factors[row_idx], &col_vec);
+            let solved = backend.solve_block_vector(htt_factors.factor(row_idx), col_vec.view());
             let mut acc = 0.0;
             for c in 0..d {
                 acc += col_vec[c] * solved[c];
@@ -6394,7 +8155,7 @@ fn build_schur_scalar_inv<B: BatchedBlockSolver>(
 /// `AdditiveSchwarz { overlap: 1 }`.
 fn steihaug_pcg_auto<B: BatchedBlockSolver>(
     sys: &ArrowSchurSystem,
-    htt_factors: &[Array2<f64>],
+    htt_factors: &ArrowFactorSlab,
     ridge_beta: f64,
     rhs: &Array1<f64>,
     pcg: &ArrowPcgOptions,
@@ -6474,7 +8235,7 @@ fn steihaug_pcg_auto<B: BatchedBlockSolver>(
 /// Routes matvec through GPU when `gpu_matvec` is set.
 fn run_pcg_with_preconditioner<ApplyPrec, B: BatchedBlockSolver>(
     sys: &ArrowSchurSystem,
-    htt_factors: &[Array2<f64>],
+    htt_factors: &ArrowFactorSlab,
     ridge_beta: f64,
     rhs: &Array1<f64>,
     apply_prec: ApplyPrec,
@@ -6819,6 +8580,11 @@ fn cholesky_lower(a: &Array2<f64>) -> Result<Array2<f64>, String> {
         ));
     }
 
+    let mut maybe_device = a.clone();
+    if crate::gpu::try_cholesky_lower_inplace(&mut maybe_device).is_some() {
+        return Ok(maybe_device);
+    }
+
     let mut l = Array2::<f64>::zeros((n, n));
     for i in 0..n {
         for j in 0..=i {
@@ -6844,6 +8610,7 @@ fn cholesky_lower(a: &Array2<f64>) -> Result<Array2<f64>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_abs_diff_eq;
     use ndarray::array;
 
     /// `SparseBlockKroneckerPenaltyOp` must reproduce the dense
@@ -6968,6 +8735,502 @@ mod tests {
         }
     }
 
+    /// Hand-built dense reference for the frame-factored Gram
+    /// `H[(i,li,a),(j,lj,b)] = g_ij[li,lj]·(U_iᵀU_j)[a,b]`, with the variable
+    /// per-atom width `r_k`.
+    fn factored_reference_dense(
+        ranks: &[usize],
+        basis_sizes: &[usize],
+        blocks: &[FactoredFrameGBlock],
+    ) -> Array2<f64> {
+        let n_atoms = ranks.len();
+        let mut offsets = vec![0usize; n_atoms + 1];
+        for k in 0..n_atoms {
+            offsets[k + 1] = offsets[k] + basis_sizes[k] * ranks[k];
+        }
+        let dim = offsets[n_atoms];
+        let mut h = Array2::<f64>::zeros((dim, dim));
+        for blk in blocks {
+            let (r_i, r_j) = (ranks[blk.atom_i], ranks[blk.atom_j]);
+            let (off_i, off_j) = (offsets[blk.atom_i], offsets[blk.atom_j]);
+            let (m_i, m_j) = blk.g.dim();
+            for li in 0..m_i {
+                for lj in 0..m_j {
+                    for a in 0..r_i {
+                        for b in 0..r_j {
+                            h[[off_i + li * r_i + a, off_j + lj * r_j + b]] +=
+                                blk.g[[li, lj]] * blk.w[[a, b]];
+                        }
+                    }
+                }
+            }
+        }
+        h
+    }
+
+    /// `FactoredFrameKroneckerOp` must equal its dense `g ⊗ (UᵀU)` reference on
+    /// every interface, with VARIABLE per-atom rank (`r_0 = 2`, `r_1 = 3`) and a
+    /// genuine cross-atom output factor `U_0ᵀU_1 ≠ 0`.
+    #[test]
+    fn factored_frame_kronecker_matches_dense_reference() {
+        // Atom 0: M_0 = 2, r_0 = 2. Atom 1: M_1 = 3, r_1 = 3. dim = 4 + 9 = 13.
+        let ranks = vec![2usize, 3];
+        let basis_sizes = vec![2usize, 3];
+        let g00 = array![[3.0_f64, 0.5], [0.5, 4.0]];
+        let g11 = array![[2.0_f64, 0.4, -0.2], [0.4, 5.0, 0.6], [-0.2, 0.6, 1.5]];
+        let g01 = array![[0.2_f64, -0.1, 0.0], [0.3, 0.1, -0.2]];
+        let g10 = g01.t().to_owned();
+        // Within-atom frame factors are identity (orthonormal U); the cross
+        // factor U_0ᵀU_1 (2×3) is a generic dense principal-angle matrix.
+        let w00 = Array2::<f64>::eye(2);
+        let w11 = Array2::<f64>::eye(3);
+        let w01 = array![[0.8_f64, 0.1, -0.05], [0.0, 0.7, 0.2]];
+        let w10 = w01.t().to_owned();
+        let blocks = vec![
+            FactoredFrameGBlock {
+                atom_i: 0,
+                atom_j: 0,
+                g: g00.clone(),
+                w: w00.clone(),
+            },
+            FactoredFrameGBlock {
+                atom_i: 1,
+                atom_j: 1,
+                g: g11.clone(),
+                w: w11.clone(),
+            },
+            FactoredFrameGBlock {
+                atom_i: 0,
+                atom_j: 1,
+                g: g01.clone(),
+                w: w01.clone(),
+            },
+            FactoredFrameGBlock {
+                atom_i: 1,
+                atom_j: 0,
+                g: g10.clone(),
+                w: w10.clone(),
+            },
+        ];
+        let op = FactoredFrameKroneckerOp::new(ranks.clone(), basis_sizes.clone(), blocks.clone())
+            .expect("op");
+        assert_eq!(op.dim(), 13);
+        let reference = factored_reference_dense(&ranks, &basis_sizes, &blocks);
+
+        // to_dense.
+        let dense = op.to_dense();
+        for i in 0..13 {
+            for j in 0..13 {
+                assert!(
+                    (dense[[i, j]] - reference[[i, j]]).abs() < 1e-12,
+                    "to_dense mismatch at ({i},{j}): {} vs {}",
+                    dense[[i, j]],
+                    reference[[i, j]]
+                );
+            }
+        }
+        // matvec == reference·x.
+        let x: Vec<f64> = (0..13).map(|i| 0.13 * (i as f64) - 0.4).collect();
+        let mut y = vec![0.0_f64; 13];
+        op.matvec(&x, &mut y);
+        for i in 0..13 {
+            let mut expect = 0.0;
+            for j in 0..13 {
+                expect += reference[[i, j]] * x[j];
+            }
+            assert!(
+                (y[i] - expect).abs() < 1e-10,
+                "matvec mismatch at {i}: {} vs {expect}",
+                y[i]
+            );
+        }
+        // diagonal.
+        let mut diag = vec![0.0_f64; 13];
+        op.diagonal(&mut diag);
+        for i in 0..13 {
+            assert!(
+                (diag[i] - reference[[i, i]]).abs() < 1e-12,
+                "diagonal mismatch at {i}"
+            );
+        }
+        // block over each atom's β range.
+        let offsets_ranges = [0..4usize, 4..13usize];
+        for id in 0..2 {
+            let b = offsets_ranges[id].end - offsets_ranges[id].start;
+            let mut blk = Array2::<f64>::zeros((b, b));
+            op.block(BetaBlockId(id), &offsets_ranges, &mut blk);
+            for bi in 0..b {
+                for bj in 0..b {
+                    let gi = offsets_ranges[id].start + bi;
+                    let gj = offsets_ranges[id].start + bj;
+                    assert!(
+                        (blk[[bi, bj]] - reference[[gi, gj]]).abs() < 1e-12,
+                        "block {id} mismatch at ({bi},{bj})"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Strict-generalization pin: with every `r_k = p` and `U_k = I_p` (so all
+    /// frame factors are identity), `FactoredFrameKroneckerOp` reproduces
+    /// `SparseBlockKroneckerPenaltyOp` (the `G ⊗ I_p` data Gram) bit-for-bit on
+    /// matvec — i.e. the full-`B` border is the `r = p` special case of the
+    /// factored op, not a separate path.
+    #[test]
+    fn factored_frame_kronecker_reduces_to_sparse_block_at_full_rank() {
+        let p = 2usize;
+        let g00 = array![[3.0_f64, 0.5], [0.5, 4.0]];
+        let g11 = array![[2.0_f64, 0.4], [0.4, 5.0]];
+        let g01 = array![[0.2_f64, -0.1], [0.3, 0.1]];
+        let g10 = g01.t().to_owned();
+        // Factored op with r_k = p, U = I_p (w = I_p everywhere).
+        let ident = Array2::<f64>::eye(p);
+        let factored = FactoredFrameKroneckerOp::new(
+            vec![p, p],
+            vec![2, 2],
+            vec![
+                FactoredFrameGBlock {
+                    atom_i: 0,
+                    atom_j: 0,
+                    g: g00.clone(),
+                    w: ident.clone(),
+                },
+                FactoredFrameGBlock {
+                    atom_i: 1,
+                    atom_j: 1,
+                    g: g11.clone(),
+                    w: ident.clone(),
+                },
+                FactoredFrameGBlock {
+                    atom_i: 0,
+                    atom_j: 1,
+                    g: g01.clone(),
+                    w: ident.clone(),
+                },
+                FactoredFrameGBlock {
+                    atom_i: 1,
+                    atom_j: 0,
+                    g: g10.clone(),
+                    w: ident.clone(),
+                },
+            ],
+        )
+        .expect("factored op");
+        // Equivalent SparseBlockKroneckerPenaltyOp (μ-major / oc-minor, p=2).
+        let sparse = SparseBlockKroneckerPenaltyOp {
+            p,
+            dim_a: 4,
+            k: 8,
+            blocks: vec![
+                SparseGBlock {
+                    row_off: 0,
+                    col_off: 0,
+                    data: g00,
+                },
+                SparseGBlock {
+                    row_off: 2,
+                    col_off: 2,
+                    data: g11,
+                },
+                SparseGBlock {
+                    row_off: 0,
+                    col_off: 2,
+                    data: g01,
+                },
+                SparseGBlock {
+                    row_off: 2,
+                    col_off: 0,
+                    data: g10,
+                },
+            ],
+        };
+        assert_eq!(factored.dim(), sparse.dim());
+        let x: Vec<f64> = (0..8).map(|i| 0.2 * (i as f64) - 0.5).collect();
+        let mut yf = vec![0.0_f64; 8];
+        let mut ys = vec![0.0_f64; 8];
+        factored.matvec(&x, &mut yf);
+        sparse.matvec(&x, &mut ys);
+        for i in 0..8 {
+            assert!(
+                (yf[i] - ys[i]).abs() < 1e-12,
+                "full-rank factored op must equal SparseBlockKronecker at {i}: {} vs {}",
+                yf[i],
+                ys[i]
+            );
+        }
+    }
+
+    /// Modified Gram–Schmidt orthonormalization of the columns of a `p × r`
+    /// matrix (`r ≤ p`), used by the frame-constructor tests to build genuine
+    /// `St(p, r)` representatives. Returns the orthonormal `Q` (`p × r`).
+    fn mgs_orthonormalize(a: &Array2<f64>) -> Array2<f64> {
+        let (p, r) = a.dim();
+        let mut q = a.clone();
+        for j in 0..r {
+            // Subtract projections onto the already-orthonormalized columns.
+            for i in 0..j {
+                let mut dot = 0.0;
+                for c in 0..p {
+                    dot += q[[c, i]] * q[[c, j]];
+                }
+                for c in 0..p {
+                    q[[c, j]] -= dot * q[[c, i]];
+                }
+            }
+            let mut nrm = 0.0;
+            for c in 0..p {
+                nrm += q[[c, j]] * q[[c, j]];
+            }
+            let nrm = nrm.sqrt();
+            assert!(nrm > 1e-9, "mgs column {j} degenerate");
+            for c in 0..p {
+                q[[c, j]] /= nrm;
+            }
+        }
+        q
+    }
+
+    /// `frame_output_gram` of an orthonormal frame with itself is the identity.
+    #[test]
+    fn frame_output_gram_orthonormal_is_identity() {
+        let p = 5usize;
+        let r = 3usize;
+        // A deterministic-but-generic p×r seed, then orthonormalize.
+        let mut seed = Array2::<f64>::zeros((p, r));
+        for c in 0..p {
+            for a in 0..r {
+                seed[[c, a]] = ((c as f64) * 0.37 + (a as f64) * 1.31).sin() + 0.1 * (a as f64);
+            }
+        }
+        let u = mgs_orthonormalize(&seed);
+        let g = frame_output_gram(u.view(), u.view());
+        assert_eq!(g.dim(), (r, r));
+        for a in 0..r {
+            for b in 0..r {
+                let expect = if a == b { 1.0 } else { 0.0 };
+                assert!(
+                    (g[[a, b]] - expect).abs() < 1e-12,
+                    "UᵀU not identity at ({a},{b}): {}",
+                    g[[a, b]]
+                );
+            }
+        }
+    }
+
+    /// `from_frames_and_blocks` with two genuinely orthonormal frames must
+    /// reproduce the hand-built dense `g ⊗ (UᵀU)` reference on every interface,
+    /// computing the `W_ij` factors itself from the supplied frames.
+    #[test]
+    fn from_frames_and_blocks_matches_dense_reference() {
+        let p = 4usize;
+        // Atom 0: M_0 = 2, r_0 = 2. Atom 1: M_1 = 3, r_1 = 3.
+        let basis_sizes = vec![2usize, 3];
+        // Build two generic seeds and orthonormalize into St(p, r) frames.
+        let mut seed0 = Array2::<f64>::zeros((p, 2));
+        let mut seed1 = Array2::<f64>::zeros((p, 3));
+        for c in 0..p {
+            for a in 0..2 {
+                seed0[[c, a]] = ((c as f64) * 0.91 - (a as f64) * 0.5).cos() + 0.2 * (c as f64);
+            }
+            for a in 0..3 {
+                seed1[[c, a]] = ((c as f64) * 0.23 + (a as f64) * 1.7).sin() - 0.3 * (a as f64);
+            }
+        }
+        let u0 = mgs_orthonormalize(&seed0);
+        let u1 = mgs_orthonormalize(&seed1);
+
+        let g00 = array![[3.0_f64, 0.5], [0.5, 4.0]];
+        let g11 = array![[2.0_f64, 0.4, -0.2], [0.4, 5.0, 0.6], [-0.2, 0.6, 1.5]];
+        let g01 = array![[0.2_f64, -0.1, 0.0], [0.3, 0.1, -0.2]];
+        let g10 = g01.t().to_owned();
+
+        let mut g_blocks: std::collections::BTreeMap<(usize, usize), Array2<f64>> =
+            std::collections::BTreeMap::new();
+        g_blocks.insert((0, 0), g00.clone());
+        g_blocks.insert((1, 1), g11.clone());
+        g_blocks.insert((0, 1), g01.clone());
+        g_blocks.insert((1, 0), g10.clone());
+
+        let frames = vec![Some(u0.clone()), Some(u1.clone())];
+        let op =
+            FactoredFrameKroneckerOp::from_frames_and_blocks(&frames, &basis_sizes, p, &g_blocks)
+                .expect("from_frames_and_blocks");
+        // dim = M_0·r_0 + M_1·r_1 = 2·2 + 3·3 = 13.
+        assert_eq!(op.dim(), 13);
+
+        // Hand-built dense reference: W_ij = U_iᵀ U_j computed independently.
+        let ranks = vec![2usize, 3];
+        let w00 = frame_output_gram(u0.view(), u0.view());
+        let w11 = frame_output_gram(u1.view(), u1.view());
+        let w01 = frame_output_gram(u0.view(), u1.view());
+        let w10 = frame_output_gram(u1.view(), u0.view());
+        let ref_blocks = vec![
+            FactoredFrameGBlock {
+                atom_i: 0,
+                atom_j: 0,
+                g: g00,
+                w: w00,
+            },
+            FactoredFrameGBlock {
+                atom_i: 1,
+                atom_j: 1,
+                g: g11,
+                w: w11,
+            },
+            FactoredFrameGBlock {
+                atom_i: 0,
+                atom_j: 1,
+                g: g01,
+                w: w01,
+            },
+            FactoredFrameGBlock {
+                atom_i: 1,
+                atom_j: 0,
+                g: g10,
+                w: w10,
+            },
+        ];
+        let reference = factored_reference_dense(&ranks, &basis_sizes, &ref_blocks);
+
+        let dense = op.to_dense();
+        for i in 0..13 {
+            for j in 0..13 {
+                assert!(
+                    (dense[[i, j]] - reference[[i, j]]).abs() < 1e-12,
+                    "to_dense mismatch at ({i},{j}): {} vs {}",
+                    dense[[i, j]],
+                    reference[[i, j]]
+                );
+            }
+        }
+        // matvec == reference·x.
+        let x: Vec<f64> = (0..13).map(|i| 0.17 * (i as f64) - 0.6).collect();
+        let mut y = vec![0.0_f64; 13];
+        op.matvec(&x, &mut y);
+        for i in 0..13 {
+            let mut expect = 0.0;
+            for j in 0..13 {
+                expect += reference[[i, j]] * x[j];
+            }
+            assert!(
+                (y[i] - expect).abs() < 1e-10,
+                "matvec mismatch at {i}: {} vs {expect}",
+                y[i]
+            );
+        }
+    }
+
+    /// Mixed framed/unframed case: atom 0 framed (`r_0 = 2 < p = 4`), atom 1
+    /// unframed (`None → r_1 = p = 4`). The constructor must stand `I_p` in for
+    /// the missing frame, so the within-atom-1 block is exactly `g_11 ⊗ I_4`.
+    #[test]
+    fn from_frames_and_blocks_mixed_framed_unframed() {
+        let p = 4usize;
+        let basis_sizes = vec![2usize, 2]; // M_0 = 2, M_1 = 2.
+        // Atom 0 gets a genuine orthonormal 4×2 frame; atom 1 stays full-B.
+        let mut seed0 = Array2::<f64>::zeros((p, 2));
+        for c in 0..p {
+            for a in 0..2 {
+                seed0[[c, a]] = ((c as f64) * 0.61 + (a as f64) * 0.9).cos() - 0.15 * (c as f64);
+            }
+        }
+        let u0 = mgs_orthonormalize(&seed0);
+
+        let g00 = array![[3.0_f64, 0.5], [0.5, 4.0]];
+        let g11 = array![[2.0_f64, 0.4], [0.4, 5.0]];
+        let g01 = array![[0.2_f64, -0.1], [0.3, 0.1]];
+        let g10 = g01.t().to_owned();
+
+        let mut g_blocks: std::collections::BTreeMap<(usize, usize), Array2<f64>> =
+            std::collections::BTreeMap::new();
+        g_blocks.insert((0, 0), g00.clone());
+        g_blocks.insert((1, 1), g11.clone());
+        g_blocks.insert((0, 1), g01.clone());
+        g_blocks.insert((1, 0), g10.clone());
+
+        let frames = vec![Some(u0.clone()), None];
+        let op =
+            FactoredFrameKroneckerOp::from_frames_and_blocks(&frames, &basis_sizes, p, &g_blocks)
+                .expect("from_frames_and_blocks mixed");
+
+        // dim = M_0·r_0 + M_1·r_1 = 2·2 + 2·4 = 12.
+        assert_eq!(op.ranks, vec![2usize, 4]);
+        assert_eq!(op.dim(), 12);
+
+        // The within-unframed-atom block (atom 1) must be exactly g_11 ⊗ I_4.
+        // Atom 1's β range starts at offset M_0·r_0 = 4 and spans M_1·r_1 = 8.
+        let dense = op.to_dense();
+        let off1 = 4usize;
+        for li in 0..2 {
+            for lj in 0..2 {
+                for a in 0..4 {
+                    for b in 0..4 {
+                        let gi = off1 + li * 4 + a;
+                        let gj = off1 + lj * 4 + b;
+                        let expect = if a == b { g11[[li, lj]] } else { 0.0 };
+                        assert!(
+                            (dense[[gi, gj]] - expect).abs() < 1e-12,
+                            "g_11 ⊗ I_4 mismatch at ({gi},{gj}): {} vs {expect}",
+                            dense[[gi, gj]]
+                        );
+                    }
+                }
+            }
+        }
+
+        // Full dense reference: W computed with U_1 = I_p for the unframed atom.
+        let ranks = vec![2usize, 4];
+        let ident_p = Array2::<f64>::eye(p);
+        let w00 = frame_output_gram(u0.view(), u0.view());
+        let w11 = frame_output_gram(ident_p.view(), ident_p.view());
+        let w01 = frame_output_gram(u0.view(), ident_p.view());
+        let w10 = frame_output_gram(ident_p.view(), u0.view());
+        let ref_blocks = vec![
+            FactoredFrameGBlock {
+                atom_i: 0,
+                atom_j: 0,
+                g: g00,
+                w: w00,
+            },
+            FactoredFrameGBlock {
+                atom_i: 1,
+                atom_j: 1,
+                g: g11.clone(),
+                w: w11,
+            },
+            FactoredFrameGBlock {
+                atom_i: 0,
+                atom_j: 1,
+                g: g01,
+                w: w01,
+            },
+            FactoredFrameGBlock {
+                atom_i: 1,
+                atom_j: 0,
+                g: g10,
+                w: w10,
+            },
+        ];
+        let reference = factored_reference_dense(&ranks, &basis_sizes, &ref_blocks);
+
+        // matvec == reference·x.
+        let x: Vec<f64> = (0..12).map(|i| 0.11 * (i as f64) - 0.4).collect();
+        let mut y = vec![0.0_f64; 12];
+        op.matvec(&x, &mut y);
+        for i in 0..12 {
+            let mut expect = 0.0;
+            for j in 0..12 {
+                expect += reference[[i, j]] * x[j];
+            }
+            assert!(
+                (y[i] - expect).abs() < 1e-10,
+                "mixed matvec mismatch at {i}: {} vs {expect}",
+                y[i]
+            );
+        }
+    }
+
     /// Verify the arrow-Schur solve against a small dense reference.
     /// Build the joint bordered system as a single dense (K + N·d)² matrix,
     /// solve it with the local cholesky_lower path, and compare to the
@@ -7052,6 +9315,59 @@ mod tests {
                 );
             }
         }
+    }
+
+    fn diagonal_arrow_fixture(row_min: f64, schur_min: f64) -> ArrowSchurSystem {
+        let mut sys = ArrowSchurSystem::new(2, 2, 2);
+        sys.rows[0].htt = array![[row_min, 0.0], [0.0, row_min + 1.0]];
+        sys.rows[1].htt = array![[row_min + 2.0, 0.0], [0.0, row_min + 3.0]];
+        for row in sys.rows.iter_mut() {
+            row.htbeta.fill(0.0);
+            row.gt.fill(0.0);
+        }
+        sys.hbb = array![[schur_min, 0.0], [0.0, schur_min + 1.0]];
+        sys.gb.fill(0.0);
+        sys
+    }
+
+    fn diagonal_fixture_dense_lambda_min(sys: &ArrowSchurSystem) -> f64 {
+        let mut out = f64::INFINITY;
+        for row in &sys.rows {
+            for axis in 0..row.htt.nrows() {
+                out = out.min(row.htt[[axis, axis]]);
+            }
+        }
+        for axis in 0..sys.hbb.nrows() {
+            out = out.min(sys.hbb[[axis, axis]]);
+        }
+        out
+    }
+
+    #[test]
+    fn arrow_factor_min_pivot_matches_dense_lambda_min_ordering() {
+        let weak = diagonal_arrow_fixture(0.2, 0.8);
+        let strong = diagonal_arrow_fixture(0.7, 1.2);
+        let options = ArrowSolveOptions::direct();
+        let (_dt_w, _db_w, weak_cache) =
+            solve_arrow_newton_step_with_options(&weak, 0.0, 0.0, &options)
+                .expect("weak diagonal fixture should factor");
+        let (_dt_s, _db_s, strong_cache) =
+            solve_arrow_newton_step_with_options(&strong, 0.0, 0.0, &options)
+                .expect("strong diagonal fixture should factor");
+
+        let weak_lambda = diagonal_fixture_dense_lambda_min(&weak);
+        let strong_lambda = diagonal_fixture_dense_lambda_min(&strong);
+        assert!(weak_lambda < strong_lambda);
+
+        let weak_pivot = arrow_factor_min_pivot(&weak_cache)
+            .min_pivot
+            .expect("weak pivot");
+        let strong_pivot = arrow_factor_min_pivot(&strong_cache)
+            .min_pivot
+            .expect("strong pivot");
+        assert_abs_diff_eq!(weak_pivot, weak_lambda, epsilon = 1.0e-14);
+        assert_abs_diff_eq!(strong_pivot, strong_lambda, epsilon = 1.0e-14);
+        assert!(weak_pivot < strong_pivot);
     }
 
     fn quartic_counterexample_value(t: f64) -> f64 {
@@ -7424,7 +9740,114 @@ mod tests {
         );
     }
 
-    /// `schur_inverse_apply` / `schur_inverse_diagonal` must reproduce the
+    /// `full_inverse_apply` (#1006 IFT/adjoint back-solve) must reproduce the dense
+    /// bordered-arrow inverse applied to an arbitrary arrow-layout RHS, and
+    /// solving against the system's own gradient must reproduce the Newton
+    /// step the solver itself returned (`Δ = H⁻¹g`) — both to near machine
+    /// precision on the ridge-0 Direct factor.
+    #[test]
+    fn full_inverse_apply_matches_dense_inverse_and_newton_step() {
+        let n = 3usize;
+        let d = 2usize;
+        let k = 2usize;
+        let mut sys = ArrowSchurSystem::new(n, d, k);
+        sys.rows[0].htt = array![[4.0_f64, 0.5], [0.5, 3.0]];
+        sys.rows[0].htbeta = array![[1.0_f64, 0.2], [-0.3, 0.7]];
+        sys.rows[0].gt = array![0.4_f64, -0.7];
+        sys.rows[1].htt = array![[5.0_f64, -0.4], [-0.4, 2.5]];
+        sys.rows[1].htbeta = array![[0.6_f64, -0.1], [0.4, 0.9]];
+        sys.rows[1].gt = array![-0.2_f64, 0.9];
+        sys.rows[2].htt = array![[3.5_f64, 0.2], [0.2, 4.5]];
+        sys.rows[2].htbeta = array![[-0.2_f64, 0.5], [0.8, -0.6]];
+        sys.rows[2].gt = array![1.1_f64, 0.3];
+        sys.hbb = array![[12.0_f64, 0.7], [0.7, 10.0]];
+        sys.gb = array![0.5_f64, -0.8];
+
+        let options = ArrowSolveOptions::direct();
+        let (delta_t, delta_beta, cache) =
+            solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options)
+                .expect("direct arrow solve should factor this SPD system");
+
+        // (a) The solver returns the DESCENT step Δ = −H⁻¹g; full_inverse_apply is the
+        // bare inverse application H⁻¹g, so u must equal −Δ exactly.
+        let mut g_t = Array1::<f64>::zeros(n * d);
+        for i in 0..n {
+            for j in 0..d {
+                g_t[i * d + j] = sys.rows[i].gt[j];
+            }
+        }
+        let (u_t, u_beta) = cache
+            .full_inverse_apply(g_t.view(), sys.gb.view())
+            .expect("full_inverse_apply on the ridge-0 Direct cache");
+        for idx in 0..n * d {
+            assert!(
+                (u_t[idx] + delta_t[idx]).abs() < 1e-10,
+                "t[{idx}]: full_inverse_apply {} vs −(Newton step) {}",
+                u_t[idx],
+                -delta_t[idx]
+            );
+        }
+        for c in 0..k {
+            assert!(
+                (u_beta[c] + delta_beta[c]).abs() < 1e-10,
+                "beta[{c}]: full_inverse_apply {} vs −(Newton step) {}",
+                u_beta[c],
+                -delta_beta[c]
+            );
+        }
+
+        // (b) Arbitrary RHS vs the dense bordered inverse.
+        let dim = n * d + k;
+        let mut h = Array2::<f64>::zeros((dim, dim));
+        for i in 0..n {
+            let base = i * d;
+            for r in 0..d {
+                for c in 0..d {
+                    h[[base + r, base + c]] = sys.rows[i].htt[[r, c]];
+                }
+                for c in 0..k {
+                    let v = sys.rows[i].htbeta[[r, c]];
+                    h[[base + r, n * d + c]] = v;
+                    h[[n * d + c, base + r]] = v;
+                }
+            }
+        }
+        for r in 0..k {
+            for c in 0..k {
+                h[[n * d + r, n * d + c]] = sys.hbb[[r, c]];
+            }
+        }
+        let l = cholesky_lower(&h).expect("assembled bordered H must be SPD");
+        let mut w_full = Array1::<f64>::zeros(dim);
+        for (idx, v) in w_full.iter_mut().enumerate() {
+            *v = 0.3 + 0.17 * (idx as f64) * (if idx % 2 == 0 { 1.0 } else { -1.0 });
+        }
+        let dense_u = cholesky_solve_vector(&l, &w_full);
+        let (u_t2, u_beta2) = cache
+            .full_inverse_apply(
+                w_full.slice(ndarray::s![..n * d]),
+                w_full.slice(ndarray::s![n * d..]),
+            )
+            .expect("full_inverse_apply on arbitrary RHS");
+        for idx in 0..n * d {
+            assert!(
+                (u_t2[idx] - dense_u[idx]).abs() < 1e-10,
+                "t[{idx}]: full_inverse_apply {} vs dense {}",
+                u_t2[idx],
+                dense_u[idx]
+            );
+        }
+        for c in 0..k {
+            assert!(
+                (u_beta2[c] - dense_u[n * d + c]).abs() < 1e-10,
+                "beta[{c}]: full_inverse_apply {} vs dense {}",
+                u_beta2[c],
+                dense_u[n * d + c]
+            );
+        }
+    }
+
+    /// `schur_inverse_apply` / `schur_inverse_block` must reproduce the
     /// β-block of the dense bordered-arrow inverse `(H⁻¹)_ββ = S_β⁻¹`, and a
     /// caller-assembled `tr(S_β⁻¹ M)` must match the dense Kron-block trace —
     /// the β-side analogue used by the SAE λ_smooth Fellner-Schall step.
@@ -7478,20 +9901,6 @@ mod tests {
 
         // The β-block of H⁻¹ is the bottom-right K×K corner.
         let beta_off = n * d;
-
-        // schur_inverse_diagonal vs dense β-block diagonal.
-        let sdiag = cache
-            .schur_inverse_diagonal()
-            .expect("dense Schur cache must support schur_inverse_diagonal");
-        assert_eq!(sdiag.len(), k);
-        for j in 0..k {
-            let expected = h_inv[[beta_off + j, beta_off + j]];
-            assert!(
-                (sdiag[j] - expected).abs() < 1e-9,
-                "β diag {j}: {} vs dense {expected}",
-                sdiag[j]
-            );
-        }
 
         // schur_inverse_apply against each unit column reproduces the full
         // β-block (every entry, not just the diagonal).
@@ -7576,9 +9985,17 @@ mod tests {
     /// keep the *dense Schur complement* PD (gam#845), the single-shot solve
     /// correctly reports a recoverable factorization error and the
     /// LM-escalating wrapper recovers it with a finite, well-conditioned step.
-    /// `with_ill_conditioning_tolerated()` accepts the RAW (undamped) blocks
-    /// and returns a usable cache whose log-determinant equals the exact dense
-    /// `log|H|`. This is the SAE evidence path under a wide ARD α sweep.
+    ///
+    /// `with_ill_conditioning_tolerated()` accepts the RAW (undamped) blocks.
+    /// Its contract has two sides, pinned on two fixtures:
+    ///   * row-PD but assembled-INDEFINITE H (strong coupling into near-null
+    ///     t-directions) → honest refusal. Per-row PD does not imply bordered-
+    ///     system PD, and an exact `log|H|` does not exist on the Cholesky
+    ///     branch — fabricating one would corrupt the evidence.
+    ///   * row κ ≈ 1e9 but assembled H genuinely PD (coupling subordinate to
+    ///     the weak curvature) → a usable cache whose log-determinant equals
+    ///     the exact dense `log|H|`, undistorted by any κ-ceiling ridge. This
+    ///     is the SAE evidence path under a wide ARD α sweep.
     #[test]
     fn ill_conditioning_tolerated_returns_cache_with_exact_logdet() {
         let n = 2usize;
@@ -7642,10 +10059,45 @@ mod tests {
             strict_diag.ridge_escalations
         );
 
-        // Evidence mode accepts the RAW (undamped) block and returns a cache —
-        // the genuinely PD factor whose diagonal gives the EXACT log|H|.
+        // Evidence mode accepts the RAW (undamped) blocks. For THIS system the
+        // honest answer is refusal: each per-row `H_tt` is PD in isolation, but
+        // the strong coupling into the near-null t-directions makes the
+        // assembled bordered H indefinite (its true Schur complement has a
+        // ≈ −7.5e6 leading pivot; the full spectrum has two negative
+        // eigenvalues). An exact log|H| does not exist on the Cholesky branch,
+        // and tolerating ill-CONDITIONING must never fabricate a determinant
+        // for an in-DEFINITE system — the SchurFactorFailed refusal is the
+        // contract, not a defect.
         let opts = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
-        let (_dt, _db, cache) = solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &opts)
+        let tolerate_indefinite = solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &opts);
+        assert!(
+            matches!(
+                tolerate_indefinite,
+                Err(ArrowSchurError::SchurFactorFailed { .. })
+            ),
+            "tolerate mode must refuse the indefinite assembled H rather than fabricate \
+             a log-determinant; got {tolerate_indefinite:?}"
+        );
+
+        // The regime the tolerate flag exists for: per-row κ ≈ 1e9 (above the
+        // safe-Schur ceiling, so the strict path would ridge-condition the row
+        // and distort the determinant) yet the assembled H is genuinely PD
+        // because the coupling into the near-null t-directions is subordinate
+        // to their curvature (‖H_tβ row‖² ≲ λ_min(H_tt)·λ_min(H_ββ)). Evidence
+        // mode must factor the RAW blocks and report the EXACT dense log|H|,
+        // undistorted by any κ-ceiling ridge.
+        let mut pd_sys = ArrowSchurSystem::new(n, d, k);
+        pd_sys.rows[0].htt = array![[1.0_f64, 0.0], [0.0, 1e-9]];
+        pd_sys.rows[0].htbeta = array![[0.3_f64, 0.1], [3e-6, 1e-6]];
+        pd_sys.rows[1].htt = array![[2.0_f64, 0.0], [0.0, 2e-9]];
+        pd_sys.rows[1].htbeta = array![[0.2_f64, -0.1], [2e-6, 4e-6]];
+        for row in pd_sys.rows.iter_mut() {
+            row.gt = array![0.0_f64, 0.0];
+        }
+        pd_sys.hbb = array![[5.0_f64, 0.3], [0.3, 4.0]];
+        pd_sys.gb = array![0.0_f64, 0.0];
+
+        let (_dt, _db, cache) = solve_arrow_newton_step_with_options(&pd_sys, 0.0, 0.0, &opts)
             .expect("tolerate mode must factor the ill-conditioned-but-PD system");
 
         // Cache log-determinant (Σ log|H_tt^i| + log|S_β|) must equal the exact
@@ -7660,12 +10112,12 @@ mod tests {
             let base = i * d;
             for r in 0..d {
                 for c in 0..d {
-                    h[[base + r, base + c]] = sys.rows[i].htt[[r, c]];
+                    h[[base + r, base + c]] = pd_sys.rows[i].htt[[r, c]];
                 }
             }
             for r in 0..d {
                 for c in 0..k {
-                    let v = sys.rows[i].htbeta[[r, c]];
+                    let v = pd_sys.rows[i].htbeta[[r, c]];
                     h[[base + r, n * d + c]] = v;
                     h[[n * d + c, base + r]] = v;
                 }
@@ -7673,7 +10125,7 @@ mod tests {
         }
         for r in 0..k {
             for c in 0..k {
-                h[[n * d + r, n * d + c]] = sys.hbb[[r, c]];
+                h[[n * d + r, n * d + c]] = pd_sys.hbb[[r, c]];
             }
         }
         let lh = cholesky_lower(&h).expect("assembled bordered H must be SPD");
@@ -7690,5 +10142,230 @@ mod tests {
             .expect("tolerated cache must support latent_block_inverse_diagonal");
         assert_eq!(tdiag.len(), n * d);
         assert!(tdiag.iter().all(|v| v.is_finite()));
+    }
+
+    #[test]
+    fn arrow_factor_slab_accessor_matches_array_blocks_bitwise() {
+        let blocks = vec![
+            array![[1.0_f64]],
+            array![[2.0_f64, 0.0], [0.25, 3.0]],
+            array![[4.0_f64, 0.0, 0.0], [0.5, 5.0, 0.0], [-0.25, 0.75, 6.0]],
+        ];
+        let slab = ArrowFactorSlab::from_blocks(blocks.clone());
+        assert_eq!(slab.len(), blocks.len());
+        for row in 0..blocks.len() {
+            let view = slab.factor(row);
+            assert_eq!(view.dim(), blocks[row].dim());
+            for r in 0..blocks[row].nrows() {
+                for c in 0..blocks[row].ncols() {
+                    assert_eq!(view[[r, c]].to_bits(), blocks[row][[r, c]].to_bits());
+                }
+            }
+        }
+    }
+
+    fn fixed_row_kernel_fixture<const D: usize>() -> (ArrowRowBlock, Array1<f64>) {
+        let mut row = ArrowRowBlock::new(D, 0);
+        for r in 0..D {
+            for c in 0..D {
+                row.htt[[r, c]] = if r == c {
+                    4.0 + r as f64
+                } else {
+                    0.03125 * ((r + c + 1) as f64)
+                };
+            }
+        }
+        let rhs = Array1::from_iter((0..D).map(|i| 0.5 + i as f64 * 0.25));
+        (row, rhs)
+    }
+
+    fn assert_fixed_row_kernels_match_dynamic<const D: usize>() -> usize {
+        let (row, rhs) = fixed_row_kernel_fixture::<D>();
+        let ridge = 0.125_f64;
+        let fixed = factor_row_block_cholesky_fixed::<D>(&row, ridge).expect("fixed factor");
+        let dynamic = factor_row_block_cholesky_dynamic(&row, ridge, D).expect("dynamic factor");
+        for r in 0..D {
+            for c in 0..D {
+                assert_eq!(
+                    fixed[[r, c]].to_bits(),
+                    dynamic[[r, c]].to_bits(),
+                    "factor mismatch at D={D} ({r},{c})"
+                );
+            }
+        }
+
+        let fixed_solve = cholesky_solve_vector_fixed::<D>(fixed.view(), rhs.view());
+        let dynamic_solve = cholesky_solve_vector(dynamic.view(), rhs.view());
+        for i in 0..D {
+            assert_eq!(
+                fixed_solve[i].to_bits(),
+                dynamic_solve[i].to_bits(),
+                "solve mismatch at D={D} index {i}"
+            );
+        }
+        D
+    }
+
+    #[test]
+    fn fixed_row_kernels_match_dynamic_path_bitwise() {
+        let checked = assert_fixed_row_kernels_match_dynamic::<1>()
+            + assert_fixed_row_kernels_match_dynamic::<2>()
+            + assert_fixed_row_kernels_match_dynamic::<3>()
+            + assert_fixed_row_kernels_match_dynamic::<4>();
+        assert_eq!(checked, 10);
+    }
+
+    /// Build a small, well-conditioned dense Direct arrow system: `n` rows of
+    /// `d×d` PD blocks, small `d×k` cross blocks, a diagonally-dominant `k×k`
+    /// border. Used to exercise the #1017 production device-routing seam on the
+    /// host (where the device declines, so the CPU path must answer unchanged).
+    fn dense_direct_system(n: usize, d: usize, k: usize) -> ArrowSchurSystem {
+        let mut sys = ArrowSchurSystem::new(n, d, k);
+        for (i, row) in sys.rows.iter_mut().enumerate() {
+            for r in 0..d {
+                for c in 0..d {
+                    row.htt[[r, c]] = if r == c { 4.0 + (i % 3) as f64 } else { 0.1 };
+                }
+                row.gt[r] = 0.05 * ((i + r + 1) as f64).sin();
+                for c in 0..k {
+                    row.htbeta[[r, c]] = 0.01 * (((i + 1) * (c + 1)) as f64).cos();
+                }
+            }
+        }
+        for r in 0..k {
+            sys.gb[r] = 0.02 * ((r + 1) as f64).cos();
+            for c in 0..k {
+                sys.hbb[[r, c]] = if r == c { 6.0 } else { 0.0 };
+            }
+        }
+        sys.refresh_row_hessian_fingerprint();
+        sys
+    }
+
+    /// The #1017 work-based dispatch predicate must admit LLM/SAE shapes (few
+    /// rows, wide border) and reject tiny shapes where launch latency wins.
+    #[test]
+    fn device_dispatch_predicate_gates_on_work_not_rows() {
+        let policy = crate::gpu::policy::GpuDispatchPolicy::default();
+        // Tiny: below the DEVICE_LOOP_MIN_P border floor → never on device.
+        assert!(!policy.dense_hessian_work_target_is_gpu(300, 8));
+        // LLM/SAE: 2000 rows × a few-thousand-wide border clears both the
+        // min-p floor and the 2·n·p² flop threshold.
+        assert!(policy.dense_hessian_work_target_is_gpu(2_000, 4_096));
+    }
+
+    /// On a host without a CUDA device the production seam must decline (return
+    /// `None`), so `solve_arrow_newton_step_core` runs the unchanged CPU path
+    /// and the result equals the direct CPU artifacts solve bit-for-bit.
+    #[test]
+    fn device_seam_declines_without_gpu_and_matches_cpu() {
+        if crate::gpu::runtime::GpuRuntime::global().is_some() {
+            // On a CUDA host the device may legitimately serve the step; this
+            // host-only invariant does not apply. The box harness asserts the
+            // device==CPU 1e-10 parity instead.
+            return;
+        }
+        let sys = dense_direct_system(6, 2, 4);
+        let options = ArrowSolveOptions::direct();
+
+        // The seam helpers both decline when no device is present.
+        assert!(try_device_arrow_direct(&sys, 0.0, 0.0, &options).is_none());
+        assert!(maybe_inject_gpu_schur_matvec(&sys, 0.0, 0.0, &options).is_none());
+
+        // The public core entry therefore equals the direct CPU artifacts solve.
+        let (dt_core, db_core, diag) =
+            solve_arrow_newton_step_core(&sys, 0.0, 0.0, &options).expect("core solve");
+        assert!(
+            !diag.used_device_arrow,
+            "no device present, so the solve must not be flagged device-served"
+        );
+        let artifacts =
+            solve_arrow_newton_step_artifacts(&sys, 0.0, 0.0, &options).expect("artifacts solve");
+        for (a, b) in dt_core.iter().zip(artifacts.delta_t.iter()) {
+            assert_eq!(a.to_bits(), b.to_bits(), "Δt must be bit-identical to CPU");
+        }
+        for (a, b) in db_core.iter().zip(artifacts.delta_beta.iter()) {
+            assert_eq!(a.to_bits(), b.to_bits(), "Δβ must be bit-identical to CPU");
+        }
+    }
+
+    /// #1014: the streaming reduced solve under certified mixed precision must
+    /// agree with the f64 solve to the backward-error certificate, and — the
+    /// load-bearing invariant — the evidence log-determinant must be UNCHANGED
+    /// (bit-for-bit) because it is read from the f64 reduced-Schur factor, never
+    /// the f32 solve.
+    #[test]
+    fn streaming_mixed_precision_matches_f64_and_keeps_logdet_f64() {
+        let sys = dense_direct_system(40, 3, 6);
+
+        let f64_options = ArrowSolveOptions::direct().with_streaming_chunk_size(Some(8));
+        let mp_options = f64_options
+            .clone()
+            .with_mixed_precision_policy(MixedPrecisionPolicy::certified());
+        assert!(matches!(
+            f64_options.mixed_precision,
+            MixedPrecisionPolicy::Off
+        ));
+
+        let mut s_f64 = StreamingArrowSchur::from_system(&sys, 8);
+        let (_, db_f64, _) = s_f64.solve(0.0, 0.0, &f64_options).expect("f64 streaming solve");
+        let mut s_mp = StreamingArrowSchur::from_system(&sys, 8);
+        let (_, db_mp, _) = s_mp.solve(0.0, 0.0, &mp_options).expect("mp streaming solve");
+
+        // The mixed-precision Δβ matches the f64 Δβ to the certified tolerance.
+        let mut max_abs = 0.0_f64;
+        for (a, b) in db_f64.iter().zip(db_mp.iter()) {
+            max_abs = max_abs.max((a - b).abs());
+        }
+        assert!(
+            max_abs < 1e-7,
+            "mixed-precision Δβ deviates from f64 by {max_abs:e}, above the certified tolerance"
+        );
+
+        // Evidence log-determinant: f64 regardless of the Δβ precision policy.
+        let mut ld_f64 = StreamingArrowSchur::from_system(&sys, 8);
+        let logdet_f64 = ld_f64
+            .exact_arrow_log_det(0.0, 0.0, &f64_options)
+            .expect("f64 logdet");
+        let mut ld_mp = StreamingArrowSchur::from_system(&sys, 8);
+        let logdet_mp = ld_mp
+            .exact_arrow_log_det(0.0, 0.0, &mp_options)
+            .expect("mp logdet");
+        assert_eq!(
+            logdet_f64.to_bits(),
+            logdet_mp.to_bits(),
+            "evidence log|H| must stay bit-for-bit f64 under the mixed-precision policy"
+        );
+    }
+
+    /// The streaming dispatch turns mixed precision ON by default (#1014) but
+    /// honors an explicit caller policy.
+    #[test]
+    fn streaming_mixed_precision_default_upgrades_only_off() {
+        let off = ArrowSolveOptions::direct();
+        assert!(matches!(
+            off.with_streaming_mixed_precision_default().mixed_precision,
+            MixedPrecisionPolicy::Certified { .. }
+        ));
+        let pinned =
+            ArrowSolveOptions::direct().with_mixed_precision_policy(MixedPrecisionPolicy::Off);
+        // An explicit Off is still upgraded (it is the inherited default), but a
+        // caller that pinned Certified keeps its own parameters.
+        let custom = ArrowSolveOptions::direct().with_mixed_precision_policy(
+            MixedPrecisionPolicy::Certified {
+                max_refinement_steps: 1,
+                residual_relative_tolerance: 1e-6,
+                kappa_unit_roundoff_margin: 0.25,
+            },
+        );
+        match custom.with_streaming_mixed_precision_default().mixed_precision {
+            MixedPrecisionPolicy::Certified {
+                max_refinement_steps,
+                ..
+            } => assert_eq!(max_refinement_steps, 1, "explicit policy preserved"),
+            MixedPrecisionPolicy::Off => panic!("explicit Certified must not be downgraded"),
+        }
+        // `pinned` documents that Off is the upgrade trigger.
+        assert!(matches!(pinned.mixed_precision, MixedPrecisionPolicy::Off));
     }
 }

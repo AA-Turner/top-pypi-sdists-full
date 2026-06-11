@@ -118,6 +118,20 @@ def _try_import_device():
     return qml, Device
 
 
+def _package_version() -> str:
+    """panta_sim 패키지의 ``__version__`` 을 읽는다 (``PantaDevice.version`` 동기화).
+
+    plugin entry point 등 부분 초기화 코너 케이스에서도 import 가 깨지지 않도록
+    실패 시 ``"unknown"`` 으로 폴백한다.
+    """
+    try:
+        from panta_sim import __version__
+
+        return __version__
+    except ImportError:  # pragma: no cover — 부분 초기화 방어
+        return "unknown"
+
+
 class PantaDevice:
     """``qml.device("panta-sim", wires=N)`` 의 backend.
 
@@ -131,6 +145,8 @@ class PantaDevice:
         shots: ``None`` 이면 analytic statevector mode. 정수 ``N`` 이면 N shots
             sampling. 혼합 (``None`` + sample measurement) 은 PennyLane 측에서
             거부.
+        seed: ``qml.sample`` / ``qml.counts`` 샘플링 RNG seed (재현성).
+            ``None`` (기본) 이면 비결정적.
 
     Example:
         >>> import pennylane as qml
@@ -146,7 +162,7 @@ class PantaDevice:
     name = "panta-sim"
     short_name = "panta-sim"
     pennylane_requires = ">=0.35"
-    version = "0.3.5"
+    version = _package_version()
     author = "quantumfia"
 
     def __new__(cls, *args, **kwargs):
@@ -162,9 +178,13 @@ class PantaDevice:
         self,
         wires: Union[int, Sequence[Any]],
         shots: Optional[int] = None,
+        *,
+        seed: Optional[int] = None,
     ) -> None:
         qml, Device = _try_import_device()
         Device.__init__(self, wires=wires, shots=shots)
+        # sample/counts 샘플링용 RNG seed (None 이면 비결정적).
+        self._seed = seed
 
     def execute(
         self,
@@ -333,7 +353,7 @@ class PantaDevice:
                     "qml.sample / qml.counts requires shots — pass shots=N to "
                     "qml.device('panta-sim', wires=..., shots=N) or to the QNode."
                 )
-            rng = np.random.default_rng()
+            rng = np.random.default_rng(getattr(self, "_seed", None))
             sampled = pl_measure_with_samples(
                 sample_mps, state_md, shots_obj, rng=rng
             )

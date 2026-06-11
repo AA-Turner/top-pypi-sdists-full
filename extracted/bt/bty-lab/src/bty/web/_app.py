@@ -53,7 +53,12 @@ from bty.web import (
     _ui,
     _withcache,
 )
-from bty.web._auth import SESSION_COOKIE, require_auth, using_default_password
+from bty.web._auth import (
+    DEFAULT_ADMIN_PASSWORD,
+    SESSION_COOKIE,
+    require_auth,
+    using_default_password,
+)
 from bty.web._events import (
     WORKER_STATE_CHANGED,
     MachineEvent,
@@ -190,9 +195,10 @@ def create_app(
         _lifespan_log = _logging.getLogger(__name__)
         if using_default_password():
             _lifespan_log.warning(
-                "BTY_ADMIN_PASSWORD is not set - using the well-known default "
-                "password 'bty'. Change it via $BTY_ADMIN_PASSWORD for any "
-                "deploy reachable beyond localhost."
+                "Admin password is the well-known default %r. Change "
+                "[admin] password in bty.toml (or $BTY_ADMIN_PASSWORD) "
+                "for any deploy reachable beyond localhost.",
+                DEFAULT_ADMIN_PASSWORD,
             )
         # The SSE event bus accepts publishes from worker threads -
         # capture the loop now so cross-thread publishes can hop in
@@ -1053,6 +1059,9 @@ def create_app(
 
         plan: dict[str, Any]
         offer_kind: str
+        # Set on the flash path when the image source is an HTTP(S) URL;
+        # folded into the plan event details below for observability.
+        cache_decision: dict[str, Any] | None = None
         if policy in ("bty-flash-always", "bty-flash-once") and ref:
             target_disk_serial = machine.get("target_disk_serial")
             image_name = _flash_target_for_ref(str(ref))
@@ -1087,8 +1096,19 @@ def create_app(
                         withcache_url = _settings_store.resolve_withcache_url(conn)
                     if withcache_url and _withcache.is_cached(withcache_url, src):
                         image_url = _withcache.blob_url(withcache_url, src)
+                        cache_hit = True
                     else:
                         image_url = src
+                        cache_hit = False
+                    # Record the decision so the operator can see, in
+                    # /ui/events + the log, whether the boot streamed
+                    # from withcache or origin (and whether a configured
+                    # cache is even being consulted).
+                    cache_decision = {
+                        "configured": bool(withcache_url),
+                        "hit": cache_hit if withcache_url else None,
+                        "served_from": "withcache" if cache_hit else "origin",
+                    }
                 plan = {
                     "mode": "flash",
                     "image": image_url,
@@ -1139,7 +1159,12 @@ def create_app(
                 subject_id=normalised,
                 actor="pxe-client",
                 source_ip=client_ip,
-                details={"plan": plan, "boot_mode": policy, "offer_kind": offer_kind},
+                details={
+                    "plan": plan,
+                    "boot_mode": policy,
+                    "offer_kind": offer_kind,
+                    **({"withcache": cache_decision} if cache_decision else {}),
+                },
             )
             conn.commit()
         return plan

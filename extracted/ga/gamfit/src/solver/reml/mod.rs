@@ -14,6 +14,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 
 pub(crate) mod assembly;
+pub(crate) mod atoms;
 mod cache;
 pub(crate) mod continuation;
 pub(crate) mod eval;
@@ -22,6 +23,7 @@ pub(super) mod hyper;
 mod inner_strategy;
 pub(crate) mod jeffreys_subspace;
 pub(crate) mod penalty_logdet;
+pub(crate) mod per_atom_efs;
 pub(crate) mod rho_prior_eval;
 pub(crate) mod runtime;
 mod trace;
@@ -122,7 +124,7 @@ pub(crate) struct IftWarmStartCache {
     /// otherwise recompute on every predict call. With H_pen factor
     /// caching (commit ec18559d) the per-call cost dropped from
     /// `O(p³)` Cholesky to `O(p²) ≈ k · O(block²)` rhs construction;
-    /// at biobank-scale CTN (p ≈ several thousand) that's several ms
+    /// at large-scale CTN (p ≈ several thousand) that's several ms
     /// per predict call still being paid. By stashing `S_k · β_cur`
     /// at cache-write time the predictor's per-call work drops to
     /// just the `Δρ_k · e^{ρ_k} · sb_block` accumulation, which is
@@ -653,7 +655,9 @@ mod tests {
             x[[i, 7]] = (3.0 * tau * t).cos();
             let eta = 0.3 + 0.9 * (1.4 * (t - 0.5)).sin();
             // Deterministic non-negative integer counts near exp(eta).
-            y[i] = (eta.exp() + 0.5 * ((i as f64) * 2.399_963).sin()).round().max(0.0);
+            y[i] = (eta.exp() + 0.5 * ((i as f64) * 2.399_963).sin())
+                .round()
+                .max(0.0);
         }
         let mut s = Array2::<f64>::zeros((p, p));
         for j in 1..p {
@@ -2589,9 +2593,11 @@ mod tests {
 
     #[test]
     fn binomial_logit_n30_rank_deficient_hessian_matches_cost_fd() {
-        // Regression lock for the `PenaltySubspaceTrace` projected-logdet
+        // Regression lock for the `PenaltySubspaceTrace` pseudo-logdet
         // kernel installed by the rank-deficient LAML fix (see
-        // `PenaltySubspaceTrace` and `fixed_subspace_hessian_projected_parts`).
+        // `PenaltySubspaceTrace` and `intrinsic_hessian_pseudo_logdet_parts`;
+        // since #901 the cost is the intrinsic `½ log|H_pen|₊` and the kernel
+        // is the spectral `H_pen⁺`, exact for every drift direction).
         //
         // The sibling `binomial_logit_n30_design_moving_hessian_matches_fd`
         // passes pre- AND post-fix because its FD reference differentiates
@@ -4164,6 +4170,20 @@ pub(crate) struct EvalShared {
     /// Cached FirthDenseOperator built from the original (non-reparameterized)
     /// design matrix, for use by the sparse evaluation path.
     firth_dense_operator_original: Option<Arc<FirthDenseOperator>>,
+    /// The ONE original-frame penalty pseudo-logdet factorization for this
+    /// evaluation point (#931 atom discipline). `log|Σ λ_k S_k|₊`'s VALUE,
+    /// ρ-derivatives, τ/ψ components, and ρ×τ cross blocks are all
+    /// contractions of this single eigendecomposition; the ρ-side criterion
+    /// assembly (`dense_penalty_logdet_derivs`, the sparse det2 path) and the
+    /// original-basis hyper-coordinate builders share it through
+    /// [`EvalShared::penalty_pseudologdet_original`]. Building a second
+    /// factorization of the same Sλ for the same evaluation point is the
+    /// objective↔gradient desync surface (#748/#752/#901) this cell removes:
+    /// the ridge and positive-eigenspace threshold are decided exactly once.
+    /// (The transformed-frame pair-callback path builds its own object — it
+    /// factorizes the canonical-TRANSFORMED, possibly constraint-projected
+    /// penalties, a genuinely different matrix, not a duplicate of this one.)
+    penalty_pseudologdet: std::sync::OnceLock<Arc<penalty_logdet::PenaltyPseudologdet>>,
 }
 
 impl EvalShared {
@@ -4172,6 +4192,58 @@ impl EvalShared {
             (None, None) => true,
             (Some(a), Some(b)) => a == b,
             _ => false,
+        }
+    }
+
+    /// Lazily build — once per evaluation point — the original-frame
+    /// [`PenaltyPseudologdet`](penalty_logdet::PenaltyPseudologdet) of
+    /// `Σ λ_k S_k` and hand every caller the SAME factorization.
+    ///
+    /// This is the #931 port of the penalty-logdet term: value, ρ-first /
+    /// ρ-second derivatives, τ-gradient components, τ×τ and ρ×τ Hessian
+    /// blocks are all projections of one eigendecomposition, so no pair of
+    /// consumers can disagree about the ridge or the positive-eigenspace
+    /// threshold. The ridge is read from this bundle's `ridge_passport` —
+    /// the single place that convention is decided.
+    ///
+    /// `lambdas` must be the λ = exp(ρ) vector of this bundle's evaluation
+    /// point and `p` the original-basis coefficient dimension; on a cache
+    /// hit both are checked against the stored object where representable.
+    pub(crate) fn penalty_pseudologdet_original(
+        &self,
+        canonical_penalties: &[crate::construction::CanonicalPenalty],
+        lambdas: &[f64],
+        p: usize,
+    ) -> Result<Arc<penalty_logdet::PenaltyPseudologdet>, EstimationError> {
+        if let Some(pld) = self.penalty_pseudologdet.get() {
+            if pld.dim() != p {
+                return Err(EstimationError::LayoutError(format!(
+                    "shared penalty pseudo-logdet frame mismatch: cached p={}, requested p={}",
+                    pld.dim(),
+                    p
+                )));
+            }
+            return Ok(Arc::clone(pld));
+        }
+        let pld = Arc::new(
+            penalty_logdet::PenaltyPseudologdet::from_penalties(
+                canonical_penalties,
+                lambdas,
+                self.ridge_passport.penalty_logdet_ridge(),
+                p,
+            )
+            .map_err(EstimationError::InvalidInput)?,
+        );
+        match self.penalty_pseudologdet.set(Arc::clone(&pld)) {
+            Ok(()) => Ok(pld),
+            // A concurrent caller initialized the cell first; both objects
+            // were built from identical inputs — return the canonical winner
+            // so every consumer holds literally the same factorization.
+            Err(_) => Ok(Arc::clone(
+                self.penalty_pseudologdet
+                    .get()
+                    .expect("OnceLock set raced, so it is initialized"),
+            )),
         }
     }
 }
@@ -4640,7 +4712,7 @@ pub(crate) struct RemlState<'a> {
     /// Cached Cholesky factorization of `IftWarmStartCache::penalized_hessian_transformed`.
     /// Lazily computed on the first IFT predict call after a fresh
     /// `updatewarm_start_from`, then reused by every subsequent
-    /// predict call until the IFT cache is invalidated. At biobank
+    /// predict call until the IFT cache is invalidated. At large-scale
     /// scale where p can reach several thousand, the dense Cholesky
     /// is O(p³)/3 — multiple seconds per refactor — so caching saves
     /// real wall time across the typical 5-10 IFT predict calls per

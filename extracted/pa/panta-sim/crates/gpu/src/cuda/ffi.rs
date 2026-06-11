@@ -34,8 +34,16 @@ pub type custatevecMatrixLayout_t = c_int;
 pub const CUSTATEVEC_MATRIX_LAYOUT_COL: c_int = 0;
 pub const CUSTATEVEC_MATRIX_LAYOUT_ROW: c_int = 1;
 
-/// Compute type enum.  CUDA_C_32F (default) / CUDA_C_64F.  reuse cudaDataType_t.
-pub type custatevecComputeType_t = cudaDataType_t;
+/// Compute type enum (`custatevecComputeType_t`).
+///
+/// **주의**: cudaDataType_t 와 다른 비트플래그 값이다 — cuQuantum 헤더 기준
+/// `CUSTATEVEC_COMPUTE_32F = (1<<2) = 4` (우연히 `CUDA_C_32F=4` 와 동치),
+/// `CUSTATEVEC_COMPUTE_64F = (1<<4) = 16` (`CUDA_C_64F=5` 가 **아님**).
+/// 이전 구현은 CUDA_C_64F(5) 를 computeType 으로 넘겨 f64 경로가
+/// CUSTATEVEC_STATUS_INVALID_VALUE 가 되는 버그였다.
+pub type custatevecComputeType_t = c_int;
+pub const CUSTATEVEC_COMPUTE_32F: custatevecComputeType_t = 1 << 2;
+pub const CUSTATEVEC_COMPUTE_64F: custatevecComputeType_t = 1 << 4;
 
 /// Collapse op (post-measurement state).  NORMALIZE_AND_ZERO = 0 (apply collapse +
 /// renormalize).  NONE = 1 (statevector 그대로).

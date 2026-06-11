@@ -54,6 +54,8 @@ __all__ = (
     "DaemonDeploymentStatusType",
     "DaemonDeploymentStoppedWaiterName",
     "DaemonDeploymentSuccessfulWaiterName",
+    "DaemonIpcModeType",
+    "DaemonPidModeType",
     "DaemonPropagateTagsType",
     "DaemonStatusType",
     "DaemonTaskDefinitionActiveWaiterName",
@@ -224,6 +226,8 @@ DaemonDeploymentStatusType = Literal[
 ]
 DaemonDeploymentStoppedWaiterName = Literal["daemon_deployment_stopped"]
 DaemonDeploymentSuccessfulWaiterName = Literal["daemon_deployment_successful"]
+DaemonIpcModeType = Literal["none", "shared"]
+DaemonPidModeType = Literal["none", "shared"]
 DaemonPropagateTagsType = Literal["DAEMON", "NONE"]
 DaemonStatusType = Literal["ACTIVE", "DELETE_IN_PROGRESS"]
 DaemonTaskDefinitionActiveWaiterName = Literal["daemon_task_definition_active"]
@@ -723,6 +727,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -750,6 +755,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

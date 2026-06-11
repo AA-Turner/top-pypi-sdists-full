@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smartsheet-python-sdk
-Version: 4.0.1
+Version: 4.0.2
 Summary: Library that uses Python to connect to Smartsheet services (using API 2.0).
 License-Expression: Apache-2.0
 License-File: LICENSE.md

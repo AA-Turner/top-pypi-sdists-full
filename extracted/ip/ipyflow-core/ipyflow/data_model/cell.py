@@ -32,6 +32,7 @@ from ipyflow.analysis.live_refs import (
     compute_live_dead_symbol_refs,
     get_live_symbols_and_cells_for_references,
     get_symbols_for_references,
+    mark_placeholder_nodes,
 )
 from ipyflow.analysis.resolved_symbols import ResolvedSymbol
 from ipyflow.config import ExecutionSchedule, FlowDirection, Interface
@@ -675,6 +676,11 @@ class Cell(SliceableMixin):
             if rewriter is not None:
                 with self.override_current_cell():
                     rewriter.visit(self._cached_ast)
+            # durably latch syntax-augmentation placeholders (e.g. pipescript
+            # ``$`` -> ``_``) from the rewriter's per-cell augmented source
+            # positions, so liveness and symbol resolution don't later mistake
+            # them for the IPython ``_`` (last-expression) symbol.
+            mark_placeholder_nodes(self._cached_ast, rewriter)
         return self._cached_ast
 
     @property
@@ -704,8 +710,6 @@ class Cell(SliceableMixin):
     def get_max_used_live_symbol_cell_counter(
         self,
         live_symbols: Set[ResolvedSymbol],
-        filter_to_reactive: bool = False,
-        filter_to_cascading_reactive: bool = False,
         dead_symbols: Optional[Set["Symbol"]] = None,
     ) -> int:
         min_allowed_cell_position_by_symbol: Optional[Dict["Symbol", int]] = None
@@ -727,16 +731,6 @@ class Cell(SliceableMixin):
             max_used_cell_ctr = -1
             this_cell_pos = self.position
             for resolved in live_symbols:
-                if resolved.is_blocking:
-                    continue
-                if filter_to_cascading_reactive and not resolved.is_cascading_reactive:
-                    continue
-                if (
-                    filter_to_reactive
-                    and not resolved.is_reactive
-                    and not flow().is_updated_reactive(resolved.sym)
-                ):
-                    continue
                 live_sym_updated_cell_ctr = resolved.timestamp.cell_num
                 if (
                     live_sym_updated_cell_ctr

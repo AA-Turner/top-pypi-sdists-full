@@ -759,6 +759,8 @@ class WorkspaceConfigurationDescriptionTypeDef(TypedDict):
     status: WorkspaceConfigurationStatusTypeDef
     limitsPerLabelSet: NotRequired[list[LimitsPerLabelSetOutputTypeDef]]
     retentionPeriodInDays: NotRequired[int]
+    outOfOrderTimeWindowInSeconds: NotRequired[int]
+    ruleQueryOffsetInSeconds: NotRequired[int]
 
 LimitsPerLabelSetUnionTypeDef = Union[LimitsPerLabelSetTypeDef, LimitsPerLabelSetOutputTypeDef]
 
@@ -861,6 +863,8 @@ class UpdateWorkspaceConfigurationRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
     limitsPerLabelSet: NotRequired[Sequence[LimitsPerLabelSetUnionTypeDef]]
     retentionPeriodInDays: NotRequired[int]
+    outOfOrderTimeWindowInSeconds: NotRequired[int]
+    ruleQueryOffsetInSeconds: NotRequired[int]
 
 class DescribeQueryLoggingConfigurationResponseTypeDef(TypedDict):
     queryLoggingConfiguration: QueryLoggingConfigurationMetadataTypeDef

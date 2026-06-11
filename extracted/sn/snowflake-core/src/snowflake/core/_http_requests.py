@@ -88,6 +88,7 @@ def sanitize_for_serialization(
         float,
         bool,
         bytes,
+        bytearray,
         str,
         int,
         Decimal,
@@ -99,7 +100,16 @@ def sanitize_for_serialization(
         ToDictProto,
     ],
 ) -> typing.Union[
-    None, float, bool, bytes, str, int, list[typing.Any], tuple[typing.Any, ...], dict[typing.Any, typing.Any]
+    None,
+    float,
+    bool,
+    bytes,
+    bytearray,
+    str,
+    int,
+    list[typing.Any],
+    tuple[typing.Any, ...],
+    dict[typing.Any, typing.Any],
 ]:
     """Build a JSON POST object.
 
@@ -280,9 +290,16 @@ def _proxy_setup(configuration: "Configuration") -> Optional[dict[str, typing.An
     if configuration.proxy:
         return {"proxy_url": configuration.proxy, "proxy_headers": configuration.proxy_headers}
     # To keep compatibility with driver behavior
-    if http_url := os.getenv("HTTPS_PROXY"):
+    if http_url := (os.getenv("HTTPS_PROXY") or os.getenv("https_proxy")):
         return {"proxy_url": http_url, "proxy_headers": {}}
     return None
+
+
+def _resolve_ca_cert(configuration: "Configuration") -> Optional[str]:
+    """Resolve the CA bundle to use for TLS verification."""
+    if env_ca_cert := (os.getenv("SSL_CERT_FILE") or os.getenv("ssl_cert_file")):
+        return env_ca_cert
+    return configuration.ssl_ca_cert
 
 
 # TODO: We could create the single connection pool at import time
@@ -327,7 +344,7 @@ def create_connection_pool(  # type: ignore[no-untyped-def]
             "num_pools": pools_size,
             "maxsize": maxsize,
             "cert_reqs": cert_reqs,
-            "ca_certs": configuration.ssl_ca_cert,
+            "ca_certs": _resolve_ca_cert(configuration),
             "cert_file": configuration.cert_file,
             "key_file": configuration.key_file,
             **addition_pool_args,

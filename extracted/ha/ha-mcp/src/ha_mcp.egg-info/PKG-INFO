@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ha-mcp
-Version: 7.6.0
+Version: 7.7.0
 Summary: Home Assistant MCP Server - Complete control of Home Assistant through MCP
 Author-email: Julien <github@qc-h.net>
 License: MIT
@@ -18,14 +18,14 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <3.14,>=3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: fastmcp==3.3.1
+Requires-Dist: fastmcp==3.4.2
 Requires-Dist: httpx[socks]==0.28.1
 Requires-Dist: pydantic==2.13.4
 Requires-Dist: python-dotenv==1.2.2
 Requires-Dist: truststore==0.10.4
 Requires-Dist: websockets==16.0
 Requires-Dist: cryptography==48.0.0
-Requires-Dist: pydantic-monty==0.0.17
+Requires-Dist: pydantic-monty==0.0.18
 Dynamic: license-file
 
 > **Breaking change (v7.3.0):** `ha_config_set_yaml` has been moved to [beta](docs/beta.md).
@@ -38,7 +38,7 @@ Dynamic: license-file
   <!-- mcp-name: io.github.homeassistant-ai/ha-mcp -->
 
   <p align="center">
-    <img src="https://img.shields.io/badge/tools-86-blue" alt="95+ Tools">
+    <img src="https://img.shields.io/badge/tools-83-blue" alt="95+ Tools">
     <a href="https://github.com/homeassistant-ai/ha-mcp/releases"><img src="https://img.shields.io/github/v/release/homeassistant-ai/ha-mcp" alt="Release"></a>
     <a href="https://github.com/homeassistant-ai/ha-mcp/actions/workflows/e2e-tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/homeassistant-ai/ha-mcp/e2e-tests.yml?branch=master&label=E2E%20Tests" alt="E2E Tests"></a>
     <a href="LICENSE.md"><img src="https://img.shields.io/github/license/homeassistant-ai/ha-mcp.svg" alt="License"></a>
@@ -69,7 +69,7 @@ Dynamic: license-file
 *No paid subscription required.* Click on your operating system:
 
 <p>
-<a href="https://homeassistant-ai.github.io/ha-mcp/guide-macos/"><img src="https://img.shields.io/badge/Setup_Guide_for_macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Setup Guide for macOS" height="120"></a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://homeassistant-ai.github.io/ha-mcp/guide-windows/"><img src="https://img.shields.io/badge/Setup_Guide_for_Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Setup Guide for Windows" height="120"></a>
+<a href="https://homeassistant-ai.github.io/ha-mcp/guide-macos/"><img src="https://img.shields.io/badge/Setup_Guide_for_macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Setup Guide for macOS" height="120"></a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://homeassistant-ai.github.io/ha-mcp/guide-linux/"><img src="https://img.shields.io/badge/Setup_Guide_for_Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Setup Guide for Linux" height="120"></a>&nbsp;&nbsp;&nbsp;&nbsp;<a href="https://homeassistant-ai.github.io/ha-mcp/guide-windows/"><img src="https://img.shields.io/badge/Setup_Guide_for_Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Setup Guide for Windows" height="120"></a>
 </p>
 
 ### Quick install (~5 min)
@@ -86,6 +86,33 @@ Dynamic: license-file
 4. Ask Claude: **"Can you see my Home Assistant?"**
 
 You're now connected to the demo environment! [Connect your own Home Assistant →](https://homeassistant-ai.github.io/ha-mcp/guide-macos/#step-6-connect-your-home-assistant)
+
+</details>
+
+<details>
+<summary><b>🐧 Linux</b></summary>
+
+Anthropic doesn't ship Claude Desktop for Linux, so pick one path:
+
+**Claude Desktop** — free, via the community build:
+
+1. Install the community [Claude Desktop for Linux](https://github.com/aaddrick/claude-desktop-debian) build and sign in with a free [claude.ai](https://claude.ai) account
+2. Open **Terminal** and run:
+   ```sh
+   curl -LsSf https://raw.githubusercontent.com/homeassistant-ai/ha-mcp/master/scripts/install-linux.sh | sh
+   ```
+3. Restart Claude Desktop, then ask: **"Can you see my Home Assistant?"**
+
+**Claude Code** — official CLI, requires a paid Claude plan:
+
+1. Install Claude Code: `curl -fsSL https://claude.ai/install.sh | bash`
+2. Configure ha-mcp, then run `claude`:
+   ```sh
+   curl -LsSf https://raw.githubusercontent.com/homeassistant-ai/ha-mcp/master/scripts/install.sh | sh -s -- --claude-code
+   ```
+3. Start `claude`, run `/mcp` to confirm, then ask: **"Can you see my Home Assistant?"**
+
+[Full Linux guide →](https://homeassistant-ai.github.io/ha-mcp/guide-linux/)
 
 </details>
 
@@ -181,7 +208,7 @@ Spend less time configuring, more time enjoying your smart home.
 <details>
 <!-- TOOLS_TABLE_START -->
 
-<summary><b>Complete Tool List (86 tools)</b></summary>
+<summary><b>Complete Tool List (83 tools)</b></summary>
 
 | Category | Tools |
 |----------|-------|
@@ -192,28 +219,49 @@ Spend less time configuring, more time enjoying your smart home.
 | **Blueprints** | `ha_get_blueprint`, `ha_import_blueprint` |
 | **Calendar** | `ha_config_get_calendar_events`, `ha_config_remove_calendar_event`, `ha_config_set_calendar_event` |
 | **Camera** | `ha_get_camera_image` |
+| **Dashboard** | `ha_get_dashboard_screenshot` *(beta)* |
 | **Dashboards** | `ha_config_delete_dashboard_resource`, `ha_config_delete_dashboard`, `ha_config_get_dashboard`, `ha_config_list_dashboard_resources`, `ha_config_set_dashboard_resource`, `ha_config_set_dashboard` |
 | **Device Registry** | `ha_get_device`, `ha_remove_device`, `ha_set_device` |
 | **Energy** | `ha_manage_energy_prefs` |
 | **Entity Registry** | `ha_get_entity_exposure`, `ha_get_entity`, `ha_remove_entity`, `ha_set_entity` |
 | **Files** | `ha_delete_file` *(beta)*, `ha_list_files` *(beta)*, `ha_read_file` *(beta)*, `ha_write_file` *(beta)* |
 | **Groups** | `ha_config_list_groups`, `ha_config_remove_group`, `ha_config_set_group` |
-| **HACS** | `ha_hacs_add_repository`, `ha_hacs_download`, `ha_hacs_repository_info`, `ha_hacs_search` |
+| **HACS** | `ha_get_hacs_info`, `ha_manage_hacs` |
 | **Helper Entities** | `ha_config_list_helpers`, `ha_config_set_helper`, `ha_remove_helpers_integrations` |
 | **History & Statistics** | `ha_get_automation_traces`, `ha_get_history`, `ha_get_logs` |
 | **Integrations** | `ha_get_integration`, `ha_get_system_health`, `ha_set_integration_enabled` |
 | **Labels & Categories** | `ha_config_get_category`, `ha_config_get_label`, `ha_config_remove_category`, `ha_config_remove_label`, `ha_config_set_category`, `ha_config_set_label` |
 | **Scenes** | `ha_config_get_scene`, `ha_config_remove_scene`, `ha_config_set_scene` |
 | **Scripts** | `ha_config_get_script`, `ha_config_remove_script`, `ha_config_set_script` |
-| **Search & Discovery** | `ha_deep_search`, `ha_get_overview`, `ha_get_state`, `ha_search_entities` |
+| **Search & Discovery** | `ha_get_overview`, `ha_get_state`, `ha_search` |
 | **Service & Device Control** | `ha_bulk_control`, `ha_call_event`, `ha_call_service`, `ha_get_operation_status`, `ha_list_services` |
-| **System** | `ha_check_config`, `ha_config_set_yaml` *(beta)*, `ha_get_updates`, `ha_manage_backup`, `ha_manage_custom_tool` *(beta)*, `ha_reload_core`, `ha_restart` |
+| **System** | `ha_config_set_yaml` *(beta)*, `ha_get_updates`, `ha_manage_backup`, `ha_manage_custom_tool` *(beta)*, `ha_reload_core`, `ha_restart` |
 | **Todo Lists** | `ha_get_todo`, `ha_remove_todo_item`, `ha_set_todo_item` |
 | **Utilities** | `ha_eval_template`, `ha_install_mcp_tools` *(beta)*, `ha_report_issue` |
 | **Zones** | `ha_get_zone`, `ha_remove_zone`, `ha_set_zone` |
 
 <!-- TOOLS_TABLE_END -->
 </details>
+
+---
+
+## 🆚 ha-mcp vs. Home Assistant's built-in MCP Server
+
+Home Assistant ships its own [MCP Server integration](https://www.home-assistant.io/integrations/mcp_server/). It is built on the **Assist** pipeline, so a connected MCP client can read and control the entities you have exposed to Assist and run the intents Assist understands — handy for voice-style control of already-exposed devices.
+
+ha-mcp is a standalone server built for **configuring, building, and debugging** your smart home, not just controlling it. On top of device control, it adds capabilities the built-in integration does not have:
+
+| Capability | Built-in MCP Server | ha-mcp |
+|------------|:-------------------:|:------:|
+| Control exposed devices, query states | Yes | Yes |
+| Entity scope | Only entities exposed to Assist | Everything in Home Assistant |
+| Create / edit automations, scripts, scenes | No | Yes |
+| Build & edit dashboards | No | Yes |
+| Debug automations from traces, read history & logs | No | Yes |
+| Manage helpers, areas, zones, labels, groups | No | Yes |
+| Backups, add-ons, HACS, device & entity registry | No | Yes |
+
+**Rule of thumb:** Use the built-in integration for voice-style control of devices you have already exposed; use ha-mcp when you want an AI assistant that can also build and maintain your Home Assistant setup.
 
 ---
 
@@ -241,7 +289,9 @@ These tools also require feature flags: `HAMCP_ENABLE_FILESYSTEM_TOOLS=true` (fi
 
 To add manually: open **HACS** > **Integrations** > three-dot menu > **Custom repositories** > add `https://github.com/homeassistant-ai/ha-mcp` (category: Integration) > **Download**.
 
-After installing, restart Home Assistant. Then open **Settings** > **Devices & Services** > **Add Integration** and search for **HA MCP Tools**.
+After installing, restart Home Assistant. Then open **Settings** > **Devices & Services** > **Add Integration** and search for **Home Assistant MCP Server Custom Component**.
+
+On **Home Assistant OS / Supervised**, the integration offers to add the add-on repository and install and start the **Home Assistant MCP Server** add-on for you — no need to add the add-on repository by hand. On **Container / Core** installs (no Supervisor) there is no add-on; run the server via Docker or pip and the integration just sets up the file/YAML services.
 
 ### Install manually
 
@@ -259,7 +309,7 @@ An MCP server can create automations, helpers, and dashboards, but it has no opi
 
 Skills from `homeassistant-ai/skills` are bundled and served as [MCP resources](https://modelcontextprotocol.io/docs/concepts/resources) via `skill://` URIs. Any MCP client that supports resources can discover them automatically — no manual installation needed. For tool-only clients (claude.ai, etc.), the same skills are reachable through the polymorphic `ha_get_skill_guide` tool — call it with no args to list bundled skills, with a `skill` arg to list its files, or with `skill` + `file` to read content. Resources are not auto-injected into context — clients must explicitly request them, so idle context cost is just the metadata listing.
 
-`ha_get_skill_guide` is mandatory-pinned: the catalog always exposes it so tool-only clients never see a silently missing skill surface.
+`ha_get_skill_guide` is a mandatory tool: the catalog always exposes it (it can't be disabled) so tool-only clients never see a silently missing skill surface.
 
 Skills can still be installed manually for clients that prefer local skill files — see the [skills repo](https://github.com/homeassistant-ai/skills) for instructions.
 
@@ -322,7 +372,7 @@ For comprehensive testing documentation, see **[tests/README.md](tests/README.md
 
 Ha-mcp runs **locally** on your machine. Your smart home data stays on your network.
 
-- **Configurable telemetry** — optional anonymous usage stats
+- **No telemetry today** — anonymous usage stats are a planned future feature (as of June 2026); when it lands it will follow your Home Assistant analytics/telemetry setting (which you can override), announced prominently in the release notes and the web Settings UI at least one month beforehand
 - **No personal data collection** — we never collect entity names, configs, or device data
 - **User-controlled bug reports** — only sent with your explicit approval
 
@@ -385,13 +435,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **[@griffinmartin](https://github.com/griffinmartin)** — Added OpenCode (by Anomaly) as a selectable AI client in the setup wizard, with both stdio and streamable HTTP support.
 - **[@hhopke](https://github.com/hhopke)** — Fixed addon API calls to route through HA Core ingress proxy instead of direct container connections, fixing `ha_manage_addon` proxy mode on addon installs.
 - **[@tomwilkie](https://github.com/tomwilkie)** — JMESPath middleware exploration (#1147) whose review-time token-measurement data informed the design of #1199 and #1225.
-- **[@SealKan](https://github.com/SealKan)** — `fields=`/`attribute_keys=` projection on six read-heavy tools (#1225), `ha_call_event` tool (#1239), and dashboards-list helper refactor (#1207).
+- **[@SealKan](https://github.com/SealKan)** — `fields=`/`attribute_keys=` projection on six read-heavy tools (#1225), `ha_call_event` tool (#1239), dashboards-list helper refactor (#1207), `for:`-field duration-math detector in the best-practice checker (#1264), persistent DCR OAuth client registrations across restarts (#1265), and issue-triage prompt token-budgeting (#1522).
 - **[@KarelTestSpecial](https://github.com/KarelTestSpecial)** — Cached YAML instance to prevent CPU spikes during bulk edits (#1371).
 - **[@corgan2222](https://github.com/corgan2222)** — HA brand assets for custom integration (#1317).
 - **[@drseanwing](https://github.com/drseanwing)** — Progress emission via FastMCP `Context` in long-running tools (#1124); tool-discovery / categorized-search docs (#1123).
 - **[@fnordpig](https://github.com/fnordpig)** — Config subentry support (#1393) and Assist pipeline management tool (#1392).
 - **[@paul43210](https://github.com/paul43210)** — `array_patch` mode in `ha_manage_addon` for atomic GET-modify-POST (#1063).
 - **[@L1AD](https://github.com/L1AD)** — Filed #966 proposing tool security policies; pointed to PolicyLayer's MCP-security work as prior art that inspired the predicate DSL shape.
+- **[@nightcityblade](https://github.com/nightcityblade)** — Updated stale Home Assistant Advanced Mode references after HA 2026.6 made formerly advanced options available by default (#1533).
+- **[@emmelutzer](https://github.com/emmelutzer)** — Financial support via [GitHub Sponsors](https://github.com/sponsors/julienld). Thank you! ☕
 
 ---
 

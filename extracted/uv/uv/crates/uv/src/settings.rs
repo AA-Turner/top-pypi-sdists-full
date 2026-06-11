@@ -19,14 +19,16 @@ use uv_cli::{
     PipSyncArgs, PipTreeArgs, PipUninstallArgs, PythonFindArgs, PythonInstallArgs, PythonListArgs,
     PythonListFormat, PythonPinArgs, PythonUninstallArgs, PythonUpgradeArgs, RemoveArgs, RunArgs,
     SyncArgs, SyncFormat, ToolDirArgs, ToolInstallArgs, ToolListArgs, ToolRunArgs,
-    ToolUninstallArgs, TreeArgs, VenvArgs, VersionArgs, VersionBumpSpec, VersionFormat,
+    ToolUninstallArgs, TreeArgs, UpgradeArgs, VenvArgs, VersionArgs, VersionBumpSpec,
+    VersionFormat,
 };
 use uv_cli::{
     AuthorFrom, BuildArgs, CheckArgs, ExportArgs, FormatArgs, PublishArgs, PythonDirArgs,
     ResolverInstallerArgs, ToolUpgradeArgs,
     options::{
-        Flag, FlagSource, check_conflicts, flag, resolve_flag, resolve_flag_pair,
-        resolver_installer_options, resolver_options,
+        Flag, FlagSource, check_conflicts, flag, indexes_from_args, resolve_flag,
+        resolve_flag_pair, resolver_installer_options, resolver_installer_options_with_indexes,
+        resolver_options,
     },
 };
 use uv_client::Connectivity;
@@ -43,6 +45,7 @@ use uv_distribution_types::{
 };
 use uv_install_wheel::LinkMode;
 use uv_normalize::{ExtraName, PackageName, PipGroupName};
+use uv_pep440::Version;
 use uv_pep508::{MarkerTree, RequirementOrigin};
 use uv_preview::Preview;
 use uv_pypi_types::SupportedEnvironments;
@@ -58,7 +61,7 @@ use uv_settings::{
     ResolverOptions,
 };
 use uv_static::EnvVars;
-use uv_torch::TorchMode;
+use uv_torch::{AmdGpuArchitecture, TorchMode};
 use uv_warnings::warn_user_once;
 use uv_workspace::pyproject::{DependencyType, ExtraBuildDependencies};
 use uv_workspace::pyproject_mut::AddBoundsKind;
@@ -1792,6 +1795,46 @@ impl SyncSettings {
             Some(environment.no_editable),
         );
 
+        let (no_install_project, only_install_project) = resolve_flag_pair(
+            no_install_project,
+            only_install_project,
+            "no-install-project",
+            "only-install-project",
+            Some(environment.no_install_project),
+            Some(environment.only_install_project),
+        );
+        let (no_install_workspace, only_install_workspace) = resolve_flag_pair(
+            no_install_workspace,
+            only_install_workspace,
+            "no-install-workspace",
+            "only-install-workspace",
+            Some(environment.no_install_workspace),
+            Some(environment.only_install_workspace),
+        );
+        let (no_install_local, only_install_local) = resolve_flag_pair(
+            no_install_local,
+            only_install_local,
+            "no-install-local",
+            "only-install-local",
+            Some(environment.no_install_local),
+            Some(environment.only_install_local),
+        );
+        check_conflicts(no_install_project, only_install_project);
+        check_conflicts(no_install_workspace, only_install_workspace);
+        check_conflicts(no_install_local, only_install_local);
+        if script.is_some() {
+            let script = Flag::from_cli("script");
+            check_conflicts(no_install_project, script);
+            check_conflicts(no_install_workspace, script);
+            check_conflicts(no_install_local, script);
+        }
+        let no_install_project = no_install_project.is_enabled();
+        let only_install_project = only_install_project.is_enabled();
+        let no_install_workspace = no_install_workspace.is_enabled();
+        let only_install_workspace = only_install_workspace.is_enabled();
+        let no_install_local = no_install_local.is_enabled();
+        let only_install_local = only_install_local.is_enabled();
+
         let malware_settings = MalwareCheckSettings::from(&environment);
 
         Self {
@@ -1925,6 +1968,41 @@ impl LockSettings {
         }
     }
 }
+
+/// The resolved settings to use for an `upgrade` invocation.
+#[derive(Debug, Clone)]
+pub(crate) struct UpgradeSettings {
+    pub(crate) package: PackageName,
+    pub(crate) install_mirrors: PythonInstallMirrors,
+    pub(crate) settings: ResolverSettings,
+}
+
+impl UpgradeSettings {
+    /// Resolve the [`UpgradeSettings`] from the CLI and filesystem configuration.
+    pub(crate) fn resolve(
+        args: UpgradeArgs,
+        filesystem: Option<FilesystemOptions>,
+        environment: EnvironmentOptions,
+    ) -> Self {
+        let filesystem_install_mirrors = filesystem
+            .clone()
+            .map(|fs| fs.install_mirrors.clone())
+            .unwrap_or_default();
+        let package = args.package;
+        let mut settings =
+            ResolverSettings::combine(ResolverOptions::default(), filesystem, &environment);
+        settings.upgrade = Upgrade::package(package.clone());
+
+        Self {
+            package,
+            install_mirrors: environment
+                .install_mirrors
+                .combine(filesystem_install_mirrors),
+            settings,
+        }
+    }
+}
+
 /// The resolved settings to use for a `lock` invocation.
 #[derive(Debug, Clone)]
 pub(crate) struct MetadataSettings {
@@ -2090,6 +2168,34 @@ impl AddSettings {
             Some(environment.no_editable),
         );
 
+        let (no_install_project, only_install_project) = resolve_flag_pair(
+            no_install_project,
+            only_install_project,
+            "no-install-project",
+            "only-install-project",
+            Some(environment.no_install_project),
+            Some(environment.only_install_project),
+        );
+        let (no_install_workspace, only_install_workspace) = resolve_flag_pair(
+            no_install_workspace,
+            only_install_workspace,
+            "no-install-workspace",
+            "only-install-workspace",
+            Some(environment.no_install_workspace),
+            Some(environment.only_install_workspace),
+        );
+        let (no_install_local, only_install_local) = resolve_flag_pair(
+            no_install_local,
+            only_install_local,
+            "no-install-local",
+            "only-install-local",
+            Some(environment.no_install_local),
+            Some(environment.only_install_local),
+        );
+        check_conflicts(no_install_project, only_install_project);
+        check_conflicts(no_install_workspace, only_install_workspace);
+        check_conflicts(no_install_local, only_install_local);
+
         let dependency_type = if let Some(extra) = optional {
             DependencyType::Optional(extra)
         } else if let Some(group) = group {
@@ -2101,23 +2207,11 @@ impl AddSettings {
         };
 
         // Track the `--index` and `--default-index` arguments from the command-line.
-        let indexes = installer
-            .index_args
-            .default_index
-            .clone()
-            .and_then(Maybe::into_option)
-            .into_iter()
-            .chain(
-                installer
-                    .index_args
-                    .index
-                    .clone()
-                    .into_iter()
-                    .flat_map(|v| v.clone())
-                    .flatten()
-                    .filter_map(Maybe::into_option),
-            )
-            .collect::<Vec<_>>();
+        let index = indexes_from_args(
+            installer.index_args.default_index.as_ref(),
+            installer.index_args.index.as_deref(),
+        );
+        let indexes = index.clone().unwrap_or_default();
 
         // Warn user if an ambiguous relative path was passed as a value for
         // `--index` or `--default-index`.
@@ -2179,6 +2273,38 @@ impl AddSettings {
         // Check for conflicts between no_sync and frozen.
         check_conflicts(no_sync, frozen);
 
+        let no_install_package_flag = if no_install_package.is_empty() {
+            Flag::disabled()
+        } else {
+            Flag::from_cli("no-install-package")
+        };
+        let only_install_package_flag = if only_install_package.is_empty() {
+            Flag::disabled()
+        } else {
+            Flag::from_cli("only-install-package")
+        };
+
+        for install_flag in [
+            no_install_project,
+            no_install_workspace,
+            no_install_local,
+            only_install_project,
+            only_install_workspace,
+            only_install_local,
+            no_install_package_flag,
+            only_install_package_flag,
+        ] {
+            check_conflicts(install_flag, frozen);
+            check_conflicts(install_flag, no_sync);
+        }
+
+        let no_install_project = no_install_project.is_enabled();
+        let only_install_project = only_install_project.is_enabled();
+        let no_install_workspace = no_install_workspace.is_enabled();
+        let only_install_workspace = only_install_workspace.is_enabled();
+        let no_install_local = no_install_local.is_enabled();
+        let only_install_local = only_install_local.is_enabled();
+
         let malware_settings = MalwareCheckSettings::from(&environment);
 
         Self {
@@ -2220,7 +2346,7 @@ impl AddSettings {
             refresh: Refresh::from(refresh),
             indexes,
             settings: ResolverInstallerSettings::combine(
-                resolver_installer_options(installer, build),
+                resolver_installer_options_with_indexes(installer, build, index),
                 filesystem,
                 &environment,
             ),
@@ -2556,6 +2682,8 @@ pub(crate) struct ExportSettings {
     pub(crate) frozen: Option<FrozenSource>,
     pub(crate) include_annotations: bool,
     pub(crate) include_header: bool,
+    pub(crate) include_index_url: bool,
+    pub(crate) include_find_links: bool,
     pub(crate) script: Option<PathBuf>,
     pub(crate) python: Option<String>,
     pub(crate) install_mirrors: PythonInstallMirrors,
@@ -2591,6 +2719,10 @@ impl ExportSettings {
             no_annotate,
             header,
             no_header,
+            emit_index_url,
+            no_emit_index_url,
+            emit_find_links,
+            no_emit_find_links,
             editable,
             no_editable,
             no_editable_package,
@@ -2690,6 +2822,10 @@ impl ExportSettings {
             frozen: resolve_frozen(frozen),
             include_annotations: flag(annotate, no_annotate, "annotate").unwrap_or(true),
             include_header: flag(header, no_header, "header").unwrap_or(true),
+            include_index_url: flag(emit_index_url, no_emit_index_url, "emit-index-url")
+                .unwrap_or(false),
+            include_find_links: flag(emit_find_links, no_emit_find_links, "emit-find-links")
+                .unwrap_or(false),
             script,
             python: python.and_then(Maybe::into_option),
             refresh: Refresh::from(refresh),
@@ -4053,6 +4189,8 @@ pub(crate) struct ResolverSettings {
     pub(crate) resolution: ResolutionMode,
     pub(crate) sources: NoSources,
     pub(crate) torch_backend: Option<TorchMode>,
+    pub(crate) cuda_driver_version: Option<Version>,
+    pub(crate) amd_gpu_architecture: Option<AmdGpuArchitecture>,
     pub(crate) upgrade: Upgrade,
 }
 
@@ -4082,7 +4220,11 @@ impl ResolverSettings {
                 .unwrap_or_default(),
         ));
 
-        Self::from(options)
+        Self {
+            cuda_driver_version: environment.cuda_driver_version.clone(),
+            amd_gpu_architecture: environment.amd_gpu_architecture,
+            ..Self::from(options)
+        }
     }
 }
 
@@ -4122,6 +4264,8 @@ impl From<ResolverOptions> for ResolverSettings {
             exclude_newer: value.exclude_newer,
             link_mode: value.link_mode.unwrap_or_default(),
             torch_backend: value.torch_backend,
+            cuda_driver_version: None,
+            amd_gpu_architecture: None,
             sources: NoSources::from_args(
                 value.no_sources,
                 value.no_sources_package.unwrap_or_default(),
@@ -4163,7 +4307,15 @@ impl ResolverInstallerSettings {
             ),
         );
 
-        Self::from(options)
+        let base = Self::from(options);
+        Self {
+            resolver: ResolverSettings {
+                cuda_driver_version: environment.cuda_driver_version.clone(),
+                amd_gpu_architecture: environment.amd_gpu_architecture,
+                ..base.resolver
+            },
+            ..base
+        }
     }
 }
 
@@ -4239,6 +4391,8 @@ impl From<ResolverInstallerOptions> for ResolverInstallerSettings {
                     value.no_sources_package.unwrap_or_default(),
                 ),
                 torch_backend: value.torch_backend,
+                cuda_driver_version: None,
+                amd_gpu_architecture: None,
                 upgrade: value.upgrade.unwrap_or_default(),
             },
             compile_bytecode: value.compile_bytecode.unwrap_or_default(),
@@ -4265,6 +4419,8 @@ pub(crate) struct PipSettings {
     pub(crate) index_strategy: IndexStrategy,
     pub(crate) keyring_provider: KeyringProviderType,
     pub(crate) torch_backend: Option<TorchMode>,
+    pub(crate) cuda_driver_version: Option<Version>,
+    pub(crate) amd_gpu_architecture: Option<AmdGpuArchitecture>,
     pub(crate) build_isolation: BuildIsolation,
     pub(crate) extra_build_dependencies: ExtraBuildDependencies,
     pub(crate) extra_build_variables: ExtraBuildVariables,
@@ -4570,6 +4726,8 @@ impl PipSettings {
                 .combine(config_settings_package)
                 .unwrap_or_default(),
             torch_backend: args.torch_backend.combine(torch_backend),
+            cuda_driver_version: environment.cuda_driver_version.clone(),
+            amd_gpu_architecture: environment.amd_gpu_architecture,
             python_version: args.python_version.combine(python_version),
             python_platform: args.python_platform.combine(python_platform),
             universal: args.universal.combine(universal).unwrap_or_default(),
@@ -4870,4 +5028,26 @@ where
 fn parse_failure(name: &str, expected: &str) -> ! {
     eprintln!("error: invalid value for {name}, expected {expected}");
     process::exit(1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn upgrade_settings_target_only_requested_package() -> anyhow::Result<()> {
+        let package = PackageName::from_str("anyio")?;
+        let settings = UpgradeSettings::resolve(
+            UpgradeArgs {
+                package: package.clone(),
+            },
+            None,
+            EnvironmentOptions::new()?,
+        );
+        let expected = FxHashSet::from_iter([package]);
+
+        assert!(!settings.settings.upgrade.is_all());
+        assert_eq!(settings.settings.upgrade.packages(), Some(&expected));
+        Ok(())
+    }
 }

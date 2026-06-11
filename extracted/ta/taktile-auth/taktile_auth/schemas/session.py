@@ -1,6 +1,6 @@
 import typing as t
 
-from pydantic import UUID4, BaseModel, model_validator
+from pydantic import UUID4, BaseModel, root_validator
 
 
 class SessionState(BaseModel):
@@ -11,7 +11,7 @@ class SessionState(BaseModel):
     service calls (``flow → agent → flow → …``).
 
     Inbound: the ``jwt`` field accepts either a bare token or the
-    wire-format ``<prefix>+<token>``. A model validator splits the
+    wire-format ``<prefix>+<token>``. A root validator splits the
     prefix off and populates ``session_prefix``.
 
     Hand the raw header value straight in:
@@ -31,16 +31,19 @@ class SessionState(BaseModel):
     # from the credential so consumers can read it without re-parsing.
     session_prefix: t.Optional[str] = None
 
-    @model_validator(mode="before")
+    @root_validator(pre=True)
     @classmethod
     def _peel_wire_format_prefix(cls, data: t.Any) -> t.Any:
         """Strip the PEP-295 wire-format prefix off a string-typed
         ``jwt`` input before field validation runs.
 
-        Runs in ``mode="before"`` so the cleaned value flows into
-        pydantic's normal type coercion. Caller-supplied
-        ``session_prefix`` is preserved if set; otherwise it's
-        populated from the prefix embedded in the JWT.
+        ``root_validator(pre=True)`` rather than the pydantic-v2-only
+        ``model_validator(mode="before")`` so this module stays
+        importable for pydantic v1 consumers. Runs before field
+        validation, so the cleaned value flows into pydantic's normal
+        type coercion. Caller-supplied ``session_prefix`` is preserved
+        if set; otherwise it's populated from the prefix embedded in
+        the JWT.
         """
         if not isinstance(data, dict):
             return data

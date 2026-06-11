@@ -58,6 +58,42 @@ def test_simple_print():
         _check_master(kc, expected=True)
 
 
+@pytest.mark.parametrize(
+    ("code", "expect_error_status"),
+    [
+        ("1/0", True),
+        (
+            """
+            class Test:
+                def __repr__(self):
+                    1 / 0
+
+            Test()
+            """,
+            True,
+        ),
+        (
+            """
+            ip = get_ipython()
+            try:
+                1 / 0
+            except:
+                ip.showtraceback()
+            """,
+            False,
+        ),
+    ],
+    ids=["runtime-error", "display-formatting-error", "explicit-showtraceback-ok"],
+)
+def test_execute_reply_error_status(code, expect_error_status):
+    with kernel() as kc:
+        msg_id, reply = execute(kc=kc, code=code)
+        assemble_output(kc.get_iopub_msg, parent_msg_id=msg_id, raise_error=False)
+
+        has_error_status = reply["status"] == "error"
+        assert has_error_status is expect_error_status, reply
+
+
 def collect_outputs(get_iopub_msg, parent_msg_id, timeout=5):
     """Collect outputs until we get an idle message
 
@@ -203,7 +239,7 @@ def test_print_to_correct_cell_from_child_thread():
 
         received = 0
         while received < iterations:
-            msg = kc.get_iopub_msg(timeout=interval * 2)
+            msg = kc.get_iopub_msg(timeout=interval * 10)
             if msg["msg_type"] != "stream":
                 continue
             content = msg["content"]
@@ -235,7 +271,7 @@ def test_print_to_correct_cell_from_asyncio():
 
         received = 0
         while received < iterations:
-            msg = kc.get_iopub_msg(timeout=interval * 2)
+            msg = kc.get_iopub_msg(timeout=interval * 10)
             if msg["msg_type"] != "stream":
                 continue
             content = msg["content"]

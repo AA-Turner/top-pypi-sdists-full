@@ -68,11 +68,25 @@ fn should_create_span(uri_path: &str) -> bool {
         return true;
     }
 
+    // Vertex AI: /projects/.../publishers/anthropic/models/...:rawPredict or :streamRawPredict
+    if is_vertex_path(uri_path) {
+        return true;
+    }
+
     false
 }
 
 fn is_azure_endpoint(host: &str) -> bool {
     host.contains("azure.com") || host.contains("services.ai")
+}
+
+fn is_vertex_endpoint(host: &str) -> bool {
+    host.contains("aiplatform.googleapis.com")
+}
+
+fn is_vertex_path(path: &str) -> bool {
+    path.contains("/publishers/anthropic/models/")
+        && (path.ends_with(":rawPredict") || path.ends_with(":streamRawPredict"))
 }
 
 async fn send_trace_to_lmnr(
@@ -428,6 +442,14 @@ where
                     .and_then(|s| s.split('/').next())
                     .map(|s| s.to_string());
             };
+
+            if req.model.is_none() && is_vertex_path(&uri_path) {
+                // Vertex path: /projects/.../publishers/anthropic/models/<model_name>:streamRawPredict
+                req.model = uri_path
+                    .split("/models/")
+                    .nth(1)
+                    .map(|s| s.trim_end_matches(":streamRawPredict").trim_end_matches(":rawPredict").to_string());
+            };
         }
 
         // Parse the response - handle both streaming and non-streaming
@@ -589,6 +611,7 @@ where
             Some(ResponseInfo::Failure(ResponseFailure {
                 status_code: self.response_status,
                 body: response_bytes,
+                is_gzip_encoded: has_gzip_content_encoding,
             }))
         } else {
             parsed_response.map(|resp| ResponseInfo::Success(resp))
@@ -776,7 +799,7 @@ async fn try_infer_scheme(
             .map_err(|never| match never {})
             .boxed();
 
-        if is_azure_endpoint(&https_url) {
+        if is_azure_endpoint(&https_url) || is_vertex_endpoint(&https_url) {
             https_parts.version = hyper::Version::HTTP_2;
             https_parts.headers.remove(hyper::header::HOST);
             https_parts.headers.remove(hyper::header::CONNECTION);
@@ -808,7 +831,7 @@ async fn try_infer_scheme(
         .map_err(|never| match never {})
         .boxed();
 
-    if is_azure_endpoint(&http_url) {
+    if is_azure_endpoint(&http_url) || is_vertex_endpoint(&http_url) {
         http_parts.version = hyper::Version::HTTP_2;
         http_parts.headers.remove(hyper::header::HOST);
         http_parts.headers.remove(hyper::header::CONNECTION);
@@ -914,7 +937,7 @@ async fn forward_request(
                 .map_err(|never| match never {})
                 .boxed();
 
-            if is_azure_endpoint(&url_with_scheme) {
+            if is_azure_endpoint(&url_with_scheme) || is_vertex_endpoint(&url_with_scheme) {
                 parts_clone.version = hyper::Version::HTTP_2;
                 parts_clone.headers.remove(hyper::header::HOST);
                 parts_clone.headers.remove(hyper::header::CONNECTION);
@@ -977,7 +1000,7 @@ async fn forward_request(
             .map_err(|never| match never {})
             .boxed();
 
-        if is_azure_endpoint(&target_url) {
+        if is_azure_endpoint(&target_url) || is_vertex_endpoint(&target_url) {
             parts_clone.version = hyper::Version::HTTP_2;
             parts_clone.headers.remove(hyper::header::HOST);
             parts_clone.headers.remove(hyper::header::CONNECTION);

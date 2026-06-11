@@ -242,13 +242,7 @@ if TYPE_CHECKING:
     import modin.pandas  # pragma: no cover
     from snowflake.snowpark.udf import UserDefinedFunction  # pragma: no cover
 
-# Python 3.8 needs to use typing.Iterable because collections.abc.Iterable is not subscriptable
-# Python 3.9 can use both
-# Python 3.10 needs to use collections.abc.Iterable because typing.Iterable is removed
-if sys.version_info <= (3, 9):
-    from typing import Iterable
-else:
-    from collections.abc import Iterable
+from collections.abc import Iterable
 
 _logger = getLogger(__name__)
 
@@ -2134,7 +2128,10 @@ class Session:
             if isinstance(m, str) and m not in result_dict:
                 res.append(m)
             elif isinstance(m, ModuleType) and m.__name__ not in result_dict:
-                res.append(f"{m.__name__}=={m.__version__}")
+                if m.__name__ == "cloudpickle":
+                    res.append(f"{m.__name__}>={m.__version__}")
+                else:
+                    res.append(f"{m.__name__}=={m.__version__}")
 
         return res
 
@@ -2728,6 +2725,7 @@ class Session:
         timestamp: Optional[Union[str, datetime.datetime]] = None,
         timestamp_type: Optional[Union[str, TimestampTimeZone]] = None,
         stream: Optional[str] = None,
+        **kwargs,
     ) -> Table:
         """
         Returns a Table that points the specified table.
@@ -2775,6 +2773,16 @@ class Session:
             # timestamp_type remains "NTZ" (user's explicit choice respected)
             >>> table2 = session.read.table("my_table", time_travel_mode="at", timestamp=tz_aware, timestamp_type="NTZ")  # doctest: +SKIP
         """
+        # ``version`` (Iceberg snapshot id) is intentionally not in the public
+        # signature — it's consumed by Snowpark Connect and may be removed
+        # once a first-class API lands. Accept it through **kwargs so direct
+        # callers can still pass it without us advertising it.
+        version = kwargs.pop("version", None)
+        if kwargs:
+            raise TypeError(
+                f"table() got unexpected keyword arguments: {sorted(kwargs)}"
+            )
+
         if _emit_ast:
             stmt = self._ast_batch.bind()
             ast = with_src_position(stmt.expr.table, stmt)
@@ -2811,6 +2819,7 @@ class Session:
             timestamp=timestamp,
             timestamp_type=timestamp_type,
             stream=stream,
+            version=version,
         )
         # Replace API call origin for table
         set_api_call_source(t, "Session.table")

@@ -1,4 +1,4 @@
-# Generated from /Users/jasha10/dev/hydra/hydra/grammar/OverrideParser.g4 by ANTLR 4.9.3
+# Generated from /home/runner/work/hydra/hydra/hydra/grammar/OverrideParser.g4 by ANTLR 4.9.3
 from antlr4 import *
 if __name__ is not None and "." in __name__:
     from .OverrideParser import OverrideParser

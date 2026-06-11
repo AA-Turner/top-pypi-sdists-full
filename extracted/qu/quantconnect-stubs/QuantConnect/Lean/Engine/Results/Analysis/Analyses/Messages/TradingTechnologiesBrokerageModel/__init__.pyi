@@ -31,9 +31,9 @@ class InvalidStopLimitOrderLimitPriceAnalysis(QuantConnect.Lean.Engine.Results.A
         ...
 
 
-class InvalidStopLimitOrderPriceAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+class InvalidStopMarketOrderPriceAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
     """
-    Detects Trading Technologies brokerage model rejections where a stop-limit order's stop price
+    Detects Trading Technologies brokerage model rejections where a stop-market order's stop price
     is on the wrong side of the current market price.
     """
 
@@ -55,9 +55,9 @@ class InvalidStopLimitOrderPriceAnalysis(QuantConnect.Lean.Engine.Results.Analys
         ...
 
 
-class InvalidStopMarketOrderPriceAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+class InvalidStopLimitOrderPriceAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
     """
-    Detects Trading Technologies brokerage model rejections where a stop-market order's stop price
+    Detects Trading Technologies brokerage model rejections where a stop-limit order's stop price
     is on the wrong side of the current market price.
     """
 

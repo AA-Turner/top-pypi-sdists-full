@@ -37,6 +37,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from ..circuit import QuantumCircuit as PantaCircuit
+from .braket import _gate_matrix as _braket_gate_matrix
 
 if TYPE_CHECKING:  # pragma: no cover
     import cirq as _cirq_typing  # noqa: F401
@@ -346,8 +347,10 @@ def to_cirq(panta_circuit: PantaCircuit) -> Any:
                 ops_list.append(cirq.I(c_qubits[0]))
             else:
                 m = np.asarray(params[0], dtype=np.complex128)
+                # panta 행렬은 little-endian (qubits[0]=LSB), cirq MatrixGate
+                # 는 첫 큐비트가 MSB → 큐비트 순서를 역으로 적용.
                 ops_list.append(
-                    cirq.MatrixGate(m).on(c_qubits[0])
+                    cirq.MatrixGate(m).on(*reversed(c_qubits))
                 )
         elif name == "measure":
             cbit = int(params[0]) if params else 0
@@ -366,7 +369,24 @@ def to_cirq(panta_circuit: PantaCircuit) -> Any:
                 "to_cirq: c_if (if_eq) op 변환은 v0.4.6+ 으로 deferred. "
                 "panta-sim 회로의 classical control 을 cirq 로 가져갈 수 없음."
             )
-        else:  # pragma: no cover — unhandled op name (방어적)
-            raise ValueError(f"unsupported op name {name!r} in to_cirq")
+        elif name in ("if_else", "while_loop", "for_loop", "switch"):
+            raise NotImplementedError(
+                f"to_cirq: 블록 제어흐름 op {name!r} 는 cirq 로 변환할 수 없습니다 "
+                "(cirq 의 classical control 표현 모델이 다름)."
+            )
+        else:
+            # 그 외 직접 매핑 표 밖의 *유니터리* named 게이트 (p/sx/cy/ch/crx/
+            # cp/iswap/rxx/dcx/ecr/cu/xx_plus_yy 등): panta 게이트 정의에서
+            # 행렬을 얻어 cirq.MatrixGate 로 emit 한다 (braket 어댑터와 동일
+            # 로직 재사용).  행렬은 little-endian (qubits[0]=LSB) — cirq 는
+            # 첫 큐비트가 MSB 라 역순으로 적용.
+            try:
+                m = _braket_gate_matrix(name, params, len(qubits))
+            except (AttributeError, TypeError) as exc:
+                # 비-유니터리 / 알 수 없는 op — 명시적으로 거부.
+                raise ValueError(
+                    f"unsupported op name {name!r} in to_cirq"
+                ) from exc
+            ops_list.append(cirq.MatrixGate(m).on(*reversed(c_qubits)))
 
     return cirq.Circuit(ops_list)

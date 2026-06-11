@@ -60,17 +60,30 @@ class _TerminalLaneContext:
     terminal_kind: str | None
 
 
+def _project_venv_roots(project: Path) -> list[Path]:
+    roots: list[Path] = []
+    for name in (".venv", "venv"):
+        candidate = project / name
+        if candidate.is_dir():
+            roots.append(candidate)
+    return roots
+
+
 def _project_venv_python(project: Path) -> Path | None:
-    candidate = project / ".venv" / "bin" / "python3"
-    if candidate.is_file():
-        return candidate
-    candidate = project / ".venv" / "bin" / "python"
-    return candidate if candidate.is_file() else None
+    for venv_root in _project_venv_roots(project):
+        for python_name in ("python3", "python"):
+            candidate = venv_root / "bin" / python_name
+            if candidate.is_file():
+                return candidate
+    return None
 
 
 def _project_venv_koru(project: Path) -> Path | None:
-    candidate = project / ".venv" / "bin" / "koru"
-    return candidate if candidate.is_file() else None
+    for venv_root in _project_venv_roots(project):
+        candidate = venv_root / "bin" / "koru"
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def _resolve_path(path: str | Path) -> str:
@@ -275,8 +288,10 @@ def check_daemon_client_alignment(
         if meta:
             meta_project = str(meta.get("project") or "").strip()
             if meta_project:
+                from koru.autonomous_runtime import projects_equivalent
+
                 try:
-                    if Path(meta_project).resolve() != project.resolve():
+                    if not projects_equivalent(meta_project, project):
                         issues.append(
                             ReadinessIssue(
                                 code="daemon_project_mismatch",

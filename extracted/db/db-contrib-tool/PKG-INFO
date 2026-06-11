@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: db-contrib-tool
-Version: 2.3.0
+Version: 2.3.1
 Summary: The `db-contrib-tool` - MongoDB's tool for contributors.
 Home-page: https://github.com/10gen/db-contrib-tool
 Author: DevProd Test Infrastructure

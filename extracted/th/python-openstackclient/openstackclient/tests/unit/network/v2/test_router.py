@@ -70,10 +70,7 @@ class TestAddPortToRouter(TestRouter):
         result = self.cmd.take_action(parsed_args)
 
         self.network_client.add_interface_to_router.assert_called_with(
-            self._router,
-            **{
-                'port_id': self._router.port,
-            },
+            self._router, port=self._router.port
         )
         self.assertIsNone(result)
 
@@ -117,7 +114,7 @@ class TestAddSubnetToRouter(TestRouter):
 
         result = self.cmd.take_action(parsed_args)
         self.network_client.add_interface_to_router.assert_called_with(
-            self._router, **{'subnet_id': self._router.subnet}
+            self._router, subnet=self._router.subnet
         )
 
         self.assertIsNone(result)
@@ -807,6 +804,30 @@ class TestListRouter(TestRouter):
         self.assertEqual(self.columns, columns)
         self.assertCountEqual(self.data, list(data))
 
+    def test_router_list_pagination(self):
+        arglist = [
+            '--marker',
+            self.routers[0].id,
+            '--limit',
+            '1',
+        ]
+        verifylist = [
+            ('marker', self.routers[0].id),
+            ('limit', 1),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        columns, data = self.cmd.take_action(parsed_args)
+
+        self.network_client.routers.assert_called_once_with(
+            **{
+                'marker': self.routers[0].id,
+                'limit': 1,
+            }
+        )
+        self.assertEqual(self.columns, columns)
+        self.assertEqual(self.data, list(data))
+
     def test_router_list_no_ha_no_distributed(self):
         _routers = network_fakes.create_routers(
             {'ha': None, 'distributed': None}, count=3
@@ -1064,7 +1085,7 @@ class TestRemovePortFromRouter(TestRouter):
         result = self.cmd.take_action(parsed_args)
 
         self.network_client.remove_interface_from_router.assert_called_with(
-            self._router, **{'port_id': self._router.port}
+            self._router, port=self._router.port
         )
         self.assertIsNone(result)
 
@@ -1108,7 +1129,7 @@ class TestRemoveSubnetFromRouter(TestRouter):
 
         result = self.cmd.take_action(parsed_args)
         self.network_client.remove_interface_from_router.assert_called_with(
-            self._router, **{'subnet_id': self._router.subnet}
+            self._router, subnet=self._router.subnet
         )
         self.assertIsNone(result)
 

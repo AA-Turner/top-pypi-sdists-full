@@ -273,6 +273,8 @@ from .type_defs import (
     AssociateVpcCidrBlockResultTypeDef,
     AttachClassicLinkVpcRequestTypeDef,
     AttachClassicLinkVpcResultTypeDef,
+    AttachImageWatermarkRequestTypeDef,
+    AttachImageWatermarkResultTypeDef,
     AttachInternetGatewayRequestTypeDef,
     AttachNetworkInterfaceRequestTypeDef,
     AttachNetworkInterfaceResultTypeDef,
@@ -1081,6 +1083,8 @@ from .type_defs import (
     DescribeVpnGatewaysResultTypeDef,
     DetachClassicLinkVpcRequestTypeDef,
     DetachClassicLinkVpcResultTypeDef,
+    DetachImageWatermarkRequestTypeDef,
+    DetachImageWatermarkResultTypeDef,
     DetachInternetGatewayRequestTypeDef,
     DetachNetworkInterfaceRequestTypeDef,
     DetachVerifiedAccessTrustProviderRequestTypeDef,
@@ -2157,6 +2161,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/attach_classic_link_vpc.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#attach_classic_link_vpc)
+        """
+
+    def attach_image_watermark(
+        self, **kwargs: Unpack[AttachImageWatermarkRequestTypeDef]
+    ) -> AttachImageWatermarkResultTypeDef:
+        """
+        Attaches a watermark to a non-public AMI.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/attach_image_watermark.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#attach_image_watermark)
         """
 
     def attach_internet_gateway(
@@ -6442,6 +6456,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/detach_classic_link_vpc.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#detach_classic_link_vpc)
+        """
+
+    def detach_image_watermark(
+        self, **kwargs: Unpack[DetachImageWatermarkRequestTypeDef]
+    ) -> DetachImageWatermarkResultTypeDef:
+        """
+        Removes a watermark from the specified AMI.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/detach_image_watermark.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#detach_image_watermark)
         """
 
     def detach_internet_gateway(

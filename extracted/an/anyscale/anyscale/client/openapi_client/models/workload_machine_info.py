@@ -36,17 +36,19 @@ class WorkloadMachineInfo(object):
         'machine_type': 'str',
         'partition': 'str',
         'machine_count': 'int',
-        'workload_score': 'int'
+        'workload_score': 'int',
+        'machine_ids': 'list[str]'
     }
 
     attribute_map = {
         'machine_type': 'machine_type',
         'partition': 'partition',
         'machine_count': 'machine_count',
-        'workload_score': 'workload_score'
+        'workload_score': 'workload_score',
+        'machine_ids': 'machine_ids'
     }
 
-    def __init__(self, machine_type=None, partition=None, machine_count=None, workload_score=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, machine_type=None, partition=None, machine_count=None, workload_score=None, machine_ids=None, local_vars_configuration=None):  # noqa: E501
         """WorkloadMachineInfo - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -56,12 +58,15 @@ class WorkloadMachineInfo(object):
         self._partition = None
         self._machine_count = None
         self._workload_score = None
+        self._machine_ids = None
         self.discriminator = None
 
         self.machine_type = machine_type
         self.partition = partition
         self.machine_count = machine_count
         self.workload_score = workload_score
+        if machine_ids is not None:
+            self.machine_ids = machine_ids
 
     @property
     def machine_type(self):
@@ -162,6 +167,29 @@ class WorkloadMachineInfo(object):
             raise ValueError("Invalid value for `workload_score`, must not be `None`")  # noqa: E501
 
         self._workload_score = workload_score
+
+    @property
+    def machine_ids(self):
+        """Gets the machine_ids of this WorkloadMachineInfo.  # noqa: E501
+
+        The IDs of the machines of the given machine type and partition allocated to this workload.  # noqa: E501
+
+        :return: The machine_ids of this WorkloadMachineInfo.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._machine_ids
+
+    @machine_ids.setter
+    def machine_ids(self, machine_ids):
+        """Sets the machine_ids of this WorkloadMachineInfo.
+
+        The IDs of the machines of the given machine type and partition allocated to this workload.  # noqa: E501
+
+        :param machine_ids: The machine_ids of this WorkloadMachineInfo.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._machine_ids = machine_ids
 
     def to_dict(self):
         """Returns the model properties as a dict"""

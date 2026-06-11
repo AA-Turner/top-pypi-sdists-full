@@ -91,7 +91,7 @@ def convert_to_datetime(dstring):
                 results = datetime.datetime.utcfromtimestamp(timestamp)
                 break
             except Exception:
-                pass
+                pass  # nosec B110
         if t is None:
             try:
                 dstring = dstring.split(".", 1)[0]
@@ -109,10 +109,14 @@ def convert_to_datetime(dstring):
 def to_timestamp(val):
     try:
         v = float(val)
-        if v > 1000000000 and v < 1900000000:
+        # Check if time is in a sensible window for unix time_t already
+        # if it is we can use it as-is, otherwise try to convert it
+        # 1000000000 = 2001-09-09
+        # 2540000000 = 2050-06-28
+        if v > 1000000000 and v < 2540000000:
             return v
     except Exception:
-        pass
+        pass  # nosec B110
 
     val = convert_to_datetime(val)
     return calendar.timegm(val.timetuple())

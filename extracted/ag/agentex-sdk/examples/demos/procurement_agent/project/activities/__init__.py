@@ -1,1 +1,0 @@
-"""Procurement agent activities module."""

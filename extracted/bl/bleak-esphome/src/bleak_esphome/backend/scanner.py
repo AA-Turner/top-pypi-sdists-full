@@ -88,11 +88,25 @@ class ESPHomeScanner(BaseHaRemoteScanner):
         to ACTIVE on demand via :meth:`async_request_active_window`. Once
         called, ``requested_mode`` is no longer overwritten by firmware
         state updates.
+
+        Pinning the local intent always succeeds, but the firmware can
+        only be told when the proxy advertises ``FEATURE_STATE_AND_MODE``
+        (which is what binds the API client via :meth:`set_client`). On
+        older firmware the client is never bound, so the request cannot
+        reach the device; a warning is logged and the firmware keeps its
+        own configured mode.
         """
         self._intent = mode
         self.set_requested_mode(mode)
         client = self._client
         if client is None:
+            _LOGGER.warning(
+                "%s: Cannot set scanner mode to %s on the proxy; this ESPHome "
+                "version does not support runtime scanner-mode control; "
+                "Upgrade the ESPHome version on the device",
+                self.name,
+                mode.name,
+            )
             return
         try:
             client.bluetooth_scanner_set_mode(_HA_TO_FIRMWARE_MODE[mode])
@@ -204,9 +218,16 @@ class ESPHomeScanner(BaseHaRemoteScanner):
             try:
                 await asyncio.sleep(duration)
             finally:
+                # Honor a live repin (async_set_scanning_mode is sync and
+                # lock-free, so it can land mid-window) over the snapshot
+                # taken when the window opened. Fall back to the open-time
+                # snapshot only when no intent was ever pinned — there
+                # requested_mode tracks firmware and reports ACTIVE
+                # mid-window, so a live read would pin ACTIVE forever.
+                target = self._intent if self._intent is not None else prior
                 restore = (
-                    _HA_TO_FIRMWARE_MODE.get(prior, BluetoothScannerMode.PASSIVE)
-                    if prior is not None
+                    _HA_TO_FIRMWARE_MODE.get(target, BluetoothScannerMode.PASSIVE)
+                    if target is not None
                     else BluetoothScannerMode.PASSIVE
                 )
                 # bluetooth_scanner_set_mode is a sync method that just

@@ -87,6 +87,8 @@ def _detect_installation_method() -> str:
         if (project_root / ".git").exists():
             return "git"
     except Exception:
+        # Best-effort probe: path resolution may fail in unusual layouts;
+        # fall through to the next detection heuristic.
         pass
 
     # 5. PyPI install - marker file exists in package
@@ -95,6 +97,8 @@ def _detect_installation_method() -> str:
         if marker_path.exists():
             return "pypi"
     except Exception:
+        # Best-effort probe: marker lookup may fail in unusual layouts;
+        # fall through to the default "unknown" result.
         pass
 
     # 6. Default - unknown
@@ -293,7 +297,8 @@ def _sanitize_log_text(text: str) -> str:
     review (see ``_generate_anonymization_guide``). Rules cover the most common
     leak shapes seen in HA add-on logs:
     JWTs, bearer tokens, long hex tokens, ``key=value`` style credentials,
-    URL userinfo, and IPv4 addresses with network context.
+    URL userinfo, IPv4 addresses with network context, and the MCP connect-URL
+    secret path (the add-on's LAN auth).
     """
     # JWT tokens (header.payload.signature)
     text = re.sub(
@@ -338,6 +343,20 @@ def _sanitize_log_text(text: str) -> str:
     text = _IPV4_WITH_PORT_OR_CIDR_RE.sub("[IP]", text)
     text = _IPV4_IN_URL_RE.sub(r"\1[IP]", text)
     text = _IPV4_AFTER_KEYWORD_RE.sub(r"\1[IP]", text)
+    # MCP connect-URL secret path — the add-on's LAN auth. Redact by the
+    # configured value (catches custom paths) and the generated
+    # ``/private_<token>`` convention. Only bug-report output is scrubbed here;
+    # the raw logs this text is copied from are left intact.
+    configured = os.getenv("MCP_SECRET_PATH", "").rstrip("/")
+    if configured and configured != "/mcp":
+        # Anchor on a path-segment boundary so a short/substring-prone configured
+        # value (e.g. "/ha") cannot corrupt unrelated text (e.g. "/happy").
+        text = re.sub(
+            re.escape(configured) + r"(?![A-Za-z0-9_-])",
+            "[REDACTED_SECRET_PATH]",
+            text,
+        )
+    text = re.sub(r"/private_[A-Za-z0-9_-]+", "[REDACTED_SECRET_PATH]", text)
     return text
 
 
@@ -623,7 +642,18 @@ class BugReportTools:
             "success": True,
             "diagnostic_info": diagnostic_info,
             "recent_logs": recent_logs,
-            "startup_logs": startup_logs,
+            # Scrub the startup-log *messages* — they aren't sanitized at source,
+            # so the connect-URL secret path can otherwise surface here.
+            # recent_logs is also returned, but its sensitive *parameters* are
+            # key-masked at the logging chokepoint and its error_message is
+            # returned as-is to the trusted client by design (see SECURITY.md);
+            # formatted_report and addon_logs already route through
+            # _sanitize_log_text. This copies entries — the underlying log
+            # records stay raw.
+            "startup_logs": [
+                {**entry, "message": _sanitize_log_text(entry.get("message", ""))}
+                for entry in startup_logs
+            ],
             "addon_logs": addon_logs,
             "log_count": len(recent_logs),
             "startup_log_count": len(startup_logs),

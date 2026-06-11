@@ -813,6 +813,68 @@ struct IsometryHvpState<'a> {
     wj_rows: Vec<Array2<f64>>,
 }
 
+/// Build the per-row Gauss-Newton Hessian-vector product for `IsometryPenalty`,
+/// shared between the exact `hvp` (where it is the GN piece, added to the K
+/// residual term) and `psd_majorizer_hvp` (where it is the full PSD operator).
+///
+/// Computes `dgdt[a, b, c] = ∂g_{ab}/∂t_c
+///                          = Σ_i (J²_{i,a,c}·WJ_{i,b} + WJ_{i,a}·J²_{i,b,c})`
+/// once, then derives
+///   `delta_g[a, b] = Σ_c dgdt[a, b, c]·v[n·d+c]`           (directional dG)
+///   `gn_out[c]     = Σ_{a,b} dgdt[a, b, c]·delta_g[a, b]`  (GN HVP row)
+///
+/// The caller multiplies `gn_out` by μ and writes it into the per-row output
+/// slice. `delta_g` is returned so `hvp` can reuse it inside the K residual
+/// loop, where `(g − g_ref)·B·v` is summed against `dgdt` and the third
+/// decoder jet `K`.
+///
+/// Returning a single tensor + contraction (instead of recomputing `dgdt`
+/// inline in two functions) collapses four duplicated O(d²·d·p) loops into
+/// a single O(d³·p) build, and — crucially — makes the GN summation order
+/// identical across `hvp` and `psd_majorizer_hvp` so the two paths agree
+/// bit-exactly when the residual `g − g_ref` vanishes. Without that
+/// identity the exact-vs-PSD-equality regression test fails by ~1 ULP at
+/// values of magnitude 10⁶ purely from `(vc · Σ_i …)` vs `Σ_i (vc · …)`
+/// reassociating differently in fp64.
+fn isometry_row_gn_hvp(
+    jac2: ArrayView2<'_, f64>,
+    wj: ArrayView2<'_, f64>,
+    v: ArrayView1<'_, f64>,
+    n: usize,
+    d: usize,
+    p: usize,
+) -> (Array2<f64>, Array1<f64>) {
+    let dg_entry = |a: usize, b: usize, c: usize| -> f64 {
+        let mut s = 0.0;
+        for i in 0..p {
+            s += jac2[[n, (i * d + a) * d + c]] * wj[[i, b]];
+            s += wj[[i, a]] * jac2[[n, (i * d + b) * d + c]];
+        }
+        s
+    };
+    let mut delta_g = Array2::<f64>::zeros((d, d));
+    for a in 0..d {
+        for b in 0..d {
+            let mut s = 0.0;
+            for c in 0..d {
+                s += dg_entry(a, b, c) * v[n * d + c];
+            }
+            delta_g[[a, b]] = s;
+        }
+    }
+    let mut gn_out = Array1::<f64>::zeros(d);
+    for c in 0..d {
+        let mut s = 0.0;
+        for a in 0..d {
+            for b in 0..d {
+                s += dg_entry(a, b, c) * delta_g[[a, b]];
+            }
+        }
+        gn_out[c] = s;
+    }
+    (delta_g, gn_out)
+}
+
 impl IsometryPenalty {
     pub const DEFAULT_VALUE_ON_MISSING_CACHE: f64 = 0.0;
 
@@ -969,12 +1031,30 @@ impl IsometryPenalty {
         self
     }
 
-    /// Attach a per-row behavioral metric in low-rank factored form
-    /// (`W_n = U_n U_n^T`). The contraction-order invariant is enforced by
-    /// the per-row builder `M_n = U_n^T J_n`; see [`WeightField`].
+    /// Attach the gauge metric **from the single
+    /// [`RowMetric`](crate::inference::row_metric::RowMetric)** that also drives
+    /// the reconstruction likelihood. This is the only way an `IsometryPenalty`
+    /// acquires a non-identity behavioral metric: the independent
+    /// `WeightField` setter has been removed so a gauge-metric ≠
+    /// likelihood-metric state is structurally unrepresentable. The
+    /// contraction-order invariant (`M_n = U_n^T J_n`, never materializing the
+    /// `p × p` `W_n`) is preserved by the [`WeightField::Factored`] layout the
+    /// metric emits.
+    ///
+    /// `p_out` is taken from the metric so the gauge's output dimension is
+    /// pinned to the metric's.
     #[must_use]
-    pub fn with_weight(mut self, weight: WeightField) -> Self {
-        self.weight = weight;
+    pub fn with_row_metric(mut self, metric: &crate::inference::row_metric::RowMetric) -> Self {
+        // Only a metric that drives the gauge installs a non-identity pullback
+        // weight. A Euclidean metric reduces the gauge pullback to the bare
+        // `J_nᵀ J_n`, so its `to_weight_field()` is `Identity` and the existing
+        // (default-Identity) weight is left exactly as is — bit-for-bit the
+        // pre-metric isotropic gauge. The output dimension is pinned to the
+        // metric's regardless, so the gauge and likelihood agree on `p_out`.
+        if metric.drives_gauge() {
+            self.weight = metric.to_weight_field();
+        }
+        self.p_out = metric.p_out();
         self
     }
 
@@ -1298,36 +1378,9 @@ impl IsometryPenalty {
 
         for n in 0..n_obs {
             let wj = &state.wj_rows[n];
-            let mut delta_g = Array2::<f64>::zeros((d, d));
-            for a in 0..d {
-                for b in 0..d {
-                    let mut s = 0.0;
-                    for c in 0..d {
-                        let vc = v[n * d + c];
-                        if vc == 0.0 {
-                            continue;
-                        }
-                        for i in 0..p {
-                            s += vc * jac2[[n, (i * d + a) * d + c]] * wj[[i, b]];
-                            s += vc * wj[[i, a]] * jac2[[n, (i * d + b) * d + c]];
-                        }
-                    }
-                    delta_g[[a, b]] = s;
-                }
-            }
+            let (_delta_g, gn_out) = isometry_row_gn_hvp(jac2.view(), wj.view(), v, n, d, p);
             for c in 0..d {
-                let mut acc = 0.0;
-                for a in 0..d {
-                    for b in 0..d {
-                        let mut dg_c = 0.0;
-                        for i in 0..p {
-                            dg_c += jac2[[n, (i * d + a) * d + c]] * wj[[i, b]];
-                            dg_c += wj[[i, a]] * jac2[[n, (i * d + b) * d + c]];
-                        }
-                        acc += dg_c * delta_g[[a, b]];
-                    }
-                }
-                out[n * d + c] = mu * acc;
+                out[n * d + c] = mu * gn_out[c];
             }
 
             for c in 0..d {
@@ -1697,41 +1750,9 @@ impl AnalyticPenalty for IsometryPenalty {
             let Some(wj) = self.weighted_jacobian_row(n, d) else {
                 return Array1::<f64>::zeros(v.len());
             };
-            // s_{ab} = Σ_c (∂g_{ab}/∂t_c) v_c — the directional derivative of
-            // the pullback metric entry g_{ab} along v at row n.
-            let mut sg = Array2::<f64>::zeros((d, d));
-            for a in 0..d {
-                for b in 0..d {
-                    let mut s = 0.0;
-                    for c in 0..d {
-                        let vc = v[n * d + c];
-                        if vc == 0.0 {
-                            continue;
-                        }
-                        let mut dg_c = 0.0;
-                        for i in 0..p {
-                            dg_c += jac2[[n, (i * d + a) * d + c]] * wj[[i, b]];
-                            dg_c += wj[[i, a]] * jac2[[n, (i * d + b) * d + c]];
-                        }
-                        s += dg_c * vc;
-                    }
-                    sg[[a, b]] = s;
-                }
-            }
-            // (B_GN v)_c = μ Σ_{a,b} (∂g_{ab}/∂t_c) · s_{ab}.
+            let (_delta_g, gn_out) = isometry_row_gn_hvp(jac2.view(), wj.view(), v, n, d, p);
             for c in 0..d {
-                let mut acc = 0.0;
-                for a in 0..d {
-                    for b in 0..d {
-                        let mut dg_c = 0.0;
-                        for i in 0..p {
-                            dg_c += jac2[[n, (i * d + a) * d + c]] * wj[[i, b]];
-                            dg_c += wj[[i, a]] * jac2[[n, (i * d + b) * d + c]];
-                        }
-                        acc += dg_c * sg[[a, b]];
-                    }
-                }
-                out[n * d + c] = mu * acc;
+                out[n * d + c] = mu * gn_out[c];
             }
         }
         out
@@ -2202,6 +2223,146 @@ impl IBPAssignmentPenalty {
         }
         pi
     }
+
+    /// Exact third-derivative channels of [`Self::hessian_diag`] with respect to
+    /// the logits, for the SAE outer-ρ log-det adjoint Γ (#1006).
+    ///
+    /// `hessian_diag` returns, per row `i` and column `k`, the on-diagonal
+    /// curvature
+    ///
+    /// ```text
+    ///   H_ik = w · [ sd_k · J_ik²  +  score_k · c_ik ],
+    /// ```
+    ///
+    /// with `J_ik = z(1−z)/τ` the logit→concrete jacobian, `c_ik =
+    /// z(1−z)(1−2z)/τ²` the second jacobian, and the column scalars
+    /// `score_k`, `sd_k = ∂score_k/∂M_k` exactly as assembled there
+    /// (`M_k = Σ_i z_ik` is the column active mass, `π_k(M_k)` the plug-in
+    /// stick-breaking MAP). Because `π_k` couples every row in column `k`, the
+    /// logit derivative splits into a row-local direct-`z` channel and a global
+    /// empirical-`M_k` channel:
+    ///
+    /// ```text
+    ///   ∂H_ik/∂ℓ_wk = δ_iw · (∂_z H_ik)·J_ik   +   (∂_M H_ik) · J_wk,
+    ///   ∂_z H_ik = w·J_ik·[ sd_k·2J_ik·(1−2z)/τ + score_k·(1−6z+6z²)/τ² ],
+    ///   ∂_M H_ik = w·[ sdd_k · J_ik²  +  sd_k · c_ik ],
+    ///   sdd_k = ∂sd_k/∂M_k = ∂²score_k/∂M_k².
+    /// ```
+    ///
+    /// `local_logit_third[i*K+k] = (∂_z H_ik)·J_ik` is the row-diagonal third
+    /// derivative; `m_channel[i*K+k] = ∂_M H_ik` and `z_jac[i*K+k] = J_ik` let
+    /// the caller form, per column, `C_k = Σ_i (H⁻¹)_ik,ik · ∂_M H_ik` and
+    /// distribute `C_k · J_wk` to every row `w` (the cross-row coupling the
+    /// row-local primitive cannot see). All boundary clamps (`pi_jac = 0` at the
+    /// `π_k` clamp) ride the same convention as `hessian_diag`, so the channels
+    /// are zero exactly where the assembled curvature is constant in `M_k`.
+    #[must_use]
+    pub fn hessian_diag_logit_third_channels(
+        &self,
+        target: ArrayView1<'_, f64>,
+        rho: ArrayView1<'_, f64>,
+    ) -> IbpHessianDiagThirdChannels {
+        let alpha = self.resolved_alpha(rho);
+        let a = alpha / self.k_max as f64;
+        let tau = self.concrete_temperature();
+        let inv_tau = 1.0 / tau;
+        let inv_tau2 = inv_tau * inv_tau;
+        let z = self.concrete_logits(target);
+        let pi = self.pi_map(z.view(), alpha);
+        let n = z.len() / self.k_max;
+        let denom = (n as f64 + a - 1.0).max(IBP_COUNT_DENOM_FLOOR);
+
+        let mut active_mass = Array1::<f64>::zeros(self.k_max);
+        for row in 0..n {
+            let start = row * self.k_max;
+            for k in 0..self.k_max {
+                active_mass[k] += z[start + k];
+            }
+        }
+
+        let mut score = Array1::<f64>::zeros(self.k_max);
+        let mut score_derivative = Array1::<f64>::zeros(self.k_max);
+        let mut score_second_derivative = Array1::<f64>::zeros(self.k_max);
+        for k in 0..self.k_max {
+            let pk = pi[k].clamp(IBP_PROBABILITY_CLAMP, 1.0 - IBP_PROBABILITY_CLAMP);
+            let mass = active_mass[k];
+            let raw = (mass + a - 1.0) / denom;
+            let pi_jac = if raw > IBP_INTERIOR_TOL && raw < 1.0 - IBP_INTERIOR_TOL {
+                1.0 / denom
+            } else {
+                0.0
+            };
+            let bce_pi_score = -mass / pk + (n as f64 - mass) / (1.0 - pk);
+            let beta_pi_score = -(a - 1.0) / pk;
+            let pi_score = bce_pi_score + beta_pi_score;
+            let pi_score_derivative = -1.0 / pk + (mass + a - 1.0) * pi_jac / (pk * pk)
+                - 1.0 / (1.0 - pk)
+                + (n as f64 - mass) * pi_jac / ((1.0 - pk) * (1.0 - pk));
+            let direct_z_score = ((1.0 - pk) / pk).ln();
+            let implicit_pi_score = pi_score * pi_jac;
+            score[k] = direct_z_score + implicit_pi_score;
+            let direct_z_score_derivative = pi_jac * (-1.0 / pk - 1.0 / (1.0 - pk));
+            score_derivative[k] = direct_z_score_derivative + pi_score_derivative * pi_jac;
+
+            // sdd_k = ∂score_derivative_k/∂M_k, holding the explicit per-row z
+            // fixed (the same partial `hessian_diag` takes for score/sd). With
+            // π_k = (M_k+a−1)/D clamped, ∂π_k/∂M_k = pi_jac (0 at the clamp):
+            //   ∂(direct_z_score_derivative)/∂M = pi_jac²·(1/π² − 1/(1−π)²),
+            //   ∂(pi_score_derivative)/∂M = pi_jac·[ 2/π² − 2(M+a−1)·pi_jac/π³
+            //                                        − 2/(1−π)² + 2(n−M)·pi_jac/(1−π)³ ].
+            let one_minus = 1.0 - pk;
+            let ddzd = pi_jac * pi_jac * (1.0 / (pk * pk) - 1.0 / (one_minus * one_minus));
+            let dpisd = 2.0 / (pk * pk) - 2.0 * (mass + a - 1.0) * pi_jac / (pk * pk * pk)
+                - 2.0 / (one_minus * one_minus)
+                + 2.0 * (n as f64 - mass) * pi_jac / (one_minus * one_minus * one_minus);
+            score_second_derivative[k] = ddzd + dpisd * pi_jac;
+        }
+
+        let len = target.len();
+        let mut z_jac = Array1::<f64>::zeros(len);
+        let mut local_logit_third = Array1::<f64>::zeros(len);
+        let mut m_channel = Array1::<f64>::zeros(len);
+        for row in 0..n {
+            let start = row * self.k_max;
+            for k in 0..self.k_max {
+                let zk = z[start + k];
+                let jac = zk * (1.0 - zk) * inv_tau;
+                let c_ik = zk * (1.0 - zk) * (1.0 - 2.0 * zk) * inv_tau2;
+                // ∂_z J = (1−2z)/τ, ∂_z c = (1−6z+6z²)/τ².
+                let dz_j = (1.0 - 2.0 * zk) * inv_tau;
+                let dz_c = (1.0 - 6.0 * zk + 6.0 * zk * zk) * inv_tau2;
+                let dz_h = score_derivative[k] * 2.0 * jac * dz_j + score[k] * dz_c;
+                z_jac[start + k] = jac;
+                local_logit_third[start + k] = self.weight * jac * dz_h;
+                m_channel[start + k] = self.weight
+                    * (score_second_derivative[k] * jac * jac + score_derivative[k] * c_ik);
+            }
+        }
+
+        IbpHessianDiagThirdChannels {
+            k_max: self.k_max,
+            z_jac,
+            local_logit_third,
+            m_channel,
+        }
+    }
+}
+
+/// Exact logit third-derivative channels of [`IBPAssignmentPenalty::hessian_diag`]
+/// for the SAE outer-ρ log-det adjoint Γ (#1006). Row-major `(N, K)` layout.
+#[derive(Debug, Clone)]
+pub struct IbpHessianDiagThirdChannels {
+    /// Number of columns `K` (atoms) in the row-major logit layout.
+    pub k_max: usize,
+    /// `J_ik = z(1−z)/τ`, the per-logit concrete jacobian (row-major `N·K`).
+    pub z_jac: Array1<f64>,
+    /// `(∂_z H_ik)·J_ik`: the row-local direct-`z` third derivative of the
+    /// assembled diagonal curvature `H_ik` (row-major `N·K`).
+    pub local_logit_third: Array1<f64>,
+    /// `∂_M H_ik`: the empirical-`M_k` channel of `H_ik`. Contract against the
+    /// selected-inverse diagonal per column, then distribute `C_k·J_wk` to every
+    /// row `w` (row-major `N·K`).
+    pub m_channel: Array1<f64>,
 }
 
 impl AnalyticPenalty for IBPAssignmentPenalty {
@@ -4262,6 +4423,206 @@ impl NuclearNormPenalty {
         }
     }
 
+    /// Apply the right-spectral filter pair directly: returns `(V·R, T·dR[V])`,
+    /// each `(n_rows, d)`, where `R = (TᵀT + ε²I)^{-1/2}` (regularized, active-
+    /// windowed) and `dR[V]` is its Fréchet derivative along `V` — the two
+    /// pieces [`Self::hvp`] sums.
+    ///
+    /// Cost structure: the right Gram `TᵀT` is `d×d` but `rank(G) ≤ n_rows`,
+    /// and the tangent Gram `TᵀV + VᵀT` is supported on the joint row space
+    /// `S = rowspace(T) ∪ rowspace(V)` with `dim S ≤ 2·n_rows`. Every pair of
+    /// eigen-directions with either side in `S⊥` contributes `0` to `dR`
+    /// (the tangent Gram annihilates them), and `R` acts on `S⊥` as the
+    /// constant `f₀ = regularized(0)^{-1/2}` (a tied eigen-class, so the
+    /// filter there is the basis-independent `f₀·(I − SSᵀ)` — active only
+    /// when the window covers the full Gram, i.e. no biting `max_rank`).
+    /// So the whole computation collapses to an `s×s` eigenproblem plus
+    /// `O(n_rows·s·d)` products — replacing the former dense `d×d` eigh and
+    /// two `O(d⁴)` basis rotations PER HVP CALL, which at decoder-block
+    /// orientation (`d = p` in the thousands) was measured eating >99% of
+    /// whole-fit wall time. The dense route is kept below for small `d`
+    /// (no asymptotic win) and remains the defining oracle.
+    fn right_spectral_filters_applied(
+        &self,
+        t: ArrayView2<'_, f64>,
+        v: ArrayView2<'_, f64>,
+    ) -> Result<(Array2<f64>, Array2<f64>), String> {
+        let m = t.nrows();
+        let d = t.ncols();
+        if d <= 2 * m + 8 {
+            let (rf, rfd) = self.right_spectral_inverse_sqrt_derivative(t, v)?;
+            return Ok((v.dot(&rf), t.dot(&rfd)));
+        }
+        // Joint row-space basis S (d × s) by modified Gram-Schmidt over the
+        // 2m stacked rows of T and V. Deterministic; relative drop tolerance.
+        let mut basis: Vec<Array1<f64>> = Vec::with_capacity(2 * m);
+        for source in [&t, &v] {
+            for row in source.rows() {
+                let scale = row.iter().fold(0.0_f64, |a, &x| a + x * x).sqrt();
+                if scale <= 0.0 {
+                    continue;
+                }
+                let mut r = row.to_owned();
+                for b in &basis {
+                    let proj = b.dot(&r);
+                    r.scaled_add(-proj, b);
+                }
+                // Re-orthogonalize once (classical MGS twice-is-enough) so the
+                // basis stays orthonormal to working precision.
+                for b in &basis {
+                    let proj = b.dot(&r);
+                    r.scaled_add(-proj, b);
+                }
+                let norm = r.iter().fold(0.0_f64, |a, &x| a + x * x).sqrt();
+                if norm > 1.0e-13 * scale {
+                    basis.push(r / norm);
+                }
+            }
+        }
+        let s_dim = basis.len();
+        if s_dim == 0 {
+            // T = V = 0: R is the constant f₀ filter and dR vanishes.
+            let active_count = self.right_filter_active_count(m, d);
+            if active_count != d {
+                // The full right-Gram spectrum is one d-fold tied zero class.
+                // A biting max_rank would choose an arbitrary subspace of that
+                // class, matching the dense oracle's tie-split rejection.
+                return Err(
+                    "NuclearNormPenalty HVP is undefined: max_rank splits a tied \
+                     right-Gram eigenvalue at the active/inactive cutoff (0.0e0, 0.0e0)"
+                        .to_string(),
+                );
+            }
+            let f0 = self.regularized_sigma_sq(0.0).powf(-0.5);
+            let vr = v.to_owned() * f0;
+            return Ok((vr, Array2::<f64>::zeros((m, d))));
+        }
+        let mut s = Array2::<f64>::zeros((d, s_dim));
+        for (j, b) in basis.iter().enumerate() {
+            s.column_mut(j).assign(b);
+        }
+        let ts = t.dot(&s); // m × s
+        let vs = v.dot(&s); // m × s
+        let gh = ts.t().dot(&ts); // Sᵀ G S
+        let dgh = ts.t().dot(&vs) + vs.t().dot(&ts); // Sᵀ dG S
+        let (evals, q) = gh.eigh(Side::Lower).map_err(|err| {
+            format!("NuclearNormPenalty right-Gram eigendecomposition failed: {err}")
+        })?;
+        let trace_scale = evals
+            .iter()
+            .fold(0.0_f64, |acc, &lambda| acc.max(lambda.abs()))
+            .max(1.0);
+        let psd_tol = 1.0e-10 * trace_scale;
+        let mut raw_evals = Array1::<f64>::zeros(s_dim);
+        for i in 0..s_dim {
+            let lambda = evals[i];
+            if !lambda.is_finite() {
+                return Err(format!(
+                    "NuclearNormPenalty expected finite right-Gram eigenvalue; got {lambda}"
+                ));
+            }
+            if lambda < -psd_tol {
+                return Err(format!(
+                    "NuclearNormPenalty expected PSD right Gram; eigenvalue {lambda:.3e} \
+                     is below numerical tolerance {psd_tol:.3e}"
+                ));
+            }
+            raw_evals[i] = lambda.max(0.0);
+        }
+        // Active window over the FULL ascending d-spectrum, which is the
+        // (d − s)-fold tied zero class of S⊥ followed by `raw_evals`
+        // (ascending). Mirrors the dense path's windowing and its tie-split
+        // guard exactly.
+        let active_count = self.right_filter_active_count(m, d);
+        let zero_class_active = active_count == d;
+        if !zero_class_active && active_count > s_dim {
+            // The cutoff would bisect the tied zero class of S⊥ — the same
+            // condition the dense path rejects via its adjacent-eigenvalue
+            // guard (both neighbors are exact zeros).
+            return Err(
+                "NuclearNormPenalty HVP is undefined: max_rank splits a tied \
+                 right-Gram eigenvalue at the active/inactive cutoff (0.0e0, 0.0e0)"
+                    .to_string(),
+            );
+        }
+        // Index of the first ACTIVE entry within the s-block.
+        let active_start_s = s_dim.saturating_sub(active_count.min(s_dim));
+        if self.max_rank.is_some() && !zero_class_active {
+            // Tie guard at the cutoff, on RAW eigenvalues as in the dense path.
+            // Left neighbor is inside the s-block when the window is strictly
+            // interior; when the window covers the whole s-block the left
+            // neighbor is the top of the S⊥ zero class.
+            let (left, right) = if active_start_s > 0 {
+                (evals[active_start_s - 1], evals[active_start_s])
+            } else {
+                (0.0, evals[0])
+            };
+            let scale = (left.abs() + right.abs()).max(1.0);
+            if (right - left).abs() <= 1.0e-12 * scale {
+                return Err(format!(
+                    "NuclearNormPenalty HVP is undefined: max_rank splits a tied \
+                     right-Gram eigenvalue at the active/inactive cutoff \
+                     ({left:.3e}, {right:.3e})"
+                ));
+            }
+        }
+        let mut regularized_evals = Array1::<f64>::zeros(s_dim);
+        let mut f = Array1::<f64>::zeros(s_dim);
+        let mut df = Array1::<f64>::zeros(s_dim);
+        for i in 0..s_dim {
+            regularized_evals[i] = self.regularized_sigma_sq(raw_evals[i]);
+            if i >= active_start_s {
+                let lambda = regularized_evals[i];
+                f[i] = lambda.powf(-0.5);
+                df[i] = -0.5 * lambda.powf(-1.5);
+            }
+        }
+        // B̂ = Q̂ᵀ (Sᵀ dG S) Q̂, then the divided-difference Hadamard product —
+        // identical pair rules to the dense path. All pairs touching S⊥ have
+        // B = 0 (dG is supported on S), so they need no representation.
+        let b_basis = q.t().dot(&dgh).dot(&q);
+        let mut deriv_basis = Array2::<f64>::zeros((s_dim, s_dim));
+        for i in 0..s_dim {
+            for j in 0..s_dim {
+                let denom = regularized_evals[i] - regularized_evals[j];
+                let scale = (regularized_evals[i].abs() + regularized_evals[j].abs())
+                    .max(f64::MIN_POSITIVE);
+                let divided_difference = if denom.abs() <= 1.0e-12 * scale {
+                    let i_active = i >= active_start_s;
+                    let j_active = j >= active_start_s;
+                    if i_active && j_active {
+                        0.5 * (df[i] + df[j])
+                    } else {
+                        0.0
+                    }
+                } else {
+                    (f[i] - f[j]) / denom
+                };
+                deriv_basis[[i, j]] = divided_difference * b_basis[[i, j]];
+            }
+        }
+        // V·R = f₀·V·(I − SSᵀ) [zero-class active only] + (V S) Q̂ f̂ Q̂ᵀ Sᵀ.
+        let qf = {
+            let mut qf = q.clone();
+            for i in 0..s_dim {
+                let fi = f[i];
+                qf.column_mut(i).mapv_inplace(|x| x * fi);
+            }
+            qf.dot(&q.t()) // Q̂ diag(f̂) Q̂ᵀ, s×s
+        };
+        let mut vr = vs.dot(&qf).dot(&s.t());
+        if zero_class_active {
+            let f0 = self.regularized_sigma_sq(0.0).powf(-0.5);
+            // V − (V S) Sᵀ is V's S⊥ component.
+            let v_perp = v.to_owned() - vs.dot(&s.t());
+            vr += &(v_perp * f0);
+        }
+        // T·dR = (T S) Q̂ (Δf̂ ∘ B̂) Q̂ᵀ Sᵀ.
+        let w = q.dot(&deriv_basis).dot(&q.t());
+        let tdr = ts.dot(&w).dot(&s.t());
+        Ok((vr, tdr))
+    }
+
     fn compute_svd_cached(&self, t: ArrayView2<'_, f64>) -> NuclearSvdCache {
         // Existing faer wrapper calls `faer::linalg::svd::svd(..., Thin, Thin, ...)`.
         let owned = t.to_owned();
@@ -4493,25 +4854,15 @@ impl AnalyticPenalty for NuclearNormPenalty {
             return Array1::<f64>::zeros(target.len());
         };
         // `AnalyticPenalty::hvp_target` has no Result channel; decomposition
-        // or active-rank cutoff failures from `right_spectral_inverse_sqrt_derivative`
-        // are upstream contract violations that must surface loudly.
-        let (right_filter, right_filter_derivative) = self
-            .right_spectral_inverse_sqrt_derivative(t.view(), v_mat.view())
+        // or active-rank cutoff failures from the spectral helper are upstream
+        // contract violations that must surface loudly.
+        let (vr, tdr) = self
+            .right_spectral_filters_applied(t.view(), v_mat.view())
             // SAFETY: error path is a caller contract violation; the upstream
             // helper already formatted a diagnostic message.
             .unwrap_or_else(|message| panic!("{}", message));
         let weight = self.resolved_weight(rho);
-        let mut out = Array2::<f64>::zeros(t.dim());
-        for n in 0..t.nrows() {
-            for a in 0..t.ncols() {
-                let mut term = 0.0;
-                for b in 0..t.ncols() {
-                    term += v_mat[[n, b]] * right_filter[[b, a]]
-                        + t[[n, b]] * right_filter_derivative[[b, a]];
-                }
-                out[[n, a]] = weight * term;
-            }
-        }
+        let out = (vr + tdr) * weight;
         Self::flatten_matrix(&out)
     }
 
@@ -10237,6 +10588,96 @@ mod tests {
             right_filter_derivative[[0, 1]],
             expected,
             epsilon = expected.abs() * 1.0e-12
+        );
+    }
+
+    /// The subspace fast path (joint-rowspace eigenproblem, used when the
+    /// block is wide: `d > 2m + 8`) must reproduce the dense `d×d` route
+    /// exactly — same regularized spectrum, same active window, same
+    /// divided-difference pair rules. Checked for the default no-cap window
+    /// (where the S⊥ zero class is ACTIVE and carries the constant f₀
+    /// filter) and for a biting `max_rank` (where S⊥ is inactive).
+    #[test]
+    fn nuclear_norm_wide_block_fast_path_matches_dense_oracle() {
+        let n_eff = 3usize;
+        let p = 40usize; // wide: p > 2*n_eff + 8 engages the subspace path
+        for max_rank in [None, Some(2)] {
+            let target = PsiSlice {
+                range: 0..n_eff * p,
+                latent_dim: Some(p),
+            };
+            let pen = NuclearNormPenalty::new(target, 0.8, n_eff, 1.0e-3, max_rank, false).unwrap();
+            let t_flat = Array1::from_vec(
+                (0..n_eff * p)
+                    .map(|i| (0.3 * (i as f64) + 0.11).sin() + 0.05 * (i as f64 % 7.0))
+                    .collect(),
+            );
+            let v_flat = Array1::from_vec(
+                (0..n_eff * p)
+                    .map(|i| (0.17 * (i as f64) - 0.4).cos())
+                    .collect(),
+            );
+            let t = t_flat.view().into_shape_with_order((n_eff, p)).unwrap();
+            let v = v_flat.view().into_shape_with_order((n_eff, p)).unwrap();
+
+            let (fast_vr, fast_tdr) = pen
+                .right_spectral_filters_applied(t.view(), v.view())
+                .expect("fast path");
+            let (rf, rfd) = pen
+                .right_spectral_inverse_sqrt_derivative(t.view(), v.view())
+                .expect("dense oracle");
+            let dense_vr = v.dot(&rf);
+            let dense_tdr = t.dot(&rfd);
+
+            let scale = dense_vr
+                .iter()
+                .chain(dense_tdr.iter())
+                .fold(0.0_f64, |a, &x| a.max(x.abs()))
+                .max(1.0);
+            for n in 0..n_eff {
+                for a in 0..p {
+                    assert!(
+                        (fast_vr[[n, a]] - dense_vr[[n, a]]).abs() <= 1.0e-9 * scale,
+                        "V·R mismatch at ({n},{a}) max_rank={max_rank:?}: \
+                         fast={} dense={}",
+                        fast_vr[[n, a]],
+                        dense_vr[[n, a]]
+                    );
+                    assert!(
+                        (fast_tdr[[n, a]] - dense_tdr[[n, a]]).abs() <= 1.0e-9 * scale,
+                        "T·dR mismatch at ({n},{a}) max_rank={max_rank:?}: \
+                         fast={} dense={}",
+                        fast_tdr[[n, a]],
+                        dense_tdr[[n, a]]
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn nuclear_norm_wide_zero_joint_rowspace_rejects_biting_zero_tie() {
+        let n_eff = 3usize;
+        let p = 40usize; // wide: p > 2*n_eff + 8 engages the subspace path
+        let target = PsiSlice {
+            range: 0..n_eff * p,
+            latent_dim: Some(p),
+        };
+        let pen = NuclearNormPenalty::new(target, 0.8, n_eff, 1.0e-3, Some(2), false).unwrap();
+        let t = Array2::<f64>::zeros((n_eff, p));
+        let v = Array2::<f64>::zeros((n_eff, p));
+
+        let fast_err = pen
+            .right_spectral_filters_applied(t.view(), v.view())
+            .expect_err("fast path must reject a biting all-zero tied spectrum");
+        let dense_err = pen
+            .right_spectral_inverse_sqrt_derivative(t.view(), v.view())
+            .expect_err("dense oracle rejects the same tied cutoff");
+
+        assert!(
+            fast_err.contains("splits a tied") && dense_err.contains("splits a tied"),
+            "fast path error must preserve dense tie-guard semantics; \
+             fast={fast_err}, dense={dense_err}"
         );
     }
 

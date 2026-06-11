@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: globus-sdk
-Version: 4.7.0
+Version: 4.8.0
 Summary: Globus SDK for Python
 Author-email: Globus Team <support@globus.org>
 License: Apache-2.0
@@ -52,7 +52,7 @@ Testing, Development, and Contributing
 --------------------------------------
 
 Go to the
-`CONTRIBUTING <https://github.com/globus/globus-sdk-python/blob/main/CONTRIBUTING.adoc>`_
+`CONTRIBUTING <https://github.com/globus/globus-sdk-python/blob/main/CONTRIBUTING.rst>`_
 guide for detail.
 
 Links

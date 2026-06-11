@@ -29,6 +29,8 @@ from arthur_client.api_bindings.models.alert import Alert
 from arthur_client.api_bindings.models.alert_bound import AlertBound
 from arthur_client.api_bindings.models.alert_check_job_spec import AlertCheckJobSpec
 from arthur_client.api_bindings.models.alert_group import AlertGroup
+from arthur_client.api_bindings.models.alert_log import AlertLog
+from arthur_client.api_bindings.models.alert_log_status import AlertLogStatus
 from arthur_client.api_bindings.models.alert_rule import AlertRule
 from arthur_client.api_bindings.models.alert_rule_interval import AlertRuleInterval
 from arthur_client.api_bindings.models.alert_rule_notification_webhook import AlertRuleNotificationWebhook
@@ -129,6 +131,9 @@ from arthur_client.api_bindings.models.delete_group_membership import DeleteGrou
 from arthur_client.api_bindings.models.delete_model_task_job_spec import DeleteModelTaskJobSpec
 from arthur_client.api_bindings.models.dimension import Dimension
 from arthur_client.api_bindings.models.discover_agents_job_spec import DiscoverAgentsJobSpec
+from arthur_client.api_bindings.models.eval import Eval
+from arthur_client.api_bindings.models.eval_config import EvalConfig
+from arthur_client.api_bindings.models.eval_type import EvalType
 from arthur_client.api_bindings.models.example_config import ExampleConfig
 from arthur_client.api_bindings.models.examples_config import ExamplesConfig
 from arthur_client.api_bindings.models.extended_role import ExtendedRole
@@ -173,7 +178,6 @@ from arthur_client.api_bindings.models.jobs_sort import JobsSort
 from arthur_client.api_bindings.models.joined_dataset import JoinedDataset
 from arthur_client.api_bindings.models.keywords_config import KeywordsConfig
 from arthur_client.api_bindings.models.llm_base_config_settings import LLMBaseConfigSettings
-from arthur_client.api_bindings.models.llm_eval import LLMEval
 from arthur_client.api_bindings.models.llm_model import LLMModel
 from arthur_client.api_bindings.models.llm_model_response import LLMModelResponse
 from arthur_client.api_bindings.models.list_datasets_job_spec import ListDatasetsJobSpec
@@ -254,6 +258,8 @@ from arthur_client.api_bindings.models.policy_attestation_rule import PolicyAtte
 from arthur_client.api_bindings.models.policy_sort import PolicySort
 from arthur_client.api_bindings.models.policy_summary import PolicySummary
 from arthur_client.api_bindings.models.post_alert import PostAlert
+from arthur_client.api_bindings.models.post_alert_log import PostAlertLog
+from arthur_client.api_bindings.models.post_alert_logs import PostAlertLogs
 from arthur_client.api_bindings.models.post_alert_rule import PostAlertRule
 from arthur_client.api_bindings.models.post_alerts import PostAlerts
 from arthur_client.api_bindings.models.post_attestation_record import PostAttestationRecord
@@ -319,6 +325,7 @@ from arthur_client.api_bindings.models.reported_custom_aggregation import Report
 from arthur_client.api_bindings.models.resource_kind import ResourceKind
 from arthur_client.api_bindings.models.resource_list_agent_response import ResourceListAgentResponse
 from arthur_client.api_bindings.models.resource_list_aggregation_spec_schema import ResourceListAggregationSpecSchema
+from arthur_client.api_bindings.models.resource_list_alert_log import ResourceListAlertLog
 from arthur_client.api_bindings.models.resource_list_alert_rule import ResourceListAlertRule
 from arthur_client.api_bindings.models.resource_list_attestation_record import ResourceListAttestationRecord
 from arthur_client.api_bindings.models.resource_list_available_dataset import ResourceListAvailableDataset

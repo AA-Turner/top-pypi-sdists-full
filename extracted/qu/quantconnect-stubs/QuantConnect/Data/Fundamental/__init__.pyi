@@ -47,132 +47,664 @@ class FundamentalTimeDependentProperty(metaclass=abc.ABCMeta):
         ...
 
 
-class CompanyReference(QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty):
-    """Definition of the CompanyReference class"""
+class Period(System.Object):
+    """Period constants for multi-period fields"""
+
+    ONE_MONTH: str = "1M"
+    """Period constant for one month"""
+
+    TWO_MONTHS: str = "2M"
+    """Period constant for two months"""
+
+    THREE_MONTHS: str = "3M"
+    """Period constant for three months"""
+
+    SIX_MONTHS: str = "6M"
+    """Period constant for six months"""
+
+    NINE_MONTHS: str = "9M"
+    """Period constant for nine months"""
+
+    TWELVE_MONTHS: str = "12M"
+    """Period constant for twelve months"""
+
+    ONE_YEAR: str = "1Y"
+    """Period constant for one year"""
+
+    TWO_YEARS: str = "2Y"
+    """Period constant for two years"""
+
+    THREE_YEARS: str = "3Y"
+    """Period constant for three years"""
+
+    FIVE_YEARS: str = "5Y"
+    """Period constant for five years"""
+
+    TEN_YEARS: str = "10Y"
+    """Period constant for ten years"""
+
+
+class ValuationRatios(QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty):
+    """Definition of the ValuationRatios class"""
 
     @property
-    def company_id(self) -> str:
-        """10-digit unique and unchanging Morningstar identifier assigned to every company."""
+    def payout_ratio(self) -> float:
+        """Dividend per share / Diluted earnings per share"""
         ...
 
     @property
-    def short_name(self) -> str:
-        """25-character max abbreviated name of the firm. In most cases, the short name will simply be the Legal Name less the "Corporation", "Corp.", "Inc.", "Incorporated", etc..."""
+    def sustainable_growth_rate(self) -> float:
+        """ROE * (1 - Payout Ratio)"""
         ...
 
     @property
-    def standard_name(self) -> str:
-        """The English translation of the foreign legal name if/when applicable."""
+    def cash_return(self) -> float:
+        """Refers to the ratio of free cash flow to enterprise value. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: FCF /Enterprise Value."""
         ...
 
     @property
-    def legal_name(self) -> str:
-        """The full name of the registrant as specified in its charter, and most often found on the front cover of the 10K/10Q/20F filing."""
+    def sales_per_share(self) -> float:
+        """Sales / Average Diluted Shares Outstanding"""
         ...
 
     @property
-    def country_id(self) -> str:
-        """3 Character ISO code of the country where the firm is domiciled. See separate reference document for Country Mappings."""
+    def book_value_per_share(self) -> float:
+        """Common Shareholder's Equity / Diluted Shares Outstanding"""
         ...
 
     @property
-    def cik(self) -> str:
-        """The Central Index Key; a corporate identifier assigned by the Securities and Exchange Commission (SEC)."""
+    def cfo_per_share(self) -> float:
+        """Cash Flow from Operations / Average Diluted Shares Outstanding"""
         ...
 
     @property
-    def company_status(self) -> str:
-        """At the Company level; each company is assigned to 1 of 3 possible status classifications; (U) Public, (V) Private, or (O) Obsolete: - Public-Firm is operating and currently has at least one common share class that is currently trading on a public exchange. - Private-Firm is operating but does not have any common share classes currently trading on a public exchange. - Obsolete-Firm is no longer operating because it closed its business, or was acquired."""
+    def fcf_per_share(self) -> float:
+        """Free Cash Flow / Average Diluted Shares Outstanding"""
         ...
 
     @property
-    def fiscal_year_end(self) -> int:
-        """The Month of the company's latest fiscal year."""
+    def earning_yield(self) -> float:
+        """Diluted EPS / Price"""
         ...
 
     @property
-    def industry_template_code(self) -> str:
-        """This indicator will denote which one of the six industry data collection templates applies to the company. Each industry data collection template includes data elements that are commonly reported by companies in that industry. N=Normal (Manufacturing), M=Mining, U=Utility, T=Transportation, B=Bank, I=Insurance"""
+    def pe_ratio(self) -> float:
+        """Adjusted Close Price/ EPS. If the result is negative, zero, >10,000 or <0.001, then null."""
         ...
 
     @property
-    def primary_share_class_id(self) -> str:
-        """The 10-digit unique and unchanging Morningstar identifier assigned to the Primary Share class of a company. The primary share of a company is defined as the first share that was traded publicly and is still actively trading. If this share is no longer trading, the primary share will be the share with the highest volume."""
+    def sales_yield(self) -> float:
+        """SalesPerShare / Price"""
         ...
 
     @property
-    def primary_symbol(self) -> str:
-        """The symbol of the Primary Share of the company, composed of an arrangement of characters (often letters) representing a particular security listed on an exchange or otherwise traded publicly. The primary share of a company is defined as the first share that was traded publicly and is still actively trading. If this share is no longer trading, the primary share will be the share with the highest volume. Note: Morningstar's multi-share class symbols will often contain a "period" within the symbol; e.g. BRK.B for Berkshire Hathaway Class B."""
+    def ps_ratio(self) -> float:
+        """Adjusted close price / Sales Per Share. If the result is negative or zero, then null."""
         ...
 
     @property
-    def primary_exchange_id(self) -> str:
-        """The Id representing the stock exchange of the Primary Share of the company. See separate reference document for Exchange Mappings. The primary share of a company is defined as the first share that was traded publicly with and is still actively trading. If this share is no longer trading, the primary share will be the share with the highest volume."""
+    def book_value_yield(self) -> float:
+        """BookValuePerShare / Price"""
         ...
 
     @property
-    def business_country_id(self) -> str:
-        """In some cases, different from the country of domicile (CountryId; DataID 5). This element is a three (3) Character ISO code of the business country of the security. It is determined by a few factors, including:"""
+    def pb_ratio(self) -> float:
+        """Adjusted close price / Book Value Per Share. If the result is negative or zero, then null."""
         ...
 
     @property
-    def legal_name_language_code(self) -> str:
-        """The language code for the foreign legal name if/when applicable. Related to DataID 4 (LegalName)."""
+    def cf_yield(self) -> float:
+        """CFOPerShare / Price"""
         ...
 
     @property
-    def auditor(self) -> str:
-        """The legal (registered) name of the company's current auditor. Distinct from DataID 28000 Period Auditor that identifies the Auditor related to that period's financial statements."""
+    def pcf_ratio(self) -> float:
+        """Adjusted close price /Cash Flow Per Share. If the result is negative or zero, then null."""
         ...
 
     @property
-    def auditor_language_code(self) -> str:
-        """The ISO code denoting the language text for Auditor's name and contact information."""
+    def fcf_yield(self) -> float:
+        """FCFPerShare / Price"""
         ...
 
     @property
-    def advisor(self) -> str:
-        """The legal (registered) name of the current legal Advisor of the company."""
+    def fcf_ratio(self) -> float:
+        """Adjusted close price/ Free Cash Flow Per Share. If the result is negative or zero, then null."""
         ...
 
     @property
-    def advisor_language_code(self) -> str:
-        """The ISO code denoting the language text for Advisor's name and contact information."""
+    def trailing_dividend_yield(self) -> float:
+        """Dividends Per Share over the trailing 12 months / Price"""
         ...
 
     @property
-    def is_limited_partnership(self) -> bool:
-        """Indicator to denote if the company is a limited partnership, which is a form of business structure comprised of a general partner and limited partners. 1 denotes it is a LP; otherwise 0."""
+    def forward_dividend_yield(self) -> float:
+        """(Current Dividend Per Share * Payout Frequency) / Price"""
         ...
 
     @property
-    def is_reit(self) -> bool:
-        """Indicator to denote if the company is a real estate investment trust (REIT). 1 denotes it is a REIT; otherwise 0."""
+    def forward_earning_yield(self) -> float:
+        """Estimated Earnings Per Share / Price Note: a) The "Next" Year's EPS Estimate is used; For instance, if today's actual date is March 1, 2009, the "Current" EPS Estimate for MSFT is June 2009, and the "Next" EPS Estimate for MSFT is June 2010; the latter is used. b) The eps estimated data is sourced from a third party."""
         ...
 
     @property
-    def primary_mic(self) -> str:
-        """The MIC (market identifier code) of the PrimarySymbol of the company. See Data Appendix A for the relevant MIC to exchange name mapping."""
+    def forward_pe_ratio(self) -> float:
+        """1 / ForwardEarningYield If result is negative, then null"""
         ...
 
     @property
-    def report_style(self) -> int:
-        """This refers to the financial template used to collect the company's financial statements. There are two report styles representing two different financial template structures. Report style "1" is most commonly used by US and Canadian companies, and Report style "3" is most commonly used by the rest of the universe. Contact your client manager for access to the respective templates."""
+    def peg_ratio(self) -> float:
+        """ForwardPERatio / Long-term Average Earning Growth Rate"""
         ...
 
     @property
-    def yearof_establishment(self) -> str:
-        """The year a company was founded."""
+    def peg_payback(self) -> float:
+        """The number of years it would take for a company's cumulative earnings to equal the stock's current trading price, assuming that the company continues to increase its annual earnings at the growth rate used to calculate the PEG ratio. < Log (PG/E + 1) / Log (1 + G) > - 1 Where P=Price E=Next Fiscal Year's Estimated EPS G=Long-term Average Earning Growth"""
         ...
 
     @property
-    def is_limited_liability_company(self) -> bool:
-        """Indicator to denote if the company is a limited liability company. 1 denotes it is a LLC; otherwise 0."""
+    def tangible_book_value_per_share(self) -> float:
+        """The company's total book value less the value of any intangible assets dividend by number of shares."""
         ...
 
     @property
-    def expected_fiscal_year_end(self) -> datetime.datetime:
-        """The upcoming expected year end for the company. It is calculated based on current year end (from latest available annual report) + 1 year."""
+    def tangible_bv_per_share_3_yr_avg(self) -> float:
+        """The three year average for tangible book value per share."""
+        ...
+
+    @property
+    def tangible_bv_per_share_5_yr_avg(self) -> float:
+        """The five year average for tangible book value per share."""
+        ...
+
+    @property
+    def forward_dividend(self) -> float:
+        """Latest Dividend * Frequency"""
+        ...
+
+    @property
+    def working_capital_per_share(self) -> float:
+        """(Current Assets - Current Liabilities)/number of shares"""
+        ...
+
+    @property
+    def working_capital_per_share_3_yr_avg(self) -> float:
+        """The three year average for working capital per share."""
+        ...
+
+    @property
+    def working_capital_per_share_5_yr_avg(self) -> float:
+        """The five year average for working capital per share."""
+        ...
+
+    @property
+    def ev_to_ebitda(self) -> float:
+        """Indicates what is a company being valued per each dollar of EBITDA generated."""
+        ...
+
+    @property
+    def buy_back_yield(self) -> float:
+        """The net repurchase of shares outstanding over the market capital of the company. It is a measure of shareholder return."""
+        ...
+
+    @property
+    def total_yield(self) -> float:
+        """The total yield that shareholders can expect, by summing Dividend Yield and Buyback Yield."""
+        ...
+
+    @property
+    def ratio_pe_5_year_average(self) -> float:
+        """The five-year average of the company's price-to-earnings ratio."""
+        ...
+
+    @property
+    def price_change_1m(self) -> float:
+        """Price change this month, expressed as latest price/last month end price."""
+        ...
+
+    @property
+    def normalized_pe_ratio(self) -> float:
+        """Adjusted Close Price/ Normalized EPS. Normalized EPS removes onetime and unusual items from net EPS, to provide investors with a more accurate measure of the company's true earnings. If the result is negative, zero, >10,000 or <0.001, then null."""
+        ...
+
+    @property
+    def price_to_ebitda(self) -> float:
+        """Adjusted close price/EBITDA Per Share. If the result is negative or zero, then null."""
+        ...
+
+    @property
+    def div_yield_5_year(self) -> float:
+        """Average of the last 60 monthly observations of trailing dividend yield in the last 5 years."""
+        ...
+
+    @property
+    def forward_roe(self) -> float:
+        """Estimated EPS/Book Value Per Share"""
+        ...
+
+    @property
+    def forward_roa(self) -> float:
+        """Estimated EPS/Total Assets Per Share"""
+        ...
+
+    @property
+    def two_years_forward_earning_yield(self) -> float:
+        """2 Years Forward Estimated EPS / Adjusted Close Price"""
+        ...
+
+    @property
+    def two_years_forward_pe_ratio(self) -> float:
+        """Adjusted Close Price/2 Years Forward Estimated EPS"""
+        ...
+
+    @property
+    def forward_calculation_style(self) -> str:
+        """Indicates the method used to calculate Forward Dividend. There are three options: Annual, Look-back and Manual."""
+        ...
+
+    @property
+    def actual_forward_dividend(self) -> float:
+        """Used to collect the forward dividend for companies where our formula will not produce the correct value."""
+        ...
+
+    @property
+    def trailing_calculation_style(self) -> str:
+        """Indicates the method used to calculate Trailing Dividend. There are two options: Look-back and Manual."""
+        ...
+
+    @property
+    def actual_trailing_dividend(self) -> float:
+        """Used to collect the trailing dividend for companies where our formula will not produce the correct value."""
+        ...
+
+    @property
+    def total_asset_per_share(self) -> float:
+        """Total Assets / Diluted Shares Outstanding"""
+        ...
+
+    @property
+    def expected_dividend_growth_rate(self) -> float:
+        """The growth rate from the TrailingDividend to the Forward Dividend: {(Forward Dividend/Trailing Dividend) - 1}*100."""
+        ...
+
+    @property
+    def ev_to_revenue(self) -> float:
+        """Indicates what is a company being valued per each dollar of revenue generated."""
+        ...
+
+    @property
+    def ev_to_pre_tax_income(self) -> float:
+        """Indicates what is a company being valued per each dollar of Pretax Income generated."""
+        ...
+
+    @property
+    def ev_to_total_assets(self) -> float:
+        """Indicates what is a company being valued per each dollar of asset value; should be the default EV multiple used in an asset driven business."""
+        ...
+
+    @property
+    def ev_to_fcf(self) -> float:
+        """Indicates what is a company being valued per each dollar of free cash flow generated."""
+        ...
+
+    @property
+    def ev_to_ebit(self) -> float:
+        """Indicates what is a company being valued per each dollar of EBIT generated."""
+        ...
+
+    @property
+    def ffo_per_share(self) -> float:
+        """Funds from operations per share; populated only for real estate investment trusts (REITs), defined as the sum of net income, gain/loss (realized and unrealized) on investment securities, asset impairment charge, depreciation and amortization and gain/ loss on the sale of business and property plant and equipment, divided by shares outstanding."""
+        ...
+
+    @property
+    def price_to_cash_ratio(self) -> float:
+        """The ratio of a stock's price to its cash flow per share."""
+        ...
+
+    @property
+    def ev_to_forward_ebitda(self) -> float:
+        """Indicates what is a company being valued per each dollar of estimated EBITDA."""
+        ...
+
+    @property
+    def ev_to_forward_revenue(self) -> float:
+        """Indicates what is a company being valued per each dollar of estimated revenue."""
+        ...
+
+    @property
+    def ev_to_forward_ebit(self) -> float:
+        """Indicates what is a company being valued per each dollar of estimated EBIT."""
+        ...
+
+    @property
+    def ev_to_ebitda_1_year_growth(self) -> float:
+        """The one-year growth in the company's EV to EBITDA on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by EBITDA (earnings minus expenses excluding interest, tax, depreciation, and amortization expenses) reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_fcf_1_year_growth(self) -> float:
+        """The one-year growth in the company's EV to free cash flow on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by free cash flow (Cash flow from operations - Capital Expenditures) reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_revenue_1_year_growth(self) -> float:
+        """The one-year growth in the company's EV to revenue on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by Total Revenue reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_total_assets_1_year_growth(self) -> float:
+        """The one-year growth in the company's EV to total assets on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by total assets reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def pfcf_ratio_1_year_growth(self) -> float:
+        """The one-year growth in the company's price to free cash flow ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the free cash flow reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def pb_ratio_1_year_growth(self) -> float:
+        """The one-year growth in the company's price to book ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the book value per share reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def pe_ratio_1_year_growth(self) -> float:
+        """The one-year growth in the company's PE ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ps_ratio_1_year_growth(self) -> float:
+        """The one-year growth in the company's price to sales ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the sales per share reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_ebit_3_yr_avg(self) -> float:
+        """The three-year average for a company's EV to EBIT ratio: EV (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by EBIT (earnings minus expenses excluding interest and tax expenses) reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_ebitda_3_yr_avg(self) -> float:
+        """The three-year average for a company's EV to EBITDA ratio: EV (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by EBITDA (earnings minus expenses excluding interest, tax, depreciation, and amortization expenses) reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_fcf_3_yr_avg(self) -> float:
+        """The three-year average for a company's EV to free cash flow ratio: EV (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by free cash flow (Cash Flow from Operations - Capital Expenditures) reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_revenue_3_yr_avg(self) -> float:
+        """The three-year average for a company's EV to revenue ratio: EV (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by Total Revenue reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def ev_to_total_assets_3_yr_avg(self) -> float:
+        """The three-year average for a company's EV to total assets ratio: EV (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by Total Assets reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_ebit_3_yr_avg_change(self) -> float:
+        """The growth in the three-year average for a company's EV to EBIT ratio. Morningstar calculates the growth percentage based on the EV to EBIT ratio ((Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by EBIT (earnings minus expenses excluding interest and tax expenses) reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def ev_to_ebitda_3_yr_avg_change(self) -> float:
+        """The growth in the three-year average for a company's EV to EBITDA ratio. Morningstar calculates the growth percentage based on the EV to EBITDA ratio ((Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by EBITDA (earnings minus expenses excluding interest, tax depreciation and amortization expenses) reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def ev_to_fcf_3_yr_avg_change(self) -> float:
+        """The growth in the three-year average for a company's EV to free cash flow ratio. Morningstar calculates the growth percentage based on the EV to free cash flow ratio ((Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by free cash flow (Cash Flow from Operations - Capital Expenditures) reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def ev_to_revenue_3_yr_avg_change(self) -> float:
+        """The growth in the three-year average for a company's EV to revenue ratio. Morningstar calculates the growth percentage based on the EV to revenue ratio ((Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by Total Revenue reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def ev_to_total_assets_3_yr_avg_change(self) -> float:
+        """The growth in the three-year average for a company's EV to total assets ratio. Morningstar calculates the growth percentage based on the EV to total assets ratio ((Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by total assets reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def pfcf_ratio_3_yr_avg(self) -> float:
+        """The three-year average for a company's price to free cash flow ratio (the adjusted close price divided by the free cash flow per share reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def pb_ratio_3_yr_avg(self) -> float:
+        """The three-year average for a company's price to book ratio (the adjusted close price divided by the book value per share reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def ps_ratio_3_yr_avg(self) -> float:
+        """The three-year average for a company's price to sales ratio (the adjusted close price divided by the total sales per share reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def p_cash_ratio_3_yr_avg(self) -> float:
+        """The three-year average for a company's price to cash ratio (the adjusted close price divided by the cash flow per share reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def pe_ratio_3_yr_avg(self) -> float:
+        """The three-year average for a company's PE ratio (the adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def pfcf_ratio_3_yr_avg_change(self) -> float:
+        """The growth in the three-year average for a company's price to free cash flow ratio. Morningstar calculates the growth percentage based on the adjusted close price divided by the free cash flow per share reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def pb_ratio_3_yr_avg_change(self) -> float:
+        """The growth in the three-year average for a company's price to book ratio. Morningstar calculates the growth percentage based on the adjusted close price divided by the book value per share reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ps_ratio_3_yr_avg_change(self) -> float:
+        """The growth in the three-year average for a company's price to sales ratio. Morningstar calculates the growth percentage based on the adjusted close price divided by the total sales per share reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def pe_ratio_3_yr_avg_change(self) -> float:
+        """The growth in the three-year average for a company's PE ratio. Morningstar calculates the growth percentage based on the adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def pe_ratio_1_year_high(self) -> float:
+        """The one-year high for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def pe_ratio_1_year_low(self) -> float:
+        """The one-year low for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def pe_ratio_1_year_average(self) -> float:
+        """The one-year average for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def pe_ratio_5_year_high(self) -> float:
+        """The five-year high for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def pe_ratio_5_year_low(self) -> float:
+        """The five-year low for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def pe_ratio_5_year_average(self) -> float:
+        """The five-year average for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def pe_ratio_10_year_high(self) -> float:
+        """The ten-year high for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def pe_ratio_10_year_low(self) -> float:
+        """The ten-year low for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def pe_ratio_10_year_average(self) -> float:
+        """The ten-year average for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
+        ...
+
+    @property
+    def cape_ratio(self) -> float:
+        """The cyclically adjusted PE ratio for a company; adjusted close price divided by earnings per share. If the result is negative, zero, >10,000 or <0.001, then null. Morningstar uses the CPI index for US companies and Indexes from the World Bank for the rest of the global markets."""
+        ...
+
+    @property
+    def ev_to_ebitda_3_year_growth(self) -> float:
+        """The three-year growth in the company's EV to EBITDA on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by EBITDA (earnings minus expenses excluding interest, tax, depreciation, and amortization expenses) reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_fcf_3_year_growth(self) -> float:
+        """The three-year growth in the company's EV to free cash flow on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by free cash flow (Cash flow from operations - Capital Expenditures) reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_revenue_3_year_growth(self) -> float:
+        """The three-year growth in the company's EV to revenue on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by Total Revenue reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_total_assets_3_year_growth(self) -> float:
+        """The three-year growth in the company's EV to total assets on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by total assets reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def pfcf_ratio_3_year_growth(self) -> float:
+        """The three-year growth in the company's price to free cash flow ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the free cash flow reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def pb_ratio_3_year_growth(self) -> float:
+        """The three-year growth in the company's price to book ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the book value per share reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def pe_ratio_3_year_growth(self) -> float:
+        """The three-year growth in the company's PE ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ps_ratio_3_year_growth(self) -> float:
+        """The three-year growth in the company's price to sales ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the sales per share reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_ebitda_5_year_growth(self) -> float:
+        """The five-year growth in the company's EV to EBITDA on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by EBITDA (earnings minus expenses excluding interest, tax, depreciation, and amortization expenses) reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_fcf_5_year_growth(self) -> float:
+        """The five-year growth in the company's EV to free cash flow on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by free cash flow (Cash flow from operations - Capital Expenditures) reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_revenue_5_year_growth(self) -> float:
+        """The five-year growth in the company's EV to revenue on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by Total Revenue reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_total_assets_5_year_growth(self) -> float:
+        """The five-year growth in the company's EV to total assets on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by total assets reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def pfcf_ratio_5_year_growth(self) -> float:
+        """The five-year growth in the company's price to free cash flow ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the free cash flow reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def pb_ratio_5_year_growth(self) -> float:
+        """The five-year growth in the company's price to book ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the book value per share reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def pe_ratio_5_year_growth(self) -> float:
+        """The five-year growth in the company's PE ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ps_ratio_5_year_growth(self) -> float:
+        """The five-year growth in the company's price to sales ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the sales per share reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_ebitda_10_year_growth(self) -> float:
+        """The ten-year growth in the company's EV to EBITDA on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by EBITDA (earnings minus expenses excluding interest, tax, depreciation, and amortization expenses) reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_fcf_10_year_growth(self) -> float:
+        """The ten-year growth in the company's EV to free cash flow on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by free cash flow (Cash flow from operations - Capital Expenditures) reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_revenue_10_year_growth(self) -> float:
+        """The ten-year growth in the company's EV to revenue on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by Total Revenue reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ev_to_total_assets_10_year_growth(self) -> float:
+        """The ten-year growth in the company's EV to total assets on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by total assets reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def pfcf_ratio_10_year_growth(self) -> float:
+        """The ten-year growth in the company's price to free cash flow ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the free cash flow reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def pb_ratio_10_year_growth(self) -> float:
+        """The ten-year growth in the company's price to book ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the book value per share reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def pe_ratio_10_year_growth(self) -> float:
+        """The ten-year growth in the company's PE ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def ps_ratio_10_year_growth(self) -> float:
+        """The ten-year growth in the company's price to sales ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the sales per share reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def two_yrs_ev_to_forward_ebit(self) -> float:
+        """Indicates what is a company being valued per each dollar of estimated EBIT in year 2."""
+        ...
+
+    @property
+    def two_yrs_ev_to_forward_ebitda(self) -> float:
+        """Indicates what is a company being valued per each dollar of estimated EBITDA in year 2."""
+        ...
+
+    @property
+    def first_year_estimated_eps_growth(self) -> float:
+        """EPS Growth Ratio: (Estimated EPS Year 1) / (TTM Normalized diluted EPS"""
+        ...
+
+    @property
+    def second_year_estimated_eps_growth(self) -> float:
+        """EPS Growth Ratio: (Estimated EPS Year 2) / (Estimated EPS Year 1)"""
+        ...
+
+    @property
+    def normalized_peg_ratio(self) -> float:
+        """Normalized ForwardPERatio / Long-term Average Normalized Earnings Growth Rate"""
         ...
 
     def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
@@ -184,127 +716,8280 @@ class CompanyReference(QuantConnect.Data.Fundamental.FundamentalTimeDependentPro
         ...
 
 
-class SecurityReference(QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty):
-    """Definition of the SecurityReference class"""
+class DilutedEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's diluted earnings per share (EPS) on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying diluted EPS reported in the Income Statement within the company filings or reports."""
 
     @property
-    def security_symbol(self) -> str:
-        """An arrangement of characters (often letters) representing a particular security listed on an exchange or otherwise traded publicly. Note: Morningstar's multi-share class symbols will often contain a "period" within the symbol; e.g. BRK.B for Berkshire Hathaway Class B."""
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
         ...
 
     @property
-    def exchange_id(self) -> str:
-        """The Id representing the stock exchange that the particular share class is trading. See separate reference document for Exchange Mappings."""
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
         ...
 
     @property
-    def currency_id(self) -> str:
-        """3 Character ISO code of the currency that the exchange price is denominated in; i.e. the trading currency of the security. See separate reference document for Currency Mappings."""
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
         ...
 
     @property
-    def ipo_date(self) -> datetime.datetime:
-        """The initial day that the share begins trading on a public exchange."""
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
         ...
 
     @property
-    def is_depositary_receipt(self) -> bool:
-        """Indicator to denote if the share class is a depository receipt. 1 denotes it is an ADR or GDR; otherwise 0."""
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
         ...
 
     @property
-    def depositary_receipt_ratio(self) -> float:
-        """The number of underlying common shares backing each American Depository Receipt traded."""
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
         ...
 
     @property
-    def security_type(self) -> str:
-        """Each security will be assigned to one of the below security type classifications; - Common Stock (ST00000001) - Preferred Stock (ST00000002) - Units (ST000000A1)"""
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class DilutedContEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's diluted EPS from continuing operations on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying diluted EPS from continuing operations reported in the Income Statement within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
         ...
 
     @property
-    def share_class_description(self) -> str:
-        """Provides information when applicable such as whether the share class is Class A or Class B, an ADR, GDR, or a business development company (BDC). For preferred stocks, this field provides more detail about the preferred share class."""
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
         ...
 
     @property
-    def share_class_status(self) -> str:
-        """At the ShareClass level; each share is assigned to 1 of 4 possible status classifications; (A) Active, (D) Deactive, (I) Inactive, or (O) Obsolete: - Active-Share class is currently trading in a public market, and we have fundamental data available. - Deactive-Share class was once Active, but is no longer trading due to share being delisted from the exchange. - Inactive-Share class is currently trading in a public market, but no fundamental data is available. - Obsolete-Share class was once Inactive, but is no longer trading due to share being delisted from the exchange."""
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
         ...
 
     @property
-    def is_primary_share(self) -> bool:
-        """This indicator will denote if the indicated share is the primary share for the company. A "1" denotes the primary share, a "0" denotes a share that is not the primary share. The primary share is defined as the first share that a company IPO'd with and is still actively trading. If this share is no longer trading, we will denote the primary share as the share with the highest volume."""
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
         ...
 
     @property
-    def is_dividend_reinvest(self) -> bool:
-        """Shareholder election plan to re-invest cash dividend into additional shares."""
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
         ...
 
     @property
-    def is_direct_invest(self) -> bool:
-        """A plan to make it possible for individual investors to invest in public companies without going through a stock broker."""
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
         ...
 
     @property
-    def investment_id(self) -> str:
-        """Identifier assigned to each security Morningstar covers."""
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class DPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's dividends per share (DPS) on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying DPS from its dividend database. Morningstar collects its DPS from company filings and reports, as well as from third party sources."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
         ...
 
     @property
-    def ipo_offer_price(self) -> float:
-        """IPO offer price indicates the price at which an issuer sells its shares under an initial public offering (IPO). The offer price is set by issuer and its underwriters."""
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
         ...
 
     @property
-    def delisting_date(self) -> datetime.datetime:
-        """The date on which an inactive security was delisted from an exchange."""
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
         ...
 
     @property
-    def delisting_reason(self) -> str:
-        """The reason for an inactive security's delisting from an exchange. The full list of Delisting Reason codes can be found within the Data Definitions- Appendix A DelistingReason Codes tab."""
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
         ...
 
     @property
-    def mic(self) -> str:
-        """The MIC (market identifier code) of the related shareclass of the company. See Data Appendix A for the relevant MIC to exchange name mapping."""
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
         ...
 
     @property
-    def common_share_sub_type(self) -> str:
-        """Refers to the type of securities that can be found within the equity database. For the vast majority, this value will populate as null for regular common shares. For a minority of shareclasses, this will populate as either "Participating Preferred", "Closed-End Fund", "Foreign Share", or "Foreign Participated Preferred" which reflects our limited coverage of these types of securities within our equity database."""
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
         ...
 
     @property
-    def ipo_offer_price_range(self) -> str:
-        """The estimated offer price range (low-high) for a new IPO. The field should be used until the final IPO price becomes available, as populated in the data field "IPOPrice"."""
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class EquityPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's book value per share on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying equity and end of period shares outstanding reported in the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
         ...
 
     @property
-    def exchange_sub_market_global_id(self) -> str:
-        """Classification to denote different Marketplace or Market tiers within a stock exchange."""
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
         ...
 
     @property
-    def conversion_ratio(self) -> float:
-        """The relationship between the chosen share class and the primary share class."""
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
         ...
 
     @property
-    def par_value(self) -> float:
-        """Nominal value of a security determined by the issuing company."""
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
         ...
 
     @property
-    def trading_status(self) -> bool:
-        """Morningstar DataId: 1028"""
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
         ...
 
     @property
-    def market_data_id(self) -> str:
-        """Morningstar DataId: 1029"""
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class RegressionGrowthofDividends5Years(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The five-year growth rate of dividends per share, calculated using regression analysis."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class FCFPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's free cash flow per share on a percentage basis. Morningstar calculates the growth percentage based on the free cash flow divided by average diluted shares outstanding reported in the Financial Statements within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class BookValuePerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's book value per share on a percentage basis. Morningstar calculates the growth percentage based on the common shareholder's equity reported in the Balance Sheet divided by the diluted shares outstanding within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class NormalizedDilutedEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's Normalized Diluted EPS on a percentage basis."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class NormalizedBasicEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's Normalized Basic EPS on a percentage basis."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class EarningRatios(QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty):
+    """Definition of the EarningRatios class"""
+
+    @property
+    def diluted_eps_growth(self) -> QuantConnect.Data.Fundamental.DilutedEPSGrowth:
+        """The growth in the company's diluted earnings per share (EPS) on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying diluted EPS reported in the Income Statement within the company filings or reports."""
+        ...
+
+    @property
+    def diluted_cont_eps_growth(self) -> QuantConnect.Data.Fundamental.DilutedContEPSGrowth:
+        """The growth in the company's diluted EPS from continuing operations on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying diluted EPS from continuing operations reported in the Income Statement within the company filings or reports."""
+        ...
+
+    @property
+    def dps_growth(self) -> QuantConnect.Data.Fundamental.DPSGrowth:
+        """The growth in the company's dividends per share (DPS) on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying DPS from its dividend database. Morningstar collects its DPS from company filings and reports, as well as from third party sources."""
+        ...
+
+    @property
+    def equity_per_share_growth(self) -> QuantConnect.Data.Fundamental.EquityPerShareGrowth:
+        """The growth in the company's book value per share on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying equity and end of period shares outstanding reported in the company filings or reports."""
+        ...
+
+    @property
+    def regression_growthof_dividends_5_years(self) -> QuantConnect.Data.Fundamental.RegressionGrowthofDividends5Years:
+        """The five-year growth rate of dividends per share, calculated using regression analysis."""
+        ...
+
+    @property
+    def fcf_per_share_growth(self) -> QuantConnect.Data.Fundamental.FCFPerShareGrowth:
+        """The growth in the company's free cash flow per share on a percentage basis. Morningstar calculates the growth percentage based on the free cash flow divided by average diluted shares outstanding reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def book_value_per_share_growth(self) -> QuantConnect.Data.Fundamental.BookValuePerShareGrowth:
+        """The growth in the company's book value per share on a percentage basis. Morningstar calculates the growth percentage based on the common shareholder's equity reported in the Balance Sheet divided by the diluted shares outstanding within the company filings or reports."""
+        ...
+
+    @property
+    def normalized_diluted_eps_growth(self) -> QuantConnect.Data.Fundamental.NormalizedDilutedEPSGrowth:
+        """The growth in the company's Normalized Diluted EPS on a percentage basis."""
+        ...
+
+    @property
+    def normalized_basic_eps_growth(self) -> QuantConnect.Data.Fundamental.NormalizedBasicEPSGrowth:
+        """The growth in the company's Normalized Basic EPS on a percentage basis."""
+        ...
+
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def clone(self, time_provider: QuantConnect.ITimeProvider) -> QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty:
+        """Clones this instance"""
+        ...
+
+
+class EarningReportsPeriodEndingDate(QuantConnect.Data.Fundamental.MultiPeriodField[datetime.datetime]):
+    """The exact date that is given in the financial statements for each quarter's end."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> datetime.datetime:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> datetime.datetime:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> datetime.datetime:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> datetime.datetime:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> datetime.datetime:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> datetime.datetime:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> datetime.datetime:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> datetime.datetime:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, datetime.datetime]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class EarningReportsFileDate(QuantConnect.Data.Fundamental.MultiPeriodField[datetime.datetime]):
+    """Specific date on which a company released its filing to the public."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> datetime.datetime:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> datetime.datetime:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> datetime.datetime:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> datetime.datetime:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> datetime.datetime:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> datetime.datetime:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> datetime.datetime:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> datetime.datetime:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, datetime.datetime]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class EarningReportsAccessionNumber(QuantConnect.Data.Fundamental.MultiPeriodField[str]):
+    """The accession number is a unique number that EDGAR assigns to each submission as the submission is received."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> str:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> str:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> str:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> str:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> str:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> str:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> str:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, str]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class EarningReportsFormType(QuantConnect.Data.Fundamental.MultiPeriodField[str]):
+    """The type of filing of the report: for instance, 10-K (annual report) or 10-Q (quarterly report)."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> str:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> str:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> str:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> str:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> str:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> str:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> str:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> str:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, str]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class EarningReportsPeriodType(QuantConnect.Data.Fundamental.MultiPeriodField[str]):
+    """The nature of the period covered by an individual set of financial results. The output can be: Quarter, Semi-annual or Annual. Assuming a 12-month fiscal year, quarter typically covers a three-month period, semi-annual a six-month period, and annual a twelve-month period. Annual could cover results collected either from preliminary results or an annual report"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> str:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> str:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> str:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> str:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> str:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> str:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> str:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> str:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, str]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class BasicContinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Basic EPS from Continuing Operations is the earnings from continuing operations reported by the company divided by the weighted average number of common shares outstanding."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class BasicDiscontinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Basic EPS from Discontinued Operations is the earnings from discontinued operations reported by the company divided by the weighted average number of common shares outstanding. This only includes gain or loss from discontinued operations."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class BasicExtraordinary(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Basic EPS from the Extraordinary Gains/Losses is the earnings attributable to the gains or losses (during the reporting period) from extraordinary items divided by the weighted average number of common shares outstanding."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class BasicAccountingChange(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Basic EPS from the Cumulative Effect of Accounting Change is the earnings attributable to the accounting change (during the reporting period) divided by the weighted average number of common shares outstanding."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class BasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Basic EPS is the bottom line net income divided by the weighted average number of common shares outstanding."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class DilutedContinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Diluted EPS from Continuing Operations is the earnings from continuing operations divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class DilutedDiscontinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Diluted EPS from Discontinued Operations is the earnings from discontinued operations divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock. This only includes gain or loss from discontinued operations."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class DilutedExtraordinary(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Diluted EPS from Extraordinary Gain/Losses is the gain or loss from extraordinary items divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class DilutedAccountingChange(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Diluted EPS from Cumulative Effect Accounting Changes is the earnings from accounting changes (in the reporting period) divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class DilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Diluted EPS is the bottom line net income divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock. This value will be derived when not reported for the fourth quarter and will be less than or equal to Basic EPS."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class BasicAverageShares(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The shares outstanding used to calculate Basic EPS, which is the weighted average common share outstanding through the whole accounting PeriodAsByte. Note: If Basic Average Shares are not presented by the firm in the Income Statement, this data point will be null."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class DilutedAverageShares(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The shares outstanding used to calculate the diluted EPS, assuming the conversion of all convertible securities and the exercise of warrants or stock options. It is the weighted average diluted share outstanding through the whole accounting PeriodAsByte. Note: If Diluted Average Shares are not presented by the firm in the Income Statement and Basic Average Shares are presented, Diluted Average Shares will equal Basic Average Shares. However, if neither value is presented by the firm, Diluted Average Shares will be null."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class DividendPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The amount of dividend that a stockholder will receive for each share of stock held. It can be calculated by taking the total amount of dividends paid and dividing it by the total shares outstanding. Dividend per share = total dividend payment/total number of outstanding shares"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class BasicEPSOtherGainsLosses(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Basic EPS from the Other Gains/Losses is the earnings attributable to the other gains/losses (during the reporting period) divided by the weighted average number of common shares outstanding."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class ContinuingAndDiscontinuedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Basic EPS from Continuing Operations plus Basic EPS from Discontinued Operations."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class TaxLossCarryforwardBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The earnings attributable to the tax loss carry forward (during the reporting period)."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class DilutedEPSOtherGainsLosses(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The earnings from gains and losses (in the reporting period) divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, convertible preferred stock, etc."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class ContinuingAndDiscontinuedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Diluted EPS from Continuing Operations plus Diluted EPS from Discontinued Operations."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class TaxLossCarryforwardDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The earnings from any tax loss carry forward (in the reporting period)."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class NormalizedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The basic normalized earnings per share. Normalized EPS removes onetime and unusual items from EPS, to provide investors with a more accurate measure of the company's true earnings. Normalized Earnings / Basic Weighted Average Shares Outstanding."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class NormalizedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The diluted normalized earnings per share. Normalized EPS removes onetime and unusual items from EPS, to provide investors with a more accurate measure of the company's true earnings. Normalized Earnings / Diluted Weighted Average Shares Outstanding."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class TotalDividendPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Total Dividend Per Share is cash dividends and special cash dividends paid per share over a certain period of time."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class ReportedNormalizedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Normalized Basic EPS as reported by the company in the financial statements."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class ReportedNormalizedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Normalized Diluted EPS as reported by the company in the financial statements."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class DividendCoverageRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Reflects a firm's capacity to pay a dividend, and is defined as Earnings Per Share / Dividend Per Share"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def twelve_months(self) -> float:
+        """Gets/sets the TwelveMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class EarningReports(QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty):
+    """Definition of the EarningReports class"""
+
+    @property
+    def period_ending_date(self) -> QuantConnect.Data.Fundamental.EarningReportsPeriodEndingDate:
+        """The exact date that is given in the financial statements for each quarter's end."""
+        ...
+
+    @property
+    def file_date(self) -> QuantConnect.Data.Fundamental.EarningReportsFileDate:
+        """Specific date on which a company released its filing to the public."""
+        ...
+
+    @property
+    def accession_number(self) -> QuantConnect.Data.Fundamental.EarningReportsAccessionNumber:
+        """The accession number is a unique number that EDGAR assigns to each submission as the submission is received."""
+        ...
+
+    @property
+    def form_type(self) -> QuantConnect.Data.Fundamental.EarningReportsFormType:
+        """The type of filing of the report: for instance, 10-K (annual report) or 10-Q (quarterly report)."""
+        ...
+
+    @property
+    def period_type(self) -> QuantConnect.Data.Fundamental.EarningReportsPeriodType:
+        """The nature of the period covered by an individual set of financial results. The output can be: Quarter, Semi-annual or Annual. Assuming a 12-month fiscal year, quarter typically covers a three-month period, semi-annual a six-month period, and annual a twelve-month period. Annual could cover results collected either from preliminary results or an annual report"""
+        ...
+
+    @property
+    def basic_continuous_operations(self) -> QuantConnect.Data.Fundamental.BasicContinuousOperations:
+        """Basic EPS from Continuing Operations is the earnings from continuing operations reported by the company divided by the weighted average number of common shares outstanding."""
+        ...
+
+    @property
+    def basic_discontinuous_operations(self) -> QuantConnect.Data.Fundamental.BasicDiscontinuousOperations:
+        """Basic EPS from Discontinued Operations is the earnings from discontinued operations reported by the company divided by the weighted average number of common shares outstanding. This only includes gain or loss from discontinued operations."""
+        ...
+
+    @property
+    def basic_extraordinary(self) -> QuantConnect.Data.Fundamental.BasicExtraordinary:
+        """Basic EPS from the Extraordinary Gains/Losses is the earnings attributable to the gains or losses (during the reporting period) from extraordinary items divided by the weighted average number of common shares outstanding."""
+        ...
+
+    @property
+    def basic_accounting_change(self) -> QuantConnect.Data.Fundamental.BasicAccountingChange:
+        """Basic EPS from the Cumulative Effect of Accounting Change is the earnings attributable to the accounting change (during the reporting period) divided by the weighted average number of common shares outstanding."""
+        ...
+
+    @property
+    def basic_eps(self) -> QuantConnect.Data.Fundamental.BasicEPS:
+        """Basic EPS is the bottom line net income divided by the weighted average number of common shares outstanding."""
+        ...
+
+    @property
+    def diluted_continuous_operations(self) -> QuantConnect.Data.Fundamental.DilutedContinuousOperations:
+        """Diluted EPS from Continuing Operations is the earnings from continuing operations divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock."""
+        ...
+
+    @property
+    def diluted_discontinuous_operations(self) -> QuantConnect.Data.Fundamental.DilutedDiscontinuousOperations:
+        """Diluted EPS from Discontinued Operations is the earnings from discontinued operations divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock. This only includes gain or loss from discontinued operations."""
+        ...
+
+    @property
+    def diluted_extraordinary(self) -> QuantConnect.Data.Fundamental.DilutedExtraordinary:
+        """Diluted EPS from Extraordinary Gain/Losses is the gain or loss from extraordinary items divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock."""
+        ...
+
+    @property
+    def diluted_accounting_change(self) -> QuantConnect.Data.Fundamental.DilutedAccountingChange:
+        """Diluted EPS from Cumulative Effect Accounting Changes is the earnings from accounting changes (in the reporting period) divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock."""
+        ...
+
+    @property
+    def diluted_eps(self) -> QuantConnect.Data.Fundamental.DilutedEPS:
+        """Diluted EPS is the bottom line net income divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock. This value will be derived when not reported for the fourth quarter and will be less than or equal to Basic EPS."""
+        ...
+
+    @property
+    def basic_average_shares(self) -> QuantConnect.Data.Fundamental.BasicAverageShares:
+        """The shares outstanding used to calculate Basic EPS, which is the weighted average common share outstanding through the whole accounting period. Note: If Basic Average Shares are not presented by the firm in the Income Statement, this data point will be null."""
+        ...
+
+    @property
+    def diluted_average_shares(self) -> QuantConnect.Data.Fundamental.DilutedAverageShares:
+        """The shares outstanding used to calculate the diluted EPS, assuming the conversion of all convertible securities and the exercise of warrants or stock options. It is the weighted average diluted share outstanding through the whole accounting period. Note: If Diluted Average Shares are not presented by the firm in the Income Statement and Basic Average Shares are presented, Diluted Average Shares will equal Basic Average Shares. However, if neither value is presented by the firm, Diluted Average Shares will be null."""
+        ...
+
+    @property
+    def dividend_per_share(self) -> QuantConnect.Data.Fundamental.DividendPerShare:
+        """The amount of dividend that a stockholder will receive for each share of stock held. It can be calculated by taking the total amount of dividends paid and dividing it by the total shares outstanding. Dividend per share = total dividend payment/total number of outstanding shares"""
+        ...
+
+    @property
+    def basic_eps_other_gains_losses(self) -> QuantConnect.Data.Fundamental.BasicEPSOtherGainsLosses:
+        """Basic EPS from the Other Gains/Losses is the earnings attributable to the other gains/losses (during the reporting period) divided by the weighted average number of common shares outstanding."""
+        ...
+
+    @property
+    def continuing_and_discontinued_basic_eps(self) -> QuantConnect.Data.Fundamental.ContinuingAndDiscontinuedBasicEPS:
+        """Basic EPS from Continuing Operations plus Basic EPS from Discontinued Operations."""
+        ...
+
+    @property
+    def tax_loss_carryforward_basic_eps(self) -> QuantConnect.Data.Fundamental.TaxLossCarryforwardBasicEPS:
+        """The earnings attributable to the tax loss carry forward (during the reporting period)."""
+        ...
+
+    @property
+    def diluted_eps_other_gains_losses(self) -> QuantConnect.Data.Fundamental.DilutedEPSOtherGainsLosses:
+        """The earnings from gains and losses (in the reporting period) divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, convertible preferred stock, etc."""
+        ...
+
+    @property
+    def continuing_and_discontinued_diluted_eps(self) -> QuantConnect.Data.Fundamental.ContinuingAndDiscontinuedDilutedEPS:
+        """Diluted EPS from Continuing Operations plus Diluted EPS from Discontinued Operations."""
+        ...
+
+    @property
+    def tax_loss_carryforward_diluted_eps(self) -> QuantConnect.Data.Fundamental.TaxLossCarryforwardDilutedEPS:
+        """The earnings from any tax loss carry forward (in the reporting period)."""
+        ...
+
+    @property
+    def normalized_basic_eps(self) -> QuantConnect.Data.Fundamental.NormalizedBasicEPS:
+        """The basic normalized earnings per share. Normalized EPS removes onetime and unusual items from EPS, to provide investors with a more accurate measure of the company's true earnings. Normalized Earnings / Basic Weighted Average Shares Outstanding."""
+        ...
+
+    @property
+    def normalized_diluted_eps(self) -> QuantConnect.Data.Fundamental.NormalizedDilutedEPS:
+        """The diluted normalized earnings per share. Normalized EPS removes onetime and unusual items from EPS, to provide investors with a more accurate measure of the company's true earnings. Normalized Earnings / Diluted Weighted Average Shares Outstanding."""
+        ...
+
+    @property
+    def total_dividend_per_share(self) -> QuantConnect.Data.Fundamental.TotalDividendPerShare:
+        """Total Dividend Per Share is cash dividends and special cash dividends paid per share over a certain period of time."""
+        ...
+
+    @property
+    def reported_normalized_basic_eps(self) -> QuantConnect.Data.Fundamental.ReportedNormalizedBasicEPS:
+        """Normalized Basic EPS as reported by the company in the financial statements."""
+        ...
+
+    @property
+    def reported_normalized_diluted_eps(self) -> QuantConnect.Data.Fundamental.ReportedNormalizedDilutedEPS:
+        """Normalized Diluted EPS as reported by the company in the financial statements."""
+        ...
+
+    @property
+    def dividend_coverage_ratio(self) -> QuantConnect.Data.Fundamental.DividendCoverageRatio:
+        """Reflects a firm's capacity to pay a dividend, and is defined as Earnings Per Share / Dividend Per Share"""
+        ...
+
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def clone(self, time_provider: QuantConnect.ITimeProvider) -> QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty:
+        """Clones this instance"""
+        ...
+
+
+class RevenueGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's revenue on a percentage basis. Morningstar calculates the growth percentage based on the underlying revenue data reported in the Income Statement within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class OperationIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's operating income on a percentage basis. Morningstar calculates the growth percentage based on the underlying operating income data reported in the Income Statement within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class NetIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's net income on a percentage basis. Morningstar calculates the growth percentage based on the underlying net income data reported in the Income Statement within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class NetIncomeContOpsGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's net income from continuing operations on a percentage basis. Morningstar calculates the growth percentage based on the underlying net income from continuing operations data reported in the Income Statement within the company filings or reports. This figure represents the rate of net income growth for parts of the business that will continue to generate revenue in the future."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class CFOGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's cash flow from operations on a percentage basis. Morningstar calculates the growth percentage based on the underlying cash flow from operations data reported in the Cash Flow Statement within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class FCFGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's free cash flow on a percentage basis. Morningstar calculates the growth percentage based on the underlying cash flow from operations and capital expenditures data reported in the Cash Flow Statement within the company filings or reports: Free Cash Flow = Cash flow from operations - Capital Expenditures."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class OperationRevenueGrowth3MonthAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's operating revenue on a percentage basis. Morningstar calculates the growth percentage based on the underlying operating revenue data reported in the Income Statement within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class GrossMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Refers to the ratio of gross profit to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: (Revenue - Cost of Goods Sold) / Revenue."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class OperationMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Refers to the ratio of operating income to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Operating Income / Revenue."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class PretaxMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Refers to the ratio of pretax income to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Pretax Income / Revenue."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class NetMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Refers to the ratio of net income to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Net Income / Revenue."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class TaxRate(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Refers to the ratio of tax provision to pretax income. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Tax Provision / Pretax Income. <Note: Valid only when positive pretax income, and positive tax expense (not tax benefit)>"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class EBITMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Refers to the ratio of earnings before interest and taxes to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: EBIT / Revenue."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class EBITDAMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Refers to the ratio of earnings before interest, taxes and depreciation and amortization to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: EBITDA / Revenue."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class SalesPerEmployee(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Refers to the ratio of Revenue to Employees. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Revenue / Employee Number."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class CurrentRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Refers to the ratio of Current Assets to Current Liabilities. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Current Assets / Current Liabilities."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class QuickRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Refers to the ratio of liquid assets to Current Liabilities. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports:(Cash, Cash Equivalents, and Short Term Investments + Receivables ) / Current Liabilities."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class LongTermDebtTotalCapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Refers to the ratio of Long Term Debt to Total Capital. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Long-Term Debt And Capital Lease Obligation / (Long-Term Debt And Capital Lease Obligation + Total Shareholder's Equity)"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class InterestCoverage(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Refers to the ratio of EBIT to Interest Expense. Morningstar calculates the ratio by using the underlying data reported in the Income Statement within the company filings or reports: EBIT / Interest Expense."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class LongTermDebtEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Refers to the ratio of Long Term Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Long-Term Debt And Capital Lease Obligation / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class FinancialLeverage(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Refers to the ratio of Total Assets to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Total Assets / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class TotalDebtEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Refers to the ratio of Total Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: (Current Debt And Current Capital Lease Obligation + Long-Term Debt And Long-Term Capital Lease Obligation / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class NormalizedNetProfitMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Normalized Income / Total Revenue. A measure of profitability of the company calculated by finding Normalized Net Profit as a percentage of Total Revenues."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class DaysInSales(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """365 / Receivable Turnover"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class DaysInInventory(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """365 / Inventory turnover"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class DaysInPayment(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """365 / Payable turnover"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class CashConversionCycle(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Days In Inventory + Days In Sales - Days In Payment"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class ReceivableTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Revenue / Average Accounts Receivables"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class InventoryTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Cost Of Goods Sold / Average Inventory"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class PaymentTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Cost of Goods Sold / Average Accounts Payables"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class FixAssetsTuronver(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Revenue / Average PP&E"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class AssetsTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Revenue / Average Total Assets"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class ROE(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Net Income / Average Total Common Equity"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class ROA(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Net Income / Average Total Assets"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class ROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Net Income / (Total Equity + Long-term Debt and Capital Lease Obligation + Short-term Debt and Capital Lease Obligation)"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class FCFSalesRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Free Cash flow / Revenue"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class FCFNetIncomeRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Free Cash Flow / Net Income"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class CapExSalesRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Capital Expenditure / Revenue"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class DebtToAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """This is a leverage ratio used to determine how much debt (a sum of long term and current portion of debt) a company has on its balance sheet relative to total assets. This ratio examines the percent of the company that is financed by debt."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class CommonEquityToAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """This is a financial ratio of common stock equity to total assets that indicates the relative proportion of equity used to finance a company's assets."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def one_month(self) -> float:
+        """Gets/sets the OneMonth period value for the field"""
+        ...
+
+    @property
+    def two_months(self) -> float:
+        """Gets/sets the TwoMonths period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def nine_months(self) -> float:
+        """Gets/sets the NineMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class CapitalExpenditureAnnual5YrGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """This is the compound annual growth rate of the company's capital spending over the last 5 years. Capital Spending is the sum of the Capital Expenditure items found in the Statement of Cash Flows."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class GrossProfitAnnual5YrGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """This is the compound annual growth rate of the company's Gross Profit over the last 5 years."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class GrossMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """This is the simple average of the company's Annual Gross Margin over the last 5 years. Gross Margin is Total Revenue minus Cost of Goods Sold divided by Total Revenue and is expressed as a percentage."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class PostTaxMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """This is the simple average of the company's Annual Post Tax Margin over the last 5 years. Post tax margin is Post tax divided by total revenue for the same PeriodAsByte."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class PreTaxMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """This is the simple average of the company's Annual Pre Tax Margin over the last 5 years. Pre tax margin is Pre tax divided by total revenue for the same PeriodAsByte."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class ProfitMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """This is the simple average of the company's Annual Net Profit Margin over the last 5 years. Net profit margin is post tax income divided by total revenue for the same PeriodAsByte."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class ROE5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """This is the simple average of the company's ROE over the last 5 years. Return on equity reveals how much profit a company has earned in comparison to the total amount of shareholder equity found on the balance sheet."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class ROA5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """This is the simple average of the company's ROA over the last 5 years. Return on asset is calculated by dividing a company's annual earnings by its average total assets."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class AVG5YrsROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """This is the simple average of the company's ROIC over the last 5 years. Return on invested capital is calculated by taking net operating profit after taxes and dividends and dividing by the total amount of capital invested and expressing the result as a percentage."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class NormalizedROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """<Normalized Income + (Interest Expense * (1-Tax Rate))> / Invested Capital"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def six_months(self) -> float:
+        """Gets/sets the SixMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class RegressionGrowthOperatingRevenue5Years(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The five-year growth rate of operating revenue, calculated using regression analysis."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class CashRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Indicates a company's short-term liquidity, defined as short term liquid investments (cash, cash equivalents, short term investments) divided by current liabilities."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class CashtoTotalAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Represents the percentage of a company's total assets is in cash."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class CapitalExpendituretoEBITDA(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Measures the amount a company is investing in its business relative to EBITDA generated in a given PeriodAsByte."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class FCFtoCFO(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Indicates the percentage of a company's operating cash flow is free to be invested in its business after capital expenditures."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class StockholdersEquityGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the stockholder's equity on a percentage basis. Morningstar calculates the growth percentage based on the residual interest in the assets of the enterprise that remains after deducting its liabilities reported in the Balance Sheet within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class TotalAssetsGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the total assets on a percentage basis. Morningstar calculates the growth percentage based on the total assets reported in the Balance Sheet within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class TotalLiabilitiesGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the total liabilities on a percentage basis. Morningstar calculates the growth percentage based on the total liabilities reported in the Balance Sheet within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class TotalDebtEquityRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's total debt to equity ratio on a percentage basis. Morningstar calculates the growth percentage based on the total debt divided by the shareholder's equity reported in the Balance Sheet within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class CashRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's cash ratio on a percentage basis. Morningstar calculates the growth percentage based on the short term liquid investments (cash, cash equivalents, short term investments) divided by current liabilities reported in the Balance Sheet within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class EBITDAGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's EBITDA on a percentage basis. Morningstar calculates the growth percentage based on the earnings minus expenses (excluding interest, tax, depreciation, and amortization expenses) reported in the Financial Statements within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class CashFlowFromFinancingGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's cash flows from financing on a percentage basis. Morningstar calculates the growth percentage based on the financing cash flows reported in the Cash Flow Statement within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class CashFlowFromInvestingGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's cash flows from investing on a percentage basis. Morningstar calculates the growth percentage based on the cash flows from investing reported in the Cash Flow Statement within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class CapExGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's capital expenditures on a percentage basis. Morningstar calculates the growth percentage based on the capital expenditures reported in the Cash Flow Statement within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class CurrentRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """The growth in the company's current ratio on a percentage basis. Morningstar calculates the growth percentage based on the current assets divided by current liabilities reported in the Balance Sheet within the company filings or reports."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_years(self) -> float:
+        """Gets/sets the ThreeYears period value for the field"""
+        ...
+
+    @property
+    def five_years(self) -> float:
+        """Gets/sets the FiveYears period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class WorkingCapitalTurnoverRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Total revenue / working capital (current assets minus current liabilities)"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class NetIncomePerEmployee(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Refers to the ratio of Net Income to Employees. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Net Income / Employee Number."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class SolvencyRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """Measure of whether a company's cash flow is sufficient to meet its short-term and long-term debt requirements. The lower this ratio is, the greater the probability that the company will be in financial distress. Net Income + Depreciation, Depletion and Amortization/ average of annual Total Liabilities over the most recent two periods."""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class ExpenseRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """A measure of operating performance for Insurance companies, as it shows the relationship between the premiums earned and administrative expenses related to claims such as fees and commissions. A number of 1 or lower is preferred, as this means the premiums exceed the expenses. Calculated as: (Deferred Policy Acquisition Amortization Expense+Fees and Commission Expense+Other Underwriting Expenses+Selling, General and Administrative) / Net Premiums Earned"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class LossRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
+    """A measure of operating performance for Insurance companies, as it shows the relationship between the premiums earned and the expenses related to claims. A number of 1 or lower is preferred, as this means the premiums exceed the expenses. Calculated as: Benefits, Claims and Loss Adjustment Expense, Net / Net Premiums Earned"""
+
+    @property
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def one_year(self) -> float:
+        """Gets/sets the OneYear period value for the field"""
+        ...
+
+    @property
+    def three_months(self) -> float:
+        """Gets/sets the ThreeMonths period value for the field"""
+        ...
+
+    @property
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    def get_period_value(self, period: str) -> float:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, float]:
+        """
+        Gets a dictionary of period names and values for the field
+        
+        :returns: The dictionary of period names and values.
+        """
+        ...
+
+
+class OperationRatios(QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty):
+    """Definition of the OperationRatios class"""
+
+    @property
+    def revenue_growth(self) -> QuantConnect.Data.Fundamental.RevenueGrowth:
+        """The growth in the company's revenue on a percentage basis. Morningstar calculates the growth percentage based on the underlying revenue data reported in the Income Statement within the company filings or reports."""
+        ...
+
+    @property
+    def operation_income_growth(self) -> QuantConnect.Data.Fundamental.OperationIncomeGrowth:
+        """The growth in the company's operating income on a percentage basis. Morningstar calculates the growth percentage based on the underlying operating income data reported in the Income Statement within the company filings or reports."""
+        ...
+
+    @property
+    def net_income_growth(self) -> QuantConnect.Data.Fundamental.NetIncomeGrowth:
+        """The growth in the company's net income on a percentage basis. Morningstar calculates the growth percentage based on the underlying net income data reported in the Income Statement within the company filings or reports."""
+        ...
+
+    @property
+    def net_income_cont_ops_growth(self) -> QuantConnect.Data.Fundamental.NetIncomeContOpsGrowth:
+        """The growth in the company's net income from continuing operations on a percentage basis. Morningstar calculates the growth percentage based on the underlying net income from continuing operations data reported in the Income Statement within the company filings or reports. This figure represents the rate of net income growth for parts of the business that will continue to generate revenue in the future."""
+        ...
+
+    @property
+    def cfo_growth(self) -> QuantConnect.Data.Fundamental.CFOGrowth:
+        """The growth in the company's cash flow from operations on a percentage basis. Morningstar calculates the growth percentage based on the underlying cash flow from operations data reported in the Cash Flow Statement within the company filings or reports."""
+        ...
+
+    @property
+    def fcf_growth(self) -> QuantConnect.Data.Fundamental.FCFGrowth:
+        """The growth in the company's free cash flow on a percentage basis. Morningstar calculates the growth percentage based on the underlying cash flow from operations and capital expenditures data reported in the Cash Flow Statement within the company filings or reports: Free Cash Flow = Cash flow from operations - Capital Expenditures."""
+        ...
+
+    @property
+    def operation_revenue_growth_3_month_avg(self) -> QuantConnect.Data.Fundamental.OperationRevenueGrowth3MonthAvg:
+        """The growth in the company's operating revenue on a percentage basis. Morningstar calculates the growth percentage based on the underlying operating revenue data reported in the Income Statement within the company filings or reports."""
+        ...
+
+    @property
+    def gross_margin(self) -> QuantConnect.Data.Fundamental.GrossMargin:
+        """Refers to the ratio of gross profit to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: (Revenue - Cost of Goods Sold) / Revenue."""
+        ...
+
+    @property
+    def operation_margin(self) -> QuantConnect.Data.Fundamental.OperationMargin:
+        """Refers to the ratio of operating income to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Operating Income / Revenue."""
+        ...
+
+    @property
+    def pretax_margin(self) -> QuantConnect.Data.Fundamental.PretaxMargin:
+        """Refers to the ratio of pretax income to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Pretax Income / Revenue."""
+        ...
+
+    @property
+    def net_margin(self) -> QuantConnect.Data.Fundamental.NetMargin:
+        """Refers to the ratio of net income to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Net Income / Revenue."""
+        ...
+
+    @property
+    def tax_rate(self) -> QuantConnect.Data.Fundamental.TaxRate:
+        """Refers to the ratio of tax provision to pretax income. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Tax Provision / Pretax Income. <Note: Valid only when positive pretax income, and positive tax expense (not tax benefit)>"""
+        ...
+
+    @property
+    def ebit_margin(self) -> QuantConnect.Data.Fundamental.EBITMargin:
+        """Refers to the ratio of earnings before interest and taxes to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: EBIT / Revenue."""
+        ...
+
+    @property
+    def ebitda_margin(self) -> QuantConnect.Data.Fundamental.EBITDAMargin:
+        """Refers to the ratio of earnings before interest, taxes and depreciation and amortization to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: EBITDA / Revenue."""
+        ...
+
+    @property
+    def sales_per_employee(self) -> QuantConnect.Data.Fundamental.SalesPerEmployee:
+        """Refers to the ratio of Revenue to Employees. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Revenue / Employee Number."""
+        ...
+
+    @property
+    def current_ratio(self) -> QuantConnect.Data.Fundamental.CurrentRatio:
+        """Refers to the ratio of Current Assets to Current Liabilities. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Current Assets / Current Liabilities."""
+        ...
+
+    @property
+    def quick_ratio(self) -> QuantConnect.Data.Fundamental.QuickRatio:
+        """Refers to the ratio of liquid assets to Current Liabilities. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports:(Cash, Cash Equivalents, and Short Term Investments + Receivables ) / Current Liabilities."""
+        ...
+
+    @property
+    def long_term_debt_total_capital_ratio(self) -> QuantConnect.Data.Fundamental.LongTermDebtTotalCapitalRatio:
+        """Refers to the ratio of Long Term Debt to Total Capital. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Long-Term Debt And Capital Lease Obligation / (Long-Term Debt And Capital Lease Obligation + Total Shareholder's Equity)"""
+        ...
+
+    @property
+    def interest_coverage(self) -> QuantConnect.Data.Fundamental.InterestCoverage:
+        """Refers to the ratio of EBIT to Interest Expense. Morningstar calculates the ratio by using the underlying data reported in the Income Statement within the company filings or reports: EBIT / Interest Expense."""
+        ...
+
+    @property
+    def long_term_debt_equity_ratio(self) -> QuantConnect.Data.Fundamental.LongTermDebtEquityRatio:
+        """Refers to the ratio of Long Term Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Long-Term Debt And Capital Lease Obligation / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
+        ...
+
+    @property
+    def financial_leverage(self) -> QuantConnect.Data.Fundamental.FinancialLeverage:
+        """Refers to the ratio of Total Assets to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Total Assets / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
+        ...
+
+    @property
+    def total_debt_equity_ratio(self) -> QuantConnect.Data.Fundamental.TotalDebtEquityRatio:
+        """Refers to the ratio of Total Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: (Current Debt And Current Capital Lease Obligation + Long-Term Debt And Long-Term Capital Lease Obligation / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
+        ...
+
+    @property
+    def normalized_net_profit_margin(self) -> QuantConnect.Data.Fundamental.NormalizedNetProfitMargin:
+        """Normalized Income / Total Revenue. A measure of profitability of the company calculated by finding Normalized Net Profit as a percentage of Total Revenues."""
+        ...
+
+    @property
+    def days_in_sales(self) -> QuantConnect.Data.Fundamental.DaysInSales:
+        """365 / Receivable Turnover"""
+        ...
+
+    @property
+    def days_in_inventory(self) -> QuantConnect.Data.Fundamental.DaysInInventory:
+        """365 / Inventory turnover"""
+        ...
+
+    @property
+    def days_in_payment(self) -> QuantConnect.Data.Fundamental.DaysInPayment:
+        """365 / Payable turnover"""
+        ...
+
+    @property
+    def cash_conversion_cycle(self) -> QuantConnect.Data.Fundamental.CashConversionCycle:
+        """Days In Inventory + Days In Sales - Days In Payment"""
+        ...
+
+    @property
+    def receivable_turnover(self) -> QuantConnect.Data.Fundamental.ReceivableTurnover:
+        """Revenue / Average Accounts Receivables"""
+        ...
+
+    @property
+    def inventory_turnover(self) -> QuantConnect.Data.Fundamental.InventoryTurnover:
+        """Cost Of Goods Sold / Average Inventory"""
+        ...
+
+    @property
+    def payment_turnover(self) -> QuantConnect.Data.Fundamental.PaymentTurnover:
+        """Cost of Goods Sold / Average Accounts Payables"""
+        ...
+
+    @property
+    def fix_assets_turonver(self) -> QuantConnect.Data.Fundamental.FixAssetsTuronver:
+        """Revenue / Average PP&E"""
+        ...
+
+    @property
+    def assets_turnover(self) -> QuantConnect.Data.Fundamental.AssetsTurnover:
+        """Revenue / Average Total Assets"""
+        ...
+
+    @property
+    def roe(self) -> QuantConnect.Data.Fundamental.ROE:
+        """Net Income / Average Total Common Equity"""
+        ...
+
+    @property
+    def roa(self) -> QuantConnect.Data.Fundamental.ROA:
+        """Net Income / Average Total Assets"""
+        ...
+
+    @property
+    def roic(self) -> QuantConnect.Data.Fundamental.ROIC:
+        """Net Income / (Total Equity + Long-term Debt and Capital Lease Obligation + Short-term Debt and Capital Lease Obligation)"""
+        ...
+
+    @property
+    def fcf_sales_ratio(self) -> QuantConnect.Data.Fundamental.FCFSalesRatio:
+        """Free Cash flow / Revenue"""
+        ...
+
+    @property
+    def fcf_net_income_ratio(self) -> QuantConnect.Data.Fundamental.FCFNetIncomeRatio:
+        """Free Cash Flow / Net Income"""
+        ...
+
+    @property
+    def cap_ex_sales_ratio(self) -> QuantConnect.Data.Fundamental.CapExSalesRatio:
+        """Capital Expenditure / Revenue"""
+        ...
+
+    @property
+    def debt_to_assets(self) -> QuantConnect.Data.Fundamental.DebtToAssets:
+        """This is a leverage ratio used to determine how much debt (a sum of long term and current portion of debt) a company has on its balance sheet relative to total assets. This ratio examines the percent of the company that is financed by debt."""
+        ...
+
+    @property
+    def common_equity_to_assets(self) -> QuantConnect.Data.Fundamental.CommonEquityToAssets:
+        """This is a financial ratio of common stock equity to total assets that indicates the relative proportion of equity used to finance a company's assets."""
+        ...
+
+    @property
+    def capital_expenditure_annual_5_yr_growth(self) -> QuantConnect.Data.Fundamental.CapitalExpenditureAnnual5YrGrowth:
+        """This is the compound annual growth rate of the company's capital spending over the last 5 years. Capital Spending is the sum of the Capital Expenditure items found in the Statement of Cash Flows."""
+        ...
+
+    @property
+    def gross_profit_annual_5_yr_growth(self) -> QuantConnect.Data.Fundamental.GrossProfitAnnual5YrGrowth:
+        """This is the compound annual growth rate of the company's Gross Profit over the last 5 years."""
+        ...
+
+    @property
+    def gross_margin_5_yr_avg(self) -> QuantConnect.Data.Fundamental.GrossMargin5YrAvg:
+        """This is the simple average of the company's Annual Gross Margin over the last 5 years. Gross Margin is Total Revenue minus Cost of Goods Sold divided by Total Revenue and is expressed as a percentage."""
+        ...
+
+    @property
+    def post_tax_margin_5_yr_avg(self) -> QuantConnect.Data.Fundamental.PostTaxMargin5YrAvg:
+        """This is the simple average of the company's Annual Post Tax Margin over the last 5 years. Post tax margin is Post tax divided by total revenue for the same period."""
+        ...
+
+    @property
+    def pre_tax_margin_5_yr_avg(self) -> QuantConnect.Data.Fundamental.PreTaxMargin5YrAvg:
+        """This is the simple average of the company's Annual Pre Tax Margin over the last 5 years. Pre tax margin is Pre tax divided by total revenue for the same period."""
+        ...
+
+    @property
+    def profit_margin_5_yr_avg(self) -> QuantConnect.Data.Fundamental.ProfitMargin5YrAvg:
+        """This is the simple average of the company's Annual Net Profit Margin over the last 5 years. Net profit margin is post tax income divided by total revenue for the same period."""
+        ...
+
+    @property
+    def roe_5_yr_avg(self) -> QuantConnect.Data.Fundamental.ROE5YrAvg:
+        """This is the simple average of the company's ROE over the last 5 years. Return on equity reveals how much profit a company has earned in comparison to the total amount of shareholder equity found on the balance sheet."""
+        ...
+
+    @property
+    def roa_5_yr_avg(self) -> QuantConnect.Data.Fundamental.ROA5YrAvg:
+        """This is the simple average of the company's ROA over the last 5 years. Return on asset is calculated by dividing a company's annual earnings by its average total assets."""
+        ...
+
+    @property
+    def avg_5_yrs_roic(self) -> QuantConnect.Data.Fundamental.AVG5YrsROIC:
+        """This is the simple average of the company's ROIC over the last 5 years. Return on invested capital is calculated by taking net operating profit after taxes and dividends and dividing by the total amount of capital invested and expressing the result as a percentage."""
+        ...
+
+    @property
+    def normalized_roic(self) -> QuantConnect.Data.Fundamental.NormalizedROIC:
+        """<Normalized Income + (Interest Expense * (1-Tax Rate))> / Invested Capital"""
+        ...
+
+    @property
+    def regression_growth_operating_revenue_5_years(self) -> QuantConnect.Data.Fundamental.RegressionGrowthOperatingRevenue5Years:
+        """The five-year growth rate of operating revenue, calculated using regression analysis."""
+        ...
+
+    @property
+    def cash_ratio(self) -> QuantConnect.Data.Fundamental.CashRatio:
+        """Indicates a company's short-term liquidity, defined as short term liquid investments (cash, cash equivalents, short term investments) divided by current liabilities."""
+        ...
+
+    @property
+    def cashto_total_assets(self) -> QuantConnect.Data.Fundamental.CashtoTotalAssets:
+        """Represents the percentage of a company's total assets is in cash."""
+        ...
+
+    @property
+    def capital_expenditureto_ebitda(self) -> QuantConnect.Data.Fundamental.CapitalExpendituretoEBITDA:
+        """Measures the amount a company is investing in its business relative to EBITDA generated in a given period."""
+        ...
+
+    @property
+    def fc_fto_cfo(self) -> QuantConnect.Data.Fundamental.FCFtoCFO:
+        """Indicates the percentage of a company's operating cash flow is free to be invested in its business after capital expenditures."""
+        ...
+
+    @property
+    def stockholders_equity_growth(self) -> QuantConnect.Data.Fundamental.StockholdersEquityGrowth:
+        """The growth in the stockholder's equity on a percentage basis. Morningstar calculates the growth percentage based on the residual interest in the assets of the enterprise that remains after deducting its liabilities reported in the Balance Sheet within the company filings or reports."""
+        ...
+
+    @property
+    def total_assets_growth(self) -> QuantConnect.Data.Fundamental.TotalAssetsGrowth:
+        """The growth in the total assets on a percentage basis. Morningstar calculates the growth percentage based on the total assets reported in the Balance Sheet within the company filings or reports."""
+        ...
+
+    @property
+    def total_liabilities_growth(self) -> QuantConnect.Data.Fundamental.TotalLiabilitiesGrowth:
+        """The growth in the total liabilities on a percentage basis. Morningstar calculates the growth percentage based on the total liabilities reported in the Balance Sheet within the company filings or reports."""
+        ...
+
+    @property
+    def total_debt_equity_ratio_growth(self) -> QuantConnect.Data.Fundamental.TotalDebtEquityRatioGrowth:
+        """The growth in the company's total debt to equity ratio on a percentage basis. Morningstar calculates the growth percentage based on the total debt divided by the shareholder's equity reported in the Balance Sheet within the company filings or reports."""
+        ...
+
+    @property
+    def cash_ratio_growth(self) -> QuantConnect.Data.Fundamental.CashRatioGrowth:
+        """The growth in the company's cash ratio on a percentage basis. Morningstar calculates the growth percentage based on the short term liquid investments (cash, cash equivalents, short term investments) divided by current liabilities reported in the Balance Sheet within the company filings or reports."""
+        ...
+
+    @property
+    def ebitda_growth(self) -> QuantConnect.Data.Fundamental.EBITDAGrowth:
+        """The growth in the company's EBITDA on a percentage basis. Morningstar calculates the growth percentage based on the earnings minus expenses (excluding interest, tax, depreciation, and amortization expenses) reported in the Financial Statements within the company filings or reports."""
+        ...
+
+    @property
+    def cash_flow_from_financing_growth(self) -> QuantConnect.Data.Fundamental.CashFlowFromFinancingGrowth:
+        """The growth in the company's cash flows from financing on a percentage basis. Morningstar calculates the growth percentage based on the financing cash flows reported in the Cash Flow Statement within the company filings or reports."""
+        ...
+
+    @property
+    def cash_flow_from_investing_growth(self) -> QuantConnect.Data.Fundamental.CashFlowFromInvestingGrowth:
+        """The growth in the company's cash flows from investing on a percentage basis. Morningstar calculates the growth percentage based on the cash flows from investing reported in the Cash Flow Statement within the company filings or reports."""
+        ...
+
+    @property
+    def cap_ex_growth(self) -> QuantConnect.Data.Fundamental.CapExGrowth:
+        """The growth in the company's capital expenditures on a percentage basis. Morningstar calculates the growth percentage based on the capital expenditures reported in the Cash Flow Statement within the company filings or reports."""
+        ...
+
+    @property
+    def current_ratio_growth(self) -> QuantConnect.Data.Fundamental.CurrentRatioGrowth:
+        """The growth in the company's current ratio on a percentage basis. Morningstar calculates the growth percentage based on the current assets divided by current liabilities reported in the Balance Sheet within the company filings or reports."""
+        ...
+
+    @property
+    def working_capital_turnover_ratio(self) -> QuantConnect.Data.Fundamental.WorkingCapitalTurnoverRatio:
+        """Total revenue / working capital (current assets minus current liabilities)"""
+        ...
+
+    @property
+    def net_income_per_employee(self) -> QuantConnect.Data.Fundamental.NetIncomePerEmployee:
+        """Refers to the ratio of Net Income to Employees. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Net Income / Employee Number."""
+        ...
+
+    @property
+    def solvency_ratio(self) -> QuantConnect.Data.Fundamental.SolvencyRatio:
+        """Measure of whether a company's cash flow is sufficient to meet its short-term and long-term debt requirements. The lower this ratio is, the greater the probability that the company will be in financial distress. Net Income + Depreciation, Depletion and Amortization/ average of annual Total Liabilities over the most recent two periods."""
+        ...
+
+    @property
+    def expense_ratio(self) -> QuantConnect.Data.Fundamental.ExpenseRatio:
+        """A measure of operating performance for Insurance companies, as it shows the relationship between the premiums earned and administrative expenses related to claims such as fees and commissions. A number of 1 or lower is preferred, as this means the premiums exceed the expenses. Calculated as: (Deferred Policy Acquisition Amortization Expense+Fees and Commission Expense+Other Underwriting Expenses+Selling, General and Administrative) / Net Premiums Earned"""
+        ...
+
+    @property
+    def loss_ratio(self) -> QuantConnect.Data.Fundamental.LossRatio:
+        """A measure of operating performance for Insurance companies, as it shows the relationship between the premiums earned and the expenses related to claims. A number of 1 or lower is preferred, as this means the premiums exceed the expenses. Calculated as: Benefits, Claims and Loss Adjustment Expense, Net / Net Premiums Earned"""
         ...
 
     def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
@@ -54270,2492 +62955,127 @@ class FinancialStatements(QuantConnect.Data.Fundamental.FundamentalTimeDependent
         ...
 
 
-class EarningReportsPeriodEndingDate(QuantConnect.Data.Fundamental.MultiPeriodField[datetime.datetime]):
-    """The exact date that is given in the financial statements for each quarter's end."""
+class SecurityReference(QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty):
+    """Definition of the SecurityReference class"""
 
     @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
+    def security_symbol(self) -> str:
+        """An arrangement of characters (often letters) representing a particular security listed on an exchange or otherwise traded publicly. Note: Morningstar's multi-share class symbols will often contain a "period" within the symbol; e.g. BRK.B for Berkshire Hathaway Class B."""
         ...
 
     @property
-    def one_month(self) -> datetime.datetime:
-        """Gets/sets the OneMonth period value for the field"""
+    def exchange_id(self) -> str:
+        """The Id representing the stock exchange that the particular share class is trading. See separate reference document for Exchange Mappings."""
         ...
 
     @property
-    def two_months(self) -> datetime.datetime:
-        """Gets/sets the TwoMonths period value for the field"""
+    def currency_id(self) -> str:
+        """3 Character ISO code of the currency that the exchange price is denominated in; i.e. the trading currency of the security. See separate reference document for Currency Mappings."""
         ...
 
     @property
-    def three_months(self) -> datetime.datetime:
-        """Gets/sets the ThreeMonths period value for the field"""
+    def ipo_date(self) -> datetime.datetime:
+        """The initial day that the share begins trading on a public exchange."""
         ...
 
     @property
-    def six_months(self) -> datetime.datetime:
-        """Gets/sets the SixMonths period value for the field"""
+    def is_depositary_receipt(self) -> bool:
+        """Indicator to denote if the share class is a depository receipt. 1 denotes it is an ADR or GDR; otherwise 0."""
         ...
 
     @property
-    def nine_months(self) -> datetime.datetime:
-        """Gets/sets the NineMonths period value for the field"""
+    def depositary_receipt_ratio(self) -> float:
+        """The number of underlying common shares backing each American Depository Receipt traded."""
         ...
 
     @property
-    def twelve_months(self) -> datetime.datetime:
-        """Gets/sets the TwelveMonths period value for the field"""
+    def security_type(self) -> str:
+        """Each security will be assigned to one of the below security type classifications; - Common Stock (ST00000001) - Preferred Stock (ST00000002) - Units (ST000000A1)"""
         ...
 
     @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
+    def share_class_description(self) -> str:
+        """Provides information when applicable such as whether the share class is Class A or Class B, an ADR, GDR, or a business development company (BDC). For preferred stocks, this field provides more detail about the preferred share class."""
         ...
 
     @property
-    def value(self) -> datetime.datetime:
-        """Returns the default value for the field"""
+    def share_class_status(self) -> str:
+        """At the ShareClass level; each share is assigned to 1 of 4 possible status classifications; (A) Active, (D) Deactive, (I) Inactive, or (O) Obsolete: - Active-Share class is currently trading in a public market, and we have fundamental data available. - Deactive-Share class was once Active, but is no longer trading due to share being delisted from the exchange. - Inactive-Share class is currently trading in a public market, but no fundamental data is available. - Obsolete-Share class was once Inactive, but is no longer trading due to share being delisted from the exchange."""
         ...
 
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> datetime.datetime:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, datetime.datetime]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class EarningReportsFileDate(QuantConnect.Data.Fundamental.MultiPeriodField[datetime.datetime]):
-    """Specific date on which a company released its filing to the public."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> datetime.datetime:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> datetime.datetime:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> datetime.datetime:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> datetime.datetime:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> datetime.datetime:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> datetime.datetime:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> datetime.datetime:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> datetime.datetime:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, datetime.datetime]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class EarningReportsAccessionNumber(QuantConnect.Data.Fundamental.MultiPeriodField[str]):
-    """The accession number is a unique number that EDGAR assigns to each submission as the submission is received."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> str:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> str:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> str:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> str:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> str:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> str:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> str:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, str]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class EarningReportsFormType(QuantConnect.Data.Fundamental.MultiPeriodField[str]):
-    """The type of filing of the report: for instance, 10-K (annual report) or 10-Q (quarterly report)."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> str:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> str:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> str:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> str:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> str:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> str:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> str:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> str:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, str]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class EarningReportsPeriodType(QuantConnect.Data.Fundamental.MultiPeriodField[str]):
-    """The nature of the period covered by an individual set of financial results. The output can be: Quarter, Semi-annual or Annual. Assuming a 12-month fiscal year, quarter typically covers a three-month period, semi-annual a six-month period, and annual a twelve-month period. Annual could cover results collected either from preliminary results or an annual report"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> str:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> str:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> str:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> str:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> str:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> str:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> str:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> str:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, str]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class BasicContinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Basic EPS from Continuing Operations is the earnings from continuing operations reported by the company divided by the weighted average number of common shares outstanding."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class BasicDiscontinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Basic EPS from Discontinued Operations is the earnings from discontinued operations reported by the company divided by the weighted average number of common shares outstanding. This only includes gain or loss from discontinued operations."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class BasicExtraordinary(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Basic EPS from the Extraordinary Gains/Losses is the earnings attributable to the gains or losses (during the reporting period) from extraordinary items divided by the weighted average number of common shares outstanding."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class BasicAccountingChange(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Basic EPS from the Cumulative Effect of Accounting Change is the earnings attributable to the accounting change (during the reporting period) divided by the weighted average number of common shares outstanding."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class BasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Basic EPS is the bottom line net income divided by the weighted average number of common shares outstanding."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class DilutedContinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Diluted EPS from Continuing Operations is the earnings from continuing operations divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class DilutedDiscontinuousOperations(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Diluted EPS from Discontinued Operations is the earnings from discontinued operations divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock. This only includes gain or loss from discontinued operations."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class DilutedExtraordinary(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Diluted EPS from Extraordinary Gain/Losses is the gain or loss from extraordinary items divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class DilutedAccountingChange(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Diluted EPS from Cumulative Effect Accounting Changes is the earnings from accounting changes (in the reporting period) divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class DilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Diluted EPS is the bottom line net income divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock. This value will be derived when not reported for the fourth quarter and will be less than or equal to Basic EPS."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class BasicAverageShares(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The shares outstanding used to calculate Basic EPS, which is the weighted average common share outstanding through the whole accounting PeriodAsByte. Note: If Basic Average Shares are not presented by the firm in the Income Statement, this data point will be null."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class DilutedAverageShares(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The shares outstanding used to calculate the diluted EPS, assuming the conversion of all convertible securities and the exercise of warrants or stock options. It is the weighted average diluted share outstanding through the whole accounting PeriodAsByte. Note: If Diluted Average Shares are not presented by the firm in the Income Statement and Basic Average Shares are presented, Diluted Average Shares will equal Basic Average Shares. However, if neither value is presented by the firm, Diluted Average Shares will be null."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class DividendPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The amount of dividend that a stockholder will receive for each share of stock held. It can be calculated by taking the total amount of dividends paid and dividing it by the total shares outstanding. Dividend per share = total dividend payment/total number of outstanding shares"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class BasicEPSOtherGainsLosses(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Basic EPS from the Other Gains/Losses is the earnings attributable to the other gains/losses (during the reporting period) divided by the weighted average number of common shares outstanding."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class ContinuingAndDiscontinuedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Basic EPS from Continuing Operations plus Basic EPS from Discontinued Operations."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class TaxLossCarryforwardBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The earnings attributable to the tax loss carry forward (during the reporting period)."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class DilutedEPSOtherGainsLosses(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The earnings from gains and losses (in the reporting period) divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, convertible preferred stock, etc."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class ContinuingAndDiscontinuedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Diluted EPS from Continuing Operations plus Diluted EPS from Discontinued Operations."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class TaxLossCarryforwardDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The earnings from any tax loss carry forward (in the reporting period)."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class NormalizedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The basic normalized earnings per share. Normalized EPS removes onetime and unusual items from EPS, to provide investors with a more accurate measure of the company's true earnings. Normalized Earnings / Basic Weighted Average Shares Outstanding."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class NormalizedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The diluted normalized earnings per share. Normalized EPS removes onetime and unusual items from EPS, to provide investors with a more accurate measure of the company's true earnings. Normalized Earnings / Diluted Weighted Average Shares Outstanding."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class TotalDividendPerShare(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Total Dividend Per Share is cash dividends and special cash dividends paid per share over a certain period of time."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class ReportedNormalizedBasicEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Normalized Basic EPS as reported by the company in the financial statements."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class ReportedNormalizedDilutedEPS(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Normalized Diluted EPS as reported by the company in the financial statements."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class DividendCoverageRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Reflects a firm's capacity to pay a dividend, and is defined as Earnings Per Share / Dividend Per Share"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def twelve_months(self) -> float:
-        """Gets/sets the TwelveMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class EarningReports(QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty):
-    """Definition of the EarningReports class"""
-
-    @property
-    def period_ending_date(self) -> QuantConnect.Data.Fundamental.EarningReportsPeriodEndingDate:
-        """The exact date that is given in the financial statements for each quarter's end."""
-        ...
-
-    @property
-    def file_date(self) -> QuantConnect.Data.Fundamental.EarningReportsFileDate:
-        """Specific date on which a company released its filing to the public."""
-        ...
-
-    @property
-    def accession_number(self) -> QuantConnect.Data.Fundamental.EarningReportsAccessionNumber:
-        """The accession number is a unique number that EDGAR assigns to each submission as the submission is received."""
-        ...
-
-    @property
-    def form_type(self) -> QuantConnect.Data.Fundamental.EarningReportsFormType:
-        """The type of filing of the report: for instance, 10-K (annual report) or 10-Q (quarterly report)."""
-        ...
-
-    @property
-    def period_type(self) -> QuantConnect.Data.Fundamental.EarningReportsPeriodType:
-        """The nature of the period covered by an individual set of financial results. The output can be: Quarter, Semi-annual or Annual. Assuming a 12-month fiscal year, quarter typically covers a three-month period, semi-annual a six-month period, and annual a twelve-month period. Annual could cover results collected either from preliminary results or an annual report"""
-        ...
-
-    @property
-    def basic_continuous_operations(self) -> QuantConnect.Data.Fundamental.BasicContinuousOperations:
-        """Basic EPS from Continuing Operations is the earnings from continuing operations reported by the company divided by the weighted average number of common shares outstanding."""
-        ...
-
-    @property
-    def basic_discontinuous_operations(self) -> QuantConnect.Data.Fundamental.BasicDiscontinuousOperations:
-        """Basic EPS from Discontinued Operations is the earnings from discontinued operations reported by the company divided by the weighted average number of common shares outstanding. This only includes gain or loss from discontinued operations."""
-        ...
-
-    @property
-    def basic_extraordinary(self) -> QuantConnect.Data.Fundamental.BasicExtraordinary:
-        """Basic EPS from the Extraordinary Gains/Losses is the earnings attributable to the gains or losses (during the reporting period) from extraordinary items divided by the weighted average number of common shares outstanding."""
-        ...
-
-    @property
-    def basic_accounting_change(self) -> QuantConnect.Data.Fundamental.BasicAccountingChange:
-        """Basic EPS from the Cumulative Effect of Accounting Change is the earnings attributable to the accounting change (during the reporting period) divided by the weighted average number of common shares outstanding."""
-        ...
-
-    @property
-    def basic_eps(self) -> QuantConnect.Data.Fundamental.BasicEPS:
-        """Basic EPS is the bottom line net income divided by the weighted average number of common shares outstanding."""
-        ...
-
-    @property
-    def diluted_continuous_operations(self) -> QuantConnect.Data.Fundamental.DilutedContinuousOperations:
-        """Diluted EPS from Continuing Operations is the earnings from continuing operations divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock."""
-        ...
-
-    @property
-    def diluted_discontinuous_operations(self) -> QuantConnect.Data.Fundamental.DilutedDiscontinuousOperations:
-        """Diluted EPS from Discontinued Operations is the earnings from discontinued operations divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock. This only includes gain or loss from discontinued operations."""
-        ...
-
-    @property
-    def diluted_extraordinary(self) -> QuantConnect.Data.Fundamental.DilutedExtraordinary:
-        """Diluted EPS from Extraordinary Gain/Losses is the gain or loss from extraordinary items divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock."""
-        ...
-
-    @property
-    def diluted_accounting_change(self) -> QuantConnect.Data.Fundamental.DilutedAccountingChange:
-        """Diluted EPS from Cumulative Effect Accounting Changes is the earnings from accounting changes (in the reporting period) divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock."""
-        ...
-
-    @property
-    def diluted_eps(self) -> QuantConnect.Data.Fundamental.DilutedEPS:
-        """Diluted EPS is the bottom line net income divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, and convertible preferred stock. This value will be derived when not reported for the fourth quarter and will be less than or equal to Basic EPS."""
-        ...
-
     @property
-    def basic_average_shares(self) -> QuantConnect.Data.Fundamental.BasicAverageShares:
-        """The shares outstanding used to calculate Basic EPS, which is the weighted average common share outstanding through the whole accounting period. Note: If Basic Average Shares are not presented by the firm in the Income Statement, this data point will be null."""
+    def is_primary_share(self) -> bool:
+        """This indicator will denote if the indicated share is the primary share for the company. A "1" denotes the primary share, a "0" denotes a share that is not the primary share. The primary share is defined as the first share that a company IPO'd with and is still actively trading. If this share is no longer trading, we will denote the primary share as the share with the highest volume."""
         ...
 
     @property
-    def diluted_average_shares(self) -> QuantConnect.Data.Fundamental.DilutedAverageShares:
-        """The shares outstanding used to calculate the diluted EPS, assuming the conversion of all convertible securities and the exercise of warrants or stock options. It is the weighted average diluted share outstanding through the whole accounting period. Note: If Diluted Average Shares are not presented by the firm in the Income Statement and Basic Average Shares are presented, Diluted Average Shares will equal Basic Average Shares. However, if neither value is presented by the firm, Diluted Average Shares will be null."""
+    def is_dividend_reinvest(self) -> bool:
+        """Shareholder election plan to re-invest cash dividend into additional shares."""
         ...
 
     @property
-    def dividend_per_share(self) -> QuantConnect.Data.Fundamental.DividendPerShare:
-        """The amount of dividend that a stockholder will receive for each share of stock held. It can be calculated by taking the total amount of dividends paid and dividing it by the total shares outstanding. Dividend per share = total dividend payment/total number of outstanding shares"""
+    def is_direct_invest(self) -> bool:
+        """A plan to make it possible for individual investors to invest in public companies without going through a stock broker."""
         ...
 
     @property
-    def basic_eps_other_gains_losses(self) -> QuantConnect.Data.Fundamental.BasicEPSOtherGainsLosses:
-        """Basic EPS from the Other Gains/Losses is the earnings attributable to the other gains/losses (during the reporting period) divided by the weighted average number of common shares outstanding."""
+    def investment_id(self) -> str:
+        """Identifier assigned to each security Morningstar covers."""
         ...
 
     @property
-    def continuing_and_discontinued_basic_eps(self) -> QuantConnect.Data.Fundamental.ContinuingAndDiscontinuedBasicEPS:
-        """Basic EPS from Continuing Operations plus Basic EPS from Discontinued Operations."""
+    def ipo_offer_price(self) -> float:
+        """IPO offer price indicates the price at which an issuer sells its shares under an initial public offering (IPO). The offer price is set by issuer and its underwriters."""
         ...
 
     @property
-    def tax_loss_carryforward_basic_eps(self) -> QuantConnect.Data.Fundamental.TaxLossCarryforwardBasicEPS:
-        """The earnings attributable to the tax loss carry forward (during the reporting period)."""
+    def delisting_date(self) -> datetime.datetime:
+        """The date on which an inactive security was delisted from an exchange."""
         ...
 
     @property
-    def diluted_eps_other_gains_losses(self) -> QuantConnect.Data.Fundamental.DilutedEPSOtherGainsLosses:
-        """The earnings from gains and losses (in the reporting period) divided by the common shares outstanding adjusted for the assumed conversion of all potentially dilutive securities. Securities having a dilutive effect may include convertible debentures, warrants, options, convertible preferred stock, etc."""
+    def delisting_reason(self) -> str:
+        """The reason for an inactive security's delisting from an exchange. The full list of Delisting Reason codes can be found within the Data Definitions- Appendix A DelistingReason Codes tab."""
         ...
 
     @property
-    def continuing_and_discontinued_diluted_eps(self) -> QuantConnect.Data.Fundamental.ContinuingAndDiscontinuedDilutedEPS:
-        """Diluted EPS from Continuing Operations plus Diluted EPS from Discontinued Operations."""
+    def mic(self) -> str:
+        """The MIC (market identifier code) of the related shareclass of the company. See Data Appendix A for the relevant MIC to exchange name mapping."""
         ...
 
     @property
-    def tax_loss_carryforward_diluted_eps(self) -> QuantConnect.Data.Fundamental.TaxLossCarryforwardDilutedEPS:
-        """The earnings from any tax loss carry forward (in the reporting period)."""
+    def common_share_sub_type(self) -> str:
+        """Refers to the type of securities that can be found within the equity database. For the vast majority, this value will populate as null for regular common shares. For a minority of shareclasses, this will populate as either "Participating Preferred", "Closed-End Fund", "Foreign Share", or "Foreign Participated Preferred" which reflects our limited coverage of these types of securities within our equity database."""
         ...
 
     @property
-    def normalized_basic_eps(self) -> QuantConnect.Data.Fundamental.NormalizedBasicEPS:
-        """The basic normalized earnings per share. Normalized EPS removes onetime and unusual items from EPS, to provide investors with a more accurate measure of the company's true earnings. Normalized Earnings / Basic Weighted Average Shares Outstanding."""
+    def ipo_offer_price_range(self) -> str:
+        """The estimated offer price range (low-high) for a new IPO. The field should be used until the final IPO price becomes available, as populated in the data field "IPOPrice"."""
         ...
 
     @property
-    def normalized_diluted_eps(self) -> QuantConnect.Data.Fundamental.NormalizedDilutedEPS:
-        """The diluted normalized earnings per share. Normalized EPS removes onetime and unusual items from EPS, to provide investors with a more accurate measure of the company's true earnings. Normalized Earnings / Diluted Weighted Average Shares Outstanding."""
+    def exchange_sub_market_global_id(self) -> str:
+        """Classification to denote different Marketplace or Market tiers within a stock exchange."""
         ...
 
     @property
-    def total_dividend_per_share(self) -> QuantConnect.Data.Fundamental.TotalDividendPerShare:
-        """Total Dividend Per Share is cash dividends and special cash dividends paid per share over a certain period of time."""
+    def conversion_ratio(self) -> float:
+        """The relationship between the chosen share class and the primary share class."""
         ...
 
     @property
-    def reported_normalized_basic_eps(self) -> QuantConnect.Data.Fundamental.ReportedNormalizedBasicEPS:
-        """Normalized Basic EPS as reported by the company in the financial statements."""
+    def par_value(self) -> float:
+        """Nominal value of a security determined by the issuing company."""
         ...
 
     @property
-    def reported_normalized_diluted_eps(self) -> QuantConnect.Data.Fundamental.ReportedNormalizedDilutedEPS:
-        """Normalized Diluted EPS as reported by the company in the financial statements."""
+    def trading_status(self) -> bool:
+        """Morningstar DataId: 1028"""
         ...
 
     @property
-    def dividend_coverage_ratio(self) -> QuantConnect.Data.Fundamental.DividendCoverageRatio:
-        """Reflects a firm's capacity to pay a dividend, and is defined as Earnings Per Share / Dividend Per Share"""
+    def market_data_id(self) -> str:
+        """Morningstar DataId: 1029"""
         ...
 
     def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
@@ -56767,6415 +63087,132 @@ class EarningReports(QuantConnect.Data.Fundamental.FundamentalTimeDependentPrope
         ...
 
 
-class RevenueGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's revenue on a percentage basis. Morningstar calculates the growth percentage based on the underlying revenue data reported in the Income Statement within the company filings or reports."""
+class CompanyReference(QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty):
+    """Definition of the CompanyReference class"""
 
     @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
+    def company_id(self) -> str:
+        """10-digit unique and unchanging Morningstar identifier assigned to every company."""
         ...
 
     @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
+    def short_name(self) -> str:
+        """25-character max abbreviated name of the firm. In most cases, the short name will simply be the Legal Name less the "Corporation", "Corp.", "Inc.", "Incorporated", etc..."""
         ...
 
     @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
+    def standard_name(self) -> str:
+        """The English translation of the foreign legal name if/when applicable."""
         ...
 
     @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
+    def legal_name(self) -> str:
+        """The full name of the registrant as specified in its charter, and most often found on the front cover of the 10K/10Q/20F filing."""
         ...
 
     @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
+    def country_id(self) -> str:
+        """3 Character ISO code of the country where the firm is domiciled. See separate reference document for Country Mappings."""
         ...
 
     @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
+    def cik(self) -> str:
+        """The Central Index Key; a corporate identifier assigned by the Securities and Exchange Commission (SEC)."""
         ...
 
     @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
+    def company_status(self) -> str:
+        """At the Company level; each company is assigned to 1 of 3 possible status classifications; (U) Public, (V) Private, or (O) Obsolete: - Public-Firm is operating and currently has at least one common share class that is currently trading on a public exchange. - Private-Firm is operating but does not have any common share classes currently trading on a public exchange. - Obsolete-Firm is no longer operating because it closed its business, or was acquired."""
         ...
 
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class OperationIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's operating income on a percentage basis. Morningstar calculates the growth percentage based on the underlying operating income data reported in the Income Statement within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class NetIncomeGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's net income on a percentage basis. Morningstar calculates the growth percentage based on the underlying net income data reported in the Income Statement within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class NetIncomeContOpsGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's net income from continuing operations on a percentage basis. Morningstar calculates the growth percentage based on the underlying net income from continuing operations data reported in the Income Statement within the company filings or reports. This figure represents the rate of net income growth for parts of the business that will continue to generate revenue in the future."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class CFOGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's cash flow from operations on a percentage basis. Morningstar calculates the growth percentage based on the underlying cash flow from operations data reported in the Cash Flow Statement within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class FCFGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's free cash flow on a percentage basis. Morningstar calculates the growth percentage based on the underlying cash flow from operations and capital expenditures data reported in the Cash Flow Statement within the company filings or reports: Free Cash Flow = Cash flow from operations - Capital Expenditures."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class OperationRevenueGrowth3MonthAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's operating revenue on a percentage basis. Morningstar calculates the growth percentage based on the underlying operating revenue data reported in the Income Statement within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class GrossMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of gross profit to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: (Revenue - Cost of Goods Sold) / Revenue."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class OperationMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of operating income to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Operating Income / Revenue."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class PretaxMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of pretax income to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Pretax Income / Revenue."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class NetMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of net income to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Net Income / Revenue."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class TaxRate(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of tax provision to pretax income. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Tax Provision / Pretax Income. <Note: Valid only when positive pretax income, and positive tax expense (not tax benefit)>"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class EBITMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of earnings before interest and taxes to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: EBIT / Revenue."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class EBITDAMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of earnings before interest, taxes and depreciation and amortization to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: EBITDA / Revenue."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class SalesPerEmployee(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of Revenue to Employees. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Revenue / Employee Number."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class CurrentRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of Current Assets to Current Liabilities. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Current Assets / Current Liabilities."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class QuickRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of liquid assets to Current Liabilities. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports:(Cash, Cash Equivalents, and Short Term Investments + Receivables ) / Current Liabilities."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class LongTermDebtTotalCapitalRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of Long Term Debt to Total Capital. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Long-Term Debt And Capital Lease Obligation / (Long-Term Debt And Capital Lease Obligation + Total Shareholder's Equity)"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class InterestCoverage(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of EBIT to Interest Expense. Morningstar calculates the ratio by using the underlying data reported in the Income Statement within the company filings or reports: EBIT / Interest Expense."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class LongTermDebtEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of Long Term Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Long-Term Debt And Capital Lease Obligation / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class FinancialLeverage(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of Total Assets to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Total Assets / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class TotalDebtEquityRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of Total Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: (Current Debt And Current Capital Lease Obligation + Long-Term Debt And Long-Term Capital Lease Obligation / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class NormalizedNetProfitMargin(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Normalized Income / Total Revenue. A measure of profitability of the company calculated by finding Normalized Net Profit as a percentage of Total Revenues."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class DaysInSales(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """365 / Receivable Turnover"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class DaysInInventory(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """365 / Inventory turnover"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class DaysInPayment(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """365 / Payable turnover"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class CashConversionCycle(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Days In Inventory + Days In Sales - Days In Payment"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class ReceivableTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Revenue / Average Accounts Receivables"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class InventoryTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Cost Of Goods Sold / Average Inventory"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class PaymentTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Cost of Goods Sold / Average Accounts Payables"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class FixAssetsTuronver(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Revenue / Average PP&E"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class AssetsTurnover(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Revenue / Average Total Assets"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class ROE(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Net Income / Average Total Common Equity"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class ROA(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Net Income / Average Total Assets"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class ROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Net Income / (Total Equity + Long-term Debt and Capital Lease Obligation + Short-term Debt and Capital Lease Obligation)"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class FCFSalesRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Free Cash flow / Revenue"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class FCFNetIncomeRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Free Cash Flow / Net Income"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class CapExSalesRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Capital Expenditure / Revenue"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class DebtToAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """This is a leverage ratio used to determine how much debt (a sum of long term and current portion of debt) a company has on its balance sheet relative to total assets. This ratio examines the percent of the company that is financed by debt."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class CommonEquityToAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """This is a financial ratio of common stock equity to total assets that indicates the relative proportion of equity used to finance a company's assets."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def one_month(self) -> float:
-        """Gets/sets the OneMonth period value for the field"""
-        ...
-
-    @property
-    def two_months(self) -> float:
-        """Gets/sets the TwoMonths period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def nine_months(self) -> float:
-        """Gets/sets the NineMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class CapitalExpenditureAnnual5YrGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """This is the compound annual growth rate of the company's capital spending over the last 5 years. Capital Spending is the sum of the Capital Expenditure items found in the Statement of Cash Flows."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class GrossProfitAnnual5YrGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """This is the compound annual growth rate of the company's Gross Profit over the last 5 years."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class GrossMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """This is the simple average of the company's Annual Gross Margin over the last 5 years. Gross Margin is Total Revenue minus Cost of Goods Sold divided by Total Revenue and is expressed as a percentage."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class PostTaxMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """This is the simple average of the company's Annual Post Tax Margin over the last 5 years. Post tax margin is Post tax divided by total revenue for the same PeriodAsByte."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class PreTaxMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """This is the simple average of the company's Annual Pre Tax Margin over the last 5 years. Pre tax margin is Pre tax divided by total revenue for the same PeriodAsByte."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class ProfitMargin5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """This is the simple average of the company's Annual Net Profit Margin over the last 5 years. Net profit margin is post tax income divided by total revenue for the same PeriodAsByte."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class ROE5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """This is the simple average of the company's ROE over the last 5 years. Return on equity reveals how much profit a company has earned in comparison to the total amount of shareholder equity found on the balance sheet."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class ROA5YrAvg(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """This is the simple average of the company's ROA over the last 5 years. Return on asset is calculated by dividing a company's annual earnings by its average total assets."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class AVG5YrsROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """This is the simple average of the company's ROIC over the last 5 years. Return on invested capital is calculated by taking net operating profit after taxes and dividends and dividing by the total amount of capital invested and expressing the result as a percentage."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class NormalizedROIC(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """<Normalized Income + (Interest Expense * (1-Tax Rate))> / Invested Capital"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def six_months(self) -> float:
-        """Gets/sets the SixMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class RegressionGrowthOperatingRevenue5Years(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The five-year growth rate of operating revenue, calculated using regression analysis."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class CashRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Indicates a company's short-term liquidity, defined as short term liquid investments (cash, cash equivalents, short term investments) divided by current liabilities."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class CashtoTotalAssets(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Represents the percentage of a company's total assets is in cash."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class CapitalExpendituretoEBITDA(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Measures the amount a company is investing in its business relative to EBITDA generated in a given PeriodAsByte."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class FCFtoCFO(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Indicates the percentage of a company's operating cash flow is free to be invested in its business after capital expenditures."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class StockholdersEquityGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the stockholder's equity on a percentage basis. Morningstar calculates the growth percentage based on the residual interest in the assets of the enterprise that remains after deducting its liabilities reported in the Balance Sheet within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class TotalAssetsGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the total assets on a percentage basis. Morningstar calculates the growth percentage based on the total assets reported in the Balance Sheet within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class TotalLiabilitiesGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the total liabilities on a percentage basis. Morningstar calculates the growth percentage based on the total liabilities reported in the Balance Sheet within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class TotalDebtEquityRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's total debt to equity ratio on a percentage basis. Morningstar calculates the growth percentage based on the total debt divided by the shareholder's equity reported in the Balance Sheet within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class CashRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's cash ratio on a percentage basis. Morningstar calculates the growth percentage based on the short term liquid investments (cash, cash equivalents, short term investments) divided by current liabilities reported in the Balance Sheet within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class EBITDAGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's EBITDA on a percentage basis. Morningstar calculates the growth percentage based on the earnings minus expenses (excluding interest, tax, depreciation, and amortization expenses) reported in the Financial Statements within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class CashFlowFromFinancingGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's cash flows from financing on a percentage basis. Morningstar calculates the growth percentage based on the financing cash flows reported in the Cash Flow Statement within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class CashFlowFromInvestingGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's cash flows from investing on a percentage basis. Morningstar calculates the growth percentage based on the cash flows from investing reported in the Cash Flow Statement within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class CapExGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's capital expenditures on a percentage basis. Morningstar calculates the growth percentage based on the capital expenditures reported in the Cash Flow Statement within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class CurrentRatioGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's current ratio on a percentage basis. Morningstar calculates the growth percentage based on the current assets divided by current liabilities reported in the Balance Sheet within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class WorkingCapitalTurnoverRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Total revenue / working capital (current assets minus current liabilities)"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class NetIncomePerEmployee(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Refers to the ratio of Net Income to Employees. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Net Income / Employee Number."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class SolvencyRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """Measure of whether a company's cash flow is sufficient to meet its short-term and long-term debt requirements. The lower this ratio is, the greater the probability that the company will be in financial distress. Net Income + Depreciation, Depletion and Amortization/ average of annual Total Liabilities over the most recent two periods."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class ExpenseRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """A measure of operating performance for Insurance companies, as it shows the relationship between the premiums earned and administrative expenses related to claims such as fees and commissions. A number of 1 or lower is preferred, as this means the premiums exceed the expenses. Calculated as: (Deferred Policy Acquisition Amortization Expense+Fees and Commission Expense+Other Underwriting Expenses+Selling, General and Administrative) / Net Premiums Earned"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class LossRatio(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """A measure of operating performance for Insurance companies, as it shows the relationship between the premiums earned and the expenses related to claims. A number of 1 or lower is preferred, as this means the premiums exceed the expenses. Calculated as: Benefits, Claims and Loss Adjustment Expense, Net / Net Premiums Earned"""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class OperationRatios(QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty):
-    """Definition of the OperationRatios class"""
-
-    @property
-    def revenue_growth(self) -> QuantConnect.Data.Fundamental.RevenueGrowth:
-        """The growth in the company's revenue on a percentage basis. Morningstar calculates the growth percentage based on the underlying revenue data reported in the Income Statement within the company filings or reports."""
-        ...
-
-    @property
-    def operation_income_growth(self) -> QuantConnect.Data.Fundamental.OperationIncomeGrowth:
-        """The growth in the company's operating income on a percentage basis. Morningstar calculates the growth percentage based on the underlying operating income data reported in the Income Statement within the company filings or reports."""
-        ...
-
-    @property
-    def net_income_growth(self) -> QuantConnect.Data.Fundamental.NetIncomeGrowth:
-        """The growth in the company's net income on a percentage basis. Morningstar calculates the growth percentage based on the underlying net income data reported in the Income Statement within the company filings or reports."""
-        ...
-
-    @property
-    def net_income_cont_ops_growth(self) -> QuantConnect.Data.Fundamental.NetIncomeContOpsGrowth:
-        """The growth in the company's net income from continuing operations on a percentage basis. Morningstar calculates the growth percentage based on the underlying net income from continuing operations data reported in the Income Statement within the company filings or reports. This figure represents the rate of net income growth for parts of the business that will continue to generate revenue in the future."""
-        ...
-
-    @property
-    def cfo_growth(self) -> QuantConnect.Data.Fundamental.CFOGrowth:
-        """The growth in the company's cash flow from operations on a percentage basis. Morningstar calculates the growth percentage based on the underlying cash flow from operations data reported in the Cash Flow Statement within the company filings or reports."""
-        ...
-
-    @property
-    def fcf_growth(self) -> QuantConnect.Data.Fundamental.FCFGrowth:
-        """The growth in the company's free cash flow on a percentage basis. Morningstar calculates the growth percentage based on the underlying cash flow from operations and capital expenditures data reported in the Cash Flow Statement within the company filings or reports: Free Cash Flow = Cash flow from operations - Capital Expenditures."""
-        ...
-
-    @property
-    def operation_revenue_growth_3_month_avg(self) -> QuantConnect.Data.Fundamental.OperationRevenueGrowth3MonthAvg:
-        """The growth in the company's operating revenue on a percentage basis. Morningstar calculates the growth percentage based on the underlying operating revenue data reported in the Income Statement within the company filings or reports."""
-        ...
-
-    @property
-    def gross_margin(self) -> QuantConnect.Data.Fundamental.GrossMargin:
-        """Refers to the ratio of gross profit to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: (Revenue - Cost of Goods Sold) / Revenue."""
-        ...
-
-    @property
-    def operation_margin(self) -> QuantConnect.Data.Fundamental.OperationMargin:
-        """Refers to the ratio of operating income to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Operating Income / Revenue."""
-        ...
-
-    @property
-    def pretax_margin(self) -> QuantConnect.Data.Fundamental.PretaxMargin:
-        """Refers to the ratio of pretax income to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Pretax Income / Revenue."""
-        ...
-
-    @property
-    def net_margin(self) -> QuantConnect.Data.Fundamental.NetMargin:
-        """Refers to the ratio of net income to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Net Income / Revenue."""
-        ...
-
-    @property
-    def tax_rate(self) -> QuantConnect.Data.Fundamental.TaxRate:
-        """Refers to the ratio of tax provision to pretax income. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Tax Provision / Pretax Income. <Note: Valid only when positive pretax income, and positive tax expense (not tax benefit)>"""
-        ...
-
-    @property
-    def ebit_margin(self) -> QuantConnect.Data.Fundamental.EBITMargin:
-        """Refers to the ratio of earnings before interest and taxes to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: EBIT / Revenue."""
-        ...
-
-    @property
-    def ebitda_margin(self) -> QuantConnect.Data.Fundamental.EBITDAMargin:
-        """Refers to the ratio of earnings before interest, taxes and depreciation and amortization to revenue. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: EBITDA / Revenue."""
-        ...
-
-    @property
-    def sales_per_employee(self) -> QuantConnect.Data.Fundamental.SalesPerEmployee:
-        """Refers to the ratio of Revenue to Employees. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Revenue / Employee Number."""
-        ...
-
-    @property
-    def current_ratio(self) -> QuantConnect.Data.Fundamental.CurrentRatio:
-        """Refers to the ratio of Current Assets to Current Liabilities. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Current Assets / Current Liabilities."""
-        ...
-
-    @property
-    def quick_ratio(self) -> QuantConnect.Data.Fundamental.QuickRatio:
-        """Refers to the ratio of liquid assets to Current Liabilities. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports:(Cash, Cash Equivalents, and Short Term Investments + Receivables ) / Current Liabilities."""
-        ...
-
-    @property
-    def long_term_debt_total_capital_ratio(self) -> QuantConnect.Data.Fundamental.LongTermDebtTotalCapitalRatio:
-        """Refers to the ratio of Long Term Debt to Total Capital. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Long-Term Debt And Capital Lease Obligation / (Long-Term Debt And Capital Lease Obligation + Total Shareholder's Equity)"""
-        ...
-
-    @property
-    def interest_coverage(self) -> QuantConnect.Data.Fundamental.InterestCoverage:
-        """Refers to the ratio of EBIT to Interest Expense. Morningstar calculates the ratio by using the underlying data reported in the Income Statement within the company filings or reports: EBIT / Interest Expense."""
-        ...
-
-    @property
-    def long_term_debt_equity_ratio(self) -> QuantConnect.Data.Fundamental.LongTermDebtEquityRatio:
-        """Refers to the ratio of Long Term Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Long-Term Debt And Capital Lease Obligation / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
-        ...
-
-    @property
-    def financial_leverage(self) -> QuantConnect.Data.Fundamental.FinancialLeverage:
-        """Refers to the ratio of Total Assets to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: Total Assets / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
-        ...
-
-    @property
-    def total_debt_equity_ratio(self) -> QuantConnect.Data.Fundamental.TotalDebtEquityRatio:
-        """Refers to the ratio of Total Debt to Common Equity. Morningstar calculates the ratio by using the underlying data reported in the Balance Sheet within the company filings or reports: (Current Debt And Current Capital Lease Obligation + Long-Term Debt And Long-Term Capital Lease Obligation / Common Equity. <Note: Common Equity = Total Shareholder's Equity - Preferred Stock>"""
-        ...
-
-    @property
-    def normalized_net_profit_margin(self) -> QuantConnect.Data.Fundamental.NormalizedNetProfitMargin:
-        """Normalized Income / Total Revenue. A measure of profitability of the company calculated by finding Normalized Net Profit as a percentage of Total Revenues."""
-        ...
-
-    @property
-    def days_in_sales(self) -> QuantConnect.Data.Fundamental.DaysInSales:
-        """365 / Receivable Turnover"""
-        ...
-
-    @property
-    def days_in_inventory(self) -> QuantConnect.Data.Fundamental.DaysInInventory:
-        """365 / Inventory turnover"""
-        ...
-
-    @property
-    def days_in_payment(self) -> QuantConnect.Data.Fundamental.DaysInPayment:
-        """365 / Payable turnover"""
-        ...
-
-    @property
-    def cash_conversion_cycle(self) -> QuantConnect.Data.Fundamental.CashConversionCycle:
-        """Days In Inventory + Days In Sales - Days In Payment"""
-        ...
-
-    @property
-    def receivable_turnover(self) -> QuantConnect.Data.Fundamental.ReceivableTurnover:
-        """Revenue / Average Accounts Receivables"""
-        ...
-
-    @property
-    def inventory_turnover(self) -> QuantConnect.Data.Fundamental.InventoryTurnover:
-        """Cost Of Goods Sold / Average Inventory"""
-        ...
-
-    @property
-    def payment_turnover(self) -> QuantConnect.Data.Fundamental.PaymentTurnover:
-        """Cost of Goods Sold / Average Accounts Payables"""
-        ...
-
-    @property
-    def fix_assets_turonver(self) -> QuantConnect.Data.Fundamental.FixAssetsTuronver:
-        """Revenue / Average PP&E"""
-        ...
-
-    @property
-    def assets_turnover(self) -> QuantConnect.Data.Fundamental.AssetsTurnover:
-        """Revenue / Average Total Assets"""
-        ...
-
-    @property
-    def roe(self) -> QuantConnect.Data.Fundamental.ROE:
-        """Net Income / Average Total Common Equity"""
-        ...
-
-    @property
-    def roa(self) -> QuantConnect.Data.Fundamental.ROA:
-        """Net Income / Average Total Assets"""
-        ...
-
-    @property
-    def roic(self) -> QuantConnect.Data.Fundamental.ROIC:
-        """Net Income / (Total Equity + Long-term Debt and Capital Lease Obligation + Short-term Debt and Capital Lease Obligation)"""
-        ...
-
-    @property
-    def fcf_sales_ratio(self) -> QuantConnect.Data.Fundamental.FCFSalesRatio:
-        """Free Cash flow / Revenue"""
-        ...
-
-    @property
-    def fcf_net_income_ratio(self) -> QuantConnect.Data.Fundamental.FCFNetIncomeRatio:
-        """Free Cash Flow / Net Income"""
-        ...
-
-    @property
-    def cap_ex_sales_ratio(self) -> QuantConnect.Data.Fundamental.CapExSalesRatio:
-        """Capital Expenditure / Revenue"""
-        ...
-
-    @property
-    def debt_to_assets(self) -> QuantConnect.Data.Fundamental.DebtToAssets:
-        """This is a leverage ratio used to determine how much debt (a sum of long term and current portion of debt) a company has on its balance sheet relative to total assets. This ratio examines the percent of the company that is financed by debt."""
-        ...
-
-    @property
-    def common_equity_to_assets(self) -> QuantConnect.Data.Fundamental.CommonEquityToAssets:
-        """This is a financial ratio of common stock equity to total assets that indicates the relative proportion of equity used to finance a company's assets."""
-        ...
-
-    @property
-    def capital_expenditure_annual_5_yr_growth(self) -> QuantConnect.Data.Fundamental.CapitalExpenditureAnnual5YrGrowth:
-        """This is the compound annual growth rate of the company's capital spending over the last 5 years. Capital Spending is the sum of the Capital Expenditure items found in the Statement of Cash Flows."""
-        ...
-
-    @property
-    def gross_profit_annual_5_yr_growth(self) -> QuantConnect.Data.Fundamental.GrossProfitAnnual5YrGrowth:
-        """This is the compound annual growth rate of the company's Gross Profit over the last 5 years."""
-        ...
-
-    @property
-    def gross_margin_5_yr_avg(self) -> QuantConnect.Data.Fundamental.GrossMargin5YrAvg:
-        """This is the simple average of the company's Annual Gross Margin over the last 5 years. Gross Margin is Total Revenue minus Cost of Goods Sold divided by Total Revenue and is expressed as a percentage."""
-        ...
-
-    @property
-    def post_tax_margin_5_yr_avg(self) -> QuantConnect.Data.Fundamental.PostTaxMargin5YrAvg:
-        """This is the simple average of the company's Annual Post Tax Margin over the last 5 years. Post tax margin is Post tax divided by total revenue for the same period."""
-        ...
-
-    @property
-    def pre_tax_margin_5_yr_avg(self) -> QuantConnect.Data.Fundamental.PreTaxMargin5YrAvg:
-        """This is the simple average of the company's Annual Pre Tax Margin over the last 5 years. Pre tax margin is Pre tax divided by total revenue for the same period."""
-        ...
-
-    @property
-    def profit_margin_5_yr_avg(self) -> QuantConnect.Data.Fundamental.ProfitMargin5YrAvg:
-        """This is the simple average of the company's Annual Net Profit Margin over the last 5 years. Net profit margin is post tax income divided by total revenue for the same period."""
-        ...
-
-    @property
-    def roe_5_yr_avg(self) -> QuantConnect.Data.Fundamental.ROE5YrAvg:
-        """This is the simple average of the company's ROE over the last 5 years. Return on equity reveals how much profit a company has earned in comparison to the total amount of shareholder equity found on the balance sheet."""
-        ...
-
-    @property
-    def roa_5_yr_avg(self) -> QuantConnect.Data.Fundamental.ROA5YrAvg:
-        """This is the simple average of the company's ROA over the last 5 years. Return on asset is calculated by dividing a company's annual earnings by its average total assets."""
-        ...
-
-    @property
-    def avg_5_yrs_roic(self) -> QuantConnect.Data.Fundamental.AVG5YrsROIC:
-        """This is the simple average of the company's ROIC over the last 5 years. Return on invested capital is calculated by taking net operating profit after taxes and dividends and dividing by the total amount of capital invested and expressing the result as a percentage."""
-        ...
-
-    @property
-    def normalized_roic(self) -> QuantConnect.Data.Fundamental.NormalizedROIC:
-        """<Normalized Income + (Interest Expense * (1-Tax Rate))> / Invested Capital"""
-        ...
-
-    @property
-    def regression_growth_operating_revenue_5_years(self) -> QuantConnect.Data.Fundamental.RegressionGrowthOperatingRevenue5Years:
-        """The five-year growth rate of operating revenue, calculated using regression analysis."""
-        ...
-
-    @property
-    def cash_ratio(self) -> QuantConnect.Data.Fundamental.CashRatio:
-        """Indicates a company's short-term liquidity, defined as short term liquid investments (cash, cash equivalents, short term investments) divided by current liabilities."""
-        ...
-
-    @property
-    def cashto_total_assets(self) -> QuantConnect.Data.Fundamental.CashtoTotalAssets:
-        """Represents the percentage of a company's total assets is in cash."""
-        ...
-
-    @property
-    def capital_expenditureto_ebitda(self) -> QuantConnect.Data.Fundamental.CapitalExpendituretoEBITDA:
-        """Measures the amount a company is investing in its business relative to EBITDA generated in a given period."""
-        ...
-
-    @property
-    def fc_fto_cfo(self) -> QuantConnect.Data.Fundamental.FCFtoCFO:
-        """Indicates the percentage of a company's operating cash flow is free to be invested in its business after capital expenditures."""
-        ...
-
-    @property
-    def stockholders_equity_growth(self) -> QuantConnect.Data.Fundamental.StockholdersEquityGrowth:
-        """The growth in the stockholder's equity on a percentage basis. Morningstar calculates the growth percentage based on the residual interest in the assets of the enterprise that remains after deducting its liabilities reported in the Balance Sheet within the company filings or reports."""
-        ...
-
-    @property
-    def total_assets_growth(self) -> QuantConnect.Data.Fundamental.TotalAssetsGrowth:
-        """The growth in the total assets on a percentage basis. Morningstar calculates the growth percentage based on the total assets reported in the Balance Sheet within the company filings or reports."""
-        ...
-
-    @property
-    def total_liabilities_growth(self) -> QuantConnect.Data.Fundamental.TotalLiabilitiesGrowth:
-        """The growth in the total liabilities on a percentage basis. Morningstar calculates the growth percentage based on the total liabilities reported in the Balance Sheet within the company filings or reports."""
-        ...
-
-    @property
-    def total_debt_equity_ratio_growth(self) -> QuantConnect.Data.Fundamental.TotalDebtEquityRatioGrowth:
-        """The growth in the company's total debt to equity ratio on a percentage basis. Morningstar calculates the growth percentage based on the total debt divided by the shareholder's equity reported in the Balance Sheet within the company filings or reports."""
-        ...
-
-    @property
-    def cash_ratio_growth(self) -> QuantConnect.Data.Fundamental.CashRatioGrowth:
-        """The growth in the company's cash ratio on a percentage basis. Morningstar calculates the growth percentage based on the short term liquid investments (cash, cash equivalents, short term investments) divided by current liabilities reported in the Balance Sheet within the company filings or reports."""
-        ...
-
-    @property
-    def ebitda_growth(self) -> QuantConnect.Data.Fundamental.EBITDAGrowth:
-        """The growth in the company's EBITDA on a percentage basis. Morningstar calculates the growth percentage based on the earnings minus expenses (excluding interest, tax, depreciation, and amortization expenses) reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def cash_flow_from_financing_growth(self) -> QuantConnect.Data.Fundamental.CashFlowFromFinancingGrowth:
-        """The growth in the company's cash flows from financing on a percentage basis. Morningstar calculates the growth percentage based on the financing cash flows reported in the Cash Flow Statement within the company filings or reports."""
-        ...
-
-    @property
-    def cash_flow_from_investing_growth(self) -> QuantConnect.Data.Fundamental.CashFlowFromInvestingGrowth:
-        """The growth in the company's cash flows from investing on a percentage basis. Morningstar calculates the growth percentage based on the cash flows from investing reported in the Cash Flow Statement within the company filings or reports."""
-        ...
-
-    @property
-    def cap_ex_growth(self) -> QuantConnect.Data.Fundamental.CapExGrowth:
-        """The growth in the company's capital expenditures on a percentage basis. Morningstar calculates the growth percentage based on the capital expenditures reported in the Cash Flow Statement within the company filings or reports."""
-        ...
-
-    @property
-    def current_ratio_growth(self) -> QuantConnect.Data.Fundamental.CurrentRatioGrowth:
-        """The growth in the company's current ratio on a percentage basis. Morningstar calculates the growth percentage based on the current assets divided by current liabilities reported in the Balance Sheet within the company filings or reports."""
-        ...
-
-    @property
-    def working_capital_turnover_ratio(self) -> QuantConnect.Data.Fundamental.WorkingCapitalTurnoverRatio:
-        """Total revenue / working capital (current assets minus current liabilities)"""
-        ...
-
-    @property
-    def net_income_per_employee(self) -> QuantConnect.Data.Fundamental.NetIncomePerEmployee:
-        """Refers to the ratio of Net Income to Employees. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: Net Income / Employee Number."""
-        ...
-
-    @property
-    def solvency_ratio(self) -> QuantConnect.Data.Fundamental.SolvencyRatio:
-        """Measure of whether a company's cash flow is sufficient to meet its short-term and long-term debt requirements. The lower this ratio is, the greater the probability that the company will be in financial distress. Net Income + Depreciation, Depletion and Amortization/ average of annual Total Liabilities over the most recent two periods."""
-        ...
-
-    @property
-    def expense_ratio(self) -> QuantConnect.Data.Fundamental.ExpenseRatio:
-        """A measure of operating performance for Insurance companies, as it shows the relationship between the premiums earned and administrative expenses related to claims such as fees and commissions. A number of 1 or lower is preferred, as this means the premiums exceed the expenses. Calculated as: (Deferred Policy Acquisition Amortization Expense+Fees and Commission Expense+Other Underwriting Expenses+Selling, General and Administrative) / Net Premiums Earned"""
-        ...
-
-    @property
-    def loss_ratio(self) -> QuantConnect.Data.Fundamental.LossRatio:
-        """A measure of operating performance for Insurance companies, as it shows the relationship between the premiums earned and the expenses related to claims. A number of 1 or lower is preferred, as this means the premiums exceed the expenses. Calculated as: Benefits, Claims and Loss Adjustment Expense, Net / Net Premiums Earned"""
-        ...
-
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def clone(self, time_provider: QuantConnect.ITimeProvider) -> QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty:
-        """Clones this instance"""
-        ...
-
-
-class DilutedEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's diluted earnings per share (EPS) on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying diluted EPS reported in the Income Statement within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class DilutedContEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's diluted EPS from continuing operations on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying diluted EPS from continuing operations reported in the Income Statement within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class DPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's dividends per share (DPS) on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying DPS from its dividend database. Morningstar collects its DPS from company filings and reports, as well as from third party sources."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class EquityPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's book value per share on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying equity and end of period shares outstanding reported in the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class RegressionGrowthofDividends5Years(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The five-year growth rate of dividends per share, calculated using regression analysis."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class FCFPerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's free cash flow per share on a percentage basis. Morningstar calculates the growth percentage based on the free cash flow divided by average diluted shares outstanding reported in the Financial Statements within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class BookValuePerShareGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's book value per share on a percentage basis. Morningstar calculates the growth percentage based on the common shareholder's equity reported in the Balance Sheet divided by the diluted shares outstanding within the company filings or reports."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class NormalizedDilutedEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's Normalized Diluted EPS on a percentage basis."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class NormalizedBasicEPSGrowth(QuantConnect.Data.Fundamental.MultiPeriodField):
-    """The growth in the company's Normalized Basic EPS on a percentage basis."""
-
-    @property
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def one_year(self) -> float:
-        """Gets/sets the OneYear period value for the field"""
-        ...
-
-    @property
-    def three_months(self) -> float:
-        """Gets/sets the ThreeMonths period value for the field"""
-        ...
-
-    @property
-    def three_years(self) -> float:
-        """Gets/sets the ThreeYears period value for the field"""
-        ...
-
-    @property
-    def five_years(self) -> float:
-        """Gets/sets the FiveYears period value for the field"""
-        ...
-
-    @property
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def get_period_value(self, period: str) -> float:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, float]:
-        """
-        Gets a dictionary of period names and values for the field
-        
-        :returns: The dictionary of period names and values.
-        """
-        ...
-
-
-class EarningRatios(QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty):
-    """Definition of the EarningRatios class"""
-
-    @property
-    def diluted_eps_growth(self) -> QuantConnect.Data.Fundamental.DilutedEPSGrowth:
-        """The growth in the company's diluted earnings per share (EPS) on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying diluted EPS reported in the Income Statement within the company filings or reports."""
-        ...
-
-    @property
-    def diluted_cont_eps_growth(self) -> QuantConnect.Data.Fundamental.DilutedContEPSGrowth:
-        """The growth in the company's diluted EPS from continuing operations on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying diluted EPS from continuing operations reported in the Income Statement within the company filings or reports."""
-        ...
-
-    @property
-    def dps_growth(self) -> QuantConnect.Data.Fundamental.DPSGrowth:
-        """The growth in the company's dividends per share (DPS) on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying DPS from its dividend database. Morningstar collects its DPS from company filings and reports, as well as from third party sources."""
-        ...
-
-    @property
-    def equity_per_share_growth(self) -> QuantConnect.Data.Fundamental.EquityPerShareGrowth:
-        """The growth in the company's book value per share on a percentage basis. Morningstar calculates the annualized growth percentage based on the underlying equity and end of period shares outstanding reported in the company filings or reports."""
-        ...
-
-    @property
-    def regression_growthof_dividends_5_years(self) -> QuantConnect.Data.Fundamental.RegressionGrowthofDividends5Years:
-        """The five-year growth rate of dividends per share, calculated using regression analysis."""
-        ...
-
-    @property
-    def fcf_per_share_growth(self) -> QuantConnect.Data.Fundamental.FCFPerShareGrowth:
-        """The growth in the company's free cash flow per share on a percentage basis. Morningstar calculates the growth percentage based on the free cash flow divided by average diluted shares outstanding reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def book_value_per_share_growth(self) -> QuantConnect.Data.Fundamental.BookValuePerShareGrowth:
-        """The growth in the company's book value per share on a percentage basis. Morningstar calculates the growth percentage based on the common shareholder's equity reported in the Balance Sheet divided by the diluted shares outstanding within the company filings or reports."""
-        ...
-
-    @property
-    def normalized_diluted_eps_growth(self) -> QuantConnect.Data.Fundamental.NormalizedDilutedEPSGrowth:
-        """The growth in the company's Normalized Diluted EPS on a percentage basis."""
-        ...
-
-    @property
-    def normalized_basic_eps_growth(self) -> QuantConnect.Data.Fundamental.NormalizedBasicEPSGrowth:
-        """The growth in the company's Normalized Basic EPS on a percentage basis."""
-        ...
-
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    def clone(self, time_provider: QuantConnect.ITimeProvider) -> QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty:
-        """Clones this instance"""
-        ...
-
-
-class ValuationRatios(QuantConnect.Data.Fundamental.FundamentalTimeDependentProperty):
-    """Definition of the ValuationRatios class"""
-
-    @property
-    def payout_ratio(self) -> float:
-        """Dividend per share / Diluted earnings per share"""
-        ...
-
-    @property
-    def sustainable_growth_rate(self) -> float:
-        """ROE * (1 - Payout Ratio)"""
-        ...
-
-    @property
-    def cash_return(self) -> float:
-        """Refers to the ratio of free cash flow to enterprise value. Morningstar calculates the ratio by using the underlying data reported in the company filings or reports: FCF /Enterprise Value."""
-        ...
-
-    @property
-    def sales_per_share(self) -> float:
-        """Sales / Average Diluted Shares Outstanding"""
-        ...
-
-    @property
-    def book_value_per_share(self) -> float:
-        """Common Shareholder's Equity / Diluted Shares Outstanding"""
-        ...
-
-    @property
-    def cfo_per_share(self) -> float:
-        """Cash Flow from Operations / Average Diluted Shares Outstanding"""
-        ...
-
-    @property
-    def fcf_per_share(self) -> float:
-        """Free Cash Flow / Average Diluted Shares Outstanding"""
-        ...
-
-    @property
-    def earning_yield(self) -> float:
-        """Diluted EPS / Price"""
-        ...
-
-    @property
-    def pe_ratio(self) -> float:
-        """Adjusted Close Price/ EPS. If the result is negative, zero, >10,000 or <0.001, then null."""
-        ...
-
-    @property
-    def sales_yield(self) -> float:
-        """SalesPerShare / Price"""
-        ...
-
-    @property
-    def ps_ratio(self) -> float:
-        """Adjusted close price / Sales Per Share. If the result is negative or zero, then null."""
-        ...
-
-    @property
-    def book_value_yield(self) -> float:
-        """BookValuePerShare / Price"""
-        ...
-
-    @property
-    def pb_ratio(self) -> float:
-        """Adjusted close price / Book Value Per Share. If the result is negative or zero, then null."""
-        ...
-
-    @property
-    def cf_yield(self) -> float:
-        """CFOPerShare / Price"""
-        ...
-
-    @property
-    def pcf_ratio(self) -> float:
-        """Adjusted close price /Cash Flow Per Share. If the result is negative or zero, then null."""
-        ...
-
-    @property
-    def fcf_yield(self) -> float:
-        """FCFPerShare / Price"""
-        ...
-
-    @property
-    def fcf_ratio(self) -> float:
-        """Adjusted close price/ Free Cash Flow Per Share. If the result is negative or zero, then null."""
-        ...
-
-    @property
-    def trailing_dividend_yield(self) -> float:
-        """Dividends Per Share over the trailing 12 months / Price"""
-        ...
-
-    @property
-    def forward_dividend_yield(self) -> float:
-        """(Current Dividend Per Share * Payout Frequency) / Price"""
-        ...
-
-    @property
-    def forward_earning_yield(self) -> float:
-        """Estimated Earnings Per Share / Price Note: a) The "Next" Year's EPS Estimate is used; For instance, if today's actual date is March 1, 2009, the "Current" EPS Estimate for MSFT is June 2009, and the "Next" EPS Estimate for MSFT is June 2010; the latter is used. b) The eps estimated data is sourced from a third party."""
-        ...
-
-    @property
-    def forward_pe_ratio(self) -> float:
-        """1 / ForwardEarningYield If result is negative, then null"""
-        ...
-
-    @property
-    def peg_ratio(self) -> float:
-        """ForwardPERatio / Long-term Average Earning Growth Rate"""
-        ...
-
-    @property
-    def peg_payback(self) -> float:
-        """The number of years it would take for a company's cumulative earnings to equal the stock's current trading price, assuming that the company continues to increase its annual earnings at the growth rate used to calculate the PEG ratio. < Log (PG/E + 1) / Log (1 + G) > - 1 Where P=Price E=Next Fiscal Year's Estimated EPS G=Long-term Average Earning Growth"""
-        ...
-
-    @property
-    def tangible_book_value_per_share(self) -> float:
-        """The company's total book value less the value of any intangible assets dividend by number of shares."""
-        ...
-
-    @property
-    def tangible_bv_per_share_3_yr_avg(self) -> float:
-        """The three year average for tangible book value per share."""
-        ...
-
-    @property
-    def tangible_bv_per_share_5_yr_avg(self) -> float:
-        """The five year average for tangible book value per share."""
-        ...
-
-    @property
-    def forward_dividend(self) -> float:
-        """Latest Dividend * Frequency"""
-        ...
-
-    @property
-    def working_capital_per_share(self) -> float:
-        """(Current Assets - Current Liabilities)/number of shares"""
-        ...
-
-    @property
-    def working_capital_per_share_3_yr_avg(self) -> float:
-        """The three year average for working capital per share."""
-        ...
-
-    @property
-    def working_capital_per_share_5_yr_avg(self) -> float:
-        """The five year average for working capital per share."""
-        ...
-
-    @property
-    def ev_to_ebitda(self) -> float:
-        """Indicates what is a company being valued per each dollar of EBITDA generated."""
-        ...
-
-    @property
-    def buy_back_yield(self) -> float:
-        """The net repurchase of shares outstanding over the market capital of the company. It is a measure of shareholder return."""
-        ...
-
-    @property
-    def total_yield(self) -> float:
-        """The total yield that shareholders can expect, by summing Dividend Yield and Buyback Yield."""
-        ...
-
-    @property
-    def ratio_pe_5_year_average(self) -> float:
-        """The five-year average of the company's price-to-earnings ratio."""
-        ...
-
-    @property
-    def price_change_1m(self) -> float:
-        """Price change this month, expressed as latest price/last month end price."""
-        ...
-
-    @property
-    def normalized_pe_ratio(self) -> float:
-        """Adjusted Close Price/ Normalized EPS. Normalized EPS removes onetime and unusual items from net EPS, to provide investors with a more accurate measure of the company's true earnings. If the result is negative, zero, >10,000 or <0.001, then null."""
-        ...
-
-    @property
-    def price_to_ebitda(self) -> float:
-        """Adjusted close price/EBITDA Per Share. If the result is negative or zero, then null."""
-        ...
-
-    @property
-    def div_yield_5_year(self) -> float:
-        """Average of the last 60 monthly observations of trailing dividend yield in the last 5 years."""
-        ...
-
-    @property
-    def forward_roe(self) -> float:
-        """Estimated EPS/Book Value Per Share"""
-        ...
-
-    @property
-    def forward_roa(self) -> float:
-        """Estimated EPS/Total Assets Per Share"""
-        ...
-
-    @property
-    def two_years_forward_earning_yield(self) -> float:
-        """2 Years Forward Estimated EPS / Adjusted Close Price"""
-        ...
-
-    @property
-    def two_years_forward_pe_ratio(self) -> float:
-        """Adjusted Close Price/2 Years Forward Estimated EPS"""
-        ...
-
-    @property
-    def forward_calculation_style(self) -> str:
-        """Indicates the method used to calculate Forward Dividend. There are three options: Annual, Look-back and Manual."""
-        ...
-
-    @property
-    def actual_forward_dividend(self) -> float:
-        """Used to collect the forward dividend for companies where our formula will not produce the correct value."""
-        ...
-
-    @property
-    def trailing_calculation_style(self) -> str:
-        """Indicates the method used to calculate Trailing Dividend. There are two options: Look-back and Manual."""
-        ...
-
-    @property
-    def actual_trailing_dividend(self) -> float:
-        """Used to collect the trailing dividend for companies where our formula will not produce the correct value."""
-        ...
-
-    @property
-    def total_asset_per_share(self) -> float:
-        """Total Assets / Diluted Shares Outstanding"""
-        ...
-
-    @property
-    def expected_dividend_growth_rate(self) -> float:
-        """The growth rate from the TrailingDividend to the Forward Dividend: {(Forward Dividend/Trailing Dividend) - 1}*100."""
-        ...
-
-    @property
-    def ev_to_revenue(self) -> float:
-        """Indicates what is a company being valued per each dollar of revenue generated."""
-        ...
-
-    @property
-    def ev_to_pre_tax_income(self) -> float:
-        """Indicates what is a company being valued per each dollar of Pretax Income generated."""
-        ...
-
-    @property
-    def ev_to_total_assets(self) -> float:
-        """Indicates what is a company being valued per each dollar of asset value; should be the default EV multiple used in an asset driven business."""
-        ...
-
-    @property
-    def ev_to_fcf(self) -> float:
-        """Indicates what is a company being valued per each dollar of free cash flow generated."""
-        ...
-
-    @property
-    def ev_to_ebit(self) -> float:
-        """Indicates what is a company being valued per each dollar of EBIT generated."""
-        ...
-
-    @property
-    def ffo_per_share(self) -> float:
-        """Funds from operations per share; populated only for real estate investment trusts (REITs), defined as the sum of net income, gain/loss (realized and unrealized) on investment securities, asset impairment charge, depreciation and amortization and gain/ loss on the sale of business and property plant and equipment, divided by shares outstanding."""
-        ...
-
-    @property
-    def price_to_cash_ratio(self) -> float:
-        """The ratio of a stock's price to its cash flow per share."""
-        ...
-
-    @property
-    def ev_to_forward_ebitda(self) -> float:
-        """Indicates what is a company being valued per each dollar of estimated EBITDA."""
-        ...
-
-    @property
-    def ev_to_forward_revenue(self) -> float:
-        """Indicates what is a company being valued per each dollar of estimated revenue."""
-        ...
-
-    @property
-    def ev_to_forward_ebit(self) -> float:
-        """Indicates what is a company being valued per each dollar of estimated EBIT."""
-        ...
-
-    @property
-    def ev_to_ebitda_1_year_growth(self) -> float:
-        """The one-year growth in the company's EV to EBITDA on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by EBITDA (earnings minus expenses excluding interest, tax, depreciation, and amortization expenses) reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ev_to_fcf_1_year_growth(self) -> float:
-        """The one-year growth in the company's EV to free cash flow on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by free cash flow (Cash flow from operations - Capital Expenditures) reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ev_to_revenue_1_year_growth(self) -> float:
-        """The one-year growth in the company's EV to revenue on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by Total Revenue reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ev_to_total_assets_1_year_growth(self) -> float:
-        """The one-year growth in the company's EV to total assets on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by total assets reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def pfcf_ratio_1_year_growth(self) -> float:
-        """The one-year growth in the company's price to free cash flow ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the free cash flow reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def pb_ratio_1_year_growth(self) -> float:
-        """The one-year growth in the company's price to book ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the book value per share reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def pe_ratio_1_year_growth(self) -> float:
-        """The one-year growth in the company's PE ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ps_ratio_1_year_growth(self) -> float:
-        """The one-year growth in the company's price to sales ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the sales per share reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ev_to_ebit_3_yr_avg(self) -> float:
-        """The three-year average for a company's EV to EBIT ratio: EV (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by EBIT (earnings minus expenses excluding interest and tax expenses) reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ev_to_ebitda_3_yr_avg(self) -> float:
-        """The three-year average for a company's EV to EBITDA ratio: EV (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by EBITDA (earnings minus expenses excluding interest, tax, depreciation, and amortization expenses) reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ev_to_fcf_3_yr_avg(self) -> float:
-        """The three-year average for a company's EV to free cash flow ratio: EV (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by free cash flow (Cash Flow from Operations - Capital Expenditures) reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ev_to_revenue_3_yr_avg(self) -> float:
-        """The three-year average for a company's EV to revenue ratio: EV (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by Total Revenue reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def ev_to_total_assets_3_yr_avg(self) -> float:
-        """The three-year average for a company's EV to total assets ratio: EV (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by Total Assets reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ev_to_ebit_3_yr_avg_change(self) -> float:
-        """The growth in the three-year average for a company's EV to EBIT ratio. Morningstar calculates the growth percentage based on the EV to EBIT ratio ((Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by EBIT (earnings minus expenses excluding interest and tax expenses) reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def ev_to_ebitda_3_yr_avg_change(self) -> float:
-        """The growth in the three-year average for a company's EV to EBITDA ratio. Morningstar calculates the growth percentage based on the EV to EBITDA ratio ((Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by EBITDA (earnings minus expenses excluding interest, tax depreciation and amortization expenses) reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def ev_to_fcf_3_yr_avg_change(self) -> float:
-        """The growth in the three-year average for a company's EV to free cash flow ratio. Morningstar calculates the growth percentage based on the EV to free cash flow ratio ((Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by free cash flow (Cash Flow from Operations - Capital Expenditures) reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def ev_to_revenue_3_yr_avg_change(self) -> float:
-        """The growth in the three-year average for a company's EV to revenue ratio. Morningstar calculates the growth percentage based on the EV to revenue ratio ((Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by Total Revenue reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def ev_to_total_assets_3_yr_avg_change(self) -> float:
-        """The growth in the three-year average for a company's EV to total assets ratio. Morningstar calculates the growth percentage based on the EV to total assets ratio ((Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by total assets reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def pfcf_ratio_3_yr_avg(self) -> float:
-        """The three-year average for a company's price to free cash flow ratio (the adjusted close price divided by the free cash flow per share reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def pb_ratio_3_yr_avg(self) -> float:
-        """The three-year average for a company's price to book ratio (the adjusted close price divided by the book value per share reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def ps_ratio_3_yr_avg(self) -> float:
-        """The three-year average for a company's price to sales ratio (the adjusted close price divided by the total sales per share reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def p_cash_ratio_3_yr_avg(self) -> float:
-        """The three-year average for a company's price to cash ratio (the adjusted close price divided by the cash flow per share reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def pe_ratio_3_yr_avg(self) -> float:
-        """The three-year average for a company's PE ratio (the adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def pfcf_ratio_3_yr_avg_change(self) -> float:
-        """The growth in the three-year average for a company's price to free cash flow ratio. Morningstar calculates the growth percentage based on the adjusted close price divided by the free cash flow per share reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def pb_ratio_3_yr_avg_change(self) -> float:
-        """The growth in the three-year average for a company's price to book ratio. Morningstar calculates the growth percentage based on the adjusted close price divided by the book value per share reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ps_ratio_3_yr_avg_change(self) -> float:
-        """The growth in the three-year average for a company's price to sales ratio. Morningstar calculates the growth percentage based on the adjusted close price divided by the total sales per share reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def pe_ratio_3_yr_avg_change(self) -> float:
-        """The growth in the three-year average for a company's PE ratio. Morningstar calculates the growth percentage based on the adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def pe_ratio_1_year_high(self) -> float:
-        """The one-year high for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def pe_ratio_1_year_low(self) -> float:
-        """The one-year low for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def pe_ratio_1_year_average(self) -> float:
-        """The one-year average for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def pe_ratio_5_year_high(self) -> float:
-        """The five-year high for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def pe_ratio_5_year_low(self) -> float:
-        """The five-year low for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def pe_ratio_5_year_average(self) -> float:
-        """The five-year average for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def pe_ratio_10_year_high(self) -> float:
-        """The ten-year high for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def pe_ratio_10_year_low(self) -> float:
-        """The ten-year low for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def pe_ratio_10_year_average(self) -> float:
-        """The ten-year average for a company's PE ratio (adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports)."""
-        ...
-
-    @property
-    def cape_ratio(self) -> float:
-        """The cyclically adjusted PE ratio for a company; adjusted close price divided by earnings per share. If the result is negative, zero, >10,000 or <0.001, then null. Morningstar uses the CPI index for US companies and Indexes from the World Bank for the rest of the global markets."""
-        ...
-
-    @property
-    def ev_to_ebitda_3_year_growth(self) -> float:
-        """The three-year growth in the company's EV to EBITDA on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by EBITDA (earnings minus expenses excluding interest, tax, depreciation, and amortization expenses) reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ev_to_fcf_3_year_growth(self) -> float:
-        """The three-year growth in the company's EV to free cash flow on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by free cash flow (Cash flow from operations - Capital Expenditures) reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ev_to_revenue_3_year_growth(self) -> float:
-        """The three-year growth in the company's EV to revenue on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by Total Revenue reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ev_to_total_assets_3_year_growth(self) -> float:
-        """The three-year growth in the company's EV to total assets on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by total assets reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def pfcf_ratio_3_year_growth(self) -> float:
-        """The three-year growth in the company's price to free cash flow ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the free cash flow reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def pb_ratio_3_year_growth(self) -> float:
-        """The three-year growth in the company's price to book ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the book value per share reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def pe_ratio_3_year_growth(self) -> float:
-        """The three-year growth in the company's PE ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ps_ratio_3_year_growth(self) -> float:
-        """The three-year growth in the company's price to sales ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the sales per share reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ev_to_ebitda_5_year_growth(self) -> float:
-        """The five-year growth in the company's EV to EBITDA on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by EBITDA (earnings minus expenses excluding interest, tax, depreciation, and amortization expenses) reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ev_to_fcf_5_year_growth(self) -> float:
-        """The five-year growth in the company's EV to free cash flow on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by free cash flow (Cash flow from operations - Capital Expenditures) reported in the Financial Statements within the company filings or reports."""
-        ...
-
-    @property
-    def ev_to_revenue_5_year_growth(self) -> float:
-        """The five-year growth in the company's EV to revenue on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by Total Revenue reported in the Financial Statements within the company filings or reports."""
-        ...
-
     @property
-    def ev_to_total_assets_5_year_growth(self) -> float:
-        """The five-year growth in the company's EV to total assets on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by total assets reported in the Financial Statements within the company filings or reports."""
+    def fiscal_year_end(self) -> int:
+        """The Month of the company's latest fiscal year."""
         ...
 
     @property
-    def pfcf_ratio_5_year_growth(self) -> float:
-        """The five-year growth in the company's price to free cash flow ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the free cash flow reported in the Financial Statements within the company filings or reports."""
+    def industry_template_code(self) -> str:
+        """This indicator will denote which one of the six industry data collection templates applies to the company. Each industry data collection template includes data elements that are commonly reported by companies in that industry. N=Normal (Manufacturing), M=Mining, U=Utility, T=Transportation, B=Bank, I=Insurance"""
         ...
 
     @property
-    def pb_ratio_5_year_growth(self) -> float:
-        """The five-year growth in the company's price to book ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the book value per share reported in the Financial Statements within the company filings or reports."""
+    def primary_share_class_id(self) -> str:
+        """The 10-digit unique and unchanging Morningstar identifier assigned to the Primary Share class of a company. The primary share of a company is defined as the first share that was traded publicly and is still actively trading. If this share is no longer trading, the primary share will be the share with the highest volume."""
         ...
 
     @property
-    def pe_ratio_5_year_growth(self) -> float:
-        """The five-year growth in the company's PE ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports."""
+    def primary_symbol(self) -> str:
+        """The symbol of the Primary Share of the company, composed of an arrangement of characters (often letters) representing a particular security listed on an exchange or otherwise traded publicly. The primary share of a company is defined as the first share that was traded publicly and is still actively trading. If this share is no longer trading, the primary share will be the share with the highest volume. Note: Morningstar's multi-share class symbols will often contain a "period" within the symbol; e.g. BRK.B for Berkshire Hathaway Class B."""
         ...
 
     @property
-    def ps_ratio_5_year_growth(self) -> float:
-        """The five-year growth in the company's price to sales ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the sales per share reported in the Financial Statements within the company filings or reports."""
+    def primary_exchange_id(self) -> str:
+        """The Id representing the stock exchange of the Primary Share of the company. See separate reference document for Exchange Mappings. The primary share of a company is defined as the first share that was traded publicly with and is still actively trading. If this share is no longer trading, the primary share will be the share with the highest volume."""
         ...
 
     @property
-    def ev_to_ebitda_10_year_growth(self) -> float:
-        """The ten-year growth in the company's EV to EBITDA on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by EBITDA (earnings minus expenses excluding interest, tax, depreciation, and amortization expenses) reported in the Financial Statements within the company filings or reports."""
+    def business_country_id(self) -> str:
+        """In some cases, different from the country of domicile (CountryId; DataID 5). This element is a three (3) Character ISO code of the business country of the security. It is determined by a few factors, including:"""
         ...
 
     @property
-    def ev_to_fcf_10_year_growth(self) -> float:
-        """The ten-year growth in the company's EV to free cash flow on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by free cash flow (Cash flow from operations - Capital Expenditures) reported in the Financial Statements within the company filings or reports."""
+    def legal_name_language_code(self) -> str:
+        """The language code for the foreign legal name if/when applicable. Related to DataID 4 (LegalName)."""
         ...
 
     @property
-    def ev_to_revenue_10_year_growth(self) -> float:
-        """The ten-year growth in the company's EV to revenue on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by Total Revenue reported in the Financial Statements within the company filings or reports."""
+    def auditor(self) -> str:
+        """The legal (registered) name of the company's current auditor. Distinct from DataID 28000 Period Auditor that identifies the Auditor related to that period's financial statements."""
         ...
 
     @property
-    def ev_to_total_assets_10_year_growth(self) -> float:
-        """The ten-year growth in the company's EV to total assets on a percentage basis. Morningstar calculates the growth percentage based on the enterprise value (Market Cap + Preferred stock + Long-Term Debt And Capital Lease + Short Term Debt And Capital Lease + Securities Sold But Not Yet Repurchased - Cash, Cash Equivalent And Market Securities - Securities Purchased with Agreement to Resell - Securities Borrowed) divided by total assets reported in the Financial Statements within the company filings or reports."""
+    def auditor_language_code(self) -> str:
+        """The ISO code denoting the language text for Auditor's name and contact information."""
         ...
 
     @property
-    def pfcf_ratio_10_year_growth(self) -> float:
-        """The ten-year growth in the company's price to free cash flow ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the free cash flow reported in the Financial Statements within the company filings or reports."""
+    def advisor(self) -> str:
+        """The legal (registered) name of the current legal Advisor of the company."""
         ...
 
     @property
-    def pb_ratio_10_year_growth(self) -> float:
-        """The ten-year growth in the company's price to book ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the book value per share reported in the Financial Statements within the company filings or reports."""
+    def advisor_language_code(self) -> str:
+        """The ISO code denoting the language text for Advisor's name and contact information."""
         ...
 
     @property
-    def pe_ratio_10_year_growth(self) -> float:
-        """The ten-year growth in the company's PE ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the earnings per share reported in the Financial Statements within the company filings or reports."""
+    def is_limited_partnership(self) -> bool:
+        """Indicator to denote if the company is a limited partnership, which is a form of business structure comprised of a general partner and limited partners. 1 denotes it is a LP; otherwise 0."""
         ...
 
     @property
-    def ps_ratio_10_year_growth(self) -> float:
-        """The ten-year growth in the company's price to sales ratio on a percentage basis. Morningstar calculates the growth percentage based on the adjusted close price divided by the sales per share reported in the Financial Statements within the company filings or reports."""
+    def is_reit(self) -> bool:
+        """Indicator to denote if the company is a real estate investment trust (REIT). 1 denotes it is a REIT; otherwise 0."""
         ...
 
     @property
-    def two_yrs_ev_to_forward_ebit(self) -> float:
-        """Indicates what is a company being valued per each dollar of estimated EBIT in year 2."""
+    def primary_mic(self) -> str:
+        """The MIC (market identifier code) of the PrimarySymbol of the company. See Data Appendix A for the relevant MIC to exchange name mapping."""
         ...
 
     @property
-    def two_yrs_ev_to_forward_ebitda(self) -> float:
-        """Indicates what is a company being valued per each dollar of estimated EBITDA in year 2."""
+    def report_style(self) -> int:
+        """This refers to the financial template used to collect the company's financial statements. There are two report styles representing two different financial template structures. Report style "1" is most commonly used by US and Canadian companies, and Report style "3" is most commonly used by the rest of the universe. Contact your client manager for access to the respective templates."""
         ...
 
     @property
-    def first_year_estimated_eps_growth(self) -> float:
-        """EPS Growth Ratio: (Estimated EPS Year 1) / (TTM Normalized diluted EPS"""
+    def yearof_establishment(self) -> str:
+        """The year a company was founded."""
         ...
 
     @property
-    def second_year_estimated_eps_growth(self) -> float:
-        """EPS Growth Ratio: (Estimated EPS Year 2) / (Estimated EPS Year 1)"""
+    def is_limited_liability_company(self) -> bool:
+        """Indicator to denote if the company is a limited liability company. 1 denotes it is a LLC; otherwise 0."""
         ...
 
     @property
-    def normalized_peg_ratio(self) -> float:
-        """Normalized ForwardPERatio / Long-term Average Normalized Earnings Growth Rate"""
+    def expected_fiscal_year_end(self) -> datetime.datetime:
+        """The upcoming expected year end for the company. It is calculated based on current year end (from latest available annual report) + 1 year."""
         ...
 
     def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
@@ -63504,1586 +63541,6 @@ class FundamentalInstanceProvider(System.Object):
     def get_valuation_ratios(self, time: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Data.Fundamental.ValuationRatios:
         """Returns the ValuationRatios instance"""
         ...
-
-
-class FineFundamental(QuantConnect.Data.UniverseSelection.CoarseFundamental):
-    """Definition of the FineFundamental class"""
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The end time of this data."""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def market_cap(self) -> int:
-        """
-        Price * Total SharesOutstanding.
-        The most current market cap for example, would be the most recent closing price x the most recent reported shares outstanding.
-        For ADR share classes, market cap is price * (ordinary shares outstanding / adr ratio).
-        """
-        ...
-
-    @property
-    def company_reference(self) -> QuantConnect.Data.Fundamental.CompanyReference:
-        """The instance of the CompanyReference class"""
-        ...
-
-    @property
-    def security_reference(self) -> QuantConnect.Data.Fundamental.SecurityReference:
-        """The instance of the SecurityReference class"""
-        ...
-
-    @property
-    def financial_statements(self) -> QuantConnect.Data.Fundamental.FinancialStatements:
-        """The instance of the FinancialStatements class"""
-        ...
-
-    @property
-    def earning_reports(self) -> QuantConnect.Data.Fundamental.EarningReports:
-        """The instance of the EarningReports class"""
-        ...
-
-    @property
-    def operation_ratios(self) -> QuantConnect.Data.Fundamental.OperationRatios:
-        """The instance of the OperationRatios class"""
-        ...
-
-    @property
-    def earning_ratios(self) -> QuantConnect.Data.Fundamental.EarningRatios:
-        """The instance of the EarningRatios class"""
-        ...
-
-    @property
-    def valuation_ratios(self) -> QuantConnect.Data.Fundamental.ValuationRatios:
-        """The instance of the ValuationRatios class"""
-        ...
-
-    @property
-    def company_profile(self) -> QuantConnect.Data.Fundamental.CompanyProfile:
-        """The instance of the CompanyProfile class"""
-        ...
-
-    @property
-    def asset_classification(self) -> QuantConnect.Data.Fundamental.AssetClassification:
-        """The instance of the AssetClassification class"""
-        ...
-
-    @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], fundamental_instance_provider: QuantConnect.Data.Fundamental.FundamentalInstanceProvider) -> None:
-        """Creates a new instance for the given time and security"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this fine data instance"""
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """This is a daily data set"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """Return the URL string source of the file. This will be converted to a stream"""
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """This is a daily data set"""
-        ...
-
-
-class Fundamental(QuantConnect.Data.Fundamental.FineFundamental):
-    """Lean fundamental data class"""
-
-    @property
-    def dollar_volume(self) -> float:
-        """Gets the day's dollar volume for this symbol"""
-        ...
-
-    @property
-    def volume(self) -> int:
-        """Gets the day's total volume"""
-        ...
-
-    @property
-    def has_fundamental_data(self) -> bool:
-        """Returns whether the symbol has fundamental data for the given date"""
-        ...
-
-    @property
-    def price_factor(self) -> float:
-        """Gets the price factor for the given date"""
-        ...
-
-    @property
-    def split_factor(self) -> float:
-        """Gets the split factor for the given date"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Gets the raw price"""
-        ...
-
-    @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
-        """
-        Creates a new instance
-        
-        :param time: The current time
-        :param symbol: The associated symbol
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Will clone the current instance
-        
-        :returns: The cloned instance.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    @staticmethod
-    def for_date(time: datetime.datetime, symbol: QuantConnect.Symbol) -> QuantConnect.Data.Fundamental.Fundamental:
-        """
-        Creates a new instance
-        
-        :param time: The current time
-        :param symbol: The associated symbol
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """Return the URL string source of the file. This will be converted to a stream"""
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Will read a new instance from the given line
-        
-        :param config: The associated requested configuration
-        :param line: The line to parse
-        :param date: The current time
-        :param is_live_mode: True if live mode
-        :returns: A new instance or null.
-        """
-        ...
-
-
-class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodField_T], metaclass=abc.ABCMeta):
-    """Abstract base class for multi-period fields"""
-
-    NO_VALUE: QuantConnect_Data_Fundamental_MultiPeriodField_T
-    """No Value"""
-
-    @property
-    def time_provider(self) -> QuantConnect.ITimeProvider:
-        """
-        The time provider instance to use
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    @abc.abstractmethod
-    def default_period(self) -> str:
-        """
-        The default period
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @property
-    def security_identifier(self) -> QuantConnect.SecurityIdentifier:
-        """
-        The target security identifier
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @security_identifier.setter
-    def security_identifier(self, value: QuantConnect.SecurityIdentifier) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def has_value(self) -> bool:
-        """Returns true if the field contains a value for the default period"""
-        ...
-
-    @property
-    def value(self) -> QuantConnect_Data_Fundamental_MultiPeriodField_T:
-        """Returns the default value for the field"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Creates an empty instance
-        
-        
-        This Class is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """
-        Creates a new instance
-        
-        
-        This Class is protected.
-        
-        :param time_provider: 
-        :param security_identifier: 
-        """
-        ...
-
-    def convert_period(self, period: str) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        
-        This Class is protected.
-        """
-        ...
-
-    def get_period_names(self) -> typing.Sequence[str]:
-        """Gets the list of available period names for the field"""
-        ...
-
-    def get_period_value(self, period: str) -> QuantConnect_Data_Fundamental_MultiPeriodField_T:
-        """
-        Gets the value of the field for the requested period
-        
-        :param period: The requested period
-        :returns: The value for the period.
-        """
-        ...
-
-    def get_period_values(self) -> typing.Dict[str, QuantConnect_Data_Fundamental_MultiPeriodField_T]:
-        """Gets a dictionary of period names and values for the field"""
-        ...
-
-    def has_period_value(self, period: str) -> bool:
-        """
-        Returns true if the field contains a value for the requested period
-        
-        :returns: True if the field contains a value for the requested period.
-        """
-        ...
-
-    def has_values(self) -> bool:
-        """Returns true if the field has at least one value for one period"""
-        ...
-
-    def to_string(self) -> str:
-        """Returns a string that represents the current object."""
-        ...
-
-
-class MultiPeriodFieldLong(QuantConnect.Data.Fundamental.MultiPeriodField[int], metaclass=abc.ABCMeta):
-    """Abstract class for multi-period fields long"""
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Creates an empty instance
-        
-        
-        This Class is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
-        """
-        Creates a new instance
-        
-        
-        This Class is protected.
-        
-        :param time_provider: 
-        :param security_identifier: 
-        """
-        ...
-
-
-class StockType(System.Object):
-    """Helper class for the AssetClassification's StockType field AssetClassification.stock_type"""
-
-    AGGRESSIVE_GROWTH: int = 1
-    """
-    Companies whose revenues and earnings have both been growing significantly faster than
-    the general economy.
-    """
-
-    CLASSIC_GROWTH: int = 2
-    """
-    Companies that are growing respectably faster than the general economy, and often pay a
-    steady dividend. They tend to be mature and solidly profitable businesses.
-    """
-
-    CYCLICALS: int = 3
-    """
-    Companies in the cyclicals and durables sectors, except those in the three types below.
-    The profits of cyclicals tend to rise and fall with the general economy.
-    """
-
-    DISTRESSED: int = 4
-    """
-    Companies that have had consistently declining cash flows and earnings over the past
-    three years, and/or very high debt.
-    """
-
-    HARD_ASSET: int = 5
-    """
-    Companies that deal in assets such as oil, metals, and real estate, which tend to do
-    well in inflationary environments.
-    """
-
-    HIGH_YIELD: int = 6
-    """
-    Companies that have dividend yields at least twice the average for large-cap stocks.
-    They tend to be mature, slow-growing companies.
-    """
-
-    SLOW_GROWTH: int = 7
-    """
-    Companies that have shown slow revenue and earnings growth (typically less than the rate
-    of GDP growth) over at least three years.
-    """
-
-    SPECULATIVE_GROWTH: int = 8
-    """
-    Companies that have shown strong revenue growth but slower or spotty earnings growth.
-    Very small or young companies also tend to fall into this class.
-    """
-
-
-class StyleBox(System.Object):
-    """
-    Helper class for the AssetClassification's StyleBox field AssetClassification.style_box.
-    For stocks and stock funds, it classifies securities according to market capitalization and growth and value factor
-    """
-
-    LARGE_VALUE: int = 1
-
-    LARGE_CORE: int = 2
-
-    LARGE_GROWTH: int = 3
-
-    MID_VALUE: int = 4
-
-    MID_CORE: int = 5
-
-    MID_GROWTH: int = 6
-
-    SMALL_VALUE: int = 7
-
-    SMALL_CORE: int = 8
-
-    SMALL_GROWTH: int = 9
-
-
-class MorningstarEconomySphereCode(System.Object):
-    """Helper class for the AssetClassification's MorningstarEconomySphereCode field AssetClassification.morningstar_economy_sphere_code."""
-
-    CYCLICAL: int = 1
-    """
-    The cyclical Super Sector includes industries significantly affected by economic shifts.
-    When the economy is prosperous, these industries tend to expand, and when the economy is
-    in a downturn they tend to shrink. In general, the stocks in these industries have betas
-    of greater than 1.
-    """
-
-    DEFENSIVE: int = 2
-    """
-    The defensive Super Sector includes industries that are relatively immune to economic
-    cycles. These industries provide services that consumers require in both good and bad
-    times, such as healthcare and utilities. In general, the stocks in these industries have
-    betas of less than 1.
-    """
-
-    SENSITIVE: int = 3
-    """
-    The sensitive Super Sector includes industries that ebb and flow with the overall
-    economy, but not severely. Sensitive industries fall between defensive and cyclical, as
-    they are not immune to a poor economy, but they also may not be as severely affected as
-    industries in the cyclical Super Sector. In general, the stocks in these industries have
-    betas that are close to 1.
-    """
-
-
-class MorningstarSectorCode(System.Object):
-    """Helper class for the AssetClassification's MorningstarSectorCode field AssetClassification.morningstar_sector_code."""
-
-    BASIC_MATERIALS: int = 101
-    """
-    Companies that manufacture chemicals, building materials, and paper products. This
-    sector also includes companies engaged in commodities exploration and processing.
-    """
-
-    CONSUMER_CYCLICAL: int = 102
-    """
-    This sector includes retail stores, auto and auto-parts manufacturers, restaurants,
-    lodging facilities, specialty retail and travel companies.
-    """
-
-    FINANCIAL_SERVICES: int = 103
-    """
-    Companies that provide financial services include banks, savings and loans, asset
-    management companies, credit services, investment brokerage firms, and insurance companies.
-    """
-
-    REAL_ESTATE: int = 104
-    """This sector includes companies that develop, acquire, manage, and operate real estate properties."""
-
-    CONSUMER_DEFENSIVE: int = 205
-    """
-    Companies that manufacture food, beverages, household and personal products, packaging,
-    or tobacco. Also includes companies that provide services such as education and training services.
-    """
-
-    HEALTHCARE: int = 206
-    """
-    This sector includes biotechnology, pharmaceuticals, research services, home healthcare,
-    hospitals, long-term-care facilities, and medical equipment and supplies. Also include
-    pharmaceutical retailers and companies which provide health information services.
-    """
-
-    UTILITIES: int = 207
-    """Electric, gas, and water utilities."""
-
-    COMMUNICATION_SERVICES: int = 308
-    """
-    Companies that provide communication services using fixed-line networks or
-    those that provide wireless access and services. Also includes companies that provide
-    advertising & marketing services, entertainment content and services, as well as
-    interactive media and content provider over internet or through software.
-    """
-
-    ENERGY: int = 309
-    """
-    Companies that produce or refine oil and gas, oilfield-services and equipment companies,
-    and pipeline operators. This sector also includes companies that mine thermal coal and uranium.
-    """
-
-    INDUSTRIALS: int = 310
-    """
-    Companies that manufacture machinery, hand-held tools, and industrial products. This
-    sector also includes aerospace and defense firms as well as companies engaged in
-    transportation services.
-    """
-
-    TECHNOLOGY: int = 311
-    """
-    Companies engaged in the design, development, and support of computer operating systems
-    and applications. This sector also includes companies that make computer equipment, data
-    storage products, networking products, semiconductors, and components.
-    """
-
-
-class MorningstarIndustryGroupCode(System.Object):
-    """Helper class for the AssetClassification's MorningstarIndustryGroupCode field AssetClassification.morningstar_industry_group_code."""
-
-    AGRICULTURE: int = 10110
-
-    BUILDING_MATERIALS: int = 10120
-
-    CHEMICALS: int = 10130
-
-    FOREST_PRODUCTS: int = 10140
-
-    METALS_AND_MINING: int = 10150
-
-    STEEL: int = 10160
-
-    VEHICLES_AND_PARTS: int = 10200
-
-    FURNISHINGS: int = 10220
-
-    FIXTURES_AND_APPLIANCES: int = 10220
-
-    HOMEBUILDING_AND_CONSTRUCTION: int = 10230
-
-    MANUFACTURING_APPAREL_AND_ACCESSORIES: int = 10240
-
-    PACKAGING_AND_CONTAINERS: int = 10250
-
-    PERSONAL_SERVICES: int = 10260
-
-    RESTAURANTS: int = 10270
-
-    RETAIL_CYCLICAL: int = 10280
-
-    TRAVEL_AND_LEISURE: int = 10290
-
-    ASSET_MANAGEMENT: int = 10310
-
-    BANKS: int = 10320
-
-    CAPITAL_MARKETS: int = 10330
-
-    INSURANCE: int = 10340
-
-    DIVERSIFIED_FINANCIAL_SERVICES: int = 10350
-
-    CREDIT_SERVICES: int = 10360
-
-    REAL_ESTATE: int = 10410
-
-    REI_TS: int = 10420
-
-    BEVERAGES_ALCOHOLIC: int = 20510
-
-    BEVERAGES_NON_ALCOHOLIC: int = 20520
-
-    CONSUMER_PACKAGED_GOODS: int = 20525
-
-    EDUCATION: int = 20540
-
-    RETAIL_DEFENSIVE: int = 20550
-
-    TOBACCO_PRODUCTS: int = 20560
-
-    BIOTECHNOLOGY: int = 20610
-
-    DRUG_MANUFACTURERS: int = 20620
-
-    HEALTHCARE_PLANS: int = 20630
-
-    HEALTHCARE_PROVIDERS_AND_SERVICES: int = 20645
-
-    MEDICAL_DEVICES_AND_INSTRUMENTS: int = 20650
-
-    MEDICAL_DIAGNOSTICS_AND_RESEARCH: int = 20660
-
-    MEDICAL_DISTRIBUTION: int = 20670
-
-    UTILITIES_INDEPENDENT_POWER_PRODUCERS: int = 20710
-
-    UTILITIES_REGULATED: int = 20720
-
-    TELECOMMUNICATION_SERVICES: int = 30810
-
-    MEDIA_DIVERSIFIED: int = 30820
-
-    INTERACTIVE_MEDIA: int = 30830
-
-    OIL_AND_GAS: int = 30910
-
-    OTHER_ENERGY_SOURCES: int = 30920
-
-    AEROSPACE_AND_DEFENSE: int = 31010
-
-    BUSINESS_SERVICES: int = 31020
-
-    CONGLOMERATES: int = 31030
-
-    CONSTRUCTION: int = 31040
-
-    FARM_AND_HEAVY_CONSTRUCTION_MACHINERY: int = 31050
-
-    INDUSTRIAL_DISTRIBUTION: int = 31060
-
-    INDUSTRIAL_PRODUCTS: int = 31070
-
-    TRANSPORTATION: int = 31080
-
-    WASTE_MANAGEMENT: int = 31090
-
-    SOFTWARE: int = 31110
-
-    HARDWARE: int = 31120
-
-    SEMICONDUCTORS: int = 31130
-
-
-class MorningstarIndustryCode(System.Object):
-    """Helper class for the AssetClassification's MorningstarIndustryCode field AssetClassification.morningstar_industry_code."""
-
-    AGRICULTURAL_INPUTS: int = 10110010
-    """
-    Companies that manufacture nitrogenous and phosphatic fertilizers, pesticides, seed, and
-    other agricultural chemical products.
-    """
-
-    BUILDING_MATERIALS: int = 10120010
-    """
-    Companies that manufacture construction materials, including stone, clay, and brick
-    products, cement, lime, gypsum, and concrete and other construction products. Excludes
-    companies that manufacture finished and semi finished building products.
-    """
-
-    CHEMICALS: int = 10130010
-    """
-    Chemical manufacturing companies engaged in diverse chemical and chemical-related
-    operations, and basic chemicals manufacturing.
-    """
-
-    SPECIALTY_CHEMICALS: int = 10130020
-    """
-    Companies that use base chemicals to produce value-added chemicals that are used in a
-    variety of products. Includes companies that produce polishes, adhesives and sealants,
-    explosives, printing ink, paint, carbon black, acids, repellants, and cleaning solutions.
-    """
-
-    LUMBER_AND_WOOD_PRODUCTION: int = 10140010
-    """Companies that grow timber, mill lumber, and manufacture wood and wood products for construction."""
-
-    PAPER_AND_PAPER_PRODUCTS: int = 10140020
-    """
-    Companies that manufacture and market paper and paper-related products from wood pulp
-    and other fibers. Excludes companies that produce paper packaging products and are
-    classified in the packaging and containers industry.
-    """
-
-    ALUMINUM: int = 10150010
-    """
-    Companies that produce, refine, market, and distribute aluminum and related
-    aluminum-based products.
-    """
-
-    COPPER: int = 10150020
-    """
-    Companies engaged in the exploration, mining, smelting, and refining of copper ores and
-    related copper products.
-    """
-
-    OTHER_INDUSTRIAL_METALS_AND_MINING: int = 10150030
-    """
-    Companies that mine, refine, produce, smelt, and mill industrial ores, including copper,
-    lead, zinc, radium, vanadium, nickel, tin, titanium, and other related materials.
-    """
-
-    GOLD: int = 10150040
-    """Companies principally engaged in gold exploration, mining, processing, extraction, and smelting."""
-
-    SILVER: int = 10150050
-    """Companies principally engaged in silver exploration, mining, processing, extraction, and smelting."""
-
-    OTHER_PRECIOUS_METALS_AND_MINING: int = 10150060
-    """
-    Companies that mine, refine, produce, smelt, and mill precious metals, including silver,
-    platinum, palladium, diamond, and other related minerals.
-    """
-
-    COKING_COAL: int = 10160010
-    """Companies that produce coking coal."""
-
-    STEEL: int = 10160020
-    """
-    Companies that produce steel plates, steel sheets, bar and rod materials, structural
-    steel, steel pipes and tubes, and stainless steel.
-    """
-
-    AUTO_AND_TRUCK_DEALERSHIPS: int = 10200010
-    """
-    Companies engaged in the specialty retail of new and used automobiles, trucks, and other
-    vehicles through the operation and/or franchising of dealerships.
-    """
-
-    AUTO_MANUFACTURERS: int = 10200020
-    """Leading worldwide designers and manufacturers of passenger cars and trucks."""
-
-    AUTO_PARTS: int = 10200030
-    """
-    Companies that manufacture motor vehicle parts and accessories, including rubber and
-    plastic products, such as tires and inner tubes, but do not manufacture complete car bodies.
-    """
-
-    RECREATIONAL_VEHICLES: int = 10200040
-    """
-    Companies that manufacture recreational vehicles, including self-contained motor homes,
-    campers, all-terrain vehicles, travel/camper trailers, and snowmobiles.
-    """
-
-    FURNISHINGS: int = 10220010
-    """
-    Companies that manufacture and market wooden, metal, and upholstered furniture,
-    mattresses, bedsprings, lighting fixtures, wooden flooring, wallpaper, and household
-    products, such as utensils, cutlery, tableware, and appliances.
-    """
-
-    FIXTURES_AND_APPLIANCES: int = 10220010
-    """
-    Companies that manufacture and market wooden, metal, and upholstered furniture,
-    mattresses, bedsprings, lighting fixtures, wooden flooring, wallpaper, and household
-    products, such as utensils, cutlery, tableware, and appliances.
-    """
-
-    RESIDENTIAL_CONSTRUCTION: int = 10230010
-    """
-    Companies that build and renovate residential buildings, such as single-family houses,
-    apartments, and hotels.
-    """
-
-    TEXTILE_MANUFACTURING: int = 10240010
-    """
-    Companies that manufacture and mill textile products, including apparel fabrics, bedding
-    and accessories, home furnishing fabrics, carpets and rugs, curtains and drapes, and
-    other milled textile products.
-    """
-
-    APPAREL_MANUFACTURING: int = 10240020
-    """
-    Companies that manufacture, design, market, source, and sell all lines of clothing for
-    men, women, and children. Also includes companies that manufacture or distribute
-    buttons, buckles, and other apparel parts.
-    """
-
-    FOOTWEAR_AND_ACCESSORIES: int = 10240030
-    """
-    Companies that manufacture, design, market, and sell lines of footwear and luggage,
-    handbags and purses, belts, and other leather goods.
-    """
-
-    PACKAGING_AND_CONTAINERS: int = 10250010
-    """
-    Companies that manufacture and market paper, plastic, metal, and glass packaging
-    products, including corrugated boxes, cardboard containers, bottles, cans, and plastic
-    foam and containers.
-    """
-
-    PERSONAL_SERVICES: int = 10260010
-    """
-    Companies that provide services of a personal nature or that are particularly structured
-    for the individual or group being served, including veterinary services, funeral and
-    cemetery services, child care services, portrait and photo services, tax preparation and
-    legal services, and other miscellaneous personal services.
-    """
-
-    RESTAURANTS: int = 10270010
-    """
-    Companies that own, operate, and franchise full-service restaurants that engage in the
-    retail sale of prepared food and drink.
-    """
-
-    APPAREL_RETAIL: int = 10280010
-    """Companies engaged in the retail sale of clothing, shoes, and accessories."""
-
-    DEPARTMENT_STORES: int = 10280020
-    """
-    Companies engaged in the retail sale of a diverse mix of merchandise, emphasizing
-    fashion apparel and accessories, home furnishings, electronics, and cosmetics.
-    """
-
-    HOME_IMPROVEMENT_RETAIL: int = 10280030
-    """
-    Companies engaged in the retail sale of home improvement items, such as lumber, carpets,
-    hardware and other building materials, plants and other garden supplies, and various
-    other items for the home.
-    """
-
-    LUXURY_GOODS: int = 10280040
-    """
-    Companies engaged in the specialty retail of luxury items, including jewelry, watches,
-    crystal, clothing, handbags, and accessories.
-    """
-
-    INTERNET_RETAIL: int = 10280050
-    """
-    Companies engaged in the online retail sale of a diverse mix of merchandise. Excludes
-    companies that target the travel industry and are classified in travel services.
-    """
-
-    SPECIALTY_RETAIL: int = 10280060
-    """
-    Companies engaged in the specialty retail of various goods and products not covered in a
-    specific industry group. This group includes retailers such as bookstores, office-supply
-    stores, gas stations, pawn shops, novelty shops, auto-parts stores, electronics stores,
-    home furnishing stores, sporting goods stores, toy and hobby stores, music and video
-    stores, and many other miscellaneous retailers.
-    """
-
-    GAMBLING: int = 10290010
-    """
-    Companies that own, operate, or manage lawful gaming activities and events, such as
-    horse and dog racing, online gaming, bingo, and video lottery, as well as companies that
-    supply products or services to gaming operators. It excludes companies operating casinos.
-    """
-
-    LEISURE: int = 10290020
-    """
-    Companies that manufacture, design, market, and sell bicycles, sporting goods,
-    photographic equipment, recreational equipment, toys, and other leisure products or services.
-    """
-
-    LODGING: int = 10290030
-    """
-    Companies that develop, manage, own, and operate lodging facilities, including motels,
-    extended-stay and full-service hotels, and economy hotels and inns.
-    """
-
-    RESORTS_AND_CASINOS: int = 10290040
-    """
-    Companies that own, operate, and manage resort properties, including beach clubs,
-    time-share properties, and luxury resort hotels and that conduct casino gaming operations.
-    """
-
-    TRAVEL_SERVICES: int = 10290050
-    """Companies that offer travel-related products or services, including online travel services."""
-
-    ASSET_MANAGEMENT: int = 10310010
-    """
-    Investment management firms offering diversified services such as asset administration,
-    investment advice, portfolio or mutual fund management, money management, and venture capital.
-    """
-
-    BANKS_DIVERSIFIED: int = 10320010
-    """
-    Global, diverse financial institutions serving the corporate and consumer needs of
-    retail banking, investment banking, trust management, credit cards and mortgage banking.
-    """
-
-    BANKS_REGIONAL: int = 10320020
-    """
-    Regional, diverse financial institutions serving the corporate, government, and consumer
-    needs of retail banking, investment banking, trust management, credit cards, mortgage
-    banking, savings and loan associations, building societies, cooperative banks, and homestead.
-    """
-
-    MORTGAGE_FINANCE: int = 10320030
-    """Companies that originate, purchase, sell, and service home mortgage and equity loans."""
-
-    CAPITAL_MARKETS: int = 10330010
-    """
-    Large, major investment houses offering investment banking, merchant banking,
-    underwriting, brokerage, research, advisory, and trading services to broad-based
-    national and international markets.
-    """
-
-    FINANCIAL_DATA_AND_STOCK_EXCHANGES: int = 10330020
-    """
-    Companies that operate security exchanges, including companies that offer financial data
-    such as ratings, investment research, and other research solutions.
-    """
-
-    INSURANCE_LIFE: int = 10340010
-    """
-    Companies that underwrite, market, and distribute life insurance and related products to
-    individuals and families.
-    """
-
-    INSURANCE_PROPERTY_AND_CASUALTY: int = 10340020
-    """
-    Companies that underwrite, market, and distribute fire, marine, and casualty insurance
-    for property and other tangible assets.
-    """
-
-    INSURANCE_REINSURANCE: int = 10340030
-    """Companies that underwrite and sell reinsurance."""
-
-    INSURANCE_SPECIALTY: int = 10340040
-    """
-    Companies that underwrite, market, and distribute accident and health, sickness,
-    mortgage, and other specialty or supplemental insurance to individuals and families.
-    """
-
-    INSURANCE_BROKERS: int = 10340050
-    """
-    Companies acting primarily as agents or intermediaries in creating insurance contracts
-    between clients and insurance companies.
-    """
-
-    INSURANCE_DIVERSIFIED: int = 10340060
-    """
-    Insurance companies with diversified interests in life, health, and property and
-    casualty insurance.
-    """
-
-    SHELL_COMPANIES: int = 10350010
-    """
-    A development-stage company with no or minimal revenue. Includes capital pool, blank
-    check, shell, and holding companies.
-    """
-
-    FINANCIAL_CONGLOMERATES: int = 10350020
-    """
-    Companies that provide financial services, including banking, insurance, and capital
-    markets, but with no dominant business line or source of revenue.
-    """
-
-    CREDIT_SERVICES: int = 10360010
-    """
-    Companies that extend credit and make loans to individuals and businesses through credit
-    cards, installment loans, student loans, and business loans that are associated with
-    other consumer and business credit instruments.
-    """
-
-    REAL_ESTATE_DEVELOPMENT: int = 10410010
-    """
-    Companies that develop real estate and same properties held as inventory, or sold to
-    others after development, with no specific portfolio composition.
-    """
-
-    REAL_ESTATE_SERVICES: int = 10410020
-    """
-    Companies that operate, manage, and lease real property with no specific portfolio
-    composition. Includes real estate services like brokers and agents but excludes
-    companies classified in the real estate â€“ development industry.
-    """
-
-    REAL_ESTATE_DIVERSIFIED: int = 10410030
-    """
-    Companies engaged in multiple real estate activities, including development, sales,
-    management, and related services. Excludes companies classified in real estate
-    development and real estate services.
-    """
-
-    REIT_HEALTHCARE_FACILITIES: int = 10420010
-    """
-    Self-administered real estate investment trusts engaged in the development, acquisition,
-    management, and disposition of healthcare properties, including long-term-care
-    facilities, acute-care and rehab hospitals, psychiatric facilities, and substance-abuse centers.
-    """
-
-    REIT_HOTEL_AND_MOTEL: int = 10420020
-    """
-    Self-administered real estate investment trusts engaged in the development, acquisition,
-    management, and disposition of lodging properties, including full- and limited-service
-    hotels and motels.
-    """
-
-    REIT_INDUSTRIAL: int = 10420030
-    """
-    Self-administered real estate investment trusts engaged in the development, acquisition,
-    management, and disposition of industrial properties, including bulk warehouses,
-    self-storage facilities, distribution facilities, and other light industrial facilities.
-    """
-
-    REIT_OFFICE: int = 10420040
-    """
-    Self-administered real estate investment trusts engaged in the development, acquisition,
-    management, and disposition of office properties, including office buildings, complexes,
-    and centers.
-    """
-
-    REIT_RESIDENTIAL: int = 10420050
-    """
-    Self-administered real estate investment trusts engaged in the development, acquisition,
-    management, and disposition of residential properties, including apartments, multifamily
-    and single-family mortgage loans, manufactured housing, mobile-home parks, and other
-    residential properties.
-    """
-
-    REIT_RETAIL: int = 10420060
-    """
-    Self-administered real estate investment trusts engaged in the development, acquisition,
-    management, and disposition of retail properties, including community shopping centers,
-    factory outlet shopping centers, enclosed shopping malls, strip centers, restaurants,
-    and other retail properties.
-    """
-
-    REIT_MORTGAGE: int = 10420070
-    """
-    Self-administered real estate investment trusts engaged in the acquisition, management,
-    and disposition of mortgage-backed securities. Also includes companies that provide
-    financing for income-producing real estate by purchasing or originating mortgages and
-    mortgage-backed securities; and earns income from the interest on these investments.
-    """
-
-    REIT_SPECIALTY: int = 10420080
-    """
-    Self-administered real estate investment trusts engaged in the acquisition, management,
-    and disposition of properties not classified elsewhere. Includes trusts that operate,
-    lease, and invest in telecom towers, advertising spaces, timberland properties, and
-    other properties not classified elsewhere.
-    """
-
-    REIT_DIVERSIFIED: int = 10420090
-    """
-    Self-administered real estate investment trusts engaged in the acquisition, management,
-    and disposition of diversified property holdings, with no specific portfolio composition.
-    """
-
-    BEVERAGES_BREWERS: int = 20510010
-    """Companies that manufacture, sell, and distribute malt-based beverages, beers, and ales."""
-
-    BEVERAGES_WINERIES_AND_DISTILLERIES: int = 20510020
-    """Companies that manufacture, sell, and distribute distilled liquors and wine."""
-
-    BEVERAGES_NON_ALCOHOLIC: int = 20520010
-    """
-    Companies that manufacture, sell, and distribute soft drinks, carbonated and spring
-    water, fruit juices, and other nonalcoholic beverages.
-    """
-
-    CONFECTIONERS: int = 20525010
-    """
-    Companies that manufacture and refine raw sugar, syrup or finished cane and beet sugar,
-    candy and chewing gum, chocolate, and cocoa products.
-    """
-
-    FARM_PRODUCTS: int = 20525020
-    """
-    Companies that produce, raise, and grow agricultural and farm-based food products,
-    including fruits, vegetables, other crop products, cattle, and eggs. Also includes
-    seafood products.
-    """
-
-    HOUSEHOLD_AND_PERSONAL_PRODUCTS: int = 20525030
-    """
-    Companies that manufacture and market soaps and other detergents, polishing and
-    sanitation goods and produce glycerin from vegetable and animal fats and oils. Also
-    includes companies that manufacture and market personal-care products, including
-    perfume, cosmetics, and other toilet preparations, infant and adult sanitary paper
-    products, shaving razors and blades.
-    """
-
-    PACKAGED_FOODS: int = 20525040
-    """
-    Companies that process and package food products, including frozen foods, grain
-    products, canned foods, snack foods, health supplements, vitamins, and pet products.
-    """
-
-    EDUCATION_AND_TRAINING_SERVICES: int = 20540010
-    """
-    Companies that provide educational and training services, including college and
-    junior-college courses, higher-education programs, technical and vocational training,
-    and other education services.
-    """
-
-    DISCOUNT_STORES: int = 20550010
-    """Companies engaged in the retail sale of a variety of merchandise at low and discounted prices."""
-
-    FOOD_DISTRIBUTION: int = 20550020
-    """
-    Companies primarily engaged in the distribution and supply of food products, including
-    packaged goods, meat, dairy products, frozen foods, and related groceries to grocery
-    stores, restaurants, and other food-service centers.
-    """
-
-    GROCERY_STORES: int = 20550030
-    """
-    Companies engaged in the retail sale of groceries, including dry goods, meat, produce,
-    frozen foods, dairy products, seafood, deli/bakery, and nonfood items.
-    """
-
-    TOBACCO: int = 20560010
-    """
-    Companies that manufacture and market cigarettes, e-cigarettes, snuff, cigars, chewing
-    tobacco, and all other tobacco products.
-    """
-
-    BIOTECHNOLOGY: int = 20610010
-    """
-    Biotech and biopharmaceutical companies engaged in research, discovery, development, and
-    production of innovative drug and drug-related technologies.
-    """
-
-    DRUG_MANUFACTURERS_GENERAL: int = 20620010
-    """
-    Major, global pharmaceutical manufacturers offering a broad and diverse line of drug and
-    healthcare products; industry leaders that have made a significant commitment to the
-    research and development of a long pipeline of drugs.
-    """
-
-    DRUG_MANUFACTURERS_SPECIALTY_AND_GENERIC: int = 20620020
-    """
-    Companies engaged in development and discovery of branded forms of drug, drug-related
-    products, generic drug products, and animal-related drugs. Also includes companies that
-    cultivate, process, and farm cannabis or marijuana.
-    """
-
-    HEALTHCARE_PLANS: int = 20630010
-    """
-    Companies that offer a wide variety of managed health products and services, including
-    HMOs, PPOs, and other health insurance plans, and are largely U.S.-domiciled.
-    """
-
-    MEDICAL_CARE_FACILITIES: int = 20645010
-    """
-    Companies that provide medical services through the ownership and operation of
-    hospitals, and other auxiliary healthcare-related services, including healthcare
-    staffing and ambulatory services. Also, companies that operate long-term-care
-    facilities, such as assisted-living centers, nursing and retirement homes,
-    substance-abuse centers, and centers for rehabilitation services.
-    """
-
-    PHARMACEUTICAL_RETAILERS: int = 20645020
-    """
-    Companies engaged in the retail sale of prescription drugs and patent medicines as well
-    as a number of related lines, such as cosmetics, toiletries, and novelty merchandise.
-    """
-
-    HEALTH_INFORMATION_SERVICES: int = 20645030
-    """
-    Companies that develop and provide comprehensive physician practice management systems
-    and software for hospitals, medical practices, and managed-care organizations.
-    """
-
-    MEDICAL_DEVICES: int = 20650010
-    """
-    Companies that develop, manufacture, and market medical and surgical equipment and
-    machinery, including orthopedic products, respiratory care equipment, x-ray equipment,
-    laser systems, implants, pacemakers, and other major medical machines and apparatus.
-    """
-
-    MEDICAL_INSTRUMENTS_AND_SUPPLIES: int = 20650020
-    """
-    Companies that develop, design, manufacture, and market medical and dental instruments
-    and supplies, including wheelchairs, catheters, needles, syringes, eyewear and eyecare
-    products, and other health-related supplies.
-    """
-
-    DIAGNOSTICS_AND_RESEARCH: int = 20660010
-    """
-    Companies that provide laboratory testing services through imaging and other diagnostic
-    services to the medical industry.
-    """
-
-    MEDICAL_DISTRIBUTION: int = 20670010
-    """
-    Companies primarily engaged in the distribution and supply of medical instruments and
-    supplies, ophthalmic goods, and other health-related items to the medical and healthcare industry.
-    """
-
-    UTILITIES_INDEPENDENT_POWER_PRODUCERS: int = 20710010
-    """
-    Companies that own and operate merchant power generation facilities and sell electricity
-    into retail and wholesale markets.
-    """
-
-    UTILITIES_RENEWABLE: int = 20710020
-    """
-    Companies that generate, produce, or transmit electric energy from renewable sources,
-    including hydropower, wind, geothermal, biomass, solar, tidal, and wave.
-    """
-
-    UTILITIES_REGULATED_WATER: int = 20720010
-    """Companies that distribute water for sale, including water-treatment companies."""
-
-    UTILITIES_REGULATED_ELECTRIC: int = 20720020
-    """Companies that generate, transmit, or distribute electric energy for sale."""
-
-    UTILITIES_REGULATED_GAS: int = 20720030
-    """Companies that transmit, store, or distribute natural gas."""
-
-    UTILITIES_DIVERSIFIED: int = 20720040
-    """
-    Companies engaged in the regulated generation, transmission, or distribution of
-    electricity and natural gas, merchant power generation facilities, and energy marketing operations.
-    """
-
-    TELECOM_SERVICES: int = 30810010
-    """
-    Companies that provide local, national, international, and long-distance phone services,
-    as well as companies offering wireless services. Also includes companies that provide
-    services for faxing, prepaid phone cards, pay phones, and directory assistance, or that
-    provide Internet access services.
-    """
-
-    ADVERTISING_AGENCIES: int = 30820010
-    """
-    Companies engaged in full-service advertising operations, including the planning,
-    creating, producing, and placing of advertising in media such as TV, radio, and print.
-    Also includes companies providing marketing services, including outdoor advertising,
-    promotional materials, direct-mail services, digital marketing, event management
-    services, and marketing research services.
-    """
-
-    PUBLISHING: int = 30820020
-    """
-    Companies that publish periodicals, such as magazines, comic books, trade journals,
-    books, pamphlets, e-publications, and newspapers.
-    """
-
-    BROADCASTING: int = 30820030
-    """
-    Companies that own or operate radio broadcast stations and provide and produce radio
-    programming services, television programming services, and television broadcast
-    stations. Also includes companies providing Internet-based video on demand and
-    pay-per-view programming services.
-    """
-
-    ENTERTAINMENT: int = 30820040
-    """
-    Companies primarily operating with diversified holdings in movies, television, and other
-    media-based entertainment. Also includes companies that produce and distribute motion
-    pictures, television programmers, video, and the operation of movie theaters; and
-    provide cable television services.
-    """
-
-    INTERNET_CONTENT_AND_INFORMATION: int = 30830010
-    """
-    Companies that provide content, Internet navigation services, and reference guide
-    information for the World Wide Web through its platforms, including social media, search
-    engines, and networking platform companies.
-    """
-
-    ELECTRONIC_GAMING_AND_MULTIMEDIA: int = 30830020
-    """
-    Companies that primarily develop or publish video games and other multimedia software
-    applications for devices that include personal computers, video game systems,
-    cellphones, tablets, and other portable media players.
-    """
-
-    OIL_AND_GAS_DRILLING: int = 30910010
-    """Companies primarily engaged in the drilling for petroleum and natural gas."""
-
-    OIL_AND_GAS_E_AND_P: int = 30910020
-    """Energy companies which are primarily engaged in oil and gas exploration and production."""
-
-    OIL_AND_GAS_INTEGRATED: int = 30910030
-    """
-    Major energy companies engaged in the diverse aspects of oil and gas operations,
-    including crude oil and gas exploration, production, manufacturing, refining, marketing,
-    and transportation.
-    """
-
-    OIL_AND_GAS_MIDSTREAM: int = 30910040
-    """
-    Companies that own and operate oilfield pipelines and are involved in the gathering,
-    processing, and transportation of natural crude petroleum.
-    """
-
-    OIL_AND_GAS_REFINING_AND_MARKETING: int = 30910050
-    """Companies that refine, gather, market, and sell petroleum and petroleum products."""
-
-    OIL_AND_GAS_EQUIPMENT_AND_SERVICES: int = 30910060
-    """
-    Companies that provide oilfield services and equipment for activities such as contract
-    drilling and seismic surveys. Also includes equipment and tool rental, pumping and
-    processing services, and inspection and contracting services.
-    """
-
-    THERMAL_COAL: int = 30920010
-    """
-    Companies that mine thermal coal, which is used for generating energy. Excludes
-    companies that mine coking coal to make steel.
-    """
-
-    URANIUM: int = 30920020
-    """Companies that mine, refine, produce, and mill uranium and uranium-related materials."""
-
-    AEROSPACE_AND_DEFENSE: int = 31010010
-    """
-    Companies that manufacture aerospace and defense products, including aircraft and
-    aircraft parts, tanks, guided missiles, space vehicles, ships and marine equipment, and
-    other aerospace and defense components and systems, as well as companies supporting
-    these products through repair and maintenance services.
-    """
-
-    SPECIALTY_BUSINESS_SERVICES: int = 31020010
-    """
-    Companies that provide services to the commercial or business market, including
-    information distribution, warehousing, graphic design, accounting, printing, and
-    miscellaneous services.
-    """
-
-    CONSULTING_SERVICES: int = 31020020
-    """
-    Companies that provide management, research, and consulting services to businesses and
-    other agencies. Includes companies engaged in strategic and management consulting
-    services, interior design, and information and analytics.
-    """
-
-    RENTAL_AND_LEASING_SERVICES: int = 31020030
-    """
-    Companies that rent or lease durable goods to the commercial and consumer market,
-    including cars and trucks, medical and industrial equipment, appliances and tools, and
-    miscellaneous goods.
-    """
-
-    SECURITY_AND_PROTECTION_SERVICES: int = 31020040
-    """
-    Companies that provide security and protective services, including protective or
-    preventive devices, security guards and inspection services, security alarm and
-    monitoring systems, detention and correction facilities, and other security-based services.
-    """
-
-    STAFFING_AND_EMPLOYMENT_SERVICES: int = 31020050
-    """
-    Companies that provide staffing and employment services, including temporary staffing
-    and permanent placement, outsources workforce and other employment-related services to
-    businesses and government. Also includes companies providing online staffing services.
-    """
-
-    CONGLOMERATES: int = 31030010
-    """
-    Companies that are in several separate lines of business with no single line providing
-    the dominant source of revenue or income.
-    """
-
-    ENGINEERING_AND_CONSTRUCTION: int = 31040010
-    """
-    Companies engaged in the design, construction, or contracting of industrial and
-    nonresidential structures, streets and highways, bridges and tunnels, docks and piers,
-    dams and water projects, utility lines, and other large building projects. Also includes
-    companies that provide engineering consulting and architectural services to consumer and
-    commercial clients.
-    """
-
-    INFRASTRUCTURE_OPERATIONS: int = 31040020
-    """
-    Companies that develop, finance, maintain, or manage infrastructure operations such as
-    ports, airports, and roadways.
-    """
-
-    BUILDING_PRODUCTS_AND_EQUIPMENT: int = 31040030
-    """
-    Companies that manufacture building and construction products and materials, including
-    ceramic floor and wall tiles, plumbing, HVAC, framing structures, and doors. Excludes
-    companies that are classified in the building materials industry.
-    """
-
-    FARM_AND_HEAVY_CONSTRUCTION_MACHINERY: int = 31050010
-    """
-    Companies that manufacture agricultural and construction machinery, including tractors,
-    planting and harvesting machines, cranes, earthmovers, excavators, and related equipment
-    and machinery. Includes truck manufacturers that provide local and long-haul trucking
-    and transfer services for freight and cargo.
-    """
-
-    INDUSTRIAL_DISTRIBUTION: int = 31060010
-    """
-    Companies primarily engaged in the distribution and supply of industrial equipment,
-    including construction and farming machinery, garden equipment and supplies, and other
-    industrial items to a diversified market of redistributors and end users.
-    """
-
-    BUSINESS_EQUIPMENT_AND_SUPPLIES: int = 31070010
-    """
-    Companies that manufacture and market office and business machines, such as copiers, fax
-    machines, postage meters, point-of-sale terminals, and ATMs.
-    """
-
-    SPECIALTY_INDUSTRIAL_MACHINERY: int = 31070020
-    """
-    Companies engaged in diversified machinery manufacturing operations, including paper and
-    food production machines, printing machinery, engines and turbines, air and gas
-    processors, blowers and fans, furnaces and ovens, and other general and special industry machines.
-    """
-
-    METAL_FABRICATION: int = 31070030
-    """
-    Companies that fabricate, stamp, or form iron, steel, or other metals into products such
-    as structured components by cutting, bending, and assembling processes of basic metals
-    to create a final product.
-    """
-
-    POLLUTION_AND_TREATMENT_CONTROLS: int = 31070040
-    """
-    Companies that manufacture equipment designed to control pollution, including control
-    systems, hazardous waste disposal systems, recovery systems, treatment processes,
-    filtration systems, cleaning and separation applications, and recycling machinery.
-    """
-
-    TOOLS_AND_ACCESSORIES: int = 31070050
-    """
-    Companies that manufacture small, hand-held tools, including power-driven drills,
-    welding apparatus, lawn and garden equipment, and other power or manually operated tools
-    and accessories, such as hardware, nuts, bolts, rivets, and other fasteners.
-    """
-
-    ELECTRICAL_EQUIPMENT_AND_PARTS: int = 31070060
-    """
-    Companies that manufacture electrical equipment (such as smart-grid electrical
-    equipment, utility metering, high- and low-voltage electrical equipment, transmission
-    control devices, switches, and lighting distribution boxes), batteries, electrical wires
-    and cables, and automation control.
-    """
-
-    AIRPORTS_AND_AIR_SERVICES: int = 31080010
-    """
-    Air transportation companies that provide related air services, including helicopter
-    transportation, air-charter services, in-flight catering services, and air emergency and
-    business-related services.
-    """
-
-    AIRLINES: int = 31080020
-    """
-    Major international passenger airline companies that fly a wide range of domestic and
-    international routes.
-    """
-
-    RAILROADS: int = 31080030
-    """
-    Companies that provide transportation of freight by line-haul railroad as well as
-    related railroad equipment and repair services. Includes companies offering passenger
-    services via railway and roadways.
-    """
-
-    MARINE_SHIPPING: int = 31080040
-    """
-    Companies that transport freight and cargo via water and operate marine ports. Includes
-    companies that provide passenger services via water.
-    """
-
-    TRUCKING: int = 31080050
-    """
-    Companies that provide local and long-haul trucking and transfer services for freight
-    and cargo.
-    """
-
-    INTEGRATED_FREIGHT_AND_LOGISTICS: int = 31080060
-    """
-    Companies that transport freight and cargo via diversified methods such as railroads,
-    airlines, and waterways.
-    """
-
-    WASTE_MANAGEMENT: int = 31090010
-    """
-    Companies that collect, treat, store, transfer, recycle, and dispose of waste materials,
-    as well as companies that provide supporting environmental, engineering, and consulting services.
-    """
-
-    INFORMATION_TECHNOLOGY_SERVICES: int = 31110010
-    """
-    Companies that provide computer-system design, network and systems operations, repair
-    services, technical support, computer technology consulting, development, and
-    implementation services.
-    """
-
-    SOFTWARE_APPLICATION: int = 31110020
-    """
-    Companies that primarily design, develop, market, and support application software
-    programs, including those that are cloud-based, for specific consumer and business functions.
-    """
-
-    SOFTWARE_INFRASTRUCTURE: int = 31110030
-    """
-    Companies that develop, design, support, and provide system software and services,
-    including operating systems, networking software and devices, web portal services, cloud
-    storage, and related services.
-    """
-
-    COMMUNICATION_EQUIPMENT: int = 31120010
-    """
-    Companies that design, develop, manufacture, and market equipment for the communication
-    industry, including fiber-optic cable; telecom peripherals; voice and data transmission
-    and processing equipment; satellite products and equipment; video-conferencing systems
-    and equipment; and interactive communication systems. Also includes companies that offer
-    networking products that provide connectivity solutions for multi-use computing environments.
-    """
-
-    COMPUTER_HARDWARE: int = 31120020
-    """
-    Companies that design, manufacture, and market computer systems, high mainframe servers,
-    supercomputer, and 3D printers and scanners. Also includes companies that manufacture
-    and market data storage products and other storage and backup devices for computers.
-    """
-
-    CONSUMER_ELECTRONICS: int = 31120030
-    """
-    Companies that manufacture and market mobile communication products and household audio
-    and video equipment, including radios, stereos, televisions, DVD player and personal use
-    Drones. Excludes electric household appliances.
-    """
-
-    ELECTRONIC_COMPONENTS: int = 31120040
-    """
-    Companies that design, develop, manufacture, and market electronic devices, including
-    electron tubes; electronic capacitors; electronic resistors; electronic coil and
-    transformers; sensors; LED, TFT, and LCD displays; electronic connectors; printed
-    circuit boards; circuit assemblies; and other general-purpose electronics components and products.
-    """
-
-    ELECTRONICS_AND_COMPUTER_DISTRIBUTION: int = 31120050
-    """
-    Companies primarily engaged in the distribution, supply, and support of computers and
-    computer systems, peripheral equipment, and software and other technological goods,
-    including electronic equipment and appliances, electrical cable, wires, and other
-    components to various consumer, commercial, and manufacturing customers.
-    """
-
-    SCIENTIFIC_AND_TECHNICAL_INSTRUMENTS: int = 31120060
-    """
-    Companies that design, develop, manufacture, and market sophisticated electronics of a
-    technical nature, including lab apparatus, process and flow control devices, precise
-    measurement and signal processing tools, search and navigation equipment, and other
-    scientific or technical analytical or measuring devices.
-    """
-
-    SEMICONDUCTOR_EQUIPMENT_AND_MATERIALS: int = 31130010
-    """
-    Companies that design, develop, manufacture, and market equipment, spare parts, tools,
-    cleaning devices, and related materials for the semiconductor industry.
-    """
-
-    SEMICONDUCTORS: int = 31130020
-    """
-    Semiconductor companies that design, manufacture, and market integrated circuits,
-    microprocessors, logic devices, chipsets, and memory chips for a wide variety of users.
-    Includes companies that design, manufacture, and market general-application integrated
-    circuits and memory and memory-intensive products.
-    """
-
-    SOLAR: int = 31130030
-    """Companies that design, manufacture, market, or install solar power systems and components."""
-
-
-class Period(System.Object):
-    """Period constants for multi-period fields"""
-
-    ONE_MONTH: str = "1M"
-    """Period constant for one month"""
-
-    TWO_MONTHS: str = "2M"
-    """Period constant for two months"""
-
-    THREE_MONTHS: str = "3M"
-    """Period constant for three months"""
-
-    SIX_MONTHS: str = "6M"
-    """Period constant for six months"""
-
-    NINE_MONTHS: str = "9M"
-    """Period constant for nine months"""
-
-    TWELVE_MONTHS: str = "12M"
-    """Period constant for twelve months"""
-
-    ONE_YEAR: str = "1Y"
-    """Period constant for one year"""
-
-    TWO_YEARS: str = "2Y"
-    """Period constant for two years"""
-
-    THREE_YEARS: str = "3Y"
-    """Period constant for three years"""
-
-    FIVE_YEARS: str = "5Y"
-    """Period constant for five years"""
-
-    TEN_YEARS: str = "10Y"
-    """Period constant for ten years"""
 
 
 class FundamentalProperty(IntEnum):
@@ -72334,6 +70791,198 @@ class FundamentalProperty(IntEnum):
     ASSET_CLASSIFICATION_CANNAICS = 3621
 
 
+class FineFundamental(QuantConnect.Data.UniverseSelection.CoarseFundamental):
+    """Definition of the FineFundamental class"""
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The end time of this data."""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def market_cap(self) -> int:
+        """
+        Price * Total SharesOutstanding.
+        The most current market cap for example, would be the most recent closing price x the most recent reported shares outstanding.
+        For ADR share classes, market cap is price * (ordinary shares outstanding / adr ratio).
+        """
+        ...
+
+    @property
+    def company_reference(self) -> QuantConnect.Data.Fundamental.CompanyReference:
+        """The instance of the CompanyReference class"""
+        ...
+
+    @property
+    def security_reference(self) -> QuantConnect.Data.Fundamental.SecurityReference:
+        """The instance of the SecurityReference class"""
+        ...
+
+    @property
+    def financial_statements(self) -> QuantConnect.Data.Fundamental.FinancialStatements:
+        """The instance of the FinancialStatements class"""
+        ...
+
+    @property
+    def earning_reports(self) -> QuantConnect.Data.Fundamental.EarningReports:
+        """The instance of the EarningReports class"""
+        ...
+
+    @property
+    def operation_ratios(self) -> QuantConnect.Data.Fundamental.OperationRatios:
+        """The instance of the OperationRatios class"""
+        ...
+
+    @property
+    def earning_ratios(self) -> QuantConnect.Data.Fundamental.EarningRatios:
+        """The instance of the EarningRatios class"""
+        ...
+
+    @property
+    def valuation_ratios(self) -> QuantConnect.Data.Fundamental.ValuationRatios:
+        """The instance of the ValuationRatios class"""
+        ...
+
+    @property
+    def company_profile(self) -> QuantConnect.Data.Fundamental.CompanyProfile:
+        """The instance of the CompanyProfile class"""
+        ...
+
+    @property
+    def asset_classification(self) -> QuantConnect.Data.Fundamental.AssetClassification:
+        """The instance of the AssetClassification class"""
+        ...
+
+    @overload
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    @overload
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], fundamental_instance_provider: QuantConnect.Data.Fundamental.FundamentalInstanceProvider) -> None:
+        """Creates a new instance for the given time and security"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this fine data instance"""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """This is a daily data set"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Return the URL string source of the file. This will be converted to a stream"""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """This is a daily data set"""
+        ...
+
+
+class Fundamental(QuantConnect.Data.Fundamental.FineFundamental):
+    """Lean fundamental data class"""
+
+    @property
+    def dollar_volume(self) -> float:
+        """Gets the day's dollar volume for this symbol"""
+        ...
+
+    @property
+    def volume(self) -> int:
+        """Gets the day's total volume"""
+        ...
+
+    @property
+    def has_fundamental_data(self) -> bool:
+        """Returns whether the symbol has fundamental data for the given date"""
+        ...
+
+    @property
+    def price_factor(self) -> float:
+        """Gets the price factor for the given date"""
+        ...
+
+    @property
+    def split_factor(self) -> float:
+        """Gets the split factor for the given date"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Gets the raw price"""
+        ...
+
+    @overload
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> None:
+        """
+        Creates a new instance
+        
+        :param time: The current time
+        :param symbol: The associated symbol
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Will clone the current instance
+        
+        :returns: The cloned instance.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    @staticmethod
+    def for_date(time: datetime.datetime, symbol: QuantConnect.Symbol) -> QuantConnect.Data.Fundamental.Fundamental:
+        """
+        Creates a new instance
+        
+        :param time: The current time
+        :param symbol: The associated symbol
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Return the URL string source of the file. This will be converted to a stream"""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Will read a new instance from the given line
+        
+        :param config: The associated requested configuration
+        :param line: The line to parse
+        :param date: The current time
+        :param is_live_mode: True if live mode
+        :returns: A new instance or null.
+        """
+        ...
+
+
 class FundamentalUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
     """Lean fundamentals universe data class"""
 
@@ -72432,5 +71081,1356 @@ class Fundamentals(QuantConnect.Data.Fundamental.FundamentalUniverse):
     
     'Fundamentals' was renamed to 'FundamentalUniverse'
     """
+
+
+class StockType(System.Object):
+    """Helper class for the AssetClassification's StockType field AssetClassification.stock_type"""
+
+    AGGRESSIVE_GROWTH: int = 1
+    """
+    Companies whose revenues and earnings have both been growing significantly faster than
+    the general economy.
+    """
+
+    CLASSIC_GROWTH: int = 2
+    """
+    Companies that are growing respectably faster than the general economy, and often pay a
+    steady dividend. They tend to be mature and solidly profitable businesses.
+    """
+
+    CYCLICALS: int = 3
+    """
+    Companies in the cyclicals and durables sectors, except those in the three types below.
+    The profits of cyclicals tend to rise and fall with the general economy.
+    """
+
+    DISTRESSED: int = 4
+    """
+    Companies that have had consistently declining cash flows and earnings over the past
+    three years, and/or very high debt.
+    """
+
+    HARD_ASSET: int = 5
+    """
+    Companies that deal in assets such as oil, metals, and real estate, which tend to do
+    well in inflationary environments.
+    """
+
+    HIGH_YIELD: int = 6
+    """
+    Companies that have dividend yields at least twice the average for large-cap stocks.
+    They tend to be mature, slow-growing companies.
+    """
+
+    SLOW_GROWTH: int = 7
+    """
+    Companies that have shown slow revenue and earnings growth (typically less than the rate
+    of GDP growth) over at least three years.
+    """
+
+    SPECULATIVE_GROWTH: int = 8
+    """
+    Companies that have shown strong revenue growth but slower or spotty earnings growth.
+    Very small or young companies also tend to fall into this class.
+    """
+
+
+class StyleBox(System.Object):
+    """
+    Helper class for the AssetClassification's StyleBox field AssetClassification.style_box.
+    For stocks and stock funds, it classifies securities according to market capitalization and growth and value factor
+    """
+
+    LARGE_VALUE: int = 1
+
+    LARGE_CORE: int = 2
+
+    LARGE_GROWTH: int = 3
+
+    MID_VALUE: int = 4
+
+    MID_CORE: int = 5
+
+    MID_GROWTH: int = 6
+
+    SMALL_VALUE: int = 7
+
+    SMALL_CORE: int = 8
+
+    SMALL_GROWTH: int = 9
+
+
+class MorningstarEconomySphereCode(System.Object):
+    """Helper class for the AssetClassification's MorningstarEconomySphereCode field AssetClassification.morningstar_economy_sphere_code."""
+
+    CYCLICAL: int = 1
+    """
+    The cyclical Super Sector includes industries significantly affected by economic shifts.
+    When the economy is prosperous, these industries tend to expand, and when the economy is
+    in a downturn they tend to shrink. In general, the stocks in these industries have betas
+    of greater than 1.
+    """
+
+    DEFENSIVE: int = 2
+    """
+    The defensive Super Sector includes industries that are relatively immune to economic
+    cycles. These industries provide services that consumers require in both good and bad
+    times, such as healthcare and utilities. In general, the stocks in these industries have
+    betas of less than 1.
+    """
+
+    SENSITIVE: int = 3
+    """
+    The sensitive Super Sector includes industries that ebb and flow with the overall
+    economy, but not severely. Sensitive industries fall between defensive and cyclical, as
+    they are not immune to a poor economy, but they also may not be as severely affected as
+    industries in the cyclical Super Sector. In general, the stocks in these industries have
+    betas that are close to 1.
+    """
+
+
+class MorningstarSectorCode(System.Object):
+    """Helper class for the AssetClassification's MorningstarSectorCode field AssetClassification.morningstar_sector_code."""
+
+    BASIC_MATERIALS: int = 101
+    """
+    Companies that manufacture chemicals, building materials, and paper products. This
+    sector also includes companies engaged in commodities exploration and processing.
+    """
+
+    CONSUMER_CYCLICAL: int = 102
+    """
+    This sector includes retail stores, auto and auto-parts manufacturers, restaurants,
+    lodging facilities, specialty retail and travel companies.
+    """
+
+    FINANCIAL_SERVICES: int = 103
+    """
+    Companies that provide financial services include banks, savings and loans, asset
+    management companies, credit services, investment brokerage firms, and insurance companies.
+    """
+
+    REAL_ESTATE: int = 104
+    """This sector includes companies that develop, acquire, manage, and operate real estate properties."""
+
+    CONSUMER_DEFENSIVE: int = 205
+    """
+    Companies that manufacture food, beverages, household and personal products, packaging,
+    or tobacco. Also includes companies that provide services such as education and training services.
+    """
+
+    HEALTHCARE: int = 206
+    """
+    This sector includes biotechnology, pharmaceuticals, research services, home healthcare,
+    hospitals, long-term-care facilities, and medical equipment and supplies. Also include
+    pharmaceutical retailers and companies which provide health information services.
+    """
+
+    UTILITIES: int = 207
+    """Electric, gas, and water utilities."""
+
+    COMMUNICATION_SERVICES: int = 308
+    """
+    Companies that provide communication services using fixed-line networks or
+    those that provide wireless access and services. Also includes companies that provide
+    advertising & marketing services, entertainment content and services, as well as
+    interactive media and content provider over internet or through software.
+    """
+
+    ENERGY: int = 309
+    """
+    Companies that produce or refine oil and gas, oilfield-services and equipment companies,
+    and pipeline operators. This sector also includes companies that mine thermal coal and uranium.
+    """
+
+    INDUSTRIALS: int = 310
+    """
+    Companies that manufacture machinery, hand-held tools, and industrial products. This
+    sector also includes aerospace and defense firms as well as companies engaged in
+    transportation services.
+    """
+
+    TECHNOLOGY: int = 311
+    """
+    Companies engaged in the design, development, and support of computer operating systems
+    and applications. This sector also includes companies that make computer equipment, data
+    storage products, networking products, semiconductors, and components.
+    """
+
+
+class MorningstarIndustryGroupCode(System.Object):
+    """Helper class for the AssetClassification's MorningstarIndustryGroupCode field AssetClassification.morningstar_industry_group_code."""
+
+    AGRICULTURE: int = 10110
+
+    BUILDING_MATERIALS: int = 10120
+
+    CHEMICALS: int = 10130
+
+    FOREST_PRODUCTS: int = 10140
+
+    METALS_AND_MINING: int = 10150
+
+    STEEL: int = 10160
+
+    VEHICLES_AND_PARTS: int = 10200
+
+    FURNISHINGS: int = 10220
+
+    FIXTURES_AND_APPLIANCES: int = 10220
+
+    HOMEBUILDING_AND_CONSTRUCTION: int = 10230
+
+    MANUFACTURING_APPAREL_AND_ACCESSORIES: int = 10240
+
+    PACKAGING_AND_CONTAINERS: int = 10250
+
+    PERSONAL_SERVICES: int = 10260
+
+    RESTAURANTS: int = 10270
+
+    RETAIL_CYCLICAL: int = 10280
+
+    TRAVEL_AND_LEISURE: int = 10290
+
+    ASSET_MANAGEMENT: int = 10310
+
+    BANKS: int = 10320
+
+    CAPITAL_MARKETS: int = 10330
+
+    INSURANCE: int = 10340
+
+    DIVERSIFIED_FINANCIAL_SERVICES: int = 10350
+
+    CREDIT_SERVICES: int = 10360
+
+    REAL_ESTATE: int = 10410
+
+    REI_TS: int = 10420
+
+    BEVERAGES_ALCOHOLIC: int = 20510
+
+    BEVERAGES_NON_ALCOHOLIC: int = 20520
+
+    CONSUMER_PACKAGED_GOODS: int = 20525
+
+    EDUCATION: int = 20540
+
+    RETAIL_DEFENSIVE: int = 20550
+
+    TOBACCO_PRODUCTS: int = 20560
+
+    BIOTECHNOLOGY: int = 20610
+
+    DRUG_MANUFACTURERS: int = 20620
+
+    HEALTHCARE_PLANS: int = 20630
+
+    HEALTHCARE_PROVIDERS_AND_SERVICES: int = 20645
+
+    MEDICAL_DEVICES_AND_INSTRUMENTS: int = 20650
+
+    MEDICAL_DIAGNOSTICS_AND_RESEARCH: int = 20660
+
+    MEDICAL_DISTRIBUTION: int = 20670
+
+    UTILITIES_INDEPENDENT_POWER_PRODUCERS: int = 20710
+
+    UTILITIES_REGULATED: int = 20720
+
+    TELECOMMUNICATION_SERVICES: int = 30810
+
+    MEDIA_DIVERSIFIED: int = 30820
+
+    INTERACTIVE_MEDIA: int = 30830
+
+    OIL_AND_GAS: int = 30910
+
+    OTHER_ENERGY_SOURCES: int = 30920
+
+    AEROSPACE_AND_DEFENSE: int = 31010
+
+    BUSINESS_SERVICES: int = 31020
+
+    CONGLOMERATES: int = 31030
+
+    CONSTRUCTION: int = 31040
+
+    FARM_AND_HEAVY_CONSTRUCTION_MACHINERY: int = 31050
+
+    INDUSTRIAL_DISTRIBUTION: int = 31060
+
+    INDUSTRIAL_PRODUCTS: int = 31070
+
+    TRANSPORTATION: int = 31080
+
+    WASTE_MANAGEMENT: int = 31090
+
+    SOFTWARE: int = 31110
+
+    HARDWARE: int = 31120
+
+    SEMICONDUCTORS: int = 31130
+
+
+class MorningstarIndustryCode(System.Object):
+    """Helper class for the AssetClassification's MorningstarIndustryCode field AssetClassification.morningstar_industry_code."""
+
+    AGRICULTURAL_INPUTS: int = 10110010
+    """
+    Companies that manufacture nitrogenous and phosphatic fertilizers, pesticides, seed, and
+    other agricultural chemical products.
+    """
+
+    BUILDING_MATERIALS: int = 10120010
+    """
+    Companies that manufacture construction materials, including stone, clay, and brick
+    products, cement, lime, gypsum, and concrete and other construction products. Excludes
+    companies that manufacture finished and semi finished building products.
+    """
+
+    CHEMICALS: int = 10130010
+    """
+    Chemical manufacturing companies engaged in diverse chemical and chemical-related
+    operations, and basic chemicals manufacturing.
+    """
+
+    SPECIALTY_CHEMICALS: int = 10130020
+    """
+    Companies that use base chemicals to produce value-added chemicals that are used in a
+    variety of products. Includes companies that produce polishes, adhesives and sealants,
+    explosives, printing ink, paint, carbon black, acids, repellants, and cleaning solutions.
+    """
+
+    LUMBER_AND_WOOD_PRODUCTION: int = 10140010
+    """Companies that grow timber, mill lumber, and manufacture wood and wood products for construction."""
+
+    PAPER_AND_PAPER_PRODUCTS: int = 10140020
+    """
+    Companies that manufacture and market paper and paper-related products from wood pulp
+    and other fibers. Excludes companies that produce paper packaging products and are
+    classified in the packaging and containers industry.
+    """
+
+    ALUMINUM: int = 10150010
+    """
+    Companies that produce, refine, market, and distribute aluminum and related
+    aluminum-based products.
+    """
+
+    COPPER: int = 10150020
+    """
+    Companies engaged in the exploration, mining, smelting, and refining of copper ores and
+    related copper products.
+    """
+
+    OTHER_INDUSTRIAL_METALS_AND_MINING: int = 10150030
+    """
+    Companies that mine, refine, produce, smelt, and mill industrial ores, including copper,
+    lead, zinc, radium, vanadium, nickel, tin, titanium, and other related materials.
+    """
+
+    GOLD: int = 10150040
+    """Companies principally engaged in gold exploration, mining, processing, extraction, and smelting."""
+
+    SILVER: int = 10150050
+    """Companies principally engaged in silver exploration, mining, processing, extraction, and smelting."""
+
+    OTHER_PRECIOUS_METALS_AND_MINING: int = 10150060
+    """
+    Companies that mine, refine, produce, smelt, and mill precious metals, including silver,
+    platinum, palladium, diamond, and other related minerals.
+    """
+
+    COKING_COAL: int = 10160010
+    """Companies that produce coking coal."""
+
+    STEEL: int = 10160020
+    """
+    Companies that produce steel plates, steel sheets, bar and rod materials, structural
+    steel, steel pipes and tubes, and stainless steel.
+    """
+
+    AUTO_AND_TRUCK_DEALERSHIPS: int = 10200010
+    """
+    Companies engaged in the specialty retail of new and used automobiles, trucks, and other
+    vehicles through the operation and/or franchising of dealerships.
+    """
+
+    AUTO_MANUFACTURERS: int = 10200020
+    """Leading worldwide designers and manufacturers of passenger cars and trucks."""
+
+    AUTO_PARTS: int = 10200030
+    """
+    Companies that manufacture motor vehicle parts and accessories, including rubber and
+    plastic products, such as tires and inner tubes, but do not manufacture complete car bodies.
+    """
+
+    RECREATIONAL_VEHICLES: int = 10200040
+    """
+    Companies that manufacture recreational vehicles, including self-contained motor homes,
+    campers, all-terrain vehicles, travel/camper trailers, and snowmobiles.
+    """
+
+    FURNISHINGS: int = 10220010
+    """
+    Companies that manufacture and market wooden, metal, and upholstered furniture,
+    mattresses, bedsprings, lighting fixtures, wooden flooring, wallpaper, and household
+    products, such as utensils, cutlery, tableware, and appliances.
+    """
+
+    FIXTURES_AND_APPLIANCES: int = 10220010
+    """
+    Companies that manufacture and market wooden, metal, and upholstered furniture,
+    mattresses, bedsprings, lighting fixtures, wooden flooring, wallpaper, and household
+    products, such as utensils, cutlery, tableware, and appliances.
+    """
+
+    RESIDENTIAL_CONSTRUCTION: int = 10230010
+    """
+    Companies that build and renovate residential buildings, such as single-family houses,
+    apartments, and hotels.
+    """
+
+    TEXTILE_MANUFACTURING: int = 10240010
+    """
+    Companies that manufacture and mill textile products, including apparel fabrics, bedding
+    and accessories, home furnishing fabrics, carpets and rugs, curtains and drapes, and
+    other milled textile products.
+    """
+
+    APPAREL_MANUFACTURING: int = 10240020
+    """
+    Companies that manufacture, design, market, source, and sell all lines of clothing for
+    men, women, and children. Also includes companies that manufacture or distribute
+    buttons, buckles, and other apparel parts.
+    """
+
+    FOOTWEAR_AND_ACCESSORIES: int = 10240030
+    """
+    Companies that manufacture, design, market, and sell lines of footwear and luggage,
+    handbags and purses, belts, and other leather goods.
+    """
+
+    PACKAGING_AND_CONTAINERS: int = 10250010
+    """
+    Companies that manufacture and market paper, plastic, metal, and glass packaging
+    products, including corrugated boxes, cardboard containers, bottles, cans, and plastic
+    foam and containers.
+    """
+
+    PERSONAL_SERVICES: int = 10260010
+    """
+    Companies that provide services of a personal nature or that are particularly structured
+    for the individual or group being served, including veterinary services, funeral and
+    cemetery services, child care services, portrait and photo services, tax preparation and
+    legal services, and other miscellaneous personal services.
+    """
+
+    RESTAURANTS: int = 10270010
+    """
+    Companies that own, operate, and franchise full-service restaurants that engage in the
+    retail sale of prepared food and drink.
+    """
+
+    APPAREL_RETAIL: int = 10280010
+    """Companies engaged in the retail sale of clothing, shoes, and accessories."""
+
+    DEPARTMENT_STORES: int = 10280020
+    """
+    Companies engaged in the retail sale of a diverse mix of merchandise, emphasizing
+    fashion apparel and accessories, home furnishings, electronics, and cosmetics.
+    """
+
+    HOME_IMPROVEMENT_RETAIL: int = 10280030
+    """
+    Companies engaged in the retail sale of home improvement items, such as lumber, carpets,
+    hardware and other building materials, plants and other garden supplies, and various
+    other items for the home.
+    """
+
+    LUXURY_GOODS: int = 10280040
+    """
+    Companies engaged in the specialty retail of luxury items, including jewelry, watches,
+    crystal, clothing, handbags, and accessories.
+    """
+
+    INTERNET_RETAIL: int = 10280050
+    """
+    Companies engaged in the online retail sale of a diverse mix of merchandise. Excludes
+    companies that target the travel industry and are classified in travel services.
+    """
+
+    SPECIALTY_RETAIL: int = 10280060
+    """
+    Companies engaged in the specialty retail of various goods and products not covered in a
+    specific industry group. This group includes retailers such as bookstores, office-supply
+    stores, gas stations, pawn shops, novelty shops, auto-parts stores, electronics stores,
+    home furnishing stores, sporting goods stores, toy and hobby stores, music and video
+    stores, and many other miscellaneous retailers.
+    """
+
+    GAMBLING: int = 10290010
+    """
+    Companies that own, operate, or manage lawful gaming activities and events, such as
+    horse and dog racing, online gaming, bingo, and video lottery, as well as companies that
+    supply products or services to gaming operators. It excludes companies operating casinos.
+    """
+
+    LEISURE: int = 10290020
+    """
+    Companies that manufacture, design, market, and sell bicycles, sporting goods,
+    photographic equipment, recreational equipment, toys, and other leisure products or services.
+    """
+
+    LODGING: int = 10290030
+    """
+    Companies that develop, manage, own, and operate lodging facilities, including motels,
+    extended-stay and full-service hotels, and economy hotels and inns.
+    """
+
+    RESORTS_AND_CASINOS: int = 10290040
+    """
+    Companies that own, operate, and manage resort properties, including beach clubs,
+    time-share properties, and luxury resort hotels and that conduct casino gaming operations.
+    """
+
+    TRAVEL_SERVICES: int = 10290050
+    """Companies that offer travel-related products or services, including online travel services."""
+
+    ASSET_MANAGEMENT: int = 10310010
+    """
+    Investment management firms offering diversified services such as asset administration,
+    investment advice, portfolio or mutual fund management, money management, and venture capital.
+    """
+
+    BANKS_DIVERSIFIED: int = 10320010
+    """
+    Global, diverse financial institutions serving the corporate and consumer needs of
+    retail banking, investment banking, trust management, credit cards and mortgage banking.
+    """
+
+    BANKS_REGIONAL: int = 10320020
+    """
+    Regional, diverse financial institutions serving the corporate, government, and consumer
+    needs of retail banking, investment banking, trust management, credit cards, mortgage
+    banking, savings and loan associations, building societies, cooperative banks, and homestead.
+    """
+
+    MORTGAGE_FINANCE: int = 10320030
+    """Companies that originate, purchase, sell, and service home mortgage and equity loans."""
+
+    CAPITAL_MARKETS: int = 10330010
+    """
+    Large, major investment houses offering investment banking, merchant banking,
+    underwriting, brokerage, research, advisory, and trading services to broad-based
+    national and international markets.
+    """
+
+    FINANCIAL_DATA_AND_STOCK_EXCHANGES: int = 10330020
+    """
+    Companies that operate security exchanges, including companies that offer financial data
+    such as ratings, investment research, and other research solutions.
+    """
+
+    INSURANCE_LIFE: int = 10340010
+    """
+    Companies that underwrite, market, and distribute life insurance and related products to
+    individuals and families.
+    """
+
+    INSURANCE_PROPERTY_AND_CASUALTY: int = 10340020
+    """
+    Companies that underwrite, market, and distribute fire, marine, and casualty insurance
+    for property and other tangible assets.
+    """
+
+    INSURANCE_REINSURANCE: int = 10340030
+    """Companies that underwrite and sell reinsurance."""
+
+    INSURANCE_SPECIALTY: int = 10340040
+    """
+    Companies that underwrite, market, and distribute accident and health, sickness,
+    mortgage, and other specialty or supplemental insurance to individuals and families.
+    """
+
+    INSURANCE_BROKERS: int = 10340050
+    """
+    Companies acting primarily as agents or intermediaries in creating insurance contracts
+    between clients and insurance companies.
+    """
+
+    INSURANCE_DIVERSIFIED: int = 10340060
+    """
+    Insurance companies with diversified interests in life, health, and property and
+    casualty insurance.
+    """
+
+    SHELL_COMPANIES: int = 10350010
+    """
+    A development-stage company with no or minimal revenue. Includes capital pool, blank
+    check, shell, and holding companies.
+    """
+
+    FINANCIAL_CONGLOMERATES: int = 10350020
+    """
+    Companies that provide financial services, including banking, insurance, and capital
+    markets, but with no dominant business line or source of revenue.
+    """
+
+    CREDIT_SERVICES: int = 10360010
+    """
+    Companies that extend credit and make loans to individuals and businesses through credit
+    cards, installment loans, student loans, and business loans that are associated with
+    other consumer and business credit instruments.
+    """
+
+    REAL_ESTATE_DEVELOPMENT: int = 10410010
+    """
+    Companies that develop real estate and same properties held as inventory, or sold to
+    others after development, with no specific portfolio composition.
+    """
+
+    REAL_ESTATE_SERVICES: int = 10410020
+    """
+    Companies that operate, manage, and lease real property with no specific portfolio
+    composition. Includes real estate services like brokers and agents but excludes
+    companies classified in the real estate â€“ development industry.
+    """
+
+    REAL_ESTATE_DIVERSIFIED: int = 10410030
+    """
+    Companies engaged in multiple real estate activities, including development, sales,
+    management, and related services. Excludes companies classified in real estate
+    development and real estate services.
+    """
+
+    REIT_HEALTHCARE_FACILITIES: int = 10420010
+    """
+    Self-administered real estate investment trusts engaged in the development, acquisition,
+    management, and disposition of healthcare properties, including long-term-care
+    facilities, acute-care and rehab hospitals, psychiatric facilities, and substance-abuse centers.
+    """
+
+    REIT_HOTEL_AND_MOTEL: int = 10420020
+    """
+    Self-administered real estate investment trusts engaged in the development, acquisition,
+    management, and disposition of lodging properties, including full- and limited-service
+    hotels and motels.
+    """
+
+    REIT_INDUSTRIAL: int = 10420030
+    """
+    Self-administered real estate investment trusts engaged in the development, acquisition,
+    management, and disposition of industrial properties, including bulk warehouses,
+    self-storage facilities, distribution facilities, and other light industrial facilities.
+    """
+
+    REIT_OFFICE: int = 10420040
+    """
+    Self-administered real estate investment trusts engaged in the development, acquisition,
+    management, and disposition of office properties, including office buildings, complexes,
+    and centers.
+    """
+
+    REIT_RESIDENTIAL: int = 10420050
+    """
+    Self-administered real estate investment trusts engaged in the development, acquisition,
+    management, and disposition of residential properties, including apartments, multifamily
+    and single-family mortgage loans, manufactured housing, mobile-home parks, and other
+    residential properties.
+    """
+
+    REIT_RETAIL: int = 10420060
+    """
+    Self-administered real estate investment trusts engaged in the development, acquisition,
+    management, and disposition of retail properties, including community shopping centers,
+    factory outlet shopping centers, enclosed shopping malls, strip centers, restaurants,
+    and other retail properties.
+    """
+
+    REIT_MORTGAGE: int = 10420070
+    """
+    Self-administered real estate investment trusts engaged in the acquisition, management,
+    and disposition of mortgage-backed securities. Also includes companies that provide
+    financing for income-producing real estate by purchasing or originating mortgages and
+    mortgage-backed securities; and earns income from the interest on these investments.
+    """
+
+    REIT_SPECIALTY: int = 10420080
+    """
+    Self-administered real estate investment trusts engaged in the acquisition, management,
+    and disposition of properties not classified elsewhere. Includes trusts that operate,
+    lease, and invest in telecom towers, advertising spaces, timberland properties, and
+    other properties not classified elsewhere.
+    """
+
+    REIT_DIVERSIFIED: int = 10420090
+    """
+    Self-administered real estate investment trusts engaged in the acquisition, management,
+    and disposition of diversified property holdings, with no specific portfolio composition.
+    """
+
+    BEVERAGES_BREWERS: int = 20510010
+    """Companies that manufacture, sell, and distribute malt-based beverages, beers, and ales."""
+
+    BEVERAGES_WINERIES_AND_DISTILLERIES: int = 20510020
+    """Companies that manufacture, sell, and distribute distilled liquors and wine."""
+
+    BEVERAGES_NON_ALCOHOLIC: int = 20520010
+    """
+    Companies that manufacture, sell, and distribute soft drinks, carbonated and spring
+    water, fruit juices, and other nonalcoholic beverages.
+    """
+
+    CONFECTIONERS: int = 20525010
+    """
+    Companies that manufacture and refine raw sugar, syrup or finished cane and beet sugar,
+    candy and chewing gum, chocolate, and cocoa products.
+    """
+
+    FARM_PRODUCTS: int = 20525020
+    """
+    Companies that produce, raise, and grow agricultural and farm-based food products,
+    including fruits, vegetables, other crop products, cattle, and eggs. Also includes
+    seafood products.
+    """
+
+    HOUSEHOLD_AND_PERSONAL_PRODUCTS: int = 20525030
+    """
+    Companies that manufacture and market soaps and other detergents, polishing and
+    sanitation goods and produce glycerin from vegetable and animal fats and oils. Also
+    includes companies that manufacture and market personal-care products, including
+    perfume, cosmetics, and other toilet preparations, infant and adult sanitary paper
+    products, shaving razors and blades.
+    """
+
+    PACKAGED_FOODS: int = 20525040
+    """
+    Companies that process and package food products, including frozen foods, grain
+    products, canned foods, snack foods, health supplements, vitamins, and pet products.
+    """
+
+    EDUCATION_AND_TRAINING_SERVICES: int = 20540010
+    """
+    Companies that provide educational and training services, including college and
+    junior-college courses, higher-education programs, technical and vocational training,
+    and other education services.
+    """
+
+    DISCOUNT_STORES: int = 20550010
+    """Companies engaged in the retail sale of a variety of merchandise at low and discounted prices."""
+
+    FOOD_DISTRIBUTION: int = 20550020
+    """
+    Companies primarily engaged in the distribution and supply of food products, including
+    packaged goods, meat, dairy products, frozen foods, and related groceries to grocery
+    stores, restaurants, and other food-service centers.
+    """
+
+    GROCERY_STORES: int = 20550030
+    """
+    Companies engaged in the retail sale of groceries, including dry goods, meat, produce,
+    frozen foods, dairy products, seafood, deli/bakery, and nonfood items.
+    """
+
+    TOBACCO: int = 20560010
+    """
+    Companies that manufacture and market cigarettes, e-cigarettes, snuff, cigars, chewing
+    tobacco, and all other tobacco products.
+    """
+
+    BIOTECHNOLOGY: int = 20610010
+    """
+    Biotech and biopharmaceutical companies engaged in research, discovery, development, and
+    production of innovative drug and drug-related technologies.
+    """
+
+    DRUG_MANUFACTURERS_GENERAL: int = 20620010
+    """
+    Major, global pharmaceutical manufacturers offering a broad and diverse line of drug and
+    healthcare products; industry leaders that have made a significant commitment to the
+    research and development of a long pipeline of drugs.
+    """
+
+    DRUG_MANUFACTURERS_SPECIALTY_AND_GENERIC: int = 20620020
+    """
+    Companies engaged in development and discovery of branded forms of drug, drug-related
+    products, generic drug products, and animal-related drugs. Also includes companies that
+    cultivate, process, and farm cannabis or marijuana.
+    """
+
+    HEALTHCARE_PLANS: int = 20630010
+    """
+    Companies that offer a wide variety of managed health products and services, including
+    HMOs, PPOs, and other health insurance plans, and are largely U.S.-domiciled.
+    """
+
+    MEDICAL_CARE_FACILITIES: int = 20645010
+    """
+    Companies that provide medical services through the ownership and operation of
+    hospitals, and other auxiliary healthcare-related services, including healthcare
+    staffing and ambulatory services. Also, companies that operate long-term-care
+    facilities, such as assisted-living centers, nursing and retirement homes,
+    substance-abuse centers, and centers for rehabilitation services.
+    """
+
+    PHARMACEUTICAL_RETAILERS: int = 20645020
+    """
+    Companies engaged in the retail sale of prescription drugs and patent medicines as well
+    as a number of related lines, such as cosmetics, toiletries, and novelty merchandise.
+    """
+
+    HEALTH_INFORMATION_SERVICES: int = 20645030
+    """
+    Companies that develop and provide comprehensive physician practice management systems
+    and software for hospitals, medical practices, and managed-care organizations.
+    """
+
+    MEDICAL_DEVICES: int = 20650010
+    """
+    Companies that develop, manufacture, and market medical and surgical equipment and
+    machinery, including orthopedic products, respiratory care equipment, x-ray equipment,
+    laser systems, implants, pacemakers, and other major medical machines and apparatus.
+    """
+
+    MEDICAL_INSTRUMENTS_AND_SUPPLIES: int = 20650020
+    """
+    Companies that develop, design, manufacture, and market medical and dental instruments
+    and supplies, including wheelchairs, catheters, needles, syringes, eyewear and eyecare
+    products, and other health-related supplies.
+    """
+
+    DIAGNOSTICS_AND_RESEARCH: int = 20660010
+    """
+    Companies that provide laboratory testing services through imaging and other diagnostic
+    services to the medical industry.
+    """
+
+    MEDICAL_DISTRIBUTION: int = 20670010
+    """
+    Companies primarily engaged in the distribution and supply of medical instruments and
+    supplies, ophthalmic goods, and other health-related items to the medical and healthcare industry.
+    """
+
+    UTILITIES_INDEPENDENT_POWER_PRODUCERS: int = 20710010
+    """
+    Companies that own and operate merchant power generation facilities and sell electricity
+    into retail and wholesale markets.
+    """
+
+    UTILITIES_RENEWABLE: int = 20710020
+    """
+    Companies that generate, produce, or transmit electric energy from renewable sources,
+    including hydropower, wind, geothermal, biomass, solar, tidal, and wave.
+    """
+
+    UTILITIES_REGULATED_WATER: int = 20720010
+    """Companies that distribute water for sale, including water-treatment companies."""
+
+    UTILITIES_REGULATED_ELECTRIC: int = 20720020
+    """Companies that generate, transmit, or distribute electric energy for sale."""
+
+    UTILITIES_REGULATED_GAS: int = 20720030
+    """Companies that transmit, store, or distribute natural gas."""
+
+    UTILITIES_DIVERSIFIED: int = 20720040
+    """
+    Companies engaged in the regulated generation, transmission, or distribution of
+    electricity and natural gas, merchant power generation facilities, and energy marketing operations.
+    """
+
+    TELECOM_SERVICES: int = 30810010
+    """
+    Companies that provide local, national, international, and long-distance phone services,
+    as well as companies offering wireless services. Also includes companies that provide
+    services for faxing, prepaid phone cards, pay phones, and directory assistance, or that
+    provide Internet access services.
+    """
+
+    ADVERTISING_AGENCIES: int = 30820010
+    """
+    Companies engaged in full-service advertising operations, including the planning,
+    creating, producing, and placing of advertising in media such as TV, radio, and print.
+    Also includes companies providing marketing services, including outdoor advertising,
+    promotional materials, direct-mail services, digital marketing, event management
+    services, and marketing research services.
+    """
+
+    PUBLISHING: int = 30820020
+    """
+    Companies that publish periodicals, such as magazines, comic books, trade journals,
+    books, pamphlets, e-publications, and newspapers.
+    """
+
+    BROADCASTING: int = 30820030
+    """
+    Companies that own or operate radio broadcast stations and provide and produce radio
+    programming services, television programming services, and television broadcast
+    stations. Also includes companies providing Internet-based video on demand and
+    pay-per-view programming services.
+    """
+
+    ENTERTAINMENT: int = 30820040
+    """
+    Companies primarily operating with diversified holdings in movies, television, and other
+    media-based entertainment. Also includes companies that produce and distribute motion
+    pictures, television programmers, video, and the operation of movie theaters; and
+    provide cable television services.
+    """
+
+    INTERNET_CONTENT_AND_INFORMATION: int = 30830010
+    """
+    Companies that provide content, Internet navigation services, and reference guide
+    information for the World Wide Web through its platforms, including social media, search
+    engines, and networking platform companies.
+    """
+
+    ELECTRONIC_GAMING_AND_MULTIMEDIA: int = 30830020
+    """
+    Companies that primarily develop or publish video games and other multimedia software
+    applications for devices that include personal computers, video game systems,
+    cellphones, tablets, and other portable media players.
+    """
+
+    OIL_AND_GAS_DRILLING: int = 30910010
+    """Companies primarily engaged in the drilling for petroleum and natural gas."""
+
+    OIL_AND_GAS_E_AND_P: int = 30910020
+    """Energy companies which are primarily engaged in oil and gas exploration and production."""
+
+    OIL_AND_GAS_INTEGRATED: int = 30910030
+    """
+    Major energy companies engaged in the diverse aspects of oil and gas operations,
+    including crude oil and gas exploration, production, manufacturing, refining, marketing,
+    and transportation.
+    """
+
+    OIL_AND_GAS_MIDSTREAM: int = 30910040
+    """
+    Companies that own and operate oilfield pipelines and are involved in the gathering,
+    processing, and transportation of natural crude petroleum.
+    """
+
+    OIL_AND_GAS_REFINING_AND_MARKETING: int = 30910050
+    """Companies that refine, gather, market, and sell petroleum and petroleum products."""
+
+    OIL_AND_GAS_EQUIPMENT_AND_SERVICES: int = 30910060
+    """
+    Companies that provide oilfield services and equipment for activities such as contract
+    drilling and seismic surveys. Also includes equipment and tool rental, pumping and
+    processing services, and inspection and contracting services.
+    """
+
+    THERMAL_COAL: int = 30920010
+    """
+    Companies that mine thermal coal, which is used for generating energy. Excludes
+    companies that mine coking coal to make steel.
+    """
+
+    URANIUM: int = 30920020
+    """Companies that mine, refine, produce, and mill uranium and uranium-related materials."""
+
+    AEROSPACE_AND_DEFENSE: int = 31010010
+    """
+    Companies that manufacture aerospace and defense products, including aircraft and
+    aircraft parts, tanks, guided missiles, space vehicles, ships and marine equipment, and
+    other aerospace and defense components and systems, as well as companies supporting
+    these products through repair and maintenance services.
+    """
+
+    SPECIALTY_BUSINESS_SERVICES: int = 31020010
+    """
+    Companies that provide services to the commercial or business market, including
+    information distribution, warehousing, graphic design, accounting, printing, and
+    miscellaneous services.
+    """
+
+    CONSULTING_SERVICES: int = 31020020
+    """
+    Companies that provide management, research, and consulting services to businesses and
+    other agencies. Includes companies engaged in strategic and management consulting
+    services, interior design, and information and analytics.
+    """
+
+    RENTAL_AND_LEASING_SERVICES: int = 31020030
+    """
+    Companies that rent or lease durable goods to the commercial and consumer market,
+    including cars and trucks, medical and industrial equipment, appliances and tools, and
+    miscellaneous goods.
+    """
+
+    SECURITY_AND_PROTECTION_SERVICES: int = 31020040
+    """
+    Companies that provide security and protective services, including protective or
+    preventive devices, security guards and inspection services, security alarm and
+    monitoring systems, detention and correction facilities, and other security-based services.
+    """
+
+    STAFFING_AND_EMPLOYMENT_SERVICES: int = 31020050
+    """
+    Companies that provide staffing and employment services, including temporary staffing
+    and permanent placement, outsources workforce and other employment-related services to
+    businesses and government. Also includes companies providing online staffing services.
+    """
+
+    CONGLOMERATES: int = 31030010
+    """
+    Companies that are in several separate lines of business with no single line providing
+    the dominant source of revenue or income.
+    """
+
+    ENGINEERING_AND_CONSTRUCTION: int = 31040010
+    """
+    Companies engaged in the design, construction, or contracting of industrial and
+    nonresidential structures, streets and highways, bridges and tunnels, docks and piers,
+    dams and water projects, utility lines, and other large building projects. Also includes
+    companies that provide engineering consulting and architectural services to consumer and
+    commercial clients.
+    """
+
+    INFRASTRUCTURE_OPERATIONS: int = 31040020
+    """
+    Companies that develop, finance, maintain, or manage infrastructure operations such as
+    ports, airports, and roadways.
+    """
+
+    BUILDING_PRODUCTS_AND_EQUIPMENT: int = 31040030
+    """
+    Companies that manufacture building and construction products and materials, including
+    ceramic floor and wall tiles, plumbing, HVAC, framing structures, and doors. Excludes
+    companies that are classified in the building materials industry.
+    """
+
+    FARM_AND_HEAVY_CONSTRUCTION_MACHINERY: int = 31050010
+    """
+    Companies that manufacture agricultural and construction machinery, including tractors,
+    planting and harvesting machines, cranes, earthmovers, excavators, and related equipment
+    and machinery. Includes truck manufacturers that provide local and long-haul trucking
+    and transfer services for freight and cargo.
+    """
+
+    INDUSTRIAL_DISTRIBUTION: int = 31060010
+    """
+    Companies primarily engaged in the distribution and supply of industrial equipment,
+    including construction and farming machinery, garden equipment and supplies, and other
+    industrial items to a diversified market of redistributors and end users.
+    """
+
+    BUSINESS_EQUIPMENT_AND_SUPPLIES: int = 31070010
+    """
+    Companies that manufacture and market office and business machines, such as copiers, fax
+    machines, postage meters, point-of-sale terminals, and ATMs.
+    """
+
+    SPECIALTY_INDUSTRIAL_MACHINERY: int = 31070020
+    """
+    Companies engaged in diversified machinery manufacturing operations, including paper and
+    food production machines, printing machinery, engines and turbines, air and gas
+    processors, blowers and fans, furnaces and ovens, and other general and special industry machines.
+    """
+
+    METAL_FABRICATION: int = 31070030
+    """
+    Companies that fabricate, stamp, or form iron, steel, or other metals into products such
+    as structured components by cutting, bending, and assembling processes of basic metals
+    to create a final product.
+    """
+
+    POLLUTION_AND_TREATMENT_CONTROLS: int = 31070040
+    """
+    Companies that manufacture equipment designed to control pollution, including control
+    systems, hazardous waste disposal systems, recovery systems, treatment processes,
+    filtration systems, cleaning and separation applications, and recycling machinery.
+    """
+
+    TOOLS_AND_ACCESSORIES: int = 31070050
+    """
+    Companies that manufacture small, hand-held tools, including power-driven drills,
+    welding apparatus, lawn and garden equipment, and other power or manually operated tools
+    and accessories, such as hardware, nuts, bolts, rivets, and other fasteners.
+    """
+
+    ELECTRICAL_EQUIPMENT_AND_PARTS: int = 31070060
+    """
+    Companies that manufacture electrical equipment (such as smart-grid electrical
+    equipment, utility metering, high- and low-voltage electrical equipment, transmission
+    control devices, switches, and lighting distribution boxes), batteries, electrical wires
+    and cables, and automation control.
+    """
+
+    AIRPORTS_AND_AIR_SERVICES: int = 31080010
+    """
+    Air transportation companies that provide related air services, including helicopter
+    transportation, air-charter services, in-flight catering services, and air emergency and
+    business-related services.
+    """
+
+    AIRLINES: int = 31080020
+    """
+    Major international passenger airline companies that fly a wide range of domestic and
+    international routes.
+    """
+
+    RAILROADS: int = 31080030
+    """
+    Companies that provide transportation of freight by line-haul railroad as well as
+    related railroad equipment and repair services. Includes companies offering passenger
+    services via railway and roadways.
+    """
+
+    MARINE_SHIPPING: int = 31080040
+    """
+    Companies that transport freight and cargo via water and operate marine ports. Includes
+    companies that provide passenger services via water.
+    """
+
+    TRUCKING: int = 31080050
+    """
+    Companies that provide local and long-haul trucking and transfer services for freight
+    and cargo.
+    """
+
+    INTEGRATED_FREIGHT_AND_LOGISTICS: int = 31080060
+    """
+    Companies that transport freight and cargo via diversified methods such as railroads,
+    airlines, and waterways.
+    """
+
+    WASTE_MANAGEMENT: int = 31090010
+    """
+    Companies that collect, treat, store, transfer, recycle, and dispose of waste materials,
+    as well as companies that provide supporting environmental, engineering, and consulting services.
+    """
+
+    INFORMATION_TECHNOLOGY_SERVICES: int = 31110010
+    """
+    Companies that provide computer-system design, network and systems operations, repair
+    services, technical support, computer technology consulting, development, and
+    implementation services.
+    """
+
+    SOFTWARE_APPLICATION: int = 31110020
+    """
+    Companies that primarily design, develop, market, and support application software
+    programs, including those that are cloud-based, for specific consumer and business functions.
+    """
+
+    SOFTWARE_INFRASTRUCTURE: int = 31110030
+    """
+    Companies that develop, design, support, and provide system software and services,
+    including operating systems, networking software and devices, web portal services, cloud
+    storage, and related services.
+    """
+
+    COMMUNICATION_EQUIPMENT: int = 31120010
+    """
+    Companies that design, develop, manufacture, and market equipment for the communication
+    industry, including fiber-optic cable; telecom peripherals; voice and data transmission
+    and processing equipment; satellite products and equipment; video-conferencing systems
+    and equipment; and interactive communication systems. Also includes companies that offer
+    networking products that provide connectivity solutions for multi-use computing environments.
+    """
+
+    COMPUTER_HARDWARE: int = 31120020
+    """
+    Companies that design, manufacture, and market computer systems, high mainframe servers,
+    supercomputer, and 3D printers and scanners. Also includes companies that manufacture
+    and market data storage products and other storage and backup devices for computers.
+    """
+
+    CONSUMER_ELECTRONICS: int = 31120030
+    """
+    Companies that manufacture and market mobile communication products and household audio
+    and video equipment, including radios, stereos, televisions, DVD player and personal use
+    Drones. Excludes electric household appliances.
+    """
+
+    ELECTRONIC_COMPONENTS: int = 31120040
+    """
+    Companies that design, develop, manufacture, and market electronic devices, including
+    electron tubes; electronic capacitors; electronic resistors; electronic coil and
+    transformers; sensors; LED, TFT, and LCD displays; electronic connectors; printed
+    circuit boards; circuit assemblies; and other general-purpose electronics components and products.
+    """
+
+    ELECTRONICS_AND_COMPUTER_DISTRIBUTION: int = 31120050
+    """
+    Companies primarily engaged in the distribution, supply, and support of computers and
+    computer systems, peripheral equipment, and software and other technological goods,
+    including electronic equipment and appliances, electrical cable, wires, and other
+    components to various consumer, commercial, and manufacturing customers.
+    """
+
+    SCIENTIFIC_AND_TECHNICAL_INSTRUMENTS: int = 31120060
+    """
+    Companies that design, develop, manufacture, and market sophisticated electronics of a
+    technical nature, including lab apparatus, process and flow control devices, precise
+    measurement and signal processing tools, search and navigation equipment, and other
+    scientific or technical analytical or measuring devices.
+    """
+
+    SEMICONDUCTOR_EQUIPMENT_AND_MATERIALS: int = 31130010
+    """
+    Companies that design, develop, manufacture, and market equipment, spare parts, tools,
+    cleaning devices, and related materials for the semiconductor industry.
+    """
+
+    SEMICONDUCTORS: int = 31130020
+    """
+    Semiconductor companies that design, manufacture, and market integrated circuits,
+    microprocessors, logic devices, chipsets, and memory chips for a wide variety of users.
+    Includes companies that design, manufacture, and market general-application integrated
+    circuits and memory and memory-intensive products.
+    """
+
+    SOLAR: int = 31130030
+    """Companies that design, manufacture, market, or install solar power systems and components."""
+
+
+class MultiPeriodField(typing.Generic[QuantConnect_Data_Fundamental_MultiPeriodField_T], metaclass=abc.ABCMeta):
+    """Abstract base class for multi-period fields"""
+
+    NO_VALUE: QuantConnect_Data_Fundamental_MultiPeriodField_T
+    """No Value"""
+
+    @property
+    def time_provider(self) -> QuantConnect.ITimeProvider:
+        """
+        The time provider instance to use
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    @abc.abstractmethod
+    def default_period(self) -> str:
+        """
+        The default period
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def security_identifier(self) -> QuantConnect.SecurityIdentifier:
+        """
+        The target security identifier
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @security_identifier.setter
+    def security_identifier(self, value: QuantConnect.SecurityIdentifier) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def has_value(self) -> bool:
+        """Returns true if the field contains a value for the default period"""
+        ...
+
+    @property
+    def value(self) -> QuantConnect_Data_Fundamental_MultiPeriodField_T:
+        """Returns the default value for the field"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Creates an empty instance
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """
+        Creates a new instance
+        
+        
+        This Class is protected.
+        
+        :param time_provider: 
+        :param security_identifier: 
+        """
+        ...
+
+    def convert_period(self, period: str) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def get_period_names(self) -> typing.Sequence[str]:
+        """Gets the list of available period names for the field"""
+        ...
+
+    def get_period_value(self, period: str) -> QuantConnect_Data_Fundamental_MultiPeriodField_T:
+        """
+        Gets the value of the field for the requested period
+        
+        :param period: The requested period
+        :returns: The value for the period.
+        """
+        ...
+
+    def get_period_values(self) -> typing.Dict[str, QuantConnect_Data_Fundamental_MultiPeriodField_T]:
+        """Gets a dictionary of period names and values for the field"""
+        ...
+
+    def has_period_value(self, period: str) -> bool:
+        """
+        Returns true if the field contains a value for the requested period
+        
+        :returns: True if the field contains a value for the requested period.
+        """
+        ...
+
+    def has_values(self) -> bool:
+        """Returns true if the field has at least one value for one period"""
+        ...
+
+    def to_string(self) -> str:
+        """Returns a string that represents the current object."""
+        ...
+
+
+class MultiPeriodFieldLong(QuantConnect.Data.Fundamental.MultiPeriodField[int], metaclass=abc.ABCMeta):
+    """Abstract class for multi-period fields long"""
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Creates an empty instance
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, security_identifier: QuantConnect.SecurityIdentifier) -> None:
+        """
+        Creates a new instance
+        
+        
+        This Class is protected.
+        
+        :param time_provider: 
+        :param security_identifier: 
+        """
+        ...
 
 

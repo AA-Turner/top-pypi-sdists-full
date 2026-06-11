@@ -33,6 +33,7 @@ from trilogy.core.enums import (
     FunctionClass,
     FunctionType,
     Granularity,
+    JoinType,
     Modifier,
     Ordering,
     Purpose,
@@ -281,6 +282,38 @@ def resolve_concepts_with_equivalents(
     ]
 
 
+def _addr_keys(
+    addr: str,
+    environment: "BuildEnvironment",
+    pmap: dict[str, "BuildConcept"],
+) -> frozenset[str]:
+    concept = pmap.get(addr) or environment.concepts.get(addr)
+    return frozenset(concept.keys) if concept and concept.keys else frozenset()
+
+
+def _key_reduces_to(
+    components: frozenset[str],
+    target: set[str],
+    environment: "BuildEnvironment",
+    pmap: dict[str, "BuildConcept"],
+    _seen: frozenset[str] = frozenset(),
+) -> bool:
+    """Do `components` transitively reduce — via FK key bindings — to a subset
+    of `target`? A component is covered if it is already in `target` or every
+    key it binds to reduces to `target` (e.g. nation.id -> customer.id)."""
+    for comp in components:
+        if comp in target:
+            continue
+        if comp in _seen:
+            return False
+        keys = _addr_keys(comp, environment, pmap)
+        if not keys:
+            return False
+        if not _key_reduces_to(keys, target, environment, pmap, _seen | {comp}):
+            return False
+    return True
+
+
 def concepts_to_build_grain_concepts(
     concepts: Iterable[BuildConcept | str], environment: "BuildEnvironment" | None
 ) -> set[str]:
@@ -317,6 +350,20 @@ def concepts_to_build_grain_concepts(
         if final & sub.equivalent_addresses:
             continue
         final.add(sub.address)
+
+    # Key-hierarchy reduction: drop a component whose FK key chain transitively
+    # reduces to the other retained components. `concept_is_relevant` only drops
+    # a key one level away (its immediate `keys` are present); this folds the
+    # full chain (e.g. nation.id -> customer.id -> order.id), so a grain never
+    # carries a key that another retained key already determines.
+    if environment is not None:
+        pmap = {c.address: c for c in pconcepts}
+        reduced = set(final)
+        for addr in sorted(final):
+            keys = _addr_keys(addr, environment, pmap)
+            if keys and _key_reduces_to(keys, reduced - {addr}, environment, pmap):
+                reduced.discard(addr)
+        final = reduced
 
     return final
 
@@ -2139,6 +2186,47 @@ def materialize_constant(x):
     return x
 
 
+def _build_scoped_merge_index(
+    joins: list[tuple[str, str, JoinType]],
+) -> tuple[dict[str, str], set[str]]:
+    """Collapse query-scoped merges into a union-find map (source address ->
+    canonical target address) plus the set of partial source addresses.
+    `merge a into b` makes b the root, matching a chained global merge, so an
+    N-way blend collapses every member to a single canonical concept.
+
+    Partiality drives the eventual datasource-join type. Direction matches SQL
+    `A LEFT JOIN B`: in `LEFT JOIN a = b` the LEFT operand `a` is preserved and the
+    RIGHT operand `b` is optional. So for LEFT the TARGET (`b`) collapses onto the
+    SOURCE (`a`) — making `a` the complete canonical anchor — and `b` is marked
+    partial. The partial side is therefore always the collapsed-away side, which is
+    what the rowset partiality propagation expects. INNER collapses source->target
+    and marks neither. FULL collapses source->target, marks neither, and is driven
+    by the scoped_full_join_keys registry at join-resolution time instead."""
+    parent: dict[str, str] = {}
+
+    def find(x: str) -> str:
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    partial: set[str] = set()
+    for source, target, join_type in joins:
+        rs, rt = find(source), find(target)
+        if rs != rt:
+            # LEFT preserves the source (left operand) -> source is the canonical
+            # root; every other join type roots on the target.
+            if join_type is JoinType.LEFT_OUTER:
+                parent[rt] = rs
+            else:
+                parent[rs] = rt
+        if join_type is JoinType.LEFT_OUTER:
+            partial.add(target)
+    merge_map = {a: find(a) for a in parent if find(a) != a}
+    return merge_map, partial
+
+
 class Factory:
 
     def __init__(
@@ -2151,14 +2239,93 @@ class Factory:
         grain_build_cache: dict[tuple, "BuildGrain"] | None = None,
         canonical_build_cache: dict[str, BuildConcept] | None = None,
         datasource_build_cache: dict[str, "BuildDatasource"] | None = None,
+        scoped_joins: list[tuple[str, str, JoinType]] | None = None,
     ):
         self.grain = grain or Grain()
         self.environment = environment
+        # Query-scoped merges applied during the build (in-query JOINs). They are
+        # collapsed here the way a global `merge` collapses concepts: every
+        # source address is mapped to its canonical target (scoped_merge_map) so
+        # `_build_concept` returns the target instead of the source (and so the
+        # grain/lineage of dependents collapse too). scoped_partial_sources marks
+        # the LEFT/FULL-join sides whose datasource binding must be partial.
+        self.scoped_joins: list[tuple[str, str, JoinType]] = scoped_joins or []
+        self.scoped_merge_map, self.scoped_partial_sources = _build_scoped_merge_index(
+            self.scoped_joins
+        )
+        # Canonical keys of FULL joins: partial against every side pre-resolution,
+        # but complete (coalesced) in the resolved FULL JOIN output.
+        # Registry of FULL-join canonical keys. The key stays complete; this set
+        # is what drives join resolution to emit a FULL JOIN for it (see
+        # get_join_type). Both join sides collapse onto the canonical address, so
+        # both binding datasources advertise it and the FULL JOIN coalesces them.
+        self.scoped_full_join_keys: set[str] = {
+            self.scoped_merge_map.get(addr, addr)
+            for s, t, jt in self.scoped_joins
+            if jt is JoinType.FULL
+            for addr in (s, t)
+        }
+
+        # Collapsed-away sources that get the merge-style source-identity +
+        # pseudonym handling below (so a *derived* join key stays sourceable from
+        # the collapsed side). INNER asserts source == target — a symmetric
+        # equality exactly like a global `merge` — so every INNER source
+        # qualifies. LEFT additionally needs it for a derived key that has no
+        # datasource binding (root/rowset LEFT keys already resolve via the
+        # column-partial / rowset machinery and must not be double-handled).
+        # FULL on a derived key behaves like INNER for sourcing; its both-sides
+        # coalesce of the canonical key is wired at the merge node. Root/rowset
+        # FULL keeps the canonical-column full-join-key machinery instead.
+        def _is_binding_keyed(addr: str) -> bool:
+            c = environment.concepts.get(addr)
+            return c is None or c.derivation in (Derivation.ROOT, Derivation.ROWSET)
+
+        self.scoped_merge_sources: set[str] = set()
+        for s, t, jt in self.scoped_joins:
+            if jt is JoinType.INNER:
+                self.scoped_merge_sources.add(s)
+            elif jt is JoinType.LEFT_OUTER and not _is_binding_keyed(t):
+                # LEFT collapses target->source; the target is the partial side.
+                # Only a derived target lacks a binding to carry partiality and
+                # needs the merge mechanism (a root/rowset target keeps the
+                # column-partial / rowset machinery).
+                self.scoped_merge_sources.add(t)
+            elif jt is JoinType.FULL and not _is_binding_keyed(s):
+                # FULL collapses source->target exactly like INNER, so the
+                # collapsed-away source needs the merge mechanism to stay
+                # sourceable from its own derivation (a derived key has no
+                # datasource binding). Gated to a derived key — root/rowset FULL
+                # keeps the existing canonical-column machinery. The both-sides
+                # coalesce of the FULL key is wired at the merge node.
+                self.scoped_merge_sources.add(s)
         self.local_concepts: dict[str, BuildConcept] = (
             {} if local_concepts is None else local_concepts
         )
         self.local_non_build_concepts: dict[str, Concept] = {}
         self.pseudonym_map = pseudonym_map or get_canonical_pseudonyms(environment)
+        if self.scoped_merge_map:
+            # A scoped join collapses source->target like a global `merge`, but
+            # unlike `merge_concept` it never linked the source back onto the
+            # target as a pseudonym. Without that link discovery only knows the
+            # target's own lineage, so a *derived* join key (rowset output, basic
+            # transform, union, ...) becomes unsourceable from the source side and
+            # the query dead-ends. Mirror `merge_concept`: make source and target
+            # mutual pseudonyms so the merged concept can be sourced via either
+            # side's derivation, exactly as the global-merge path resolves it.
+            # Sub-factories inherit the already-augmented map, so skip the copy
+            # when the links are present.
+            pending = [
+                (s, self.scoped_merge_map[s])
+                for s in self.scoped_merge_sources
+                if s in self.scoped_merge_map
+                and s not in self.pseudonym_map.get(self.scoped_merge_map[s], ())
+            ]
+            if pending:
+                augmented = {k: set(v) for k, v in self.pseudonym_map.items()}
+                for source_addr, target_addr in pending:
+                    augmented.setdefault(target_addr, set()).add(source_addr)
+                    augmented.setdefault(source_addr, set()).add(target_addr)
+                self.pseudonym_map = augmented
         self.build_cache = build_cache or {}
         # Cross-factory cache for BuildGrain keyed on (frozenset(components),
         # id(where_clause)). Same lifecycle as build_cache — propagated to
@@ -2468,6 +2635,15 @@ class Factory:
         return Grain(components=set(out), component_order=out)
 
     def _build_concept(self, base: Concept) -> BuildConcept:
+        # Query-scoped merge collapse: build the canonical target instead of a
+        # merged-away source. Every concept lookup (refs, grain components,
+        # lineage args) funnels through here, so this collapses the source
+        # everywhere — the build-time equivalent of `concepts[source] = target`
+        # plus the with_merge cascade.
+        if self.scoped_merge_map:
+            canonical = self.scoped_merge_map.get(base.address)
+            if canonical is not None:
+                base = self.environment.concepts[canonical]
         self._building.append(base.address)
         try:
             return self.__build_concept(base)
@@ -2687,6 +2863,10 @@ class Factory:
         modifiers = set(base.modifiers)
         if Modifier.NULLABLE in concept.modifiers:
             modifiers.add(Modifier.NULLABLE)
+        # A LEFT in-query join merges this source key into its target only
+        # partially — mark the binding partial so it drives a LEFT-OUTER join.
+        if address in self.scoped_partial_sources:
+            modifiers.add(Modifier.PARTIAL)
 
         return BuildColumnAssignment(
             alias=(
@@ -3051,14 +3231,10 @@ class Factory:
             cached = self.grain_build_cache.get(cache_key)
             if cached is not None:
                 return cached
-            normalized = set()
-            env_concepts = self.environment.concepts
-            for c in base.components:
-                if c in env_concepts:
-                    normalized.add(env_concepts[c].address)
-                else:
-                    normalized.add(c)
-            rval = BuildGrain(components=normalized, where_clause=None)
+            rval = BuildGrain(
+                components=self._normalize_grain_components(base.components),
+                where_clause=None,
+            )
             self.grain_build_cache[cache_key] = rval
             return rval
         factory = Factory(
@@ -3069,14 +3245,25 @@ class Factory:
             canonical_build_cache=self.canonical_build_cache,
         )
         where = factory._build_where_clause(base.where_clause)
-        normalized = set()
+        return BuildGrain(
+            components=self._normalize_grain_components(base.components),
+            where_clause=where,
+        )
+
+    def _normalize_grain_components(self, components) -> set[str]:
+        # Collapse any merged-away source grain key to its canonical target
+        # (the build-time equivalent of a global merge rewriting the grain), so
+        # dependents of a scoped-merge source group on the single canonical key.
+        normalized: set[str] = set()
         env_concepts = self.environment.concepts
-        for c in base.components:
-            if c in env_concepts:
+        for c in components:
+            if c in self.scoped_merge_map:
+                normalized.add(self.scoped_merge_map[c])
+            elif c in env_concepts:
                 normalized.add(env_concepts[c].address)
             else:
                 normalized.add(c)
-        return BuildGrain(components=normalized, where_clause=where)
+        return normalized
 
     @_build_dispatch.register
     def _(self, base: TupleWrapper) -> TupleWrapper:
@@ -3137,6 +3324,7 @@ class Factory:
             build_cache=self.build_cache,
             grain_build_cache=self.grain_build_cache,
             canonical_build_cache=self.canonical_build_cache,
+            scoped_joins=self.scoped_joins,
         )
         for k, v in base.local_concepts.items():
             materialized[k] = factory.build(v)
@@ -3148,6 +3336,7 @@ class Factory:
             build_cache=self.build_cache,
             grain_build_cache=self.grain_build_cache,
             canonical_build_cache=self.canonical_build_cache,
+            scoped_joins=self.scoped_joins,
         )
         where_clause = (
             where_factory.build(base.where_clause) if base.where_clause else None
@@ -3294,6 +3483,11 @@ class Factory:
         new = BuildEnvironment(
             namespace=base.namespace,
             cte_name_map=base.cte_name_map,
+            scoped_partial_sources=set(self.scoped_partial_sources),
+            scoped_partial_derived=(
+                self.scoped_merge_sources & self.scoped_partial_sources
+            ),
+            scoped_full_join_keys=set(self.scoped_full_join_keys),
         )
 
         for k, v in base.concepts.all_items():
@@ -3311,6 +3505,40 @@ class Factory:
             a_build = self._build_concept(a)
             new.alias_origin_lookup[k] = a_build
             new.canonical_concepts[a_build.canonical_address] = a_build
+        # Query-scoped merges collapse each source to its canonical target in
+        # new.concepts. A global merge would also have left the source in
+        # alias_origin_lookup (populated at authoring time); for a build-time
+        # scoped merge we repopulate it ONLY for the joined sources, so that
+        # references / output aliases to a merged-away source still resolve. The
+        # entry is the source built as ITSELF (its own identity), pointed at the
+        # canonical target as a pseudonym.
+        for source_addr, canonical_addr in self.scoped_merge_map.items():
+            src = base.concepts.data.get(source_addr)
+            if src is None:
+                continue
+            # For a merge-style source (INNER, or a LEFT derived key), build the
+            # source as its OWN identity (its lineage + address), not the
+            # collapsed target, so the merged key can be sourced from the
+            # collapsed side (mirroring global merge). The main build loop
+            # already cached source_addr -> the collapsed target in
+            # local_concepts and __build_concept would early-exit on it; evict it
+            # across this build and restore the collapse mapping after. Other
+            # sources (root/rowset LEFT, FULL) keep the prior behavior (the
+            # partial / full-join machinery owns their resolution).
+            if source_addr in self.scoped_merge_sources:
+                collapsed = self.local_concepts.pop(source_addr, None)
+                alias_build = self.__build_concept(src)
+                if collapsed is not None:
+                    self.local_concepts[source_addr] = collapsed
+            else:
+                alias_build = self.__build_concept(src)
+            if canonical_addr not in alias_build.pseudonyms:
+                alias_build = dc_replace(
+                    alias_build,
+                    pseudonyms={canonical_addr, *alias_build.pseudonyms},
+                )
+            new.alias_origin_lookup[source_addr] = alias_build
+            new.canonical_concepts[alias_build.canonical_address] = alias_build
         # add in anything that was built as a side-effect
         for bk, bv in self.local_concepts.items():
             if bk not in new.concepts:
@@ -3397,6 +3625,9 @@ class Factory:
                 else None
             ),
             canonical_build_cache=self.canonical_build_cache,
+            # collapse merged-away source keys (and mark partial bindings) when
+            # building this datasource's columns/grain.
+            scoped_joins=self.scoped_joins,
         )
         # Filter out columns with undefined concepts (e.g., at max import depth)
         columns = [

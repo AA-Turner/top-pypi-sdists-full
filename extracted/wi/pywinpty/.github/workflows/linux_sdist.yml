@@ -1,0 +1,45 @@
+name: Linux sdist
+
+on:
+    release:
+      types:
+        - created
+
+jobs:
+    linux:
+        name: Linux Py${{ matrix.PYTHON_VERSION }}
+        runs-on: ubuntu-latest
+        env:
+            PYTHON_VERSION: ${{ matrix.PYTHON_VERSION }}
+            RUNNER_OS: "linux"
+        strategy:
+            fail-fast: false
+            matrix:
+                PYTHON_VERSION: ["3.11"]
+        steps:
+          - name: Checkout branch
+            uses: actions/checkout@v6
+
+          - name: Install miniconda
+            uses: conda-incubator/setup-miniconda@v3
+            with:
+              auto-update-conda: true
+              activate-environment: test
+              channels: conda-forge,defaults
+              python-version: ${{ matrix.PYTHON_VERSION }}
+          - name: Install twine/maturin
+            shell: bash -l {0}
+            # Pin twine >= 6.1 (and pkginfo >= 1.12) so the upload accepts
+            # the `license-file` field that maturin emits per Metadata 2.4
+            # (PEP 639). Older twine errors out with
+            # "unrecognized or malformed field 'license-file'".
+            run: pip install "twine>=6.1" "pkginfo>=1.12" maturin
+          - name: Build sdist distribution
+            shell: bash -l {0}
+            run: maturin sdist
+          - name: Upload to PyPi
+            shell: bash -l {0}
+            env:
+                TWINE_PASSWORD: ${{secrets.MATURIN_PASSWORD}}
+                TWINE_USERNAME: ${{secrets.MATURIN_USERNAME}}
+            run: twine upload target/wheels/*.tar.gz

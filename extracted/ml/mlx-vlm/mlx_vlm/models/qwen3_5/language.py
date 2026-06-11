@@ -687,10 +687,13 @@ def _extract_row_cache(cache_entry, row: int):
 
 def _is_single_row_batch_cache(cache_entry) -> bool:
     left_padding = getattr(cache_entry, "left_padding", None)
+    # Quantized batch caches must update in place; the singleton shortcut
+    # rebuilds only plain BatchKVCache state after the row-wise forward.
     return (
         isinstance(left_padding, mx.array)
         and left_padding.ndim > 0
         and left_padding.size == 1
+        and not hasattr(cache_entry, "bits")
     )
 
 
@@ -1419,10 +1422,20 @@ class Qwen3_5Attention(nn.Module):
         kv_seq_len = keys.shape[-2]
 
         if position_ids is None:
-            kv_seq_len += cache.offset + 1
-            position_ids = mx.arange(cache.offset, cache.offset + L)
-            position_ids = mx.expand_dims(position_ids, axis=0)
-            position_ids = mx.tile(position_ids, (3, 1, 1))
+            cache_offset = cache.offset
+            if isinstance(cache_offset, mx.array) and cache_offset.ndim > 0:
+                offsets = mx.maximum(cache_offset[:B], 0)
+                kv_seq_len = kv_seq_len + offsets + 1
+                position_ids = offsets[:, None] + mx.arange(L)[None, :]
+                position_ids = mx.expand_dims(position_ids, axis=0)
+                position_ids = mx.tile(position_ids, (3, 1, 1))
+            else:
+                if isinstance(cache_offset, mx.array):
+                    cache_offset = int(cache_offset.item())
+                kv_seq_len += cache_offset + 1
+                position_ids = mx.arange(cache_offset, cache_offset + L)
+                position_ids = mx.expand_dims(position_ids, axis=0)
+                position_ids = mx.tile(position_ids, (3, 1, 1))
         else:
             kv_seq_len += cache.offset + 1 if cache is not None else 0
 
@@ -1915,6 +1928,28 @@ class LanguageModel(nn.Module):
 
         if not args.tie_word_embeddings:
             self.lm_head = nn.Linear(args.hidden_size, args.vocab_size, bias=False)
+
+    def chunked_prefill_policy(
+        self,
+        *,
+        input_ids=None,
+        inputs_embeds=None,
+        prompt_cache=None,
+        draft_model=None,
+        draft_kind=None,
+        prefill_kwargs=None,
+    ) -> bool:
+        del input_ids, inputs_embeds, prompt_cache
+        prefill_kwargs = prefill_kwargs or {}
+        if draft_model is None:
+            return True
+        if draft_kind == "mtp":
+            return bool(prefill_kwargs.get("return_hidden", False)) and bool(
+                prefill_kwargs.get("return_shared_kv", False)
+            )
+        if draft_kind in ("dflash", "eagle3"):
+            return prefill_kwargs.get("capture_layer_ids") is not None
+        return draft_kind is None
 
     def rollback_speculative_cache(
         self,

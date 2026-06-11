@@ -18,16 +18,20 @@ import logging
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from openstack.network.v2 import l3_conntrack_helper as _l3_conntrack_helper
 from osc_lib import exceptions
 from osc_lib import utils
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 
 LOG = logging.getLogger(__name__)
 
 
-def _get_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_columns(
+    item: _l3_conntrack_helper.ConntrackHelper,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     hidden_columns = ['location', 'tenant_id']
     return utils.get_osc_show_columns_for_sdk_resource(
         item, {}, hidden_columns
@@ -176,6 +180,7 @@ class ListConntrackHelper(command.Lister):
                 'the netfilter conntrack target rule (name or ID)'
             ),
         )
+        pagination.add_marker_pagination_option_to_parser(parser)
 
         return parser
 
@@ -197,7 +202,15 @@ class ListConntrackHelper(command.Lister):
             'Protocol',
             'Port',
         )
+
         attrs = _get_attrs(client, parsed_args)
+        if parsed_args.marker is not None:
+            attrs['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            attrs['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            attrs['max_items'] = parsed_args.max_items
+
         data = client.conntrack_helpers(attrs.pop('router_id'), **attrs)
 
         return (

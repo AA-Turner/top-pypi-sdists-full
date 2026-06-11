@@ -73,7 +73,7 @@ use std::sync::{Arc, Mutex};
 /// integrand assembly. `poly_*` helpers in this module routinely build
 /// degree ≤ ~28 polynomials (max product of four affine cell coefficient
 /// arrays of length 4) inside per-row hot loops; the previous `Vec<f64>`
-/// returns drove millions of mallocs per outer iteration on biobank-scale
+/// returns drove millions of mallocs per outer iteration on large-scale
 /// fits. Thirty-two inline slots cover every observed shape.
 type PolyVec = SmallVec<[f64; 32]>;
 
@@ -295,7 +295,7 @@ struct SurvivalMarginalSlopeFamily {
     derivative_guard: f64,
     /// Time block: 3 designs sharing one beta vector.
     /// Stored as DesignMatrix to support sparse local-support bases at
-    /// biobank scale (B-spline/I-spline rows have only degree+1 nonzeros).
+    /// large scale (B-spline/I-spline rows have only degree+1 nonzeros).
     design_entry: DesignMatrix,
     design_exit: DesignMatrix,
     design_derivative_exit: DesignMatrix,
@@ -2663,7 +2663,7 @@ impl BlockHessianAccumulator {
         let pm = jm[0].len();
         // Serial accumulation directly into self.h_tt / h_mm / h_tm.
         // The outer (over rows) parallelism is what saturates threads at
-        // biobank N; nesting inner par_iter here adds work-stealing
+        // large-scale N; nesting inner par_iter here adds work-stealing
         // overhead, per-chunk Array2::zeros allocations, and risks
         // OnceLock + nested rayon deadlock. Row order, accumulation
         // order, and per-row arithmetic remain bit-identical to the
@@ -3409,11 +3409,11 @@ fn rigid_observed_eta(q: f64, g: f64, z: f64, probit_scale: f64) -> f64 {
 /// blocks whose chain factors differ. In practice η₁ dominates because
 /// both event and censored rows contribute through it while only entry
 /// contributes to η₀; the alias structure the audit reported on the
-/// biobank-scale fit is along the η₁ channel (time ↔ marginal ↔ logslope
+/// large-scale fit is along the η₁ channel (time ↔ marginal ↔ logslope
 /// ↔ score_warp ↔ link_dev all share constant + low-order columns that
 /// project onto η₁). A fully chain-corrected metric is exactly what
 /// `families::identifiability_compiler` (Phase 3, family-agnostic
-/// `RowJacobianOperator` / `RowHessian` / `AnchorRowEvaluator` driver)
+/// `RowJacobianOperator` / `RowHessian` driver)
 /// provides as the canonical home; this SMGS pre-PIRLS pilot reparam is
 /// the principled scope for *alias killing only*. Two blocks with the
 /// same chain factor (time ↔ marginal here, both `dη₁/dq = c`) produce
@@ -3421,7 +3421,7 @@ fn rigid_observed_eta(q: f64, g: f64, z: f64, probit_scale: f64) -> f64 {
 /// dependent — killed by bare-design orthogonality regardless of chain.
 /// Different-chain aliases (marginal ↔ logslope) require alias structure
 /// that exactly matches the chain ratio `(q₁·c₁ + s_f·z)/c`, a
-/// degenerate case not observed. The biobank-scale alias chain the audit
+/// degenerate case not observed. The large-scale alias chain the audit
 /// reported (`time ↔ marginal ↔ logslope ↔ score_warp ↔ link_dev`) is
 /// driven by shared constant + low-order columns — chain-independent and
 /// killed by this scalar W. The reparam is one-shot and pre-PIRLS by
@@ -3483,7 +3483,7 @@ fn survival_rigid_pilot_eta(
 /// that the cross-block W metric uses. Prevents the flex-anchor bases
 /// (`link_dev`, `score_warp`) from collapsing onto the same constant scalar
 /// path that the offset-only seed would produce when training offsets are
-/// uniform — the failure mode the original biobank-scale audit pinned to a
+/// uniform — the failure mode the original large-scale audit pinned to a
 /// 13-dimensional unidentified quotient. The η₁ direction matches the doc
 /// scope of `survival_pilot_irls_row_metric_at_eta` (see its long block);
 /// the chain factor `dη₁/dq = c(g)` is absorbed into a per-row scaling of
@@ -4762,7 +4762,7 @@ impl SurvivalMarginalSlopeFamily {
             SURVIVAL_MGS_AUTO_SUBSAMPLE_PHASE1_BUDGET,
             "survival-mgs",
             // Per-K work-unit cost for the survival marginal-slope outer
-            // gradient kernel. Calibrated from the biobank repro
+            // gradient kernel. Calibrated from the large-scale repro
             // (n=195_780, K=19_661, predicted_gradient_work ≈ 4.33×10⁹):
             //   per_K-unit cost ≈ 4.33e9 / 19_661 ≈ 220_000 units.
             // With `AUTO_OUTER_WORK_BUDGET = 5×10⁸`, this caps
@@ -4770,7 +4770,7 @@ impl SurvivalMarginalSlopeFamily {
             // bounding outer gradient work below ~5×10⁸ units even
             // when the noise-only rule would request K ≈ 0.1n. Without
             // this cap the rigid pilot and outer line search spend
-            // ~57 minutes per evaluation on biobank-scale joint designs
+            // ~57 minutes per evaluation on large-scale joint designs
             // before the identifiability gate even gets a chance to
             // veto rank-deficient configurations.
             250_000,
@@ -4782,7 +4782,7 @@ impl SurvivalMarginalSlopeFamily {
     /// and matches the legacy full-data implementation. When it is `Some`,
     /// only the sampled rows contribute, with their Horvitz-Thompson
     /// inverse-inclusion weights taken from `OuterScoreSubsample::rows`. Lets outer-only
-    /// score/gradient passes scale to biobank `n` without distorting the
+    /// score/gradient passes scale to large-scale `n` without distorting the
     /// full-data inner-PIRLS or covariance code paths.
     pub(crate) fn log_likelihood_only_with_options(
         &self,
@@ -5625,7 +5625,7 @@ impl SurvivalMarginalSlopeFamily {
     /// caller-owned workspace. Used by hot rayon `try_fold` accumulators that
     /// thread one `SurvivalMarginalSlopeDynamicRow` per worker thread to
     /// eliminate the ~250 KB-per-call allocator traffic the fresh-allocation
-    /// path would incur at biobank-scale `n`.
+    /// path would incur at large-scale `n`.
     fn row_dynamic_q_geometry_into(
         &self,
         row: usize,
@@ -5660,7 +5660,7 @@ impl SurvivalMarginalSlopeFamily {
                 .design_derivative_exit
                 .try_row_chunk(row..row + 1)
                 .map_err(|e| format!("row_dynamic_q_geometry design_derivative_exit: {e}"))?;
-            // Perf (#biobank): assign the design rows directly from the chunk
+            // Perf (#large-scale): assign the design rows directly from the chunk
             // views into the reused `out` buffers. The previous `.to_owned()`
             // round-trip allocated three fresh `Array1<f64>` per row only to
             // immediately copy them in — removing it drops O(n·p_time) heap
@@ -5696,7 +5696,7 @@ impl SurvivalMarginalSlopeFamily {
             .design_derivative_exit
             .try_row_chunk(row..row + 1)
             .map_err(|e| format!("row_dynamic_q_geometry design_derivative_exit: {e}"))?;
-        // Perf (#biobank): hold the base/marginal design rows as borrowed views
+        // Perf (#large-scale): hold the base/marginal design rows as borrowed views
         // into the chunk storage rather than `.to_owned()` copies. Every use
         // below is either a `.dot(...)` or scalar indexing, both of which work
         // directly on `ArrayView1`, so this is bit-identical while removing the
@@ -6198,7 +6198,7 @@ impl SurvivalMarginalSlopeFamily {
         // refine loop and returned the resulting `residual` (best_f) and
         // `abs_deriv` (best_abs_deriv). Reusing them here saves one full
         // calibration evaluation per row × 2 (entry + exit) per joint-Newton
-        // sweep — at biobank n=320k this is 640k spared evaluations per pass.
+        // sweep — at large-scale n=320k this is 640k spared evaluations per pass.
         let residual = solution.residual;
         let abs_deriv = solution.abs_deriv;
         if !abs_deriv.is_finite() || abs_deriv == 0.0 {
@@ -8391,7 +8391,7 @@ impl SurvivalMarginalSlopeFamily {
         primary_hessian: ArrayView2<'_, f64>,
         joint_hessian: &mut Array2<f64>,
     ) -> Result<(), String> {
-        // Perf (#biobank): scatter each core block-Hessian contribution
+        // Perf (#large-scale): scatter each core block-Hessian contribution
         // directly into `joint_hessian` as it is computed, instead of building
         // six fresh `Array2` per row in `dynamic_q_core_hessian_blocks` and
         // then copying them in. This removes the per-row heap traffic (6×p²
@@ -8565,7 +8565,7 @@ impl SurvivalMarginalSlopeFamily {
         hess_marginal: &mut Array2<f64>,
         hess_logslope: &mut Array2<f64>,
     ) -> Result<(), String> {
-        // Perf (#biobank): accumulate the three diagonal block-Hessian
+        // Perf (#large-scale): accumulate the three diagonal block-Hessian
         // contributions directly into the caller's per-thread workspace
         // buffers with `+=`, rather than allocating three fresh
         // `Array2::zeros` per row (`dynamic_q_core_diagonal_hessian_blocks`)
@@ -8771,7 +8771,7 @@ impl SurvivalMarginalSlopeFamily {
         Ok(())
     }
 
-    /// Perf (#biobank): pre-scaled variant of
+    /// Perf (#large-scale): pre-scaled variant of
     /// [`Self::accumulate_identity_primary_cross_hessian`]. The influence
     /// absorber needs the `o_infl` core-Hessian column scaled by the per-row
     /// per-coefficient factor `Z̃[row, i]`. The previous call site materialised
@@ -8969,7 +8969,7 @@ impl SurvivalMarginalSlopeFamily {
                 let z_i = z_row[i];
                 joint_gradient[infl_joint.start + i] -= primary_gradient[infl_primary] * z_i;
                 if z_i != 0.0 {
-                    // Perf (#biobank): pass the unscaled `o_infl` core-Hessian
+                    // Perf (#large-scale): pass the unscaled `o_infl` core-Hessian
                     // column plus `z_i` to the pre-scaled cross-Hessian helper,
                     // which folds the scale in `(core[q] * z_i) * dq` form —
                     // bit-identical to the previous `&core_col.to_owned() * z_i`
@@ -12387,7 +12387,7 @@ impl SurvivalMarginalSlopeFamily {
     /// Returns `Ok(None)` when any branch the fast path does not cover is
     /// active (effective flex, timewiggle, or a sigma-aux index in the
     /// request list); callers fall back to the per-axis path. The simple
-    /// spatial-only path (the biobank survival marginal-slope workload) is
+    /// spatial-only path (the large-scale survival marginal-slope workload) is
     /// the case this fast path targets.
     pub(crate) fn psi_terms_inner_batched_with_options(
         &self,
@@ -13669,7 +13669,7 @@ struct SurvivalMarginalSlopeExactNewtonJointHessianWorkspace {
     /// `outer_score_subsample` field is the row mask threaded through the
     /// `_with_options` directional-derivative helpers so the cached joint
     /// Hessian Hv-action paths can downscale to the stratified subsample at
-    /// biobank scale. When `None`, the row iteration is identical to the
+    /// large scale. When `None`, the row iteration is identical to the
     /// legacy full-data path.
     options: BlockwiseFitOptions,
 }
@@ -13724,7 +13724,7 @@ impl ExactNewtonJointHessianWorkspace for SurvivalMarginalSlopeExactNewtonJointH
         // to re-materialize a dense p×p Hessian via
         // `evaluate_exact_newton_joint_dynamic_q_dense` would re-walk all n
         // rows just to repeat the J^T H J + Σ f K pullback we just finished;
-        // at biobank scale that is the same n-row sweep twice per inner
+        // at large scale that is the same n-row sweep twice per inner
         // joint-Newton cycle. Reuse the operator's `to_dense()` instead — an
         // O(p²) block copy. Numerically identical to the dense path modulo
         // FMA summation order.
@@ -13743,7 +13743,7 @@ impl ExactNewtonJointHessianWorkspace for SurvivalMarginalSlopeExactNewtonJointH
         // Forward to HyperOperator's existing `mul_vec_into`, which writes the
         // matvec result directly into the caller-owned buffer with no
         // intermediate allocation. Used by inner-Newton PCG so each CG iter
-        // avoids a fresh Array1<f64> on the survival biobank-scale hot path.
+        // avoids a fresh Array1<f64> on the survival large-scale hot path.
         if v.len() != self.joint_hessian_operator.dim()
             || out.len() != self.joint_hessian_operator.dim()
         {
@@ -14570,7 +14570,7 @@ impl SurvivalMarginalSlopeFamily {
         // Per-thread accumulator carries a `SurvivalMarginalSlopeDynamicRow`
         // workspace alongside the (nll, gradient, hessian) tuple so the nine
         // Array2/Array1 buffers inside it are reused across all rows assigned
-        // to a single rayon worker. At biobank scale this eliminates the
+        // to a single rayon worker. At large scale this eliminates the
         // ~80 GB-per-sweep allocator traffic the fresh-allocation path used.
         type AccWithWs = (Acc, SurvivalMarginalSlopeDynamicRow);
         let make_acc = || -> AccWithWs {
@@ -17118,29 +17118,6 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
         SurvivalMarginalSlopeFamily::log_likelihood_only_with_options(self, block_states, options)
     }
 
-    fn joint_line_search_log_likelihood_workspace(
-        &self,
-        block_states: &[ParameterBlockState],
-        specs: &[ParameterBlockSpec],
-        options: &BlockwiseFitOptions,
-    ) -> Result<Option<(f64, Arc<dyn ExactNewtonJointHessianWorkspace>)>, String> {
-        if self.per_z_logslope_active()
-            || self.effective_flex_active(block_states)?
-            || self.flex_timewiggle_active()
-        {
-            return Ok(None);
-        }
-        let Some(workspace) =
-            self.exact_newton_joint_hessian_workspace_with_options(block_states, specs, options)?
-        else {
-            return Ok(None);
-        };
-        let Some(log_likelihood) = workspace.joint_log_likelihood_evaluation()? else {
-            return Ok(None);
-        };
-        Ok(Some((log_likelihood, workspace)))
-    }
-
     fn has_explicit_joint_hessian(&self) -> bool {
         true
     }
@@ -17261,7 +17238,7 @@ impl CustomFamily for SurvivalMarginalSlopeFamily {
         // inside an outer derivative eval), the workspace cached a mask the
         // HVPs honoured, while an older version of the operator builder
         // unconditionally iterated `0..self.n` and therefore disagreed with
-        // the HVPs. The failing biobank log emitted
+        // the HVPs. The failing large-scale log emitted
         //   `phase=1 eval=N/12 ... K=19661`
         // immediately before a ~430 s full-data Hessian build for exactly
         // this reason. The principled fix is to make outer subsampling an
@@ -20687,7 +20664,7 @@ pub fn fit_survival_marginal_slope_terms(
     // Non-rigid pilot η₁ via one IRLS step on the rigid joint design
     // `[T_exit | M | G]`. The offset-only `survival_rigid_pilot_eta` was a
     // near-constant scalar when training offsets are uniform (the typical
-    // biobank case), which collapses the cross-block W metric onto a
+    // large-scale case), which collapses the cross-block W metric onto a
     // single direction and lets `link_dev` alias `score_warp_dev` along
     // the scalar PRS-axis path documented in the original audit (item #3
     // of the principled fix: link_dev seed must reflect actual fitted
@@ -20859,7 +20836,7 @@ pub fn fit_survival_marginal_slope_terms(
         // logslope_surface, producing the alias pencil
         //   link_dev[k] ≡ marginal_surface[m] ≡ logslope_surface[ℓ]
         // documented by the identifiability audit (joint rank collapse
-        // from 51 → 38 on the biobank-scale hypertension fit). After
+        // from 51 → 38 on the large-scale binary-outcome fit). After
         // the W-metric eigendecomposition installs `T_lw` on the
         // DeviationRuntime, the joint design has full numerical column
         // rank with respect to (marginal, logslope) and the joint
@@ -20995,7 +20972,7 @@ pub fn fit_survival_marginal_slope_terms(
             cursor += m.ncols();
         }
         assert_eq!(cursor, total_cols);
-        // Joint is n × p_total with `n ≫ p_total` at biobank scale, so the
+        // Joint is n × p_total with `n ≫ p_total` at large scale, so the
         // left null space of the *transpose* has dimension `n - rank` and a
         // basis for it would be n × (n - rank). Materializing that basis is
         // catastrophic: at n=195780, p_total≈33 the f64 buffer is ≈286 GiB
@@ -21212,7 +21189,7 @@ pub fn fit_survival_marginal_slope_terms(
         crate::linalg::matrix::DesignMatrix,
         crate::terms::smooth::TermCollectionDesign,
         crate::terms::smooth::TermCollectionDesign,
-        Option<crate::families::survival_marginal_slope_identifiability::SmgsLiftViaT>,
+        Option<crate::solver::gauge::Gauge>,
         Option<Vec<crate::families::custom_family::PenaltyMatrix>>,
         Option<Vec<crate::families::custom_family::PenaltyMatrix>>,
         Option<Vec<crate::families::custom_family::PenaltyMatrix>>,
@@ -21231,9 +21208,10 @@ pub fn fit_survival_marginal_slope_terms(
         recompile_after_accept,
     ): SmgsCutoverTuple = {
         use crate::families::survival_marginal_slope_identifiability::{
-            CompiledSurvivalDesignsVMExact, SmgsLiftViaT, apply_compiled_map_to_designs,
+            CompiledSurvivalDesignsVMExact, apply_compiled_map_to_designs,
             extract_term_partition_from_penalty_ranges,
         };
+        use crate::solver::gauge::Gauge;
         // Recompile context, populated when the closed-form compile
         // succeeds. The post-solve recompile-after-accept hook consumes
         // this to rebuild row Hessians at the converged β.
@@ -21244,7 +21222,7 @@ pub fn fit_survival_marginal_slope_terms(
         // and downstream canonicalize_for_identifiability still gate
         // on the audit.
         let attempt =
-            (|| -> Result<Option<(CompiledSurvivalDesignsVMExact, SmgsLiftViaT)>, String> {
+            (|| -> Result<Option<(CompiledSurvivalDesignsVMExact, Gauge)>, String> {
                 let n_rows = spec.time_block.design_entry.nrows();
                 let p_time = spec.time_block.design_entry.ncols();
                 let p_marg = marginal_design.design.ncols();
@@ -21644,7 +21622,7 @@ pub fn fit_survival_marginal_slope_terms(
                                 IdBlockOrder::Marginal,
                                 IdBlockOrder::Logslope,
                             ];
-                            let lift = SmgsLiftViaT::from_compiled_map(&map, &ordering);
+                            let lift = Gauge::from_compiled_map(&map, &ordering);
                             return Ok(Some((applied, lift)));
                         }
                         Ok(None) => {
@@ -22089,7 +22067,7 @@ pub fn fit_survival_marginal_slope_terms(
     // dispatcher already attached an exact or prefix warm-start entry, the
     // outer optimizer will consume that ρ seed and the first real inner solve
     // will immediately overwrite these hints at the cached smoothing point.
-    // Running the rigid pilot in that regime is pure latency at biobank scale
+    // Running the rigid pilot in that regime is pure latency at large scale
     // (the log shows ~15s for n≈196k), and worse, it seeds β at ρ=0 while the
     // cached outer seed may be far from ρ=0. Do a non-consuming peek so the
     // optimizer still receives the cached entry via `try_load`.
@@ -22146,7 +22124,7 @@ pub fn fit_survival_marginal_slope_terms(
         let mut pilot_options = options.clone();
         // The pilot is only a warm start. Avoid production covariance assembly
         // and cap inner cycles so a bad seed cannot silently consume minutes
-        // before the real outer optimizer starts. Empirically, biobank-scale
+        // before the real outer optimizer starts. Empirically, large-scale
         // survival pilots descend the joint objective by ~5 orders of
         // magnitude in the first 10 cycles and then enter a trust-region-
         // clipped tail; 30 cycles is a budget that catches the descent
@@ -22295,7 +22273,7 @@ pub fn fit_survival_marginal_slope_terms(
         );
     // Survival marginal-slope now exposes exact coefficient-space and ψ-space
     // Hessian directional derivatives as HyperOperators (see the workspace
-    // overrides below). Keep analytic curvature advertised at biobank scale;
+    // overrides below). Keep analytic curvature advertised at large scale;
     // the unified REML/LAML planner chooses the matrix-free outer-HVP route for
     // large `(n, p, K)` shapes instead of falling back to first-order BFGS.
     let analytic_joint_hessian_available =
@@ -22687,10 +22665,7 @@ pub fn fit_survival_marginal_slope_terms(
         let recompile_started = std::time::Instant::now();
         // Lift compiled β → raw β when the cutover fired. Otherwise the
         // block_states already carry raw-width β.
-        let n_lift = smgs_lift_v
-            .as_ref()
-            .map(|l| l.block_starts_compiled.len().saturating_sub(1))
-            .unwrap_or(0);
+        let n_lift = smgs_lift_v.as_ref().map(|l| l.n_blocks()).unwrap_or(0);
         let raw_time_beta = if let Some(ref lift) = smgs_lift_v {
             let compiled_betas: Vec<Array1<f64>> = solved
                 .fit
@@ -22699,7 +22674,7 @@ pub fn fit_survival_marginal_slope_terms(
                 .take(n_lift)
                 .map(|s| s.beta.clone())
                 .collect();
-            let lifted = lift.lift_block_betas_via_t(&compiled_betas);
+            let lifted = lift.lift_block_betas(&compiled_betas);
             lifted.into_iter().next()
         } else {
             solved.fit.block_states.first().map(|s| s.beta.clone())
@@ -22831,10 +22806,10 @@ pub fn fit_survival_marginal_slope_terms(
         final_family.offset_channel_geometry(&solved.fit.block_states)?
     };
 
-    // Phase-4b V+M-exact result-time β lift. When the active cutover
+    // Phase-4b V+M-exact result-time lift. When the active cutover
     // fired, the inner Newton produced θ at *compiled* width across the
     // time/marginal/logslope blocks. Predict-time consumers expect β at
-    // the original raw width: `lift_block_betas_via_t` concatenates the
+    // the original raw width: `Gauge::lift_block_betas` concatenates the
     // per-block compiled θs, multiplies by the full triangular T
     // (V's on the diagonal, `−R_{a→b}` off-diagonals), and splits the
     // result at raw-block boundaries. The corresponding η is
@@ -22842,10 +22817,21 @@ pub fn fit_survival_marginal_slope_terms(
     // X_raw · T · θ = X_compiled · θ) so we leave it alone. When the
     // cutover did NOT fire (smgs_lift_v is None), β is already at raw
     // width and the lift is a no-op. Flex blocks (score_warp_dev,
-    // link_dev) at indices ≥ 3 are not part of the parametric T and
-    // pass through unchanged.
+    // link_dev) at indices ≥ 3 are not part of the parametric T; the
+    // gauge is extended with identity blocks over their widths so the
+    // joint covariance lift below sees them pass through unchanged.
     if let Some(ref lift) = smgs_lift_v {
-        let n_lift = lift.block_starts_compiled.len().saturating_sub(1);
+        let n_lift = lift.n_blocks();
+        // Flex-block widths BEFORE the β lift (identical after — flex
+        // blocks are never compiled), used to extend the gauge so joint
+        // (compiled+flex)-width matrices lift in one sandwich.
+        let flex_widths: Vec<usize> = solved
+            .fit
+            .blocks
+            .iter()
+            .skip(n_lift)
+            .map(|b| b.beta.len())
+            .collect();
         let compiled_betas: Vec<Array1<f64>> = solved
             .fit
             .block_states
@@ -22853,7 +22839,7 @@ pub fn fit_survival_marginal_slope_terms(
             .take(n_lift)
             .map(|s| s.beta.clone())
             .collect();
-        let lifted = lift.lift_block_betas_via_t(&compiled_betas);
+        let lifted = lift.lift_block_betas(&compiled_betas);
         for ((state, block), beta) in solved
             .fit
             .block_states
@@ -22875,6 +22861,47 @@ pub fn fit_survival_marginal_slope_terms(
             off += p;
         }
         solved.fit.beta = flat;
+
+        // Lift the joint covariance / Hessian geometry with the SAME T
+        // the β lift used (#741 cov-lift gap, #933 one-lift-convention):
+        // raw-width β paired with compiled-width Σ would make predict-time
+        // standard errors index the wrong coordinates. The joint matrices
+        // span compiled parametric blocks followed by raw flex blocks, so
+        // the gauge is extended with identity over the flex widths.
+        let joint_gauge = lift.extend_with_identity(&flex_widths);
+        let lift_joint = |name: &str, m: Array2<f64>| -> Array2<f64> {
+            if m.nrows() == joint_gauge.reduced_total() {
+                joint_gauge.lift_covariance(&m)
+            } else {
+                log::warn!(
+                    "[smgs phase-4b result lift] {name} has dim {} but the compiled+flex \
+                     reduced width is {} (raw {}); leaving it unlifted — this indicates a \
+                     width bug upstream",
+                    m.nrows(),
+                    joint_gauge.reduced_total(),
+                    joint_gauge.raw_total(),
+                );
+                m
+            }
+        };
+        solved.fit.covariance_conditional = solved
+            .fit
+            .covariance_conditional
+            .take()
+            .map(|c| lift_joint("covariance_conditional", c));
+        solved.fit.covariance_corrected = solved
+            .fit
+            .covariance_corrected
+            .take()
+            .map(|c| lift_joint("covariance_corrected", c));
+        if let Some(geometry) = solved.fit.geometry.take() {
+            let h_red = geometry.penalized_hessian.into_array();
+            solved.fit.geometry = Some(crate::solver::estimate::FitGeometry {
+                penalized_hessian: lift_joint("penalized_hessian", h_red).into(),
+                working_weights: geometry.working_weights,
+                working_response: geometry.working_response,
+            });
+        }
     }
 
     let mut resolved_specs = solved.resolved_specs;
@@ -23987,7 +24014,7 @@ mod tests {
         assert!(err.contains("non-finite signed margin"));
     }
 
-    /// Mechanism-of-ρ=2 proof for the inner-PIRLS pathology on biobank-scale
+    /// Mechanism-of-ρ=2 proof for the inner-PIRLS pathology on large-scale
     /// saturated probit fits.
     ///
     /// `add_pullback_primary_hessian` (line 9753) sums `h[0,0] + h[1,1]`
@@ -24005,7 +24032,7 @@ mod tests {
     ///     exactly `+w·c²`; the entry-survival term contributes
     ///     `−w·c²·(1 − 1/η²)`. Sum = `+w·c²/η²`.
     ///
-    /// At biobank saturation (η ~ 988), the marginal-block joint Hessian
+    /// At large-scale saturation (η ~ 988), the marginal-block joint Hessian
     /// collapses to `O(w/η²) = O(1e-6)` per event row from the likelihood
     /// side; censored contributions are 0 to ULP. The Newton step in that
     /// block is then dominated by the smoothing penalty `S_marg`. When
@@ -24074,7 +24101,7 @@ mod tests {
             );
         }
 
-        // Cross-check at η = 988 (the user's biobank-scale saturation):
+        // Cross-check at η = 988 (the user's large-scale saturation):
         // both kinds of rows hit the predicted floor exactly.
         let (_, _, ev) =
             row_primary_closed_form(988.0, 988.0, 1.0, 0.0, 0.0, 1.0, 1.0, 1e-6, 1.0).unwrap();
@@ -24165,6 +24192,271 @@ mod tests {
             )
             .expect_err("row kernel should propagate NaN probit boundary failures");
         assert!(err.contains("non-finite signed margin"));
+    }
+
+    /// The single-expression Taylor-jet tower (#932) of the rigid K=1
+    /// survival marginal-slope row NLL, written ONCE over `Tower4<4>`
+    /// primaries `(q0, q1, qd1, g)`. It reuses the family's OWN hand-certified
+    /// `[f64; 5]` special-function derivative stacks (`unary_derivatives_sqrt`
+    /// / `_neglog_phi` / `_log_normal_pdf` / `_log`) through
+    /// `Tower4::compose_unary`, so no probit/log primitive is re-derived here:
+    /// the tower mechanizes only the Leibniz / Faà di Bruno composition that
+    /// the hand-written `row_primary_closed_form` + directional MultiDirJet
+    /// path code by hand (where #736's cross-block sign flip lived). The
+    /// value channel of the returned tower IS the production row NLL — it
+    /// mirrors the verified directional path in
+    /// `row_neglog_directional_with_scale_jet` term for term — so every
+    /// derivative channel is exact by construction and the oracle audit below
+    /// is a true correctness proof of the hand kernel.
+    struct SurvivalMarginalSlopeRigidNllProgram {
+        primaries: Vec<[f64; 4]>,
+        z: Vec<f64>,
+        w: Vec<f64>,
+        d: Vec<f64>,
+        probit_scale: f64,
+    }
+
+    impl crate::families::jet_tower::RowNllProgram<4> for SurvivalMarginalSlopeRigidNllProgram {
+        fn n_rows(&self) -> usize {
+            self.primaries.len()
+        }
+
+        fn primaries(&self, row: usize) -> Result<[f64; 4], String> {
+            self.primaries
+                .get(row)
+                .copied()
+                .ok_or_else(|| format!("rigid nll program: row {row} out of range"))
+        }
+
+        fn row_nll(
+            &self,
+            row: usize,
+            p: &[crate::families::jet_tower::Tower4<4>; 4],
+        ) -> Result<crate::families::jet_tower::Tower4<4>, String> {
+            use crate::families::jet_tower::Tower4;
+            let z = *self
+                .z
+                .get(row)
+                .ok_or_else(|| format!("rigid nll program: z row {row} out of range"))?;
+            let w = self.w[row];
+            let d = self.d[row];
+            let s_f = self.probit_scale;
+            let q0 = p[0];
+            let q1 = p[1];
+            let qd1 = p[2];
+            let g = p[3];
+
+            // c(g) = sqrt(1 + (s_f g)^2)  — K=1 covariance_ones = 1, exactly the
+            // shared MultiDirJet `one_plus_b2 -> sqrt` composition.
+            let observed_g = g * s_f;
+            let one_plus_b2 = observed_g * observed_g + 1.0;
+            let c = one_plus_b2.compose_unary(unary_derivatives_sqrt(one_plus_b2.v));
+
+            let eta0 = q0 * c + observed_g * z;
+            let eta1 = q1 * c + observed_g * z;
+            let ad1 = qd1 * c;
+
+            // Entry survival: +w logΦ(-η0) = -1 * (-w logΦ(-η0)).
+            let neg_eta0 = -eta0;
+            let entry = neg_eta0
+                .compose_unary(unary_derivatives_neglog_phi(neg_eta0.v, w))
+                .scale(-1.0);
+            // Exit survival: (1-d) * (-w logΦ(-η1)) carried with weight w(1-d).
+            let neg_eta1 = -eta1;
+            let exit =
+                neg_eta1.compose_unary(unary_derivatives_neglog_phi(neg_eta1.v, w * (1.0 - d)));
+            // Event density: -w d logφ(η1).
+            let event_density = if d > 0.0 {
+                eta1.compose_unary(unary_derivatives_log_normal_pdf(eta1.v))
+                    .scale(-w * d)
+            } else {
+                Tower4::<4>::zero()
+            };
+            // Time derivative: -w d log(ad1).
+            let time_deriv = if d > 0.0 {
+                ad1.compose_unary(unary_derivatives_log(ad1.v))
+                    .scale(-w * d)
+            } else {
+                Tower4::<4>::zero()
+            };
+
+            Ok(exit + entry + event_density + time_deriv)
+        }
+    }
+
+    /// Build a rigid K=1 survival marginal-slope family whose entry/exit/
+    /// derivative/marginal/logslope designs are all nontrivial dense blocks,
+    /// so every one of the four primaries `(q0, q1, qd1, g)` is exercised
+    /// when the kernel reads its designs. `n` rows, `event` per row.
+    fn oracle_rigid_family(
+        n: usize,
+        z: &[f64],
+        weights: &[f64],
+        event: &[f64],
+        gaussian_frailty_sd: Option<f64>,
+    ) -> SurvivalMarginalSlopeFamily {
+        let z_col = Array2::from_shape_fn((n, 1), |(r, _)| z[r]);
+        // Distinct entry/exit/derivative rows so q0 != q1 != qd1.
+        let design_entry = Array2::from_shape_fn((n, 1), |(r, _)| {
+            0.4 + 0.13 * (r as f64) - 0.05 * (r as f64).cos()
+        });
+        let design_exit = Array2::from_shape_fn((n, 1), |(r, _)| {
+            0.9 + 0.07 * (r as f64) + 0.04 * (r as f64).sin()
+        });
+        // Strictly positive derivative-exit design so qd1 > 0 (monotone).
+        let design_deriv =
+            Array2::from_shape_fn((n, 1), |(r, _)| 1.2 + 0.21 * (r as f64).abs().sqrt());
+        SurvivalMarginalSlopeFamily {
+            n,
+            event: Arc::new(Array1::from(event.to_vec())),
+            weights: Arc::new(Array1::from(weights.to_vec())),
+            z: Arc::new(z_col),
+            score_covariance: unit_score_covariance(),
+            gaussian_frailty_sd,
+            derivative_guard: 1e-8,
+            design_entry: DesignMatrix::from(design_entry),
+            design_exit: DesignMatrix::from(design_exit),
+            design_derivative_exit: DesignMatrix::from(design_deriv),
+            offset_entry: Arc::new(Array1::from_shape_fn(n, |r| 0.05 * (r as f64) - 0.2)),
+            offset_exit: Arc::new(Array1::from_shape_fn(n, |r| 0.15 - 0.03 * (r as f64))),
+            derivative_offset_exit: Arc::new(Array1::from_elem(n, 0.0)),
+            marginal_design: DesignMatrix::from(Array2::zeros((n, 0))),
+            logslope_design: DesignMatrix::from(Array2::zeros((n, 0))),
+            logslope_surface_ranges: empty_logslope_surface_ranges(),
+            score_warp: None,
+            link_dev: None,
+            influence_absorber: None,
+            time_linear_constraints: None,
+            time_wiggle_knots: None,
+            time_wiggle_degree: None,
+            time_wiggle_ncols: 0,
+            intercept_warm_starts: None,
+            auto_subsample_phase_counter: Arc::new(AtomicUsize::new(0)),
+            auto_subsample_last_rho: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    /// #932 universal oracle on the ONLY production `RowKernel` impl.
+    ///
+    /// Audits every channel the hand-written `SurvivalMarginalSlopeRowKernel`
+    /// emits — value / gradient / Hessian / `row_third_contracted(dir)` /
+    /// `row_fourth_contracted(u, v)` — against the single-expression
+    /// `RowNllProgram<4>`-derived tower truth, over several fixture rows
+    /// (mixed event/censored, with and without Gaussian frailty so the probit
+    /// scale ≠ 1) and several random direction vectors. The cross blocks that
+    /// #736's sign flip corrupted are contracted explicitly. Agreement here is
+    /// the proof the hand kernel is correct; the planted-flip test in
+    /// `jet_tower` proves the same harness is loud on disagreement.
+    #[test]
+    fn rigid_row_kernel_agrees_with_jet_tower_program_all_channels() {
+        use crate::families::jet_tower::{
+            KernelChannels, evaluate_program, verify_kernel_channels,
+        };
+        use crate::families::row_kernel::RowKernel;
+
+        let n = 5;
+        let z = [0.4, -1.1, 0.0, 0.7, -0.3];
+        let weights = [1.0, 0.8, 1.3, 0.9, 1.1];
+        // Mix of events (d=1) and censored (d=0); row 2 censored, row 4 event.
+        let event = [1.0, 0.0, 0.0, 1.0, 1.0];
+        // logslope eta (g) per row, fed through block 2.
+        let g_eta = array![0.2, -0.5, 0.35, -0.15, 0.6];
+        // marginal eta (block 1) — additive index shared by η0 and η1.
+        let marginal_eta = array![0.1, -0.2, 0.05, 0.12, -0.08];
+
+        // Deterministic pseudo-random direction vectors (no RNG dependency).
+        let dirs: [[f64; 4]; 3] = [
+            [0.7, -1.3, 0.5, 0.9],
+            [-0.4, 0.6, -1.1, 0.3],
+            [1.2, 0.2, -0.7, -0.5],
+        ];
+
+        for frailty in [None, Some(0.6_f64)] {
+            let family = oracle_rigid_family(n, &z, &weights, &event, frailty);
+            let probit_scale = family.probit_frailty_scale();
+            let beta_time = array![0.85]; // single time coefficient
+            let block_states = vec![
+                ParameterBlockState {
+                    beta: beta_time.clone(),
+                    eta: Array1::zeros(n),
+                },
+                ParameterBlockState {
+                    beta: Array1::zeros(0),
+                    eta: marginal_eta.clone(),
+                },
+                ParameterBlockState {
+                    beta: Array1::zeros(0),
+                    eta: g_eta.clone(),
+                },
+            ];
+
+            let kernel = SurvivalMarginalSlopeRowKernel::new(family.clone(), block_states.clone());
+
+            // Build the tower program's primaries exactly as `row_kernel` reads
+            // them (designs · beta_time + offsets + shared marginal/logslope eta).
+            let mut primaries = Vec::with_capacity(n);
+            for row in 0..n {
+                let q0 = family.design_entry.dot_row(row, &beta_time)
+                    + family.offset_entry[row]
+                    + marginal_eta[row];
+                let q1 = family.design_exit.dot_row(row, &beta_time)
+                    + family.offset_exit[row]
+                    + marginal_eta[row];
+                let qd1 = family.design_derivative_exit.dot_row(row, &beta_time)
+                    + family.derivative_offset_exit[row];
+                let g = g_eta[row];
+                primaries.push([q0, q1, qd1, g]);
+            }
+
+            let program = SurvivalMarginalSlopeRigidNllProgram {
+                primaries,
+                z: z.to_vec(),
+                w: weights.to_vec(),
+                d: event.to_vec(),
+                probit_scale,
+            };
+
+            for row in 0..n {
+                let tower = evaluate_program(&program, row).expect("tower evaluation");
+
+                let (value, gradient, hessian) =
+                    RowKernel::row_kernel(&kernel, row).expect("hand kernel value/grad/hess");
+
+                let third: Vec<([f64; 4], [[f64; 4]; 4])> = dirs
+                    .iter()
+                    .map(|dir| {
+                        let claim = RowKernel::row_third_contracted(&kernel, row, dir)
+                            .expect("hand kernel third");
+                        (*dir, claim)
+                    })
+                    .collect();
+
+                let fourth: Vec<([f64; 4], [f64; 4], [[f64; 4]; 4])> = dirs
+                    .iter()
+                    .enumerate()
+                    .map(|(i, u)| {
+                        let v = dirs[(i + 1) % dirs.len()];
+                        let claim = RowKernel::row_fourth_contracted(&kernel, row, u, &v)
+                            .expect("hand kernel fourth");
+                        (*u, v, claim)
+                    })
+                    .collect();
+
+                let claims = KernelChannels {
+                    value,
+                    gradient,
+                    hessian,
+                    third,
+                    fourth,
+                };
+
+                verify_kernel_channels(&tower, &claims, 1e-9).unwrap_or_else(|e| {
+                    panic!(
+                        "frailty {frailty:?} row {row}: hand RowKernel disagrees with #932 jet-tower truth: {e}"
+                    )
+                });
+            }
+        }
     }
 
     #[test]

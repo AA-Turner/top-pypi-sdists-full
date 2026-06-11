@@ -5241,7 +5241,7 @@ fn invalidate_path_on_cache_key() -> Result<()> {
 }
 
 #[test]
-fn invalidate_path_on_commit() -> Result<()> {
+fn invalidate_path_on_worktree_packed_commit() -> Result<()> {
     let context = uv_test::test_context!("3.12");
 
     let requirements_txt = context.temp_dir.child("requirements.txt");
@@ -5265,19 +5265,22 @@ fn invalidate_path_on_commit() -> Result<()> {
         "#,
     )?;
 
-    // Create a Git repository.
-    context
-        .temp_dir
+    // Create a linked worktree with the branch reference in the common Git directory's
+    // `packed-refs` file.
+    let common_git_dir = context.temp_dir.child("common.git");
+    let worktree_git_dir = common_git_dir.child("worktrees").child("editable");
+    editable_dir
         .child(".git")
+        .write_str(&format!("gitdir: {}\n", worktree_git_dir.path().display()))?;
+    worktree_git_dir
         .child("HEAD")
         .write_str("ref: refs/heads/main")?;
-    context
-        .temp_dir
-        .child(".git")
-        .child("refs")
-        .child("heads")
-        .child("main")
-        .write_str("1b6638fdb424e993d8354e75c55a3e524050c857")?;
+    worktree_git_dir
+        .child("commondir")
+        .write_str(&format!("{}\n", common_git_dir.path().display()))?;
+    common_git_dir
+        .child("packed-refs")
+        .write_str("1b6638fdb424e993d8354e75c55a3e524050c857 refs/heads/main\n")?;
 
     uv_snapshot!(context.filters(), context.pip_install()
         .arg("-r")
@@ -5311,13 +5314,9 @@ fn invalidate_path_on_commit() -> Result<()> {
     );
 
     // Change the current commit.
-    context
-        .temp_dir
-        .child(".git")
-        .child("refs")
-        .child("heads")
-        .child("main")
-        .write_str("a1a42cbd10d83bafd8600ba81f72bbef6c579385")?;
+    common_git_dir
+        .child("packed-refs")
+        .write_str("a1a42cbd10d83bafd8600ba81f72bbef6c579385 refs/heads/main\n")?;
 
     // Installing again should update the package.
     uv_snapshot!(context.filters(), context.pip_install()
@@ -7518,6 +7517,49 @@ fn find_links() {
     );
 }
 
+/// Install the latest version across multiple `--find-links` directories.
+#[test]
+fn find_links_multiple() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let links_dir = context.workspace_root.join("test/links");
+
+    let first_links_dir = context.temp_dir.child("first-links");
+    first_links_dir.create_dir_all()?;
+    fs::copy(
+        links_dir.join("ok-1.0.0-py3-none-any.whl"),
+        first_links_dir.child("ok-1.0.0-py3-none-any.whl").path(),
+    )?;
+
+    let second_links_dir = context.temp_dir.child("second-links");
+    second_links_dir.create_dir_all()?;
+    fs::copy(
+        links_dir.join("ok-2.0.0-py3-none-any.whl"),
+        second_links_dir.child("ok-2.0.0-py3-none-any.whl").path(),
+    )?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .env_remove(EnvVars::UV_EXCLUDE_NEWER)
+        .arg("ok")
+        .arg("--no-index")
+        .arg("--find-links")
+        .arg(first_links_dir.path())
+        .arg("--find-links")
+        .arg(second_links_dir.path()), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + ok==2.0.0
+    "
+    );
+
+    Ok(())
+}
+
 /// Install from a `--find-links` HTML page with uppercase tag and attribute names.
 #[tokio::test]
 async fn find_links_uppercase_html() -> Result<()> {
@@ -8136,27 +8178,27 @@ fn install_with_overrides_from_stdin() -> Result<()> {
     Ok(())
 }
 
-/// Install with excludes from stdin.
+/// Install with a direct exclusion from stdin.
 #[test]
 #[expect(clippy::disallowed_types)]
 fn install_with_excludes_from_stdin() -> Result<()> {
     let context = uv_test::test_context!("3.12");
 
     let excludes_txt = context.temp_dir.child("excludes.txt");
-    excludes_txt.write_str("anyio>4.0.0")?;
+    excludes_txt.write_str("anyio")?;
 
     uv_snapshot!(context.pip_install()
         .arg("anyio==4.0.1")
         .arg("--exclude")
         .arg("-")
         .stdin(std::fs::File::open(excludes_txt)?), @"
-    success: false
-    exit_code: 1
+    success: true
+    exit_code: 0
     ----- stdout -----
 
     ----- stderr -----
-      × No solution found when resolving dependencies:
-      ╰─▶ Because there is no version of anyio==4.0.1 and you require anyio==4.0.1, we can conclude that your requirements are unsatisfiable.
+    Resolved in [TIME]
+    Checked in [TIME]
     "
     );
 

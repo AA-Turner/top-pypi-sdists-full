@@ -17,7 +17,9 @@
 
 use crate::estimate::UnifiedFitResult;
 use crate::families::bms::deviation_runtime::AnchorComponentTag;
-use crate::families::bms::{DeviationRuntime, LatentMeasureKind, LatentZRankIntCalibration};
+use crate::families::bms::{
+    DeviationRuntime, LatentMeasureKind, LatentZConditionalCalibration, LatentZRankIntCalibration,
+};
 use crate::families::cubic_cell_kernel::ANCHORED_DEVIATION_KERNEL;
 use crate::families::scale_design::ScaleDeviationTransform;
 use crate::families::survival_construction::{
@@ -168,6 +170,7 @@ pub struct BernoulliMarginalSlopeInputs<'a> {
     pub latent_z_normalization: SavedLatentZNormalization,
     pub latent_measure: LatentMeasureKind,
     pub latent_z_rank_int_calibration: Option<LatentZRankIntCalibration>,
+    pub latent_z_conditional_calibration: Option<LatentZConditionalCalibration>,
     pub score_warp_runtime: Option<&'a DeviationRuntime>,
     pub link_dev_runtime: Option<&'a DeviationRuntime>,
     pub base_link: InverseLink,
@@ -336,6 +339,7 @@ pub fn assemble_bernoulli_marginal_slope_payload(
         latent_z_normalization,
         latent_measure,
         latent_z_rank_int_calibration,
+        latent_z_conditional_calibration,
         score_warp_runtime,
         link_dev_runtime,
         base_link,
@@ -371,6 +375,7 @@ pub fn assemble_bernoulli_marginal_slope_payload(
     payload.latent_z_normalization = Some(latent_z_normalization);
     payload.latent_measure = Some(latent_measure);
     payload.latent_z_rank_int_calibration = latent_z_rank_int_calibration;
+    payload.latent_z_conditional_calibration = latent_z_conditional_calibration;
     payload.marginal_baseline = Some(baseline_marginal);
     payload.logslope_baseline = Some(baseline_logslope);
     payload.logslope_baselines = Some(vec![baseline_logslope]);
@@ -466,6 +471,16 @@ pub enum LocationScaleResponse<'a> {
         link: InverseLink,
         noise_transform: &'a ScaleDeviationTransform,
     },
+    /// A genuine-dispersion mean family (NegativeBinomial / Gamma / Beta /
+    /// Tweedie) whose log-precision channel carries `noise_formula` (#913). The
+    /// `likelihood` is the family's own [`LikelihoodSpec`]; `base_link` is the
+    /// mean inverse link (log, or logit for Beta). The log-precision block
+    /// coefficients ride in [`LocationScaleInputs::beta_noise`].
+    Dispersion {
+        likelihood: LikelihoodSpec,
+        base_link: InverseLink,
+        family_tag: &'static str,
+    },
 }
 
 /// Optional link-wiggle metadata persisted alongside a location-scale model.
@@ -533,6 +548,18 @@ pub fn assemble_location_scale_payload(
                 Some(noise_transform),
             )
         }
+        LocationScaleResponse::Dispersion {
+            likelihood,
+            base_link,
+            family_tag,
+        } => (
+            family_tag.to_string(),
+            likelihood,
+            Some(base_link.clone()),
+            Some(base_link),
+            None,
+            None,
+        ),
     };
 
     let mut payload = FittedModelPayload::new(

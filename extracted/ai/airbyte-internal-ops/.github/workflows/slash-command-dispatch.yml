@@ -33,6 +33,7 @@ jobs:
           issue-type: pull-request
           commands: |
             autofix
+            deploy-ops-webapp
             lock
             poe
             pulumi-apply

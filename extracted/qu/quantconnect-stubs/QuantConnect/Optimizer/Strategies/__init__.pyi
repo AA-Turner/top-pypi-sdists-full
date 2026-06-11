@@ -215,15 +215,16 @@ class StepBaseOptimizationStrategy(System.Object, QuantConnect.Optimizer.Strateg
         ...
 
 
-class GridSearchOptimizationStrategy(QuantConnect.Optimizer.Strategies.StepBaseOptimizationStrategy):
-    """Find the best solution in first generation"""
+class StepBaseOptimizationStrategySettings(QuantConnect.Optimizer.Strategies.OptimizationStrategySettings):
+    """Defines the specific optimization strategy settings"""
 
-    def push_new_results(self, result: QuantConnect.Optimizer.OptimizationResult) -> None:
-        """
-        Checks whether new lean compute job better than previous and run new iteration if necessary.
-        
-        :param result: Lean compute job result and corresponding parameter set
-        """
+    @property
+    def default_segment_amount(self) -> int:
+        """Defines the default number of segments for the next step"""
+        ...
+
+    @default_segment_amount.setter
+    def default_segment_amount(self, value: int) -> None:
         ...
 
 
@@ -261,16 +262,15 @@ class EulerSearchOptimizationStrategy(QuantConnect.Optimizer.Strategies.StepBase
         ...
 
 
-class StepBaseOptimizationStrategySettings(QuantConnect.Optimizer.Strategies.OptimizationStrategySettings):
-    """Defines the specific optimization strategy settings"""
+class GridSearchOptimizationStrategy(QuantConnect.Optimizer.Strategies.StepBaseOptimizationStrategy):
+    """Find the best solution in first generation"""
 
-    @property
-    def default_segment_amount(self) -> int:
-        """Defines the default number of segments for the next step"""
-        ...
-
-    @default_segment_amount.setter
-    def default_segment_amount(self, value: int) -> None:
+    def push_new_results(self, result: QuantConnect.Optimizer.OptimizationResult) -> None:
+        """
+        Checks whether new lean compute job better than previous and run new iteration if necessary.
+        
+        :param result: Lean compute job result and corresponding parameter set
+        """
         ...
 
 

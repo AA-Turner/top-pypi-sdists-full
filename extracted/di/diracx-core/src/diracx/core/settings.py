@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-import json
-
-from diracx.core.properties import SecurityProperty
-from diracx.core.s3 import s3_bucket_exists
-
-__all__ = (
-    "SqlalchemyDsn",
+__all__ = [
+    "AuthSettings",
+    "DevelopmentSettings",
     "LocalFileUrl",
+    "SandboxStoreSettings",
     "ServiceSettingsBase",
-)
+    "SqlalchemyDsn",
+    "TokenSigningKeyStore",
+]
 
 import contextlib
+import json
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Self, TypeVar, cast
@@ -35,6 +35,9 @@ from pydantic import (
     model_validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from .properties import SecurityProperty
+from .s3 import s3_bucket_exists
 
 if TYPE_CHECKING:
     from types_aiobotocore_s3.client import S3Client
@@ -172,9 +175,9 @@ class AuthSettings(ServiceSettingsBase):
     )
 
     dirac_client_id: str = "myDIRACClientID"
-    """OAuth2 client identifier for DIRAC services.
+    """OAuth2 client identifier for DIRAC clients (cli, web) to DIRAC services.
 
-    This should match the client ID registered with the identity provider.
+    There is no real reason to change that.
     """
 
     allowed_redirects: list[str] = []

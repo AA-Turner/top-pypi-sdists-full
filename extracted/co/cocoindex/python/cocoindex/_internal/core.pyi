@@ -99,6 +99,8 @@ class ComponentProcessorContext:
         refresh_interval_secs: float | None = None,
     ) -> tuple[ComponentProcessorContext, StatsGroupHandle]: ...
     def end_stats_group(self) -> None: ...
+    def use_state(self, key: StableKey, initial_value: bytes) -> bytes: ...
+    def update_user_state(self, key: StableKey, value: bytes) -> None: ...
 
 # --- FnCallContext ---
 class FnCallContext:
@@ -195,6 +197,7 @@ class UpdateHandle:
     def stats_snapshot(self) -> tuple[int, bool, dict[str, dict[str, int]]]: ...
     def changed(self) -> Coroutine[Any, Any, int]: ...
     def result(self) -> Coroutine[Any, Any, StoredValue]: ...
+    def take_preview_actions(self) -> list[Any]: ...
 
 # --- DropHandle ---
 class DropHandle:
@@ -224,12 +227,14 @@ class App:
         report_to_stdout: bool = False,
         refresh_interval_secs: float | None = None,
         live: bool = False,
-    ) -> StoredValue: ...
+        preview: bool = False,
+    ) -> StoredValue | list[Any]: ...
     def update_async(
         self,
         root_processor: ComponentProcessor[T_co],
         full_reprocess: bool = False,
         live: bool = False,
+        preview: bool = False,
         host_ctx: Any = None,
     ) -> UpdateHandle: ...
     def drop(
@@ -259,6 +264,12 @@ class LiveComponentController:
         handler_callback: Callable[[str], Awaitable[None]] | None = None,
     ) -> Coroutine[Any, Any, ComponentMountHandle]: ...
     def mark_ready_async(self) -> Coroutine[Any, Any, None]: ...
+    def read_committed_state_async(
+        self, key: StableKey
+    ) -> Coroutine[Any, Any, bytes | None]: ...
+    def write_committed_state_async(
+        self, key: StableKey, value: bytes
+    ) -> Coroutine[Any, Any, None]: ...
     def start(self, process_live_fut: Any) -> None: ...
     def mount_inner_live_async(
         self, stable_path: StablePath
@@ -527,3 +538,22 @@ class Batcher(Generic[T, R_co]):
         async_ctx: AsyncContext,
     ) -> "Batcher[T, R_co]": ...
     def run(self, input: T) -> Coroutine[Any, Any, R_co]: ...
+
+########################################################
+# Rate limiting
+########################################################
+
+# --- RateLimiter ---
+class RateLimiter:
+    """Token-bucket rate limiter (governor-based).
+
+    ``acquire(n)`` waits until ``n`` tokens are available; concurrent
+    callers are served in FIFO order. ``burst_window_secs`` sets how many
+    seconds' worth of tokens (``max_rows_per_second * burst_window_secs``)
+    may accumulate while idle.
+    """
+
+    def __new__(
+        cls, max_rows_per_second: float, burst_window_secs: float = 1.0
+    ) -> "RateLimiter": ...
+    def acquire(self, n: int = 1) -> Coroutine[Any, Any, None]: ...

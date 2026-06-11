@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zernio-sdk
-Version: 1.4.131
+Version: 1.4.140
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -557,6 +557,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 ### GMB Attributes
 | Method | Description |
 |--------|-------------|
+| `gmb_attributes.get_gmb_attribute_metadata()` | Get attribute metadata |
 | `gmb_attributes.get_google_business_attributes()` | Get attributes |
 | `gmb_attributes.update_google_business_attributes()` | Update attributes |
 

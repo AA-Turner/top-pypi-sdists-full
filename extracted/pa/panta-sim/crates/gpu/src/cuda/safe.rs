@@ -92,6 +92,12 @@ impl CuStateVecHandle {
         } else {
             ffi::CUDA_C_64F
         };
+        // computeType 은 cudaDataType_t 와 다른 enum (ffi.rs 참조).
+        let compute = if is_f32 {
+            ffi::CUSTATEVEC_COMPUTE_32F
+        } else {
+            ffi::CUSTATEVEC_COMPUTE_64F
+        };
         // Workspace size 쿼리.
         let mut ws_size: usize = 0;
         let status = unsafe {
@@ -105,7 +111,7 @@ impl CuStateVecHandle {
                 0,
                 targets.len() as u32,
                 controls.len() as u32,
-                dtype,
+                compute,
                 &mut ws_size,
             )
         };
@@ -136,7 +142,7 @@ impl CuStateVecHandle {
                 controls.as_ptr(),
                 control_values.as_ptr(),
                 controls.len() as u32,
-                dtype,
+                compute,
                 ws_ptr,
                 ws_size,
             )

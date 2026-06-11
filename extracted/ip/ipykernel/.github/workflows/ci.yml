@@ -104,7 +104,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
       - uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
+      - name: Check mypy deps are in sync with project deps
+        run: hatch run typing:check
+
       - name: Run Linters
         run: |
           hatch run typing:test
@@ -116,7 +120,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
       - uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
+
       - uses: jupyter-server/jupyter_releaser/.github/actions/check-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -125,7 +131,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
       - uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
+        with:
+          python_version: "3.14"
+
       - name: Build API docs
         run: |
           hatch run docs:api
@@ -170,11 +180,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
       - name: Base Setup
         uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
         with:
           dependency_type: minimum
-          python_version: "3.10"
+          python_version: ${{ matrix.python-version }}
 
       - name: List installed packages
         run: |
@@ -191,10 +206,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
       - name: Base Setup
         uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
         with:
           dependency_type: pre
+
       - name: Run the tests
         run: |
           hatch run test:nowarn

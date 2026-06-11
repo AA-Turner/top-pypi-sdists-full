@@ -510,9 +510,9 @@ impl<F: MpsScalar> Mps<F> {
     /// for the actual Schmidt rank, or when only single-qubit gates
     /// were applied.
     ///
-    /// `right_canonicalize` performs only **norm-preserving** thin
-    /// SVDs (no rank capping below the true Schmidt rank), so it does
-    /// **not** contribute to this sum.  v0.6.3.
+    /// `right_canonicalize` 도 `trunc_threshold > 0` 이면 singular value
+    /// cutoff 로 잘린 가중치를 이 합계에 누적한다 (v0.6.5~).  threshold 0
+    /// 이면 norm-preserving thin SVD 만 수행하므로 기여하지 않는다.
     pub fn truncation_error_sum(&self) -> f64 {
         self.truncation_error_sum
     }
@@ -1040,52 +1040,13 @@ impl<F: MpsScalar> Mps<F> {
         counts
     }
 
-    /// Bring the MPS to **right-canonical form** via a right-to-left thin
-    /// SVD sweep (Schollwöck 2011 §4.4).
+    /// Marginal weight of measuring `|1⟩` on `target`, as the **raw trace**.
     ///
-    /// After this call, every tensor `T_i` for `i >= 1` (i.e. all sites
-    /// except possibly site 0) satisfies the right-orthogonality condition
-    ///
-    /// ```text
-    /// Σ_{p, r} T_i[b, p, r] · conj(T_i[b', p, r])  =  δ_{b, b'}
-    /// ```
-    ///
-    /// — equivalently, the matrix obtained by reshaping `T_i` to shape
-    /// `[chi_left, 2 · chi_right]` has orthonormal rows.  The left-most
-    /// site (site 0) carries the remaining norm: `<ψ|ψ> = ||T_0||²`.
-    ///
-    /// The sweep is **norm-preserving** (the underlying state vector is
-    /// unchanged) and may **shrink** internal bonds when a tensor was
-    /// over-bonded — `min(chi_left, 2 · chi_right)` is the maximum useful
-    /// rank at each cut.  No additional truncation against `max_bond_dim`
-    /// is performed (truncation happens only inside `apply_two_qubit_adjacent`).
-    ///
-    /// # Algorithm
-    ///
-    /// For `i = n-1, n-2, ..., 1`:
-    /// 1. Reshape `T_i` (shape `[chi_l, 2, chi_r]`) row-major into a
-    ///    `(chi_l, 2 · chi_r)` matrix `M`.
-    /// 2. Thin SVD: `M = U · diag(S) · V†`, with `U: (chi_l, k)`,
-    ///    `V†: (k, 2 · chi_r)`, `k = min(chi_l, 2 · chi_r)`.
-    /// 3. Replace `T_i` with `V†` reshaped to `[k, 2, chi_r]` row-major
-    ///    — now right-orthogonal.
-    /// 4. Absorb `U · diag(S)` into the right bond of `T_{i-1}`:
-    ///    `T_{i-1}'[a, p, b] = Σ_l T_{i-1}[a, p, l] · U[l, b] · S[b]`.
-    ///    The new right bond of `T_{i-1}` (and left bond of `T_i`) is `k`.
-    ///
-    /// # Pitfalls
-    ///
-    /// `nalgebra::DMatrix` is column-major internally — element-wise
-    /// indexing (`mat[(i, j)]`) is used everywhere to round-trip the
-    /// row-major flat tensor layout safely.  `as_slice().copy_from_slice()`
-    /// would silently transpose.
-    ///
-    /// # Cost
-    ///
-    /// O(N · χ³) — one thin SVD per site of an `(χ × 2χ)` matrix.
-    /// Marginal probability that a single-qubit measurement of `target`
-    /// yields `|1⟩` (the `|0⟩` probability is `1 - this`).  v0.6.5 — needed
-    /// for trajectory-mode mid-circuit measurements.
+    /// 반환값은 정규화되지 않은 값이다 — norm 1 상태에서는 그대로 `p(1)` 이지만
+    /// SVD truncation 으로 norm² < 1 인 상태에서는 `norm² × p(1)` 이다.  확률로
+    /// 쓰려면 [`Mps::norm_squared`] 로 나눠야 한다 (simulator 의
+    /// `mps_p_one_normalized` 헬퍼 참조).  v0.6.5 — trajectory-mode
+    /// mid-circuit measurement 용.
     ///
     /// # Preconditions
     ///
@@ -1143,9 +1104,13 @@ impl<F: MpsScalar> Mps<F> {
     ///
     /// # Behaviour
     ///
-    /// - Computes `p(outcome)` exactly via [`Mps::single_qubit_probability`].
+    /// - Computes the raw branch weight via
+    ///   [`Mps::single_qubit_probability`] and the state norm² via
+    ///   [`Mps::norm_squared`] — SVD truncation 이후 norm² < 1 인 상태에서도
+    ///   `p(outcome)` 이 편향되지 않도록 raw weight 를 norm² 으로 정규화한다.
     /// - Sets the physical leg of `T_target` for `p != outcome` to zero
-    ///   and rescales the kept leg by `1 / sqrt(p(outcome))`.
+    ///   and rescales the kept leg by `1 / sqrt(raw weight)` — collapse 후
+    ///   상태는 정확히 norm 1 이 된다.
     /// - Sites `0..target` and `target+1..n_qubits` are **not** modified —
     ///   if they were right-canonical before the call, they remain so on
     ///   the right of `target`.  Site `target` itself is no longer
@@ -1168,13 +1133,21 @@ impl<F: MpsScalar> Mps<F> {
             target < self.n_qubits,
             "collapse_qubit: target out of range"
         );
-        let p1 = self.single_qubit_probability(target);
-        let p_outcome = if outcome { p1 } else { F::one() - p1 };
-        if p_outcome <= F::zero() {
+        let p1_raw = self.single_qubit_probability(target);
+        let norm_sq = F::from(self.norm_squared()).unwrap_or(F::one());
+        if norm_sq <= F::zero() {
             return F::zero();
         }
+        // raw branch weight: truncation 으로 norm² < 1 이어도 p0+p1 = norm².
+        // 이전의 `1 - p1` 은 norm 1 을 가정해 잃어버린 norm 전체가 outcome 0
+        // 쪽으로 쏠리는 편향을 만들었다.
+        let w_outcome = if outcome { p1_raw } else { norm_sq - p1_raw };
+        if w_outcome <= F::zero() {
+            return F::zero();
+        }
+        let p_outcome = w_outcome / norm_sq;
         let target_bit = usize::from(outcome);
-        let scale = F::one() / num_traits::Float::sqrt(p_outcome);
+        let scale = F::one() / num_traits::Float::sqrt(w_outcome);
         let t = &mut self.tensors[target];
         let left = t.left;
         let right = t.right;
@@ -1189,6 +1162,49 @@ impl<F: MpsScalar> Mps<F> {
         p_outcome
     }
 
+    /// Bring the MPS to **right-canonical form** via a right-to-left thin
+    /// SVD sweep (Schollwöck 2011 §4.4).
+    ///
+    /// After this call, every tensor `T_i` for `i >= 1` (i.e. all sites
+    /// except possibly site 0) satisfies the right-orthogonality condition
+    ///
+    /// ```text
+    /// Σ_{p, r} T_i[b, p, r] · conj(T_i[b', p, r])  =  δ_{b, b'}
+    /// ```
+    ///
+    /// — equivalently, the matrix obtained by reshaping `T_i` to shape
+    /// `[chi_left, 2 · chi_right]` has orthonormal rows.  The left-most
+    /// site (site 0) carries the remaining norm: `<ψ|ψ> = ||T_0||²`.
+    ///
+    /// The sweep is **norm-preserving** (the underlying state vector is
+    /// unchanged) and may **shrink** internal bonds when a tensor was
+    /// over-bonded — `min(chi_left, 2 · chi_right)` is the maximum useful
+    /// rank at each cut.  No additional truncation against `max_bond_dim`
+    /// is performed (truncation happens only inside `apply_two_qubit_adjacent`).
+    ///
+    /// # Algorithm
+    ///
+    /// For `i = n-1, n-2, ..., 1`:
+    /// 1. Reshape `T_i` (shape `[chi_l, 2, chi_r]`) row-major into a
+    ///    `(chi_l, 2 · chi_r)` matrix `M`.
+    /// 2. Thin SVD: `M = U · diag(S) · V†`, with `U: (chi_l, k)`,
+    ///    `V†: (k, 2 · chi_r)`, `k = min(chi_l, 2 · chi_r)`.
+    /// 3. Replace `T_i` with `V†` reshaped to `[k, 2, chi_r]` row-major
+    ///    — now right-orthogonal.
+    /// 4. Absorb `U · diag(S)` into the right bond of `T_{i-1}`:
+    ///    `T_{i-1}'[a, p, b] = Σ_l T_{i-1}[a, p, l] · U[l, b] · S[b]`.
+    ///    The new right bond of `T_{i-1}` (and left bond of `T_i`) is `k`.
+    ///
+    /// # Pitfalls
+    ///
+    /// `nalgebra::DMatrix` is column-major internally — element-wise
+    /// indexing (`mat[(i, j)]`) is used everywhere to round-trip the
+    /// row-major flat tensor layout safely.  `as_slice().copy_from_slice()`
+    /// would silently transpose.
+    ///
+    /// # Cost
+    ///
+    /// O(N · χ³) — one thin SVD per site of an `(χ × 2χ)` matrix.
     pub fn right_canonicalize(&mut self) {
         if self.n_qubits <= 1 {
             // n=1: trivial — single site already "canonical".

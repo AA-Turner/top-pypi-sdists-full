@@ -19,10 +19,12 @@ import logging
 from typing import Any
 
 from cliff import columns as cliff_columns
+from openstack.network.v2 import qos_policy as _qos_policy
 from osc_lib import exceptions
 from osc_lib import utils
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 from openstackclient.network import common
@@ -40,7 +42,9 @@ _formatters = {
 }
 
 
-def _get_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_columns(
+    item: _qos_policy.QoSPolicy,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     column_map = {
         'is_shared': 'shared',
     }
@@ -82,8 +86,6 @@ def _get_attrs(
     return attrs
 
 
-# TODO(abhiraut): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class CreateNetworkQosPolicy(
     command.ShowOne, common.NeutronCommandWithExtraArgs
 ):
@@ -186,8 +188,6 @@ class DeleteNetworkQosPolicy(command.Command):
             raise exceptions.CommandError(msg)
 
 
-# TODO(abhiraut): Use only the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class ListNetworkQosPolicy(command.Lister):
     _description = _("List QoS policies")
 
@@ -213,6 +213,7 @@ class ListNetworkQosPolicy(command.Lister):
             action='store_true',
             help=_("List only QoS policies not shared between projects"),
         )
+        pagination.add_marker_pagination_option_to_parser(parser)
         return parser
 
     def take_action(
@@ -233,7 +234,16 @@ class ListNetworkQosPolicy(command.Lister):
             'Default',
             'Project',
         )
+
         attrs = _get_attrs(self.app.client_manager, parsed_args)
+
+        if parsed_args.marker is not None:
+            attrs['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            attrs['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            attrs['max_items'] = parsed_args.max_items
+
         data = client.qos_policies(**attrs)
         return (
             column_headers,
@@ -248,8 +258,6 @@ class ListNetworkQosPolicy(command.Lister):
         )
 
 
-# TODO(abhiraut): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class SetNetworkQosPolicy(common.NeutronCommandWithExtraArgs):
     _description = _("Set QoS policy properties")
 

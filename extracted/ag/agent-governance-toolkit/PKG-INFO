@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent_governance_toolkit
-Version: 4.0.0
+Version: 4.1.0
 Summary: Public Preview — Unified installer and runtime policy enforcement for the Agent Governance Toolkit
 Author-email: Microsoft Corporation <agentgovtoolkit@microsoft.com>
 Maintainer-email: Agent Governance Toolkit Team <agentgovtoolkit@microsoft.com>
@@ -86,8 +86,7 @@ Dynamic: license-file
 [![PyPI](https://img.shields.io/pypi/v/agent-governance-toolkit)](https://pypi.org/project/agent-governance-toolkit/)
 
 > [!IMPORTANT]
-> **Public Preview** — The `agent-governance-toolkit` package on PyPI is a Microsoft-signed
-> public preview release. APIs may change before GA.
+> **Public Preview** — The `agent-governance-toolkit` package on PyPI is a public preview release. APIs may change before GA.
 
 ```
 pip install agent-governance-toolkit[full]

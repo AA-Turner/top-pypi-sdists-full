@@ -10,6 +10,10 @@ class AdminCreateUser(ModelBase):
     """User to be created by an admin.
     """
 
+    # Used only by `anyscale user batch-create` / `anyscale.user.admin_batch_create`,
+    # which are internally feature-flagged. See CI-2068.
+    __hidden__ = True
+
     __doc_py_example__ = """\
 import anyscale
 from anyscale.user.models import AdminCreateUser
@@ -83,6 +87,9 @@ class AdminCreateUsers(ModelBase):
     """Users to be created by an admin.
     """
 
+    # See AdminCreateUser comment; this wrapper is internal-only too.
+    __hidden__ = True
+
     __doc_py_example__ = """\
 import anyscale
 from anyscale.user.models import AdminCreateUser
@@ -119,6 +126,9 @@ admin_create_users = AdminCreateUsers(
 class AdminCreatedUser(ModelBase):
     """User account created by an admin that has organization collaborator permissions.
     """
+
+    # Returned only by the hidden `admin_batch_create`. See CI-2068.
+    __hidden__ = True
 
     __doc_py_example__ = """\
 import anyscale

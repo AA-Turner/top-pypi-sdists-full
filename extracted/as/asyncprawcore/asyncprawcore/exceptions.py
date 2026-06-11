@@ -2,11 +2,34 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
-    from aiohttp import ClientResponse
+    import aiohttp
+
+__all__ = [
+    "AsyncPrawcoreException",
+    "BadJSON",
+    "BadRequest",
+    "Conflict",
+    "Forbidden",
+    "InsufficientScope",
+    "InvalidInvocation",
+    "InvalidToken",
+    "NotFound",
+    "OAuthException",
+    "Redirect",
+    "RequestException",
+    "ResponseException",
+    "ServerError",
+    "SpecialError",
+    "TooLarge",
+    "TooManyRequests",
+    "URITooLong",
+    "UnavailableForLegalReasons",
+]
 
 
 class AsyncPrawcoreException(Exception):  # noqa: N818
@@ -20,10 +43,10 @@ class InvalidInvocation(AsyncPrawcoreException):
 class OAuthException(AsyncPrawcoreException):
     """Indicate that there was an OAuth2 related error with the request."""
 
-    def __init__(self, response: ClientResponse, error: str, description: str | None = None) -> None:
+    def __init__(self, response: aiohttp.ClientResponse, error: str, description: str | None = None) -> None:
         """Initialize a OAuthException instance.
 
-        :param response: A ``aiohttp.ClientResponse`` instance.
+        :param response: A :class:`aiohttp.ClientResponse` instance.
         :param error: The error type returned by Reddit.
         :param description: A description of the error when provided.
 
@@ -56,16 +79,18 @@ class RequestException(AsyncPrawcoreException):
         self.original_exception = original_exception
         self.request_args = request_args
         self.request_kwargs = request_kwargs
-        super().__init__(f"error with request {original_exception}")
+        super().__init__(
+            f"error with request {'TimeoutError' if isinstance(original_exception, asyncio.TimeoutError) else original_exception}"
+        )
 
 
 class ResponseException(AsyncPrawcoreException):
     """Indicate that there was an error with the completed HTTP request."""
 
-    def __init__(self, response: ClientResponse) -> None:
+    def __init__(self, response: aiohttp.ClientResponse) -> None:
         """Initialize a ResponseException instance.
 
-        :param response: A ``aiohttp.ClientResponse`` instance.
+        :param response: A :class:`aiohttp.ClientResponse` instance.
 
         """
         self.response = response
@@ -108,11 +133,11 @@ class Redirect(ResponseException):
 
     """
 
-    def __init__(self, response: ClientResponse) -> None:
+    def __init__(self, response: aiohttp.ClientResponse) -> None:
         """Initialize a Redirect exception instance.
 
-        :param response: A ``aiohttp.ClientResponse`` instance containing a location
-            header.
+        :param response: A :class:`aiohttp.ClientResponse` instance containing a
+            location header.
 
         """
         path = urlparse(str(response.headers.get("location"))).path
@@ -134,11 +159,11 @@ class ServerError(ResponseException):
 class SpecialError(ResponseException):
     """Indicate syntax or spam-prevention issues."""
 
-    def __init__(self, response: ClientResponse, resp_dict: dict[str, object]) -> None:
+    def __init__(self, response: aiohttp.ClientResponse, resp_dict: dict[str, object]) -> None:
         """Initialize a SpecialError exception instance.
 
-        :param response: A ``aiohttp.ClientResponse`` instance containing a message and
-            a list of special errors.
+        :param response: A :class:`aiohttp.ClientResponse` instance containing a message
+            and a list of special errors.
         :param resp_dict: A dictionary containing the response data, which should
             include keys like "message", "reason", and "special_errors".
 
@@ -158,10 +183,10 @@ class TooLarge(ResponseException):
 class TooManyRequests(ResponseException):
     """Indicate that the user has sent too many requests in a given amount of time."""
 
-    def __init__(self, response: ClientResponse) -> None:
+    def __init__(self, response: aiohttp.ClientResponse) -> None:
         """Initialize a TooManyRequests exception instance.
 
-        :param response: A ``aiohttp.ClientResponse`` instance that may contain a
+        :param response: A :class:`aiohttp.ClientResponse` instance that may contain a
             retry-after header and a message.
 
         """

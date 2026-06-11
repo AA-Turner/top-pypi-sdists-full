@@ -40,6 +40,9 @@ from airbyte_ops_mcp.cloud_admin.models import (
     VersionOverrideOperationResult,
     WorkspaceVersionOverrideResult,
 )
+from airbyte_ops_mcp.cloud_admin.payment_config import (
+    get_organization_info,
+)
 from airbyte_ops_mcp.cloud_admin.registry_lookup import (
     resolve_canonical_name_to_definition_id,
 )
@@ -47,6 +50,7 @@ from airbyte_ops_mcp.cloud_admin.version_guard import (
     check_existing_pins,
 )
 from airbyte_ops_mcp.constants import USER_AGENT
+from airbyte_ops_mcp.internal_team_roster import fetch_roster, search_roster
 from airbyte_ops_mcp.slack_api import SlackAPIError
 from airbyte_ops_mcp.slack_posting import post_channel_message
 from airbyte_ops_mcp.tier_cache import TierFilter, get_org_tier, resolve_workspace
@@ -170,6 +174,79 @@ def _build_audit_reason(
     return " | ".join(parts)
 
 
+_CLOUD_UI_BASE = "https://cloud.airbyte.com"
+
+
+def _fetch_organization_name(
+    organization_id: str,
+    config_api_root: str,
+    client_id: str | None = None,
+    client_secret: str | None = None,
+    bearer_token: str | None = None,
+) -> str | None:
+    """Best-effort fetch of organization display name from the Config API."""
+    try:
+        info = get_organization_info(
+            organization_id=organization_id,
+            config_api_root=config_api_root,
+            client_id=client_id,
+            client_secret=client_secret,
+            bearer_token=bearer_token,
+        )
+        if info:
+            return info.organization_name
+    except Exception:
+        logger.debug("Could not fetch org name for %s", organization_id, exc_info=True)
+    return None
+
+
+def _resolve_slack_tag(email: str) -> str:
+    """Best-effort resolve an email to a Slack `<@USER_ID>` mention.
+
+    Returns `<@SLACK_ID> (email)` when the roster lookup succeeds, or
+    the plain email string as fallback.
+    """
+    try:
+        roster = fetch_roster()
+        matches = search_roster(roster, email)
+        for person in matches:
+            slack_id = person.get("slack_id")
+            person_email = person.get("slack_email")
+            if (
+                slack_id
+                and isinstance(person_email, str)
+                and person_email.lower() == email.lower()
+            ):
+                return f"<@{slack_id}> ({email})"
+    except Exception:
+        logger.debug("Could not resolve Slack ID for %s", email, exc_info=True)
+    return email
+
+
+def _build_scope_line(
+    scope_type: str,
+    scope_id: str,
+    *,
+    workspace_id: str | None = None,
+    organization_name: str | None = None,
+    actor_name: str | None = None,
+    connector_type: str | None = None,
+) -> str:
+    """Build the Scope line with a hyperlink when possible."""
+    if scope_type == "actor" and workspace_id and connector_type:
+        url = f"{_CLOUD_UI_BASE}/workspaces/{workspace_id}/{connector_type}/{scope_id}"
+        label = actor_name or scope_id
+        return f">*Scope:* <{url}|{label}> (actor)"
+    if scope_type == "workspace":
+        url = f"{_CLOUD_UI_BASE}/workspaces/{scope_id}"
+        return f">*Scope:* <{url}|{scope_id}> (workspace)"
+    if scope_type == "organization":
+        url = f"{_CLOUD_UI_BASE}/organization/{scope_id}/workspaces"
+        label = organization_name or scope_id
+        return f">*Scope:* <{url}|{label}> (organization)"
+    return f">*Scope:* {scope_type} ({scope_id})"
+
+
 def _notify_version_override_slack(
     *,
     action: Literal["set", "removed"],
@@ -183,30 +260,62 @@ def _notify_version_override_slack(
     issue_url: str | None,
     ai_agent_session_url: str | None,
     override_reason_reference_url: str | None,
+    workspace_id: str | None = None,
+    organization_name: str | None = None,
+    actor_name: str | None = None,
 ) -> None:
     """Post a version-override audit notification to the Slack channel.
 
     Best-effort: logs and swallows errors so a Slack failure never blocks
     the override operation itself.
     """
-    action_label = "set" if action == "set" else "removed"
-    header = f"Devin (via MCP) {action_label} a connector version override:"
+    emoji = "📍" if action == "set" else "📌"
+    action_label = "Set" if action == "set" else "Removed"
+    header = f"{emoji} *Connector Version Pin — {action_label}*"
 
     lines = [header]
-    lines.append(f">*Connector:* `{connector_name}` ({connector_type})")
-    lines.append(f">*Scope:* {scope_type} (`{scope_id}`)")
+
+    # Connector + version on one line when setting.
     if version:
-        lines.append(f">*Version:* `{version}`")
-    if admin_user_email:
-        lines.append(f">*Approved by:* {admin_user_email}")
+        lines.append(f">*Connector:* {connector_name} · `{version}`")
+    else:
+        lines.append(f">*Connector:* {connector_name}")
+
+    # Scope with hyperlink.
+    lines.append(
+        _build_scope_line(
+            scope_type,
+            scope_id,
+            workspace_id=workspace_id,
+            organization_name=organization_name,
+            actor_name=actor_name,
+            connector_type=connector_type,
+        )
+    )
+
+    # Workspace context (when scope is actor, show the parent workspace).
+    if scope_type == "actor" and workspace_id:
+        ws_url = f"{_CLOUD_UI_BASE}/workspaces/{workspace_id}"
+        lines.append(f">*Workspace:* <{ws_url}|{workspace_id}>")
+
+    # Reason first — most important context for auditors.
     if override_reason:
         lines.append(f">*Reason:* {override_reason}")
+
+    if organization_name and scope_type != "organization":
+        lines.append(f">*Organization:* {organization_name}")
+
     if issue_url:
         lines.append(f">*Issue:* {issue_url}")
     if override_reason_reference_url:
-        lines.append(f">*Reference URL:* {override_reason_reference_url}")
+        lines.append(f">*Reference:* {override_reason_reference_url}")
     if ai_agent_session_url:
-        lines.append(f">*AI Session:* {ai_agent_session_url}")
+        lines.append(f">*AI Session:* <{ai_agent_session_url}|View Session>")
+
+    # Approved-by last — least interesting for quick scanning.
+    if admin_user_email:
+        slack_tag = _resolve_slack_tag(admin_user_email)
+        lines.append(f">*Approved by:* {slack_tag}")
 
     text = "\n".join(lines)
     try:
@@ -459,11 +568,46 @@ def set_actor_version_override(
 
         # Only notify when something actually changed (skip no-op unsets).
         if not unset or result:
+            # Best-effort: resolve human-readable names for the notification.
+            actor_display_name: str | None = None
+            connector_def_name: str | None = None
+            try:
+                access_token = _get_access_token(
+                    auth.client_id, auth.client_secret, auth.bearer_token
+                )
+                get_endpoint = f"{resolved_config_api_root}/{actor_type}s/get"
+                get_resp = _requests.post(
+                    get_endpoint,
+                    json={f"{actor_type}Id": actor_id},
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "User-Agent": USER_AGENT,
+                        "Content-Type": "application/json",
+                    },
+                    timeout=10,
+                )
+                if get_resp.ok:
+                    actor_data = get_resp.json()
+                    actor_display_name = actor_data.get("name")
+                    connector_def_name = actor_data.get(f"{actor_type}Name")
+            except Exception:
+                logger.debug(
+                    "Could not fetch actor details for notification", exc_info=True
+                )
+
+            org_name = _fetch_organization_name(
+                ws_resolution.organization_id,
+                resolved_config_api_root,
+                client_id=auth.client_id,
+                client_secret=auth.client_secret,
+                bearer_token=auth.bearer_token,
+            )
+
             _notify_version_override_slack(
                 action="removed" if unset else "set",
                 scope_type="actor",
                 scope_id=actor_id,
-                connector_name=f"{actor_type} ({actor_id})",
+                connector_name=connector_def_name or f"{actor_type} ({actor_id})",
                 connector_type=actor_type,
                 version=version,
                 admin_user_email=admin_user_email,
@@ -471,6 +615,9 @@ def set_actor_version_override(
                 issue_url=issue_url,
                 ai_agent_session_url=ai_agent_session_url,
                 override_reason_reference_url=override_reason_reference_url,
+                workspace_id=workspace_id,
+                organization_name=org_name,
+                actor_name=actor_display_name,
             )
 
         return VersionOverrideOperationResult(
@@ -642,6 +789,14 @@ def set_workspace_version_override(
 
         # Only notify when something actually changed (skip no-op unsets).
         if not unset or result:
+            org_name = _fetch_organization_name(
+                ws_resolution.organization_id,
+                resolved_config_api_root,
+                client_id=auth.client_id,
+                client_secret=auth.client_secret,
+                bearer_token=auth.bearer_token,
+            )
+
             _notify_version_override_slack(
                 action="removed" if unset else "set",
                 scope_type="workspace",
@@ -654,6 +809,7 @@ def set_workspace_version_override(
                 issue_url=issue_url,
                 ai_agent_session_url=ai_agent_session_url,
                 override_reason_reference_url=override_reason_reference_url,
+                organization_name=org_name,
             )
 
         return WorkspaceVersionOverrideResult(
@@ -812,6 +968,14 @@ def set_organization_version_override(
 
         # Only notify when something actually changed (skip no-op unsets).
         if not unset or result:
+            org_name = _fetch_organization_name(
+                organization_id,
+                resolved_config_api_root,
+                client_id=auth.client_id,
+                client_secret=auth.client_secret,
+                bearer_token=auth.bearer_token,
+            )
+
             _notify_version_override_slack(
                 action="removed" if unset else "set",
                 scope_type="organization",
@@ -824,6 +988,7 @@ def set_organization_version_override(
                 issue_url=issue_url,
                 ai_agent_session_url=ai_agent_session_url,
                 override_reason_reference_url=override_reason_reference_url,
+                organization_name=org_name,
             )
 
         return OrganizationVersionOverrideResult(

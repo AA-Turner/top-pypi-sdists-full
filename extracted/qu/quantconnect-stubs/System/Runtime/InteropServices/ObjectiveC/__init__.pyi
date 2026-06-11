@@ -38,6 +38,10 @@ class ObjectiveCMarshal(System.Object):
         ...
 
     @staticmethod
+    def get_or_create_reference_tracking_memory(obj: typing.Any) -> System.Span[System.IntPtr]:
+        ...
+
+    @staticmethod
     def initialize(begin_end_callback: typing.Any, is_referenced_callback: typing.Any, tracked_object_entered_finalization: typing.Any, unhandled_exception_propagation_handler: typing.Any) -> None:
         ...
 

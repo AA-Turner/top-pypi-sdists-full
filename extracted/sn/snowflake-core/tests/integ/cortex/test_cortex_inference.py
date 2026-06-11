@@ -17,7 +17,7 @@ pytestmark = [pytest.mark.skip_gov]
 def test_cortex_inference(root: Root):
     pass
     # This test is disabled because cortex inference is not enabled on prod yet.
-    # This test is manually verified to be working, see: https://github.com/snowflakedb/snowpy/pull/679
+    # This test is manually verified to be working, see: https://github.com/snowflake-eng/snowpy/pull/679
     #
     # messages = [CompleteRequestMessagesInner(content="some message")]
     # req = CompleteRequest(model="my_model", messages=messages)

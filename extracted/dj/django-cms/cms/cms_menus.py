@@ -187,7 +187,7 @@ class CMSMenu(Menu):
             # Fallback to all configured public languages for the current site.
             self.languages = get_public_languages(site_pk)
 
-    def select_lang(self, page_contents: Iterable[PageContent]) -> Generator[PageContent, None, None]:
+    def select_lang(self, page_contents: Iterable[PageContent]) -> Generator[PageContent]:
         """Generator that returns only those page content objects passed that contain the first language
         present in the languages list."""
         lang_index = len(self.languages)
@@ -231,6 +231,7 @@ class CMSMenu(Menu):
         attr = {
             "is_page": True,
             "soft_root": page_content.soft_root,
+            "redirect_url": page_content.redirect,
             "auth_required": page.login_required,
             "reverse_id": page.reverse_id,
             "is_home": page.is_home,
@@ -334,6 +335,7 @@ class CMSMenu(Menu):
                 "limit_visibility_in_menu",
                 "soft_root",
                 "in_navigation",
+                "redirect",
                 "page__site_id",
                 "page__parent_id",
                 "page__is_home",

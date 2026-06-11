@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: linopy
-Version: 0.7.0
+Version: 0.8.0
 Summary: Linear optimization with N-D labeled arrays in Python
 Author-email: Fabian Hofmann <fabianmarikhofmann@gmail.com>
+Maintainer-email: Fabian Hofmann <fabianmarikhofmann@gmail.com>, Felix Bumann <dev@fxbumann.de>
 Project-URL: Homepage, https://github.com/PyPSA/linopy
 Project-URL: Source, https://github.com/PyPSA/linopy
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -16,11 +16,10 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Typing :: Typed
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: numpy; python_version > "3.10"
-Requires-Dist: numpy<2; python_version <= "3.10"
+Requires-Dist: numpy
 Requires-Dist: scipy
 Requires-Dist: bottleneck
 Requires-Dist: toolz
@@ -34,6 +33,8 @@ Requires-Dist: packaging
 Provides-Extra: oetc
 Requires-Dist: google-cloud-storage; extra == "oetc"
 Requires-Dist: requests; extra == "oetc"
+Provides-Extra: remote
+Requires-Dist: paramiko; extra == "remote"
 Provides-Extra: docs
 Requires-Dist: ipython==8.26.0; extra == "docs"
 Requires-Dist: numpydoc==1.7.0; extra == "docs"
@@ -60,8 +61,11 @@ Requires-Dist: types-paramiko; extra == "dev"
 Requires-Dist: types-requests; extra == "dev"
 Requires-Dist: gurobipy; extra == "dev"
 Requires-Dist: highspy; extra == "dev"
+Requires-Dist: jupyter; extra == "dev"
 Provides-Extra: benchmarks
 Requires-Dist: pytest-benchmark; extra == "benchmarks"
+Requires-Dist: pypsa; extra == "benchmarks"
+Requires-Dist: highspy>=1.7.1; extra == "benchmarks"
 Requires-Dist: pytest-memray; extra == "benchmarks"
 Provides-Extra: solvers
 Requires-Dist: gurobipy; extra == "solvers"
@@ -123,7 +127,7 @@ Dynamic: license-file
 So far **linopy** is available on the PyPI repository
 
 ```bash
-pip install linopy
+uv pip install linopy
 ```
 
 or on conda-forge
@@ -237,10 +241,8 @@ Note that these do have to be installed by the user separately.
 To set up a local development environment for linopy and to run the same tests that are run in the CI, you can run:
 
 ```sh
-python -m venv venv
-source venv/bin/activate
-pip install uv
-uv pip install -e .[dev,solvers]
+uv sync --extra dev --extra solvers
+source .venv/bin/activate
 pytest
 ```
 

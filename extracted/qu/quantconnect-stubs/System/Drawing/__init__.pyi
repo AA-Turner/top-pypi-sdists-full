@@ -10,792 +10,13 @@ import System.Globalization
 import System.Numerics
 import System.Numerics.Colors
 
+System_Drawing_Point = typing.Any
 System_Drawing_Rectangle = typing.Any
 System_Drawing_SizeF = typing.Any
-System_Drawing_Point = typing.Any
 System_Drawing_PointF = typing.Any
+System_Drawing_Size = typing.Any
 System_Drawing_RectangleF = typing.Any
 System_Drawing_Color = typing.Any
-System_Drawing_Size = typing.Any
-
-
-class KnownColor(IntEnum):
-    """This class has no documentation."""
-
-    ACTIVE_BORDER = 1
-
-    ACTIVE_CAPTION = 1
-
-    ACTIVE_CAPTION_TEXT = 2
-
-    APP_WORKSPACE = 3
-
-    CONTROL = 4
-
-    CONTROL_DARK = 5
-
-    CONTROL_DARK_DARK = 6
-
-    CONTROL_LIGHT = 7
-
-    CONTROL_LIGHT_LIGHT = 8
-
-    CONTROL_TEXT = 9
-
-    DESKTOP = 10
-
-    GRAY_TEXT = 11
-
-    HIGHLIGHT = 12
-
-    HIGHLIGHT_TEXT = 13
-
-    HOT_TRACK = 14
-
-    INACTIVE_BORDER = 15
-
-    INACTIVE_CAPTION = 16
-
-    INACTIVE_CAPTION_TEXT = 17
-
-    INFO = 18
-
-    INFO_TEXT = 19
-
-    MENU = 20
-
-    MENU_TEXT = 21
-
-    SCROLL_BAR = 22
-
-    WINDOW = 23
-
-    WINDOW_FRAME = 24
-
-    WINDOW_TEXT = 25
-
-    TRANSPARENT = 26
-
-    ALICE_BLUE = 27
-
-    ANTIQUE_WHITE = 28
-
-    AQUA = 29
-
-    AQUAMARINE = 30
-
-    AZURE = 31
-
-    BEIGE = 32
-
-    BISQUE = 33
-
-    BLACK = 34
-
-    BLANCHED_ALMOND = 35
-
-    BLUE = 36
-
-    BLUE_VIOLET = 37
-
-    BROWN = 38
-
-    BURLY_WOOD = 39
-
-    CADET_BLUE = 40
-
-    CHARTREUSE = 41
-
-    CHOCOLATE = 42
-
-    CORAL = 43
-
-    CORNFLOWER_BLUE = 44
-
-    CORNSILK = 45
-
-    CRIMSON = 46
-
-    CYAN = 47
-
-    DARK_BLUE = 48
-
-    DARK_CYAN = 49
-
-    DARK_GOLDENROD = 50
-
-    DARK_GRAY = 51
-
-    DARK_GREEN = 52
-
-    DARK_KHAKI = 53
-
-    DARK_MAGENTA = 54
-
-    DARK_OLIVE_GREEN = 55
-
-    DARK_ORANGE = 56
-
-    DARK_ORCHID = 57
-
-    DARK_RED = 58
-
-    DARK_SALMON = 59
-
-    DARK_SEA_GREEN = 60
-
-    DARK_SLATE_BLUE = 61
-
-    DARK_SLATE_GRAY = 62
-
-    DARK_TURQUOISE = 63
-
-    DARK_VIOLET = 64
-
-    DEEP_PINK = 65
-
-    DEEP_SKY_BLUE = 66
-
-    DIM_GRAY = 67
-
-    DODGER_BLUE = 68
-
-    FIREBRICK = 69
-
-    FLORAL_WHITE = 70
-
-    FOREST_GREEN = 71
-
-    FUCHSIA = 72
-
-    GAINSBORO = 73
-
-    GHOST_WHITE = 74
-
-    GOLD = 75
-
-    GOLDENROD = 76
-
-    GRAY = 77
-
-    GREEN = 78
-
-    GREEN_YELLOW = 79
-
-    HONEYDEW = 80
-
-    HOT_PINK = 81
-
-    INDIAN_RED = 82
-
-    INDIGO = 83
-
-    IVORY = 84
-
-    KHAKI = 85
-
-    LAVENDER = 86
-
-    LAVENDER_BLUSH = 87
-
-    LAWN_GREEN = 88
-
-    LEMON_CHIFFON = 89
-
-    LIGHT_BLUE = 90
-
-    LIGHT_CORAL = 91
-
-    LIGHT_CYAN = 92
-
-    LIGHT_GOLDENROD_YELLOW = 93
-
-    LIGHT_GRAY = 94
-
-    LIGHT_GREEN = 95
-
-    LIGHT_PINK = 96
-
-    LIGHT_SALMON = 97
-
-    LIGHT_SEA_GREEN = 98
-
-    LIGHT_SKY_BLUE = 99
-
-    LIGHT_SLATE_GRAY = 100
-
-    LIGHT_STEEL_BLUE = 101
-
-    LIGHT_YELLOW = 102
-
-    LIME = 103
-
-    LIME_GREEN = 104
-
-    LINEN = 105
-
-    MAGENTA = 106
-
-    MAROON = 107
-
-    MEDIUM_AQUAMARINE = 108
-
-    MEDIUM_BLUE = 109
-
-    MEDIUM_ORCHID = 110
-
-    MEDIUM_PURPLE = 111
-
-    MEDIUM_SEA_GREEN = 112
-
-    MEDIUM_SLATE_BLUE = 113
-
-    MEDIUM_SPRING_GREEN = 114
-
-    MEDIUM_TURQUOISE = 115
-
-    MEDIUM_VIOLET_RED = 116
-
-    MIDNIGHT_BLUE = 117
-
-    MINT_CREAM = 118
-
-    MISTY_ROSE = 119
-
-    MOCCASIN = 120
-
-    NAVAJO_WHITE = 121
-
-    NAVY = 122
-
-    OLD_LACE = 123
-
-    OLIVE = 124
-
-    OLIVE_DRAB = 125
-
-    ORANGE = 126
-
-    ORANGE_RED = 127
-
-    ORCHID = 128
-
-    PALE_GOLDENROD = 129
-
-    PALE_GREEN = 130
-
-    PALE_TURQUOISE = 131
-
-    PALE_VIOLET_RED = 132
-
-    PAPAYA_WHIP = 133
-
-    PEACH_PUFF = 134
-
-    PERU = 135
-
-    PINK = 136
-
-    PLUM = 137
-
-    POWDER_BLUE = 138
-
-    PURPLE = 139
-
-    RED = 140
-
-    ROSY_BROWN = 141
-
-    ROYAL_BLUE = 142
-
-    SADDLE_BROWN = 143
-
-    SALMON = 144
-
-    SANDY_BROWN = 145
-
-    SEA_GREEN = 146
-
-    SEA_SHELL = 147
-
-    SIENNA = 148
-
-    SILVER = 149
-
-    SKY_BLUE = 150
-
-    SLATE_BLUE = 151
-
-    SLATE_GRAY = 152
-
-    SNOW = 153
-
-    SPRING_GREEN = 154
-
-    STEEL_BLUE = 155
-
-    TAN = 156
-
-    TEAL = 157
-
-    THISTLE = 158
-
-    TOMATO = 159
-
-    TURQUOISE = 160
-
-    VIOLET = 161
-
-    WHEAT = 162
-
-    WHITE = 163
-
-    WHITE_SMOKE = 164
-
-    YELLOW = 165
-
-    YELLOW_GREEN = 166
-
-    BUTTON_FACE = 167
-
-    BUTTON_HIGHLIGHT = 168
-
-    BUTTON_SHADOW = 169
-
-    GRADIENT_ACTIVE_CAPTION = 170
-
-    GRADIENT_INACTIVE_CAPTION = 171
-
-    MENU_BAR = 172
-
-    MENU_HIGHLIGHT = 173
-
-    REBECCA_PURPLE = 174
-
-
-class Color(System.IEquatable[System_Drawing_Color]):
-    """This class has no documentation."""
-
-    EMPTY: System.Drawing.Color
-
-    TRANSPARENT: System.Drawing.Color
-
-    ALICE_BLUE: System.Drawing.Color
-
-    ANTIQUE_WHITE: System.Drawing.Color
-
-    AQUA: System.Drawing.Color
-
-    AQUAMARINE: System.Drawing.Color
-
-    AZURE: System.Drawing.Color
-
-    BEIGE: System.Drawing.Color
-
-    BISQUE: System.Drawing.Color
-
-    BLACK: System.Drawing.Color
-
-    BLANCHED_ALMOND: System.Drawing.Color
-
-    BLUE: System.Drawing.Color
-
-    BLUE_VIOLET: System.Drawing.Color
-
-    BROWN: System.Drawing.Color
-
-    BURLY_WOOD: System.Drawing.Color
-
-    CADET_BLUE: System.Drawing.Color
-
-    CHARTREUSE: System.Drawing.Color
-
-    CHOCOLATE: System.Drawing.Color
-
-    CORAL: System.Drawing.Color
-
-    CORNFLOWER_BLUE: System.Drawing.Color
-
-    CORNSILK: System.Drawing.Color
-
-    CRIMSON: System.Drawing.Color
-
-    CYAN: System.Drawing.Color
-
-    DARK_BLUE: System.Drawing.Color
-
-    DARK_CYAN: System.Drawing.Color
-
-    DARK_GOLDENROD: System.Drawing.Color
-
-    DARK_GRAY: System.Drawing.Color
-
-    DARK_GREEN: System.Drawing.Color
-
-    DARK_KHAKI: System.Drawing.Color
-
-    DARK_MAGENTA: System.Drawing.Color
-
-    DARK_OLIVE_GREEN: System.Drawing.Color
-
-    DARK_ORANGE: System.Drawing.Color
-
-    DARK_ORCHID: System.Drawing.Color
-
-    DARK_RED: System.Drawing.Color
-
-    DARK_SALMON: System.Drawing.Color
-
-    DARK_SEA_GREEN: System.Drawing.Color
-
-    DARK_SLATE_BLUE: System.Drawing.Color
-
-    DARK_SLATE_GRAY: System.Drawing.Color
-
-    DARK_TURQUOISE: System.Drawing.Color
-
-    DARK_VIOLET: System.Drawing.Color
-
-    DEEP_PINK: System.Drawing.Color
-
-    DEEP_SKY_BLUE: System.Drawing.Color
-
-    DIM_GRAY: System.Drawing.Color
-
-    DODGER_BLUE: System.Drawing.Color
-
-    FIREBRICK: System.Drawing.Color
-
-    FLORAL_WHITE: System.Drawing.Color
-
-    FOREST_GREEN: System.Drawing.Color
-
-    FUCHSIA: System.Drawing.Color
-
-    GAINSBORO: System.Drawing.Color
-
-    GHOST_WHITE: System.Drawing.Color
-
-    GOLD: System.Drawing.Color
-
-    GOLDENROD: System.Drawing.Color
-
-    GRAY: System.Drawing.Color
-
-    GREEN: System.Drawing.Color
-
-    GREEN_YELLOW: System.Drawing.Color
-
-    HONEYDEW: System.Drawing.Color
-
-    HOT_PINK: System.Drawing.Color
-
-    INDIAN_RED: System.Drawing.Color
-
-    INDIGO: System.Drawing.Color
-
-    IVORY: System.Drawing.Color
-
-    KHAKI: System.Drawing.Color
-
-    LAVENDER: System.Drawing.Color
-
-    LAVENDER_BLUSH: System.Drawing.Color
-
-    LAWN_GREEN: System.Drawing.Color
-
-    LEMON_CHIFFON: System.Drawing.Color
-
-    LIGHT_BLUE: System.Drawing.Color
-
-    LIGHT_CORAL: System.Drawing.Color
-
-    LIGHT_CYAN: System.Drawing.Color
-
-    LIGHT_GOLDENROD_YELLOW: System.Drawing.Color
-
-    LIGHT_GREEN: System.Drawing.Color
-
-    LIGHT_GRAY: System.Drawing.Color
-
-    LIGHT_PINK: System.Drawing.Color
-
-    LIGHT_SALMON: System.Drawing.Color
-
-    LIGHT_SEA_GREEN: System.Drawing.Color
-
-    LIGHT_SKY_BLUE: System.Drawing.Color
-
-    LIGHT_SLATE_GRAY: System.Drawing.Color
-
-    LIGHT_STEEL_BLUE: System.Drawing.Color
-
-    LIGHT_YELLOW: System.Drawing.Color
-
-    LIME: System.Drawing.Color
-
-    LIME_GREEN: System.Drawing.Color
-
-    LINEN: System.Drawing.Color
-
-    MAGENTA: System.Drawing.Color
-
-    MAROON: System.Drawing.Color
-
-    MEDIUM_AQUAMARINE: System.Drawing.Color
-
-    MEDIUM_BLUE: System.Drawing.Color
-
-    MEDIUM_ORCHID: System.Drawing.Color
-
-    MEDIUM_PURPLE: System.Drawing.Color
-
-    MEDIUM_SEA_GREEN: System.Drawing.Color
-
-    MEDIUM_SLATE_BLUE: System.Drawing.Color
-
-    MEDIUM_SPRING_GREEN: System.Drawing.Color
-
-    MEDIUM_TURQUOISE: System.Drawing.Color
-
-    MEDIUM_VIOLET_RED: System.Drawing.Color
-
-    MIDNIGHT_BLUE: System.Drawing.Color
-
-    MINT_CREAM: System.Drawing.Color
-
-    MISTY_ROSE: System.Drawing.Color
-
-    MOCCASIN: System.Drawing.Color
-
-    NAVAJO_WHITE: System.Drawing.Color
-
-    NAVY: System.Drawing.Color
-
-    OLD_LACE: System.Drawing.Color
-
-    OLIVE: System.Drawing.Color
-
-    OLIVE_DRAB: System.Drawing.Color
-
-    ORANGE: System.Drawing.Color
-
-    ORANGE_RED: System.Drawing.Color
-
-    ORCHID: System.Drawing.Color
-
-    PALE_GOLDENROD: System.Drawing.Color
-
-    PALE_GREEN: System.Drawing.Color
-
-    PALE_TURQUOISE: System.Drawing.Color
-
-    PALE_VIOLET_RED: System.Drawing.Color
-
-    PAPAYA_WHIP: System.Drawing.Color
-
-    PEACH_PUFF: System.Drawing.Color
-
-    PERU: System.Drawing.Color
-
-    PINK: System.Drawing.Color
-
-    PLUM: System.Drawing.Color
-
-    POWDER_BLUE: System.Drawing.Color
-
-    PURPLE: System.Drawing.Color
-
-    REBECCA_PURPLE: System.Drawing.Color
-
-    RED: System.Drawing.Color
-
-    ROSY_BROWN: System.Drawing.Color
-
-    ROYAL_BLUE: System.Drawing.Color
-
-    SADDLE_BROWN: System.Drawing.Color
-
-    SALMON: System.Drawing.Color
-
-    SANDY_BROWN: System.Drawing.Color
-
-    SEA_GREEN: System.Drawing.Color
-
-    SEA_SHELL: System.Drawing.Color
-
-    SIENNA: System.Drawing.Color
-
-    SILVER: System.Drawing.Color
-
-    SKY_BLUE: System.Drawing.Color
-
-    SLATE_BLUE: System.Drawing.Color
-
-    SLATE_GRAY: System.Drawing.Color
-
-    SNOW: System.Drawing.Color
-
-    SPRING_GREEN: System.Drawing.Color
-
-    STEEL_BLUE: System.Drawing.Color
-
-    TAN: System.Drawing.Color
-
-    TEAL: System.Drawing.Color
-
-    THISTLE: System.Drawing.Color
-
-    TOMATO: System.Drawing.Color
-
-    TURQUOISE: System.Drawing.Color
-
-    VIOLET: System.Drawing.Color
-
-    WHEAT: System.Drawing.Color
-
-    WHITE: System.Drawing.Color
-
-    WHITE_SMOKE: System.Drawing.Color
-
-    YELLOW: System.Drawing.Color
-
-    YELLOW_GREEN: System.Drawing.Color
-
-    @property
-    def r(self) -> int:
-        ...
-
-    @property
-    def g(self) -> int:
-        ...
-
-    @property
-    def b(self) -> int:
-        ...
-
-    @property
-    def a(self) -> int:
-        ...
-
-    @property
-    def is_known_color(self) -> bool:
-        ...
-
-    @property
-    def is_empty(self) -> bool:
-        ...
-
-    @property
-    def is_named_color(self) -> bool:
-        ...
-
-    @property
-    def is_system_color(self) -> bool:
-        ...
-
-    @property
-    def name(self) -> str:
-        ...
-
-    def __eq__(self, right: System.Drawing.Color) -> bool:
-        ...
-
-    def __ne__(self, right: System.Drawing.Color) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Drawing.Color) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def from_argb(argb: int) -> System.Drawing.Color:
-        ...
-
-    @staticmethod
-    @overload
-    def from_argb(argb: System.Numerics.Colors.Argb[int]) -> System.Drawing.Color:
-        ...
-
-    @staticmethod
-    @overload
-    def from_argb(alpha: int, red: int, green: int, blue: int) -> System.Drawing.Color:
-        ...
-
-    @staticmethod
-    @overload
-    def from_argb(alpha: int, base_color: System.Drawing.Color) -> System.Drawing.Color:
-        ...
-
-    @staticmethod
-    @overload
-    def from_argb(red: int, green: int, blue: int) -> System.Drawing.Color:
-        ...
-
-    @staticmethod
-    def from_known_color(color: System.Drawing.KnownColor) -> System.Drawing.Color:
-        ...
-
-    @staticmethod
-    def from_name(name: str) -> System.Drawing.Color:
-        ...
-
-    def get_brightness(self) -> float:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_hue(self) -> float:
-        ...
-
-    def get_saturation(self) -> float:
-        ...
-
-    def to_argb(self) -> int:
-        ...
-
-    def to_argb_value(self) -> System.Numerics.Colors.Argb[int]:
-        ...
-
-    def to_known_color(self) -> System.Drawing.KnownColor:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class ColorTranslator(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def from_html(html_color: str) -> System.Drawing.Color:
-        ...
-
-    @staticmethod
-    def from_ole(ole_color: int) -> System.Drawing.Color:
-        ...
-
-    @staticmethod
-    def from_win_32(win_32_color: int) -> System.Drawing.Color:
-        ...
-
-    @staticmethod
-    def to_html(c: System.Drawing.Color) -> str:
-        ...
-
-    @staticmethod
-    def to_ole(c: System.Drawing.Color) -> int:
-        ...
-
-    @staticmethod
-    def to_win_32(c: System.Drawing.Color) -> int:
-        ...
 
 
 class Size(System.IEquatable[System_Drawing_Size]):
@@ -1581,6 +802,785 @@ class Rectangle(System.IEquatable[System_Drawing_Rectangle]):
         ...
 
 
+class KnownColor(IntEnum):
+    """This class has no documentation."""
+
+    ACTIVE_BORDER = 1
+
+    ACTIVE_CAPTION = 1
+
+    ACTIVE_CAPTION_TEXT = 2
+
+    APP_WORKSPACE = 3
+
+    CONTROL = 4
+
+    CONTROL_DARK = 5
+
+    CONTROL_DARK_DARK = 6
+
+    CONTROL_LIGHT = 7
+
+    CONTROL_LIGHT_LIGHT = 8
+
+    CONTROL_TEXT = 9
+
+    DESKTOP = 10
+
+    GRAY_TEXT = 11
+
+    HIGHLIGHT = 12
+
+    HIGHLIGHT_TEXT = 13
+
+    HOT_TRACK = 14
+
+    INACTIVE_BORDER = 15
+
+    INACTIVE_CAPTION = 16
+
+    INACTIVE_CAPTION_TEXT = 17
+
+    INFO = 18
+
+    INFO_TEXT = 19
+
+    MENU = 20
+
+    MENU_TEXT = 21
+
+    SCROLL_BAR = 22
+
+    WINDOW = 23
+
+    WINDOW_FRAME = 24
+
+    WINDOW_TEXT = 25
+
+    TRANSPARENT = 26
+
+    ALICE_BLUE = 27
+
+    ANTIQUE_WHITE = 28
+
+    AQUA = 29
+
+    AQUAMARINE = 30
+
+    AZURE = 31
+
+    BEIGE = 32
+
+    BISQUE = 33
+
+    BLACK = 34
+
+    BLANCHED_ALMOND = 35
+
+    BLUE = 36
+
+    BLUE_VIOLET = 37
+
+    BROWN = 38
+
+    BURLY_WOOD = 39
+
+    CADET_BLUE = 40
+
+    CHARTREUSE = 41
+
+    CHOCOLATE = 42
+
+    CORAL = 43
+
+    CORNFLOWER_BLUE = 44
+
+    CORNSILK = 45
+
+    CRIMSON = 46
+
+    CYAN = 47
+
+    DARK_BLUE = 48
+
+    DARK_CYAN = 49
+
+    DARK_GOLDENROD = 50
+
+    DARK_GRAY = 51
+
+    DARK_GREEN = 52
+
+    DARK_KHAKI = 53
+
+    DARK_MAGENTA = 54
+
+    DARK_OLIVE_GREEN = 55
+
+    DARK_ORANGE = 56
+
+    DARK_ORCHID = 57
+
+    DARK_RED = 58
+
+    DARK_SALMON = 59
+
+    DARK_SEA_GREEN = 60
+
+    DARK_SLATE_BLUE = 61
+
+    DARK_SLATE_GRAY = 62
+
+    DARK_TURQUOISE = 63
+
+    DARK_VIOLET = 64
+
+    DEEP_PINK = 65
+
+    DEEP_SKY_BLUE = 66
+
+    DIM_GRAY = 67
+
+    DODGER_BLUE = 68
+
+    FIREBRICK = 69
+
+    FLORAL_WHITE = 70
+
+    FOREST_GREEN = 71
+
+    FUCHSIA = 72
+
+    GAINSBORO = 73
+
+    GHOST_WHITE = 74
+
+    GOLD = 75
+
+    GOLDENROD = 76
+
+    GRAY = 77
+
+    GREEN = 78
+
+    GREEN_YELLOW = 79
+
+    HONEYDEW = 80
+
+    HOT_PINK = 81
+
+    INDIAN_RED = 82
+
+    INDIGO = 83
+
+    IVORY = 84
+
+    KHAKI = 85
+
+    LAVENDER = 86
+
+    LAVENDER_BLUSH = 87
+
+    LAWN_GREEN = 88
+
+    LEMON_CHIFFON = 89
+
+    LIGHT_BLUE = 90
+
+    LIGHT_CORAL = 91
+
+    LIGHT_CYAN = 92
+
+    LIGHT_GOLDENROD_YELLOW = 93
+
+    LIGHT_GRAY = 94
+
+    LIGHT_GREEN = 95
+
+    LIGHT_PINK = 96
+
+    LIGHT_SALMON = 97
+
+    LIGHT_SEA_GREEN = 98
+
+    LIGHT_SKY_BLUE = 99
+
+    LIGHT_SLATE_GRAY = 100
+
+    LIGHT_STEEL_BLUE = 101
+
+    LIGHT_YELLOW = 102
+
+    LIME = 103
+
+    LIME_GREEN = 104
+
+    LINEN = 105
+
+    MAGENTA = 106
+
+    MAROON = 107
+
+    MEDIUM_AQUAMARINE = 108
+
+    MEDIUM_BLUE = 109
+
+    MEDIUM_ORCHID = 110
+
+    MEDIUM_PURPLE = 111
+
+    MEDIUM_SEA_GREEN = 112
+
+    MEDIUM_SLATE_BLUE = 113
+
+    MEDIUM_SPRING_GREEN = 114
+
+    MEDIUM_TURQUOISE = 115
+
+    MEDIUM_VIOLET_RED = 116
+
+    MIDNIGHT_BLUE = 117
+
+    MINT_CREAM = 118
+
+    MISTY_ROSE = 119
+
+    MOCCASIN = 120
+
+    NAVAJO_WHITE = 121
+
+    NAVY = 122
+
+    OLD_LACE = 123
+
+    OLIVE = 124
+
+    OLIVE_DRAB = 125
+
+    ORANGE = 126
+
+    ORANGE_RED = 127
+
+    ORCHID = 128
+
+    PALE_GOLDENROD = 129
+
+    PALE_GREEN = 130
+
+    PALE_TURQUOISE = 131
+
+    PALE_VIOLET_RED = 132
+
+    PAPAYA_WHIP = 133
+
+    PEACH_PUFF = 134
+
+    PERU = 135
+
+    PINK = 136
+
+    PLUM = 137
+
+    POWDER_BLUE = 138
+
+    PURPLE = 139
+
+    RED = 140
+
+    ROSY_BROWN = 141
+
+    ROYAL_BLUE = 142
+
+    SADDLE_BROWN = 143
+
+    SALMON = 144
+
+    SANDY_BROWN = 145
+
+    SEA_GREEN = 146
+
+    SEA_SHELL = 147
+
+    SIENNA = 148
+
+    SILVER = 149
+
+    SKY_BLUE = 150
+
+    SLATE_BLUE = 151
+
+    SLATE_GRAY = 152
+
+    SNOW = 153
+
+    SPRING_GREEN = 154
+
+    STEEL_BLUE = 155
+
+    TAN = 156
+
+    TEAL = 157
+
+    THISTLE = 158
+
+    TOMATO = 159
+
+    TURQUOISE = 160
+
+    VIOLET = 161
+
+    WHEAT = 162
+
+    WHITE = 163
+
+    WHITE_SMOKE = 164
+
+    YELLOW = 165
+
+    YELLOW_GREEN = 166
+
+    BUTTON_FACE = 167
+
+    BUTTON_HIGHLIGHT = 168
+
+    BUTTON_SHADOW = 169
+
+    GRADIENT_ACTIVE_CAPTION = 170
+
+    GRADIENT_INACTIVE_CAPTION = 171
+
+    MENU_BAR = 172
+
+    MENU_HIGHLIGHT = 173
+
+    REBECCA_PURPLE = 174
+
+
+class Color(System.IEquatable[System_Drawing_Color]):
+    """This class has no documentation."""
+
+    EMPTY: System.Drawing.Color
+
+    TRANSPARENT: System.Drawing.Color
+
+    ALICE_BLUE: System.Drawing.Color
+
+    ANTIQUE_WHITE: System.Drawing.Color
+
+    AQUA: System.Drawing.Color
+
+    AQUAMARINE: System.Drawing.Color
+
+    AZURE: System.Drawing.Color
+
+    BEIGE: System.Drawing.Color
+
+    BISQUE: System.Drawing.Color
+
+    BLACK: System.Drawing.Color
+
+    BLANCHED_ALMOND: System.Drawing.Color
+
+    BLUE: System.Drawing.Color
+
+    BLUE_VIOLET: System.Drawing.Color
+
+    BROWN: System.Drawing.Color
+
+    BURLY_WOOD: System.Drawing.Color
+
+    CADET_BLUE: System.Drawing.Color
+
+    CHARTREUSE: System.Drawing.Color
+
+    CHOCOLATE: System.Drawing.Color
+
+    CORAL: System.Drawing.Color
+
+    CORNFLOWER_BLUE: System.Drawing.Color
+
+    CORNSILK: System.Drawing.Color
+
+    CRIMSON: System.Drawing.Color
+
+    CYAN: System.Drawing.Color
+
+    DARK_BLUE: System.Drawing.Color
+
+    DARK_CYAN: System.Drawing.Color
+
+    DARK_GOLDENROD: System.Drawing.Color
+
+    DARK_GRAY: System.Drawing.Color
+
+    DARK_GREEN: System.Drawing.Color
+
+    DARK_KHAKI: System.Drawing.Color
+
+    DARK_MAGENTA: System.Drawing.Color
+
+    DARK_OLIVE_GREEN: System.Drawing.Color
+
+    DARK_ORANGE: System.Drawing.Color
+
+    DARK_ORCHID: System.Drawing.Color
+
+    DARK_RED: System.Drawing.Color
+
+    DARK_SALMON: System.Drawing.Color
+
+    DARK_SEA_GREEN: System.Drawing.Color
+
+    DARK_SLATE_BLUE: System.Drawing.Color
+
+    DARK_SLATE_GRAY: System.Drawing.Color
+
+    DARK_TURQUOISE: System.Drawing.Color
+
+    DARK_VIOLET: System.Drawing.Color
+
+    DEEP_PINK: System.Drawing.Color
+
+    DEEP_SKY_BLUE: System.Drawing.Color
+
+    DIM_GRAY: System.Drawing.Color
+
+    DODGER_BLUE: System.Drawing.Color
+
+    FIREBRICK: System.Drawing.Color
+
+    FLORAL_WHITE: System.Drawing.Color
+
+    FOREST_GREEN: System.Drawing.Color
+
+    FUCHSIA: System.Drawing.Color
+
+    GAINSBORO: System.Drawing.Color
+
+    GHOST_WHITE: System.Drawing.Color
+
+    GOLD: System.Drawing.Color
+
+    GOLDENROD: System.Drawing.Color
+
+    GRAY: System.Drawing.Color
+
+    GREEN: System.Drawing.Color
+
+    GREEN_YELLOW: System.Drawing.Color
+
+    HONEYDEW: System.Drawing.Color
+
+    HOT_PINK: System.Drawing.Color
+
+    INDIAN_RED: System.Drawing.Color
+
+    INDIGO: System.Drawing.Color
+
+    IVORY: System.Drawing.Color
+
+    KHAKI: System.Drawing.Color
+
+    LAVENDER: System.Drawing.Color
+
+    LAVENDER_BLUSH: System.Drawing.Color
+
+    LAWN_GREEN: System.Drawing.Color
+
+    LEMON_CHIFFON: System.Drawing.Color
+
+    LIGHT_BLUE: System.Drawing.Color
+
+    LIGHT_CORAL: System.Drawing.Color
+
+    LIGHT_CYAN: System.Drawing.Color
+
+    LIGHT_GOLDENROD_YELLOW: System.Drawing.Color
+
+    LIGHT_GREEN: System.Drawing.Color
+
+    LIGHT_GRAY: System.Drawing.Color
+
+    LIGHT_PINK: System.Drawing.Color
+
+    LIGHT_SALMON: System.Drawing.Color
+
+    LIGHT_SEA_GREEN: System.Drawing.Color
+
+    LIGHT_SKY_BLUE: System.Drawing.Color
+
+    LIGHT_SLATE_GRAY: System.Drawing.Color
+
+    LIGHT_STEEL_BLUE: System.Drawing.Color
+
+    LIGHT_YELLOW: System.Drawing.Color
+
+    LIME: System.Drawing.Color
+
+    LIME_GREEN: System.Drawing.Color
+
+    LINEN: System.Drawing.Color
+
+    MAGENTA: System.Drawing.Color
+
+    MAROON: System.Drawing.Color
+
+    MEDIUM_AQUAMARINE: System.Drawing.Color
+
+    MEDIUM_BLUE: System.Drawing.Color
+
+    MEDIUM_ORCHID: System.Drawing.Color
+
+    MEDIUM_PURPLE: System.Drawing.Color
+
+    MEDIUM_SEA_GREEN: System.Drawing.Color
+
+    MEDIUM_SLATE_BLUE: System.Drawing.Color
+
+    MEDIUM_SPRING_GREEN: System.Drawing.Color
+
+    MEDIUM_TURQUOISE: System.Drawing.Color
+
+    MEDIUM_VIOLET_RED: System.Drawing.Color
+
+    MIDNIGHT_BLUE: System.Drawing.Color
+
+    MINT_CREAM: System.Drawing.Color
+
+    MISTY_ROSE: System.Drawing.Color
+
+    MOCCASIN: System.Drawing.Color
+
+    NAVAJO_WHITE: System.Drawing.Color
+
+    NAVY: System.Drawing.Color
+
+    OLD_LACE: System.Drawing.Color
+
+    OLIVE: System.Drawing.Color
+
+    OLIVE_DRAB: System.Drawing.Color
+
+    ORANGE: System.Drawing.Color
+
+    ORANGE_RED: System.Drawing.Color
+
+    ORCHID: System.Drawing.Color
+
+    PALE_GOLDENROD: System.Drawing.Color
+
+    PALE_GREEN: System.Drawing.Color
+
+    PALE_TURQUOISE: System.Drawing.Color
+
+    PALE_VIOLET_RED: System.Drawing.Color
+
+    PAPAYA_WHIP: System.Drawing.Color
+
+    PEACH_PUFF: System.Drawing.Color
+
+    PERU: System.Drawing.Color
+
+    PINK: System.Drawing.Color
+
+    PLUM: System.Drawing.Color
+
+    POWDER_BLUE: System.Drawing.Color
+
+    PURPLE: System.Drawing.Color
+
+    REBECCA_PURPLE: System.Drawing.Color
+
+    RED: System.Drawing.Color
+
+    ROSY_BROWN: System.Drawing.Color
+
+    ROYAL_BLUE: System.Drawing.Color
+
+    SADDLE_BROWN: System.Drawing.Color
+
+    SALMON: System.Drawing.Color
+
+    SANDY_BROWN: System.Drawing.Color
+
+    SEA_GREEN: System.Drawing.Color
+
+    SEA_SHELL: System.Drawing.Color
+
+    SIENNA: System.Drawing.Color
+
+    SILVER: System.Drawing.Color
+
+    SKY_BLUE: System.Drawing.Color
+
+    SLATE_BLUE: System.Drawing.Color
+
+    SLATE_GRAY: System.Drawing.Color
+
+    SNOW: System.Drawing.Color
+
+    SPRING_GREEN: System.Drawing.Color
+
+    STEEL_BLUE: System.Drawing.Color
+
+    TAN: System.Drawing.Color
+
+    TEAL: System.Drawing.Color
+
+    THISTLE: System.Drawing.Color
+
+    TOMATO: System.Drawing.Color
+
+    TURQUOISE: System.Drawing.Color
+
+    VIOLET: System.Drawing.Color
+
+    WHEAT: System.Drawing.Color
+
+    WHITE: System.Drawing.Color
+
+    WHITE_SMOKE: System.Drawing.Color
+
+    YELLOW: System.Drawing.Color
+
+    YELLOW_GREEN: System.Drawing.Color
+
+    @property
+    def r(self) -> int:
+        ...
+
+    @property
+    def g(self) -> int:
+        ...
+
+    @property
+    def b(self) -> int:
+        ...
+
+    @property
+    def a(self) -> int:
+        ...
+
+    @property
+    def is_known_color(self) -> bool:
+        ...
+
+    @property
+    def is_empty(self) -> bool:
+        ...
+
+    @property
+    def is_named_color(self) -> bool:
+        ...
+
+    @property
+    def is_system_color(self) -> bool:
+        ...
+
+    @property
+    def name(self) -> str:
+        ...
+
+    def __eq__(self, right: System.Drawing.Color) -> bool:
+        ...
+
+    def __ne__(self, right: System.Drawing.Color) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Drawing.Color) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def from_argb(argb: int) -> System.Drawing.Color:
+        ...
+
+    @staticmethod
+    @overload
+    def from_argb(argb: System.Numerics.Colors.Argb[int]) -> System.Drawing.Color:
+        ...
+
+    @staticmethod
+    @overload
+    def from_argb(alpha: int, red: int, green: int, blue: int) -> System.Drawing.Color:
+        ...
+
+    @staticmethod
+    @overload
+    def from_argb(alpha: int, base_color: System.Drawing.Color) -> System.Drawing.Color:
+        ...
+
+    @staticmethod
+    @overload
+    def from_argb(red: int, green: int, blue: int) -> System.Drawing.Color:
+        ...
+
+    @staticmethod
+    def from_known_color(color: System.Drawing.KnownColor) -> System.Drawing.Color:
+        ...
+
+    @staticmethod
+    def from_name(name: str) -> System.Drawing.Color:
+        ...
+
+    def get_brightness(self) -> float:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_hue(self) -> float:
+        ...
+
+    def get_saturation(self) -> float:
+        ...
+
+    def to_argb(self) -> int:
+        ...
+
+    def to_argb_value(self) -> System.Numerics.Colors.Argb[int]:
+        ...
+
+    def to_known_color(self) -> System.Drawing.KnownColor:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class ColorTranslator(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def from_html(html_color: str) -> System.Drawing.Color:
+        ...
+
+    @staticmethod
+    def from_ole(ole_color: int) -> System.Drawing.Color:
+        ...
+
+    @staticmethod
+    def from_win_32(win_32_color: int) -> System.Drawing.Color:
+        ...
+
+    @staticmethod
+    def to_html(c: System.Drawing.Color) -> str:
+        ...
+
+    @staticmethod
+    def to_ole(c: System.Drawing.Color) -> int:
+        ...
+
+    @staticmethod
+    def to_win_32(c: System.Drawing.Color) -> int:
+        ...
+
+
 class SystemColors(System.Object):
     """This class has no documentation."""
 
@@ -1681,7 +1681,7 @@ class SizeConverter(System.ComponentModel.TypeConverter):
         ...
 
 
-class RectangleConverter(System.ComponentModel.TypeConverter):
+class SizeFConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
@@ -1762,7 +1762,7 @@ class ColorConverter(System.ComponentModel.TypeConverter):
         ...
 
 
-class SizeFConverter(System.ComponentModel.TypeConverter):
+class RectangleConverter(System.ComponentModel.TypeConverter):
     """This class has no documentation."""
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:

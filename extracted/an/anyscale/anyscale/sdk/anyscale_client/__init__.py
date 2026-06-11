@@ -154,6 +154,8 @@ from anyscale_client.models.python_modules import PythonModules
 from anyscale_client.models.python_version import PythonVersion
 from anyscale_client.models.ray_gcs_external_storage_config import RayGCSExternalStorageConfig
 from anyscale_client.models.ray_runtime_env_config import RayRuntimeEnvConfig
+from anyscale_client.models.resource_kind import ResourceKind
+from anyscale_client.models.resource_state import ResourceState
 from anyscale_client.models.resources import Resources
 from anyscale_client.models.rollback_service_model import RollbackServiceModel
 from anyscale_client.models.rollout_strategy import RolloutStrategy
@@ -170,6 +172,7 @@ from anyscale_client.models.service_goal_states import ServiceGoalStates
 from anyscale_client.models.service_model import ServiceModel
 from anyscale_client.models.service_observability_urls import ServiceObservabilityUrls
 from anyscale_client.models.service_sort_field import ServiceSortField
+from anyscale_client.models.service_status_checklist import ServiceStatusChecklist
 from anyscale_client.models.service_type import ServiceType
 from anyscale_client.models.service_version_state import ServiceVersionState
 from anyscale_client.models.servicemodel_list_response import ServicemodelListResponse
@@ -187,6 +190,7 @@ from anyscale_client.models.sort_order import SortOrder
 from anyscale_client.models.ssoconfig_response import SsoconfigResponse
 from anyscale_client.models.start_cluster_options import StartClusterOptions
 from anyscale_client.models.static_sso_config import StaticSSOConfig
+from anyscale_client.models.status_checklist_item import StatusChecklistItem
 from anyscale_client.models.system_workload_name import SystemWorkloadName
 from anyscale_client.models.terminate_cluster_options import TerminateClusterOptions
 from anyscale_client.models.text_query import TextQuery
@@ -195,5 +199,6 @@ from anyscale_client.models.update_cluster import UpdateCluster
 from anyscale_client.models.update_organization import UpdateOrganization
 from anyscale_client.models.user_service_access_types import UserServiceAccessTypes
 from anyscale_client.models.validation_error import ValidationError
+from anyscale_client.models.version_checklist import VersionChecklist
 from anyscale_client.models.worker_node_type import WorkerNodeType
 

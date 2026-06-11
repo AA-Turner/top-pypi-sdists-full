@@ -484,11 +484,24 @@ class DiagnosticCounter(System.Object, System.IDisposable, metaclass=abc.ABCMeta
         ...
 
 
-class EventSourceCreatedEventArgs(System.EventArgs):
+class IncrementingEventCounter(System.Diagnostics.Tracing.DiagnosticCounter):
     """This class has no documentation."""
 
     @property
-    def event_source(self) -> System.Diagnostics.Tracing.EventSource:
+    def display_rate_time_scale(self) -> datetime.timedelta:
+        ...
+
+    @display_rate_time_scale.setter
+    def display_rate_time_scale(self, value: datetime.timedelta) -> None:
+        ...
+
+    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource) -> None:
+        ...
+
+    def increment(self, increment: float = 1) -> None:
+        ...
+
+    def to_string(self) -> str:
         ...
 
 
@@ -496,6 +509,30 @@ class EventTask(IntEnum):
     """This class has no documentation."""
 
     NONE = 0
+
+
+class EventSourceException(System.Exception):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class EventSourceCreatedEventArgs(System.EventArgs):
+    """This class has no documentation."""
+
+    @property
+    def event_source(self) -> System.Diagnostics.Tracing.EventSource:
+        ...
 
 
 class EventWrittenEventArgs(System.EventArgs):
@@ -688,40 +725,16 @@ class NonEventAttribute(System.Attribute):
         ...
 
 
-class EventSourceException(System.Exception):
+class EventCounter(System.Diagnostics.Tracing.DiagnosticCounter):
     """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
-class IncrementingEventCounter(System.Diagnostics.Tracing.DiagnosticCounter):
-    """This class has no documentation."""
-
-    @property
-    def display_rate_time_scale(self) -> datetime.timedelta:
-        ...
-
-    @display_rate_time_scale.setter
-    def display_rate_time_scale(self, value: datetime.timedelta) -> None:
-        ...
 
     def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource) -> None:
         ...
 
-    def increment(self, increment: float = 1) -> None:
+    def to_string(self) -> str:
         ...
 
-    def to_string(self) -> str:
+    def write_metric(self, value: float) -> None:
         ...
 
 
@@ -737,6 +750,16 @@ class IncrementingPollingCounter(System.Diagnostics.Tracing.DiagnosticCounter):
         ...
 
     def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource, total_value_provider: typing.Callable[[], float]) -> None:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class PollingCounter(System.Diagnostics.Tracing.DiagnosticCounter):
+    """This class has no documentation."""
+
+    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource, metric_provider: typing.Callable[[], float]) -> None:
         ...
 
     def to_string(self) -> str:
@@ -784,29 +807,6 @@ class EventListener(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         ...
 
 
-class PollingCounter(System.Diagnostics.Tracing.DiagnosticCounter):
-    """This class has no documentation."""
-
-    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource, metric_provider: typing.Callable[[], float]) -> None:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class EventCounter(System.Diagnostics.Tracing.DiagnosticCounter):
-    """This class has no documentation."""
-
-    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource) -> None:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-    def write_metric(self, value: float) -> None:
-        ...
-
-
 class EventFieldTags(IntEnum):
     """This class has no documentation."""
 
@@ -851,6 +851,10 @@ class EventFieldAttribute(System.Attribute):
         ...
 
 
+class EventIgnoreAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
 class EventDataAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -861,10 +865,6 @@ class EventDataAttribute(System.Attribute):
     @name.setter
     def name(self, value: str) -> None:
         ...
-
-
-class EventIgnoreAttribute(System.Attribute):
-    """This class has no documentation."""
 
 
 class _EventContainer(typing.Generic[System_Diagnostics_Tracing__EventContainer_Callable, System_Diagnostics_Tracing__EventContainer_ReturnType]):

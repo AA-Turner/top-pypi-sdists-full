@@ -14,9 +14,8 @@ use rayon::prelude::*;
 
 use crate::complex::Real;
 use crate::density::DensityMatrix;
+use crate::operations::PARALLEL_THRESHOLD;
 use crate::statevector::StateVector;
-
-const PARALLEL_THRESHOLD: usize = 1 << 13;
 
 /// 단일 Pauli string `P` 에 대한 `⟨ψ|P|ψ⟩` 를 계산한다.
 ///

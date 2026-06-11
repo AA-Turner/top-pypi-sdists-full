@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 
 from anyscale._private.models import ModelBase
 
@@ -10,6 +10,7 @@ class Platform(str, Enum):
 
     CLAUDE_CODE = "claude-code"
     CURSOR = "cursor"
+    CODEX = "codex"
 
 
 @dataclass(frozen=True)
@@ -17,7 +18,8 @@ class PlatformMetadata:
     """Static install layout for a supported skills CLI target."""
 
     display: str
-    dir: str  # User home-relative config root (may contain "~"; expand before use).
+    skills_dir: str
+    hooks_dir: str
     hooks_config: str
 
 
@@ -36,7 +38,9 @@ class CatalogEntry(ModelBase):
     # unknown values; keeping it as str lets older CLIs pass-through cleanly.
     platforms: List[str] = field(
         default_factory=list,
-        metadata={"docstring": "Target platforms (e.g. ['claude-code', 'cursor'])."},
+        metadata={
+            "docstring": "Target platforms (e.g. ['claude-code', 'cursor', 'codex'])."
+        },
     )
 
     def _validate_name(self, name: str):
@@ -148,24 +152,45 @@ class TermsStatus(ModelBase):
 class PlatformInstallInfo(ModelBase):
     """Per-platform installation state stored in metadata."""
 
-    target_dir: str = field(metadata={"docstring": "Home-relative config root."})
-    installed_files: List[str] = field(
+    skills_dir: str = field(
+        metadata={"docstring": "Absolute root where skill folders were written."}
+    )
+    hooks_dir: str = field(
+        metadata={
+            "docstring": "Absolute root where hooks config + scripts were written."
+        }
+    )
+    skills_files: List[str] = field(
         default_factory=list,
-        metadata={"docstring": "Relative paths of files written for this platform."},
+        metadata={"docstring": "Paths of skill files, relative to skills_dir."},
+    )
+    hooks_files: List[str] = field(
+        default_factory=list,
+        metadata={"docstring": "Paths of hooks files, relative to hooks_dir."},
     )
 
-    def _validate_target_dir(self, target_dir: str):
-        if not isinstance(target_dir, str):
-            raise TypeError("target_dir must be a string.")
+    def _validate_skills_dir(self, skills_dir: str):
+        if not isinstance(skills_dir, str):
+            raise TypeError("skills_dir must be a string.")
 
-    def _validate_installed_files(self, installed_files: List[str]):
-        if not isinstance(installed_files, list):
-            raise TypeError("installed_files must be a list.")
+    def _validate_hooks_dir(self, hooks_dir: str):
+        if not isinstance(hooks_dir, str):
+            raise TypeError("hooks_dir must be a string.")
+
+    def _validate_skills_files(self, skills_files: List[str]):
+        if not isinstance(skills_files, list):
+            raise TypeError("skills_files must be a list.")
+
+    def _validate_hooks_files(self, hooks_files: List[str]):
+        if not isinstance(hooks_files, list):
+            raise TypeError("hooks_files must be a list.")
 
 
 @dataclass(frozen=True)
 class InstalledMetadata(ModelBase):
     """On-disk installation metadata (installed.json)."""
+
+    CURRENT_SCHEMA_VERSION: ClassVar[int] = 2
 
     version: str = field(metadata={"docstring": "Installed version string."})
     license_hash: str = field(metadata={"docstring": "SHA-256 of accepted license."})
@@ -181,7 +206,8 @@ class InstalledMetadata(ModelBase):
         metadata={"docstring": "Catalog entries at the installed version."},
     )
     schema_version: int = field(
-        default=1, metadata={"docstring": "Metadata schema version."},
+        default=CURRENT_SCHEMA_VERSION,
+        metadata={"docstring": "Metadata schema version."},
     )
     installed_at: Optional[str] = field(
         default=None,
@@ -280,9 +306,21 @@ class SkillsListResult(ModelBase):
 
 PLATFORMS: Dict[Platform, PlatformMetadata] = {
     Platform.CLAUDE_CODE: PlatformMetadata(
-        display="Claude Code", dir="~/.claude", hooks_config="settings.json",
+        display="Claude Code",
+        skills_dir="~/.claude/skills",
+        hooks_dir="~/.claude",
+        hooks_config="settings.json",
     ),
     Platform.CURSOR: PlatformMetadata(
-        display="Cursor", dir="~/.cursor", hooks_config="hooks.json",
+        display="Cursor",
+        skills_dir="~/.cursor/skills",
+        hooks_dir="~/.cursor",
+        hooks_config="hooks.json",
+    ),
+    Platform.CODEX: PlatformMetadata(
+        display="Codex",
+        skills_dir="~/.agents/skills",
+        hooks_dir="~/.codex",
+        hooks_config="hooks.json",
     ),
 }

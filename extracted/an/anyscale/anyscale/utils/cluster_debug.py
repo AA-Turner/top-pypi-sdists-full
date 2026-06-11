@@ -61,7 +61,16 @@ def debug_cluster(
                     resp.raise_for_status()
 
                     resp_json = resp.json()
-                    cluster_ip_addr = resp_json["Answer"][0]["data"]
+                    # Google DoH: Status==0 is NOERROR; any other code (e.g. 3=NXDOMAIN) means no Answer.
+                    status = resp_json.get("Status")
+                    answer = resp_json.get("Answer")
+                    if status != 0 or not answer:
+                        logger.warning(
+                            f"Public DNS could not resolve {cluster_domain_name} "
+                            f"(Status={status}); skipping direct-IP fallback tests."
+                        )
+                        continue
+                    cluster_ip_addr = answer[0]["data"]
                 logger.warning(
                     "Failure detected, retrying tests by directly communicating with the IP address."
                 )

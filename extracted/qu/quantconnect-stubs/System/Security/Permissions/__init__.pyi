@@ -7,61 +7,6 @@ import System.Security
 import System.Security.Permissions
 
 
-class SecurityAction(IntEnum):
-    """This class has no documentation."""
-
-    ASSERT = 3
-
-    DEMAND = 2
-
-    DENY = 4
-
-    INHERITANCE_DEMAND = 7
-
-    LINK_DEMAND = 6
-
-    PERMIT_ONLY = 5
-
-    REQUEST_MINIMUM = 8
-
-    REQUEST_OPTIONAL = 9
-
-    REQUEST_REFUSE = 10
-
-
-class SecurityAttribute(System.Attribute, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def action(self) -> System.Security.Permissions.SecurityAction:
-        ...
-
-    @action.setter
-    def action(self, value: System.Security.Permissions.SecurityAction) -> None:
-        ...
-
-    @property
-    def unrestricted(self) -> bool:
-        ...
-
-    @unrestricted.setter
-    def unrestricted(self, value: bool) -> None:
-        ...
-
-    def __init__(self, action: System.Security.Permissions.SecurityAction) -> None:
-        ...
-
-    def create_permission(self) -> System.Security.IPermission:
-        ...
-
-
-class CodeAccessSecurityAttribute(System.Security.Permissions.SecurityAttribute, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self, action: System.Security.Permissions.SecurityAction) -> None:
-        ...
-
-
 class SecurityPermissionFlag(IntEnum):
     """This class has no documentation."""
 
@@ -96,6 +41,69 @@ class SecurityPermissionFlag(IntEnum):
     SKIP_VERIFICATION = 4
 
     UNMANAGED_CODE = 2
+
+
+class SecurityAction(IntEnum):
+    """This class has no documentation."""
+
+    ASSERT = 3
+
+    DEMAND = 2
+
+    DENY = 4
+
+    INHERITANCE_DEMAND = 7
+
+    LINK_DEMAND = 6
+
+    PERMIT_ONLY = 5
+
+    REQUEST_MINIMUM = 8
+
+    REQUEST_OPTIONAL = 9
+
+    REQUEST_REFUSE = 10
+
+
+class PermissionState(IntEnum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    UNRESTRICTED = 1
+
+
+class SecurityAttribute(System.Attribute, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def action(self) -> System.Security.Permissions.SecurityAction:
+        ...
+
+    @action.setter
+    def action(self, value: System.Security.Permissions.SecurityAction) -> None:
+        ...
+
+    @property
+    def unrestricted(self) -> bool:
+        ...
+
+    @unrestricted.setter
+    def unrestricted(self, value: bool) -> None:
+        ...
+
+    def __init__(self, action: System.Security.Permissions.SecurityAction) -> None:
+        ...
+
+    def create_permission(self) -> System.Security.IPermission:
+        ...
+
+
+class CodeAccessSecurityAttribute(System.Security.Permissions.SecurityAttribute, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self, action: System.Security.Permissions.SecurityAction) -> None:
+        ...
 
 
 class SecurityPermissionAttribute(System.Security.Permissions.CodeAccessSecurityAttribute):
@@ -226,13 +234,5 @@ class SecurityPermissionAttribute(System.Security.Permissions.CodeAccessSecurity
 
     def create_permission(self) -> System.Security.IPermission:
         ...
-
-
-class PermissionState(IntEnum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    UNRESTRICTED = 1
 
 

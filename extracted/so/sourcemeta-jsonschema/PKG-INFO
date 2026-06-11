@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sourcemeta_jsonschema
-Version: 15.9.0
+Version: 15.10.1
 Summary: The CLI for working with JSON Schema. Covers formatting, linting, testing, and much more for both local development and CI/CD pipelines. By a member of the JSON Schema Technical Steering Committee
 Home-page: https://github.com/sourcemeta/jsonschema
 Author: Sourcemeta

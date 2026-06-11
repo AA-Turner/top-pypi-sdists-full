@@ -10,6 +10,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+import httpx
+
 logger = logging.getLogger(__name__)
 
 # Keys that litellm (sagemaker handler) injects into os.environ at import time,
@@ -35,6 +37,32 @@ def _clean_aws_env() -> dict[str, str]:
 # ECR constants
 ECR_REGISTRY = "383806609161.dkr.ecr.us-west-1.amazonaws.com"
 ECR_REGION = "us-west-1"
+
+
+def retag_image_via_chronos(
+    chronos_url: str, package_name: str, source_tag: str, target_tag: str, api_key: str
+) -> bool:
+    """Retag a world image in ECR through the Chronos API.
+
+    Server-side equivalent of retag_image(): Chronos copies the image manifest
+    using its own ECS task credentials, so the caller does not need local AWS
+    credentials. Returns True on success.
+    """
+    chronos_url = chronos_url.rstrip("/")
+    try:
+        response = httpx.post(
+            f"{chronos_url}/api/worlds/{package_name}/retag-image",
+            json={"source_tag": source_tag, "target_tag": target_tag},
+            headers={"X-API-Key": api_key},
+            timeout=60.0,
+        )
+    except httpx.HTTPError as e:
+        logger.debug("Chronos retag request failed: %s", e)
+        return False
+    if response.status_code != 200:
+        logger.debug("Chronos retag returned HTTP %s: %s", response.status_code, response.text)
+        return False
+    return True
 
 
 @dataclass

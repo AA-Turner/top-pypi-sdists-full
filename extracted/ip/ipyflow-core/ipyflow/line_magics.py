@@ -4,13 +4,14 @@ import inspect
 import json
 import os.path
 import re
-import shlex
 import sys
 from typing import TYPE_CHECKING, Iterable, Optional, Sequence, Type, cast
 
 import pyccolo as pyc
 from IPython import get_ipython
+from IPython.core.error import UsageError
 from IPython.core.magic import register_line_magic
+from IPython.core.magic_arguments import argument, magic_arguments, parse_argstring
 
 from ipyflow.analysis.symbol_ref import SymbolRef
 from ipyflow.annotations.compiler import (
@@ -30,7 +31,6 @@ from ipyflow.experimental.dag import create_dag_metadata
 from ipyflow.singletons import flow, shell
 from ipyflow.slicing.mixin import SliceableMixin, format_slice
 from ipyflow.tracing.symbol_resolver import resolve_rval_symbols
-from ipyflow.utils.magic_parser import MagicParser
 
 if TYPE_CHECKING:
     from ipyflow.flow import NotebookFlow
@@ -40,7 +40,6 @@ if TYPE_CHECKING:
 _FLOW_LINE_MAGIC = "flow"
 
 
-# TODO: update this
 _USAGE = """Options:
 [enable|disable]
     - Toggle dataflow capture. On by default.
@@ -145,9 +144,6 @@ def make_line_magic(flow_: "NotebookFlow"):
         elif cmd == "toggle_reactivity":
             flow_.toggle_reactivity()
             return None
-        elif cmd == "bump_min_forced_reactive_counter":
-            flow_.bump_min_forced_reactive_counter()
-            return None
         elif cmd in line_magic_names:
             warn(
                 f"We have a magic for {cmd}, but have not yet registered it",
@@ -210,8 +206,8 @@ def toggle_dataflow(line: str) -> Optional[str]:
         return None
 
 
-def show_deps(symbol_str: str) -> Optional[str]:
-    usage = "Usage: %flow show_[deps|dependencies] <symbol>"
+def _resolve_symbol(symbol_str: str, usage: str) -> Optional[Symbol]:
+    """Parse and resolve a symbol string, warning on errors."""
     if len(symbol_str) == 0:
         warn(usage)
         return None
@@ -225,9 +221,15 @@ def show_deps(symbol_str: str) -> Optional[str]:
         return None
     sym = SymbolRef.resolve(symbol_str)
     if sym is None:
-        warn(
-            f"Could not find symbol metadata for {symbol_str.strip()}",
-        )
+        warn(f"Could not find symbol metadata for {symbol_str.strip()}")
+        return None
+    return sym
+
+
+def show_deps(symbol_str: str) -> Optional[str]:
+    usage = "Usage: %flow show_[deps|dependencies] <symbol>"
+    sym = _resolve_symbol(symbol_str, usage)
+    if sym is None:
         return None
     parents = {par for par in sym.parents if par.is_user_accessible}
     children = {child for child in sym.children if child.is_user_accessible}
@@ -244,22 +246,8 @@ def show_deps(symbol_str: str) -> Optional[str]:
 
 def get_code(symbol_str: str) -> Optional[str]:
     usage = "Usage: %flow [get_]code <symbol>"
-    if len(symbol_str) == 0:
-        warn(usage)
-        return None
-    try:
-        node = cast(ast.Expr, ast.parse(symbol_str).body[0]).value
-    except SyntaxError:
-        warn(f"Could not parse symbols from string {symbol_str.strip()}")
-        return None
-    if isinstance(node, (ast.Dict, ast.List, ast.Set, ast.Tuple)):
-        warn(usage)
-        return None
-    sym = SymbolRef.resolve(symbol_str)
+    sym = _resolve_symbol(symbol_str, usage)
     if sym is None:
-        warn(
-            f"Could not find unique symbol metadata for {symbol_str.strip()}",
-        )
         return None
     return str(sym.code())
 
@@ -318,17 +306,17 @@ def set_highlights(cmd: str, rest: str) -> None:
         flow().mut_settings.highlights = Highlights.NONE
 
 
-_SLICE_PARSER = MagicParser("slice")
-_SLICE_PARSER.add_argument("cell_num", nargs="?", type=int, default=None)
-_SLICE_PARSER.add_argument("--stmt", "--stmts", action="store_true")
-_SLICE_PARSER.add_argument("--blacken", action="store_true")
-_SLICE_PARSER.add_argument("--tag", nargs="?", type=str, default=None)
-_SLICE_PARSER.add_argument("--noheader", action="store_true")
-
-
+@magic_arguments("slice")
+@argument("cell_num", nargs="?", type=int, default=None)
+@argument("--stmt", "--stmts", action="store_true")
+@argument("--blacken", action="store_true")
+@argument("--tag", nargs="?", type=str, default=None)
+@argument("--noheader", action="store_true")
 def make_slice(line: str) -> Optional[str]:
-    args = _SLICE_PARSER.parse_args(shlex.split(line))
-    if args.help:
+    try:
+        args = parse_argstring(make_slice, line)
+    except UsageError as e:
+        warn(str(e))
         return None
     tag = args.tag
     slice_cells = None
@@ -338,7 +326,7 @@ def make_slice(line: str) -> Optional[str]:
             cell_num = cells().exec_counter() - 1
     if cell_num is not None:
         slice_cells = {cells().at_timestamp(cell_num)}
-    elif args.tag is not None:
+    elif tag is not None:
         if tag.startswith("$"):
             tag = tag[1:]
             cells().current_cell().mark_as_reactive_for_tag(tag)
@@ -365,48 +353,44 @@ def make_slice(line: str) -> Optional[str]:
     return None
 
 
-_TAG_PARSER = MagicParser(
-    "tag", usage="Usage: %flow tag <tag_name> [--remove] [--cell cell_num]"
-)
-_TAG_PARSER.add_argument("tag_name", type=str)
-_TAG_PARSER.add_argument("--remove", action="store_true")
-_TAG_PARSER.add_argument("--cell", type=int, default=None)
-
-
+@magic_arguments("tag")
+@argument("tag_name", type=str, help="The tag name to add or remove")
+@argument("--remove", action="store_true", help="Remove the tag instead of adding it")
+@argument("--cell", type=int, default=None, help="Cell number to tag")
 def tag(line: str) -> None:
-    args = _TAG_PARSER.parse_args(shlex.split(line))
-    if args.help:
+    """Tag a cell with the given tag name."""
+    try:
+        args = parse_argstring(tag, line)
+    except UsageError as e:
+        warn(str(e))
         return
-    tag = args.tag_name
+    tag_name = args.tag_name
     if args.cell is None:
         cell = cells().current_cell()
     else:
         cell = cells().at_counter(args.cell)
     cell_tags = set(cell.tags)
     if args.remove:
-        cell.tags = tuple(cell_tags - {tag})
+        cell.tags = tuple(cell_tags - {tag_name})
     else:
-        cell.tags = tuple(cell_tags | {tag})
-        cells()._cells_by_tag[tag].add(cell)
-    return None
+        cell.tags = tuple(cell_tags | {tag_name})
+        cells()._cells_by_tag[tag_name].add(cell)
 
 
-_SHOW_TAGS_PARSER = MagicParser(
-    "show_tags", usage="Usage: %flow show_tags [--cell cell_num]"
-)
-_SHOW_TAGS_PARSER.add_argument("--cell", type=int, default=None)
-
-
+@magic_arguments("show_tags")
+@argument("--cell", type=int, default=None, help="Cell number to show tags for")
 def show_tags(line: str) -> None:
-    args = _SHOW_TAGS_PARSER.parse_args(shlex.split(line))
-    if args.help:
+    """Show the tags for a cell."""
+    try:
+        args = parse_argstring(show_tags, line)
+    except UsageError as e:
+        warn(str(e))
         return
     if args.cell is None:
         cell = cells().current_cell()
     else:
         cell = cells().at_counter(args.cell)
     print_("Cell has tags:", cell.tags)
-    return None
 
 
 def set_exec_mode(line_: str) -> None:

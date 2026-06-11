@@ -23,6 +23,7 @@ from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives import serialization
+from openstack.compute.v2 import keypair as _keypair
 from openstack import resource
 from openstack import utils as sdk_utils
 from osc_lib import exceptions
@@ -336,7 +337,10 @@ class ListKeypair(command.Lister):
                 raise exceptions.CommandError(msg)
 
             kwargs['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            kwargs['max_items'] = parsed_args.max_items
 
+        data: list[_keypair.Keypair]
         if parsed_args.project:
             if not sdk_utils.supports_microversion(compute_client, '2.10'):
                 msg = _(
@@ -386,9 +390,9 @@ class ListKeypair(command.Lister):
             )
             kwargs['user_id'] = user.id
 
-            data = compute_client.keypairs(**kwargs)
+            data = list(compute_client.keypairs(**kwargs))
         else:
-            data = compute_client.keypairs(**kwargs)
+            data = list(compute_client.keypairs(**kwargs))
 
         columns: tuple[str, ...] = ("Name", "Fingerprint")
 

@@ -19,6 +19,7 @@ from collections.abc import Iterable, Sequence
 import logging
 from typing import Any
 
+from openstack.identity.v3 import federation_protocol as _federation_protocol
 from openstack import utils as sdk_utils
 from osc_lib import exceptions
 from osc_lib import utils
@@ -26,11 +27,12 @@ from osc_lib import utils
 from openstackclient import command
 from openstackclient.i18n import _
 
-
 LOG = logging.getLogger(__name__)
 
 
-def _format_protocol(protocol: Any) -> tuple[tuple[str, ...], Any]:
+def _format_protocol(
+    protocol: _federation_protocol.FederationProtocol,
+) -> tuple[tuple[str, ...], tuple[Any, ...]]:
     columns = ('name', 'idp_id', 'mapping_id')
     column_headers = ('id', 'identity_provider', 'mapping')
     return (
@@ -79,7 +81,7 @@ class CreateProtocol(command.ShowOne):
 
         protocol = identity_client.create_federation_protocol(
             name=parsed_args.federation_protocol,
-            idp_id=parsed_args.identity_provider,
+            idp=parsed_args.identity_provider,
             mapping_id=parsed_args.mapping,
         )
 
@@ -118,7 +120,7 @@ class DeleteProtocol(command.Command):
         for i in parsed_args.federation_protocol:
             try:
                 identity_client.delete_federation_protocol(
-                    idp_id=parsed_args.identity_provider,
+                    idp=parsed_args.identity_provider,
                     protocol=i,
                     ignore_missing=False,
                 )
@@ -246,7 +248,7 @@ class ShowProtocol(command.ShowOne):
         )
 
         protocol = identity_client.get_federation_protocol(
-            idp_id=parsed_args.identity_provider,
+            idp=parsed_args.identity_provider,
             protocol=parsed_args.federation_protocol,
         )
         return _format_protocol(protocol)

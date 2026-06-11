@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake.core
-Version: 1.12.0
+Version: 1.12.1
 Summary: Snowflake Python API for Resource Management
 Author-email: "Snowflake, Inc." <snowflake-python-libraries-dl@snowflake.com>
 License: Apache-2.0

@@ -868,6 +868,48 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get attribute metadata",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_get_gmb_attribute_metadata(
+        account_id: str,
+        location_id: str | None = None,
+        category_name: str | None = None,
+        region_code: str | None = None,
+        language_code: str | None = None,
+        page_size: int | None = None,
+        page_token: str | None = None,
+    ) -> str:
+        """Get attribute metadata
+
+        Args:
+            account_id: (required)
+            location_id: GBP location ID (e.g. "6257659026299438786"). If omitted, uses the account's stored selectedLocationId. Mutually exclusive with categoryName.
+            category_name: Category resource name, must start with "categories/" (e.g. "categories/gcid:plumber"). Required together with regionCode. Mutually exclusive with locationId.
+            region_code: BCP-47 region code (e.g. "US", "ES"). Required when categoryName is provided.
+            language_code: BCP-47 language code for display names (e.g. "en", "es"). Optional when categoryName is provided. Omitted from the Google call when not supplied.
+            page_size: Maximum number of attribute metadata items to return. Google defaults to 200.
+            page_token: Pagination token from a previous response's nextPageToken field."""
+        client = _get_client()
+        try:
+            response = client.accounts.get_gmb_attribute_metadata(
+                account_id=account_id,
+                location_id=location_id,
+                category_name=category_name,
+                region_code=region_code,
+                language_code=language_code,
+                page_size=page_size,
+                page_token=page_token,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get attributes",
             readOnlyHint=True,
             destructiveHint=False,
@@ -2109,6 +2151,7 @@ def register_generated_tools(mcp, _get_client):
         headline: str | None = None,
         long_headline: str | None = None,
         body: str | None = None,
+        description: str | None = None,
         call_to_action: str | None = None,
         link_url: str | None = None,
         lead_gen_form_id: str | None = None,
@@ -2167,7 +2210,7 @@ def register_generated_tools(mcp, _get_client):
                 campaign_name: Meta only. Exact campaign name. Overrides the default `<name> - Campaign`.
                 ad_set_name: Meta only. Exact ad set name. Overrides the default `<name> - Ad Set`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry.)
                 ad_name: Meta only. Exact ad name (the single-creative ad object's name). Overrides the default, which is `name`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry instead.)
-                tracking: Meta only. Attaches pixel measurement to the ad regardless of the optimization goal (the "Website events" tracking row in Ads Manager). `pixelId` becomes the ad's `tracking_specs` (offsite_conversion + fb_pixel); `urlTags` becomes the ad's `url_tags` (click-tracking query params). Applied to every ad on the legacy single-creative and multi-creative shapes.
+                tracking: Meta only. Attaches pixel measurement to the ad regardless of the optimization goal (the "Website events" tracking row in Ads Manager). `pixelId` becomes the ad's `tracking_specs` (offsite_conversion + fb_pixel); `urlTags` becomes the ad's `url_tags` (click-tracking query params). Applied on the legacy single-creative shape, every ad of the multi-creative shape, and the attach shape. NOTE: tracking lives on the AD object and is not inherited from the ad set, so pass it on EVERY attach call that should carry the pixel.
                 goal: Required on legacy + multi-creative shapes. Inherited from the ad set on the attach shape. Available goals vary by platform. Meta-specific: `conversions` (OUTCOME_SALES) requires `promotedObject.pixelId` + `promotedObject.customEventType` (use a commerce event, e.g. PURCHASE, START_TRIAL); `lead_conversion` (OUTCOME_LEADS, website pixel leads) requires the same pixel + event but with a leads-class event (e.g. LEAD, SUBMIT_APPLICATION, SCHEDULE, CONTACT) — these are rejected under `conversions` because Meta gates conversion events by objective; `lead_generation` is OUTCOME_LEADS with instant forms (`leadGenFormId`), distinct from `lead_conversion`'s website pixel optimization; `app_promotion` requires `promotedObject.applicationId` + `promotedObject.objectStoreUrl`; `lead_generation` accepts an optional `promotedObject.pageId` (auto-filled from the connected Page when omitted). TikTok-specific: `conversions` (website-conversion ad group) requires `promotedObject.pixelId` (your TikTok Pixel ID) and accepts an optional `promotedObject.customEventType` (a TikTok `optimization_event` code like `ON_WEB_ORDER`, `INITIATE_ORDER`, `ON_WEB_REGISTER`, `FORM`); to inherit a pixel + event from an existing ad group, pass `adSetId` instead. LinkedIn-specific: `engagement`, `traffic`, `awareness`, and `video_views` are supported for standalone ads (creates a Direct Sponsored Content single image or single video ad). `traffic` requires `linkUrl`; `video_views` requires the `video` field. For `lead_generation` / `conversions` on LinkedIn — or to promote an existing post — use `POST /v1/ads/boost`.
                 optimization_goal: Meta only. Explicit ad-set `optimization_goal` (e.g. `LANDING_PAGE_VIEWS`, `LINK_CLICKS`, `REACH`, `IMPRESSIONS`, `OFFSITE_CONVERSIONS`, `THRUPLAY`, `LEAD_GENERATION`). Overrides the default derived from `goal` (e.g. `traffic` defaults to `LINK_CLICKS`). Forwarded verbatim to Meta, which validates compatibility with the campaign objective and rejects incompatible combinations.
                 budget_amount: Required on legacy + multi-creative shapes. Inherited on attach.
@@ -2184,9 +2227,10 @@ def register_generated_tools(mcp, _get_client):
                 headline: Required for Meta, Google, Pinterest, and LinkedIn on legacy + attach shapes (skip for multi-creative — use `creatives[].headline`). Ignored for TikTok and X/Twitter. Max: Meta=255, Google=30, Pinterest=100, LinkedIn=400. On LinkedIn this is the ad's headline (the bold text on the creative); for traffic ads it's the link card title.
                 long_headline: Google Display only — defaults to `headline` if omitted. On LinkedIn, reused as the optional secondary description text on traffic (link) ads; omitted if not provided.
                 body: Required on legacy + attach shapes. For X/Twitter this is the tweet text (max 280 chars including a ~24-char URL when `linkUrl` is set). On LinkedIn this is the post commentary (the intro text shown above the ad). Max: Google=90, Pinterest=500.
+                description: Meta only (facebook/instagram). Link description — the secondary text shown below the headline (Meta's link_data.description; on video creatives mapped to video_data.link_description). When omitted, Meta auto-pulls the destination URL's OpenGraph description. Applies on legacy, attach, and placementAssets shapes; for multi-creative use creatives[].description (this field is the shared fallback). For multi-text variations use dynamicCreative.descriptions instead.
                 call_to_action: Required on legacy + attach shapes for Meta. Honoured on TikTok (passes through to the Spark Ad creative's `call_to_action`) and on LinkedIn (the CTA button on the ad; defaults to LEARN_MORE when `linkUrl` is set). LinkedIn accepts: LEARN_MORE, SIGN_UP, DOWNLOAD, SUBSCRIBE, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, SHOP_NOW, BUY_NOW. Ignored by Google, Pinterest, and X/Twitter.
                 link_url: Required on legacy + attach shapes (skip for multi-creative). On LinkedIn it's the ad's destination URL; required for `traffic` ads, optional for `engagement` / `awareness`. NOT required when `goal` is `lead_generation` (the ad opens a Lead Gen form instead of a destination).
-                lead_gen_form_id: Meta Lead Gen forms only (facebook/instagram). The leadgen_forms ID to attach to the ad's creative — create one via POST /v1/ads/lead-forms. REQUIRED when `goal` is `lead_generation`; ignored otherwise. The ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. Both `placementAssets` (per-placement creative) and `dynamicCreative` (multi-text / multi-asset pool, e.g. multiple headlines and primary texts) ARE supported on instant-form lead ads — the form is attached for you, and for `dynamicCreative` the ad set is created as a Dynamic Creative ad set automatically (Meta requires that for any multi-text feed; there is no non-DCO multi-text path). Send a single `imageUrls` entry plus your text variations to get Meta's "Multiple Text Options" behavior on a lead ad.
+                lead_gen_form_id: Meta Lead Gen forms only (facebook/instagram). The leadgen_forms ID to attach to the ad's creative — create one via POST /v1/ads/lead-forms. REQUIRED when `goal` is `lead_generation`, and on every ATTACH (`adSetId`) call that targets a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set). Ignored otherwise. The ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. Both `placementAssets` (per-placement creative) and `dynamicCreative` (multi-text / multi-asset pool, e.g. multiple headlines and primary texts) ARE supported on instant-form lead ads — the form is attached for you, and for `dynamicCreative` the ad set is created as a Dynamic Creative ad set automatically (Meta requires that for any multi-text feed; there is no non-DCO multi-text path). Send a single `imageUrls` entry plus your text variations to get Meta's "Multiple Text Options" behavior on a lead ad.
                 image_url: Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). Ignored for X/Twitter. For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627).
                 images: Google Display (Responsive Display Ads) only. Google RDA requires both a landscape (1.91:1) and a square (1:1) marketing image; sending only one is rejected upstream as 'Too few.' (NOT_ENOUGH_*_MARKETING_IMAGE_ASSET). Supply both URLs here. Either this field or the legacy `imageUrl` can provide the landscape, but `square` has no legacy counterpart so it must be set here for Display.
                 video: Meta (facebook, instagram) and LinkedIn. When set, creates a VIDEO ad on the legacy (or, for Meta, attach) shape. Mutually exclusive with `imageUrl`. For Meta multi-creative, set `video` per entry inside `creatives[]` instead. For LinkedIn the video is uploaded to LinkedIn under the authoring Company Page (see `organizationId`) and the campaign format is set to SINGLE_VIDEO; LinkedIn ignores `thumbnailUrl` (it auto-generates the poster frame) — supply MP4 H.264/AAC, 3s-30min, 75KB-500MB.
@@ -2201,6 +2245,16 @@ def register_generated_tools(mcp, _get_client):
         in attach mode returns 400. To change an existing ad set's
         bid, use `PUT /v1/ads/ad-sets/{adSetId}`. Mutually exclusive
         with `creatives[]`.
+
+        The attached ad takes the full single-creative surface:
+        `headline`/`body`/`description`/`callToAction` plus either
+        `imageUrl`/`video` OR `placementAssets` (its own per-placement
+        Feed/Story assets), and `leadGenFormId` when the target is a
+        lead ad set (the parent must be ON_AD — true for ad sets
+        created via goal `lead_generation`; Meta rejects a formless ad
+        there, so pass the form on EVERY attached ad). This is the way
+        to build N full ads sharing one ad set: create the first ad
+        via the normal shape, then attach the rest one call each.
 
         Supported on Meta (facebook, instagram) and TikTok. On TikTok
         the `adSetId` is the ad group ID; the new ad inherits the
@@ -2266,8 +2320,11 @@ def register_generated_tools(mcp, _get_client):
         each placement group on a SINGLE ad (e.g. a 9:16 on Stories/Reels and a 4:5 on Feed).
         The same thing Meta Ads Manager produces with "different creative per placement",
         mapped to the creative's `asset_feed_spec` + `asset_customization_rules`. Deterministic
-        pinning, NOT the auto-optimizing pool of `dynamicCreative` (mutually exclusive, and it
-        cannot be combined with `creatives[]` or `adSetId`). Shared copy (headline, body, link,
+        pinning, NOT the auto-optimizing pool of `dynamicCreative` (mutually exclusive). Works
+        on the legacy single shape AND the attach shape (`adSetId` + placementAssets adds one
+        placement-customized ad to an existing ad set — the way to build N per-placement ads
+        sharing one ad set: create the first normally, attach the rest). Cannot be combined
+        with `creatives[]`. Shared copy (headline, body, link,
         CTA) comes from the top-level single-creative fields since only the asset varies by
         placement. Each rule's `placements` accepts the same fields as the top-level
         `placements` object; Meta enforces co-selection rules and returns an actionable error.
@@ -2369,6 +2426,7 @@ def register_generated_tools(mcp, _get_client):
                 headline=headline,
                 long_headline=long_headline,
                 body=body,
+                description=description,
                 call_to_action=call_to_action,
                 link_url=link_url,
                 lead_gen_form_id=lead_gen_form_id,
@@ -7354,15 +7412,15 @@ def register_generated_tools(mcp, _get_client):
         scope: str,
         profile_ids: list[str] | None = None,
         role: str = "member",
-        read_only: bool = False,
+        read_only: bool | None = None,
     ) -> str:
         """Create invite token
 
         Args:
             scope: 'all' grants access to all profiles, 'profiles' restricts to specific profiles (required)
             profile_ids: Required if scope is 'profiles'. Array of profile IDs to grant access to.
-            role: Org role granted to the invitee. Defaults to 'member'.
-            read_only: When true, the invitee can view everything in their profile scope but cannot perform any content mutation (publish, edit, delete, connect accounts)."""
+            role: Org role granted to the invitee. Defaults to 'member'. 'viewer' creates a read-only member who can view everything in their profile scope but cannot perform any content mutation (publish, edit, delete, connect accounts).
+            read_only: Deprecated. Use role 'viewer' instead. When true, the invite is created with role 'viewer'. Cannot be combined with role 'billing_admin'."""
         client = _get_client()
         try:
             response = client.invites.create_invite_token(
@@ -7519,7 +7577,7 @@ def register_generated_tools(mcp, _get_client):
             skip_dm_check: X/Twitter only. Skip the receives_your_dm eligibility check before sending. Use if you have already verified the recipient accepts DMs.
             template_name: WhatsApp only. Name of the approved template to start the conversation with (required for WhatsApp).
             template_language: WhatsApp only. Template language code (e.g. en_US).
-            template_params: WhatsApp only. Body variable values, in order, substituted into the template body ({{1}}, {{2}}, ...)."""
+            template_params: WhatsApp only. Body variable values, in order. Works with positional placeholders ({{1}}, {{2}}, ...) and with named placeholders ({{name}}, {{company}} - how Meta Business Manager creates templates), where values fill the named slots in order of appearance."""
         client = _get_client()
         try:
             response = client.messages.create_inbox_conversation(
@@ -11203,17 +11261,25 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def whatsapp_phone_numbers_purchase_whats_app_phone_number(
-        profile_id: str, country: str = "US"
+        profile_id: str,
+        country: str = "US",
+        purchase_intent_id: str | None = None,
+        allow_multiple: bool = False,
     ) -> str:
         """Purchase phone number
 
         Args:
             profile_id: Profile to associate the number with (required)
-            country: ISO 3166-1 alpha-2 country for the number (default US). International numbers require usage-based billing. Tier 3/4 countries return 202 { status: "kyc_required", kycUrl } — the customer must complete KYC at that URL before the number is ordered. See GET /v1/whatsapp/phone-numbers/countries."""
+            country: ISO 3166-1 alpha-2 country for the number (default US). International numbers require usage-based billing. Tier 3/4 countries return 202 { status: "kyc_required", kycUrl } — the customer must complete KYC at that URL before the number is ordered. See GET /v1/whatsapp/phone-numbers/countries.
+            purchase_intent_id: Optional idempotency key. Send the same value when retrying a purchase: if a number was already bought under this key, the API returns { status: "already_purchased", numberId, phoneNumber } instead of provisioning a second number. Generate a fresh key for each genuinely new purchase.
+            allow_multiple: Any second purchase within 10 minutes of a previous one is rejected with 409 code PURCHASE_VELOCITY as duplicate protection. Pass true to confirm the additional purchase is intentional (e.g. bulk provisioning)."""
         client = _get_client()
         try:
             response = client.whatsapp_phone_numbers.purchase_whats_app_phone_number(
-                profile_id=profile_id, country=country
+                profile_id=profile_id,
+                country=country,
+                purchase_intent_id=purchase_intent_id,
+                allow_multiple=allow_multiple,
             )
             return _format_response(response)
         except Exception as e:

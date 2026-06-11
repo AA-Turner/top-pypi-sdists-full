@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 80.9.0"]
+requires = ["setuptools >= 78.1.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -10,7 +10,7 @@ authors = [{name="Inada Naoki", email="songofacandy@gmail.com"}]
 description = "MessagePack serializer"
 readme = "README.md"
 keywords = ["msgpack", "messagepack", "serializer", "serialization", "binary"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Operating System :: OS Independent",
@@ -19,13 +19,14 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
+dependencies = []
 
 [project.urls]
 Homepage = "https://msgpack.org/"
 Documentation = "https://msgpack-python.readthedocs.io/"
 Repository = "https://github.com/msgpack/msgpack-python/"
 Tracker = "https://github.com/msgpack/msgpack-python/issues"
-Changelog = "https://github.com/msgpack/msgpack-python/blob/main/ChangeLog.rst"
+Changelog = "https://github.com/msgpack/msgpack-python/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
 # Do not install C/C++/Cython source files
@@ -36,10 +37,16 @@ version = {attr = "msgpack.__version__"}
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 lint.select = [
     "E", # pycodestyle
     "F", # Pyflakes
     "I", # isort
     #"UP", pyupgrade
+]
+
+[dependency-groups]
+dev = [
+    "cython>=3.2.5",
+    "pytest>=9.0.3",
 ]

@@ -62,6 +62,19 @@ where
 /// `MeasureAll`) 은 무시 (sampling 에서 별도 처리), 노이즈/동적 instruction 은
 /// `Err`.
 pub fn circuit_to_gateops(circuit: &Circuit) -> Result<Vec<GateOp>, String> {
+    // 비-trailing (mid-circuit) 측정은 collapse 시맨틱이 필요한데 TN 은 순수
+    // 유니터리 contraction 이라 표현할 수 없다 — 조용히 무시하면 잘못된
+    // 분포/진폭이 나오므로 명시적으로 거부한다 (trailing 측정 묶음만 허용).
+    let insts = circuit.instructions();
+    for (i, inst) in insts.iter().enumerate() {
+        if matches!(inst, Instruction::Measure { .. } | Instruction::MeasureAll)
+            && insts[i + 1..].iter().any(|later| {
+                !matches!(later, Instruction::Measure { .. } | Instruction::MeasureAll)
+            })
+        {
+            return Err("tensornet: mid-circuit 측정 미지원 (회로 끝 trailing 측정만 가능)".into());
+        }
+    }
     let mut ops = Vec::new();
     for inst in circuit.instructions() {
         match inst {
@@ -108,11 +121,26 @@ pub fn run_statevector(circuit: &Circuit, opt: PathOptimizer) -> Result<StateVec
     let tn_data = result.permute(&perm).data;
     // MSB → panta LSB: panta[i] = tn[bitrev(i)].
     let mut sv = StateVector::<f64>::new(n);
+    let phase = global_phase_factor(circuit);
     let amps = sv.amplitudes_mut();
     for (i, slot) in amps.iter_mut().enumerate() {
-        *slot = tn_data[bitrev(i, n)];
+        *slot = tn_data[bitrev(i, n)] * phase;
     }
     Ok(sv)
+}
+
+/// `Circuit::global_phase` 의 위상 인자 `e^{iλ}`.
+///
+/// 다른 statevector 경로 (`apply_global_phase`) 와 달리 TN contraction 은
+/// 게이트 행렬만 보므로, KAK/QSD 분해·inverse·transpile 이 기록한 전역 위상을
+/// 결과에 곱해 줘야 백엔드 간 진폭이 bit-exact 로 일치한다.
+fn global_phase_factor(circuit: &Circuit) -> num_complex::Complex<f64> {
+    let lambda = circuit.global_phase();
+    if lambda == 0.0 {
+        num_complex::Complex::new(1.0, 0.0)
+    } else {
+        num_complex::Complex::from_polar(1.0, lambda)
+    }
 }
 
 /// amplitude `⟨bitstring|C|0…0⟩`.  `bitstring[q]` = 큐비트 `q` 측정값 (panta 순서).
@@ -134,7 +162,7 @@ pub fn run_amplitude(
     let path = find_path(&net, opt);
     let result = contract_ssa(&net.tensors, &path);
     debug_assert_eq!(result.rank(), 0);
-    Ok(result.data[0])
+    Ok(result.data[0] * global_phase_factor(circuit))
 }
 
 /// 여러 비트열의 amplitude `⟨xᵢ|C|0…0⟩` 를 한 번에 계산한다 (v0.8.4).
@@ -168,11 +196,12 @@ pub fn run_amplitude_batch(
     let net0 = build_amplitude_network(n, &ops, &bitstrings[0]);
     let path = find_path(&net0, opt);
     // 각 비트열 독립 contraction (rayon 병렬).
+    let phase = global_phase_factor(circuit);
     let out = bitstrings
         .par_iter()
         .map(|bs| {
             let net = build_amplitude_network(n, &ops, bs);
-            contract_ssa(&net.tensors, &path).data[0]
+            contract_ssa(&net.tensors, &path).data[0] * phase
         })
         .collect();
     Ok(out)
@@ -241,13 +270,12 @@ pub fn run_amplitude_sliced(
     let ops = circuit_to_gateops(circuit)?;
     let net = build_amplitude_network(n, &ops, bitstring);
     let (path, sliced) = select_sliced_path(&net, opt, max_width, max_slices);
+    let phase = global_phase_factor(circuit);
     if sliced.is_empty() {
         let result = contract_ssa(&net.tensors, &path);
-        Ok(result.data[0])
+        Ok(result.data[0] * phase)
     } else {
-        Ok(qsim_tensornet::slicing::contract_sliced_amplitude(
-            &net, &path, &sliced,
-        ))
+        Ok(qsim_tensornet::slicing::contract_sliced_amplitude(&net, &path, &sliced) * phase)
     }
 }
 
@@ -340,9 +368,12 @@ pub fn run_amplitude_worker(
     if start >= end {
         return Ok(Complex64::new(0.0, 0.0));
     }
-    Ok(qsim_tensornet::slicing::contract_sliced_amplitude_range(
-        &net, &path, &sliced, start, end,
-    ))
+    // 부분합에도 위상을 곱해 둔다 — aggregator 는 worker 결과를 단순 합산
+    // 하므로 (위상은 공통 인자) 전체 진폭에 e^{iλ} 가 정확히 한 번 반영된다.
+    Ok(
+        qsim_tensornet::slicing::contract_sliced_amplitude_range(&net, &path, &sliced, start, end)
+            * global_phase_factor(circuit),
+    )
 }
 
 /// GPU (wgpu) matmul provider — TN contraction 의 matmul 을 GPU 로 offload.
@@ -394,9 +425,10 @@ pub fn run_statevector_gpu(
         .collect();
     let tn_data = result.permute(&perm).data;
     let mut sv = StateVector::<f64>::new(n);
+    let phase = global_phase_factor(circuit);
     let amps = sv.amplitudes_mut();
     for (i, slot) in amps.iter_mut().enumerate() {
-        *slot = tn_data[bitrev(i, n)];
+        *slot = tn_data[bitrev(i, n)] * phase;
     }
     Ok(sv)
 }
@@ -424,7 +456,7 @@ pub fn run_amplitude_gpu(
     let net = build_amplitude_network(n, &ops, bitstring);
     let path = find_path(&net, opt);
     let result = contract_ssa_with(&net.tensors, &path, &provider);
-    Ok(result.data[0])
+    Ok(result.data[0] * global_phase_factor(circuit))
 }
 
 /// GateOp 의 conjugate transpose (C† 게이트).
@@ -521,6 +553,28 @@ pub fn run_sample(
     let n = circuit.num_qubits();
     let sv = run_statevector(circuit, opt)?;
     let amps = sv.amplitudes();
+
+    // trailing 부분측정의 qubit→cbit 매핑 (statevector 백엔드의
+    // `sample_with_cbit_map` 과 동일 시맨틱).  MeasureAll 또는 명시적 측정이
+    // 없으면 전체 큐비트 비트열을 그대로 낸다 (기존 동작).
+    let mut cbit_map: Vec<(usize, usize)> = Vec::new(); // (qubit, cbit)
+    let mut has_measure_all = false;
+    for inst in circuit.instructions() {
+        match inst {
+            Instruction::Measure { qubit, cbit } => cbit_map.push((*qubit, *cbit)),
+            Instruction::MeasureAll => has_measure_all = true,
+            _ => {}
+        }
+    }
+    let use_cbit_map = !has_measure_all && !cbit_map.is_empty();
+    let n_cbits = circuit.num_cbits();
+    let mut cbit_to_qubit: Vec<Option<usize>> = vec![None; n_cbits];
+    for (q, c) in &cbit_map {
+        if *c < n_cbits {
+            cbit_to_qubit[*c] = Some(*q);
+        }
+    }
+
     // CDF.
     let probs: Vec<f64> = amps.iter().map(|a| a.norm_sqr()).collect();
     let total: f64 = probs.iter().sum();
@@ -540,11 +594,22 @@ pub fn run_sample(
                 break;
             }
         }
-        // panta idx (qubit 0 = LSB) → bitstring (큐비트 n-1 … 0, Qiskit 표기).
-        let mut s = String::with_capacity(n);
-        for q in (0..n).rev() {
-            s.push(if (idx >> q) & 1 == 1 { '1' } else { '0' });
-        }
+        let s = if use_cbit_map {
+            // creg 폭 비트열 (cbit n_cbits-1 … 0, Qiskit 표기).
+            let mut s = String::with_capacity(n_cbits);
+            for c in (0..n_cbits).rev() {
+                let bit = cbit_to_qubit[c].map(|q| (idx >> q) & 1).unwrap_or(0);
+                s.push(if bit == 1 { '1' } else { '0' });
+            }
+            s
+        } else {
+            // panta idx (qubit 0 = LSB) → bitstring (큐비트 n-1 … 0, Qiskit 표기).
+            let mut s = String::with_capacity(n);
+            for q in (0..n).rev() {
+                s.push(if (idx >> q) & 1 == 1 { '1' } else { '0' });
+            }
+            s
+        };
         *counts.entry(s).or_insert(0) += 1;
     }
     Ok(counts)
@@ -554,6 +619,50 @@ pub fn run_sample(
 mod tests {
     use super::*;
     use crate::{Backend, ExecutionEngine, Precision};
+
+    /// 회귀: TN contraction 이 `Circuit::global_phase` 를 떨어뜨리던 버그.
+    #[test]
+    fn tensornet_preserves_global_phase() {
+        let mut c = Circuit::new(2);
+        c.h(0);
+        c.cx(0, 1);
+        c.set_global_phase(1.234);
+        let tn = run_statevector(&c, PathOptimizer::Greedy).unwrap();
+        let amp = run_amplitude(&c, &[0, 0], PathOptimizer::Greedy).unwrap();
+        let expected = Complex64::from_polar(1.0 / std::f64::consts::SQRT_2, 1.234);
+        assert!(
+            (tn.amplitudes()[0] - expected).norm() < 1e-12,
+            "statevector 전역 위상 소실: {:?}",
+            tn.amplitudes()[0]
+        );
+        assert!(
+            (amp - expected).norm() < 1e-12,
+            "amplitude 전역 위상 소실: {amp:?}"
+        );
+    }
+
+    /// 회귀: TN 이 mid-circuit 측정을 조용히 무시하고 잘못된 분포를 내던 버그
+    /// — 이제 명시적으로 거부한다.
+    #[test]
+    fn tensornet_rejects_mid_circuit_measure() {
+        let mut c = Circuit::new(1);
+        c.h(0);
+        c.measure(0, 0);
+        c.h(0);
+        assert!(circuit_to_gateops(&c).is_err());
+    }
+
+    /// trailing 부분측정의 counts 가 statevector 백엔드처럼 creg 폭으로
+    /// (qubit→cbit 매핑) 나오는지.
+    #[test]
+    fn tensornet_sample_uses_cbit_map() {
+        let mut c = Circuit::new(2);
+        c.x(1);
+        c.measure(1, 0);
+        let counts = run_sample(&c, 50, Some(1), PathOptimizer::Greedy).unwrap();
+        assert_eq!(counts.len(), 1);
+        assert_eq!(counts.get("1"), Some(&50), "cbit 매핑 미적용: {counts:?}");
+    }
 
     /// 랜덤 회로에서 tensornet statevector == CPU statevector (deep 회로 포함).
     #[test]

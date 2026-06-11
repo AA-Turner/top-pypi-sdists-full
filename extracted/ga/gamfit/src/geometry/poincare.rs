@@ -291,6 +291,53 @@ pub fn exp_origin(v: ArrayView1<'_, f64>, curvature: f64) -> GeometryResult<Arra
     Ok(out)
 }
 
+/// Conformal factor `lambda_p = 2 / (1 + curvature * |p|^2)` of the Poincaré
+/// ball at base point `p` (curvature `< 0`, so the denominator is `1 - |c||p|^2`).
+///
+/// The metric is the closed-form diagonal `g_p = lambda_p^2 I`; this is the
+/// single source of truth for that factor across all front-ends.
+pub fn conformal_factor(p: ArrayView1<'_, f64>, curvature: f64) -> GeometryResult<f64> {
+    require_negative_curvature(curvature)?;
+    let sq = p.iter().map(|x| x * x).sum::<f64>();
+    Ok(2.0 / (1.0 + curvature * sq))
+}
+
+/// Poincaré exponential map at an arbitrary base point `p`:
+/// `exp_p(v) = p ⊕ exp_0(0.5 * lambda_p * v)`.
+///
+/// This is the single source of truth for the gyrovector composition of the
+/// conformal factor with the origin-anchored map; front-ends (CLI, library,
+/// `gamfit`) must call it rather than recomposing `lambda_p` themselves.
+pub fn exp_map(
+    p: ArrayView1<'_, f64>,
+    v: ArrayView1<'_, f64>,
+    curvature: f64,
+) -> GeometryResult<Array1<f64>> {
+    check_same_len(p, v)?;
+    let lam = conformal_factor(p, curvature)?;
+    let scaled = v.mapv(|x| 0.5 * lam * x);
+    let exp0 = exp_origin(scaled.view(), curvature)?;
+    mobius_add(p, exp0.view(), curvature)
+}
+
+/// Poincaré logarithm map at an arbitrary base point `p`:
+/// `log_p(q) = (2 / lambda_p) * log_0((-p) ⊕ q)`.
+///
+/// Inverse of [`exp_map`] and the single source of truth for the base-point
+/// logarithm; front-ends must call it rather than recomposing `lambda_p`.
+pub fn log_map(
+    p: ArrayView1<'_, f64>,
+    q: ArrayView1<'_, f64>,
+    curvature: f64,
+) -> GeometryResult<Array1<f64>> {
+    check_same_len(p, q)?;
+    let lam = conformal_factor(p, curvature)?;
+    let neg_p = p.mapv(|x| -x);
+    let shifted = mobius_add(neg_p.view(), q, curvature)?;
+    let log0 = log_origin(shifted.view(), curvature)?;
+    Ok(log0.mapv(|x| (2.0 / lam) * x))
+}
+
 // ---------------------------------------------------------------------------
 // Tangent-space-at-origin decoder
 // ---------------------------------------------------------------------------
@@ -1252,6 +1299,66 @@ mod tests {
                     norm.is_finite() && norm <= 1.0 - BOUNDARY_EPS + 1.0e-12,
                     "decode row {b} must be strictly interior, got norm {norm}"
                 );
+            }
+        }
+    }
+
+    #[test]
+    fn exp_origin_is_radial_isometry_in_riemannian_metric() {
+        // The origin exp map is a radial isometry w.r.t. the RIEMANNIAN metric,
+        // not the bare Euclidean tangent norm. With the conformal factor
+        // λ_x = 2/(1 - k|x|²), the tangent norm at the origin is λ_0·|v| = 2|v|
+        // (λ_0 = 2 since |0| = 0), and the geodesic distance to exp_0(v) equals
+        // that Riemannian norm:
+        //
+        //     |y| = tanh(s), δ = k|y|²/(1-k|y|²) = sinh²(s), s = √k·|v|
+        //     d_c(0, y) = 2·asinh(√δ)/√k = 2s/√k = 2|v|.
+        //
+        // This pins exp_origin, poincare_distance and the metric together
+        // against the independently-known scalar 2|v|. The factor of 2 is the
+        // standard Poincaré-ball convention `acosh(1 + 2δ)` (matches geomstats'
+        // `PoincareBallMetric.dist` and `distance_matches_textbook_formula_*`);
+        // a missing/extra √k or a tanh/atanh swap (errors of order 0.1–1) trips
+        // this bound.
+        for &curvature in &[-1.0_f64, -0.25, -4.0] {
+            let sqrt_k = (-curvature).sqrt();
+            for &target_norm in &[1.0e-6_f64, 1.0e-3, 1.0e-2, 0.1, 0.5, 0.9] {
+                // A fixed direction scaled to the prescribed Euclidean norm.
+                let raw = array![0.3_f64, -0.5, 0.7, 0.2];
+                let raw_norm = raw.iter().map(|x| x * x).sum::<f64>().sqrt();
+                let v: Array1<f64> = raw.mapv(|x| x * target_norm / raw_norm);
+                let vnorm = v.iter().map(|x| x * x).sum::<f64>().sqrt();
+
+                let y = exp_origin(v.view(), curvature).expect("exp");
+                let origin = Array1::<f64>::zeros(v.len());
+                let d = poincare_distance(origin.view(), y.view(), curvature).expect("dist");
+                // Riemannian isometry: d_c(0, exp_0(v)) == λ_0·|v| == 2|v|.
+                assert!(
+                    (d - 2.0 * vnorm).abs() < 1.0e-12,
+                    "radial isometry d_c(0,exp(v))==2|v| broke (c={curvature}, |v|={vnorm}): \
+                     d={d}, 2|v|={}",
+                    2.0 * vnorm
+                );
+
+                // Internal consistency cross-check: |y| == tanh(√k|v|)/√k.
+                let ynorm = y.iter().map(|x| x * x).sum::<f64>().sqrt();
+                let expected_ynorm = (sqrt_k * vnorm).tanh() / sqrt_k;
+                assert!(
+                    (ynorm - expected_ynorm).abs() < 1.0e-13,
+                    "exp norm |y| must be tanh(√k|v|)/√k (c={curvature}): \
+                     |y|={ynorm}, expected={expected_ynorm}"
+                );
+
+                // Round-trip log_0(exp_0(v)) == v to f64 precision.
+                let back = log_origin(y.view(), curvature).expect("log");
+                for i in 0..v.len() {
+                    assert!(
+                        (back[i] - v[i]).abs() < 1.0e-12,
+                        "log∘exp round-trip broke at {i} (c={curvature}): {} vs {}",
+                        back[i],
+                        v[i]
+                    );
+                }
             }
         }
     }

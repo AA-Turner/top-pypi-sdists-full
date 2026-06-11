@@ -9,6 +9,7 @@ from trilogy.core.enums import (
     BooleanOperator,
     DatasourceState,
     FunctionType,
+    JoinType,
     SourceType,
 )
 from trilogy.core.env_processor import generate_graph
@@ -33,6 +34,7 @@ from trilogy.core.models.build import (
     BuildSelectLineage,
     BuildWhereClause,
     Factory,
+    _build_scoped_merge_index,
     get_canonical_pseudonyms,
 )
 from trilogy.core.models.build_environment import BuildEnvironment
@@ -57,7 +59,12 @@ from trilogy.core.processing.concept_strategies_v4 import V4History
 from trilogy.core.processing.concept_strategies_v4 import (
     search_concepts as search_concepts_v4,
 )
-from trilogy.core.processing.nodes import History, SelectNode, StrategyNode
+from trilogy.core.processing.nodes import (
+    History,
+    MergeNode,
+    SelectNode,
+    StrategyNode,
+)
 from trilogy.core.statements.author import (
     ChartLayer,
     ChartStatement,
@@ -195,7 +202,6 @@ def generate_source_map(
             matches = [
                 cte for cte in all_new_ctes if cte.source.safe_identifier in names
             ]
-
             if not matches and names:
                 raise SyntaxError(
                     f"Missing parent CTEs for source map; expecting {names}, have {[cte.source.safe_identifier for cte in all_new_ctes]}"
@@ -208,8 +214,16 @@ def generate_source_map(
                     for x in cte.output_columns
                     if x.address not in [z.address for z in cte.partial_concepts]
                 ]
-                if qdk in output_address or (
-                    multi_source and qdk in [x.address for x in cte.output_columns]
+                # A derived-key FULL join sources the canonical key from a side
+                # that outputs it under a pseudonym column (da for the merged db);
+                # accept that side so the renderer coalesces both physical columns.
+                provides_pseudonym = multi_source and any(
+                    qdk in x.pseudonyms for x in cte.output_columns
+                )
+                if (
+                    qdk in output_address
+                    or (multi_source and qdk in [x.address for x in cte.output_columns])
+                    or provides_pseudonym
                 ):
                     source_map[qdk].append(cte.safe_identifier)
             # now do a pass that accepts partials
@@ -528,6 +542,7 @@ def get_query_node(
     environment: Environment,
     statement: SelectLineage | MultiSelectLineage,
     history: History | None = None,
+    scoped_joins: list[tuple[str, str, JoinType]] | None = None,
 ) -> StrategyNode:
     if not statement.output_components:
         raise ValueError(f"Statement has no output components {statement}")
@@ -538,6 +553,12 @@ def get_query_node(
     # Caches live on History so every sub-select (rowsets, multiselect arms)
     # in this resolution reuses the base environment's materialized concepts.
     caches = history.build_caches
+    # Query-scoped JOINs are applied during the build, not by cloning the author
+    # env: each Factory collapses merged-away source concepts to their canonical
+    # target in `_build_concept` (and marks partial datasource bindings). Stored
+    # on caches so nested sub-selects inherit the same merges.
+    if scoped_joins:
+        caches.scoped_joins = scoped_joins
     if caches.pseudonym_map is None:
         caches.pseudonym_map = get_canonical_pseudonyms(environment)
     build_cache: dict[str, BuildConcept] = caches.build_cache
@@ -548,6 +569,7 @@ def get_query_node(
         canonical_build_cache=canonical_build_cache,
         grain_build_cache=caches.grain_build_cache,
         pseudonym_map=caches.pseudonym_map,
+        scoped_joins=caches.scoped_joins,
     )
     build_statement: BuildSelectLineage | BuildMultiSelectLineage = base_factory.build(
         statement
@@ -560,6 +582,7 @@ def get_query_node(
         grain_build_cache=base_factory.grain_build_cache,
         canonical_build_cache=canonical_build_cache,
         datasource_build_cache=caches.datasource_build_cache,
+        scoped_joins=caches.scoped_joins,
     )
 
     graph = generate_graph(build_environment)
@@ -596,21 +619,30 @@ def get_query_node(
         )
     ds: StrategyNode = ods
     if build_statement.having_clause:
-        final = build_statement.having_clause.conditional
-        if ds.conditions:
-            final = BuildConditional(
-                left=ds.conditions,
-                right=build_statement.having_clause.conditional,
-                operator=BooleanOperator.AND,
+        having = build_statement.having_clause.conditional
+        # A HAVING filters the SELECT outputs, which a resolved merge/select
+        # node already carries — so fold the predicate onto that node rather
+        # than wrapping it in a fresh SelectNode. The wrapper adds a CTE level
+        # that masks the node's join-key grain anchors and triggers a spurious
+        # regroup in a downstream consumer (e.g. a rowset's outer select, q68).
+        if isinstance(ds, (MergeNode, SelectNode)):
+            ds.add_condition(having)
+        else:
+            final = having
+            if ds.conditions:
+                final = BuildConditional(
+                    left=ds.conditions,
+                    right=having,
+                    operator=BooleanOperator.AND,
+                )
+            ds = SelectNode(
+                output_concepts=build_statement.output_components,
+                input_concepts=ds.usable_outputs,
+                parents=[ds],
+                environment=ds.environment,
+                partial_concepts=ds.partial_concepts,
+                conditions=final,
             )
-        ds = SelectNode(
-            output_concepts=build_statement.output_components,
-            input_concepts=ds.usable_outputs,
-            parents=[ds],
-            environment=ds.environment,
-            partial_concepts=ds.partial_concepts,
-            conditions=final,
-        )
     ds.hidden_concepts = build_statement.hidden_components
     ds.ordering = build_statement.order_by
     # TODO: avoid this
@@ -634,7 +666,13 @@ def get_query_datasources(
     statement: SelectStatement | MultiSelectStatement,
     hooks: Optional[List[BaseHook]] = None,
 ) -> QueryDatasource:
-    ds = get_query_node(environment, statement.as_lineage(environment))
+    join_clauses = getattr(statement, "join_clauses", None) or []
+    scoped_joins = [
+        (j.source_address, j.target_address, j.join_type) for j in join_clauses
+    ]
+    ds = get_query_node(
+        environment, statement.as_lineage(environment), scoped_joins=scoped_joins
+    )
 
     final_qds = ds.resolve()
 
@@ -863,8 +901,25 @@ def process_query(
     root_cte.limit = statement.limit
     root_cte.hidden_concepts = statement.hidden_components
 
+    join_clauses = getattr(statement, "join_clauses", None) or []
+    scoped_merge_map, _ = _build_scoped_merge_index(
+        [(j.source_address, j.target_address, j.join_type) for j in join_clauses]
+    )
+    # Canonical keys of query-scoped FULL joins — flagged so the outer-join
+    # upgrade optimization never collapses an explicit FULL back to INNER.
+    full_join_keys = {
+        scoped_merge_map.get(addr, addr)
+        for j in join_clauses
+        if j.join_type is JoinType.FULL
+        for addr in (j.source_address, j.target_address)
+    }
+
     final_ctes = optimize_ctes(
-        deduped_ctes, root_cte, statement, having_alias=having_alias
+        deduped_ctes,
+        root_cte,
+        statement,
+        having_alias=having_alias,
+        full_join_keys=full_join_keys,
     )
 
     return ProcessedQuery(
@@ -877,4 +932,5 @@ def process_query(
         local_concepts=statement.local_concepts,
         locally_derived=statement.locally_derived,
         parameters=_extract_params(environment.concepts, statement.local_concepts),
+        scoped_merge_map=scoped_merge_map,
     )

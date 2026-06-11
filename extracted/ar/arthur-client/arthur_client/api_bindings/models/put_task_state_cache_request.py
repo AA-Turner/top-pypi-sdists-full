@@ -20,7 +20,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.continuous_eval_response import ContinuousEvalResponse
-from arthur_client.api_bindings.models.llm_eval import LLMEval
+from arthur_client.api_bindings.models.eval import Eval
 from arthur_client.api_bindings.models.task_response import TaskResponse
 from arthur_client.api_bindings.models.trace_transform_response import TraceTransformResponse
 from typing import Optional, Set
@@ -31,7 +31,7 @@ class PutTaskStateCacheRequest(BaseModel):
     PutTaskStateCacheRequest
     """ # noqa: E501
     task: TaskResponse = Field(description="Copy of the task state to cache in the control plane.")
-    evals: Optional[List[LLMEval]] = Field(default=None, description="Copy of the eval state for this task in the control plane.")
+    evals: Optional[List[Eval]] = Field(default=None, description="Copy of the eval state for this task in the control plane.")
     continuous_evals: Optional[List[ContinuousEvalResponse]] = Field(default=None, description="Copy of the continuous eval state for this task in the control plane.")
     transforms: Optional[List[TraceTransformResponse]] = Field(default=None, description="Copy of the transform state for this task in the control plane.")
     __properties: ClassVar[List[str]] = ["task", "evals", "continuous_evals", "transforms"]
@@ -112,7 +112,7 @@ class PutTaskStateCacheRequest(BaseModel):
 
         _obj = cls.model_validate({
             "task": TaskResponse.from_dict(obj["task"]) if obj.get("task") is not None else None,
-            "evals": [LLMEval.from_dict(_item) for _item in obj["evals"]] if obj.get("evals") is not None else None,
+            "evals": [Eval.from_dict(_item) for _item in obj["evals"]] if obj.get("evals") is not None else None,
             "continuous_evals": [ContinuousEvalResponse.from_dict(_item) for _item in obj["continuous_evals"]] if obj.get("continuous_evals") is not None else None,
             "transforms": [TraceTransformResponse.from_dict(_item) for _item in obj["transforms"]] if obj.get("transforms") is not None else None
         })

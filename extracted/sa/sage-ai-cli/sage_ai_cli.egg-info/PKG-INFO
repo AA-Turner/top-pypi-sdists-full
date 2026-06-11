@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sage-ai-cli
-Version: 1.20.94
+Version: 1.20.95
 Summary: Sage — a local-first AI coding CLI (like Claude Code, using free/open models)
 Author: Layne Faler
 License: MIT
@@ -48,108 +48,7 @@ Requires-Dist: pytest-xdist>=3.5.0; extra == "dev"
 Requires-Dist: respx>=0.21.0; extra == "dev"
 Requires-Dist: anyio>=4.0; extra == "dev"
 
-# Sage AI CLI
+# Multiplayer RPG Adventure
 
-**A free, local-first AI coding agent for your terminal.** Like Claude Code,
-but using free and open models — no API key required.
-
-[![PyPI](https://img.shields.io/pypi/v/sage-ai-cli)](https://pypi.org/project/sage-ai-cli/)
-[![Python](https://img.shields.io/pypi/pyversions/sage-ai-cli)](https://pypi.org/project/sage-ai-cli/)
-
-```
-pip install sage-ai-cli
-sage install   # auto-pulls models, sets best coder, builds RAG, prewarms
-sage run       # start coding with the full Tier 1-3 safety harness
-```
-
-## What Sage Does
-
-Sage is an autonomous coding agent that runs in your terminal. It:
-
-- **Plans** your task and breaks it into concrete steps
-- **Reads** your codebase (with project-aware RAG) to ground itself in real symbols
-- **Writes** code using TDD — tests first, then implementation
-- **Runs** tests automatically and fixes failures
-- **Iterates** until the task is complete
-- **Routes** to the best-fit model per request (small for trivial, strong for hard)
-- **Searches the web** for docs when its training data is too old
-- **Fine-tunes** local LoRA adapters on your codebase
-- **Refuses to run** with a model too small to follow the protocol (T1)
-- **Stages all writes** through a tmpdir so broken output never reaches your repo (T5)
-- **Blocks `npm install`** after rejecting a poison `package.json` (T6)
-
-All using free AI models — no API keys, no subscriptions, no cloud dependency.
-
-## Quick Start
-
-```bash
-# Install everything (Ollama, models, RAG, optional deps) — disk-aware
-pip install sage-ai-cli
-sage install
-
-# Coding agent with full safety harness
-sage run
-
-# Try the new features:
-sage rag index                          # build per-project semantic index
-sage ext search "react hooks"           # web search (no API key)
-sage ext route "design a new system"    # see which model the router picks
-sage ext detect                         # see auto-detected project context
-sage ext bootstrap --finetune           # kick off project-aware fine-tune
-```
-
-**Documentation:**
-- [`docs/SAGE_FEATURES.md`](docs/SAGE_FEATURES.md) — full feature catalog
-- [`docs/SAGE_COMMANDS.md`](docs/SAGE_COMMANDS.md) — every CLI + slash command
-- [`docs/SAGE_ARCHITECTURE.md`](docs/SAGE_ARCHITECTURE.md) — module map + data flow
-
-## What's New
-
-### Waves 1–5 + Tiers A–C (Capability)
-
-| Capability | Command |
-|------------|---------|
-| Auto-pick strongest installed coder | `sage ext auto-pick` |
-| Project context detection | `sage ext detect` |
-| Local RAG over your codebase | `sage rag index` / `sage rag query "..."` |
-| Web search (DuckDuckGo, no key) | `sage ext search "..."` |
-| Hybrid difficulty-based routing | `sage ext route "..."` |
-| LoRA fine-tune with adapter cache | `sage ext finetune <model>` |
-| GCS-mirrored public datasets | `sage ext datasets mirror --name all` |
-| One-shot disk-aware bootstrap | `sage ext bootstrap [--finetune] [--full-datasets]` |
-
-### Tiers 1–3 Hardening (Safety + Quality)
-
-These prevent the "silent quality collapse" failure mode where a small
-fallback model produces broken output. Wired into every `sage run` session.
-
-| Tier | Feature | Impact |
-|------|---------|--------|
-| T1 | Hard model-capability floor | Refuses agentic tasks below 7B params |
-| T2 | Diff-preview before batch FILE: writes | User confirms before disk hit |
-| T3 | Bounded regenerate context | Stops feedback bombs in retry loops |
-| T4+T12 | GBNF on tool turns + project-aware imports | Hallucinated imports impossible |
-| T5 | Tmpdir staging | All writes pass through isolated workspace |
-| T6 | Run guard | `npm install` blocked after rejected `package.json` |
-| T7+T9 | Project-skeleton bootstrapper | React+Vite, Node+Express, FastAPI, fullstack |
-| T8 | RAG before first turn | Project context ready on turn 1 |
-| T10 | Telemetry with secret redaction | Per-session JSONL log |
-| T11 | Two-model planner/coder default | Cheap planner + strong coder, automatic |
-| T13 | Readiness self-test | 30s "write hello.js" probe at session start |
-| T14 | Disk-aware install + safe pip | Picks model tier that fits free disk |
-
-## Architecture
-
-`core/run_hooks.py` is the single orchestrator. `sage run` calls:
-
-1. `on_session_start` — capability check (T1), readiness probe (T13),
-   skeleton match (T7+T9), RAG indexing (T8)
-2. `on_pre_turn` — grammar selection (T4+T12), planner/coder pair (T11),
-   top-K RAG retrieval (T8)
-3. `on_post_turn` — telemetry log (T10) with secret redaction
-
-Every `FileWriteTool.write()` is wrapped by `content_validator` and arms
-the `run_guard` on rejection. Every `RUN:` shell call is gated by
-`run_guard.allow()`.
-
-See `docs/SAGE_ARCHITECTURE.md` for the full data-flow diagram.
+Run with `pip install -r requirements.txt && python main.py`,
+or `python game.pyz` after `sage` builds the zipapp.

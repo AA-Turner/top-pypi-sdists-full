@@ -1,0 +1,17 @@
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  ci:
+    name: CI
+    uses: praw-dev/.github/.github/workflows/ci.yml@20f00d1404e64813b40e0cff3a70dc9cd8b8b34e # v1.3.3
+    with:
+      min_python: "3.10"
+      python_versions: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
+name: CI
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+  pull_request:
+permissions: read-all

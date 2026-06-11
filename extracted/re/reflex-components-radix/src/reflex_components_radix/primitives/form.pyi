@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
 from reflex_base.components.component import ComponentNamespace
-from reflex_base.event import EventType, PointerEventInfo
+from reflex_base.event import FORM_SUBMIT_MAPPING, EventType, PointerEventInfo
 from reflex_base.vars.base import Var
 from reflex_components_core.core.breakpoints import Breakpoints
 from reflex_components_core.el.elements.forms import Form as HTMLForm
@@ -304,7 +304,7 @@ class FormRoot(FormComponent, HTMLForm):
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
         on_scroll_end: EventType[()] | None = None,
-        on_submit: EventType[()] | EventType[dict[str, Any]] | (EventType[()] | EventType[dict[str, str]]) | None = None,
+        on_submit: EventType[()] | EventType[dict[str, Any]] | (EventType[()] | EventType[FORM_SUBMIT_MAPPING]) | (EventType[()] | EventType[dict[str, str]]) | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> FormRoot:
@@ -1050,7 +1050,7 @@ class Form(FormRoot):
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
         on_scroll_end: EventType[()] | None = None,
-        on_submit: EventType[()] | EventType[dict[str, Any]] | (EventType[()] | EventType[dict[str, str]]) | None = None,
+        on_submit: EventType[()] | EventType[dict[str, Any]] | (EventType[()] | EventType[FORM_SUBMIT_MAPPING]) | (EventType[()] | EventType[dict[str, str]]) | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> Form:
@@ -1345,7 +1345,7 @@ class FormNamespace(ComponentNamespace):
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
         on_scroll_end: EventType[()] | None = None,
-        on_submit: EventType[()] | EventType[dict[str, Any]] | (EventType[()] | EventType[dict[str, str]]) | None = None,
+        on_submit: EventType[()] | EventType[dict[str, Any]] | (EventType[()] | EventType[FORM_SUBMIT_MAPPING]) | (EventType[()] | EventType[dict[str, str]]) | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> Form:

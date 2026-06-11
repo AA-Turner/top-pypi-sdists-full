@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "followthemoney"
-version = "4.9.0"
+version = "4.9.1"
 description = "A data model for anti corruption data modeling and analysis."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -40,6 +40,7 @@ dependencies = [
     "openpyxl >= 3.0.5, < 4.0.0",
     "orjson >= 3.10.0, < 4.0",
     "pydantic >=2.11.0, < 3.0.0",
+    "rich >= 13.0.0, < 15.0.0",
 ]
 
 [project.urls]
@@ -94,6 +95,7 @@ rdf = "followthemoney.cli.exports:export_rdf"
 gexf = "followthemoney.cli.exports:export_gexf"
 cypher = "followthemoney.cli.exports:export_cypher"
 statements = "followthemoney.cli.statement:entity_statements"
+ref = "followthemoney.cli.ref:ref"
 
 [tool.hatch.build.targets.sdist]
 only-include = ["followthemoney", "LICENSE", "README.md"]

@@ -1,3 +1,4 @@
+import os
 from typing import List, Optional, Tuple
 
 import click
@@ -13,6 +14,7 @@ from anyscale.skills.models import (
     CatalogEntry,
     InstalledMetadata,
     Platform,
+    PlatformMetadata,
     PLATFORMS,
     SkillsListResult,
     TermsStatus,
@@ -63,8 +65,8 @@ def _print_installed_section(metadata: Optional[InstalledMetadata]) -> None:
         return
     platforms_str = ", ".join(metadata.platforms)
     file_count = sum(
-        len(platform_info.installed_files)
-        for platform_info in metadata.platforms.values()
+        len(info.skills_files) + len(info.hooks_files)
+        for info in metadata.platforms.values()
     )
     click.echo(f"Installed: v{metadata.version} ({platforms_str}, {file_count} files)")
     if metadata.catalog:
@@ -112,14 +114,38 @@ def _prompt_terms_acceptance(terms: TermsStatus) -> bool:
     return click.confirm("Do you accept the terms above?", default=False)
 
 
-def _prompt_platform_selection() -> List[Platform]:
-    """Interactively ask the user which platform(s) to install for."""
-    platform_list = list(Platform)
+def _platform_prompt_label(meta: PlatformMetadata) -> str:
+    """Show hooks_dir alone when skills_dir nests under it; both otherwise."""
+    skills = os.path.expanduser(meta.skills_dir)
+    hooks = os.path.expanduser(meta.hooks_dir)
+    if skills == hooks or skills.startswith(hooks + os.sep):
+        return meta.hooks_dir
+    return f"{meta.skills_dir}, {meta.hooks_dir}"
+
+
+def _prompt_platform_selection(
+    available_platforms: Optional[frozenset] = None,
+) -> List[Platform]:
+    """Interactively ask the user which platform(s) to install for.
+
+    When *available_platforms* is provided (a set of platform value strings
+    from the remote catalog), only platforms present in that set are offered.
+    Falls back to the full list when the set is ``None`` or empty.
+    """
+    if available_platforms:
+        platform_list = [p for p in Platform if p.value in available_platforms]
+    else:
+        platform_list = list(Platform)
+
+    if len(platform_list) == 1:
+        click.echo(f"Installing for {PLATFORMS[platform_list[0]].display}.")
+        return platform_list
+
     click.echo("Select a platform to install skills for:")
     click.echo("  1) All platforms")
     for i, p in enumerate(platform_list, 2):
         meta = PLATFORMS[p]
-        click.echo(f"  {i}) {meta.display} ({meta.dir})")
+        click.echo(f"  {i}) {meta.display} ({_platform_prompt_label(meta)})")
     click.echo("")
 
     choice = click.prompt("Platform", type=click.IntRange(1, len(platform_list) + 1),)
@@ -199,7 +225,19 @@ def skills_install(
     if platform:
         platforms: List[Platform] = [Platform(p) for p in platform]
     else:
-        platforms = _prompt_platform_selection()
+        available: Optional[frozenset] = None
+        if from_file is None:
+            try:
+                info = anyscale.skills.list(version=version)
+                available = (
+                    frozenset(
+                        p for entry in info.available_catalog for p in entry.platforms
+                    )
+                    & _KNOWN_PLATFORM_VALUES
+                )
+            except Exception:  # noqa: BLE001
+                pass
+        platforms = _prompt_platform_selection(available)
 
     try:
         try:

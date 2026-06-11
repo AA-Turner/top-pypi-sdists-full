@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_signin.literals import SignInServiceServiceName
+    from types_boto3_signin.literals import ListResourcePermissionStatementsPaginatorName
 
-    data: SignInServiceServiceName = "signin"
+    data: ListResourcePermissionStatementsPaginatorName = "list_resource_permission_statements"
     ```
 """
 
@@ -21,8 +21,15 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Literal
 
-__all__ = ("ResourceServiceName", "ServiceName", "SignInServiceServiceName")
+__all__ = (
+    "ListResourcePermissionStatementsPaginatorName",
+    "PaginatorName",
+    "ResourceServiceName",
+    "ServiceName",
+    "SignInServiceServiceName",
+)
 
+ListResourcePermissionStatementsPaginatorName = Literal["list_resource_permission_statements"]
 SignInServiceServiceName = Literal["signin"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -454,3 +461,4 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
+PaginatorName = Literal["list_resource_permission_statements"]

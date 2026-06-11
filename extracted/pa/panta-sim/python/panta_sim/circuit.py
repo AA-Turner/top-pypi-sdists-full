@@ -501,6 +501,14 @@ class QuantumCircuit:
         n = int(power)
         if n == 0:
             return QuantumCircuit(self.num_qubits)
+        # 양수 power 도 비-유니터리 op 검사 (inverse() 와 동일 제약 — docstring
+        # 의 ValueError 약속을 모든 n != 0 에서 지킨다).
+        for name, _q, _p in self._ops:
+            if name in _NON_UNITARY_OPS:
+                raise ValueError(
+                    f"power: 비-유니터리 연산 {name!r} 이 있어 거듭제곱 회로를 "
+                    f"만들 수 없습니다"
+                )
         base = self if n > 0 else self.inverse()
         new = QuantumCircuit(self.num_qubits)
         for _ in range(abs(n)):
@@ -1083,10 +1091,11 @@ class QuantumCircuit:
         ``state`` 는 세 형태를 허용한다:
 
         - **statevector** (1-D array-like, 길이 ``2^k``): 임의의 정규화된
-          상태.  첫 열이 목표 상태인 준비 유니터리를 만들어 적용한다
-          (``apply_multi_qubit_gate``, statevector 백엔드 전용, ``k`` 가
-          작을 때만 실용적 — 메모리 ``O(4^k)``).  ``state[i]`` 의 비트 ``j``
-          가 ``qubits[j]`` 에 대응 (little-endian, Qiskit 와 동일).
+          상태.  Möttönen uniformly-controlled rotation 으로 native RY/RZ +
+          CNOT 준비 회로를 만들어 적용한다 (게이트 ``O(2^k)``, 전체 행렬을
+          만들지 않음) — 모든 백엔드 (statevector / MPS / density / GPU) 에서
+          동작한다.  ``state[i]`` 의 비트 ``j`` 가 ``qubits[j]`` 에 대응
+          (little-endian, Qiskit 와 동일).
         - **정수** (``int``): 계산 기저 상태 ``|state⟩``.  큐비트별 ``X`` 만
           쓰므로 큰 레지스터에서도 ``O(k)``.
         - **라벨 문자열** (``str``, 문자 ``0 1 + - r l``): 곱 상태.  Qiskit
@@ -1215,11 +1224,16 @@ class QuantumCircuit:
             estimator_seed: shot-based 추정 RNG seed.
             **run_kwargs: :meth:`run` 에 전달 (예: ``method``,
                 ``max_bond_dim``).  회로 실행은 항상 ``shots=0``.
+                ``method="pauli_propagation"`` 이면 전용 estimator
+                (:func:`panta_sim.pauli_propagation.
+                pauli_propagation_expectation`) 로 라우팅되며 ``shots`` /
+                ``estimator_seed`` / ``precision`` 은 **무시** 된다 (해석적
+                Heisenberg 역전파 — ``pp_threshold`` / ``pp_depolarizing``
+                kwarg 로 제어).
 
         Returns:
             기댓값 (``float``).
         """
-        run_kwargs.pop("shots", None)
         # method="pauli_propagation": Heisenberg 역전파 경로 (큰 N·저 비-Clifford,
         # 얽힘 무관).  run/statevector 대신 전용 estimator 로 라우팅.
         if run_kwargs.get("method") == "pauli_propagation":
@@ -1491,7 +1505,7 @@ class QuantumCircuit:
         cbits, value = _normalize_condition(condition)
         return _IfElseBuilder(self, cbits, value)
 
-    def while_loop(self, condition, max_iters: int = 256) -> "_BlockBuilder":
+    def while_loop(self, condition, max_iters: int = 256) -> "_WhileLoopBuilder":
         """Block-form ``while (c == value):`` context manager (v0.4.7).
 
         Args:
@@ -1502,7 +1516,7 @@ class QuantumCircuit:
         cbits, value = _normalize_condition(condition)
         return _WhileLoopBuilder(self, cbits, value, max_iters)
 
-    def for_loop(self, iterations: int) -> "_BlockBuilder":
+    def for_loop(self, iterations: int) -> "_ForLoopBuilder":
         """Block-form ``for _ in range(iterations):`` context manager (v0.4.7).
 
         body 를 정확히 ``iterations`` 회 반복.  loop variable 은 panta-sim 에서
@@ -1635,15 +1649,19 @@ class QuantumCircuit:
                   noise 가 있어도 결정적 Kraus 적용 (Aer
                   ``method="density_matrix"`` 와 동일 의미).
                   메모리 4ⁿ × 16B (f64) → N≤14 권장.  N>14 면 ``UserWarning``.
-                - ``"mps"`` (v0.6.1 / v0.6.3): Matrix Product State 백엔드.
+                - ``"mps"`` (v0.6.1+): Matrix Product State 백엔드.
                   v0.6.1 부터 ``N > 20`` 도 지원 (sampling-via-MPS direct
-                  contraction).  v0.6.3 부터 ``N > 64`` 도 지원
-                  (outcome encoding 을 ``Vec<bool>`` 로 확장).  ``shots = 0``
-                  은 dense statevector 접근을 위해 ``N ≤ 20`` 유지.  여전히
-                  noise / dynamic / non-adjacent 2q / 3q gate 미지원.
-                  ``f64`` 만 지원.  결과의 ``mps_max_bond_dim`` /
-                  ``mps_final_norm_sq`` / ``mps_truncation_error_sum``
-                  getter 로 truncation 메타 확인 가능.
+                  contraction), v0.6.3 부터 ``N > 64`` 도 지원 (outcome
+                  encoding 을 ``Vec<bool>`` 로 확장).  ``shots = 0`` 의 dense
+                  statevector 접근은 ``N ≤ 20`` (``N > 20`` 은 MPS 가 보존돼
+                  ``expectation()`` 가능, v0.7).  ``precision="f32"`` 지원
+                  (v0.6.5).  noise / dynamic 회로 (reset / if / while / for /
+                  switch) 는 trajectory 엔진으로 지원 (v0.6.5), 3-qubit gate
+                  (Toffoli / Fredkin) 는 1q + CNOT 으로 자동 분해 (v0.6.8),
+                  비인접 2q gate 는 SWAP chain 으로 자동 처리 (v0.6.3).
+                  결과의 ``mps_max_bond_dim`` / ``mps_final_norm_sq`` /
+                  ``mps_truncation_error_sum`` getter 로 truncation 메타
+                  확인 가능.
                 - ``"wgpu_mps"`` (v0.6.6): cross-platform GPU MPS — SVD
                   를 wgpu compute shader 로 offload.  ``"mps"`` 와 동일
                   의미이되 NVIDIA / AMD / Apple Metal / Intel 모두에서
@@ -1662,6 +1680,15 @@ class QuantumCircuit:
                 권장값 ``1e-10``, ``f32`` 기준 ``1e-4``.  비-MPS method 에서는
                 무시.  결과의 ``mps_trunc_threshold`` / ``mps_observed_max_bond_dim``
                 으로 실제 적용된 cutoff / 발생한 χ 확인 가능.
+            optimizer: ``method="tensornet"`` 의 contraction path 전략
+                (``"greedy"`` / ``"random-greedy"`` (default) / ``"sa"`` 등 —
+                :meth:`amplitude` 참조).  다른 method 에서는 무시.
+            tn_gpu: ``method="tensornet"`` 의 contraction 을 wgpu GPU 로 수행
+                (v0.8).  다른 method 에서는 무시.
+            depolarizing: ``method="stabilizer"`` 전용 — 게이트당 depolarizing
+                확률 ``p`` (>0 이면 noisy Clifford trajectory, v0.8.16).
+                다른 method 에서 양수를 지정하면 ``ValueError`` (조용한 무시
+                방지) — 일반 백엔드의 노이즈는 ``noise_model=`` 을 사용.
 
         Returns:
             SimulationResult 객체. ``result.precision`` / ``result.backend`` 으로
@@ -1706,6 +1733,19 @@ class QuantumCircuit:
         # v0.8.5: 자동 백엔드 선택 — 회로를 분석해 최적 method 로 해소한다.
         if method == "auto":
             method = self._auto_method(int(shots), noise_model)
+
+        # depolarizing= 는 stabilizer 전용 — 다른 method 에서 조용히 무시되면
+        # 사용자가 noiseless 결과를 noisy 로 오인할 수 있어 명시적으로 거부.
+        if float(depolarizing) > 0.0 and method not in (
+            "stabilizer",
+            "clifford",
+            "tableau",
+        ):
+            raise ValueError(
+                f"depolarizing= 인자는 method='stabilizer' 전용입니다 (해소된 "
+                f"method: {method!r}).  일반 백엔드의 depolarizing 노이즈는 "
+                f"NoiseModel().add_depolarizing(p) 를 noise_model= 로 전달하세요."
+            )
 
         # v0.8.2: Stabilizer (Clifford) 백엔드 — Aaronson–Gottesman tableau.
         # Clifford 회로 (H/S/CNOT 군 + π/2 배수 회전) 를 다항시간으로 시뮬레이션해
@@ -2051,7 +2091,8 @@ class QuantumCircuit:
         Clifford 가 많고 비-Clifford 가 적은 큰 N 회로(VQE/동역학)에서 statevector·
         TN 이 못 미치는 영역 — 예: 100큐비트 TFIM Trotter 의 ``⟨Z⟩``.
 
-        지원 게이트: 1q Clifford(h/s/sdg/x/y/z/sx/sxdg) + rx/ry/rz/t/tdg/p, cx, cz.
+        지원 게이트: 1q Clifford(h/s/sdg/x/y/z/sx/sxdg) + rx/ry/rz/t/tdg/p,
+        2q cx/cz/cy/swap/iswap + rzz/rxx/ryy, 3q ccx/cswap.
         ``threshold=0`` 이면 exact statevector 기댓값과 일치(검증).
 
         Args:
@@ -2343,147 +2384,6 @@ def _normalize_condition(condition) -> tuple[list[int], int]:
     return cbit_list, v
 
 
-class _BlockBuilder:
-    """Block control flow 의 base context manager.
-
-    `__enter__` 시 outer ``QuantumCircuit`` 의 ``_circuit`` / ``_ops`` 를 잠시
-    nested 빌더로 가리고, ``__exit__`` 에서 nested 의 instructions 를 추출해
-    block instruction (IfElse / While / For / Switch) 으로 outer 에 push.
-
-    nested 빌더의 큐비트/cbit 폭은 outer 와 동일 — 사용자 코드는 outer 에 대한
-    참조 (``qc``) 를 그대로 사용하면 nested 에 push 된다.
-    """
-
-    def __init__(self, outer: QuantumCircuit) -> None:
-        self._outer = outer
-        # 진입 시 보관 + 새 nested 로 swap.  __exit__ 에서 복구 후 block push.
-        self._saved_circuit: Optional[_RustCircuit] = None
-        self._saved_ops: Optional[list] = None
-        self._nested_circuit: Optional[_RustCircuit] = None
-        self._nested_ops: Optional[list] = None
-
-    def _swap_in_nested(self) -> None:
-        self._saved_circuit = self._outer._circuit
-        self._saved_ops = self._outer._ops
-        self._nested_circuit = _RustCircuit(self._outer.num_qubits)
-        self._nested_ops = []
-        self._outer._circuit = self._nested_circuit
-        self._outer._ops = self._nested_ops
-
-    def _swap_back(self) -> tuple[_RustCircuit, list]:
-        nested_circuit = self._outer._circuit
-        nested_ops = self._outer._ops
-        assert self._saved_circuit is not None
-        assert self._saved_ops is not None
-        self._outer._circuit = self._saved_circuit
-        self._outer._ops = self._saved_ops
-        return nested_circuit, nested_ops
-
-
-class _IfElseBuilder(_BlockBuilder):
-    """``with qc.if_test((cbits, value)) as else_:`` context manager."""
-
-    def __init__(self, outer: QuantumCircuit, cbits: list[int], value: int) -> None:
-        super().__init__(outer)
-        self._cbits = cbits
-        self._value = value
-        self._then_circuit: Optional[_RustCircuit] = None
-        self._then_ops: Optional[list] = None
-        self._has_else = False
-        self._else_circuit: Optional[_RustCircuit] = None
-        self._else_ops: Optional[list] = None
-        self._stage = "init"  # init → then → else → done
-
-    def __enter__(self):
-        self._stage = "then"
-        self._swap_in_nested()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        if self._stage == "then":
-            self._then_circuit, self._then_ops = self._swap_back()
-            self._stage = "after_then"
-        elif self._stage == "else":
-            self._else_circuit, self._else_ops = self._swap_back()
-            self._stage = "done"
-            self._finalize()
-        if exc_type is None and self._stage == "after_then":
-            # else 가 호출 안 되면 finalize. else 가 호출되면 그 __exit__ 에서.
-            # else 호출은 사용자가 ``with else_:`` 한 시점에 진입.
-            # 다만 with else_: 안 쓰면 finalize 누락 — 안전하게 여기서 finalize.
-            self._finalize()
-            self._stage = "done"
-        return False
-
-    # `with else_:` syntax — Qiskit 호환.
-    def __enter_else__(self) -> None:
-        # else 진입 — re-swap.
-        self._stage = "else"
-        self._swap_in_nested()
-
-    # else_ 자체가 context manager 로 다시 사용되는 패턴: ``with else_:``.
-    # 이걸 가능하게 하려면 ``__enter__`` / ``__exit__`` 가 stage 별로 다르게.
-    # 위 __exit__ 가 already 처리 — 사용자는 단순히 ``with else_:`` 호출.
-
-    def _finalize(self) -> None:
-        # nested instructions 가 outer 에 push 되도록 add_if_else 호출.
-        outer = self._outer
-        rust = outer._circuit
-        rust.add_if_else(
-            self._cbits,
-            self._value,
-            self._then_circuit,
-            self._else_circuit,
-        )
-        # _ops 마커: ("if_else", qubits=(), params=(cbits_tuple, value, then_ops, else_ops))
-        outer._ops.append(
-            (
-                "if_else",
-                (),
-                (
-                    tuple(self._cbits),
-                    self._value,
-                    tuple(self._then_ops or []),
-                    tuple(self._else_ops or []) if self._has_else else None,
-                ),
-            )
-        )
-
-    def __iter__(self):
-        # ``as else_:`` 의 unpacking 우회 — Qiskit 패턴은 ``as else_`` 단일 변수.
-        raise TypeError("if_test result is not iterable; use ``as else_``")
-
-    # else 가 호출됐다는 마킹 — context manager 재진입 처리.
-    @property
-    def has_else(self) -> bool:
-        return self._has_else
-
-    # ``with else_:`` 호출 시
-    #   1. else_ 에 첫 번째 with 가 끝나며 self._stage = "after_then" 으로 전이됐고
-    #      _finalize() 가 발동해 buffered.  근데 else 를 받아야 하니 부분 재구성.
-    # 더 단순한 방법: ``with else_:`` 진입 시 stage 가 "after_then" 이면 다시
-    # nested 모드로 전환하고 stage="else".  __exit__ 에서 stage=="else" → else_circuit 저장
-    # → finalize.  근데 이미 _finalize() 했을 가능성 있어 그건 첫 with 종료 시점에
-    # 자동 호출 안 하게 막아야.
-    #
-    # 위 구현은 with else_: 가 안 쓰일 때만 _finalize() 자동 호출이라 부정확.
-    # 다시 정리: 사용자가 with 끝낼 때 else 안 쓰면 finalize, 쓰면 그 시점에서 finalize.
-    # 처음 with 끝(after_then) 에서 자동 finalize 막고, _IfElseBuilder 의 __del__ 또는 명시
-    # `.finalize()` 가 필요.  Python 의 GC 에 의존하면 비결정적.
-    #
-    # 가장 간단: `as else_:` 를 명시 syntax 로, else 사용 안 할 거면 명시적
-    # `qc.if_test(...)` 만 사용 (with 한 번).  with 끝났을 때 finalize.
-    # else 사용할 거면 `with qc.if_test(...) as else_:` 후 사용자가 수동 `else_.use()`
-    # 같은 거 호출... 너무 복잡.
-
-# 결론: Qiskit 의 패턴은 with-statement 의 `__exit__` 시점에 `as else_` 변수가
-# 두 번째 context manager 가 되는 nested 패턴.  이걸 정확히 모방하려면 stage
-# tracking + delayed finalize.  아래 _IfElseBuilder2 가 더 깔끔한 구현:
-
-# 위 _IfElseBuilder 를 폐기하고 새로 작성.
-del _IfElseBuilder
-
-
 class _IfElseBuilder:
     """``with qc.if_test((cbits, value)) as else_block:`` context manager.
 
@@ -2535,6 +2435,15 @@ class _IfElseBuilder:
         if self._stage == "after_then":
             # ``with else_:`` 재진입.  v0.6.2: outer with 종료 시 pending 으로
             # 보관됐을 self 를 취소하고 else 분기로 진입.
+            if self._finalized:
+                # then-only 로 이미 finalize 된 뒤 (if_test 와 else_ 사이에
+                # 회로 조작이 있었던 경우) else 진입을 허용하면 else-body 가
+                # 조용히 버려진다 — 명시적 에러.
+                raise RuntimeError(
+                    "if_test 의 else 블록은 then 블록 직후에 열어야 합니다 — "
+                    "`with qc.if_test(...) as else_:` 와 `with else_:` 사이에 "
+                    "회로 조작이 있어 then-only 로 이미 확정되었습니다."
+                )
             if self._outer._pending_builder is self:
                 self._outer._pending_builder = None
             self._stage = "else"

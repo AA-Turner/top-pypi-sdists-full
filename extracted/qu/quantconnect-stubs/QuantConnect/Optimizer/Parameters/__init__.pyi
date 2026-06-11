@@ -204,6 +204,43 @@ class OptimizationParameterEnumerator(typing.Generic[QuantConnect_Optimizer_Para
         ...
 
 
+class StaticOptimizationParameter(QuantConnect.Optimizer.Parameters.OptimizationParameter):
+    """Defines the step based optimization parameter"""
+
+    @property
+    def value(self) -> str:
+        """Minimum value of optimization parameter, applicable for boundary conditions"""
+        ...
+
+    def __init__(self, name: str, value: str) -> None:
+        """
+        Creates a new instance
+        
+        :param name: The name of the parameter
+        :param value: The fixed value of this parameter
+        """
+        ...
+
+
+class OptimizationParameterJsonConverter:
+    """
+    Override OptimizationParameter deserialization method.
+    Can handle OptimizationStepParameter instances
+    """
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """Determines if an OptimizationParameter is assignable from the given object type"""
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """Creates a Optimization Parameter object from a JSON object"""
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """Writes a JSON object from a OptimizationParameter object"""
+        ...
+
+
 class ParameterSet(System.Object):
     """Represents a single combination of optimization parameters"""
 
@@ -228,43 +265,6 @@ class ParameterSet(System.Object):
 
     def to_string(self) -> str:
         """String representation of this parameter set"""
-        ...
-
-
-class OptimizationParameterJsonConverter:
-    """
-    Override OptimizationParameter deserialization method.
-    Can handle OptimizationStepParameter instances
-    """
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """Determines if an OptimizationParameter is assignable from the given object type"""
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """Creates a Optimization Parameter object from a JSON object"""
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """Writes a JSON object from a OptimizationParameter object"""
-        ...
-
-
-class StaticOptimizationParameter(QuantConnect.Optimizer.Parameters.OptimizationParameter):
-    """Defines the step based optimization parameter"""
-
-    @property
-    def value(self) -> str:
-        """Minimum value of optimization parameter, applicable for boundary conditions"""
-        ...
-
-    def __init__(self, name: str, value: str) -> None:
-        """
-        Creates a new instance
-        
-        :param name: The name of the parameter
-        :param value: The fixed value of this parameter
-        """
         ...
 
 

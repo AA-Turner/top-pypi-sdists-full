@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import warnings
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from tempfile import NamedTemporaryFile, gettempdir
@@ -19,23 +20,19 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from deprecation import deprecated
-from numpy import inf, nan, ndarray
+from numpy import inf
 from pandas.core.frame import DataFrame
 from pandas.core.series import Series
 from xarray import DataArray, Dataset
 from xarray.core.types import T_Chunks
 
 from linopy import solvers
+from linopy.alignment import as_dataarray, broadcast_to_coords
 from linopy.common import (
-    as_dataarray,
     assign_multiindex_safe,
     best_int,
-    broadcast_mask,
-    lookup_vals,
     maybe_replace_signs,
     replace_by_map,
-    series_to_lookup_array,
-    set_int_index,
     to_path,
 )
 from linopy.constants import (
@@ -47,9 +44,17 @@ from linopy.constants import (
     SOS_TYPE_ATTR,
     TERM_DIM,
     ModelStatus,
+    Result,
     TerminationCondition,
 )
-from linopy.constraints import AnonymousScalarConstraint, Constraint, Constraints
+from linopy.constraints import (
+    AnonymousScalarConstraint,
+    Constraint,
+    ConstraintBase,
+    Constraints,
+    CSRConstraint,
+)
+from linopy.dualization import dualize
 from linopy.expressions import (
     LinearExpression,
     QuadraticExpression,
@@ -66,6 +71,7 @@ from linopy.io import (
     to_highspy,
     to_mosek,
     to_netcdf,
+    to_xpress,
 )
 from linopy.matrices import MatrixAccessor
 from linopy.objective import Objective
@@ -78,13 +84,16 @@ try:
     from linopy.remote import OetcHandler
 except ImportError:
     OetcHandler = None  # type: ignore
-from linopy.solver_capabilities import SolverFeature, solver_supports
+from linopy.solver_capabilities import solver_supports
 from linopy.solvers import (
     IO_APIS,
+    SolverFeature,
     available_solvers,
 )
 from linopy.sos_reformulation import (
+    SOSReformulationResult,
     reformulate_sos_constraints,
+    sos_reformulation_context,
     undo_sos_reformulation,
 )
 from linopy.types import (
@@ -103,73 +112,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _coords_to_dict(
-    coords: Sequence[Sequence | pd.Index | DataArray] | Mapping,
-) -> dict[str, Any]:
-    """Normalize coords to a dict mapping dim names to coordinate values."""
-    if isinstance(coords, Mapping):
-        return dict(coords)
-    # Sequence of indexes
-    result: dict[str, Any] = {}
-    for c in coords:
-        if isinstance(c, pd.Index) and c.name:
-            result[c.name] = c
-    return result
-
-
-def _validate_dataarray_bounds(arr: Any, coords: Any) -> Any:
-    """
-    Validate and expand DataArray bounds against explicit coords.
-
-    If ``arr`` is not a DataArray, return it unchanged (``as_dataarray``
-    will handle conversion). For DataArray inputs:
-
-    - Raises ``ValueError`` if the array has dimensions not in coords.
-    - Raises ``ValueError`` if shared dimension coordinates don't match.
-    - Expands missing dimensions via ``expand_dims``.
-    """
-    if not isinstance(arr, DataArray):
-        return arr
-
-    expected = _coords_to_dict(coords)
-    if not expected:
-        return arr
-
-    extra = set(arr.dims) - set(expected)
-    if extra:
-        raise ValueError(f"DataArray has extra dimensions not in coords: {extra}")
-
-    for dim, coord_values in expected.items():
-        if dim not in arr.dims:
-            continue
-        if isinstance(arr.indexes.get(dim), pd.MultiIndex):
-            continue
-        expected_idx = (
-            coord_values
-            if isinstance(coord_values, pd.Index)
-            else pd.Index(coord_values)
-        )
-        actual_idx = arr.coords[dim].to_index()
-        if not actual_idx.equals(expected_idx):
-            # Same values, different order → reindex to match expected order
-            if len(actual_idx) == len(expected_idx) and set(actual_idx) == set(
-                expected_idx
-            ):
-                arr = arr.reindex({dim: expected_idx})
-            else:
-                raise ValueError(
-                    f"Coordinates for dimension '{dim}' do not match: "
-                    f"expected {expected_idx.tolist()}, got {actual_idx.tolist()}"
-                )
-
-    # Expand missing dimensions
-    expand = {k: v for k, v in expected.items() if k not in arr.dims}
-    if expand:
-        arr = arr.expand_dims(expand)
-
-    return arr
-
-
 class Model:
     """
     Linear optimization model.
@@ -186,8 +128,7 @@ class Model:
     the optimization process.
     """
 
-    solver_model: Any
-    solver_name: str
+    _solver: solvers.Solver | None
     _variables: Variables
     _constraints: Constraints
     _objective: Objective
@@ -204,9 +145,9 @@ class Model:
     _blocks: DataArray | None
     _chunk: T_Chunks
     _force_dim_names: bool
+    _freeze_constraints: bool
+    _set_names_in_solver_io: bool
     _solver_dir: Path
-    matrices: MatrixAccessor
-
     __slots__ = (
         # containers
         "_variables",
@@ -229,14 +170,13 @@ class Model:
         "_chunk",
         "_force_dim_names",
         "_auto_mask",
+        "_freeze_constraints",
+        "_set_names_in_solver_io",
         "_solver_dir",
         "_relaxed_registry",
         "_piecewise_formulations",
-        "solver_model",
-        "solver_name",
-        "matrices",
-        # allow weak references to Model instances so third-party extensions
-        # can attach per-instance state via WeakKeyDictionary
+        "_solver",
+        "_sos_reformulation_state",
         "__weakref__",
     )
 
@@ -246,6 +186,8 @@ class Model:
         chunk: T_Chunks = None,
         force_dim_names: bool = False,
         auto_mask: bool = False,
+        freeze_constraints: bool = False,
+        set_names_in_solver_io: bool = True,
     ) -> None:
         """
         Initialize the linopy model.
@@ -269,6 +211,12 @@ class Model:
             Whether to automatically mask variables and constraints where
             bounds, coefficients, or RHS values contain NaN. The default is
             False.
+        freeze_constraints : bool
+            Whether constraints added to the model should be frozen to the
+            CSR-backed representation by default. The default is False.
+        set_names_in_solver_io : bool
+            Whether direct solver exports should include variable and
+            constraint names by default. The default is True.
 
         Returns
         -------
@@ -291,13 +239,50 @@ class Model:
         self._chunk: T_Chunks = chunk
         self._force_dim_names: bool = bool(force_dim_names)
         self._auto_mask: bool = bool(auto_mask)
+        self._freeze_constraints: bool = bool(freeze_constraints)
+        self._set_names_in_solver_io: bool = bool(set_names_in_solver_io)
         self._piecewise_formulations: dict[str, PiecewiseFormulation] = {}
         self._relaxed_registry: dict[str, str] = {}
         self._solver_dir: Path = Path(
             gettempdir() if solver_dir is None else solver_dir
         )
+        self._solver: solvers.Solver | None = None
+        self._sos_reformulation_state: SOSReformulationResult | None = None
 
-        self.matrices: MatrixAccessor = MatrixAccessor(self)
+    @property
+    def solver(self) -> solvers.Solver | None:
+        return self._solver
+
+    @solver.setter
+    def solver(self, value: solvers.Solver | None) -> None:
+        if self._solver is not None and self._solver is not value:
+            self._solver.close()
+        self._solver = value
+
+    @property
+    def solver_model(self) -> Any:
+        return self.solver.solver_model if self.solver is not None else None
+
+    @solver_model.setter
+    def solver_model(self, value: Any) -> None:
+        if value is not None:
+            raise AttributeError("solver state is managed via model.solver")
+        self.solver = None
+
+    @property
+    def solver_name(self) -> str | None:
+        return self.solver.solver_name.value if self.solver is not None else None
+
+    @solver_name.setter
+    def solver_name(self, value: str | None) -> None:
+        if value is not None:
+            raise AttributeError("solver state is managed via model.solver")
+        self.solver = None
+
+    @property
+    def matrices(self) -> MatrixAccessor:
+        """Matrix representation of the model, computed fresh on each access."""
+        return MatrixAccessor(self)
 
     @property
     def variables(self) -> Variables:
@@ -312,6 +297,16 @@ class Model:
         Constraints assigned to the model.
         """
         return self._constraints
+
+    @property
+    def indicator_constraints(self) -> Constraints:
+        """
+        Indicator constraints assigned to the model.
+
+        Returns the subset of ``model.constraints`` for which
+        ``is_indicator`` is True.
+        """
+        return self.constraints.indicator
 
     @property
     def objective(self) -> Objective:
@@ -466,6 +461,24 @@ class Model:
         self._auto_mask = bool(value)
 
     @property
+    def freeze_constraints(self) -> bool:
+        """Whether constraints are frozen to CSR by default when added."""
+        return self._freeze_constraints
+
+    @freeze_constraints.setter
+    def freeze_constraints(self, value: bool) -> None:
+        self._freeze_constraints = bool(value)
+
+    @property
+    def set_names_in_solver_io(self) -> bool:
+        """Whether direct solver exports include names by default."""
+        return self._set_names_in_solver_io
+
+    @set_names_in_solver_io.setter
+    def set_names_in_solver_io(self, value: bool) -> None:
+        self._set_names_in_solver_io = bool(value)
+
+    @property
     def solver_dir(self) -> Path:
         """
         Solver directory of the model.
@@ -497,6 +510,8 @@ class Model:
             "_pwlCounter",
             "force_dim_names",
             "auto_mask",
+            "freeze_constraints",
+            "set_names_in_solver_io",
         ]
 
     def __repr__(self) -> str:
@@ -585,9 +600,9 @@ class Model:
         self,
         lower: Any = -inf,
         upper: Any = inf,
-        coords: Sequence[Sequence | pd.Index | DataArray] | Mapping | None = None,
+        coords: Sequence[Sequence | pd.Index] | Mapping | None = None,
         name: str | None = None,
-        mask: DataArray | ndarray | Series | None = None,
+        mask: MaskLike | None = None,
         binary: bool = False,
         integer: bool = False,
         semi_continuous: bool = False,
@@ -610,12 +625,27 @@ class Model:
         upper : TYPE, optional
             Upper bound of the variable(s). Ignored if `binary` is True.
             The default is inf.
-        coords : list/xarray.Coordinates, optional
-            The coords of the variable array.
-            These are directly passed to the DataArray creation of
-            `lower` and `upper`. For every single combination of
-            coordinates a optimization variable is added to the model.
-            The default is None.
+        coords : list/dict/xarray.Coordinates, optional
+            The coords of the variable array. When provided with **named
+            dimensions** (a ``Mapping``, ``xarray.Coordinates``, a
+            sequence of named ``pd.Index`` objects, or an unnamed
+            sequence paired with ``dims=`` in ``**kwargs``), ``coords``
+            is the source of truth for the variable's dimensions,
+            order, and values. ``lower``, ``upper`` and ``mask`` are
+            aligned to this contract:
+
+            - dims of every bound must be a subset of ``coords.dims``;
+              extra dims raise ``ValueError``;
+            - dim order in the variable always follows ``coords``;
+            - shared-dim coordinate values must equal ``coords``; same
+              values in a different order are auto-reindexed, different
+              value sets raise ``ValueError``;
+            - dims listed in ``coords`` but missing from a bound are
+              broadcast to ``coords`` shape.
+
+            One optimization variable is added per combination of
+            coordinates. The default is ``None``, in which case the
+            shape is inferred from the bounds.
         name : str, optional
             Reference name of the added variables. The default None results in
             a name like "var1", "var2" etc.
@@ -668,6 +698,67 @@ class Model:
         [7]: x[7] ∈ [0, inf]
         [8]: x[8] ∈ [0, inf]
         [9]: x[9] ∈ [0, inf]
+
+        Strict coords-as-truth: a bound with an extra dim raises.
+
+        >>> import xarray as xr
+        >>> m = Model()
+        >>> bad = xr.DataArray(
+        ...     [[1.0, 2.0, 3.0]] * 2,
+        ...     dims=["extra", "x"],
+        ...     coords={"x": [0, 1, 2]},
+        ... )
+        >>> m.add_variables(lower=bad, coords=[pd.Index([0, 1, 2], name="x")], name="v")
+        Traceback (most recent call last):
+        ...
+        ValueError: lower bound has dimension(s) ['extra'] not declared in coords ...
+
+        Strict coords-as-truth: a bound whose shared-dim values don't
+        match raises.
+
+        >>> m = Model()
+        >>> wrong = xr.DataArray(
+        ...     [1.0, 2.0, 3.0], dims=["x"], coords={"x": [10, 20, 30]}
+        ... )
+        >>> m.add_variables(
+        ...     lower=wrong, coords=[pd.Index([0, 1, 2], name="x")], name="v"
+        ... )
+        Traceback (most recent call last):
+        ...
+        ValueError: lower bound: coordinate values for dimension 'x' do not match coords ...
+
+        Strict coords-as-truth, helpful side: a bound whose coord values
+        match ``coords`` only in a different order is auto-reindexed.
+
+        >>> m = Model()
+        >>> reordered = xr.DataArray(
+        ...     [3.0, 1.0, 2.0], dims=["x"], coords={"x": ["c", "a", "b"]}
+        ... )
+        >>> v = m.add_variables(
+        ...     lower=reordered,
+        ...     coords=[pd.Index(["a", "b", "c"], name="x")],
+        ...     name="r",
+        ... )
+        >>> v.lower.values.tolist()
+        [1.0, 2.0, 3.0]
+
+        Unnamed-coords sequence + ``dims=`` opts into the same strict
+        enforcement as a named index — extra dims still raise.
+
+        >>> m = Model()
+        >>> m.add_variables(lower=bad, coords=[[0, 1, 2]], dims=["x"], name="w")
+        Traceback (most recent call last):
+        ...
+        ValueError: lower bound has dimension(s) ['extra'] not declared in coords ...
+
+        The same strict contract applies to ``mask`` (including with
+        ``coords=[[...]], dims=[...]``).
+
+        >>> m = Model()
+        >>> m.add_variables(mask=bad, coords=[[0, 1, 2]], dims=["x"], name="wm")
+        Traceback (most recent call last):
+        ...
+        ValueError: mask has dimension(s) ['extra'] not declared in coords ...
         """
         if name is None:
             name = f"var{self._varnameCounter}"
@@ -693,14 +784,12 @@ class Model:
                     "Semi-continuous variables require a positive scalar lower bound."
                 )
 
-        if coords is not None:
-            lower = _validate_dataarray_bounds(lower, coords)
-            upper = _validate_dataarray_bounds(upper, coords)
-
+        lower_da = broadcast_to_coords(lower, coords, label="lower bound", **kwargs)
+        upper_da = broadcast_to_coords(upper, coords, label="upper bound", **kwargs)
         data = Dataset(
             {
-                "lower": as_dataarray(lower, coords, **kwargs),
-                "upper": as_dataarray(upper, coords, **kwargs),
+                "lower": lower_da,
+                "upper": upper_da,
                 "labels": -1,
             }
         )
@@ -709,8 +798,12 @@ class Model:
         self._check_valid_dim_names(data)
 
         if mask is not None:
-            mask = as_dataarray(mask, coords=data.coords, dims=data.dims).astype(bool)
-            mask = broadcast_mask(mask, data.labels)
+            mask = broadcast_to_coords(
+                mask,
+                coords if coords is not None else data.coords,
+                label="mask",
+                **kwargs,
+            ).astype(bool)
 
         # Auto-mask based on NaN in bounds (use numpy for speed)
         if self.auto_mask:
@@ -808,6 +901,108 @@ class Model:
 
     add_piecewise_formulation = add_piecewise_formulation
 
+    def _resolve_constraint_name(self, name: str | None, prefix: str = "con") -> str:
+        """Validate a constraint name or generate one from ``prefix``."""
+        if name in list(self.constraints):
+            raise ValueError(f"Constraint '{name}' already assigned to model")
+        if name is None:
+            name = f"{prefix}{self._connameCounter}"
+            self._connameCounter += 1
+        return name
+
+    def _constraint_data_from_lhs(
+        self,
+        lhs: VariableLike
+        | ExpressionLike
+        | ConstraintLike
+        | Sequence[tuple[ConstantLike, VariableLike | str]]
+        | Callable,
+        sign: SignLike | None,
+        rhs: ConstantLike | VariableLike | ExpressionLike | None,
+        coords: Sequence[Sequence | pd.Index] | Mapping | None = None,
+    ) -> Dataset:
+        """Build the constraint Dataset from an ``lhs`` and optional ``sign``/``rhs``."""
+        msg_required = (
+            f"`sign` and `rhs` are required when `lhs` is a {type(lhs).__name__}."
+        )
+        msg_must_be_none = (
+            f"`sign` and `rhs` must be None when `lhs` is a {type(lhs).__name__}."
+        )
+        if isinstance(lhs, LinearExpression):
+            if sign is None or rhs is None:
+                raise ValueError(msg_required)
+            return lhs.to_constraint(sign, rhs).data
+        elif isinstance(lhs, list | tuple):
+            if sign is None or rhs is None:
+                raise ValueError(msg_required)
+            return self.linexpr(*lhs).to_constraint(sign, rhs).data
+        elif callable(lhs):
+            assert coords is not None, "`coords` must be given when lhs is a function"
+            if sign is not None or rhs is not None:
+                raise ValueError(msg_must_be_none)
+            return Constraint.from_rule(self, lhs, coords).data
+        elif isinstance(lhs, AnonymousScalarConstraint):
+            if sign is not None or rhs is not None:
+                raise ValueError(msg_must_be_none)
+            return lhs.to_constraint().data
+        elif isinstance(lhs, ConstraintBase):
+            if sign is not None or rhs is not None:
+                raise ValueError(msg_must_be_none)
+            return lhs.data
+        elif isinstance(lhs, Variable | ScalarVariable | ScalarLinearExpression):
+            if sign is None or rhs is None:
+                raise ValueError(msg_required)
+            return lhs.to_linexpr().to_constraint(sign, rhs).data
+        else:
+            raise TypeError(
+                f"`lhs` must be a LinearExpression, Variable, Constraint, tuple, or "
+                f"callable, got {type(lhs).__name__}."
+            )
+
+    def _allocate_constraint_labels(
+        self, data: Dataset, name: str, mask: DataArray | None = None
+    ) -> Dataset:
+        """Assign label ranges from the constraint counter and apply an optional mask."""
+        start = self._cCounter
+        end = start + data.labels.size
+        data.labels.values = np.arange(start, end).reshape(data.labels.shape)
+        self._cCounter += data.labels.size
+        if mask is not None:
+            data.labels.values = np.where(mask.values, data.labels.values, -1)
+        return data.assign_attrs(label_range=(start, end), name=name)
+
+    @overload
+    def add_constraints(
+        self,
+        lhs: VariableLike
+        | ExpressionLike
+        | ConstraintLike
+        | Sequence[tuple[ConstantLike, VariableLike | str]]
+        | Callable,
+        sign: SignLike | None = ...,
+        rhs: ConstantLike | VariableLike | ExpressionLike | None = ...,
+        name: str | None = ...,
+        coords: Sequence[Sequence | pd.Index] | Mapping | None = ...,
+        mask: MaskLike | None = ...,
+        freeze: Literal[False] = ...,
+    ) -> Constraint: ...
+
+    @overload
+    def add_constraints(
+        self,
+        lhs: VariableLike
+        | ExpressionLike
+        | ConstraintLike
+        | Sequence[tuple[ConstantLike, VariableLike | str]]
+        | Callable,
+        sign: SignLike | None = ...,
+        rhs: ConstantLike | VariableLike | ExpressionLike | None = ...,
+        name: str | None = ...,
+        coords: Sequence[Sequence | pd.Index] | Mapping | None = ...,
+        mask: MaskLike | None = ...,
+        freeze: Literal[True] = ...,
+    ) -> CSRConstraint: ...
+
     def add_constraints(
         self,
         lhs: VariableLike
@@ -818,9 +1013,10 @@ class Model:
         sign: SignLike | None = None,
         rhs: ConstantLike | VariableLike | ExpressionLike | None = None,
         name: str | None = None,
-        coords: Sequence[Sequence | pd.Index | DataArray] | Mapping | None = None,
+        coords: Sequence[Sequence | pd.Index] | Mapping | None = None,
         mask: MaskLike | None = None,
-    ) -> Constraint:
+        freeze: bool | None = None,
+    ) -> ConstraintBase:
         """
         Assign a new, possibly multi-dimensional array of constraints to the
         model.
@@ -832,7 +1028,7 @@ class Model:
 
         Parameters
         ----------
-        lhs : linopy.LinearExpression/linopy.Constraint/callable
+        lhs : linopy.LinearExpression/linopy.ConstraintBase/callable
             Left hand side of the constraint(s) or optionally full constraint.
             In case a linear expression is passed, `sign` and `rhs` must not be
             None.
@@ -854,22 +1050,18 @@ class Model:
             Boolean mask with False values for constraints which are skipped.
             The shape of the mask has to match the shape the added constraints.
             Default is None.
-
+        freeze : bool, optional
+            If True, convert the constraint to an immutable CSR-backed CSRConstraint
+            for better memory efficiency. If None, uses the model default
+            ``Model.freeze_constraints`` setting (default False).
 
         Returns
         -------
-        labels : linopy.model.Constraint
-            Array containing the labels of the added constraints.
+        constraint : linopy.ConstraintBase
+            The added constraint (Constraint by default, or CSRConstraint if freeze=True).
         """
 
-        msg_sign_rhs_none = f"Arguments `sign` and `rhs` cannot be None when passing along with a {type(lhs)}."
-        msg_sign_rhs_not_none = f"Arguments `sign` and `rhs` cannot be None when passing along with a {type(lhs)}."
-
-        if name in list(self.constraints):
-            raise ValueError(f"Constraint '{name}' already assigned to model")
-        elif name is None:
-            name = f"con{self._connameCounter}"
-            self._connameCounter += 1
+        name = self._resolve_constraint_name(name)
         if sign is not None:
             sign = maybe_replace_signs(as_dataarray(sign))
 
@@ -881,37 +1073,7 @@ class Model:
             rhs_da = as_dataarray(rhs)
             original_rhs_mask = (rhs_da.coords, rhs_da.dims, ~np.isnan(rhs_da.values))
 
-        if isinstance(lhs, LinearExpression):
-            if sign is None or rhs is None:
-                raise ValueError(msg_sign_rhs_not_none)
-            data = lhs.to_constraint(sign, rhs).data
-        elif isinstance(lhs, list | tuple):
-            if sign is None or rhs is None:
-                raise ValueError(msg_sign_rhs_none)
-            data = self.linexpr(*lhs).to_constraint(sign, rhs).data
-        # directly convert first argument to a constraint
-        elif callable(lhs):
-            assert coords is not None, "`coords` must be given when lhs is a function"
-            rule = lhs
-            if sign is not None or rhs is not None:
-                raise ValueError(msg_sign_rhs_none)
-            data = Constraint.from_rule(self, rule, coords).data
-        elif isinstance(lhs, AnonymousScalarConstraint):
-            if sign is not None or rhs is not None:
-                raise ValueError(msg_sign_rhs_none)
-            data = lhs.to_constraint().data
-        elif isinstance(lhs, Constraint):
-            if sign is not None or rhs is not None:
-                raise ValueError(msg_sign_rhs_none)
-            data = lhs.data
-        elif isinstance(lhs, Variable | ScalarVariable | ScalarLinearExpression):
-            if sign is None or rhs is None:
-                raise ValueError(msg_sign_rhs_not_none)
-            data = lhs.to_linexpr().to_constraint(sign, rhs).data
-        else:
-            raise ValueError(
-                f"Invalid type of `lhs` ({type(lhs)}) or invalid combination of `lhs`, `sign` and `rhs`."
-            )
+        data = self._constraint_data_from_lhs(lhs, sign, rhs, coords)
 
         invalid_infinity_values = (
             (data.sign == LESS_EQUAL) & (data.rhs == -np.inf)
@@ -938,8 +1100,7 @@ class Model:
         (data,) = xr.broadcast(data, exclude=[TERM_DIM])
 
         if mask is not None:
-            mask = as_dataarray(mask, coords=data.coords, dims=data.dims).astype(bool)
-            mask = broadcast_mask(mask, data.labels)
+            mask = broadcast_to_coords(mask, data.coords, label="mask").astype(bool)
 
         # Auto-mask based on null expressions or NaN RHS (use numpy for speed)
         if self.auto_mask:
@@ -964,22 +1125,89 @@ class Model:
 
         self.check_force_dim_names(data)
 
-        start = self._cCounter
-        end = start + data.labels.size
-        data.labels.values = np.arange(start, end).reshape(data.labels.shape)
-        self._cCounter += data.labels.size
-
-        if mask is not None:
-            data.labels.values = np.where(mask.values, data.labels.values, -1)
-
-        data = data.assign_attrs(label_range=(start, end), name=name)
+        data = self._allocate_constraint_labels(data, name, mask)
 
         if self.chunk:
             data = data.chunk(self.chunk)
 
         constraint = Constraint(data, name=name, model=self, skip_broadcast=True)
-        self.constraints.add(constraint)
-        return constraint
+        if freeze is None:
+            freeze = self.freeze_constraints
+        return self.constraints.add(constraint, freeze=freeze and not self.chunk)
+
+    def add_indicator_constraints(
+        self,
+        binary_var: Variable,
+        binary_val: int,
+        lhs: ConstraintLike | ExpressionLike | VariableLike,
+        sign: SignLike | None = None,
+        rhs: ConstantLike | None = None,
+        name: str | None = None,
+    ) -> ConstraintBase:
+        """
+        Add indicator constraints to the model.
+
+        An indicator constraint has the form:
+            (binary_var == binary_val) => (linear_constraint)
+
+        The linear constraint is only enforced when binary_var equals
+        binary_val. These constraints are handled natively by solvers
+        like Gurobi and CPLEX via general constraints.
+
+        Parameters
+        ----------
+        binary_var : linopy.Variable
+            Binary variable serving as the indicator. Must have binary=True.
+        binary_val : int
+            Triggering value, must be 0 or 1.
+        lhs : linopy.Constraint, linopy.LinearExpression, or linopy.Variable
+            The conditionally enforced constraint. If a LinearExpression or
+            Variable is passed, ``sign`` and ``rhs`` must also be provided.
+        sign : str, optional
+            Constraint sign ('<=', '>=', '='). Required when ``lhs`` is an
+            expression.
+        rhs : numeric, optional
+            Right-hand side. Required when ``lhs`` is an expression.
+        name : str, optional
+            Name for the indicator constraint group.
+
+        Returns
+        -------
+        linopy.constraints.ConstraintBase
+            The added indicator constraint.
+        """
+        if not binary_var.attrs.get("binary", False):
+            raise ValueError(
+                "Indicator variable must be binary. "
+                f"Variable '{binary_var.name}' is not binary."
+            )
+
+        if binary_val not in (0, 1):
+            raise ValueError(f"binary_val must be 0 or 1, got {binary_val}.")
+
+        name = self._resolve_constraint_name(name, prefix="indcon")
+        if sign is not None:
+            sign = maybe_replace_signs(as_dataarray(sign))
+
+        data = self._constraint_data_from_lhs(lhs, sign, rhs)
+
+        data["binary_var"] = binary_var.labels
+        data["binary_val"] = binary_val
+
+        data["labels"] = -1
+        (data,) = xr.broadcast(data, exclude=[TERM_DIM])
+
+        data = self._allocate_constraint_labels(data, name)
+
+        con = Constraint(data, name=name, model=self, skip_broadcast=True)
+        freeze = self.freeze_constraints
+        return self.constraints.add(con, freeze=freeze and not self.chunk)
+
+    def remove_indicator_constraints(self, name: str) -> None:
+        """
+        Remove indicator constraint by name.
+        """
+        self.constraints.remove(name)
 
     def add_objective(
         self,
@@ -1031,28 +1259,28 @@ class Model:
         -------
         None.
         """
-        from linopy.constants import FIX_CONSTRAINT_PREFIX
+        variable = self.variables[name]
 
-        # Clean up fix constraint if present
-        fix_name = f"{FIX_CONSTRAINT_PREFIX}{name}"
-        if fix_name in self.constraints:
-            self.constraints.remove(fix_name)
-
-        # Clean up relaxed registry if present
         self._relaxed_registry.pop(name, None)
 
-        labels = self.variables[name].labels
+        to_remove = [
+            k for k, con in self.constraints.items() if con.has_variable(variable)
+        ]
+
+        if to_remove:
+            warnings.warn(
+                f"Removing variable '{name}' also removes constraints {to_remove} "
+                "because they reference this variable.",
+                UserWarning,
+                stacklevel=2,
+            )
+            for k in to_remove:
+                self.constraints.remove(k)
+
         self.variables.remove(name)
 
-        for k in list(self.constraints):
-            vars = self.constraints[k].data["vars"]
-            vars = vars.where(~vars.isin(labels), -1)
-            self.constraints[k]._data = assign_multiindex_safe(
-                self.constraints[k].data, vars=vars
-            )
-
         self.objective = self.objective.sel(
-            {TERM_DIM: ~self.objective.vars.isin(labels)}
+            {TERM_DIM: ~self.objective.vars.isin(variable.labels)}
         )
 
     def remove_constraints(self, name: str | list[str]) -> None:
@@ -1109,6 +1337,80 @@ class Model:
 
     reformulate_sos_constraints = reformulate_sos_constraints
 
+    def apply_sos_reformulation(self) -> None:
+        """
+        Reformulate SOS constraints into binary + linear form, in place.
+
+        The reformulation token is stored on the model so it can be reverted
+        with :meth:`undo_sos_reformulation`. This is the stateful counterpart
+        to :func:`linopy.sos_reformulation.reformulate_sos_constraints`, where
+        the caller owns the token.
+
+        Raises
+        ------
+        RuntimeError
+            If a reformulation has already been applied and not undone.
+        """
+        if self._sos_reformulation_state is not None:
+            raise RuntimeError(
+                "SOS reformulation has already been applied to this model. "
+                "Call `undo_sos_reformulation()` before applying again."
+            )
+        self._sos_reformulation_state = reformulate_sos_constraints(self)
+
+    def undo_sos_reformulation(self) -> None:
+        """
+        Revert a previously applied SOS reformulation.
+
+        Raises
+        ------
+        RuntimeError
+            If no reformulation is currently applied.
+        """
+        if self._sos_reformulation_state is None:
+            raise RuntimeError(
+                "No SOS reformulation is currently applied to this model."
+            )
+        state = self._sos_reformulation_state
+        self._sos_reformulation_state = None
+        undo_sos_reformulation(self, state)
+
+    def _resolve_sos_reformulation(
+        self,
+        solver_name: str | None,
+        reformulate_sos: bool | Literal["auto"],
+    ) -> bool:
+        """
+        Decide whether ``apply_sos_reformulation`` should run.
+
+        Validates ``reformulate_sos`` and returns ``True`` iff the SOS
+        constraints on this model should be reformulated for the chosen
+        solver.  ``solver_name`` is only consulted when
+        ``reformulate_sos == "auto"`` (to look up SOS support); for
+        ``True`` / ``False`` the decision is independent of the solver.
+        """
+        if reformulate_sos not in (True, False, "auto"):
+            raise ValueError(
+                f"Invalid value for reformulate_sos: {reformulate_sos!r}. "
+                "Must be True, False, or 'auto'."
+            )
+        if not self.variables.sos:
+            return False
+
+        if reformulate_sos is False:
+            return False
+        elif reformulate_sos is True:
+            return True
+        elif solver_name is None:
+            raise ValueError(
+                "`reformulate_sos='auto'` on a model with SOS constraints "
+                "requires an explicit `solver_name` so we can check "
+                "whether the chosen solver supports SOS. Pass "
+                "`solver_name=...` or use `reformulate_sos=True`/`False` "
+                "to skip the lookup."
+            )
+        return not solver_supports(solver_name, SolverFeature.SOS_CONSTRAINTS)
+
     def remove_objective(self) -> None:
         """
         Remove the objective's linear expression from the model.
@@ -1149,14 +1451,17 @@ class Model:
 
     @property
     def is_linear(self) -> bool:
+        """Whether the objective is linear."""
         return self.objective.is_linear
 
     @property
     def is_quadratic(self) -> bool:
+        """Whether the objective is quadratic."""
         return self.objective.is_quadratic
 
     @property
     def type(self) -> str:
+        """Short string identifying the problem type."""
         if (
             len(self.binaries) or len(self.integers) or len(self.semi_continuous)
         ) and len(self.continuous):
@@ -1234,7 +1539,7 @@ class Model:
 
     @overload
     def linexpr(
-        self, *args: Sequence[Sequence | pd.Index | DataArray] | Mapping
+        self, *args: Sequence[Sequence | pd.Index] | Mapping
     ) -> LinearExpression: ...
 
     @overload
@@ -1247,7 +1552,7 @@ class Model:
         *args: tuple[ConstantLike, str | Variable | ScalarVariable]
         | ConstantLike
         | Callable
-        | Sequence[Sequence | pd.Index | DataArray]
+        | Sequence[Sequence | pd.Index]
         | Mapping,
     ) -> LinearExpression:
         """
@@ -1389,6 +1694,7 @@ class Model:
         solver_name: str | None = None,
         io_api: str | None = None,
         explicit_coordinate_names: bool = False,
+        set_names: bool | None = None,
         problem_fn: str | Path | None = None,
         solution_fn: str | Path | None = None,
         log_fn: str | Path | None = None,
@@ -1399,7 +1705,7 @@ class Model:
         sanitize_zeros: bool = True,
         sanitize_infinities: bool = True,
         slice_size: int = 2_000_000,
-        remote: RemoteHandler | OetcHandler = None,  # type: ignore
+        remote: RemoteHandler | OetcHandler | None = None,
         progress: bool | None = None,
         mock_solve: bool = False,
         reformulate_sos: bool | Literal["auto"] = False,
@@ -1428,6 +1734,11 @@ class Model:
             this option allows to keep the variable and constraint names in the
             lp file. This may lead to slower run times.
             The default is set to False.
+        set_names : bool, optional
+            Whether to set variable and constraint names when using the direct
+            solver API (io_api='direct'). Setting to False can significantly
+            speed up model export. If None, uses the model default
+            ``Model.set_names_in_solver_io`` setting (default True).
         problem_fn : path_like, optional
             Path of the lp file or output file/directory which is written out
             during the process. The default None results in a temporary file.
@@ -1473,13 +1784,12 @@ class Model:
         mock_solve : bool, optional
             Whether to run a mock solve. This will skip the actual solving. Variables will be set to have dummy values
         reformulate_sos : bool | Literal["auto"], optional
-            Whether to automatically reformulate SOS constraints as binary + linear
-            constraints for solvers that don't support them natively.
-            If True, always reformulates (warns if solver supports SOS natively).
-            If "auto", silently reformulates only when the solver lacks SOS support.
-            If False, raises if solver doesn't support SOS.
-            This uses the Big-M method and requires all SOS variables to have finite bounds.
-            Default is False.
+            Whether to reformulate SOS constraints as binary + linear constraints.
+            If True, always reformulates, even when the solver supports SOS natively.
+            If "auto", reformulates only when the solver lacks SOS support.
+            If False, raises if the solver doesn't support SOS.
+            Reformulation uses the Big-M method and requires all SOS variables
+            to have finite bounds. Default is False.
         **solver_options : kwargs
             Options passed to the solver.
 
@@ -1494,15 +1804,6 @@ class Model:
                 sanitize_zeros=sanitize_zeros, sanitize_infinities=sanitize_infinities
             )
 
-        if self.objective.expression.empty:
-            raise ValueError(
-                "No objective has been set on the model. Use `m.add_objective(...)` "
-                "first (e.g. `m.add_objective(0 * x)` for a pure feasibility problem)."
-            )
-
-        # clear cached matrix properties potentially present from previous solve commands
-        self.matrices.clean_cached_properties()
-
         # check io_api
         if io_api is not None and io_api not in IO_APIS:
             raise ValueError(
@@ -1510,9 +1811,22 @@ class Model:
             )
 
         if remote is not None:
+            # The remote branch short-circuits before reaching Solver.solve(),
+            # which is where the empty-objective check normally fires. Replicate
+            # it here. This duplication becomes obsolete once OETC is folded
+            # into the Solver pipeline (see PyPSA/linopy#683).
+            if self.objective.expression.empty:
+                raise ValueError(
+                    "No objective has been set on the model. Use "
+                    "`m.add_objective(...)` first (e.g. `m.add_objective(0 * x)` "
+                    "for a pure feasibility problem)."
+                )
             if isinstance(remote, OetcHandler):
                 solved = remote.solve_on_oetc(
-                    self, solver_name=solver_name, **solver_options
+                    self,
+                    solver_name=solver_name,
+                    reformulate_sos=reformulate_sos,
+                    **solver_options,
                 )
             else:
                 solved = remote.solve_on_remote(
@@ -1526,6 +1840,7 @@ class Model:
                     warmstart_fn=warmstart_fn,
                     keep_files=keep_files,
                     sanitize_zeros=sanitize_zeros,
+                    reformulate_sos=reformulate_sos,
                     **solver_options,
                 )
 
@@ -1561,11 +1876,13 @@ class Model:
             )
             logger.info(f"Solver options:\n{options_string}")
 
+        solver_class = getattr(solvers, solvers.SolverName(solver_name).name)
+
         if problem_fn is None:
             problem_fn = self.get_problem_file(io_api=io_api)
         if solution_fn is None:
             if (
-                solver_supports(solver_name, SolverFeature.SOLUTION_FILE_NOT_NEEDED)
+                solver_class.supports(SolverFeature.SOLUTION_FILE_NOT_NEEDED)
                 and not keep_files
             ):
                 # these (solver, keep_files=False) combos do not need a solution file
@@ -1573,141 +1890,117 @@ class Model:
             else:
                 solution_fn = self.get_solution_file()
 
-        if sanitize_zeros:
-            self.constraints.sanitize_zeros()
+        with sos_reformulation_context(self, solver_name, reformulate_sos):
+            if sanitize_zeros:
+                self.constraints.sanitize_zeros()
+            if sanitize_infinities:
+                self.constraints.sanitize_infinities()
 
-        if sanitize_infinities:
-            self.constraints.sanitize_infinities()
-
-        if self.is_quadratic and not solver_supports(
-            solver_name, SolverFeature.QUADRATIC_OBJECTIVE
-        ):
-            raise ValueError(
-                f"Solver {solver_name} does not support quadratic problems."
-            )
-
-        if reformulate_sos not in (True, False, "auto"):
-            raise ValueError(
-                f"Invalid value for reformulate_sos: {reformulate_sos!r}. "
-                "Must be True, False, or 'auto'."
-            )
-
-        sos_reform_result = None
-        if self.variables.sos:
-            supports_sos = solver_supports(solver_name, SolverFeature.SOS_CONSTRAINTS)
-            if reformulate_sos in (True, "auto") and not supports_sos:
-                logger.info(f"Reformulating SOS constraints for solver {solver_name}")
-                sos_reform_result = reformulate_sos_constraints(self)
-            elif reformulate_sos is True and supports_sos:
-                logger.warning(
-                    f"Solver {solver_name} supports SOS natively; "
-                    "reformulate_sos=True is ignored."
-                )
-            elif reformulate_sos is False and not supports_sos:
-                raise ValueError(
-                    f"Solver {solver_name} does not support SOS constraints. "
-                    "Use reformulate_sos=True or 'auto', or a solver that supports SOS (gurobi, cplex)."
-                )
-
-        if self.variables.semi_continuous:
-            if not solver_supports(
-                solver_name, SolverFeature.SEMI_CONTINUOUS_VARIABLES
-            ):
-                raise ValueError(
-                    f"Solver {solver_name} does not support semi-continuous variables. "
-                    "Use a solver that supports them (gurobi, cplex, highs)."
-                )
-
-        try:
-            solver_class = getattr(solvers, f"{solvers.SolverName(solver_name).name}")
-            # initialize the solver as object of solver subclass <solver_class>
-            solver = solver_class(
-                **solver_options,
-            )
-            if io_api == "direct":
-                # no problem file written and direct model is set for solver
-                result = solver.solve_problem_from_model(
+            try:
+                self.solver = None  # closes any previous solver
+                if io_api == "direct":
+                    if set_names is None:
+                        set_names = self.set_names_in_solver_io
+                    build_kwargs: dict[str, Any] = {
+                        "explicit_coordinate_names": explicit_coordinate_names,
+                        "set_names": set_names,
+                        "log_fn": to_path(log_fn),
+                    }
+                    if env is not None:
+                        build_kwargs["env"] = env
+                else:
+                    build_kwargs = {
+                        "explicit_coordinate_names": explicit_coordinate_names,
+                        "slice_size": slice_size,
+                        "progress": progress,
+                        "problem_fn": to_path(problem_fn),
+                    }
+                self.solver = solver = solvers.Solver.from_name(
+                    solver_name,
                     model=self,
-                    solution_fn=to_path(solution_fn),
-                    log_fn=to_path(log_fn),
-                    warmstart_fn=to_path(warmstart_fn),
-                    basis_fn=to_path(basis_fn),
-                    env=env,
-                    explicit_coordinate_names=explicit_coordinate_names,
-                )
-            else:
-                if (
-                    not solver_supports(solver_name, SolverFeature.LP_FILE_NAMES)
-                    and explicit_coordinate_names
-                ):
-                    logger.warning(
-                        f"{solver_name} does not support writing names to lp files, disabling it."
-                    )
-                    explicit_coordinate_names = False
-                problem_fn = self.to_file(
-                    to_path(problem_fn),
                     io_api=io_api,
-                    explicit_coordinate_names=explicit_coordinate_names,
-                    slice_size=slice_size,
-                    progress=progress,
+                    options=solver_options,
+                    **build_kwargs,
                 )
-                result = solver.solve_problem_from_file(
-                    problem_fn=to_path(problem_fn),
+                if io_api != "direct":
+                    problem_fn = solver._problem_fn
+                result = solver.solve(
                     solution_fn=to_path(solution_fn),
                     log_fn=to_path(log_fn),
                     warmstart_fn=to_path(warmstart_fn),
                     basis_fn=to_path(basis_fn),
                     env=env,
                 )
+            finally:
+                for fn in (problem_fn, solution_fn):
+                    if fn is not None and (os.path.exists(fn) and not keep_files):
+                        os.remove(fn)
 
-        finally:
-            for fn in (problem_fn, solution_fn):
-                if fn is not None and (os.path.exists(fn) and not keep_files):
-                    os.remove(fn)
+            return self.assign_result(result)
 
-        try:
-            result.info()
+    def assign_result(
+        self,
+        result: Result,
+        solver: solvers.Solver | None = None,
+    ) -> tuple[str, str]:
+        """
+        Write a solver Result back onto the model.
 
+        Copies primal / dual values onto variables / constraints, sets
+        :attr:`status`, :attr:`termination_condition`, and
+        :attr:`objective.value`. When ``solver`` is provided, also stores it on
+        ``self.solver`` so post-solve introspection (``model.solver_model``,
+        ``compute_infeasibilities()``) works.
+
+        Parameters
+        ----------
+        result : Result
+            The :class:`linopy.constants.Result` returned by
+            :meth:`linopy.solvers.Solver.solve`.
+        solver : Solver, optional
+            The solver instance that produced the result. Pass it on the
+            low-level ``Solver.from_name(...).solve()`` path to attach it as
+            ``self.solver`` for post-solve introspection. ``Model.solve()``
+            attaches the solver itself and does not pass this argument.
+        """
+        if solver is not None:
+            self.solver = solver
+
+        result.info()
+
+        if result.solution is not None:
             self.objective._value = result.solution.objective
-            self.status = result.status.status.value
-            self.termination_condition = result.status.termination_condition.value
-            self.solver_model = result.solver_model
-            self.solver_name = solver_name
 
-            if not result.status.is_ok:
-                return (
-                    result.status.status.value,
-                    result.status.termination_condition.value,
+        status_value = result.status.status.value
+        termination_condition = result.status.termination_condition.value
+        self.status = status_value
+        self.termination_condition = termination_condition
+
+        if not result.status.is_ok:
+            return status_value, termination_condition
+
+        if result.solution is None or len(result.solution.primal) == 0:
+            return status_value, termination_condition
+
+        primal = result.solution.primal
+        for _, var in self.variables.items():
+            start, end = var.range
+            var.solution = xr.DataArray(
+                primal[start:end].reshape(var.shape), var.coords
+            )
+
+        if len(result.solution.dual):
+            dual = result.solution.dual
+            for _, con in self.constraints.items():
+                if con.is_indicator:
+                    continue
+                start, end = con.range
+                coords = {dim: con.coords[dim] for dim in con.coord_dims}
+                con.dual = xr.DataArray(
+                    dual[start:end].reshape(con.shape), coords, dims=con.coord_dims
                 )
 
-            # map solution and dual to original shape which includes missing values
-            sol = result.solution.primal.copy()
-            sol = set_int_index(sol)
-            sol.loc[-1] = nan
-
-            sol_arr = series_to_lookup_array(sol)
-
-            for _, var in self.variables.items():
-                vals = lookup_vals(sol_arr, np.ravel(var.labels))
-                var.solution = xr.DataArray(vals.reshape(var.labels.shape), var.coords)
-
-            if not result.solution.dual.empty:
-                dual = result.solution.dual.copy()
-                dual = set_int_index(dual)
-                dual.loc[-1] = nan
-
-                dual_arr = series_to_lookup_array(dual)
-
-                for _, con in self.constraints.items():
-                    vals = lookup_vals(dual_arr, np.ravel(con.labels))
-                    con.dual = xr.DataArray(
-                        vals.reshape(con.labels.shape), con.labels.coords
-                    )
-
-            return result.status.status.value, result.status.termination_condition.value
-        finally:
-            if sos_reform_result is not None:
-                undo_sos_reformulation(self, sos_reform_result)
+        return status_value, termination_condition
 
     def _mock_solve(
         self,
@@ -1716,10 +2009,8 @@ class Model:
     ) -> tuple[str, str]:
         solver_name = "mock"
 
-        # clear cached matrix properties potentially present from previous solve commands
-        self.matrices.clean_cached_properties()
-
         logger.info(f" Solve problem using {solver_name.title()} solver")
+        self.solver = None
         # reset result
         self.reset_solution()
 
@@ -1732,8 +2023,6 @@ class Model:
         self.objective._value = 0.0
         self.status = "ok"
         self.termination_condition = TerminationCondition.optimal.value
-        self.solver_model = None
-        self.solver_name = solver_name
 
         for name, var in self.variables.items():
             var.solution = xr.DataArray(0.0, var.coords)
@@ -1756,7 +2045,7 @@ class Model:
         labels : list[int]
             Labels of the infeasible constraints.
         """
-        solver_model = getattr(self, "solver_model", None)
+        solver_model = self.solver_model
 
         # Check for Gurobi
         if "gurobi" in available_solvers:
@@ -1785,8 +2074,10 @@ class Model:
         # If we get here, either the solver doesn't support IIS or no solver model is available
         if solver_model is None:
             # Check if this is a supported solver without a stored model
-            solver_name = getattr(self, "solver_name", "unknown")
-            if solver_supports(solver_name, SolverFeature.IIS_COMPUTATION):
+            solver_name = self.solver_name or "unknown"
+            if self.solver is not None and self.solver.supports(
+                SolverFeature.IIS_COMPUTATION
+            ):
                 raise ValueError(
                     "No solver model available. The model must be solved first with "
                     "a solver that supports IIS computation and the result must be infeasible."
@@ -1843,7 +2134,7 @@ class Model:
         if solver_model.attributes.numiis == 0:
             return []
 
-        clabels = self.matrices.clabels
+        clabels = self.constraints.label_index.clabels
         constraint_position_map = {}
         for position, constraint_obj in enumerate(solver_model.getConstraint()):
             if 0 <= position < len(clabels):
@@ -2011,4 +2302,8 @@ class Model:
 
     to_cupdlpx = to_cupdlpx
 
+    to_xpress = to_xpress
+
     to_block_files = to_block_files
+
+    dualize = dualize

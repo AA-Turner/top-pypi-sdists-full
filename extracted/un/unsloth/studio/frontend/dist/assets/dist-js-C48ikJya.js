@@ -1,1 +1,0 @@
-import{invoke as e}from"./core-Dw7O2dkA.js";import"./image-DBc--61V.js";async function t(t,n){await e(`plugin:clipboard-manager|write_text`,{label:n?.label,text:t})}export{t as writeText};

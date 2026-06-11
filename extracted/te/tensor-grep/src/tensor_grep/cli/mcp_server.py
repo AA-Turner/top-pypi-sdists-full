@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import re
@@ -185,14 +186,35 @@ def _json_output_version() -> int:
     return int(match.group(1)) if match else 1
 
 
-def _rewrite_envelope() -> dict[str, Any]:
-    return {
+def _envelope_base(
+    *,
+    routing_backend: str,
+    routing_reason: str,
+    include_schema_version: bool = True,
+) -> dict[str, Any]:
+    """Build a tool JSON envelope carrying the stable MCP contract version.
+
+    audit A4: every tool envelope embeds ``mcp_contract_version`` alongside the
+    existing data-shape ``version``/``schema_version`` so agent callers can pin
+    the MCP tool/resource contract independently of the JSON output schema.
+    """
+    base: dict[str, Any] = {
         "version": _json_output_version(),
-        "schema_version": _json_output_version(),
-        "routing_backend": _REWRITE_ROUTING_BACKEND,
-        "routing_reason": _REWRITE_ROUTING_REASON,
-        "sidecar_used": False,
+        "mcp_contract_version": _TG_MCP_SERVER_CONTRACT_VERSION,
     }
+    if include_schema_version:
+        base["schema_version"] = _json_output_version()
+    base["routing_backend"] = routing_backend
+    base["routing_reason"] = routing_reason
+    base["sidecar_used"] = False
+    return base
+
+
+def _rewrite_envelope() -> dict[str, Any]:
+    return _envelope_base(
+        routing_backend=_REWRITE_ROUTING_BACKEND,
+        routing_reason=_REWRITE_ROUTING_REASON,
+    )
 
 
 def _rewrite_error_payload(
@@ -200,17 +222,93 @@ def _rewrite_error_payload(
     *,
     code: str,
     details: list[dict[str, str]] | None = None,
+    retryable: bool | None = None,
 ) -> dict[str, Any]:
     payload = _rewrite_envelope()
     error: dict[str, Any] = {"code": code, "message": message}
     if details:
         error["details"] = details
+    if retryable is not None:
+        error["retryable"] = retryable
     payload["error"] = error
     return payload
 
 
-def _rewrite_error(message: str, *, code: str) -> str:
-    return json.dumps(_rewrite_error_payload(message, code=code), indent=2)
+def _rewrite_error(message: str, *, code: str, retryable: bool | None = None) -> str:
+    return json.dumps(
+        _rewrite_error_payload(message, code=code, retryable=retryable),
+        indent=2,
+    )
+
+
+# audit A2: native rewrite failures previously collapsed to code="invalid_input"
+# regardless of cause, which makes an LLM caller retry a valid pattern when the
+# real failure was environmental. Classify the native stderr/exit so genuinely
+# distinct causes (pattern vs IO vs internal vs environment) get distinct codes
+# plus a retryable hint. The historical "invalid_input" code is preserved as the
+# default for unrecognized pattern-level failures that callers may key on.
+_REWRITE_PATTERN_ERROR_SIGNATURES = (
+    "pattern",
+    "parse error",
+    "failed to parse",
+    "invalid rewrite",
+    "invalid replacement",
+    "metavar",
+    "metavariable",
+    "unsupported language",
+    "unknown language",
+    "no such language",
+    "tree-sitter",
+    "syntax error",
+)
+_REWRITE_IO_ERROR_SIGNATURES = (
+    "no such file",
+    "not found",
+    "permission denied",
+    "is a directory",
+    "read-only file system",
+    "os error",
+    "i/o error",
+    "io error",
+    "failed to read",
+    "failed to write",
+    "failed to open",
+    "broken pipe",
+)
+_REWRITE_INTERNAL_ERROR_SIGNATURES = (
+    "panicked",
+    "panic",
+    "internal error",
+    "unwrap",
+    "index out of bounds",
+    "assertion failed",
+)
+
+
+def _classify_native_rewrite_failure(
+    stderr: str,
+    *,
+    returncode: int,
+) -> tuple[str, bool]:
+    """Map a native rewrite failure to a (code, retryable) pair.
+
+    - ``pattern_error``: the request itself is malformed (bad pattern, bad
+      replacement, unsupported language). Not retryable without changing input.
+    - ``io_error``: filesystem/permission failure. Retryable once the
+      environment is fixed; caller should not rewrite the pattern.
+    - ``native_internal_error``: the native engine crashed/panicked. Retryable;
+      pattern is likely valid.
+    - ``invalid_input``: preserved historical fallback for unrecognized
+      non-zero exits (treated as a request problem, not retryable).
+    """
+    haystack = stderr.casefold()
+    if any(token in haystack for token in _REWRITE_INTERNAL_ERROR_SIGNATURES):
+        return "native_internal_error", True
+    if any(token in haystack for token in _REWRITE_IO_ERROR_SIGNATURES):
+        return "io_error", True
+    if any(token in haystack for token in _REWRITE_PATTERN_ERROR_SIGNATURES):
+        return "pattern_error", False
+    return "invalid_input", False
 
 
 def _native_unavailable_error(
@@ -238,38 +336,29 @@ def _resolve_native_tg_binary_for_mcp() -> tuple[Path | None, str | None]:
 
 
 def _audit_manifest_error(message: str, *, code: str) -> str:
-    payload = {
-        "version": _json_output_version(),
-        "schema_version": _json_output_version(),
-        "routing_backend": "AuditManifest",
-        "routing_reason": "audit-manifest-verify",
-        "sidecar_used": False,
-        "error": {"code": code, "message": message},
-    }
+    payload = _envelope_base(
+        routing_backend="AuditManifest",
+        routing_reason="audit-manifest-verify",
+    )
+    payload["error"] = {"code": code, "message": message}
     return json.dumps(payload, indent=2)
 
 
 def _audit_history_error(message: str, *, code: str) -> str:
-    payload = {
-        "version": _json_output_version(),
-        "schema_version": _json_output_version(),
-        "routing_backend": "AuditManifest",
-        "routing_reason": "audit-manifest-history",
-        "sidecar_used": False,
-        "error": {"code": code, "message": message},
-    }
+    payload = _envelope_base(
+        routing_backend="AuditManifest",
+        routing_reason="audit-manifest-history",
+    )
+    payload["error"] = {"code": code, "message": message}
     return json.dumps(payload, indent=2)
 
 
 def _audit_diff_error(message: str, *, code: str) -> str:
-    payload = {
-        "version": _json_output_version(),
-        "schema_version": _json_output_version(),
-        "routing_backend": "AuditManifest",
-        "routing_reason": "audit-manifest-diff",
-        "sidecar_used": False,
-        "error": {"code": code, "message": message},
-    }
+    payload = _envelope_base(
+        routing_backend="AuditManifest",
+        routing_reason="audit-manifest-diff",
+    )
+    payload["error"] = {"code": code, "message": message}
     return json.dumps(payload, indent=2)
 
 
@@ -288,6 +377,7 @@ def _session_error_payload(
 ) -> str:
     payload: dict[str, Any] = {
         "version": _json_output_version(),
+        "mcp_contract_version": _TG_MCP_SERVER_CONTRACT_VERSION,
         "session_id": session_id,
         "path": str(Path(path).expanduser()),
         **extra,
@@ -310,6 +400,7 @@ def _session_exception_payload(
 ) -> str:
     payload: dict[str, Any] = {
         "version": _json_output_version(),
+        "mcp_contract_version": _TG_MCP_SERVER_CONTRACT_VERSION,
         "path": str(Path(path).expanduser()),
         **extra,
         "error": {
@@ -324,36 +415,33 @@ def _session_exception_payload(
 
 
 def _review_bundle_error(message: str, *, code: str, routing_reason: str) -> str:
-    payload = {
-        "version": _json_output_version(),
-        "routing_backend": "AuditManifest",
-        "routing_reason": routing_reason,
-        "sidecar_used": False,
-        "error": {"code": code, "message": message},
-    }
+    payload = _envelope_base(
+        routing_backend="AuditManifest",
+        routing_reason=routing_reason,
+        include_schema_version=False,
+    )
+    payload["error"] = {"code": code, "message": message}
     return json.dumps(payload, indent=2)
 
 
 def _ruleset_scan_error(message: str, *, code: str, ruleset: str, path: str) -> str:
-    payload = {
-        "version": _json_output_version(),
-        "routing_backend": "AstBackend",
-        "routing_reason": "builtin-ruleset-scan",
-        "sidecar_used": False,
-        "ruleset": ruleset,
-        "path": str(Path(path).expanduser()),
-        "error": {"code": code, "message": message},
-    }
+    payload = _envelope_base(
+        routing_backend="AstBackend",
+        routing_reason="builtin-ruleset-scan",
+        include_schema_version=False,
+    )
+    payload["ruleset"] = ruleset
+    payload["path"] = str(Path(path).expanduser())
+    payload["error"] = {"code": code, "message": message}
     return json.dumps(payload, indent=2)
 
 
 def _index_search_envelope() -> dict[str, Any]:
-    return {
-        "version": _json_output_version(),
-        "routing_backend": _INDEX_ROUTING_BACKEND,
-        "routing_reason": _INDEX_ROUTING_REASON,
-        "sidecar_used": False,
-    }
+    return _envelope_base(
+        routing_backend=_INDEX_ROUTING_BACKEND,
+        routing_reason=_INDEX_ROUTING_REASON,
+        include_schema_version=False,
+    )
 
 
 def _index_search_error(message: str, *, code: str, pattern: str, path: str) -> str:
@@ -365,15 +453,14 @@ def _index_search_error(message: str, *, code: str, pattern: str, path: str) -> 
 
 
 def _agent_capsule_error(message: str, *, code: str, query: str, path: str) -> str:
-    payload = {
-        "version": _json_output_version(),
-        "routing_backend": "RepoMap",
-        "routing_reason": _AGENT_ROUTING_REASON,
-        "sidecar_used": False,
-        "query": query,
-        "path": str(Path(path).expanduser()),
-        "error": {"code": code, "message": message},
-    }
+    payload = _envelope_base(
+        routing_backend="RepoMap",
+        routing_reason=_AGENT_ROUTING_REASON,
+        include_schema_version=False,
+    )
+    payload["query"] = query
+    payload["path"] = str(Path(path).expanduser())
+    payload["error"] = {"code": code, "message": message}
     return json.dumps(payload, indent=2)
 
 
@@ -395,6 +482,7 @@ def _mcp_capabilities_payload() -> dict[str, Any]:
         native_tg_payload["error"] = native_error
     return {
         "version": _json_output_version(),
+        "mcp_contract_version": _TG_MCP_SERVER_CONTRACT_VERSION,
         "schema_version": _json_output_version(),
         "routing_backend": "MCPRuntime",
         "routing_reason": "mcp-capabilities",
@@ -411,6 +499,24 @@ def _mcp_capabilities_payload() -> dict[str, Any]:
             for name, capability in sorted(_MCP_TOOL_CAPABILITIES.items())
         ],
     }
+
+
+def _inject_mcp_contract_fields(result_json: str) -> str:
+    """H9: inject mcp_contract_version and schema_version into every tool JSON envelope.
+
+    Operates on the final serialized string so it works uniformly across all tool
+    code-paths regardless of which builder produced the underlying dict.  No-ops for
+    non-dict JSON (arrays, primitives) to stay safe.
+    """
+    try:
+        payload = json.loads(result_json)
+    except (json.JSONDecodeError, ValueError):
+        return result_json
+    if not isinstance(payload, dict):
+        return result_json
+    payload.setdefault("mcp_contract_version", _TG_MCP_SERVER_CONTRACT_VERSION)
+    payload.setdefault("schema_version", _json_output_version())
+    return json.dumps(payload, indent=2)
 
 
 def _normalize_rewrite_json_payload(payload: object) -> str:
@@ -434,6 +540,133 @@ def _normalize_index_search_json_payload(payload: object, *, pattern: str, path:
     for key, value in _index_search_envelope().items():
         normalized.setdefault(key, value)
     return json.dumps(normalized, indent=2)
+
+
+# audit A1: plan-bound apply / TOCTOU. tg_rewrite_plan emits a stable plan_digest
+# derived from the normalized request plus the sorted pre-image content hashes of
+# every site it would touch. tg_rewrite_apply can be passed expected_plan_digest /
+# expected_match_count; when supplied they are recomputed against the *current*
+# tree before any edit is written and the apply is refused with code="plan_drift"
+# if reality diverged from what was previewed. Enforced only when supplied so the
+# default plan -> apply flow stays fully back-compatible.
+_PLAN_DIGEST_VERSION = "tg-plan-digest-v1"
+
+
+def _normalize_plan_digest_path(file_value: object) -> str:
+    if not isinstance(file_value, str) or not file_value.strip():
+        return ""
+    try:
+        return Path(file_value).expanduser().as_posix()
+    except (OSError, ValueError):
+        return file_value
+
+
+def _plan_edit_site_signatures(plan_payload: dict[str, Any]) -> list[str] | None:
+    """Return one stable signature per planned edit site, or None if unparseable.
+
+    Each signature binds the touched file path, the byte range, and a hash of the
+    site's current pre-image text (``original_text``). The native engine derives
+    ``original_text`` from the file as it exists right now, so any change to the
+    underlying bytes at that site changes the signature.
+    """
+    edits = plan_payload.get("edits")
+    if not isinstance(edits, list):
+        return None
+    signatures: list[str] = []
+    for edit in edits:
+        if not isinstance(edit, dict):
+            return None
+        file_token = _normalize_plan_digest_path(edit.get("file"))
+        byte_range = edit.get("byte_range")
+        if isinstance(byte_range, dict):
+            start = byte_range.get("start")
+            end = byte_range.get("end")
+        else:
+            start = None
+            end = None
+        original_text = edit.get("original_text")
+        original_token = original_text if isinstance(original_text, str) else ""
+        pre_image = hashlib.sha256(original_token.encode("utf-8")).hexdigest()
+        signatures.append(f"{file_token}\x1f{start}\x1f{end}\x1f{pre_image}")
+    signatures.sort()
+    return signatures
+
+
+def _compute_plan_digest(plan_payload: object) -> str | None:
+    """Compute a stable digest binding the request to the previewed pre-image.
+
+    Returns None when the payload is an error or does not carry a parseable edit
+    list (so callers can skip digest stamping/enforcement instead of guessing).
+    """
+    if not isinstance(plan_payload, dict) or plan_payload.get("error"):
+        return None
+    site_signatures = _plan_edit_site_signatures(plan_payload)
+    if site_signatures is None:
+        return None
+    pattern = str(plan_payload.get("pattern", "")).strip()
+    replacement = str(plan_payload.get("replacement", "")).strip()
+    lang = str(plan_payload.get("lang", "")).strip().casefold()
+    hasher = hashlib.sha256()
+    hasher.update(_PLAN_DIGEST_VERSION.encode("utf-8"))
+    for component in (pattern, replacement, lang):
+        hasher.update(b"\x1e")
+        hasher.update(component.encode("utf-8"))
+    hasher.update(b"\x1d")
+    hasher.update(str(len(site_signatures)).encode("utf-8"))
+    for signature in site_signatures:
+        hasher.update(b"\x1e")
+        hasher.update(signature.encode("utf-8"))
+    return hasher.hexdigest()
+
+
+def _plan_match_count(plan_payload: object) -> int | None:
+    if not isinstance(plan_payload, dict):
+        return None
+    total_edits = plan_payload.get("total_edits")
+    if isinstance(total_edits, int) and not isinstance(total_edits, bool):
+        return total_edits
+    edits = plan_payload.get("edits")
+    if isinstance(edits, list):
+        return len(edits)
+    return None
+
+
+def _stamp_plan_digest(plan_json: str) -> str:
+    """Stamp plan_digest/match_count onto a successful plan JSON string."""
+    try:
+        plan_payload = json.loads(plan_json)
+    except json.JSONDecodeError:
+        return plan_json
+    if not isinstance(plan_payload, dict) or plan_payload.get("error"):
+        return plan_json
+    digest = _compute_plan_digest(plan_payload)
+    if digest is None:
+        return plan_json
+    plan_payload["plan_digest"] = digest
+    match_count = _plan_match_count(plan_payload)
+    if match_count is not None:
+        plan_payload.setdefault("match_count", match_count)
+    return json.dumps(plan_payload, indent=2)
+
+
+def _plan_drift_detail(
+    *,
+    expected_plan_digest: str | None,
+    actual_plan_digest: str | None,
+    expected_match_count: int | None,
+    actual_match_count: int | None,
+    reason: str,
+) -> list[dict[str, str]]:
+    detail: dict[str, str] = {"reason": reason}
+    if expected_plan_digest is not None:
+        detail["expected_plan_digest"] = expected_plan_digest
+    if actual_plan_digest is not None:
+        detail["actual_plan_digest"] = actual_plan_digest
+    if expected_match_count is not None:
+        detail["expected_match_count"] = str(expected_match_count)
+    if actual_match_count is not None:
+        detail["actual_match_count"] = str(actual_match_count)
+    return [detail]
 
 
 def _extract_rewrite_error_message(stderr: str, fallback: str) -> str:
@@ -554,17 +787,27 @@ def _execute_rewrite_json_command(command: list[str]) -> str:
     try:
         completed = _run_rewrite_subprocess(command)
     except FileNotFoundError as exc:
-        return _rewrite_error(str(exc), code="unavailable")
+        return _rewrite_error(str(exc), code="unavailable", retryable=True)
     except OSError as exc:
-        return _rewrite_error(f"Failed to execute rewrite command: {exc}", code="execution_failed")
+        return _rewrite_error(
+            f"Failed to execute rewrite command: {exc}",
+            code="execution_failed",
+            retryable=True,
+        )
 
     if completed.returncode != 0:
+        stderr = completed.stderr or ""
+        code, retryable = _classify_native_rewrite_failure(
+            stderr,
+            returncode=completed.returncode,
+        )
         return _rewrite_error(
             _extract_rewrite_error_message(
-                completed.stderr or "",
+                stderr,
                 f"Rewrite command failed with exit code {completed.returncode}.",
             ),
-            code="invalid_input",
+            code=code,
+            retryable=retryable,
         )
 
     stdout = (completed.stdout or "").strip()
@@ -594,7 +837,9 @@ def _execute_embedded_rewrite_json(
         from tensor_grep.rust_core import ast_rewrite_apply_json, ast_rewrite_plan_json
     except Exception as exc:
         return _rewrite_error(
-            f"Embedded native rewrite support unavailable: {exc}", code="unavailable"
+            f"Embedded native rewrite support unavailable: {exc}",
+            code="unavailable",
+            retryable=True,
         )
 
     try:
@@ -606,9 +851,13 @@ def _execute_embedded_rewrite_json(
             return _rewrite_error(
                 f"Embedded native rewrite mode is unsupported: {mode}",
                 code="unavailable",
+                retryable=True,
             )
     except Exception as exc:
-        return _rewrite_error(str(exc), code="invalid_input")
+        # audit A2: classify the embedded engine exception so callers can tell a
+        # malformed pattern (not retryable) from an IO/internal failure (retryable).
+        code, retryable = _classify_native_rewrite_failure(str(exc), returncode=1)
+        return _rewrite_error(str(exc), code=code, retryable=retryable)
 
     try:
         payload = json.loads(stdout)
@@ -620,6 +869,96 @@ def _execute_embedded_rewrite_json(
 
     _record_generated_audit_manifest(payload)
     return _normalize_rewrite_json_payload(payload)
+
+
+def _normalize_apply_result_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """M12: inject applied_edits and normalize checkpoint timestamp/id format.
+
+    The native Rust engine stores created_at as a Unix epoch seconds string and
+    checkpoint_id as ckpt-{epoch}-{hex}, while the Python checkpoint_store uses
+    ISO-8601 for created_at and ckpt-{datetime}-{hex}.  Normalize the native format
+    here so all tg_rewrite_apply callers see a consistent envelope regardless of
+    which code-path created the checkpoint.
+    """
+    from datetime import UTC, datetime
+
+    # M12 part 1: inject top-level applied_edits count.
+    if "applied_edits" not in payload:
+        edits = payload.get("edits")
+        if isinstance(edits, list):
+            payload["applied_edits"] = len(edits)
+        else:
+            total = payload.get("total_edits")
+            if isinstance(total, int) and not isinstance(total, bool):
+                payload["applied_edits"] = total
+            else:
+                payload["applied_edits"] = 0
+
+    # M12 part 2: normalize checkpoint created_at to ISO-8601 and checkpoint_id
+    # from ckpt-{epoch}-{hex} to ckpt-{datetime}-{hex}.
+    ckpt = payload.get("checkpoint")
+    if isinstance(ckpt, dict):
+        created_at = ckpt.get("created_at")
+        ckpt_id = ckpt.get("checkpoint_id") or ""
+        # Detect epoch string: all digits, 8-12 chars (covers seconds since 1970 for years
+        # 2001-2286).
+        if (
+            isinstance(created_at, str)
+            and created_at.strip().isdigit()
+            and 8 <= len(created_at.strip()) <= 12
+        ):
+            epoch_s = int(created_at.strip())
+            iso_str = datetime.fromtimestamp(epoch_s, tz=UTC).isoformat()
+            ckpt["created_at"] = iso_str
+            # Rewrite ckpt-{epoch}-{hex} → ckpt-{datetime}-{hex}
+            prefix = f"ckpt-{created_at.strip()}-"
+            if ckpt_id.startswith(prefix):
+                hex_suffix = ckpt_id[len(prefix) :]
+                dt_part = datetime.fromtimestamp(epoch_s, tz=UTC).strftime("%Y%m%d%H%M%S")
+                ckpt["checkpoint_id"] = f"ckpt-{dt_part}-{hex_suffix}"
+
+    return payload
+
+
+def _produce_rewrite_plan_json(
+    *,
+    pattern: str,
+    replacement: str,
+    lang: str,
+    path: str,
+) -> str:
+    """Run a rewrite plan and return its raw (un-stamped) JSON string.
+
+    Shared by ``execute_rewrite_plan_json`` (which stamps the plan digest) and the
+    apply-side drift check (audit A1), so both observe identical plan semantics.
+    Inputs must already be validated and metavar-unescaped by the caller.
+    """
+    native_tg, _native_error = _resolve_native_tg_binary_for_mcp()
+    if native_tg is None:
+        if not _embedded_rewrite_available():
+            return _native_unavailable_error(
+                tool="tg_rewrite_plan",
+                payload=_rewrite_envelope(),
+                message=(
+                    "tg_rewrite_plan requires a standalone native tg binary "
+                    "or embedded native rewrite support."
+                ),
+            )
+        return _execute_embedded_rewrite_json(
+            pattern=pattern,
+            replacement=replacement,
+            lang=lang,
+            path=path,
+            mode="plan",
+        )
+    command = _build_rewrite_command(
+        pattern=pattern,
+        replacement=replacement,
+        lang=lang,
+        path=path,
+        mode="plan",
+    )
+    return _execute_rewrite_json_command(command)
 
 
 def execute_rewrite_plan_json(
@@ -635,39 +974,108 @@ def execute_rewrite_plan_json(
     pattern = _restore_variadic_metavar_escaping(pattern)
     replacement = _restore_variadic_metavar_escaping(replacement)
 
-    native_tg, _native_error = _resolve_native_tg_binary_for_mcp()
-    if native_tg is None:
-        if not _embedded_rewrite_available():
-            return (
-                _native_unavailable_error(
-                    tool="tg_rewrite_plan",
-                    payload=_rewrite_envelope(),
-                    message=(
-                        "tg_rewrite_plan requires a standalone native tg binary "
-                        "or embedded native rewrite support."
-                    ),
-                ),
-                1,
-            )
-        rewrite_json = _execute_embedded_rewrite_json(
-            pattern=pattern,
-            replacement=replacement,
-            lang=lang,
-            path=path,
-            mode="plan",
-        )
-    else:
-        command = _build_rewrite_command(
-            pattern=pattern,
-            replacement=replacement,
-            lang=lang,
-            path=path,
-            mode="plan",
-        )
-        rewrite_json = _execute_rewrite_json_command(command)
+    rewrite_json = _produce_rewrite_plan_json(
+        pattern=pattern,
+        replacement=replacement,
+        lang=lang,
+        path=path,
+    )
 
     rewrite_payload = json.loads(rewrite_json)
-    return rewrite_json, 1 if rewrite_payload.get("error") else 0
+    if rewrite_payload.get("error"):
+        return rewrite_json, 1
+    # audit A1: stamp a stable plan_digest so callers can pin this preview and pass
+    # it back to tg_rewrite_apply as expected_plan_digest for an apply-iff-unchanged
+    # edit loop.
+    return _stamp_plan_digest(rewrite_json), 0
+
+
+def _check_apply_plan_drift(
+    *,
+    pattern: str,
+    replacement: str,
+    lang: str,
+    path: str,
+    expected_plan_digest: str | None,
+    expected_match_count: int | None,
+) -> str | None:
+    """Return a ``plan_drift`` error JSON when the live plan diverges, else None.
+
+    Re-plans against the current tree and compares the freshly computed digest /
+    match count to the caller-supplied expectations. Inputs must already be
+    validated and metavar-unescaped. No files are written by this check.
+    """
+    plan_json = _produce_rewrite_plan_json(
+        pattern=pattern,
+        replacement=replacement,
+        lang=lang,
+        path=path,
+    )
+    try:
+        plan_payload = json.loads(plan_json)
+    except json.JSONDecodeError:
+        plan_payload = None
+
+    if not isinstance(plan_payload, dict) or plan_payload.get("error"):
+        # Could not produce a comparable plan, so we cannot confirm the tree still
+        # matches what was reviewed. Refuse rather than apply blindly.
+        return json.dumps(
+            _rewrite_error_payload(
+                "Could not recompute the rewrite plan to verify expected_plan_digest; "
+                "refusing to apply.",
+                code="plan_drift",
+                details=_plan_drift_detail(
+                    expected_plan_digest=expected_plan_digest,
+                    actual_plan_digest=None,
+                    expected_match_count=expected_match_count,
+                    actual_match_count=None,
+                    reason="plan_unavailable",
+                ),
+                retryable=True,
+            ),
+            indent=2,
+        )
+
+    actual_plan_digest = _compute_plan_digest(plan_payload)
+    actual_match_count = _plan_match_count(plan_payload)
+
+    if expected_match_count is not None and actual_match_count != expected_match_count:
+        return json.dumps(
+            _rewrite_error_payload(
+                "Rewrite plan drifted: expected_match_count no longer matches the "
+                "current tree; refusing to apply.",
+                code="plan_drift",
+                details=_plan_drift_detail(
+                    expected_plan_digest=expected_plan_digest,
+                    actual_plan_digest=actual_plan_digest,
+                    expected_match_count=expected_match_count,
+                    actual_match_count=actual_match_count,
+                    reason="match_count_mismatch",
+                ),
+                retryable=False,
+            ),
+            indent=2,
+        )
+
+    if expected_plan_digest is not None and actual_plan_digest != expected_plan_digest:
+        return json.dumps(
+            _rewrite_error_payload(
+                "Rewrite plan drifted: expected_plan_digest no longer matches the "
+                "current tree; refusing to apply.",
+                code="plan_drift",
+                details=_plan_drift_detail(
+                    expected_plan_digest=expected_plan_digest,
+                    actual_plan_digest=actual_plan_digest,
+                    expected_match_count=expected_match_count,
+                    actual_match_count=actual_match_count,
+                    reason="digest_mismatch",
+                ),
+                retryable=False,
+            ),
+            indent=2,
+        )
+
+    return None
 
 
 def execute_rewrite_apply_json(
@@ -683,6 +1091,8 @@ def execute_rewrite_apply_json(
     lint_cmd: str | None = None,
     test_cmd: str | None = None,
     policy: str | None = None,
+    expected_plan_digest: str | None = None,
+    expected_match_count: int | None = None,
 ) -> tuple[str, int]:
     from tensor_grep.cli.apply_policy import (
         PolicyValidationError,
@@ -695,6 +1105,21 @@ def execute_rewrite_apply_json(
         return _rewrite_error(validation_error, code="invalid_input"), 1
     pattern = _restore_variadic_metavar_escaping(pattern)
     replacement = _restore_variadic_metavar_escaping(replacement)
+
+    # audit A1: plan-bound apply. When the caller pins the previously reviewed plan
+    # via expected_plan_digest/expected_match_count, recompute the plan against the
+    # CURRENT tree and refuse the apply (no files written) if reality has drifted.
+    if expected_plan_digest is not None or expected_match_count is not None:
+        drift_error = _check_apply_plan_drift(
+            pattern=pattern,
+            replacement=replacement,
+            lang=lang,
+            path=path,
+            expected_plan_digest=expected_plan_digest,
+            expected_match_count=expected_match_count,
+        )
+        if drift_error is not None:
+            return drift_error, 1
 
     loaded_policy = None
     if policy is not None:
@@ -786,9 +1211,11 @@ def execute_rewrite_apply_json(
     rewrite_payload = json.loads(rewrite_json)
     if checkpoint_payload is not None:
         rewrite_payload["checkpoint"] = checkpoint_payload
-        rewrite_json = json.dumps(rewrite_payload, indent=2)
     if rewrite_payload.get("error"):
-        return rewrite_json, 1
+        return json.dumps(rewrite_payload, indent=2), 1
+    # M12: normalize applied_edits and checkpoint timestamp/id before returning.
+    rewrite_payload = _normalize_apply_result_payload(rewrite_payload)
+    rewrite_json = json.dumps(rewrite_payload, indent=2)
     if loaded_policy is None:
         return rewrite_json, 0
 
@@ -804,28 +1231,37 @@ def _execute_rewrite_diff_command(command: list[str]) -> str:
     try:
         completed = _run_rewrite_subprocess(command)
     except FileNotFoundError as exc:
-        return _rewrite_error(str(exc), code="unavailable")
+        return _rewrite_error(str(exc), code="unavailable", retryable=True)
     except OSError as exc:
         return _rewrite_error(
-            f"Failed to execute rewrite diff command: {exc}", code="execution_failed"
+            f"Failed to execute rewrite diff command: {exc}",
+            code="execution_failed",
+            retryable=True,
         )
 
     if completed.returncode != 0:
+        stderr = completed.stderr or ""
+        code, retryable = _classify_native_rewrite_failure(
+            stderr,
+            returncode=completed.returncode,
+        )
         return _rewrite_error(
             _extract_rewrite_error_message(
-                completed.stderr or "",
+                stderr,
                 f"Rewrite diff command failed with exit code {completed.returncode}.",
             ),
-            code="invalid_input",
+            code=code,
+            retryable=retryable,
         )
 
     diff_preview = completed.stdout or ""
-    if not diff_preview.strip():
-        return _rewrite_error(
-            "Rewrite diff command produced no diff output.", code="invalid_output"
-        )
-
     payload = _rewrite_envelope()
+    if not diff_preview.strip():
+        # M11: zero matches is a valid result — return normal shape, not an error.
+        payload["diff"] = ""
+        payload["total_edits"] = 0
+        return json.dumps(payload, indent=2)
+
     payload["diff"] = diff_preview
     return json.dumps(payload, indent=2)
 
@@ -1002,7 +1438,7 @@ def _finalize_aggregate_result(all_results: SearchResult) -> None:
 @mcp.tool()  # type: ignore
 def tg_rulesets() -> str:
     """Return metadata for built-in security and compliance rulesets."""
-    return json.dumps(_build_rulesets_payload(), indent=2)
+    return _inject_mcp_contract_fields(json.dumps(_build_rulesets_payload(), indent=2))
 
 
 @mcp.tool()  # type: ignore
@@ -1026,6 +1462,10 @@ def tg_ruleset_scan(
     """
     Execute a built-in ruleset scan and return structured findings.
 
+    This tool is read-only by default. Some optional parameters write files to disk
+    when supplied: ``write_baseline`` and ``write_suppressions`` create or overwrite
+    the file at the given path. Leave them unset for a pure read-only scan.
+
     Args:
         ruleset: Built-in ruleset name to execute.
         path: Root path to scan.
@@ -1034,6 +1474,24 @@ def tg_ruleset_scan(
         file_type: Optional extension/type filter for bounded scans.
         max_depth: Optional traversal depth limit for broad roots.
         allow_broad_generated_scan: Explicit opt-in for broad temp/cache/system roots.
+        baseline_path: Optional path to an existing baseline JSON file. Read-only:
+            findings present in the baseline are marked as known so only new
+            findings are reported.
+        write_baseline: Optional path to write a fresh baseline JSON snapshot of the
+            current findings. SIDE EFFECT: creates or overwrites this file on disk.
+        suppressions_path: Optional path to an existing suppressions JSON file. Read-only:
+            matching findings are suppressed from the reported results.
+        write_suppressions: Optional path to write a suppressions JSON file derived from
+            the current findings. SIDE EFFECT: creates or overwrites this file on disk;
+            requires ``justification``.
+        justification: Reason recorded alongside ``write_suppressions`` entries.
+            Required when ``write_suppressions`` is supplied.
+        include_evidence_snippets: When true, include bounded source snippets as
+            evidence for each finding.
+        max_evidence_snippets_per_file: Maximum evidence snippets to emit per file
+            (evidence cap). Defaults to 1.
+        max_evidence_snippet_chars: Maximum characters per evidence snippet
+            (evidence cap). Defaults to 120.
     """
     try:
         ruleset_meta, rules = resolve_rule_pack(ruleset, language)
@@ -1101,21 +1559,22 @@ def tg_repo_map(path: str = ".", max_repo_files: int | None = 512) -> str:
         from tensor_grep.cli.repo_map import DEFAULT_AGENT_REPO_MAP_LIMIT
 
         effective_max_repo_files = max_repo_files or DEFAULT_AGENT_REPO_MAP_LIMIT
-        return json.dumps(
-            build_repo_map(path, max_repo_files=effective_max_repo_files),
-            indent=2,
+        return _inject_mcp_contract_fields(
+            json.dumps(
+                build_repo_map(path, max_repo_files=effective_max_repo_files),
+                indent=2,
+            )
         )
     except FileNotFoundError:
-        payload = {
-            "version": _json_output_version(),
-            "routing_backend": "RepoMap",
-            "routing_reason": "repo-map",
-            "sidecar_used": False,
-            "path": str(Path(path).expanduser()),
-            "error": {
-                "code": "invalid_input",
-                "message": f"Path not found: {Path(path).expanduser().resolve()}",
-            },
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="repo-map",
+            include_schema_version=False,
+        )
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "invalid_input",
+            "message": f"Path not found: {Path(path).expanduser().resolve()}",
         }
         return json.dumps(payload, indent=2)
 
@@ -1130,19 +1589,18 @@ def tg_context_pack(query: str, path: str = ".") -> str:
         path: File or directory to inventory.
     """
     try:
-        return json.dumps(build_context_pack(query, path), indent=2)
+        return _inject_mcp_contract_fields(json.dumps(build_context_pack(query, path), indent=2))
     except FileNotFoundError:
-        payload = {
-            "version": _json_output_version(),
-            "routing_backend": "RepoMap",
-            "routing_reason": "context-pack",
-            "sidecar_used": False,
-            "query": query,
-            "path": str(Path(path).expanduser()),
-            "error": {
-                "code": "invalid_input",
-                "message": f"Path not found: {Path(path).expanduser().resolve()}",
-            },
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="context-pack",
+            include_schema_version=False,
+        )
+        payload["query"] = query
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "invalid_input",
+            "message": f"Path not found: {Path(path).expanduser().resolve()}",
         }
         return json.dumps(payload, indent=2)
 
@@ -1174,31 +1632,32 @@ def tg_edit_plan(
     from tensor_grep.cli.repo_map import build_context_edit_plan
 
     try:
-        return json.dumps(
-            build_context_edit_plan(
-                query,
-                path,
-                max_files=max_files,
-                max_repo_files=max_repo_files,
-                max_sources=max_sources,
-                max_tokens=max_tokens,
-                max_symbols=max_symbols,
-                semantic_provider=provider,
-            ),
-            indent=2,
+        return _inject_mcp_contract_fields(
+            json.dumps(
+                build_context_edit_plan(
+                    query,
+                    path,
+                    max_files=max_files,
+                    max_repo_files=max_repo_files,
+                    max_sources=max_sources,
+                    max_tokens=max_tokens,
+                    max_symbols=max_symbols,
+                    semantic_provider=provider,
+                ),
+                indent=2,
+            )
         )
     except FileNotFoundError:
-        payload = {
-            "version": _json_output_version(),
-            "routing_backend": "RepoMap",
-            "routing_reason": "context-edit-plan",
-            "sidecar_used": False,
-            "query": query,
-            "path": str(Path(path).expanduser()),
-            "error": {
-                "code": "invalid_input",
-                "message": f"Path not found: {Path(path).expanduser().resolve()}",
-            },
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="context-edit-plan",
+            include_schema_version=False,
+        )
+        payload["query"] = query
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "invalid_input",
+            "message": f"Path not found: {Path(path).expanduser().resolve()}",
         }
         return json.dumps(payload, indent=2)
 
@@ -1227,35 +1686,36 @@ def tg_context_render(
         provider: Semantic provider for primary target proof: native, lsp, or hybrid.
     """
     try:
-        return json.dumps(
-            build_context_render(
-                query,
-                path,
-                max_files=max_files,
-                max_sources=max_sources,
-                max_symbols_per_file=max_symbols_per_file,
-                max_render_chars=max_render_chars,
-                max_tokens=max_tokens,
-                model=model,
-                optimize_context=optimize_context,
-                render_profile=render_profile,
-                semantic_provider=provider,
-                profile=profile,
-            ),
-            indent=2,
+        return _inject_mcp_contract_fields(
+            json.dumps(
+                build_context_render(
+                    query,
+                    path,
+                    max_files=max_files,
+                    max_sources=max_sources,
+                    max_symbols_per_file=max_symbols_per_file,
+                    max_render_chars=max_render_chars,
+                    max_tokens=max_tokens,
+                    model=model,
+                    optimize_context=optimize_context,
+                    render_profile=render_profile,
+                    semantic_provider=provider,
+                    profile=profile,
+                ),
+                indent=2,
+            )
         )
     except FileNotFoundError:
-        payload = {
-            "version": _json_output_version(),
-            "routing_backend": "RepoMap",
-            "routing_reason": "context-render",
-            "sidecar_used": False,
-            "query": query,
-            "path": str(Path(path).expanduser()),
-            "error": {
-                "code": "invalid_input",
-                "message": f"Path not found: {Path(path).expanduser().resolve()}",
-            },
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="context-render",
+            include_schema_version=False,
+        )
+        payload["query"] = query
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "invalid_input",
+            "message": f"Path not found: {Path(path).expanduser().resolve()}",
         }
         return json.dumps(payload, indent=2)
 
@@ -1299,20 +1759,22 @@ def tg_agent_capsule(
     try:
         from tensor_grep.cli.agent_capsule import build_agent_capsule
 
-        return json.dumps(
-            build_agent_capsule(
-                query,
-                path,
-                max_files=max_files,
-                max_sources=max_sources,
-                max_tokens=max_tokens,
-                max_repo_files=max_repo_files,
-                model=model,
-                semantic_provider=provider,
-                gpu_device_ids=gpu_device_ids,
-                gpu_timeout_s=gpu_timeout_s,
-            ),
-            indent=2,
+        return _inject_mcp_contract_fields(
+            json.dumps(
+                build_agent_capsule(
+                    query,
+                    path,
+                    max_files=max_files,
+                    max_sources=max_sources,
+                    max_tokens=max_tokens,
+                    max_repo_files=max_repo_files,
+                    model=model,
+                    semantic_provider=provider,
+                    gpu_device_ids=gpu_device_ids,
+                    gpu_timeout_s=gpu_timeout_s,
+                ),
+                indent=2,
+            )
         )
     except FileNotFoundError:
         return _agent_capsule_error(
@@ -1555,18 +2017,17 @@ def tg_symbol_blast_radius_plan(
             indent=2,
         )
     except FileNotFoundError:
-        payload = {
-            "version": _json_output_version(),
-            "routing_backend": "RepoMap",
-            "routing_reason": "symbol-blast-radius-plan",
-            "sidecar_used": False,
-            "symbol": symbol,
-            "max_depth": max(0, int(max_depth)),
-            "path": str(Path(path).expanduser()),
-            "error": {
-                "code": "invalid_input",
-                "message": f"Path not found: {Path(path).expanduser().resolve()}",
-            },
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="symbol-blast-radius-plan",
+            include_schema_version=False,
+        )
+        payload["symbol"] = symbol
+        payload["max_depth"] = max(0, int(max_depth))
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "invalid_input",
+            "message": f"Path not found: {Path(path).expanduser().resolve()}",
         }
         return json.dumps(payload, indent=2)
 
@@ -1734,19 +2195,34 @@ def tg_symbol_defs(symbol: str, path: str = ".", provider: str = "native") -> st
         path: File or directory to inventory.
     """
     try:
-        return json.dumps(build_symbol_defs(symbol, path, semantic_provider=provider), indent=2)
+        return _inject_mcp_contract_fields(
+            json.dumps(build_symbol_defs(symbol, path, semantic_provider=provider), indent=2)
+        )
     except FileNotFoundError:
-        payload = {
-            "version": _json_output_version(),
-            "routing_backend": "RepoMap",
-            "routing_reason": "symbol-defs",
-            "sidecar_used": False,
-            "symbol": symbol,
-            "path": str(Path(path).expanduser()),
-            "error": {
-                "code": "invalid_input",
-                "message": f"Path not found: {Path(path).expanduser().resolve()}",
-            },
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="symbol-defs",
+            include_schema_version=False,
+        )
+        payload["symbol"] = symbol
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "invalid_input",
+            "message": f"Path not found: {Path(path).expanduser().resolve()}",
+        }
+        return json.dumps(payload, indent=2)
+    except Exception as exc:  # C4: propagate as structured error, never a raw exception
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="symbol-defs",
+            include_schema_version=False,
+        )
+        payload["symbol"] = symbol
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "internal_error",
+            "message": str(exc),
+            "retryable": False,
         }
         return json.dumps(payload, indent=2)
 
@@ -1761,19 +2237,34 @@ def tg_symbol_source(symbol: str, path: str = ".", provider: str = "native") -> 
         path: File or directory to inventory.
     """
     try:
-        return json.dumps(build_symbol_source(symbol, path, semantic_provider=provider), indent=2)
+        return _inject_mcp_contract_fields(
+            json.dumps(build_symbol_source(symbol, path, semantic_provider=provider), indent=2)
+        )
     except FileNotFoundError:
-        payload = {
-            "version": _json_output_version(),
-            "routing_backend": "RepoMap",
-            "routing_reason": "symbol-source",
-            "sidecar_used": False,
-            "symbol": symbol,
-            "path": str(Path(path).expanduser()),
-            "error": {
-                "code": "invalid_input",
-                "message": f"Path not found: {Path(path).expanduser().resolve()}",
-            },
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="symbol-source",
+            include_schema_version=False,
+        )
+        payload["symbol"] = symbol
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "invalid_input",
+            "message": f"Path not found: {Path(path).expanduser().resolve()}",
+        }
+        return json.dumps(payload, indent=2)
+    except Exception as exc:  # C4: propagate as structured error, never a raw exception
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="symbol-source",
+            include_schema_version=False,
+        )
+        payload["symbol"] = symbol
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "internal_error",
+            "message": str(exc),
+            "retryable": False,
         }
         return json.dumps(payload, indent=2)
 
@@ -1788,27 +2279,42 @@ def tg_symbol_impact(symbol: str, path: str = ".", provider: str = "native") -> 
         path: File or directory to inventory.
     """
     try:
-        return json.dumps(
-            build_symbol_impact(
-                symbol,
-                path,
-                semantic_provider=provider,
-                max_repo_files=_DEFAULT_MCP_REPO_SCAN_LIMIT,
-            ),
-            indent=2,
+        return _inject_mcp_contract_fields(
+            json.dumps(
+                build_symbol_impact(
+                    symbol,
+                    path,
+                    semantic_provider=provider,
+                    max_repo_files=_DEFAULT_MCP_REPO_SCAN_LIMIT,
+                ),
+                indent=2,
+            )
         )
     except FileNotFoundError:
-        payload = {
-            "version": _json_output_version(),
-            "routing_backend": "RepoMap",
-            "routing_reason": "symbol-impact",
-            "sidecar_used": False,
-            "symbol": symbol,
-            "path": str(Path(path).expanduser()),
-            "error": {
-                "code": "invalid_input",
-                "message": f"Path not found: {Path(path).expanduser().resolve()}",
-            },
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="symbol-impact",
+            include_schema_version=False,
+        )
+        payload["symbol"] = symbol
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "invalid_input",
+            "message": f"Path not found: {Path(path).expanduser().resolve()}",
+        }
+        return json.dumps(payload, indent=2)
+    except Exception as exc:  # C4: propagate as structured error, never a raw exception
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="symbol-impact",
+            include_schema_version=False,
+        )
+        payload["symbol"] = symbol
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "internal_error",
+            "message": str(exc),
+            "retryable": False,
         }
         return json.dumps(payload, indent=2)
 
@@ -1823,19 +2329,34 @@ def tg_symbol_refs(symbol: str, path: str = ".", provider: str = "native") -> st
         path: File or directory to inventory.
     """
     try:
-        return json.dumps(build_symbol_refs(symbol, path, semantic_provider=provider), indent=2)
+        return _inject_mcp_contract_fields(
+            json.dumps(build_symbol_refs(symbol, path, semantic_provider=provider), indent=2)
+        )
     except FileNotFoundError:
-        payload = {
-            "version": _json_output_version(),
-            "routing_backend": "RepoMap",
-            "routing_reason": "symbol-refs",
-            "sidecar_used": False,
-            "symbol": symbol,
-            "path": str(Path(path).expanduser()),
-            "error": {
-                "code": "invalid_input",
-                "message": f"Path not found: {Path(path).expanduser().resolve()}",
-            },
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="symbol-refs",
+            include_schema_version=False,
+        )
+        payload["symbol"] = symbol
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "invalid_input",
+            "message": f"Path not found: {Path(path).expanduser().resolve()}",
+        }
+        return json.dumps(payload, indent=2)
+    except Exception as exc:  # C4: propagate as structured error, never a raw exception
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="symbol-refs",
+            include_schema_version=False,
+        )
+        payload["symbol"] = symbol
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "internal_error",
+            "message": str(exc),
+            "retryable": False,
         }
         return json.dumps(payload, indent=2)
 
@@ -1850,19 +2371,34 @@ def tg_symbol_callers(symbol: str, path: str = ".", provider: str = "native") ->
         path: File or directory to inventory.
     """
     try:
-        return json.dumps(build_symbol_callers(symbol, path, semantic_provider=provider), indent=2)
+        return _inject_mcp_contract_fields(
+            json.dumps(build_symbol_callers(symbol, path, semantic_provider=provider), indent=2)
+        )
     except FileNotFoundError:
-        payload = {
-            "version": _json_output_version(),
-            "routing_backend": "RepoMap",
-            "routing_reason": "symbol-callers",
-            "sidecar_used": False,
-            "symbol": symbol,
-            "path": str(Path(path).expanduser()),
-            "error": {
-                "code": "invalid_input",
-                "message": f"Path not found: {Path(path).expanduser().resolve()}",
-            },
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="symbol-callers",
+            include_schema_version=False,
+        )
+        payload["symbol"] = symbol
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "invalid_input",
+            "message": f"Path not found: {Path(path).expanduser().resolve()}",
+        }
+        return json.dumps(payload, indent=2)
+    except Exception as exc:  # C4: propagate as structured error, never a raw exception
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="symbol-callers",
+            include_schema_version=False,
+        )
+        payload["symbol"] = symbol
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "internal_error",
+            "message": str(exc),
+            "retryable": False,
         }
         return json.dumps(payload, indent=2)
 
@@ -1883,25 +2419,26 @@ def tg_symbol_blast_radius(
         max_depth: Maximum reverse-import depth to include.
     """
     try:
-        return json.dumps(
-            build_symbol_blast_radius(
-                symbol, path, max_depth=max_depth, semantic_provider=provider
-            ),
-            indent=2,
+        return _inject_mcp_contract_fields(
+            json.dumps(
+                build_symbol_blast_radius(
+                    symbol, path, max_depth=max_depth, semantic_provider=provider
+                ),
+                indent=2,
+            )
         )
     except FileNotFoundError:
-        payload = {
-            "version": _json_output_version(),
-            "routing_backend": "RepoMap",
-            "routing_reason": "symbol-blast-radius",
-            "sidecar_used": False,
-            "symbol": symbol,
-            "max_depth": max(0, int(max_depth)),
-            "path": str(Path(path).expanduser()),
-            "error": {
-                "code": "invalid_input",
-                "message": f"Path not found: {Path(path).expanduser().resolve()}",
-            },
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="symbol-blast-radius",
+            include_schema_version=False,
+        )
+        payload["symbol"] = symbol
+        payload["max_depth"] = max(0, int(max_depth))
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "invalid_input",
+            "message": f"Path not found: {Path(path).expanduser().resolve()}",
         }
         return json.dumps(payload, indent=2)
 
@@ -1935,35 +2472,36 @@ def tg_symbol_blast_radius_render(
         render_profile: Render profile to use: full, compact, or llm.
     """
     try:
-        return json.dumps(
-            build_symbol_blast_radius_render(
-                symbol,
-                path,
-                max_depth=max_depth,
-                max_files=max_files,
-                max_sources=max_sources,
-                max_symbols_per_file=max_symbols_per_file,
-                max_render_chars=max_render_chars,
-                optimize_context=optimize_context,
-                render_profile=render_profile,
-                profile=profile,
-                semantic_provider=provider,
-            ),
-            indent=2,
+        return _inject_mcp_contract_fields(
+            json.dumps(
+                build_symbol_blast_radius_render(
+                    symbol,
+                    path,
+                    max_depth=max_depth,
+                    max_files=max_files,
+                    max_sources=max_sources,
+                    max_symbols_per_file=max_symbols_per_file,
+                    max_render_chars=max_render_chars,
+                    optimize_context=optimize_context,
+                    render_profile=render_profile,
+                    profile=profile,
+                    semantic_provider=provider,
+                ),
+                indent=2,
+            )
         )
     except FileNotFoundError:
-        payload = {
-            "version": _json_output_version(),
-            "routing_backend": "RepoMap",
-            "routing_reason": "symbol-blast-radius-render",
-            "sidecar_used": False,
-            "symbol": symbol,
-            "max_depth": max(0, int(max_depth)),
-            "path": str(Path(path).expanduser()),
-            "error": {
-                "code": "invalid_input",
-                "message": f"Path not found: {Path(path).expanduser().resolve()}",
-            },
+        payload = _envelope_base(
+            routing_backend="RepoMap",
+            routing_reason="symbol-blast-radius-render",
+            include_schema_version=False,
+        )
+        payload["symbol"] = symbol
+        payload["max_depth"] = max(0, int(max_depth))
+        payload["path"] = str(Path(path).expanduser())
+        payload["error"] = {
+            "code": "invalid_input",
+            "message": f"Path not found: {Path(path).expanduser().resolve()}",
         }
         return json.dumps(payload, indent=2)
 
@@ -1984,7 +2522,7 @@ def tg_search(
     glob: str | None = None,
     type_filter: str | None = None,
     query: str | None = None,
-    structured_json: bool = False,
+    structured_json: bool = True,
 ) -> str:
     """
     Search files for a regex pattern using tensor-grep's high-speed GPU or CPU engine.
@@ -2004,7 +2542,8 @@ def tg_search(
         count_matches: Just count the matches using ultra-fast Rust backend (-c).
         glob: Include/exclude files matching glob (e.g. '*.py').
         type_filter: Only search files matching TYPE (e.g. 'py', 'js').
-        structured_json: Return bounded structured JSON instead of text.
+        structured_json: Return bounded structured JSON (default true). Set to false for
+            plain-text output.
     """
     search_pattern = pattern or query
     if not search_pattern:
@@ -2183,15 +2722,17 @@ def tg_search(
 
 
 @mcp.tool()  # type: ignore
-def tg_ast_search(pattern: str, lang: str, path: str = ".") -> str:
+def tg_ast_search(pattern: str, lang: str, path: str = ".", structured_json: bool = True) -> str:
     """
-    Search source code structurally using PyTorch Geometric Graph Neural Networks.
-    Ignores whitespace and formatting, searching the true AST structure.
+    Search source code structurally using the ast-grep/tree-sitter backend.
+    Ignores whitespace and formatting, matching the true AST structure.
 
     Args:
         pattern: AST pattern to search for (e.g. 'if ($A) { return $B; }').
         lang: Language to parse (e.g. 'python', 'javascript').
         path: Directory or file to search.
+        structured_json: Return bounded structured JSON (default true). Set to false for
+            plain-text output.
     """
     config = SearchConfig(ast=True, lang=lang, no_messages=True)
     pipeline = Pipeline(config=config)
@@ -2199,6 +2740,19 @@ def tg_ast_search(pattern: str, lang: str, path: str = ".") -> str:
 
     backend_name = type(backend).__name__
     if backend_name not in {"AstBackend", "AstGrepWrapperBackend"}:
+        if structured_json:
+            return json.dumps(
+                {
+                    "pattern": pattern,
+                    "lang": lang,
+                    "path": path,
+                    "error": {
+                        "code": "unavailable",
+                        "message": "AstBackend is not available on this system. Requires ast-grep/tree-sitter.",
+                    },
+                },
+                indent=2,
+            )
         return "Error: AstBackend is not available on this system. Requires torch_geometric and tree_sitter."
 
     scanner = DirectoryScanner(config)
@@ -2234,12 +2788,25 @@ def tg_ast_search(pattern: str, lang: str, path: str = ".") -> str:
         _finalize_aggregate_result(all_results)
 
         if all_results.is_empty:
+            if structured_json:
+                return json.dumps(
+                    {
+                        "pattern": pattern,
+                        "lang": lang,
+                        "path": path,
+                        "total_matches": 0,
+                        "total_files": all_results.total_files,
+                        "rendered_match_count": 0,
+                        "rendered_file_count": 0,
+                        "matches": [],
+                        "truncated": False,
+                        "omitted_matches": 0,
+                        "omitted_files": 0,
+                        "routing": _routing_payload(all_results),
+                    },
+                    indent=2,
+                )
             return f"No AST matches found for pattern in {path}.\n{_routing_summary(all_results)}"
-
-        output = [
-            f"Found {all_results.total_matches} structural AST matches across {all_results.total_files} files:",
-            _routing_summary(all_results),
-        ]
 
         # Group by file
         by_file: dict[str, list[Any]] = {}
@@ -2247,6 +2814,55 @@ def tg_ast_search(pattern: str, lang: str, path: str = ".") -> str:
             if match.file not in by_file:
                 by_file[match.file] = []
             by_file[match.file].append(match)
+
+        if structured_json:
+            rendered_file_limit = 15
+            rendered_result_limit = 150
+            rendered_by_file: dict[str, list[Any]] = {}
+            rendered_match_count = 0
+            for filepath, matches in by_file.items():
+                if len(rendered_by_file) >= rendered_file_limit:
+                    break
+                rendered_by_file[filepath] = []
+                for match in matches:
+                    if rendered_match_count >= rendered_result_limit:
+                        break
+                    rendered_by_file[filepath].append(match)
+                    rendered_match_count += 1
+            rendered_file_count = len(rendered_by_file)
+            omitted_matches = max(0, all_results.total_matches - rendered_match_count)
+            omitted_files = max(0, all_results.total_files - rendered_file_count)
+            payload_matches = [
+                {
+                    "file": filepath,
+                    "line_number": m.line_number,
+                    "text": m.text.strip(),
+                }
+                for filepath, matches in rendered_by_file.items()
+                for m in matches
+            ]
+            return json.dumps(
+                {
+                    "pattern": pattern,
+                    "lang": lang,
+                    "path": path,
+                    "total_matches": all_results.total_matches,
+                    "total_files": all_results.total_files,
+                    "rendered_match_count": len(payload_matches),
+                    "rendered_file_count": rendered_file_count,
+                    "matches": payload_matches,
+                    "truncated": omitted_matches > 0 or omitted_files > 0,
+                    "omitted_matches": omitted_matches,
+                    "omitted_files": omitted_files,
+                    "routing": _routing_payload(all_results),
+                },
+                indent=2,
+            )
+
+        output = [
+            f"Found {all_results.total_matches} structural AST matches across {all_results.total_files} files:",
+            _routing_summary(all_results),
+        ]
 
         if by_file:
             for filepath, matches in list(by_file.items())[:15]:
@@ -2272,17 +2888,33 @@ def tg_ast_search(pattern: str, lang: str, path: str = ".") -> str:
     except Exception as e:
         import traceback
 
+        if structured_json:
+            return json.dumps(
+                {
+                    "pattern": pattern,
+                    "lang": lang,
+                    "path": path,
+                    "error": {
+                        "code": "internal_error",
+                        "message": str(e),
+                        "detail": traceback.format_exc(),
+                    },
+                },
+                indent=2,
+            )
         return f"AST Search failed: {e!s}\n{traceback.format_exc()}"
 
 
 @mcp.tool()  # type: ignore
-def tg_classify_logs(file_path: str) -> str:
+def tg_classify_logs(file_path: str, structured_json: bool = True) -> str:
     """
     Analyze a system log file with local heuristics by default, or the opt-in
     CyBERT/Triton provider when TENSOR_GREP_CLASSIFY_PROVIDER=cybert is set.
 
     Args:
         file_path: The absolute path to the log file to classify.
+        structured_json: Return bounded structured JSON (default true). Set to false for
+            plain-text output.
     """
     try:
         from tensor_grep.io.reader_fallback import FallbackReader
@@ -2295,6 +2927,17 @@ def tg_classify_logs(file_path: str) -> str:
         reader = FallbackReader()
         lines = list(reader.read_lines(file_path))
         if not lines:
+            if structured_json:
+                return json.dumps(
+                    {
+                        "file_path": file_path,
+                        "error": {
+                            "code": "invalid_input",
+                            "message": f"File {file_path} is empty or unreadable.",
+                        },
+                    },
+                    indent=2,
+                )
             return f"Error: File {file_path} is empty or unreadable."
 
         budgeted_lines, line_budget = _apply_classify_line_budget(
@@ -2305,6 +2948,31 @@ def tg_classify_logs(file_path: str) -> str:
         provider_used = backend_metadata.get("provider_used", "heuristic")
         provider_status = backend_metadata.get("provider_status", "local")
 
+        warnings_or_errors = []
+        for i, r in enumerate(results):
+            if r["label"] in ("warn", "error") and r["confidence"] > 0.8:
+                warnings_or_errors.append((budgeted_lines[i].strip(), r["label"], r["confidence"]))
+
+        if structured_json:
+            return json.dumps(
+                {
+                    "file_path": file_path,
+                    "provider": provider_used,
+                    "provider_status": provider_status,
+                    "sample_lines": line_budget["emitted_lines"],
+                    "total_lines": line_budget["total_lines"],
+                    "anomaly_count": len(warnings_or_errors),
+                    "anomalies": [
+                        {"label": label, "confidence": conf, "text": text}
+                        for text, label, conf in warnings_or_errors[:20]
+                    ],
+                },
+                indent=2,
+            )
+
+        if not warnings_or_errors:
+            return f"No severe anomalies detected in {file_path}. All logs appear nominal."
+
         output = [
             (
                 f"Log Classification for {file_path} "
@@ -2312,15 +2980,6 @@ def tg_classify_logs(file_path: str) -> str:
                 f"sample={line_budget['emitted_lines']}/{line_budget['total_lines']} lines):"
             )
         ]
-
-        warnings_or_errors = []
-        for i, r in enumerate(results):
-            if r["label"] in ("warn", "error") and r["confidence"] > 0.8:
-                warnings_or_errors.append((budgeted_lines[i].strip(), r["label"], r["confidence"]))
-
-        if not warnings_or_errors:
-            return f"No severe anomalies detected in {file_path}. All logs appear nominal."
-
         output.append(f"\nDetected {len(warnings_or_errors)} High-Confidence Anomalies:")
         for text, label, conf in warnings_or_errors[:20]:  # Limit output
             output.append(f"[{label.upper()}] ({conf:.2f}) {text}")
@@ -2330,16 +2989,29 @@ def tg_classify_logs(file_path: str) -> str:
     except Exception as e:
         import traceback
 
+        if structured_json:
+            return json.dumps(
+                {
+                    "file_path": file_path,
+                    "error": {
+                        "code": "internal_error",
+                        "message": str(e),
+                        "detail": traceback.format_exc(),
+                    },
+                },
+                indent=2,
+            )
         return f"Log Classification failed: {e!s}\n{traceback.format_exc()}"
 
 
 @mcp.tool()  # type: ignore
-def tg_devices(json_output: bool = False) -> str:
+def tg_devices(json_output: bool = True) -> str:
     """
     Return routable GPU inventory for scheduling and diagnostics.
 
     Args:
-        json_output: Emit machine-readable JSON output when true.
+        json_output: Emit machine-readable JSON output (default true). Set to false for
+            plain-text output.
     """
     import json
 
@@ -2423,9 +3095,17 @@ def tg_rewrite_apply(
     lint_cmd: str | None = None,
     test_cmd: str | None = None,
     policy: str | None = None,
+    expected_plan_digest: str | None = None,
+    expected_match_count: int | None = None,
 ) -> str:
     """
     Apply native AST rewrites and optionally verify the written bytes.
+
+    For an agent-safe edit loop, call tg_rewrite_plan first, then pass the plan's
+    ``plan_digest`` back here as ``expected_plan_digest``. When supplied, the plan
+    is recomputed against the current tree before any edit is written and the apply
+    fails with code="plan_drift" (no files modified) if the tree changed since the
+    preview. Omit both expectation parameters for the original apply behavior.
 
     Args:
         pattern: AST pattern to rewrite.
@@ -2439,6 +3119,12 @@ def tg_rewrite_apply(
         lint_cmd: Optional command to run after apply/verify for structured lint validation.
         test_cmd: Optional command to run after apply/verify for structured test validation.
         policy: Optional path to an apply policy JSON file for post-apply checks and rollback.
+        expected_plan_digest: Optional plan_digest from a prior tg_rewrite_plan. When
+            supplied, the apply is refused with code="plan_drift" if the recomputed
+            digest no longer matches the current tree.
+        expected_match_count: Optional expected number of edit sites from a prior plan.
+            When supplied, the apply is refused with code="plan_drift" if the current
+            tree no longer yields exactly this many edits.
     """
     payload, _exit_code = execute_rewrite_apply_json(
         pattern=pattern,
@@ -2452,6 +3138,8 @@ def tg_rewrite_apply(
         lint_cmd=lint_cmd,
         test_cmd=test_cmd,
         policy=policy,
+        expected_plan_digest=expected_plan_digest,
+        expected_match_count=expected_match_count,
     )
     return payload
 
@@ -2503,7 +3191,7 @@ def tg_audit_history(path: str = ".") -> str:
         return _audit_history_error("path must not be empty.", code="invalid_input")
 
     try:
-        return json.dumps(list_audit_history_payload(path), indent=2)
+        return _inject_mcp_contract_fields(json.dumps(list_audit_history_payload(path), indent=2))
     except FileNotFoundError as exc:
         return _audit_history_error(str(exc), code="not_found")
     except ValueError as exc:
@@ -2530,9 +3218,11 @@ def tg_audit_diff(previous_manifest: str, current_manifest: str) -> str:
         )
 
     try:
-        return json.dumps(
-            diff_audit_manifests_payload(previous_manifest, current_manifest),
-            indent=2,
+        return _inject_mcp_contract_fields(
+            json.dumps(
+                diff_audit_manifests_payload(previous_manifest, current_manifest),
+                indent=2,
+            )
         )
     except FileNotFoundError as exc:
         return _audit_diff_error(str(exc), code="not_found")
@@ -2652,6 +3342,7 @@ def tg_checkpoint_create(path: str = ".") -> str:
         return json.dumps(
             {
                 "version": _json_output_version(),
+                "mcp_contract_version": _TG_MCP_SERVER_CONTRACT_VERSION,
                 "error": {"code": "invalid_input", "message": str(exc)},
                 "path": str(Path(path).expanduser()),
             },
@@ -2661,6 +3352,7 @@ def tg_checkpoint_create(path: str = ".") -> str:
     return json.dumps(
         {
             "version": _json_output_version(),
+            "mcp_contract_version": _TG_MCP_SERVER_CONTRACT_VERSION,
             "schema_version": _json_output_version(),
             **payload.__dict__,
         },
@@ -2684,13 +3376,21 @@ def tg_checkpoint_list(path: str = ".") -> str:
         return json.dumps(
             {
                 "version": _json_output_version(),
+                "mcp_contract_version": _TG_MCP_SERVER_CONTRACT_VERSION,
                 "error": {"code": "invalid_input", "message": str(exc)},
                 "path": str(Path(path).expanduser()),
             },
             indent=2,
         )
 
-    return json.dumps({"version": _json_output_version(), "checkpoints": checkpoints}, indent=2)
+    return json.dumps(
+        {
+            "version": _json_output_version(),
+            "mcp_contract_version": _TG_MCP_SERVER_CONTRACT_VERSION,
+            "checkpoints": checkpoints,
+        },
+        indent=2,
+    )
 
 
 @mcp.tool()  # type: ignore
@@ -2710,6 +3410,7 @@ def tg_checkpoint_undo(checkpoint_id: str, path: str = ".") -> str:
         return json.dumps(
             {
                 "version": _json_output_version(),
+                "mcp_contract_version": _TG_MCP_SERVER_CONTRACT_VERSION,
                 "error": {"code": "invalid_input", "message": str(exc)},
                 "path": str(Path(path).expanduser()),
                 "checkpoint_id": checkpoint_id,
@@ -2720,6 +3421,7 @@ def tg_checkpoint_undo(checkpoint_id: str, path: str = ".") -> str:
     return json.dumps(
         {
             "version": _json_output_version(),
+            "mcp_contract_version": _TG_MCP_SERVER_CONTRACT_VERSION,
             "schema_version": _json_output_version(),
             **payload.__dict__,
         },
@@ -2737,18 +3439,30 @@ def tg_session_open(path: str = ".", max_repo_files: int | None = 512) -> str:
         max_repo_files: Optional cap for files scanned into the initial session repo map.
             Defaults to 512 for agent-safe cold opens.
     """
-    from tensor_grep.cli.session_store import open_session
+    from tensor_grep.cli.session_store import get_session, open_session
 
     try:
-        payload = open_session(path, max_repo_files=max_repo_files)
+        result = open_session(path, max_repo_files=max_repo_files)
     except Exception as exc:
         return _session_exception_payload(path=path, message=str(exc), detail={})
+
+    # M13: add tracked_file_count which counts source + test files (related_paths)
+    # to complement file_count which only counts non-test source files.
+    try:
+        session_payload = get_session(result.session_id, path)
+        repo_map = session_payload.get("repo_map") or {}
+        related_paths = repo_map.get("related_paths") or []
+        tracked_file_count = len(related_paths)
+    except Exception:
+        tracked_file_count = result.file_count
 
     return json.dumps(
         {
             "version": _json_output_version(),
+            "mcp_contract_version": _TG_MCP_SERVER_CONTRACT_VERSION,
             "schema_version": _json_output_version(),
-            **payload.__dict__,
+            **result.__dict__,
+            "tracked_file_count": tracked_file_count,
         },
         indent=2,
     )
@@ -2769,7 +3483,14 @@ def tg_session_list(path: str = ".") -> str:
     except Exception as exc:
         return _session_exception_payload(path=path, message=str(exc), detail={})
 
-    return json.dumps({"version": _json_output_version(), "sessions": sessions}, indent=2)
+    return json.dumps(
+        {
+            "version": _json_output_version(),
+            "mcp_contract_version": _TG_MCP_SERVER_CONTRACT_VERSION,
+            "sessions": sessions,
+        },
+        indent=2,
+    )
 
 
 @mcp.tool()  # type: ignore
@@ -2793,7 +3514,7 @@ def tg_session_show(session_id: str, path: str = ".") -> str:
             detail={},
         )
 
-    return json.dumps(payload, indent=2)
+    return _inject_mcp_contract_fields(json.dumps(payload, indent=2))
 
 
 @mcp.tool()  # type: ignore
@@ -2868,7 +3589,7 @@ def tg_session_context(
             query=query,
         )
 
-    return json.dumps(payload, indent=2)
+    return _inject_mcp_contract_fields(json.dumps(payload, indent=2))
 
 
 @mcp.tool()  # type: ignore

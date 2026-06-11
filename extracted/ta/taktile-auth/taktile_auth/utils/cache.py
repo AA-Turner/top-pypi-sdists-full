@@ -25,9 +25,3 @@ class Cache(t.Protocol):
     def put_marker(self, key: str, ttl_seconds: int) -> bool:
         """Put a marker, return True if first to write"""
         ...  # pragma: no cover
-
-    def increment(self, key: str, amount: int, ttl_seconds: int) -> int:
-        """Atomically add ``amount`` to the counter at ``key`` and return the
-        post-increment value. Sets the TTL on first write. Used by PEP-295
-        recursion accounting."""
-        ...  # pragma: no cover

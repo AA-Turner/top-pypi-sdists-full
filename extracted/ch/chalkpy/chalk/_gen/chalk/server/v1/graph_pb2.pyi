@@ -609,3 +609,25 @@ class SmartDiffDeploymentResponse(_message.Message):
         deploy_id_after: _Optional[str] = ...,
         diff: _Optional[_Union[_diff_pb2.ExportDiff, _Mapping]] = ...,
     ) -> None: ...
+
+class DiffCandidateRequest(_message.Message):
+    __slots__ = ("candidate", "diff_mode")
+    CANDIDATE_FIELD_NUMBER: _ClassVar[int]
+    DIFF_MODE_FIELD_NUMBER: _ClassVar[int]
+    candidate: _export_pb2.Export
+    diff_mode: DiffMode
+    def __init__(
+        self,
+        candidate: _Optional[_Union[_export_pb2.Export, _Mapping]] = ...,
+        diff_mode: _Optional[_Union[DiffMode, str]] = ...,
+    ) -> None: ...
+
+class DiffCandidateResponse(_message.Message):
+    __slots__ = ("deploy_id_before", "diff")
+    DEPLOY_ID_BEFORE_FIELD_NUMBER: _ClassVar[int]
+    DIFF_FIELD_NUMBER: _ClassVar[int]
+    deploy_id_before: str
+    diff: _diff_pb2.ExportDiff
+    def __init__(
+        self, deploy_id_before: _Optional[str] = ..., diff: _Optional[_Union[_diff_pb2.ExportDiff, _Mapping]] = ...
+    ) -> None: ...

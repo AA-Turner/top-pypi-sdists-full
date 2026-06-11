@@ -481,6 +481,7 @@ PricingUnitType = Literal["Bundles", "GB", "GB-Mo", "Hrs", "Queries"]
 R53HostedZoneDeletionStateCodeType = Literal["FAILED", "PENDING", "STARTED", "SUCCEEDED"]
 RecordStateType = Literal["Failed", "Started", "Succeeded"]
 RegionNameType = Literal[
+    "ap-east-1",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-south-1",
@@ -491,9 +492,11 @@ RegionNameType = Literal[
     "ca-central-1",
     "eu-central-1",
     "eu-north-1",
+    "eu-south-2",
     "eu-west-1",
     "eu-west-2",
     "eu-west-3",
+    "sa-east-1",
     "us-east-1",
     "us-east-2",
     "us-west-1",

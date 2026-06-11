@@ -47,6 +47,20 @@ _OLD_SKILL_TOOL_ALIASES = (
     "If you were going to call any of those, call this instead."
 )
 
+# Hint shipped at the top of ha_get_skill_guide responses that deliver
+# best-practice skill content directly. Smart clients that fetch the reference
+# files proactively via this tool would otherwise still receive duplicate
+# canonical content from the per-call write-tool attach — this hint tells them
+# to opt out so the same body doesn't ride along again on every subsequent
+# write. Defined here (its only consumer) rather than in util_helpers.
+_SKILL_GUIDE_MANDATORYBPS_HINT = (
+    "You now have this best-practice reference in your context. "
+    "Pass `MandatoryBPS=false` on subsequent write-tool calls in this "
+    "session (ha_config_set_automation / _script / _scene / _helper / "
+    "_dashboard / _yaml) to avoid re-receiving the canonical reference "
+    "files inline."
+)
+
 
 # Server icon configuration using GitHub-hosted images
 # These icons are bundled in packaging/mcpb/ and also available via GitHub raw URLs
@@ -190,6 +204,12 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
         # the skill guide tool are registered so it can wrap everything)
         self._apply_tool_search()
 
+        # Convert Pydantic type-validation errors to structured ToolErrors so
+        # models get actionable guidance instead of raw Pydantic messages.
+        from .tools.validation_middleware import ValidationErrorMiddleware
+
+        self.mcp.add_middleware(ValidationErrorMiddleware())
+
         # Wire tool security policies middleware (#966) — opt-in via
         # ENABLE_TOOL_SECURITY_POLICIES. Must come last so the middleware
         # wraps the final tool surface (including the search proxies).
@@ -200,10 +220,13 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
 
         Skills are vendored via a git submodule at resources/skills-vendor/.
         The actual skill directories live under the skills/ subdirectory
-        within that repo.
+        within that repo. Delegates to
+        :func:`ha_mcp.utils.skill_loader.get_skills_dir` so the write-tool
+        ``MandatoryBPS`` parameter resolves the same path.
         """
-        skills_dir = Path(__file__).parent / "resources" / "skills-vendor" / "skills"
-        return skills_dir if skills_dir.exists() else None
+        from .utils.skill_loader import get_skills_dir
+
+        return get_skills_dir()
 
     def _build_skills_instructions(self) -> str | None:
         """Build server instructions from bundled skill frontmatter.
@@ -371,9 +394,26 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
         path; that keeps the routes inert in stdio mode and behind the
         same auth posture as the MCP endpoint in HTTP mode.
         """
-        from .settings_ui import apply_tool_visibility, load_tool_config
+        from .settings_ui import (
+            apply_tool_visibility,
+            effective_tool_config,
+            env_pinned_tools,
+        )
 
-        config = load_tool_config(self.settings)
+        # Surface env-pinned tools at startup so an operator who pinned
+        # something via DISABLED_TOOLS / PINNED_TOOLS can see that
+        # those values are overriding whatever's in tool_config.json.
+        # Silent overlay was the previous behavior — the file would
+        # show "enabled" for a tool, but runtime would treat it as
+        # disabled, and there was no log line to chase.
+        pinned = env_pinned_tools(self.settings)
+        if pinned:
+            logger.info(
+                "Env-pinned tools active (DISABLED_TOOLS / PINNED_TOOLS): %s",
+                ", ".join(f"{name}={state}" for name, state in sorted(pinned.items())),
+            )
+
+        config = effective_tool_config(self.settings)
         # When tool_config.json is absent (fresh install), `config` is falsy
         # and we leave self._user_enabled_tools at its __init__ default (empty
         # set). That yields no defaults filtered in _apply_tool_search, which
@@ -413,7 +453,7 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
         "Once you know a tool name, call it directly \u2014 no need to search "
         "again.\n\n"
         "If using proxies, call with TWO top-level params:\n"
-        '   ha_call_read_tool(name="ha_search_entities", arguments={"query": "..."})\n'
+        '   ha_call_read_tool(name="ha_search", arguments={"query": "..."})\n'
         "   Do NOT nest name/arguments inside the arguments param.\n"
         "   Call proxy tools SEQUENTIALLY, not in parallel.\n\n"
         "ALWAYS search before assuming a capability is unavailable. "
@@ -427,11 +467,12 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
     # (no semantic matching). Original tool docstrings stay unchanged;
     # these keywords are appended by the transform at list-tools time.
     _SEARCH_KEYWORDS: ClassVar[dict[str, str]] = {
-        # s02: "find entities" → ha_search_entities should outrank ha_deep_search
-        "ha_search_entities": (
-            "find entities lookup discover search lights sensors switches "
+        # s02: "find entities or configs" → ha_search outranks more specific tools
+        "ha_search": (
+            "find entities configs lookup discover search lights sensors switches "
             "covers climate fans media_player binary_sensor device_tracker "
-            "person weather automation script helper input_boolean input_number"
+            "person weather automation script helper input_boolean input_number "
+            "automations scripts scenes helpers dashboards"
         ),
         # s07: "get/read automation" → ha_config_get_automation should outrank set
         "ha_config_get_automation": (
@@ -448,7 +489,7 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
             "integration statistics trend random filter tod "
             "generic_thermostat switch_as_x generic_hygrostat"
         ),
-        # Boost tools that compete with ha_deep_search for common queries
+        # Boost tools that compete with ha_search for common queries
         "ha_config_get_script": (
             "read inspect fetch view existing script config sequence "
             "actions get show detail"
@@ -567,7 +608,7 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
             "zone, person, tag. Flow-based helpers (template, group, "
             "utility_meter, derivative, statistics, trend, threshold, "
             "filter, switch_as_x, etc.) cannot be listed through this "
-            "tool — use ha_search_entities or ha_deep_search.\n\n"
+            "tool — use ha_search.\n\n"
             "For per-type schemas and decision guidance, see "
             "ha_get_skill_guide."
         ),
@@ -615,7 +656,7 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
             "Execute a Home Assistant service to control entities or "
             "trigger automations. Calls `<domain>.<service>` "
             "(e.g., light.turn_on, climate.set_temperature). Use "
-            "ha_search_entities to find entity IDs and ha_get_state "
+            "ha_search to find entity IDs and ha_get_state "
             "to read current values before changing them.\n\n"
             "For service-parameter details and per-domain guidance, "
             "see ha_get_skill_guide."
@@ -645,15 +686,7 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
     # enable_tool_search=True, because they are tuned specifically for the
     # categorized search transform and replacing the base description would
     # unnecessarily trim context for other clients.
-    _SEARCH_DESCRIPTION_OVERRIDES: ClassVar[dict[str, str]] = {
-        "ha_deep_search": (
-            "Search INSIDE automation, script, and helper YAML configurations. "
-            "Use ONLY when you need to find where a specific service call, "
-            "entity reference, or config field appears within existing "
-            "automation/script/helper definitions. "
-            "NOT for finding entities or discovering tools."
-        ),
-    }
+    _SEARCH_DESCRIPTION_OVERRIDES: ClassVar[dict[str, str]] = {}
 
     def _apply_lite_docstrings(self) -> None:
         """Swap heavy tool descriptions for shorter variants if enabled.
@@ -1172,7 +1205,11 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
         self.mcp.tool(
             name=SKILL_TOOL_NAME,
             description=tool_description,
-            annotations={"readOnlyHint": True, "idempotentHint": True},
+            annotations={
+                "readOnlyHint": True,
+                "idempotentHint": True,
+                "title": "Get Home Assistant Best Practices Skill Guide",
+            },
             tags={"System"},
         )(ha_get_skill_guide)
         logger.info(
@@ -1417,13 +1454,25 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
                 )
             )
 
-        return {
-            "success": True,
-            "skill": skill,
-            "file": file,
-            "uri": f"skill://{skill}/{file}",
-            "content": content,
-        }
+        # Hint goes at the top of the response so the LLM sees it before
+        # parsing the (potentially large) content body. Scoped to the
+        # best-practice skill because that's the one the write-tool
+        # MandatoryBPS param gates; other skills (if any) are unrelated.
+        from .tools.util_helpers import _HA_BEST_PRACTICES_SKILL_NAME
+
+        response: dict[str, Any] = {}
+        if skill == _HA_BEST_PRACTICES_SKILL_NAME:
+            response["skill_content_hint"] = _SKILL_GUIDE_MANDATORYBPS_HINT
+        response.update(
+            {
+                "success": True,
+                "skill": skill,
+                "file": file,
+                "uri": f"skill://{skill}/{file}",
+                "content": content,
+            }
+        )
+        return response
 
     # Helper methods required by EnhancedToolsMixin
 

@@ -1017,6 +1017,8 @@ class OpenAIBaseStreamingClient(PlaygroundStreamingClient["AsyncOpenAI"]):
                         pass
                     elif item.type == "custom_tool_call_output":
                         pass
+                    elif item.type == "additional_tools":
+                        pass
                     elif TYPE_CHECKING:
                         assert_never(item.type)
                 elif event.type == "response.completed":
@@ -1383,6 +1385,7 @@ class TogetherStreamingClient(OpenAIBaseStreamingClient):
     provider_key=GenerativeProviderKey.AWS,
     model_names=[
         PROVIDER_DEFAULT,
+        "anthropic.claude-fable-5",
         "anthropic.claude-opus-4-8",
         "anthropic.claude-opus-4-7",
         "anthropic.claude-opus-4-6-v1",
@@ -2168,6 +2171,7 @@ class AzureOpenAIReasoningNonStreamingClient(
     provider_key=GenerativeProviderKey.ANTHROPIC,
     model_names=[
         PROVIDER_DEFAULT,
+        "claude-fable-5",
         "claude-opus-4-8",
         "claude-opus-4-7",
     ],

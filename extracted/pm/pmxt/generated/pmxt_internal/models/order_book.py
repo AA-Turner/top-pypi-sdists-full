@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from pmxt_internal.models.order_level import OrderLevel
 from typing import Optional, Set
@@ -31,7 +31,10 @@ class OrderBook(BaseModel):
     asks: List[OrderLevel] = Field(description="Order book ask levels, sorted by price ascending.")
     timestamp: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Unix timestamp in milliseconds when the snapshot was taken.")
     datetime: Optional[StrictStr] = Field(default=None, description="ISO 8601 datetime string of the snapshot (CCXT-compatible).")
-    __properties: ClassVar[List[str]] = ["bids", "asks", "timestamp", "datetime"]
+    is_neg_risk: Optional[StrictBool] = Field(default=None, description="Whether the venue marks this snapshot as a negative-risk market.", alias="isNegRisk")
+    last_trade_price: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Last traded price from venues that include it with the book snapshot.", alias="lastTradePrice")
+    source_metadata: Optional[Dict[str, Any]] = Field(default=None, description="Venue-specific metadata preserved from the raw order book snapshot.", alias="sourceMetadata")
+    __properties: ClassVar[List[str]] = ["bids", "asks", "timestamp", "datetime", "isNegRisk", "lastTradePrice", "sourceMetadata"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -101,7 +104,10 @@ class OrderBook(BaseModel):
             "bids": [OrderLevel.from_dict(_item) for _item in obj["bids"]] if obj.get("bids") is not None else None,
             "asks": [OrderLevel.from_dict(_item) for _item in obj["asks"]] if obj.get("asks") is not None else None,
             "timestamp": obj.get("timestamp"),
-            "datetime": obj.get("datetime")
+            "datetime": obj.get("datetime"),
+            "isNegRisk": obj.get("isNegRisk"),
+            "lastTradePrice": obj.get("lastTradePrice"),
+            "sourceMetadata": obj.get("sourceMetadata")
         })
         return _obj
 

@@ -107,6 +107,7 @@ boot_devices_write = {
     'net': 'Pxe',
     'network': 'Pxe',
     'pxe': 'Pxe',
+    'http': 'UefiHttp',
     'hd': 'Hdd',
     'usb': 'Usb',
     'cd': 'Cd',
@@ -129,6 +130,7 @@ boot_devices_read = {
     'Pxe': 'network',
     'Usb': 'usb',
     'SDCard': 'sdcard',
+    'UefiHttp': 'http',
 }
 
 
@@ -658,7 +660,7 @@ class OEMHandler(object):
                             procfound = True
                             summary['badreadings'].append(SensorReading(cinfo))
                 if not procfound:
-                    procinfo = fishclient.sysinfo['ProcessorSummary']
+                    procinfo = fishclient.sysinfo.get('ProcessorSummary', {})
                     procinfo['Name'] = 'Processors'
                     summary['badreadings'].append(SensorReading(procinfo))
             memsumstatus = fishclient.sysinfo.get(
@@ -736,6 +738,10 @@ class OEMHandler(object):
             raise exc.InvalidParameterValue('Unsupported device %s'
                                             % repr(bootdev))
         bootdev = boot_devices_write.get(bootdev, bootdev)
+        if bootdev == 'UefiHttp':
+            allowvals = fishclient.sysinfo.get('Boot', {}).get('BootSourceOverrideTarget@Redfish.AllowableValues', [])
+            if bootdev not in allowvals:
+                bootdev = 'Pxe'
         if bootdev == 'None':
             payload = {'Boot': {'BootSourceOverrideEnabled': 'Disabled'}}
         else:
@@ -746,13 +752,15 @@ class OEMHandler(object):
             }}
             if uefiboot is not None:
                 uefiboot = 'UEFI' if uefiboot else 'Legacy'
-                payload['BootSourceOverrideMode'] = uefiboot
+                payload['Boot']['BootSourceOverrideMode'] = uefiboot
                 try:
-                    fishclient._do_web_request(self.sysurl, payload,
-                                               method='PATCH')
+                    fishclient._do_web_request(fishclient.sysurl, payload,
+                                               method='PATCH', etag='*')
                     return {'bootdev': reqbootdev}
                 except Exception:
-                    del payload['BootSourceOverrideMode']
+                    del payload['Boot']['BootSourceOverrideMode']
+            else:
+                payload['Boot']['BootSourceOverrideMode'] = 'UEFI'
         #thetag = fishclient.sysinfo.get('@odata.etag', None)
         fishclient._do_web_request(fishclient.sysurl, payload, method='PATCH',
                                    etag='*') # thetag)
@@ -1393,7 +1401,7 @@ class OEMHandler(object):
         usd, upurl, ismultipart = self.retrieve_firmware_upload_url()
         try:
             uploadthread = webclient.FileUploader(
-                self.webclient, upurl, filename, data, formwrap=ismultipart,
+                self.webclient, upurl, filename, data, formname='UpdateFile', formwrap=ismultipart,
                 excepterror=False, otherfields=otherfields)
             uploadthread.start()
             wc = self.webclient
@@ -1427,7 +1435,17 @@ class OEMHandler(object):
             rsp = json.loads(uploadthread.rsp)
             monitorurl = rsp['@odata.id']
             return self.monitor_update_progress(monitorurl, progress)
-    
+
+    def format_message(self, msg):
+        try:
+            return '{}: {}'.format(msg.get('MessageSeverity', msg['Severity']), msg['Message'])
+        except Exception:
+            return repr(msg)
+
+    def format_messages(self, response):
+        msgs = response.get('Messages', [])
+        return ';'.join(self.format_message(x) for x in msgs)
+
     def monitor_update_progress(self, monitorurl, progress):
             complete = False
             phase = "apply"
@@ -1452,12 +1470,10 @@ class OEMHandler(object):
                 state = pgress[statetype]
                 if state in ('Cancelled', 'Exception', 'Interrupted',
                              'Suspended'):
-                    raise Exception(
-                        json.dumps(json.dumps(pgress['Messages'])))
+                    
+                    raise Exception(self.format_messages(pgress))
                 if 'PercentComplete' in pgress:
                     pct = float(pgress['PercentComplete'])
-                else:
-                    print(repr(pgress))
                 complete = state == 'Completed'
                 progress({'phase': phase, 'progress': pct})
                 if complete:

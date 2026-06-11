@@ -52,7 +52,7 @@ $ anyscale job terminate -n my-job
 
 JOB_ARCHIVE_EXAMPLE = """\
 $ anyscale job archive -n my-job
-(anyscale +8.5s) Job prodjob_vzq2pvkzyz3c1jw55kl76h4dk1 is successfully archived.
+(anyscale +8.5s) Job prodjob_vzq2pvkzyz3c1jw55kl76h4dk1 is archived.
 """
 
 JOB_DELETE_EXAMPLE = """\
@@ -448,15 +448,11 @@ Number of accelerators: {'A10G': 10, 'A100-80G': 0}
 RESOURCE_QUOTAS_LIST_EXAMPLE = """
 $ anyscale resource-quota list --cloud my-cloud
 Resource quotas:
-ID       NAME               CLOUD ID    PROJECT ID  USER ID     IS ENABLED    CREATED AT    DELETED AT    QUOTA
-rsq_123  resource-quota-1   cld_abcdef  prj_abcdef  usr_abcdef  True          09/11/2024                  {'num_accelerators': {'A100-80G': 0, 'A10G': 10},
-                                                                                                           'num_cpus': 1000,
-                                                                                                           'num_gpus': 50,
-                                                                                                           'num_instances': 100}
-rsq_456  resource-quota-2   cld_abcdef              usr_abcdef  True          09/10/2024                  {'num_accelerators': {}, 'num_cpus': None, 'num_gpus': None, 'num_instances': 2}
-rsq_789  resource-quota-3   cld_abcdef                          False         09/05/2024                  {'num_accelerators': {'A10G': 1},
-                                                                                                            'num_cpus': None,
-                                                                                                            'num_gpus': None,
+ID       NAME               CLOUD ID    PROJECT ID  USER ID     IS ENABLED    CREATED AT    DELETED AT    QUOTA                                                                                IS SOFT QUOTA
+rsq_123  resource-quota-1   cld_abcdef  prj_abcdef  usr_abcdef  True          09/11/2024                  {'num_accelerators': {'A100-80G': 0, 'A10G': 10}, 'num_cpus': 1000,               False
+                                                                                                            'num_gpus': 50, 'num_instances': 100}
+rsq_456  resource-quota-2   cld_abcdef              usr_abcdef  True          09/10/2024                  {'num_accelerators': {}, 'num_cpus': None, 'num_gpus': None, 'num_instances': 2}  True
+rsq_789  resource-quota-3   cld_abcdef                          False         09/05/2024                  {'num_accelerators': {'A10G': 1}, 'num_cpus': None, 'num_gpus': None,              False
                                                                                                             'num_instances': None}
 """
 
@@ -474,6 +470,45 @@ RESOURCE_QUOTAS_DELETE_EXAMPLE = """
 $ anyscale resource-quota delete --id rsq_abcdef
 (anyscale +1.0s) Resource quota with ID rsq_abcdef deleted successfully.
 """
+
+SCHEDULER_CONFIG_APPLY_EXAMPLE = """
+$ anyscale scheduler config apply -f scheduler-config.yaml
+(anyscale +1.4s) Applied scheduler config (version 3).
+"""
+
+SCHEDULER_CONFIG_GET_EXAMPLE = """
+# Active config (default).
+$ anyscale scheduler config get
+version: 3
+is_active: true
+created_at: '2026-04-25T10:00:00Z'
+creator_id: usr_abc123
+config:
+  resource_flavors:
+    - name: spot
+      requirements:
+        - key: market
+          operator: in
+          values: [spot]
+  ...
+
+# A specific version, JSON output.
+$ anyscale scheduler config get --version 2 -o json
+{"version": 2, "is_active": false, "created_at": "...", "creator_id": "...", "config": {...}}
+"""
+
+SCHEDULER_CONFIG_LIST_EXAMPLE = """
+$ anyscale scheduler config list
+VERSION  CREATED AT
+3        2026-04-25T10:00:00Z
+2        2026-04-20T08:30:00Z
+1        2026-04-15T14:00:00Z
+
+# JSON output for tooling.
+$ anyscale scheduler config list -o json --max-items 50
+[{"version": 3, "created_at": "..."}, ...]
+"""
+
 
 COMPUTE_CONFIG_CREATE_EXAMPLE = """
 $ anyscale compute-config create -n my-compute-config -f compute_config.yaml

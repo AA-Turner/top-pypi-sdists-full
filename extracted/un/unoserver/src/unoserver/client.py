@@ -277,6 +277,7 @@ class UnoClient:
             info = self._connect(proxy, retries=1)
             print(f"Unoserver {info['unoserver']}")
             print(f"API version {info['api']}")
+            print(f"LibreOffice version {info['libreoffice_version']}")
 
 
 def converter_main():

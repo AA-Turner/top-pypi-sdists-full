@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 from trilogy.core.exceptions import UnresolvableQueryException
@@ -9,7 +10,7 @@ from trilogy.core.models.environment import Environment
 from .base_node import NodeJoin, StrategyNode, WhereSafetyNode
 from .filter_node import FilterNode
 from .group_node import GroupNode
-from .merge_node import MergeNode
+from .merge_node import MergeNode, MultiSelectMergeNode
 from .recursive_node import RecursiveNode
 from .select_node_v2 import ConstantNode, SelectNode
 from .subselect_node import SubselectNode
@@ -31,6 +32,12 @@ class BuildCaches:
     grain_build_cache: dict = field(default_factory=dict)
     datasource_build_cache: dict = field(default_factory=dict)
     pseudonym_map: dict | None = None
+    # Query-scoped merges (in-query JOINs) for this resolution, as
+    # (source_address, target_address, modifiers). Applied during the build:
+    # the concept equivalence is folded into pseudonym_map, the datasource
+    # remap happens in Factory._build_datasource. Shared so every sub-select
+    # (rowsets, multiselect arms) inherits the same scoped merges.
+    scoped_joins: list = field(default_factory=list)
 
 
 @dataclass
@@ -41,6 +48,9 @@ class History:
     select_history: dict[str, StrategyNode | None] = field(default_factory=dict)
     rowset_history: dict[str, StrategyNode | None] = field(default_factory=dict)
     started: dict[str, int] = field(default_factory=dict)
+    # Root sets whose merge expansion is mid-flight; balanced add/discard (see
+    # merge_in_progress) so it only blocks nested re-entry, unlike `started`.
+    merge_in_progress_keys: set[str] = field(default_factory=set)
     build_caches: BuildCaches = field(default_factory=BuildCaches)
 
     def _concepts_to_lookup(
@@ -142,6 +152,25 @@ class History:
             in self.started
         )
 
+    @contextmanager
+    def merge_in_progress(
+        self,
+        search: list[BuildConcept],
+        accept_partial: bool = False,
+        conditions: BuildWhereClause | None = None,
+    ):
+        """Mark a root set's merge expansion in-flight; yields True if it was
+        already in-flight (caller should skip to break the recursion)."""
+        key = self._concepts_to_lookup(search, accept_partial, conditions=conditions)
+        if key in self.merge_in_progress_keys:
+            yield True
+            return
+        self.merge_in_progress_keys.add(key)
+        try:
+            yield False
+        finally:
+            self.merge_in_progress_keys.discard(key)
+
     def gen_select_node(
         self,
         concepts: list[BuildConcept],
@@ -185,6 +214,7 @@ __all__ = [
     "FilterNode",
     "GroupNode",
     "MergeNode",
+    "MultiSelectMergeNode",
     "SelectNode",
     "WindowNode",
     "StrategyNode",

@@ -52,6 +52,7 @@ from .models import (
     TradesParams,
     FetchOrderBookParams,
     SubscribedAddressSnapshot,
+    SubscriptionOption,
     FirehoseEvent,
     MatchResult,
     EventMatchResult,
@@ -1281,7 +1282,8 @@ class Exchange(ABC):
 
         for market in markets:
             self.markets[market.market_id] = market
-            self.markets_by_slug[market.slug] = market
+            if market.slug:
+                self.markets_by_slug[market.slug] = market
 
         self._loaded_markets = True
         return self.markets
@@ -2267,6 +2269,7 @@ class Exchange(ABC):
         since: Optional[int] = None,
         start: Optional[Union[str, int]] = None,
         end: Optional[Union[str, int]] = None,
+        resolution: Optional[str] = None,
         **kwargs
     ) -> List[Trade]:
         """
@@ -2280,6 +2283,7 @@ class Exchange(ABC):
             since: Return trades since this timestamp (Unix milliseconds)
             start: Start of time range (ISO 8601 string or epoch seconds/ms)
             end: End of time range (ISO 8601 string or epoch seconds/ms)
+            resolution: Optional trade resolution/status filter forwarded to the venue
             **kwargs: Additional parameters
 
         Returns:
@@ -2301,6 +2305,8 @@ class Exchange(ABC):
                 params_dict["start"] = start
             if end is not None:
                 params_dict["end"] = end
+            if resolution is not None:
+                params_dict["resolution"] = resolution
 
             # Add any extra keyword arguments
             for key, value in kwargs.items():
@@ -2662,7 +2668,7 @@ class Exchange(ABC):
     def watch_address(
         self,
         address: str,
-        types: Optional[List[str]] = None,
+        types: Optional[List[SubscriptionOption]] = None,
     ) -> SubscribedAddressSnapshot:
         """
         Watch real-time updates of a public wallet via WebSocket.
@@ -2957,7 +2963,9 @@ class Exchange(ABC):
         """
         Create a new order.
 
-        Not available through the hosted API — trades execute locally.
+        In hosted mode (``pmxt_api_key`` + ``wallet_address`` + ``private_key``)
+        this wraps build -> local EIP-712 sign -> submit against the hosted
+        trading API. Venue-direct mode executes locally with raw credentials.
 
         You can specify the market either with explicit market_id/outcome_id,
         or by passing an outcome object directly (e.g., market.yes).

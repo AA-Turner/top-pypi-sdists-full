@@ -7,7 +7,10 @@
 //! - v0.4.5: `reset q[i];` → `Circuit::reset`, `if (c == N) gate;` →
 //!   `Circuit::c_if_last` 정상 lowering. body 는 정확히 1 개 ApplyGate 만 허용
 //!   (broadcast / nested If / Reset / Measure 거부).
-//! - `opaque`, OpenQASM 3.0 의 `for`/`while`/`box`/`def` 는 여전히 UnsupportedFeature.
+//! - v0.4.7+: block-form `if/else` / `while` / `for` / `switch`, v0.6.8 `box`,
+//!   v0.6.9~v1.3.2 `def` (qubit/qubit[N]/bit/bit[N] 파라미터 + body measure ·
+//!   reset · control-flow) 모두 lowering 지원.
+//! - `opaque` 만 여전히 UnsupportedFeature.
 //!
 //! [`Circuit`]: qsim_simulator::Circuit
 
@@ -216,6 +219,7 @@ pub fn lower_program(program: Program) -> QasmResult<Circuit> {
             Stmt::ForLoop {
                 var,
                 low,
+                step,
                 high,
                 body,
                 line,
@@ -225,6 +229,7 @@ pub fn lower_program(program: Program) -> QasmResult<Circuit> {
                     &mut circuit,
                     var,
                     *low,
+                    *step,
                     *high,
                     body,
                     &qregs,
@@ -403,12 +408,13 @@ fn lower_stmt_into(
         Stmt::ForLoop {
             var,
             low,
+            step,
             high,
             body,
             line,
             col,
         } => lower_for_loop(
-            circuit, var, *low, *high, body, qregs, cregs, gate_decls, env, *line, *col,
+            circuit, var, *low, *step, *high, body, qregs, cregs, gate_decls, env, *line, *col,
         ),
         Stmt::Switch {
             creg,
@@ -599,7 +605,7 @@ fn lower_if_else(
             max: max_value,
         });
     }
-    let cbit_indices: Vec<usize> = (info.offset..info.offset + info.size).collect();
+    let cbit_indices: Vec<usize> = condition_indices(info)?;
     let n_qubits = circuit.num_qubits();
     let then_insts =
         lower_block_to_instructions(then_body, n_qubits, qregs, cregs, gate_decls, env)?;
@@ -642,14 +648,20 @@ fn lower_while_loop(
             max: 0,
         });
     }
-    let cbit_indices: Vec<usize> = (info.offset..info.offset + info.size).collect();
+    let cbit_indices: Vec<usize> = condition_indices(info)?;
     let n_qubits = circuit.num_qubits();
     let body_insts = lower_block_to_instructions(body, n_qubits, qregs, cregs, gate_decls, env)?;
     circuit.add_while_loop(cbit_indices, value as u64, body_insts, 256);
     Ok(())
 }
 
-/// v0.4.7: `for var in [low:high] { ... }` lowering — body 를 (high-low+1) 회 반복.
+/// v0.4.7: `for var in [low:high]` / `[low:step:high]` lowering — body 를
+/// range 원소 수만큼 반복 (v1.4: step 반영).  OpenQASM 3.0 §5 range:
+/// - step > 0: `low, low+step, ...` (≤ high) → `floor((high-low)/step) + 1` 회.
+/// - step < 0: `low, low+step, ...` (≥ high) → `floor((low-high)/(-step)) + 1` 회.
+/// - step == 0: error.
+/// - 빈 시퀀스 (step>0 && high<low, step<0 && high>low) 는 0 회 (no-op).
+///
 /// loop var 가 body 안 게이트 인자로 사용되면 (현재) error — panta-sim 의
 /// fixed-body ForLoop 와 호환 불가.  사용자가 unroll 한 회로로 바꿔야.
 #[allow(clippy::too_many_arguments)]
@@ -657,6 +669,7 @@ fn lower_for_loop(
     circuit: &mut Circuit,
     _var: &str,
     low: i64,
+    step: i64,
     high: i64,
     body: &[Stmt],
     qregs: &HashMap<String, RegInfo>,
@@ -666,11 +679,29 @@ fn lower_for_loop(
     line: usize,
     col: usize,
 ) -> QasmResult<()> {
-    if high < low {
-        // 빈 시퀀스 — for body 0 회 (no-op).
+    if step == 0 {
+        return Err(QasmError::Lower {
+            message: format!("at line {line}:{col}: for-loop range step must be non-zero"),
+        });
+    }
+    // i64 경계값 (예: low = i64::MIN) 에서도 overflow 없도록 i128 로 계산.
+    let count: i128 = if step > 0 {
+        if high < low {
+            0 // 빈 시퀀스 — for body 0 회 (no-op).
+        } else {
+            (high as i128 - low as i128) / step as i128 + 1
+        }
+    } else if high > low {
+        0
+    } else {
+        (low as i128 - high as i128) / (-(step as i128)) + 1
+    };
+    let iterations = usize::try_from(count).map_err(|_| QasmError::Lower {
+        message: format!("at line {line}:{col}: for-loop range has too many iterations ({count})"),
+    })?;
+    if iterations == 0 {
         return Ok(());
     }
-    let iterations = (high - low + 1) as usize;
     let n_qubits = circuit.num_qubits();
     let body_insts = lower_block_to_instructions(body, n_qubits, qregs, cregs, gate_decls, env)
         .map_err(|e| with_loc(e, line, col))?;
@@ -698,7 +729,7 @@ fn lower_switch(
             col,
             name: creg_name.to_string(),
         })?;
-    let cbit_indices: Vec<usize> = (info.offset..info.offset + info.size).collect();
+    let cbit_indices: Vec<usize> = condition_indices(info)?;
     let n_qubits = circuit.num_qubits();
     let mut rust_cases: Vec<(Option<u64>, Vec<qsim_simulator::Instruction>)> = Vec::new();
     for (label, body) in cases {
@@ -788,7 +819,7 @@ fn lower_if(
         });
     }
     // 5. cbit indices = creg 의 flat 인덱스 (LSB = info.offset).
-    let cbit_indices: Vec<usize> = (info.offset..info.offset + info.size).collect();
+    let cbit_indices: Vec<usize> = condition_indices(info)?;
     circuit.c_if_last(cbit_indices, value as u64);
     Ok(())
 }
@@ -994,6 +1025,25 @@ fn resolve_carg(c: &CArg, cregs: &HashMap<String, RegInfo>) -> QasmResult<Vec<us
     resolve_carg_in_env(c, cregs, &Env::empty())
 }
 
+/// 제어흐름 조건에 쓰이는 creg 의 cbit 인덱스 목록을 만든다.
+///
+/// 시뮬레이터의 조건 비교 (`pack_cbits`) 가 u64 패킹이므로 64 비트 초과 creg
+/// 는 조건으로 쓸 수 없다 — release 빌드에서 `1u64 << 64` 가 shift 마스킹으로
+/// cbit 64 를 cbit 0 으로 aliasing 하던 silent bug 를 파싱 단계의 명시적
+/// 에러로 바꾼다 (simulator 빌더의 assert 와 동일 계약).
+fn condition_indices(info: &RegInfo) -> QasmResult<Vec<usize>> {
+    if info.size > 64 {
+        return Err(QasmError::UnsupportedFeature {
+            message: format!(
+                "control-flow condition on creg wider than 64 bits (size {})",
+                info.size
+            ),
+            planned_for: "미정 (u64 packing 한계 — 조건 비교에 BigUint 필요)",
+        });
+    }
+    Ok((info.offset..info.offset + info.size).collect())
+}
+
 /// def body 내 cbit 참조 해석 — def 의 bit 파라미터 이름이면 바인딩된 cbit
 /// 인덱스 (v1.3.2), 아니면 creg lookup.  `resolve_qarg_in_env` 의 cbit 대응.
 fn resolve_carg_in_env(
@@ -1132,6 +1182,20 @@ mod tests {
         let toks = Lexer::new(src).tokenize().unwrap();
         let prog = Parser::new(toks).parse_program().unwrap();
         lower_program(prog).unwrap()
+    }
+
+    /// 회귀: 64 비트 초과 creg 를 제어흐름 조건에 쓰면 release 빌드에서
+    /// `1u64 << 64` shift 마스킹으로 cbit 64 가 cbit 0 으로 aliasing 되던
+    /// 버그 — 이제 파싱 단계에서 명시적 에러.
+    #[test]
+    fn test_wide_creg_condition_rejected() {
+        let src = "OPENQASM 3.0; qubit[1] q; bit[65] c; c[64] = measure q[0]; \
+                   if (c == 1) { x q[0]; }";
+        let toks = Lexer::new(src).tokenize().unwrap();
+        let prog = Parser::new(toks).parse_program().unwrap();
+        let err = lower_program(prog).unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("64"), "기대한 폭 제한 에러가 아님: {msg}");
     }
 
     #[test]
@@ -1306,6 +1370,83 @@ mod tests {
             "OPENQASM 3.0; include \"stdgates.inc\"; qubit[1] q; for int i in [0:2] { box { x q[0]; } }",
         );
         assert_eq!(c.num_qubits(), 1);
+    }
+
+    /// 회로의 첫 ForLoop instruction 의 iterations 를 반환.
+    fn first_for_loop_iterations(c: &Circuit) -> usize {
+        c.instructions()
+            .iter()
+            .find_map(|i| match i {
+                qsim_simulator::Instruction::ForLoop { iterations, .. } => Some(*iterations),
+                _ => None,
+            })
+            .expect("expected a ForLoop instruction")
+    }
+
+    #[test]
+    fn test_for_loop_step_runs_correct_iterations() {
+        // v1.4: [0:2:10] = {0,2,4,6,8,10} → body 6 회.
+        let c = lower(
+            "OPENQASM 3.0; include \"stdgates.inc\"; qubit[1] q; \
+             for int i in [0:2:10] { x q[0]; }",
+        );
+        assert_eq!(first_for_loop_iterations(&c), 6);
+    }
+
+    #[test]
+    fn test_for_loop_default_step_unchanged() {
+        // [0:10] = step 1 → 11 회 (기존 동작 유지).
+        let c = lower(
+            "OPENQASM 3.0; include \"stdgates.inc\"; qubit[1] q; \
+             for int i in [0:10] { x q[0]; }",
+        );
+        assert_eq!(first_for_loop_iterations(&c), 11);
+    }
+
+    #[test]
+    fn test_for_loop_step_not_dividing_span() {
+        // [0:3:10] = {0,3,6,9} → 4 회 (floor((10-0)/3)+1).
+        let c = lower(
+            "OPENQASM 3.0; include \"stdgates.inc\"; qubit[1] q; \
+             for int i in [0:3:10] { x q[0]; }",
+        );
+        assert_eq!(first_for_loop_iterations(&c), 4);
+    }
+
+    #[test]
+    fn test_for_loop_zero_step_errors() {
+        let src = "OPENQASM 3.0; include \"stdgates.inc\"; qubit[1] q; \
+                   for int i in [0:0:10] { x q[0]; }";
+        let toks = Lexer::new(src).tokenize().unwrap();
+        let prog = Parser::new(toks).parse_program().unwrap();
+        let err = lower_program(prog).unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("step must be non-zero"), "{msg}");
+    }
+
+    #[test]
+    fn test_for_loop_negative_step_descending() {
+        // OpenQASM 3.0 §5: [10:-2:0] = {10,8,6,4,2,0} → 6 회.
+        let c = lower(
+            "OPENQASM 3.0; include \"stdgates.inc\"; qubit[1] q; \
+             for int i in [10:-2:0] { x q[0]; }",
+        );
+        assert_eq!(first_for_loop_iterations(&c), 6);
+    }
+
+    #[test]
+    fn test_for_loop_empty_ranges_are_noop() {
+        // step>0 && high<low / step<0 && high>low → 빈 시퀀스 (no-op).
+        let c1 = lower(
+            "OPENQASM 3.0; include \"stdgates.inc\"; qubit[1] q; \
+             for int i in [5:2:0] { x q[0]; }",
+        );
+        assert!(c1.instructions().is_empty());
+        let c2 = lower(
+            "OPENQASM 3.0; include \"stdgates.inc\"; qubit[1] q; \
+             for int i in [0:-1:5] { x q[0]; }",
+        );
+        assert!(c2.instructions().is_empty());
     }
 
     #[test]

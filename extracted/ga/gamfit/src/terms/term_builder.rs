@@ -573,6 +573,7 @@ pub fn build_termspec(
                             inner: Box::new(inner_basis),
                             by_col,
                             levels,
+                            frozen_global_orthogonality: None,
                         },
                         shape,
                         joint_null_rotation: None,
@@ -1512,6 +1513,7 @@ pub fn build_smooth_basis(
                 marginal,
                 flavour,
                 group_frozen_levels: None,
+                frozen_global_orthogonality: None,
             },
         });
     }
@@ -2556,7 +2558,7 @@ fn min_per_group_unique_count(
 
 /// Per-column knot count from the unique-value count, with the same n^(1/3)
 /// ceiling growth as `heuristic_knots` so per-column smooths can support more
-/// detail at biobank scale. The 4-knot floor stays put because we still need
+/// detail at large scale. The 4-knot floor stays put because we still need
 /// enough basis functions to fit a non-trivial smooth at all.
 pub fn heuristic_knots_for_column(col: ArrayView1<'_, f64>) -> usize {
     let unique = unique_count_column(col);

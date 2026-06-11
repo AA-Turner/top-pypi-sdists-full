@@ -761,6 +761,9 @@ struct ScopeInferenceExtra<'db> {
     /// String annotations found in this region
     string_annotations: FrozenSet<ExpressionNodeKey>,
 
+    /// Type qualifiers (`Required`, `NotRequired`, etc.) for annotation expressions.
+    qualifiers: FrozenMap<ExpressionNodeKey, TypeQualifiers>,
+
     /// Expected types for expression nodes tracked for IDE completion.
     expected_types: FrozenMap<ExpressionNodeKey, Type<'db>>,
 
@@ -819,6 +822,14 @@ impl<'db> ScopeInference<'db> {
             .get(&expression.into())
             .copied()
             .or_else(|| self.fallback_type())
+    }
+
+    /// Get qualifiers for an annotation expression.
+    pub(crate) fn qualifiers(&self, expression: impl Into<ExpressionNodeKey>) -> TypeQualifiers {
+        self.extra
+            .as_deref()
+            .and_then(|extra| extra.qualifiers.get(&expression.into()).copied())
+            .unwrap_or_default()
     }
 
     pub(crate) fn try_expected_type(
@@ -897,15 +908,14 @@ pub(crate) struct DefinitionInference<'db> {
 /// The binding and declaration types inferred for a definition region.
 ///
 /// Almost all regions contain a single binding, optionally paired with a declaration for the same
-/// definition and type. Keep those cases in a single allocation instead of retaining two separate
-/// allocations.
+/// definition and type. Keep those cases inline instead of retaining separate allocations.
 #[derive(Debug, Default, Eq, PartialEq, salsa::Update, get_size2::GetSize)]
 enum DefinitionTypes<'db> {
     #[default]
     Empty,
-    Binding(Box<DefinitionBinding<'db>>),
-    Declaration(Box<DefinitionDeclaration<'db>>),
-    BindingAndDeclaration(Box<DefinitionDeclaration<'db>>),
+    Binding(DefinitionBinding<'db>),
+    Declaration(DefinitionDeclaration<'db>),
+    BindingAndDeclaration(DefinitionDeclaration<'db>),
     Other(Box<OtherDefinitionTypes<'db>>),
 }
 
@@ -925,12 +935,12 @@ impl<'db> DefinitionTypes<'db> {
     ) -> Self {
         match (&*bindings, &*declarations) {
             ([], []) => Self::Empty,
-            ([binding], []) => Self::Binding(Box::new(*binding)),
-            ([], [declaration]) => Self::Declaration(Box::new(*declaration)),
+            ([binding], []) => Self::Binding(*binding),
+            ([], [declaration]) => Self::Declaration(*declaration),
             ([(binding, binding_ty)], [(declaration, declaration_ty)])
                 if binding == declaration && *binding_ty == declaration_ty.inner_type() =>
             {
-                Self::BindingAndDeclaration(Box::new((*declaration, *declaration_ty)))
+                Self::BindingAndDeclaration((*declaration, *declaration_ty))
             }
             _ => Self::Other(Box::new(OtherDefinitionTypes {
                 bindings: bindings.into_boxed_slice(),
@@ -986,17 +996,17 @@ impl<'db> DefinitionTypes<'db> {
         match self {
             Self::Empty => Self::Empty,
             Self::Binding(mut binding) => {
-                let (definition, ty) = &mut *binding;
+                let (definition, ty) = &mut binding;
                 *ty = Self::normalize_binding(db, previous, cycle, *definition, *ty);
                 Self::Binding(binding)
             }
             Self::Declaration(mut declaration) => {
-                let (definition, ty) = &mut *declaration;
+                let (definition, ty) = &mut declaration;
                 *ty = Self::normalize_declaration(db, previous, cycle, *definition, *ty);
                 Self::Declaration(declaration)
             }
             Self::BindingAndDeclaration(mut declaration) => {
-                let (definition, declaration_ty) = *declaration;
+                let (definition, declaration_ty) = declaration;
                 let binding_ty = Self::normalize_binding(
                     db,
                     previous,
@@ -1029,7 +1039,7 @@ impl<'db> DefinitionTypes<'db> {
                     ([(binding, binding_ty)], [(declaration, declaration_ty)])
                         if binding == declaration && *binding_ty == declaration_ty.inner_type() =>
                     {
-                        Self::BindingAndDeclaration(Box::new((*declaration, *declaration_ty)))
+                        Self::BindingAndDeclaration((*declaration, *declaration_ty))
                     }
                     _ => Self::Other(other),
                 }
@@ -1039,7 +1049,7 @@ impl<'db> DefinitionTypes<'db> {
 
     fn bindings(&self) -> impl ExactSizeIterator<Item = (Definition<'db>, Type<'db>)> {
         match self {
-            Self::Binding(binding) => Either::Left(std::iter::once(**binding)),
+            Self::Binding(binding) => Either::Left(std::iter::once(*binding)),
             Self::BindingAndDeclaration(declaration) => {
                 Either::Left(std::iter::once((declaration.0, declaration.1.inner_type())))
             }
@@ -1053,7 +1063,7 @@ impl<'db> DefinitionTypes<'db> {
     ) -> impl ExactSizeIterator<Item = (Definition<'db>, TypeAndQualifiers<'db>)> {
         match self {
             Self::Declaration(declaration) | Self::BindingAndDeclaration(declaration) => {
-                Either::Left(std::iter::once(**declaration))
+                Either::Left(std::iter::once(*declaration))
             }
             Self::Other(other) => Either::Right(other.declarations.iter().copied()),
             Self::Empty | Self::Binding(..) => Either::Right([].iter().copied()),
@@ -1126,10 +1136,10 @@ impl<'db> DefinitionInference<'db> {
                         generic_context.repeat_specialization(db, cycle_recovery)
                     });
 
-                types = DefinitionTypes::Binding(Box::new((
+                types = DefinitionTypes::Binding((
                     definition,
                     Type::instance(db, divergent_collection),
-                )));
+                ));
             }
         }
 

@@ -67,21 +67,6 @@ def _bind_parameters(qc: Any, parameter_values: Any) -> Any:
     return qc.assign_parameters(bindings)
 
 
-def _expval_from_state(state: np.ndarray, observable_dict: dict[str, complex]) -> float:
-    """SparsePauliOp 형식 dict ({Pauli string: coeff}) 의 ⟨ψ|H|ψ⟩ 계산.
-
-    작은 큐비트 (state.size == 2^n, n ≤ 25) 에서 dense matmul 로 충분히 빠르다.
-    """
-    qiskit = _lazy_import_qiskit()
-    SparsePauliOp = qiskit.quantum_info.SparsePauliOp
-
-    op = SparsePauliOp.from_list(list(observable_dict.items()))
-    matrix = op.to_matrix()
-    # ⟨ψ|H|ψ⟩ — Hermitian 이라 실수.
-    expval = np.vdot(state, matrix @ state)
-    return float(np.real(expval))
-
-
 def _make_primitive_job(callable_task: Any) -> Any:
     """Qiskit ``PrimitiveJob`` 을 만들고 즉시 ``_submit`` 한다 (synchronous)."""
     _lazy_import_qiskit()
@@ -181,14 +166,17 @@ class PantaSampler:
 
         def _task() -> Any:
             pub_results: list[Any] = []
-            for pub in coerced:
+            for pub_index, pub in enumerate(coerced):
                 qc = _bind_parameters(pub.circuit, pub.parameter_values)
                 _check_no_unbound_parameters(qc)
                 n_shots = pub.shots if pub.shots is not None else default_shots
 
                 panta_qc = from_qiskit(qc)
-                sim_result = panta_qc.run(shots=int(n_shots), seed=self._seed)
-                counts = sim_result.counts() or {"" * qc.num_qubits: int(n_shots)}
+                # seed 는 pub 별로 파생 (seed+index) — 동일 회로의 pub 들이
+                # 같은 샘플을 반복하지 않으면서도 재현성은 유지.
+                pub_seed = None if self._seed is None else self._seed + pub_index
+                sim_result = panta_qc.run(shots=int(n_shots), seed=pub_seed)
+                counts = sim_result.counts() or {"0" * max(qc.num_qubits, 1): int(n_shots)}
 
                 # 회로의 ClassicalRegister 별로 BitArray 를 만들어야 표준 형식.
                 # measure_all() 은 'meas' creg 자동 생성. measure(q,c) 만 쓰면
@@ -279,7 +267,7 @@ class PantaEstimator:
 
         def _task() -> Any:
             pub_results: list[Any] = []
-            for pub in coerced:
+            for pub_index, pub in enumerate(coerced):
                 qc = _bind_parameters(pub.circuit, pub.parameter_values)
                 _check_no_unbound_parameters(qc)
 
@@ -298,15 +286,18 @@ class PantaEstimator:
 
                 pub_precision = pub.precision
                 if pub_precision is None or pub_precision <= 0.0:
-                    # 정확 (statevector) — shot noise 없음.
-                    state = sim_result.statevector().astype(np.complex128)
-                    expval = _expval_from_state(state, obs_dict)
+                    # 정확 (statevector) — shot noise 없음.  2ⁿ 행렬을 만들지
+                    # 않는 native Pauli-sum 기댓값 (v0.7) 으로 직접 계산.
+                    expval = sim_result.expectation(obs_dict)
                     std = 0.0
                 else:
-                    # shots ≈ ⌈1/precision²⌉ 로 shot-based 추정.
+                    # shots ≈ ⌈1/precision²⌉ 로 shot-based 추정.  seed 는 pub
+                    # 별로 파생 (seed+index) — 동일 회로 pub 들이 같은 표본을
+                    # 반복하지 않도록.
                     shots = max(1, int(np.ceil(1.0 / (pub_precision ** 2))))
+                    pub_seed = None if self._seed is None else self._seed + pub_index
                     expval = sim_result.expectation(
-                        obs_dict, shots=shots, seed=self._seed
+                        obs_dict, shots=shots, seed=pub_seed
                     )
                     std = float(pub_precision)
 

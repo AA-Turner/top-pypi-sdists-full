@@ -5,11 +5,10 @@ Linopy module for defining constant values used within the package.
 
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Literal, TypeAlias, Union, get_args
+from enum import StrEnum
+from typing import Any, Literal, Self, TypeAlias, get_args
 
 import numpy as np
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +16,11 @@ logger = logging.getLogger(__name__)
 EQUAL = "="
 GREATER_EQUAL = ">="
 LESS_EQUAL = "<="
+
+
+class PerformanceWarning(UserWarning):
+    """Warning raised when an operation triggers expensive Dataset reconstruction."""
+
 
 long_EQUAL = "=="
 short_GREATER_EQUAL = ">"
@@ -33,7 +37,9 @@ sign_replace_dict: dict[str, str] = {
     short_LESS_EQUAL: LESS_EQUAL,
 }
 
-FIX_CONSTRAINT_PREFIX = "__fix__"
+STASHED_LOWER = "_stashed_lower"
+STASHED_UPPER = "_stashed_upper"
+STASHED_ATTRS: list[str] = [STASHED_LOWER, STASHED_UPPER]
 
 TERM_DIM = "_term"
 STACKED_TERM_DIM = "_stacked_term"
@@ -55,9 +61,16 @@ PWL_DOMAIN_LO_SUFFIX = "_domain_lo"
 PWL_DOMAIN_HI_SUFFIX = "_domain_hi"
 
 PWL_METHOD: TypeAlias = Literal["sos2", "lp", "incremental", "auto"]
+"""Allowed values for the ``method`` argument of :meth:`Model.add_piecewise_formulation`."""
+
 PWL_METHODS: frozenset[str] = frozenset(get_args(PWL_METHOD))
+"""Set of valid :data:`~linopy.constants.PWL_METHOD` values."""
+
 PWL_CONVEXITY: TypeAlias = Literal["convex", "concave", "linear", "mixed"]
+"""Possible values for :attr:`~linopy.piecewise.PiecewiseFormulation.convexity`."""
+
 PWL_CONVEXITIES: frozenset[str] = frozenset(get_args(PWL_CONVEXITY))
+"""Set of valid :data:`~linopy.constants.PWL_CONVEXITY` values."""
 BREAKPOINT_DIM = "_breakpoint"
 SEGMENT_DIM = "_segment"
 LP_PIECE_DIM = f"{BREAKPOINT_DIM}_piece"
@@ -80,6 +93,10 @@ HELPER_DIMS: list[str] = [
 SOS_TYPE_ATTR = "sos_type"
 SOS_DIM_ATTR = "sos_dim"
 SOS_BIG_M_ATTR = "big_m_upper"
+
+# Indicator constraint attribute keys
+INDICATOR_BINARY_VAR_ATTR = "indicator_binary_var"
+INDICATOR_BINARY_VAL_ATTR = "indicator_binary_val"
 
 
 class EvolvingAPIWarning(FutureWarning):
@@ -108,7 +125,7 @@ class EvolvingAPIWarning(FutureWarning):
     """
 
 
-class ModelStatus(Enum):
+class ModelStatus(StrEnum):
     """
     Model status.
 
@@ -124,7 +141,7 @@ class ModelStatus(Enum):
     initialized = "initialized"
 
 
-class SolverStatus(Enum):
+class SolverStatus(StrEnum):
     """
     Solver status.
     """
@@ -136,7 +153,7 @@ class SolverStatus(Enum):
     unknown = "unknown"
 
     @classmethod
-    def process(cls, status: str) -> "SolverStatus":
+    def process(cls, status: str) -> Self:
         try:
             return cls(status)
         except ValueError:
@@ -145,14 +162,14 @@ class SolverStatus(Enum):
     @classmethod
     def from_termination_condition(
         cls, termination_condition: "TerminationCondition"
-    ) -> "SolverStatus":
+    ) -> Self:
         for status in STATUS_TO_TERMINATION_CONDITION_MAP:
             if termination_condition in STATUS_TO_TERMINATION_CONDITION_MAP[status]:
                 return status
         return cls("unknown")
 
 
-class TerminationCondition(Enum):
+class TerminationCondition(StrEnum):
     """
     Termination condition of the solver.
     """
@@ -184,9 +201,7 @@ class TerminationCondition(Enum):
     licensing_problems = "licensing_problems"
 
     @classmethod
-    def process(
-        cls, termination_condition: Union["TerminationCondition", str]
-    ) -> "TerminationCondition":
+    def process(cls, termination_condition: Self | str) -> Self:
         if isinstance(termination_condition, TerminationCondition):
             termination_condition = termination_condition.value
         try:
@@ -234,7 +249,7 @@ class Status:
     legacy_status: tuple[str, str] | str = ""
 
     @classmethod
-    def process(cls, status: str, termination_condition: str) -> "Status":
+    def process(cls, status: str, termination_condition: str) -> Self:
         return cls(
             status=SolverStatus.process(status),
             termination_condition=TerminationCondition.process(termination_condition),
@@ -243,9 +258,11 @@ class Status:
 
     @classmethod
     def from_termination_condition(
-        cls, termination_condition: Union["TerminationCondition", str]
-    ) -> "Status":
-        termination_condition = TerminationCondition.process(termination_condition)
+        cls, termination_condition: TerminationCondition | str | None
+    ) -> Self:
+        termination_condition = TerminationCondition.process(
+            termination_condition if termination_condition is not None else "unknown"
+        )
         solver_status = SolverStatus.from_termination_condition(termination_condition)
         return cls(solver_status, termination_condition)
 
@@ -254,19 +271,33 @@ class Status:
         return self.status == SolverStatus.ok
 
 
-def _pd_series_float() -> pd.Series:
-    return pd.Series(dtype=float)
-
-
 @dataclass
 class Solution:
     """
     Solution returned by the solver.
+
+    ``primal`` and ``dual`` are dense float arrays indexed by linopy label:
+    ``primal[label]`` is the value for variable ``label``, with ``NaN`` where
+    no value is available (masked labels, vars dropped by the solver, etc.).
+    Each solver is responsible for emitting arrays in this label-indexed form.
     """
 
-    primal: pd.Series = field(default_factory=_pd_series_float)
-    dual: pd.Series = field(default_factory=_pd_series_float)
+    primal: np.ndarray = field(default_factory=lambda: np.array([], dtype=float))
+    dual: np.ndarray = field(default_factory=lambda: np.array([], dtype=float))
     objective: float = field(default=np.nan)
+
+
+@dataclass
+class SolverReport:
+    """
+    Solver-reported performance metrics.
+    """
+
+    runtime: float | None = None
+    mip_gap: float | None = None
+    dual_bound: float | None = None
+    barrier_iterations: int | None = None
+    simplex_iterations: int | None = None
 
 
 @dataclass
@@ -278,6 +309,8 @@ class Result:
     status: Status
     solution: Solution | None = None
     solver_model: Any = None
+    solver_name: str = ""
+    report: SolverReport | None = None
 
     def __repr__(self) -> str:
         solver_model_string = (
@@ -290,10 +323,21 @@ class Result:
             )
         else:
             solution_string = "Solution: None\n"
+        solver_name_string = f"Solver: {self.solver_name}\n" if self.solver_name else ""
+        report_string = ""
+        if self.report is not None:
+            if self.report.runtime is not None:
+                report_string += f"Runtime: {self.report.runtime:.2f}s\n"
+            if self.report.mip_gap is not None:
+                report_string += f"MIP gap: {self.report.mip_gap:.2e}\n"
+            if self.report.dual_bound is not None:
+                report_string += f"Dual bound: {self.report.dual_bound:.2e}\n"
         return (
             f"Status: {self.status.status.value}\n"
             f"Termination condition: {self.status.termination_condition.value}\n"
             + solution_string
+            + solver_name_string
+            + report_string
             + f"Solver model: {solver_model_string}\n"
             f"Solver message: {self.status.legacy_status}"
         )

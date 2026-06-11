@@ -280,7 +280,10 @@ impl PyCircuit {
                 )));
             }
         };
-        Ok(qsim_qasm::circuit_to_qasm(&self.inner, dialect))
+        // try_* 경로: 비연속 cbit c_if / v3 전용 구문 + "2.0" 타깃 같은
+        // export 불가 회로를 PanicException 이 아닌 ValueError 로 보고.
+        qsim_qasm::try_circuit_to_qasm(&self.inner, dialect)
+            .map_err(|e| PyValueError::new_err(format!("to_qasm: {e}")))
     }
 
     /// 임의 2×2 unitary 행렬을 회로의 `qubit` 큐비트에 적용한다.
@@ -1373,6 +1376,7 @@ fn gate_to_clifford(
 fn gate_to_ct(
     gate: &Gate,
     targets: &[usize],
+    phase_acc: &mut f64,
 ) -> Result<Vec<qsim_stabilizer::clifford_t::CtGate>, String> {
     use qsim_stabilizer::clifford_t::CtGate as C;
     let a = targets.first().copied().unwrap_or(0);
@@ -1411,9 +1415,15 @@ fn gate_to_ct(
         Gate::SWAP => vec![C::Swap(a, b)],
         Gate::ISwap => vec![C::Iswap(a, b)],
         Gate::Dcx => vec![C::Dcx(a, b)],
-        Gate::Rz(t) => clifford_quarter(*t)
-            .map(|k| rz_like(k, a))
-            .ok_or_else(|| format!("Rz({t}) 은 π/2 배수만 지원 (T 는 t 게이트 사용)"))?,
+        Gate::Rz(t) => {
+            // Rz(θ) = e^{-iθ/2}·diag(1, e^{iθ}) — S/Z/Sdg 치환은 전역 위상
+            // e^{-iθ/2} 를 남기므로 누적했다가 진폭에 곱한다 (θ 의 2π 차이가
+            // −I 가 되는 것도 e^{-iθ/2} 가 자동 반영).
+            let k = clifford_quarter(*t)
+                .ok_or_else(|| format!("Rz({t}) 은 π/2 배수만 지원 (T 는 t 게이트 사용)"))?;
+            *phase_acc -= *t / 2.0;
+            rz_like(k, a)
+        }
         Gate::P(t) => {
             // p(π/4)=T, p(-π/4)=Tdg, π/2 배수=Clifford.
             let q4 = *t / (std::f64::consts::FRAC_PI_4);
@@ -1433,9 +1443,13 @@ fn gate_to_ct(
                 return Err(format!("P({t}) 은 π/4 배수만 지원"));
             }
         }
-        Gate::Rx(t) => clifford_quarter(*t)
-            .map(|k| rx_like(k, a))
-            .ok_or_else(|| format!("Rx({t}) 은 π/2 배수만 지원"))?,
+        Gate::Rx(t) => {
+            // Rx(θ) = e^{-iθ/2}·{I,Sx,X,Sxdg} — Rz 와 동일하게 치환 위상
+            // e^{-iθ/2} 누적 (Sx = e^{iπ/4}Rx(π/2), X = i·Rx(π) 등).
+            let k = clifford_quarter(*t).ok_or_else(|| format!("Rx({t}) 은 π/2 배수만 지원"))?;
+            *phase_acc -= *t / 2.0;
+            rx_like(k, a)
+        }
         other => {
             return Err(format!(
                 "near-Clifford 백엔드 미지원 게이트 {other:?} (Clifford + T/Tdg 만)"
@@ -1468,10 +1482,15 @@ fn clifford_t_amplitude(
         )));
     }
     let mut gates: Vec<qsim_stabilizer::clifford_t::CtGate> = Vec::new();
+    // 회전 게이트 치환 (Rz→S 등) 이 남기는 전역 위상 + 회로의 global_phase.
+    // amplitude 에는 그대로 곱하고, |amp|² (sample) / 기댓값에서는 상쇄된다.
+    let mut subst_phase = circuit.inner.global_phase();
     for inst in circuit.inner.instructions() {
         match inst {
             Instruction::ApplyGate { gate, targets } => {
-                gates.extend(gate_to_ct(gate, targets).map_err(PyValueError::new_err)?);
+                gates.extend(
+                    gate_to_ct(gate, targets, &mut subst_phase).map_err(PyValueError::new_err)?,
+                );
             }
             Instruction::Measure { .. } | Instruction::MeasureAll => {}
             other => {
@@ -1499,11 +1518,12 @@ fn clifford_t_amplitude(
         )));
     }
     let amp = py.allow_threads(move || {
-        if low_rank {
+        let raw = if low_rank {
             qsim_stabilizer::clifford_t::clifford_t_amplitude_lowrank(n, &gates, &bitstring)
         } else {
             qsim_stabilizer::clifford_t::clifford_t_amplitude_fast(n, &gates, &bitstring)
-        }
+        };
+        raw * num_complex::Complex64::from_polar(1.0, subst_phase)
     });
     Ok((amp.re, amp.im))
 }
@@ -1525,10 +1545,15 @@ fn clifford_t_sample(
 ) -> PyResult<(std::collections::HashMap<String, usize>, Option<f64>)> {
     let n = circuit.inner.num_qubits();
     let mut gates: Vec<qsim_stabilizer::clifford_t::CtGate> = Vec::new();
+    // 회전 게이트 치환 (Rz→S 등) 이 남기는 전역 위상 + 회로의 global_phase.
+    // amplitude 에는 그대로 곱하고, |amp|² (sample) / 기댓값에서는 상쇄된다.
+    let mut subst_phase = circuit.inner.global_phase();
     for inst in circuit.inner.instructions() {
         match inst {
             Instruction::ApplyGate { gate, targets } => {
-                gates.extend(gate_to_ct(gate, targets).map_err(PyValueError::new_err)?);
+                gates.extend(
+                    gate_to_ct(gate, targets, &mut subst_phase).map_err(PyValueError::new_err)?,
+                );
             }
             Instruction::Measure { .. } | Instruction::MeasureAll => {}
             other => {
@@ -1583,10 +1608,15 @@ fn clifford_t_expectation(
 ) -> PyResult<(f64, f64)> {
     let n = circuit.inner.num_qubits();
     let mut gates: Vec<qsim_stabilizer::clifford_t::CtGate> = Vec::new();
+    // 회전 게이트 치환 (Rz→S 등) 이 남기는 전역 위상 + 회로의 global_phase.
+    // amplitude 에는 그대로 곱하고, |amp|² (sample) / 기댓값에서는 상쇄된다.
+    let mut subst_phase = circuit.inner.global_phase();
     for inst in circuit.inner.instructions() {
         match inst {
             Instruction::ApplyGate { gate, targets } => {
-                gates.extend(gate_to_ct(gate, targets).map_err(PyValueError::new_err)?);
+                gates.extend(
+                    gate_to_ct(gate, targets, &mut subst_phase).map_err(PyValueError::new_err)?,
+                );
             }
             Instruction::Measure { .. } | Instruction::MeasureAll => {}
             other => {

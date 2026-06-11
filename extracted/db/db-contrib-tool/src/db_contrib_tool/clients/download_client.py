@@ -34,10 +34,14 @@ class DownloadClient:
         if not url:
             raise DownloadError("Download URL not found")
 
+        # If the URI uses the native s3:// scheme, download with authenticated boto client.
         # If the url is for a public S3 object, download with an unsigned boto client.
         # If the url is presigned for a private S3 object, try to download it with the default aws credentials, and fallback to a raw request.
         # Otherwise use a raw request.
-        if cls.is_s3_url(url) and not cls.is_s3_presigned_url(url):
+        if cls.is_s3_uri(url):
+            bucket, key = cls.extract_s3_bucket_key_from_uri(url)
+            return cls.download_using_boto(bucket, key, output_file)
+        elif cls.is_s3_url(url) and not cls.is_s3_presigned_url(url):
             bucket, key = cls.extract_s3_bucket_key(url)
             return cls.download_using_boto_unsigned(bucket, key, output_file)
         elif cls.is_s3_url(url):
@@ -83,6 +87,21 @@ class DownloadClient:
         s3 = boto3.client("s3")
         s3.download_file(bucket, key, output_file)
         return output_file
+
+    @staticmethod
+    def is_s3_uri(uri: str) -> bool:
+        """Return True if `uri` is a native S3 URI (s3://bucket/key)."""
+        return urlparse(uri).scheme == "s3"
+
+    @staticmethod
+    def extract_s3_bucket_key_from_uri(uri: str) -> tuple[str, str]:
+        """Extract bucket and key from an S3 URI (s3://bucket/key/...)."""
+        parsed = urlparse(uri)
+        bucket = parsed.netloc
+        key = parsed.path.lstrip("/")
+        if not bucket or not key:
+            raise DownloadError(f"Unable to determine S3 bucket/key from download URI: '{uri}'")
+        return bucket, key
 
     @staticmethod
     def is_s3_url(url: str) -> bool:

@@ -248,6 +248,36 @@ fn definition_expression_type<'db>(
     }
 }
 
+/// Infer the type and qualifiers of a deferred annotation expression that is a sub-expression of
+/// a [`Definition`].
+///
+/// Supports expressions that are evaluated within a type-params sub-scope.
+fn definition_expression_annotation<'db>(
+    db: &'db dyn Db,
+    definition: Definition<'db>,
+    expression: &ast::Expr,
+) -> TypeAndQualifiers<'db> {
+    let file = definition.file(db);
+    let index = semantic_index(db, file);
+    let file_scope = index.expression_scope_id(expression);
+    let scope = file_scope.to_scope_id(db, file);
+    if scope == definition.scope(db) {
+        let inference = infer_deferred_types(db, definition);
+        TypeAndQualifiers::new(
+            inference.expression_type(expression),
+            TypeOrigin::Declared,
+            inference.qualifiers(expression),
+        )
+    } else {
+        let inference = infer_complete_scope_types(db, scope);
+        TypeAndQualifiers::new(
+            inference.expression_type(expression),
+            TypeOrigin::Declared,
+            inference.qualifiers(expression),
+        )
+    }
+}
+
 struct ApplyDefaultTypeMapping;
 struct ApplyTopMaterialization;
 struct ApplyBottomMaterialization;
@@ -3557,7 +3587,9 @@ impl<'db> Type<'db> {
                             )
                             .or_fall_back_to(db, || {
                                 // If an attribute is not available on the bound method object,
-                                // it will be looked up on the underlying function object:
+                                // it will be looked up on the underlying function object. This
+                                // changes the lookup object, so do not forward the bound-method
+                                // receiver.
                                 Type::FunctionLiteral(bound_method.function(db))
                                     .member_lookup_with_policy(db, name, policy)
                             })
@@ -3748,7 +3780,7 @@ impl<'db> Type<'db> {
                     let nominal_lookup = partial
                         .partial(db)
                         .into_functools_partial_instance(db)
-                        .member_lookup_with_policy(db, name.clone(), policy);
+                        .member_lookup_with_policy_and_receiver(db, name.clone(), policy, receiver);
                     if name_str == "func" {
                         match nominal_lookup.place {
                             Place::Defined(DefinedPlace {
@@ -5856,6 +5888,21 @@ impl<'db> Type<'db> {
                 | Type::AlwaysFalsy
                 | Type::LiteralValue(_)
                 | Type::BoundSuper(_)
+                | Type::KnownInstance(
+                    KnownInstanceType::SubscriptedProtocol(_)
+                        | KnownInstanceType::SubscriptedGeneric(_)
+                        | KnownInstanceType::TypeAliasType(_)
+                        | KnownInstanceType::Deprecated(_)
+                        | KnownInstanceType::Field(_)
+                        | KnownInstanceType::ConstraintSet(_)
+                        | KnownInstanceType::GenericContext(_)
+                        | KnownInstanceType::Specialization(_)
+                        | KnownInstanceType::Literal(_)
+                        | KnownInstanceType::LiteralStringAlias(_)
+                        | KnownInstanceType::NewType(_)
+                        | KnownInstanceType::Sentinel(_)
+                        | KnownInstanceType::NamedTupleSpec(_),
+                )
                 | Type::KnownBoundMethod(
                     KnownBoundMethodType::StrStartswith(_)
                         | KnownBoundMethodType::ConstraintSetRange

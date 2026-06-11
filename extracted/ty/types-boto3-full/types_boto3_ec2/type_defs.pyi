@@ -556,6 +556,8 @@ __all__ = (
     "AttachClassicLinkVpcRequestTypeDef",
     "AttachClassicLinkVpcRequestVpcAttachClassicLinkInstanceTypeDef",
     "AttachClassicLinkVpcResultTypeDef",
+    "AttachImageWatermarkRequestTypeDef",
+    "AttachImageWatermarkResultTypeDef",
     "AttachInternetGatewayRequestInternetGatewayAttachToVpcTypeDef",
     "AttachInternetGatewayRequestTypeDef",
     "AttachInternetGatewayRequestVpcAttachInternetGatewayTypeDef",
@@ -1752,6 +1754,8 @@ __all__ = (
     "DetachClassicLinkVpcRequestTypeDef",
     "DetachClassicLinkVpcRequestVpcDetachClassicLinkInstanceTypeDef",
     "DetachClassicLinkVpcResultTypeDef",
+    "DetachImageWatermarkRequestTypeDef",
+    "DetachImageWatermarkResultTypeDef",
     "DetachInternetGatewayRequestInternetGatewayDetachFromVpcTypeDef",
     "DetachInternetGatewayRequestTypeDef",
     "DetachInternetGatewayRequestVpcDetachInternetGatewayTypeDef",
@@ -2199,6 +2203,7 @@ __all__ = (
     "ImageUsageResourceTypeOptionTypeDef",
     "ImageUsageResourceTypeRequestTypeDef",
     "ImageUsageResourceTypeTypeDef",
+    "ImageWatermarkTypeDef",
     "ImportClientVpnClientCertificateRevocationListRequestTypeDef",
     "ImportClientVpnClientCertificateRevocationListResultTypeDef",
     "ImportImageLicenseConfigurationRequestTypeDef",
@@ -3637,6 +3642,11 @@ class AttachClassicLinkVpcRequestTypeDef(TypedDict):
 class AttachClassicLinkVpcRequestVpcAttachClassicLinkInstanceTypeDef(TypedDict):
     InstanceId: str
     Groups: Sequence[str]
+    DryRun: NotRequired[bool]
+
+class AttachImageWatermarkRequestTypeDef(TypedDict):
+    ImageId: str
+    WatermarkName: str
     DryRun: NotRequired[bool]
 
 class AttachInternetGatewayRequestInternetGatewayAttachToVpcTypeDef(TypedDict):
@@ -5496,6 +5506,11 @@ class DetachClassicLinkVpcRequestVpcDetachClassicLinkInstanceTypeDef(TypedDict):
     InstanceId: str
     DryRun: NotRequired[bool]
 
+class DetachImageWatermarkRequestTypeDef(TypedDict):
+    ImageId: str
+    WatermarkKey: str
+    DryRun: NotRequired[bool]
+
 class DetachInternetGatewayRequestInternetGatewayDetachFromVpcTypeDef(TypedDict):
     VpcId: str
     DryRun: NotRequired[bool]
@@ -6523,16 +6538,12 @@ class UserBucketTypeDef(TypedDict):
     S3Bucket: NotRequired[str]
     S3Key: NotRequired[str]
 
-class ImageMetadataTypeDef(TypedDict):
-    ImageId: NotRequired[str]
-    Name: NotRequired[str]
-    OwnerId: NotRequired[str]
-    State: NotRequired[ImageStateType]
-    ImageOwnerAlias: NotRequired[str]
-    CreationDate: NotRequired[str]
-    DeprecationTime: NotRequired[str]
-    ImageAllowed: NotRequired[bool]
-    IsPublic: NotRequired[bool]
+class ImageWatermarkTypeDef(TypedDict):
+    WatermarkKey: NotRequired[str]
+    SourceImageRegion: NotRequired[str]
+    SourceImageId: NotRequired[str]
+    SourceImageCreationTime: NotRequired[datetime]
+    WatermarkCreationTime: NotRequired[datetime]
 
 class ImageRecycleBinInfoTypeDef(TypedDict):
     ImageId: NotRequired[str]
@@ -8517,6 +8528,10 @@ class AttachClassicLinkVpcResultTypeDef(TypedDict):
     Return: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
+class AttachImageWatermarkResultTypeDef(TypedDict):
+    WatermarkKey: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class AttachNetworkInterfaceResultTypeDef(TypedDict):
     AttachmentId: str
     NetworkCardIndex: int
@@ -8682,6 +8697,10 @@ class DescribeAddressTransfersResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 class DetachClassicLinkVpcResultTypeDef(TypedDict):
+    Return: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DetachImageWatermarkResultTypeDef(TypedDict):
     Return: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -14335,6 +14354,18 @@ class SnapshotDiskContainerTypeDef(TypedDict):
     Url: NotRequired[str]
     UserBucket: NotRequired[UserBucketTypeDef]
 
+class ImageMetadataTypeDef(TypedDict):
+    ImageId: NotRequired[str]
+    Name: NotRequired[str]
+    OwnerId: NotRequired[str]
+    State: NotRequired[ImageStateType]
+    ImageOwnerAlias: NotRequired[str]
+    CreationDate: NotRequired[str]
+    DeprecationTime: NotRequired[str]
+    ImageAllowed: NotRequired[bool]
+    IsPublic: NotRequired[bool]
+    ImageWatermarks: NotRequired[list[ImageWatermarkTypeDef]]
+
 class ListImagesInRecycleBinResultTypeDef(TypedDict):
     Images: list[ImageRecycleBinInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -14390,18 +14421,6 @@ class ModifyInstanceCreditSpecificationRequestTypeDef(TypedDict):
     InstanceCreditSpecifications: Sequence[InstanceCreditSpecificationRequestTypeDef]
     DryRun: NotRequired[bool]
     ClientToken: NotRequired[str]
-
-class InstanceImageMetadataTypeDef(TypedDict):
-    InstanceId: NotRequired[str]
-    InstanceType: NotRequired[InstanceTypeType]
-    LaunchTime: NotRequired[datetime]
-    AvailabilityZone: NotRequired[str]
-    ZoneId: NotRequired[str]
-    State: NotRequired[InstanceStateTypeDef]
-    OwnerId: NotRequired[str]
-    Tags: NotRequired[list[TagTypeDef]]
-    ImageMetadata: NotRequired[ImageMetadataTypeDef]
-    Operator: NotRequired[OperatorResponseTypeDef]
 
 class InstanceStateChangeTypeDef(TypedDict):
     InstanceId: NotRequired[str]
@@ -16392,6 +16411,7 @@ class ImageTypeDef(TypedDict):
     SourceImageId: NotRequired[str]
     SourceImageRegion: NotRequired[str]
     FreeTierEligible: NotRequired[bool]
+    ImageWatermarks: NotRequired[list[ImageWatermarkTypeDef]]
     ImageId: NotRequired[str]
     ImageLocation: NotRequired[str]
     State: NotRequired[ImageStateType]
@@ -17140,6 +17160,18 @@ class ModifyImageAttributeRequestTypeDef(TypedDict):
     ImdsSupport: NotRequired[AttributeValueTypeDef]
     DryRun: NotRequired[bool]
 
+class InstanceImageMetadataTypeDef(TypedDict):
+    InstanceId: NotRequired[str]
+    InstanceType: NotRequired[InstanceTypeType]
+    LaunchTime: NotRequired[datetime]
+    AvailabilityZone: NotRequired[str]
+    ZoneId: NotRequired[str]
+    State: NotRequired[InstanceStateTypeDef]
+    OwnerId: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
+    ImageMetadata: NotRequired[ImageMetadataTypeDef]
+    Operator: NotRequired[OperatorResponseTypeDef]
+
 class CreateLocalGatewayRouteTableResultTypeDef(TypedDict):
     LocalGatewayRouteTable: LocalGatewayRouteTableTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -17204,11 +17236,6 @@ class Ec2InstanceConnectEndpointTypeDef(TypedDict):
     IpAddressType: NotRequired[IpAddressTypeType]
     PublicDnsNames: NotRequired[InstanceConnectEndpointPublicDnsNamesTypeDef]
     AvailabilityZoneId: NotRequired[str]
-
-class DescribeInstanceImageMetadataResultTypeDef(TypedDict):
-    InstanceImageMetadata: list[InstanceImageMetadataTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
 
 class StartInstancesResultTypeDef(TypedDict):
     StartingInstances: list[InstanceStateChangeTypeDef]
@@ -19812,6 +19839,11 @@ class CreateNetworkInsightsPathResultTypeDef(TypedDict):
 
 class DescribeNetworkInsightsPathsResultTypeDef(TypedDict):
     NetworkInsightsPaths: list[NetworkInsightsPathTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class DescribeInstanceImageMetadataResultTypeDef(TypedDict):
+    InstanceImageMetadata: list[InstanceImageMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

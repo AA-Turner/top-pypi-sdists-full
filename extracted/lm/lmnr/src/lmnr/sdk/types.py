@@ -220,6 +220,53 @@ class GetDatapointsResponse(BaseModel):
     total_count: int = Field(alias="totalCount")
 
 
+class DebugContext(BaseModel):
+    """Debugger context propagated as ONE nested block of a LaminarSpanContext.
+
+    Carries the debug-replay v2 coordinates a downstream run needs to consult
+    the same server-side cache window as the run that produced this context.
+    Laminar is the only producer; a hand-forged or `enabled=False` block is
+    treated as absent by the consumer (behaviour is explicitly undefined).
+
+    - `enabled`: armed flag — only `True` blocks are ever constructed by us.
+    - `session_id`: the run's session id, kept VERBATIM. It is the exact string
+      the origin registered with the backend, and `LMNR_DEBUG_SESSION_ID` may be
+      an arbitrary (non-UUID) value — normalizing it here would drop or mutate
+      the id so the downstream never joins the run.
+    - `replay_trace_id`: the source trace to replay, kept VERBATIM (the origin
+      sends it un-normalized as `replayTraceId` to the cache endpoint).
+    - `cache_until`: the cache-window span-id needle, kept VERBATIM (hyphenated
+      or not, full UUID or short suffix) — the server resolves it.
+    """
+
+    enabled: bool = Field(default=False)
+    session_id: str | None = Field(default=None)
+    replay_trace_id: str | None = Field(default=None)
+    cache_until: str | None = Field(default=None)
+
+    @classmethod
+    def deserialize(cls, data: dict[str, Any]) -> "DebugContext":
+        """Parse a debug block from a dict, accepting camelCase and snake_case.
+
+        All ids are kept VERBATIM: the producer emits the run's exact session /
+        replay-trace / cache-until strings (un-normalized), so the consumer must
+        round-trip them unchanged or a downstream run fails to join the run.
+        """
+        return cls(
+            # Strict `is True`, NOT bool(...): the producer always emits a real
+            # boolean, so anything else (e.g. the string "false", which is
+            # truthy) is a malformed/forged block and must NOT arm a downstream
+            # runtime.
+            enabled=data.get("enabled") is True,
+            session_id=(data.get("session_id") or data.get("sessionId")) or None,
+            replay_trace_id=(
+                data.get("replay_trace_id") or data.get("replayTraceId")
+            )
+            or None,
+            cache_until=(data.get("cache_until") or data.get("cacheUntil")) or None,
+        )
+
+
 class LaminarSpanContext(BaseModel):
     """
     A span context that can be used to continue a trace across services. This
@@ -241,6 +288,7 @@ class LaminarSpanContext(BaseModel):
     session_id: str | None = Field(default=None)
     trace_type: TraceType | None = Field(default=None)
     metadata: dict[str, Any] | None = Field(default=None)
+    debug: DebugContext | None = Field(default=None)
 
     def __str__(self) -> str:
         return self.model_dump_json()
@@ -289,6 +337,7 @@ class LaminarSpanContext(BaseModel):
     def deserialize(cls, data: dict[str, Any] | str) -> "LaminarSpanContext":
         if isinstance(data, dict):
             # Convert camelCase to snake_case for known fields
+            debug_raw = data.get("debug")
             converted_data = {
                 "trace_id": data.get("trace_id") or data.get("traceId"),
                 "span_id": data.get("span_id") or data.get("spanId"),
@@ -300,6 +349,11 @@ class LaminarSpanContext(BaseModel):
                 "session_id": data.get("session_id") or data.get("sessionId"),
                 "trace_type": data.get("trace_type") or data.get("traceType"),
                 "metadata": data.get("metadata") or data.get("metadata", {}),
+                "debug": (
+                    DebugContext.deserialize(debug_raw)
+                    if isinstance(debug_raw, dict)
+                    else None
+                ),
             }
             return cls.model_validate(converted_data)
         elif isinstance(data, str):
@@ -326,76 +380,3 @@ class MaskInputOptions(TypedDict):
 
 class SessionRecordingOptions(TypedDict):
     mask_input_options: MaskInputOptions | None
-
-
-class RolloutParam(TypedDict, total=False):
-    """
-    Parameter metadata for debugger entrypoint functions.
-
-    Used to describe function parameters for the debugger UI.
-
-    Attributes:
-        name: The parameter name
-        type: The Python type of the parameter (e.g., "str", "int", "dict")
-        required: Whether the parameter is required (has no default value)
-        nested: For nested/structured parameters, contains nested parameter definitions
-        default: The default value of the parameter, if specified
-    """
-
-    name: str  # Required field
-    type: str
-    required: bool
-    nested: list["RolloutParam"]
-    default: str
-
-
-class RolloutToolOverride(TypedDict, total=False):
-    """Tool definition override for debugger."""
-
-    name: str
-    description: str
-    parameters: dict[str, Any]
-
-
-class RolloutLLMTextBlock(TypedDict, total=False):
-    """LLM text block for debugger."""
-
-    type: Literal["text"]
-    text: str
-
-
-class RolloutPathOverride(TypedDict, total=False):
-    """Override parameters for a specific path in debugger."""
-
-    system: str | list[RolloutLLMTextBlock]
-    tools: list[RolloutToolOverride]
-
-
-class RolloutRunEventData(TypedDict, total=False):
-    """Data payload for a debugger run event."""
-
-    trace_id: str
-    path_to_count: dict[str, int]
-    args: dict[str, Any] | list[Any]
-    overrides: dict[str, RolloutPathOverride]
-
-
-class RolloutRunEvent(TypedDict):
-    """Debugger run event from SSE stream."""
-
-    event_type: str  # Should be "run"
-    data: RolloutRunEventData
-
-
-class RolloutHandshakeEventData(TypedDict):
-    """Data payload for a debugger handshake event."""
-
-    project_id: str
-    session_id: str
-
-
-class RolloutHandshakeEvent(TypedDict):
-    """Debugger handshake event from SSE stream."""
-
-    event_type: str  # Should be "handshake"
-    data: RolloutHandshakeEventData

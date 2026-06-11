@@ -12,6 +12,79 @@ QuantConnect_Logging__EventContainer_Callable = typing.TypeVar("QuantConnect_Log
 QuantConnect_Logging__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Logging__EventContainer_ReturnType")
 
 
+class ILogHandler(System.IDisposable, metaclass=abc.ABCMeta):
+    """Interface for redirecting log output"""
+
+    def debug(self, text: str) -> None:
+        """
+        Write debug message to log
+        
+        :param text: The debug text to log
+        """
+        ...
+
+    def error(self, text: str) -> None:
+        """
+        Write error message to log
+        
+        :param text: The error text to log
+        """
+        ...
+
+    def report(self, text: str) -> None:
+        """
+        Write report message to log
+        
+        :param text: The report text to log
+        """
+        ...
+
+    def trace(self, text: str) -> None:
+        """
+        Write debug message to log
+        
+        :param text: The trace text to log
+        """
+        ...
+
+
+class LogHandlerExtensions(System.Object):
+    """Logging extensions."""
+
+    @staticmethod
+    def debug(log_handler: QuantConnect.Logging.ILogHandler, text: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
+        """
+        Write debug message to log
+        
+        :param log_handler: 
+        :param text: Message
+        :param args: Arguments to format.
+        """
+        ...
+
+    @staticmethod
+    def error(log_handler: QuantConnect.Logging.ILogHandler, text: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
+        """
+        Write error message to log
+        
+        :param log_handler: 
+        :param text: Message
+        :param args: Arguments to format.
+        """
+        ...
+
+    @staticmethod
+    def trace(log_handler: QuantConnect.Logging.ILogHandler, text: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
+        """
+        Write debug message to log
+        
+        :param log_handler: 
+        :param text: Message
+        :param args: Arguments to format.
+        """
+        ...
+
+
 class LogType(IntEnum):
     """Error level"""
 
@@ -23,6 +96,9 @@ class LogType(IntEnum):
 
     ERROR = 2
     """Error log level"""
+
+    REPORT = 3
+    """Report log level"""
 
 
 class LogEntry(System.Object):
@@ -80,141 +156,20 @@ class LogEntry(System.Object):
         ...
 
 
-class ILogHandler(System.IDisposable, metaclass=abc.ABCMeta):
-    """Interface for redirecting log output"""
-
-    def debug(self, text: str) -> None:
-        """
-        Write debug message to log
-        
-        :param text: The debug text to log
-        """
-        ...
-
-    def error(self, text: str) -> None:
-        """
-        Write error message to log
-        
-        :param text: The error text to log
-        """
-        ...
-
-    def trace(self, text: str) -> None:
-        """
-        Write debug message to log
-        
-        :param text: The trace text to log
-        """
-        ...
-
-
-class FunctionalLogHandler(System.Object, QuantConnect.Logging.ILogHandler):
-    """ILogHandler implementation that writes log output to result handler"""
+class ConsoleLogHandler(System.Object, QuantConnect.Logging.ILogHandler):
+    """ILogHandler implementation that writes log output to console."""
 
     @overload
     def __init__(self) -> None:
-        """Default constructor to handle MEF."""
+        """Initializes a new instance of the QuantConnect.Logging.ConsoleLogHandler class."""
         ...
 
     @overload
-    def __init__(self, debug: typing.Callable[[str], typing.Any], trace: typing.Callable[[str], typing.Any], error: typing.Callable[[str], typing.Any]) -> None:
-        """Initializes a new instance of the QuantConnect.Logging.FunctionalLogHandler class."""
-        ...
-
-    def debug(self, text: str) -> None:
+    def __init__(self, date_format: str = ...) -> None:
         """
-        Write debug message to log
+        Initializes a new instance of the QuantConnect.Logging.ConsoleLogHandler class.
         
-        :param text: The debug text to log
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def error(self, text: str) -> None:
-        """
-        Write error message to log
-        
-        :param text: The error text to log
-        """
-        ...
-
-    def trace(self, text: str) -> None:
-        """
-        Write debug message to log
-        
-        :param text: The trace text to log
-        """
-        ...
-
-
-class LogHandlerExtensions(System.Object):
-    """Logging extensions."""
-
-    @staticmethod
-    def debug(log_handler: QuantConnect.Logging.ILogHandler, text: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
-        """
-        Write debug message to log
-        
-        :param log_handler: 
-        :param text: Message
-        :param args: Arguments to format.
-        """
-        ...
-
-    @staticmethod
-    def error(log_handler: QuantConnect.Logging.ILogHandler, text: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
-        """
-        Write error message to log
-        
-        :param log_handler: 
-        :param text: Message
-        :param args: Arguments to format.
-        """
-        ...
-
-    @staticmethod
-    def trace(log_handler: QuantConnect.Logging.ILogHandler, text: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
-        """
-        Write debug message to log
-        
-        :param log_handler: 
-        :param text: Message
-        :param args: Arguments to format.
-        """
-        ...
-
-
-class FileLogHandler(System.Object, QuantConnect.Logging.ILogHandler):
-    """Provides an implementation of ILogHandler that writes all log messages to a file on disk."""
-
-    @overload
-    def __init__(self, filepath: str, use_timestamp_prefix: bool = True) -> None:
-        """
-        Initializes a new instance of the FileLogHandler class to write messages to the specified file path.
-        The file will be opened using FileMode.Append
-        
-        :param filepath: The file path use to save the log messages
-        :param use_timestamp_prefix: True to prefix each line in the log which the UTC timestamp, false otherwise
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the FileLogHandler class using 'log.txt' for the filepath."""
-        ...
-
-    def create_message(self, text: str, level: str) -> str:
-        """
-        Creates the message to be logged
-        
-        
-        This Class is protected.
-        
-        :param text: The text to be logged
-        :param level: The logging leel
+        :param date_format: Specifies the date format to use when writing log messages to the console window
         """
         ...
 
@@ -238,25 +193,19 @@ class FileLogHandler(System.Object, QuantConnect.Logging.ILogHandler):
         """
         ...
 
+    def report(self, text: str) -> None:
+        """
+        Write report message to log
+        
+        :param text: The report text to log
+        """
+        ...
+
     def trace(self, text: str) -> None:
         """
         Write debug message to log
         
         :param text: The trace text to log
-        """
-        ...
-
-
-class RegressionFileLogHandler(QuantConnect.Logging.FileLogHandler):
-    """
-    Provides an implementation of ILogHandler that writes all log messages to a file on disk
-    without timestamps.
-    """
-
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the RegressionFileLogHandler class
-        that will write to a 'regression.log' file in the executing directory
         """
         ...
 
@@ -315,49 +264,11 @@ class QueueLogHandler(System.Object, QuantConnect.Logging.ILogHandler):
         """
         ...
 
-    def trace(self, text: str) -> None:
+    def report(self, text: str) -> None:
         """
-        Write debug message to log
+        Write report message to log
         
-        :param text: The trace text to log
-        """
-        ...
-
-
-class ConsoleLogHandler(System.Object, QuantConnect.Logging.ILogHandler):
-    """ILogHandler implementation that writes log output to console."""
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the QuantConnect.Logging.ConsoleLogHandler class."""
-        ...
-
-    @overload
-    def __init__(self, date_format: str = ...) -> None:
-        """
-        Initializes a new instance of the QuantConnect.Logging.ConsoleLogHandler class.
-        
-        :param date_format: Specifies the date format to use when writing log messages to the console window
-        """
-        ...
-
-    def debug(self, text: str) -> None:
-        """
-        Write debug message to log
-        
-        :param text: The debug text to log
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def error(self, text: str) -> None:
-        """
-        Write error message to log
-        
-        :param text: The error text to log
+        :param text: The report text to log
         """
         ...
 
@@ -366,40 +277,6 @@ class ConsoleLogHandler(System.Object, QuantConnect.Logging.ILogHandler):
         Write debug message to log
         
         :param text: The trace text to log
-        """
-        ...
-
-
-class ConsoleErrorLogHandler(QuantConnect.Logging.ConsoleLogHandler):
-    """Subclass of ConsoleLogHandler that only logs error messages"""
-
-    def debug(self, text: str) -> None:
-        """
-        Hide debug messages from log
-        
-        :param text: The debug text to log
-        """
-        ...
-
-    def trace(self, text: str) -> None:
-        """
-        Hide trace messages from log
-        
-        :param text: The trace text to log
-        """
-        ...
-
-
-class WhoCalledMe(System.Object):
-    """Provides methods for determining higher stack frames"""
-
-    @staticmethod
-    def get_method_name(frame: int = 1) -> str:
-        """
-        Gets the method name of the caller
-        
-        :param frame: The number of stack frames to retrace from the caller's position
-        :returns: The method name of the containing scope 'frame' stack frames above the caller.
         """
         ...
 
@@ -441,6 +318,14 @@ class CompositeLogHandler(System.Object, QuantConnect.Logging.ILogHandler):
         """
         ...
 
+    def report(self, text: str) -> None:
+        """
+        Write report message to log
+        
+        :param text: The report text to log
+        """
+        ...
+
     def trace(self, text: str) -> None:
         """
         Write debug message to log
@@ -450,8 +335,196 @@ class CompositeLogHandler(System.Object, QuantConnect.Logging.ILogHandler):
         ...
 
 
+class FileLogHandler(System.Object, QuantConnect.Logging.ILogHandler):
+    """Provides an implementation of ILogHandler that writes all log messages to a file on disk."""
+
+    @overload
+    def __init__(self, filepath: str, use_timestamp_prefix: bool = True) -> None:
+        """
+        Initializes a new instance of the FileLogHandler class to write messages to the specified file path.
+        The file will be opened using FileMode.Append
+        
+        :param filepath: The file path use to save the log messages
+        :param use_timestamp_prefix: True to prefix each line in the log which the UTC timestamp, false otherwise
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the FileLogHandler class using 'log.txt' for the filepath."""
+        ...
+
+    def create_message(self, text: str, level: str) -> str:
+        """
+        Creates the message to be logged
+        
+        
+        This Class is protected.
+        
+        :param text: The text to be logged
+        :param level: The logging leel
+        """
+        ...
+
+    def debug(self, text: str) -> None:
+        """
+        Write debug message to log
+        
+        :param text: The debug text to log
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def error(self, text: str) -> None:
+        """
+        Write error message to log
+        
+        :param text: The error text to log
+        """
+        ...
+
+    def report(self, text: str) -> None:
+        """
+        Write report message to log
+        
+        :param text: The report text to log
+        """
+        ...
+
+    def trace(self, text: str) -> None:
+        """
+        Write debug message to log
+        
+        :param text: The trace text to log
+        """
+        ...
+
+
+class RegressionFileLogHandler(QuantConnect.Logging.FileLogHandler):
+    """
+    Provides an implementation of ILogHandler that writes all log messages to a file on disk
+    without timestamps.
+    """
+
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the RegressionFileLogHandler class
+        that will write to a 'regression.log' file in the executing directory
+        """
+        ...
+
+
+class ConsoleErrorLogHandler(QuantConnect.Logging.ConsoleLogHandler):
+    """Subclass of ConsoleLogHandler that only logs error messages"""
+
+    def debug(self, text: str) -> None:
+        """
+        Hide debug messages from log
+        
+        :param text: The debug text to log
+        """
+        ...
+
+    def report(self, text: str) -> None:
+        """
+        Write report message to log
+        
+        :param text: The report text to log
+        """
+        ...
+
+    def trace(self, text: str) -> None:
+        """
+        Hide trace messages from log
+        
+        :param text: The trace text to log
+        """
+        ...
+
+
+class FunctionalLogHandler(System.Object, QuantConnect.Logging.ILogHandler):
+    """ILogHandler implementation that writes log output to result handler"""
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor to handle MEF."""
+        ...
+
+    @overload
+    def __init__(self, debug: typing.Callable[[str], typing.Any], trace: typing.Callable[[str], typing.Any], error: typing.Callable[[str], typing.Any]) -> None:
+        """Initializes a new instance of the QuantConnect.Logging.FunctionalLogHandler class."""
+        ...
+
+    @overload
+    def __init__(self, debug: typing.Callable[[str], typing.Any], trace: typing.Callable[[str], typing.Any], error: typing.Callable[[str], typing.Any], report: typing.Callable[[str], typing.Any]) -> None:
+        """Initializes a new instance of the QuantConnect.Logging.FunctionalLogHandler class."""
+        ...
+
+    def debug(self, text: str) -> None:
+        """
+        Write debug message to log
+        
+        :param text: The debug text to log
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def error(self, text: str) -> None:
+        """
+        Write error message to log
+        
+        :param text: The error text to log
+        """
+        ...
+
+    def report(self, text: str) -> None:
+        """
+        Write report message to log
+        
+        :param text: The report text to log
+        """
+        ...
+
+    def trace(self, text: str) -> None:
+        """
+        Write debug message to log
+        
+        :param text: The trace text to log
+        """
+        ...
+
+
+class WhoCalledMe(System.Object):
+    """Provides methods for determining higher stack frames"""
+
+    @staticmethod
+    def get_method_name(frame: int = 1) -> str:
+        """
+        Gets the method name of the caller
+        
+        :param frame: The number of stack frames to retrace from the caller's position
+        :returns: The method name of the containing scope 'frame' stack frames above the caller.
+        """
+        ...
+
+
 class Log(System.Object):
     """Logging management class."""
+
+    user_id: int
+    """Gets the job user id"""
+
+    project_id: int
+    """Gets the ob project id"""
+
+    job_id: str
+    """Gets the job id (algorithm, live or optimization id)"""
 
     log_handler: QuantConnect.Logging.ILogHandler
     """Gets or sets the ILogHandler instance used as the global logging implementation."""
@@ -512,6 +585,31 @@ class Log(System.Object):
     @overload
     def error(format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
         """Writes the message in red"""
+        ...
+
+    @staticmethod
+    def initialize(user_id: int, project_id: int, job_id: str) -> None:
+        """Initialized the Log class"""
+        ...
+
+    @staticmethod
+    @overload
+    def report(text: str) -> None:
+        """
+        Output report log to the console
+        
+        :param text: The message to write
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def report(*args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> None:
+        """
+        Output report log to the console
+        
+        :param args: Values to write as csv line
+        """
         ...
 
     @staticmethod

@@ -32,7 +32,7 @@ class CreateTableIndexRequest(BaseModel):
     context: Optional[Dict[str, StrictStr]] = Field(default=None, description="Arbitrary context for a request as key-value pairs. How to use the context is custom to the specific implementation.  REST NAMESPACE ONLY Context entries are passed via HTTP headers using the naming convention `x-lance-ctx-<key>: <value>`. For example, a context entry `{\"trace_id\": \"abc123\"}` would be sent as the header `x-lance-ctx-trace_id: abc123`. ")
     id: Optional[List[StrictStr]] = None
     branch: Optional[StrictStr] = Field(default=None, description="Branch to target. When not specified, the main branch is used. ")
-    column: StrictStr = Field(description="Name of the column to create index on")
+    column: Annotated[str, Field(min_length=1, strict=True)] = Field(description="Lance field path to create the index on. Nested fields use dot-separated segments; use backtick-quoted segments for literal dots and double backticks inside quoted segments. Use canonical full paths for display and errors; leaf names alone only identify top-level fields; invalid or unresolved paths should return InvalidInput or TableColumnNotFound.")
     index_type: StrictStr = Field(description="Type of index to create (e.g., BTREE, BITMAP, LABEL_LIST, IVF_FLAT, IVF_PQ, IVF_HNSW_SQ, FTS)")
     name: Optional[StrictStr] = Field(default=None, description="Optional name for the index. If not provided, a name will be auto-generated.")
     distance_type: Optional[StrictStr] = Field(default=None, description="Distance metric type for vector indexes (e.g., l2, cosine, dot)")

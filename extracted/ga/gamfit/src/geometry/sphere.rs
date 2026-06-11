@@ -239,6 +239,38 @@ impl RiemannianManifold for SphereManifold {
             tangent_pair.1.len(),
             self.ambient_dim(),
         )?;
+        // Sectional curvature is the curvature of a *2-plane* in the tangent
+        // space. The intrinsic tangent space of S^d has dimension d, so no such
+        // plane exists for d < 2 (S^1 is a single tangent line) — returning the
+        // constant +1 would assert a curvature on a plane that does not exist.
+        if self.dim() < 2 {
+            return Err(GeometryError::Unsupported(
+                "sectional curvature is undefined on a sphere of dimension below 2",
+            ));
+        }
+        // A non-unit base point has no well-defined tangent projection, so the
+        // 2-plane is meaningless; reject before projecting.
+        self.require_unit(point)?;
+        // K(u, v) = ⟨R(u,v)v, u⟩ / (‖u‖²‖v‖² − ⟨u,v⟩²). On the unit sphere the
+        // numerator equals the squared parallelogram area of the *tangential*
+        // components, so K = +1 — but only when that area is nonzero. A zero,
+        // collinear, or purely-radial pair gives 0/0, which is undefined, not 1.
+        // Strip the radial component so the area is computed on genuine tangent
+        // vectors (a pair that is collinear only after projection still spans no
+        // tangent plane).
+        let pu = dot(point, tangent_pair.0);
+        let pv = dot(point, tangent_pair.1);
+        let u_t = tangent_pair.0.to_owned() - &(point.to_owned() * pu);
+        let v_t = tangent_pair.1.to_owned() - &(point.to_owned() * pv);
+        let uu = dot(u_t.view(), u_t.view());
+        let vv = dot(v_t.view(), v_t.view());
+        let uv = dot(u_t.view(), v_t.view());
+        let area_sq = uu * vv - uv * uv;
+        if !area_sq.is_finite() || area_sq <= GEOMETRY_EPS {
+            return Err(GeometryError::Singular(
+                "sectional curvature undefined for collinear/degenerate tangent pair",
+            ));
+        }
         Ok(1.0)
     }
 
@@ -251,6 +283,19 @@ impl RiemannianManifold for SphereManifold {
         check_len("Sphere projection vector", vec.len(), self.ambient_dim())?;
         self.require_unit(point)?;
         Ok(vec.to_owned() - &(point.to_owned() * dot(point, vec)))
+    }
+
+    /// The round sphere carries the metric *induced* from the ambient Euclidean
+    /// inner product, so the Riemannian gradient is the orthogonal projection of
+    /// the ambient gradient onto the tangent space `T_pS = p^⊥` — exactly
+    /// [`project_tangent`]. (The metric-raising default would give the same
+    /// vector but only after building the dense `m×m` identity metric.)
+    fn riemannian_gradient(
+        &self,
+        point: ArrayView1<'_, f64>,
+        euclidean_grad: ArrayView1<'_, f64>,
+    ) -> GeometryResult<Array1<f64>> {
+        self.project_tangent(point, euclidean_grad)
     }
 
     fn exp_map_vjp(
@@ -914,5 +959,71 @@ mod tests {
         let mean = sphere_frechet_mean(values.view(), None, 1.0e-12, 256).unwrap();
         // Mean should be close to e1 (dominant direction), not on the equator.
         assert!(mean[0] > 0.9, "expected near-e1 mean, got {mean:?}");
+    }
+
+    #[test]
+    fn sectional_curvature_is_one_on_nondegenerate_plane() {
+        // S^2 has constant sectional curvature +1 on any genuine tangent plane.
+        let m = SphereManifold::new(2);
+        let point = array![1.0, 0.0, 0.0];
+        // Two orthogonal tangent vectors at e1.
+        let u = array![0.0, 1.0, 0.0];
+        let v = array![0.0, 0.0, 1.0];
+        let k = m
+            .sectional_curvature(point.view(), (u.view(), v.view()))
+            .expect("unit sphere has defined curvature on a nondegenerate plane");
+        assert!((k - 1.0).abs() < 1.0e-12, "expected +1, got {k}");
+    }
+
+    #[test]
+    fn sectional_curvature_is_singular_for_collinear_pair() {
+        let m = SphereManifold::new(2);
+        let point = array![1.0, 0.0, 0.0];
+        let u = array![0.0, 1.0, 0.0];
+        // v parallel to u in the tangent space: zero parallelogram area.
+        let v = array![0.0, 2.0, 0.0];
+        match m.sectional_curvature(point.view(), (u.view(), v.view())) {
+            Err(GeometryError::Singular(_)) => {}
+            other => panic!("expected Singular for collinear pair, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn sectional_curvature_is_singular_for_purely_radial_pair() {
+        // Vectors that vanish after projecting off the radial direction span no
+        // tangent plane, even though they look independent in ambient space.
+        let m = SphereManifold::new(2);
+        let point = array![1.0, 0.0, 0.0];
+        let u = array![1.0, 0.0, 0.0];
+        let v = array![2.0, 0.0, 0.0];
+        match m.sectional_curvature(point.view(), (u.view(), v.view())) {
+            Err(GeometryError::Singular(_)) => {}
+            other => panic!("expected Singular for radial pair, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn sectional_curvature_is_unsupported_below_two_dimensions() {
+        // S^1 has a one-dimensional tangent space — no 2-plane exists.
+        let m = SphereManifold::new(1);
+        let point = array![1.0, 0.0];
+        let u = array![0.0, 1.0];
+        let v = array![0.0, 1.0];
+        match m.sectional_curvature(point.view(), (u.view(), v.view())) {
+            Err(GeometryError::Unsupported(_)) => {}
+            other => panic!("expected Unsupported on S^1, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn sectional_curvature_rejects_non_unit_base_point() {
+        let m = SphereManifold::new(2);
+        let point = array![2.0, 0.0, 0.0];
+        let u = array![0.0, 1.0, 0.0];
+        let v = array![0.0, 0.0, 1.0];
+        match m.sectional_curvature(point.view(), (u.view(), v.view())) {
+            Err(GeometryError::InvalidPoint(_)) => {}
+            other => panic!("expected InvalidPoint on non-unit base, got {other:?}"),
+        }
     }
 }

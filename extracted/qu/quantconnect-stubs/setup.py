@@ -17,7 +17,7 @@ This line imports [all common QuantConnect members](https://github.com/QuantConn
 
 setup(
     name="quantconnect-stubs",
-    version="17758",
+    version="17765",
     description="Type stubs for QuantConnect's Lean",
     author="QuantConnect",
     author_email="support@quantconnect.com",
@@ -39,7 +39,7 @@ setup(
         "Common.Data",
         "Common.Data.Consolidators",
         "Common.Util",
-        "exports",
+        "Imports",
         "Internal",
         "Internal.Runtime",
         "Internal.Runtime.CompilerHelpers",
@@ -257,12 +257,12 @@ setup(
         "System.Windows.Markup",
         "WasiPollWorld",
         "WasiPollWorld.wit",
-        "WasiPollWorld.wit.imports",
-        "WasiPollWorld.wit.imports.wasi",
-        "WasiPollWorld.wit.imports.wasi.clocks",
-        "WasiPollWorld.wit.imports.wasi.clocks.v0_2_0",
-        "WasiPollWorld.wit.imports.wasi.io",
-        "WasiPollWorld.wit.imports.wasi.io.v0_2_0"
+        "WasiPollWorld.wit.Imports",
+        "WasiPollWorld.wit.Imports.wasi",
+        "WasiPollWorld.wit.Imports.wasi.clocks",
+        "WasiPollWorld.wit.Imports.wasi.clocks.v0_2_8",
+        "WasiPollWorld.wit.Imports.wasi.io",
+        "WasiPollWorld.wit.Imports.wasi.io.v0_2_8"
     ],
     package_data={
         "AlgorithmImports": ["*.py", "*.pyi", "py.typed"],
@@ -271,7 +271,7 @@ setup(
         "Common.Data": ["*.py", "*.pyi", "py.typed"],
         "Common.Data.Consolidators": ["*.py", "*.pyi", "py.typed"],
         "Common.Util": ["*.py", "*.pyi", "py.typed"],
-        "exports": ["*.py", "*.pyi", "py.typed"],
+        "Imports": ["*.py", "*.pyi", "py.typed"],
         "Internal": ["*.py", "*.pyi", "py.typed"],
         "Internal.Runtime": ["*.py", "*.pyi", "py.typed"],
         "Internal.Runtime.CompilerHelpers": ["*.py", "*.pyi", "py.typed"],
@@ -489,11 +489,11 @@ setup(
         "System.Windows.Markup": ["*.py", "*.pyi", "py.typed"],
         "WasiPollWorld": ["*.py", "*.pyi", "py.typed"],
         "WasiPollWorld.wit": ["*.py", "*.pyi", "py.typed"],
-        "WasiPollWorld.wit.imports": ["*.py", "*.pyi", "py.typed"],
-        "WasiPollWorld.wit.imports.wasi": ["*.py", "*.pyi", "py.typed"],
-        "WasiPollWorld.wit.imports.wasi.clocks": ["*.py", "*.pyi", "py.typed"],
-        "WasiPollWorld.wit.imports.wasi.clocks.v0_2_0": ["*.py", "*.pyi", "py.typed"],
-        "WasiPollWorld.wit.imports.wasi.io": ["*.py", "*.pyi", "py.typed"],
-        "WasiPollWorld.wit.imports.wasi.io.v0_2_0": ["*.py", "*.pyi", "py.typed"]
+        "WasiPollWorld.wit.Imports": ["*.py", "*.pyi", "py.typed"],
+        "WasiPollWorld.wit.Imports.wasi": ["*.py", "*.pyi", "py.typed"],
+        "WasiPollWorld.wit.Imports.wasi.clocks": ["*.py", "*.pyi", "py.typed"],
+        "WasiPollWorld.wit.Imports.wasi.clocks.v0_2_8": ["*.py", "*.pyi", "py.typed"],
+        "WasiPollWorld.wit.Imports.wasi.io": ["*.py", "*.pyi", "py.typed"],
+        "WasiPollWorld.wit.Imports.wasi.io.v0_2_8": ["*.py", "*.pyi", "py.typed"]
     }
 )

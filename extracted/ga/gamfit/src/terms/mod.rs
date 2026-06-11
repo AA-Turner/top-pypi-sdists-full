@@ -1,7 +1,9 @@
 pub mod analytic_penalties;
+pub mod anova_atom;
 pub mod atom_codes;
 pub mod atom_selection;
 pub mod basis;
+pub mod behavioral_head;
 pub mod closed_form_operator;
 pub(crate) mod coefficient_group_resolver;
 pub mod construction;
@@ -14,7 +16,13 @@ pub mod latent_coord;
 pub mod matern_gradient;
 pub mod penalties;
 pub mod penalty_op;
+pub mod sae_candidate_index;
+pub mod sae_corpus;
+pub mod sae_criterion_atoms;
+pub mod sae_encode_atlas;
 pub mod sae_manifold;
+pub mod sae_optimality_certificate;
+pub mod sae_row_jet_program;
 pub mod sheaf;
 pub mod skip_transcoder;
 pub mod smooth;
@@ -50,9 +58,23 @@ pub use latent_coord::{
 };
 pub use matern_gradient::{MaternBasisGradientTarget, StreamingMaternBasisGradientEvaluator};
 pub use sae_manifold::{
-    AssignmentMode, GumbelTemperatureSchedule, PeriodicHarmonicEvaluator, SaeAssignment,
-    SaeAtomBasisKind, SaeBasisEvaluator, SaeManifoldAtom, SaeManifoldLoss,
-    SaeManifoldOuterObjective, SaeManifoldRho, SaeManifoldTerm, ScheduleKind, SphereChartEvaluator,
-    TorusHarmonicEvaluator,
+    AssignmentMode, CertificateInputs, CurvatureBifurcation, CurvatureWalkReport,
+    GumbelTemperatureSchedule, PeriodicHarmonicEvaluator, SaeAssignment, SaeAtomBasisKind,
+    SaeBasisEvaluator, SaeManifoldAtom, SaeManifoldLoss, SaeManifoldOuterObjective, SaeManifoldRho,
+    SaeManifoldTerm, SaeOuterRhoGradientComponents, ScheduleKind, SphereChartEvaluator,
+    TorusHarmonicEvaluator, dictionary_incoherence_report,
+    dictionary_incoherence_report_with_dispersion,
+};
+pub use sae_encode_atlas::{
+    AtlasConfig, AtomEncodeAtlas, BasisHessianLipschitz, CertifiedChart, ChartRegion, EncodeAtlas,
+    EncodeResult, KANTOROVICH_THRESHOLD, RowCertificate, row_certificate,
+};
+pub use sae_optimality_certificate::{
+    CriterionCertificate, DirectionalSamples, certificate_from_samples,
+    deterministic_probe_direction, probe_step,
+};
+pub use sae_criterion_atoms::{SaeCriterion, SaeCriterionAtom};
+pub use sae_row_jet_program::{
+    AtomRowBasisJet, RowGate, SaeReconstructionRowProgram,
 };
 pub use sheaf::{EdgeRestriction, SheafConsistencyPenalty};

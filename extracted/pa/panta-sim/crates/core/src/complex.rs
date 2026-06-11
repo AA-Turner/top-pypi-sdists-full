@@ -32,9 +32,6 @@ pub type C32 = Complex<f32>;
 pub const ZERO: C64 = C64::new(0.0, 0.0);
 /// `C64` 의 1 + 0i. 기존 코드 호환을 위해 유지.
 pub const ONE: C64 = C64::new(1.0, 0.0);
-/// `C64` 의 0 + 1i. 기존 코드 호환을 위해 유지.
-pub const I: C64 = C64::new(0.0, 1.0);
-
 /// 임의 정밀도 `Complex<F>` 의 0.
 #[inline]
 pub fn zero<F: Real>() -> Complex<F> {

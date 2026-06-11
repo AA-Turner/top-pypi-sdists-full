@@ -248,6 +248,35 @@ def test_systemd_emits_quadlet_units_with_absolute_paths(tmp_path: Path) -> None
     assert f"Image=ghcr.io/safl/bty-web:{bty.__version__}" in web
 
 
+def test_deploy_bakes_password_into_withcache_quadlet(
+    tmp_path: Path, _patched_runtime: dict[str, list]
+) -> None:
+    """Regression: a root `deploy` must bake the chosen password into
+    the withcache Quadlet unit, not leave the `change-me` placeholder.
+    The unit is installed straight away, so a placeholder there would
+    silently override the credential the deploy summary + envvars
+    advertise (login would fail with the documented password)."""
+    dest = tmp_path / "bty-host"
+    deploy_mod.deploy_main([str(dest)])  # root (geteuid==0 via fixture)
+    withcache = (dest / "quadlet" / "withcache.container").read_text(encoding="utf-8")
+    assert f"Environment=WITHCACHE_ADMIN_PASSWORD={deploy_mod.DEFAULT_DEPLOY_PASSWORD}" in withcache
+    assert "change-me" not in withcache
+    # ...and it matches what envvars + the bty-web admin share.
+    envvars = (dest / "envvars").read_text(encoding="utf-8")
+    assert f"WITHCACHE_ADMIN_PASSWORD={deploy_mod.DEFAULT_DEPLOY_PASSWORD}" in envvars
+
+
+def test_init_withcache_quadlet_keeps_placeholder(tmp_path: Path) -> None:
+    """The stand-alone `init --systemd` reference path has no chosen
+    password, so its withcache unit keeps the editable placeholder +
+    the "edit before installing" note."""
+    dest = tmp_path / "bty-host"
+    deploy_mod.init_main([str(dest), "--systemd"])
+    withcache = (dest / "quadlet" / "withcache.container").read_text(encoding="utf-8")
+    assert "Environment=WITHCACHE_ADMIN_PASSWORD=change-me" in withcache
+    assert "Edit Environment=WITHCACHE_ADMIN_PASSWORD before installing." in withcache
+
+
 def test_data_dir_override_baked_into_quadlets(tmp_path: Path) -> None:
     dest = tmp_path / "bty-host"
     custom = tmp_path / "elsewhere" / "state"
@@ -353,8 +382,9 @@ def _patched_runtime(monkeypatch: pytest.MonkeyPatch) -> dict[str, list]:
     Returns the calls dict the test can inspect."""
     calls: dict[str, list] = {"run": [], "quadlets": []}
 
-    def fake_run(cmd, *, cwd=None, env=None):  # type: ignore[no-untyped-def]
+    def fake_run(cmd, *, cwd=None, env=None, check=True):  # type: ignore[no-untyped-def]
         calls["run"].append((list(cmd), cwd))
+        return 0
 
     def fake_install_quadlets(dest, *, force):  # type: ignore[no-untyped-def]
         # Mimic the real return shape; record for assertions.
@@ -373,8 +403,8 @@ def test_deploy_emits_envvars_and_runs_compose(
     tmp_path: Path, _patched_runtime: dict[str, list]
 ) -> None:
     """``deploy`` writes a real ``envvars`` (not just .example) with the
-    detected HOST_ADDR + the historic-PAM "bty" admin password default
-    (session secret stays random crypto material). Root mode runs
+    detected HOST_ADDR + the well-known default password for both
+    services (session secret stays random crypto material). Root mode runs
     ``podman compose pull`` + ``down`` (clean up leftovers; Quadlet
     takes over from there)."""
     dest = tmp_path / "bty-host"
@@ -382,9 +412,9 @@ def test_deploy_emits_envvars_and_runs_compose(
 
     envvars = (dest / "envvars").read_text(encoding="utf-8")
     assert "\nHOST_ADDR=10.20.30.200\n" in envvars
-    # Admin passwords default to "bty" (memorable, matches PAM convention).
-    assert "\nBTY_ADMIN_PASSWORD=bty\n" in envvars
-    assert "\nWITHCACHE_ADMIN_PASSWORD=bty\n" in envvars
+    # Both services default to the same memorable password.
+    assert f"\nBTY_ADMIN_PASSWORD={deploy_mod.DEFAULT_DEPLOY_PASSWORD}\n" in envvars
+    assert f"\nWITHCACHE_ADMIN_PASSWORD={deploy_mod.DEFAULT_DEPLOY_PASSWORD}\n" in envvars
     # Session secret is random crypto material -- just assert it's filled.
     session_line = next(
         line for line in envvars.splitlines() if line.startswith("BTY_SESSION_SECRET=")
@@ -574,8 +604,8 @@ def test_deploy_refuses_existing_envvars_without_force(
 
 def test_deploy_force_overwrites_envvars(tmp_path: Path, _patched_runtime: dict[str, list]) -> None:
     """``--force`` regenerates everything, including envvars (admin
-    passwords reset to the "bty" default, session secret rotates to a
-    fresh random value)."""
+    passwords reset to the well-known default, session secret rotates
+    to a fresh random value)."""
     dest = tmp_path / "bty-host"
     deploy_mod.deploy_main([str(dest)])
     sess1 = next(
@@ -727,7 +757,7 @@ def test_envvars_to_bty_toml_uses_schema_defaults_when_envvars_empty(
     env_path = tmp_path / "envvars"
     env_path.write_text("HOST_ADDR=10.0.0.5\n", encoding="utf-8")
     out = deploy_mod._envvars_to_bty_toml(env_path, host_addr="10.0.0.5")
-    assert 'password = "bty"' in out  # default admin password
+    assert f'password = "{deploy_mod.DEFAULT_DEPLOY_PASSWORD}"' in out  # default admin password
     assert 'host = "0.0.0.0"' in out
     assert "session_secret = " in out  # auto-generated, but present
     assert 'url = "http://10.0.0.5:3000"' in out
@@ -868,11 +898,148 @@ def test_main_dispatches_deploy_and_upgrade(
     deploy_mod.main(["upgrade", str(dest)])  # would crash if dispatcher missed it
 
 
-def test_main_help_lists_all_three_subcommands(capsys: pytest.CaptureFixture[str]) -> None:
-    """No-arg help mentions init / deploy / upgrade, so an operator who
-    runs `pipx run bty-lab` blind discovers all three."""
+def test_main_help_lists_all_subcommands(capsys: pytest.CaptureFixture[str]) -> None:
+    """No-arg help mentions every subcommand, so an operator who runs
+    `pipx run bty-lab` blind discovers them all."""
     with pytest.raises(SystemExit):
         deploy_mod.main([])
     err = capsys.readouterr().err
-    for subcommand in ("init", "deploy", "upgrade"):
+    for subcommand in ("init", "deploy", "upgrade", "show-config", "purge"):
         assert subcommand in err
+
+
+# ---------- purge ------------------------------------------------------------
+
+
+def test_purge_compose_managed_tears_down_stack(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    _patched_runtime: dict[str, list],
+) -> None:
+    """`purge` on a compose-managed deploy runs `compose down` with the
+    tftp profile + --remove-orphans, and by default KEEPS data/ and the
+    deploy dir."""
+    dest = tmp_path / "bty-host"
+    # Non-root compose deploy (no Quadlet units).
+    monkeypatch.setattr(deploy_mod.os, "geteuid", lambda: 1000)
+    deploy_mod.deploy_main([str(dest)])
+    _patched_runtime["run"].clear()
+
+    deploy_mod.purge_main([str(dest), "--yes"])
+
+    run_cmds = [cmd for cmd, _ in _patched_runtime["run"]]
+    down = next(c for c in run_cmds if "down" in c)
+    assert "--remove-orphans" in down
+    assert "tftp" in down  # --profile tftp
+    assert "--volumes" not in down  # data kept without --data
+    # Default purge keeps state + the deploy dir.
+    assert (dest / "compose.yml").is_file()
+    assert (dest / "data" / "bty").is_dir()
+
+
+def test_purge_data_and_all_remove_state_and_dir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    _patched_runtime: dict[str, list],
+) -> None:
+    """`--all` deletes host state (implies --data) AND the deploy dir;
+    `compose down` then runs with --volumes."""
+    dest = tmp_path / "bty-host"
+    monkeypatch.setattr(deploy_mod.os, "geteuid", lambda: 1000)
+    deploy_mod.deploy_main([str(dest)])
+    assert (dest / "data" / "bty").is_dir()
+    _patched_runtime["run"].clear()
+
+    deploy_mod.purge_main([str(dest), "--all", "--yes"])
+
+    run_cmds = [cmd for cmd, _ in _patched_runtime["run"]]
+    down = next(c for c in run_cmds if "down" in c)
+    assert "--volumes" in down
+    assert not dest.exists()  # --all removed the whole deploy dir
+
+
+def test_purge_quadlet_managed_as_root_stops_and_removes_units(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    _patched_runtime: dict[str, list],
+) -> None:
+    """A Quadlet/systemd deploy purges via `systemctl stop` + unit
+    removal + daemon-reload (not `compose down`)."""
+    dest = tmp_path / "bty-host"
+    deploy_mod.deploy_main([str(dest)])  # root system install
+    _patched_runtime["run"].clear()
+
+    monkeypatch.setattr(
+        deploy_mod,
+        "_remove_quadlets",
+        lambda: [deploy_mod.QUADLET_SYSTEM_DIR / "bty-web.container"],
+    )
+    real_exists = Path.exists
+
+    def fake_exists(self):  # type: ignore[no-untyped-def]
+        if str(self).startswith("/etc/containers/systemd"):
+            return True
+        return real_exists(self)
+
+    monkeypatch.setattr(Path, "exists", fake_exists)
+
+    deploy_mod.purge_main([str(dest), "--yes"])
+
+    run_cmds = [cmd for cmd, _ in _patched_runtime["run"]]
+    assert any(c[:2] == ["systemctl", "stop"] for c in run_cmds)
+    assert ["systemctl", "daemon-reload"] in run_cmds
+    assert not any("down" in c for c in run_cmds)  # no compose down on the Quadlet path
+
+
+def test_purge_quadlet_managed_without_root_refuses(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    _patched_runtime: dict[str, list],
+) -> None:
+    """Removing system-wide units + stopping services needs root."""
+    dest = tmp_path / "bty-host"
+    deploy_mod.deploy_main([str(dest)])
+    monkeypatch.setattr(deploy_mod.os, "geteuid", lambda: 1000)
+    real_exists = Path.exists
+
+    def fake_exists(self):  # type: ignore[no-untyped-def]
+        if str(self).startswith("/etc/containers/systemd"):
+            return True
+        return real_exists(self)
+
+    monkeypatch.setattr(Path, "exists", fake_exists)
+
+    with pytest.raises(SystemExit) as excinfo:
+        deploy_mod.purge_main([str(dest), "--yes"])
+    assert excinfo.value.code == 1
+    assert "not root" in capsys.readouterr().err
+
+
+def test_purge_nothing_to_do_errors(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Purging a dir with no compose.yml and no units is a clean error,
+    not a crash."""
+    with pytest.raises(SystemExit) as excinfo:
+        deploy_mod.purge_main([str(tmp_path / "nope"), "--yes"])
+    assert excinfo.value.code == 1
+    assert "nothing to purge" in capsys.readouterr().err
+
+
+def test_purge_aborts_without_confirmation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    _patched_runtime: dict[str, list],
+) -> None:
+    """Without --yes and a non-TTY stdin, purge refuses rather than
+    fire destructively unattended."""
+    dest = tmp_path / "bty-host"
+    monkeypatch.setattr(deploy_mod.os, "geteuid", lambda: 1000)
+    deploy_mod.deploy_main([str(dest)])
+    monkeypatch.setattr(deploy_mod.sys.stdin, "isatty", lambda: False)
+
+    with pytest.raises(SystemExit) as excinfo:
+        deploy_mod.purge_main([str(dest)])
+    assert excinfo.value.code == 1
+    assert "aborted" in capsys.readouterr().err
+    assert (dest / "compose.yml").is_file()  # nothing removed

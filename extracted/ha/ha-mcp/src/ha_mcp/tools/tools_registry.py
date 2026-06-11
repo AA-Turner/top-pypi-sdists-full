@@ -22,7 +22,6 @@ from .helpers import (
 )
 from .util_helpers import (
     build_pagination_metadata,
-    coerce_int_param,
     parse_string_list_param,
 )
 
@@ -128,6 +127,8 @@ def register_registry_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                 e,
                 context={"device_id": device_id},
             )
+            return None  # unreachable: exception_to_structured_error raises
+        return None  # py/mixed-returns: explicit terminal; error handlers above always raise (NoReturn), unreachable
 
     @mcp.tool(
         tags={"Device Registry", "Zigbee", "Z-Wave"},
@@ -175,16 +176,19 @@ def register_registry_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             ),
         ] = None,
         limit: Annotated[
-            int | str,
+            int,
             Field(
                 default=50,
+                ge=1,
+                le=200,
                 description="Max devices to return per page in list mode (default: 50)",
             ),
         ] = 50,
         offset: Annotated[
-            int | str,
+            int,
             Field(
                 default=0,
+                ge=0,
                 description="Number of devices to skip for pagination (default: 0)",
             ),
         ] = 0,
@@ -220,10 +224,8 @@ def register_registry_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         **Z-Wave:** integration="zwave_js". Returns node_id, node_status.
         """
         try:
-            limit_int = coerce_int_param(
-                limit, "limit", default=50, min_value=1, max_value=200
-            )
-            offset_int = coerce_int_param(offset, "offset", default=0, min_value=0)
+            limit_int = limit
+            offset_int = offset
             effective_detail = detail_level
 
             # Get device registry
@@ -277,7 +279,7 @@ def register_registry_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                             ErrorCode.ENTITY_NOT_FOUND,
                             f"Entity '{entity_id}' not found or has no associated device",
                             suggestions=[
-                                "Use ha_search_entities() to find valid entity IDs",
+                                "Use ha_search() to find valid entity IDs",
                             ],
                             context={"entity_id": entity_id},
                         )
@@ -590,6 +592,7 @@ def register_registry_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         except Exception as e:
             logger.error(f"Error getting device: {e}")
             exception_to_structured_error(e)
+            return None  # unreachable: exception_to_structured_error raises
 
     @mcp.tool(
         tags={"Device Registry"},
@@ -848,3 +851,5 @@ def register_registry_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                 e,
                 context={"device_id": device_id},
             )
+            return None  # unreachable: exception_to_structured_error raises
+        return None  # py/mixed-returns: explicit terminal; error handlers above always raise (NoReturn), unreachable

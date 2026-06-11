@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "panta-sim"
-version = "1.4.0"
+version = "1.4.1"
 description = "Full Rust core quantum circuit simulator with Python bindings"
 readme = "README.md"
 license = { text = "MIT" }

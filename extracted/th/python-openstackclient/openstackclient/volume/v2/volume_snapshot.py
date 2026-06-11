@@ -66,7 +66,7 @@ class VolumeIdColumn(cliff_columns.FormattableColumn[str]):
         return volume
 
 
-def _format_snapshot(snapshot: _snapshot.Snapshot) -> dict[str, Any]:
+def _format_snapshot(snapshot: _snapshot.Snapshot) -> dict[str, object]:
     # Some columns returned by openstacksdk should not be shown because they're
     # either irrelevant or duplicates
     ignored_columns = {
@@ -231,11 +231,9 @@ class DeleteVolumeSnapshot(command.Command):
                 snapshot_id = volume_client.find_snapshot(
                     snapshot, ignore_missing=False
                 ).id
-                # FIXME(stephenfin): This parameter is missing from sdk
-                # https://review.opendev.org/c/openstack/openstacksdk/+/984529
                 volume_client.delete_snapshot(
                     snapshot_id,
-                    force=parsed_args.force,  # type: ignore
+                    force=parsed_args.force,
                 )
             except Exception as e:
                 result += 1
@@ -378,6 +376,7 @@ class ListVolumeSnapshot(command.Lister):
         data = volume_client.snapshots(
             marker=parsed_args.marker,
             limit=parsed_args.limit,
+            max_items=parsed_args.max_items,
             all_projects=all_projects,
             project_id=project_id,
             name=parsed_args.name,

@@ -1286,7 +1286,7 @@ class OEMHandler(generic.OEMHandler):
         if progress:
             progress({'phase': 'complete'})
 
-    def redfish_update_firmware(self, usd, filename, data, progress, bank):
+    def redfish_update_firmware(self, usd, filename, data, progress, bank, otherfields):
         if usd['HttpPushUriTargetsBusy']:
             raise pygexc.TemporaryError('Cannot run multtiple updates to '
                                         'same target concurrently')
@@ -1400,13 +1400,13 @@ class OEMHandler(generic.OEMHandler):
                 '/redfish/v1/UpdateService',
                 {'HttpPushUriTargets': []}, method='PATCH')
 
-    def update_firmware(self, filename, data=None, progress=None, bank=None):
+    def update_firmware(self, filename, data=None, progress=None, bank=None, otherfields=None):
         result = None
         usd = self._do_web_request('/redfish/v1/UpdateService')
         rfishurl = usd.get('HttpPushUri', None)
         if rfishurl:
             return self.redfish_update_firmware(
-                usd, filename, data, progress, bank)
+                usd, filename, data, progress, bank, otherfields)
         if self.updating:
             raise pygexc.TemporaryError('Cannot run multiple updates to same '
                                         'target concurrently')

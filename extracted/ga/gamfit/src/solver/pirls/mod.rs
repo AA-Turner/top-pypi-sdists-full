@@ -1153,7 +1153,7 @@ impl WorkingLikelihood for GlmLikelihoodSpec {
                 )?;
                 Ok(())
             }
-            (ResponseFamily::NegativeBinomial { theta }, _, _) => {
+            (ResponseFamily::NegativeBinomial { theta, .. }, _, _) => {
                 let theta = *theta;
                 write_negative_binomial_log_working_state(
                     y,
@@ -1797,7 +1797,7 @@ impl<'a> GamWorkingModel<'a> {
     ) -> Result<Array2<f64>, EstimationError> {
         match design {
             // Only the materialized arm can use the shared dense assembly path.
-            // Lazy operator-backed dense designs (TPS/Matern at biobank scale)
+            // Lazy operator-backed dense designs (TPS/Matern at large scale)
             // cannot be densified; fall through to the operator XᵀWX path.
             DesignMatrix::Dense(x) if x.is_materialized_dense() => {
                 let p = x.ncols();
@@ -3362,7 +3362,7 @@ pub(super) enum PirlsSoftAccept {
     /// Projected gradient is small *relative to the objective magnitude*
     /// (not just the dimension scale) AND the deviance has plateaued
     /// strictly (×0.1 floor) AND is non-decreasing. This is the
-    /// per-observation rescue for biobank-scale GLMs where ‖g‖ scales
+    /// per-observation rescue for large-scale GLMs where ‖g‖ scales
     /// with √n and the absolute KKT test becomes systematically too
     /// tight even when the fit is functionally converged. Like
     /// [`PirlsSoftAccept::BoundarySaturation`], this is only meaningful
@@ -5265,7 +5265,7 @@ pub(crate) fn computeworkingweight_derivatives_from_eta(
                 },
             )?;
         }
-        ResponseFamily::NegativeBinomial { theta } => {
+        ResponseFamily::NegativeBinomial { theta, .. } => {
             let theta = *theta;
             if !valid_negbin_theta(theta) {
                 crate::bail_invalid_estim!(
@@ -5687,7 +5687,7 @@ pub fn weight_family_for_glm_likelihood(likelihood: &GlmLikelihoodSpec) -> Weigh
         ResponseFamily::Gaussian => WeightFamily::Gaussian,
         ResponseFamily::Poisson => WeightFamily::Poisson,
         ResponseFamily::Tweedie { p } => WeightFamily::Tweedie { p: *p },
-        ResponseFamily::NegativeBinomial { theta } => {
+        ResponseFamily::NegativeBinomial { theta, .. } => {
             WeightFamily::NegativeBinomial { theta: *theta }
         }
         ResponseFamily::Beta { phi } => WeightFamily::Beta { phi: *phi },
@@ -5839,7 +5839,7 @@ fn compute_observed_hessian_curvature_arrays_into(
     let weight_link = weight_link_for_inverse_link(inverse_link);
     let phi = fixed_glm_dispersion(likelihood);
 
-    // Parallel per-row weight assembly. At biobank scale (n = 320k) this loop
+    // Parallel per-row weight assembly. At large scale (n = 320k) this loop
     // dominates non-canonical paths because each row independently evaluates
     // inverse-link jets and residual-dependent observed curvature. Write
     // directly into reusable output slices rather than collecting row tuples,
@@ -6494,7 +6494,7 @@ pub fn calculate_deviance(
                 .sum();
             2.0 * total
         }
-        ResponseFamily::NegativeBinomial { theta } => {
+        ResponseFamily::NegativeBinomial { theta, .. } => {
             let theta = *theta;
             use rayon::iter::{IntoParallelIterator, ParallelIterator};
             let total: f64 = (0..y.len())
@@ -6537,6 +6537,140 @@ pub fn calculate_deviance(
 }
 
 #[inline]
+/// Per-observation log-likelihood (with the same family-specific constants
+/// dropped as [`calculate_loglikelihood_omitting_constants`]) evaluated at the
+/// supplied fitted means `mu`.
+///
+/// This is the single source of truth for the per-row likelihood kernel: the
+/// scalar aggregate sums this vector, and the model-comparison machinery
+/// (`crate::inference::model_comparison`) evaluates it at ALO-corrected means
+/// to form pointwise predictive densities for PSIS-LOO. Because the same
+/// family-independent constants are omitted in every evaluation, the dropped
+/// constants cancel exactly in any *difference* of log-likelihoods — paired
+/// Δelpd between two fits on the same response, and the self-normalized PSIS
+/// importance ratios — so the omission is harmless for comparison channels.
+///
+/// For the deviance-parameterized families (Tweedie, Gamma) the per-row value
+/// is `-0.5 ·` the per-row scaled unit deviance, matching the aggregate exactly
+/// row by row.
+pub fn pointwise_loglikelihood_omitting_constants(
+    y: ArrayView1<f64>,
+    mu: &Array1<f64>,
+    likelihood: &GlmLikelihoodSpec,
+    priorweights: ArrayView1<f64>,
+) -> Array1<f64> {
+    // Same μ floor as PIRLS log-link working-state writers; see note in
+    // `calculate_deviance` above.
+    const MU_FLOOR: f64 = 1e-10;
+    const EPS: f64 = 1e-8;
+    use rayon::iter::{IntoParallelIterator, ParallelIterator};
+    let n = y.len();
+    let values: Vec<f64> = match &likelihood.spec.response {
+        ResponseFamily::Gaussian => {
+            // Gaussian log-likelihood (constants dropped) is
+            //     -0.5 * prior_i * (y_i - mu_i)^2 / phi.
+            // `ProfiledGaussian` returns no fixed phi and falls back to phi=1,
+            // preserving the historical profiled-sigma behaviour. A caller that
+            // fixes phi gets the scaled form that matches the IRLS weights and
+            // the scaled deviance in `calculate_deviance`.
+            let phi = likelihood.scale.fixed_phi().unwrap_or(1.0);
+            if !(phi.is_finite() && phi > 0.0) {
+                return Array1::from_elem(n, f64::NAN);
+            }
+            let inv_phi = 1.0 / phi;
+            (0..n)
+                .into_par_iter()
+                .map(|i| {
+                    let resid = y[i] - mu[i];
+                    -0.5 * priorweights[i] * resid * resid * inv_phi
+                })
+                .collect()
+        }
+        ResponseFamily::Binomial => (0..n)
+            .into_par_iter()
+            .map(|i| {
+                // Share the deviance helper so both reductions floor mu at
+                // the same epsilon — otherwise the deviance / log-lik identity
+                // drifts whenever the link saturates.
+                let mui_c = safe_mu_for_binomial(mu[i]);
+                priorweights[i] * (y[i] * mui_c.ln() + (1.0 - y[i]) * (1.0 - mui_c).ln())
+            })
+            .collect(),
+        ResponseFamily::Poisson => (0..n)
+            .into_par_iter()
+            .map(|i| {
+                let mui_c = mu[i].max(MU_FLOOR);
+                let log_term = if y[i] > 0.0 { y[i] * mui_c.ln() } else { 0.0 };
+                priorweights[i] * (log_term - mui_c)
+            })
+            .collect(),
+        ResponseFamily::Tweedie { p } => {
+            let p = *p;
+            let phi = fixed_glm_dispersion(likelihood);
+            if !is_valid_tweedie_power(p) || !(phi.is_finite() && phi > 0.0) {
+                return Array1::from_elem(n, f64::NAN);
+            }
+            if validate_tweedie_responses(&y, &priorweights).is_err() {
+                return Array1::from_elem(n, f64::NAN);
+            }
+            (0..n)
+                .into_par_iter()
+                .map(|i| {
+                    let yi = y[i];
+                    let mui_c = mu[i].max(MU_FLOOR);
+                    -priorweights[i] * tweedie_unit_deviance(yi, mui_c, p) / phi
+                })
+                .collect()
+        }
+        ResponseFamily::NegativeBinomial { theta, .. } => {
+            let theta = *theta;
+            (0..n)
+                .into_par_iter()
+                .map(|i| {
+                    if !valid_negbin_theta(theta) {
+                        return f64::NAN;
+                    }
+                    let yi = y[i];
+                    if !valid_count_response(yi) {
+                        return f64::NAN;
+                    }
+                    let mui_c = mu[i].max(MU_FLOOR);
+                    priorweights[i]
+                        * (ln_gamma(yi + theta) - ln_gamma(theta) - ln_gamma(yi + 1.0)
+                            + theta * (theta.ln() - (theta + mui_c).ln())
+                            + xlogy(yi, mui_c)
+                            - yi * (theta + mui_c).ln())
+                })
+                .collect()
+        }
+        ResponseFamily::Beta { phi } => {
+            let phi = *phi;
+            (0..n)
+                .into_par_iter()
+                .map(|i| {
+                    if !valid_beta_phi(phi) {
+                        return f64::NAN;
+                    }
+                    priorweights[i] * beta_loglikelihood_full_unit(y[i], mu[i], phi)
+                })
+                .collect()
+        }
+        ResponseFamily::Gamma => {
+            let shape = likelihood.gamma_shape().unwrap_or(1.0);
+            (0..n)
+                .into_par_iter()
+                .map(|i| {
+                    let yi_c = y[i].max(EPS);
+                    let mui_c = mu[i].max(MU_FLOOR);
+                    -priorweights[i] * shape * gamma_unit_deviance(yi_c, mui_c)
+                })
+                .collect()
+        }
+        ResponseFamily::RoystonParmar => vec![f64::NAN; n],
+    };
+    Array1::from_vec(values)
+}
+
 pub(crate) fn calculate_loglikelihood_omitting_constants(
     y: ArrayView1<f64>,
     mu: &Array1<f64>,
@@ -6595,7 +6729,7 @@ pub(crate) fn calculate_loglikelihood_omitting_constants(
             }
             -0.5 * calculate_deviance(y, mu, likelihood, priorweights)
         }
-        ResponseFamily::NegativeBinomial { theta } => {
+        ResponseFamily::NegativeBinomial { theta, .. } => {
             let theta = *theta;
             (0..n)
                 .into_par_iter()
@@ -9063,13 +9197,13 @@ mod root_cause_tests {
         assert!(kkt.stationarity <= 1e-12);
     }
 
-    /// The user's biobank pathological case: a fit with `n=320000`,
+    /// The user's large-scale pathological case: a fit with `n=320000`,
     /// `p=20`, projected stationarity residual `‖g‖ = 1.465e-5`. The old
     /// absolute test `‖g‖ < 1e-6` rejects this as non-converged, even
     /// though the normalized residual is ~2.6e-8. After the fix, the
     /// scale-invariant certificate accepts it under EITHER bound.
     #[test]
-    fn certifies_kkt_accepts_biobank_pathological_case() {
+    fn certifies_kkt_accepts_large_scale_pathological_case() {
         let n = 320_000usize;
         let p = 20usize;
         let g_norm = 1.465e-5;
@@ -9096,7 +9230,7 @@ mod root_cause_tests {
         // Both pass; old absolute test 1.465e-5 < 1e-6 fails.
         assert!(
             state.certifies_kkt(g_norm, tol),
-            "scale-invariant certificate should accept biobank pathological case"
+            "scale-invariant certificate should accept large-scale pathological case"
         );
         assert!(
             !(g_norm < tol),

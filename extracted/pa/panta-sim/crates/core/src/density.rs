@@ -50,6 +50,11 @@ impl<F: Real> DensityMatrix<F> {
     /// `data[0]` 만 1, 나머지는 0.
     pub fn new(n_qubits: usize) -> Self {
         assert!(n_qubits > 0, "qubit 수는 1 이상이어야 합니다");
+        // dim² 할당이므로 2·n_qubits 가 usize 비트 수를 넘으면 silent wrap.
+        assert!(
+            2 * n_qubits < usize::BITS as usize,
+            "qubit 수 {n_qubits} 는 density matrix 로 표현 불가 (usize 한계)"
+        );
         let dim = 1usize << n_qubits;
         let mut data = vec![zero::<F>(); dim * dim];
         data[0] = one::<F>();

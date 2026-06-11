@@ -109,6 +109,15 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         """
         ...
 
+    def create_consolidator(self, resolution: QuantConnect.Resolution, data_type: typing.Type, tick_type: QuantConnect.TickType) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Creates the inner consolidator that produces the requested data_type output.
+        
+        
+        This Class is protected.
+        """
+        ...
+
     def daily_strict_end_time(self, date_time: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Data.Consolidators.CalendarInfo:
         """
         Determines a bar start time and period

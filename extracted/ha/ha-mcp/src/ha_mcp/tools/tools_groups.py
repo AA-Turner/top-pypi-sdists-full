@@ -26,7 +26,6 @@ from .helpers import (
     validate_identifier_not_empty,
 )
 from .util_helpers import (
-    coerce_bool_param,
     wait_for_entity_registered,
     wait_for_entity_removed,
 )
@@ -205,6 +204,7 @@ class GroupTools:
                     "Verify REST API is accessible",
                 ],
             )
+            return None  # unreachable: exception_to_structured_error always raises
 
     @tool(
         name="ha_config_set_group",
@@ -264,7 +264,7 @@ class GroupTools:
             ),
         ] = None,
         wait: Annotated[
-            bool | str,
+            bool,
             Field(
                 description="Wait for group to be queryable before returning. Default: True. Set to False for bulk operations.",
                 default=True,
@@ -340,10 +340,8 @@ class GroupTools:
                 and remove_entities is None
             )
 
-            # Verify entity is queryable after creation/update
-            wait_bool = coerce_bool_param(wait, "wait", default=True)
             result: dict[str, Any] = {}
-            if wait_bool:
+            if wait:
                 action_word = "created" if is_create else "updated"
                 try:
                     registered = await wait_for_entity_registered(
@@ -382,6 +380,7 @@ class GroupTools:
                     "Use ha_config_list_groups() to see existing groups",
                 ],
             )
+            return None  # unreachable: exception_to_structured_error always raises
 
     @tool(
         name="ha_config_remove_group",
@@ -403,7 +402,7 @@ class GroupTools:
             ),
         ],
         wait: Annotated[
-            bool | str,
+            bool,
             Field(
                 description="Wait for group to be fully removed before returning. Default: True.",
                 default=True,
@@ -462,10 +461,8 @@ class GroupTools:
 
             entity_id = f"group.{object_id}"
 
-            # Verify entity is removed
-            wait_bool = coerce_bool_param(wait, "wait", default=True)
             result: dict[str, Any] = {}
-            if wait_bool:
+            if wait:
                 try:
                     removed = await wait_for_entity_removed(self._client, entity_id)
                     if not removed:
@@ -498,6 +495,7 @@ class GroupTools:
                     "Groups defined in YAML cannot be permanently removed",
                 ],
             )
+            return None  # unreachable: exception_to_structured_error always raises
 
 
 def register_group_tools(mcp: Any, client: Any, **kwargs: Any) -> None:

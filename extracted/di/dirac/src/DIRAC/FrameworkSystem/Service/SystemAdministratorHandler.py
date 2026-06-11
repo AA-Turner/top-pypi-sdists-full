@@ -1,6 +1,5 @@
 """SystemAdministrator service is a tool to control and monitor the DIRAC services and agents"""
 
-import getpass
 import importlib
 import os
 import platform
@@ -25,7 +24,7 @@ from DIRAC.Core.Security.X509Chain import X509Chain  # pylint: disable=import-er
 from DIRAC.Core.Utilities import Os
 from DIRAC.Core.Utilities.Extensions import extensionsByPriority, getExtensionMetadata
 from DIRAC.Core.Utilities.File import mkLink
-from DIRAC.Core.Utilities.Subprocess import shellCall
+from DIRAC.Core.Utilities.Subprocess import systemCall
 from DIRAC.Core.Utilities.ThreadScheduler import gThreadScheduler
 from DIRAC.Core.Utilities.TimeUtilities import day, fromString, hour
 from DIRAC.FrameworkSystem.Client.ComponentInstaller import gComponentInstaller
@@ -69,6 +68,10 @@ def _normalise_version(version):
     if not version:
         raise ValueError("No version specified")
 
+    # Strip surrounding quotes (shell may pass them literally)
+    if (version.startswith("'") and version.endswith("'")) or (version.startswith('"') and version.endswith('"')):
+        version = version[1:-1].strip()
+
     primaryExtension = None
     if "==" in version:
         primaryExtension, version = version.split("==", 1)
@@ -101,8 +104,9 @@ def _directory_label(version, released_version):
     """Derive the filesystem directory label for a given version.
 
     For released versions this is the version string itself.  For VCS URLs
-    (pip ``pkg @ url`` syntax) it is the URL part, stripped of any
-    ``#egg=...`` fragment and surrounding whitespace.
+    (pip ``pkg @ url`` syntax) it is just the branch/tag name after the
+    second ``@``, stripped of any ``#egg=...`` fragment and sanitized to
+    contain only filesystem-safe characters.
 
     :param str version: Normalised version string as returned by :func:`_normalise_version`.
     :param bool released_version: ``True`` when *version* is a PEP 440 release string.
@@ -112,9 +116,11 @@ def _directory_label(version, released_version):
     if released_version:
         return version
     # version is "pkg @ git+https://host/repo.git@branch"
-    # Split on the *first* "@" (the pip separator) only, then strip spaces
-    # and drop any "#egg=..." fragment so the branch name is preserved.
-    return version.split("@", 1)[1].strip().split("#")[0]
+    # Split on all "@" and take the last part (the branch/tag name),
+    # then strip spaces and drop any "#egg=..." fragment.
+    branch = version.split("@")[-1].strip().split("#")[0]
+    # Sanitize: keep only alphanumeric, hyphens, underscores, and dots
+    return re.sub(r"[^a-zA-Z0-9._-]", "", branch)
 
 
 class SystemAdministratorHandler(RequestHandler):
@@ -471,7 +477,7 @@ class SystemAdministratorHandler(RequestHandler):
 
     def export_executeCommand(self, command):
         """Execute a command locally and return its output"""
-        result = shellCall(60, command)
+        result = systemCall(60, command.split())
         return result
 
     types_checkComponentLog = [[str, list]]
@@ -593,7 +599,7 @@ class SystemAdministratorHandler(RequestHandler):
 
         # Disk occupancy
         summary = ""
-        _status, output = subprocess.getstatusoutput("df")
+        _status, output = subprocess.getstatusoutput("df")  # nosec: B605
         lines = output.split("\n")
         for i in range(len(lines)):
             if lines[i].startswith("/dev"):
@@ -606,23 +612,34 @@ class SystemAdministratorHandler(RequestHandler):
         result["DiskOccupancy"] = summary[1:]
         result["RootDiskSpace"] = Os.getDiskSpace(rootPath)
 
-        # Open files
-        puser = getpass.getuser()
-        _status, output = subprocess.getstatusoutput("lsof")
+        # Open files for processes owned by the current service user
+        current_uid = os.getuid()
         pipes = 0
         files = 0
         sockets = 0
-        lines = output.split("\n")
-        for line in lines:
-            fType = line.split()[4]
-            user = line.split()[2]
-            if user == puser:
-                if fType in ["REG"]:
-                    files += 1
-                elif fType in ["unix", "IPv4"]:
-                    sockets += 1
-                elif fType in ["FIFO"]:
-                    pipes += 1
+        for proc_entry in os.scandir("/proc"):
+            pid = proc_entry.name
+            if not pid.isdigit():
+                continue
+
+            proc_dir = proc_entry.path
+
+            try:
+                if os.stat(proc_dir).st_uid != current_uid:
+                    continue
+
+                fd_dir = os.path.join(proc_dir, "fd")
+                for fd_entry in os.scandir(fd_dir):
+                    target = os.readlink(fd_entry.path)
+                    if target.startswith("socket:"):
+                        sockets += 1
+                    elif target.startswith("pipe:"):
+                        pipes += 1
+                    else:
+                        files += 1
+            except (FileNotFoundError, PermissionError, ProcessLookupError, OSError):
+                # Process might disappear while iterating, or be temporarily inaccessible.
+                continue
         result["OpenSockets"] = sockets
         result["OpenFiles"] = files
         result["OpenPipes"] = pipes
@@ -704,7 +721,7 @@ class SystemAdministratorHandler(RequestHandler):
                 importedModule = importlib.import_module(moduleName)
                 return S_OK(importedModule.__doc__)
             except Exception:
-                pass
+                continue  # Module or doc string missing, keep searching
         return S_ERROR("No documentation was found")
 
     @staticmethod

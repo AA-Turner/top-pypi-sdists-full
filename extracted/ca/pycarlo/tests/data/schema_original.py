@@ -308,6 +308,127 @@ class AgentGraphNodeKind(sgqlc.types.Enum):
     __choices__ = ("AGENT", "CHAIN", "LLM", "TASK", "TOOL", "UNKNOWN", "WORKFLOW")
 
 
+class AgentHealthCodeStatus(sgqlc.types.Enum):
+    """Code-aware judge verdict on whether the issue was located in
+    source code.
+
+    Enumeration Choices:
+
+    * `CONFIRMED`None
+    * `LOCATED`None
+    * `REFUTED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CONFIRMED", "LOCATED", "REFUTED")
+
+
+class AgentHealthConfidence(sgqlc.types.Enum):
+    """Confidence tier; `confidenceScore` carries the derived float (0.9
+    / 0.6 / 0.3).
+
+    Enumeration Choices:
+
+    * `HIGH`None
+    * `LOW`None
+    * `MEDIUM`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("HIGH", "LOW", "MEDIUM")
+
+
+class AgentHealthEvidenceCategory(sgqlc.types.Enum):
+    """What aspect of agent behavior an evidence row speaks to.
+
+    Enumeration Choices:
+
+    * `COMPLETION`None
+    * `CONTEXT_MEMORY`None
+    * `COST`None
+    * `EFFICIENCY`None
+    * `EXECUTION`None
+    * `LATENCY`None
+    * `OUTPUT_QUALITY`None
+    * `RELIABILITY`None
+    * `TOOL_USE`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "COMPLETION",
+        "CONTEXT_MEMORY",
+        "COST",
+        "EFFICIENCY",
+        "EXECUTION",
+        "LATENCY",
+        "OUTPUT_QUALITY",
+        "RELIABILITY",
+        "TOOL_USE",
+    )
+
+
+class AgentHealthEvidenceSource(sgqlc.types.Enum):
+    """Signal origin; a row can carry several when cross-source signals
+    merge.
+
+    Enumeration Choices:
+
+    * `CONVERSATION`None
+    * `ERROR`None
+    * `GRAPH`None
+    * `PR_DIFF`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CONVERSATION", "ERROR", "GRAPH", "PR_DIFF")
+
+
+class AgentHealthGranularity(sgqlc.types.Enum):
+    """Grain of the fact an evidence row is based on.
+
+    Enumeration Choices:
+
+    * `CONVERSATION`None
+    * `SPAN`None
+    * `TRACE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CONVERSATION", "SPAN", "TRACE")
+
+
+class AgentHealthPriority(sgqlc.types.Enum):
+    """Impact bucket — same values as severity but a distinct axis.
+
+    Enumeration Choices:
+
+    * `CRITICAL`None
+    * `HIGH`None
+    * `LOW`None
+    * `MEDIUM`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CRITICAL", "HIGH", "LOW", "MEDIUM")
+
+
+class AgentHealthSeverity(sgqlc.types.Enum):
+    """Severity vocabulary shared by issues, evidence, and the parent
+    `health` rollup.
+
+    Enumeration Choices:
+
+    * `CRITICAL`None
+    * `HIGH`None
+    * `LOW`None
+    * `MEDIUM`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CRITICAL", "HIGH", "LOW", "MEDIUM")
+
+
 class AgentModelAgentType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -9265,22 +9386,6 @@ class AzureDevopsSourceSelectionInput(sgqlc.types.Input):
     """ID of Azure DevOps repository"""
 
 
-class BackfillAgentDataLineageSchedulesInput(sgqlc.types.Input):
-    """Input for backfilling the daily agent SQL-lineage companion sweep
-    schedule for agents created before it existed.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("account_uuid", "dry_run")
-    account_uuid = sgqlc.types.Field(UUID, graphql_name="accountUuid")
-    """Restrict the backfill to a single account UUID (all accounts if
-    omitted).
-    """
-
-    dry_run = sgqlc.types.Field(Boolean, graphql_name="dryRun")
-    """Report what would be created without writing any schedules."""
-
-
 class BiWarehouseSourcesInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("warehouse_resource_id", "warehouse_resource_type", "bi_warehouse_id")
@@ -15541,6 +15646,8 @@ class IMetricsMonitor(sgqlc.types.Interface):
         "time_bucketed",
         "high_segment_count",
         "min_segment_size",
+        "min_segment_row_count",
+        "min_segment_row_count_share",
         "segment_count",
         "bootstrap",
         "sensitivity",
@@ -15629,6 +15736,19 @@ class IMetricsMonitor(sgqlc.types.Interface):
     min_segment_size = sgqlc.types.Field(Int, graphql_name="minSegmentSize")
     """Minimum number of rows for a segment to be retrieved. Segments
     with less rows than this will be discarded.
+    """
+
+    min_segment_row_count = sgqlc.types.Field(Int, graphql_name="minSegmentRowCount")
+    """Minimum rolling-average row count for a segment to be monitored.
+    Segments whose average row count falls below this are not detected
+    on. Null disables the absolute filter.
+    """
+
+    min_segment_row_count_share = sgqlc.types.Field(Float, graphql_name="minSegmentRowCountShare")
+    """Minimum share of the table's total rolling-average row count for a
+    segment to be monitored, expressed as a fraction between 0 and 1.
+    Segments contributing a smaller share than this are not detected
+    on. Null disables the relative filter.
     """
 
     segment_count = sgqlc.types.Field(Int, graphql_name="segmentCount")
@@ -15721,6 +15841,7 @@ class IMonitor(sgqlc.types.Interface):
         "is_ootb_replacement",
         "timeout",
         "is_agent_trace_aggregation",
+        "is_agent_conversation_aggregation",
         "dashboards",
         "is_hidden_for_asset",
         "agent_mcon",
@@ -15959,6 +16080,14 @@ class IMonitor(sgqlc.types.Interface):
 
     is_agent_trace_aggregation = sgqlc.types.Field(Boolean, graphql_name="isAgentTraceAggregation")
     """If True, aggregate spans by trace_id for agent metric monitors."""
+
+    is_agent_conversation_aggregation = sgqlc.types.Field(
+        Boolean, graphql_name="isAgentConversationAggregation"
+    )
+    """If True, score whole conversations rather than individual spans;
+    if False, score individual spans. Null for non-agent-evaluation
+    monitors (or legacy monitors predating the field).
+    """
 
     dashboards = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null("MonitorDashboard")), graphql_name="dashboards"
@@ -18575,6 +18704,113 @@ class AgentHealthCard(sgqlc.types.Type):
     needs_human_review = sgqlc.types.Field(Boolean, graphql_name="needsHumanReview")
 
 
+class AgentHealthCodeRef(sgqlc.types.Type):
+    """Source-code location an evidence row was traced to by the code-
+    aware judge.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("path", "symbol")
+    path = sgqlc.types.Field(String, graphql_name="path")
+    """Repository-relative file path."""
+
+    symbol = sgqlc.types.Field(String, graphql_name="symbol")
+    """Function / class symbol within the file."""
+
+
+class AgentHealthEvidence(sgqlc.types.Type):
+    """One detector fact supporting an issue."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "title",
+        "summary",
+        "node_id",
+        "tool_name",
+        "category",
+        "issue_type",
+        "granularity",
+        "severity",
+        "confidence",
+        "confidence_score",
+        "source",
+        "source_detector",
+        "code_status",
+        "code_refs",
+        "samples",
+    )
+    id = sgqlc.types.Field(String, graphql_name="id")
+    """Evidence id, cited by the issue's relatedEvidenceIds."""
+
+    title = sgqlc.types.Field(String, graphql_name="title")
+    """Short headline of the fact."""
+
+    summary = sgqlc.types.Field(String, graphql_name="summary")
+    """What was observed and why it matters."""
+
+    node_id = sgqlc.types.Field(String, graphql_name="nodeId")
+    """Agent graph node the fact is anchored to."""
+
+    tool_name = sgqlc.types.Field(String, graphql_name="toolName")
+    """Tool involved, when the fact is tool-scoped."""
+
+    category = sgqlc.types.Field(AgentHealthEvidenceCategory, graphql_name="category")
+    """Aspect of agent behavior the fact speaks to."""
+
+    issue_type = sgqlc.types.Field(String, graphql_name="issueType")
+    """Stable taxonomy slug (e.g. error_rate, tool_cycle, chokepoint);
+    `other` is the escape hatch. The taxonomy may grow, so this is a
+    string rather than an enum.
+    """
+
+    granularity = sgqlc.types.Field(AgentHealthGranularity, graphql_name="granularity")
+    """Grain of the underlying fact."""
+
+    severity = sgqlc.types.Field(AgentHealthSeverity, graphql_name="severity")
+    """Severity of the fact."""
+
+    confidence = sgqlc.types.Field(AgentHealthConfidence, graphql_name="confidence")
+    """Detector confidence tier in the fact."""
+
+    confidence_score = sgqlc.types.Field(Float, graphql_name="confidenceScore")
+    """Confidence as a derived float (high 0.9 / medium 0.6 / low 0.3)."""
+
+    source = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AgentHealthEvidenceSource)), graphql_name="source"
+    )
+    """Signal origins; multiple when cross-source signals merged."""
+
+    source_detector = sgqlc.types.Field(String, graphql_name="sourceDetector")
+    """Which detector rule fired."""
+
+    code_status = sgqlc.types.Field(AgentHealthCodeStatus, graphql_name="codeStatus")
+    """Code-aware judge verdict. Null when code analysis did not run."""
+
+    code_refs = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AgentHealthCodeRef)), graphql_name="codeRefs"
+    )
+    """Source-code locations the fact was traced to."""
+
+    samples = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("AgentHealthEvidenceSample")),
+        graphql_name="samples",
+    )
+    """Trace/span deep-links to observed occurrences."""
+
+
+class AgentHealthEvidenceSample(sgqlc.types.Type):
+    """Deep-link target for one observed occurrence of an evidence fact."""
+
+    __schema__ = schema
+    __field_names__ = ("span_id", "trace_id")
+    span_id = sgqlc.types.Field(String, graphql_name="spanId")
+    """Span id of the sampled occurrence."""
+
+    trace_id = sgqlc.types.Field(String, graphql_name="traceId")
+    """Trace id of the sampled occurrence."""
+
+
 class AgentHealthFinding(sgqlc.types.Type):
     """One detected health issue for an agent within a snapshot."""
 
@@ -18688,6 +18924,195 @@ class AgentHealthFinding(sgqlc.types.Type):
     last_seen = sgqlc.types.Field(Date, graphql_name="lastSeen")
 
 
+class AgentHealthFindingPayload(sgqlc.types.Type):
+    """Report overview carried in the parent Health Agent finding's
+    payload.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "health",
+        "agent_name",
+        "workflow_name",
+        "report_uuid",
+        "span_count",
+        "trace_count",
+        "signal_count",
+        "issue_count",
+        "evidence_count",
+        "window_start",
+        "window_end",
+    )
+    health = sgqlc.types.Field(AgentHealthSeverity, graphql_name="health")
+    """Overall health rollup — the max severity across all issues."""
+
+    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
+    """Observability agent the report covers."""
+
+    workflow_name = sgqlc.types.Field(String, graphql_name="workflowName")
+    """Workflow within the agent the report covers."""
+
+    report_uuid = sgqlc.types.Field(UUID, graphql_name="reportUuid")
+    """Unique id of the underlying health report."""
+
+    span_count = sgqlc.types.Field(Int, graphql_name="spanCount")
+    """Spans analyzed in the window."""
+
+    trace_count = sgqlc.types.Field(Int, graphql_name="traceCount")
+    """Traces analyzed in the window."""
+
+    signal_count = sgqlc.types.Field(Int, graphql_name="signalCount")
+    """Distinct issue types observed in the window."""
+
+    issue_count = sgqlc.types.Field(Int, graphql_name="issueCount")
+    """Issues detected in the window."""
+
+    evidence_count = sgqlc.types.Field(Int, graphql_name="evidenceCount")
+    """Evidence items gathered for the report."""
+
+    window_start = sgqlc.types.Field(DateTime, graphql_name="windowStart")
+    """Start of the analyzed time window."""
+
+    window_end = sgqlc.types.Field(DateTime, graphql_name="windowEnd")
+    """End of the analyzed time window."""
+
+
+class AgentHealthFindingResult(sgqlc.types.Type):
+    """An agent-health report: the parent finding's overview plus its
+    per-issue children.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "created_time",
+        "uuid",
+        "title",
+        "summary",
+        "detection_time",
+        "priority",
+        "payload",
+        "issues",
+    )
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Public finding identifier."""
+
+    title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
+    """Human-readable title."""
+
+    summary = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="summary")
+    """Agent-generated summary."""
+
+    detection_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="detectionTime")
+    """When the agent run produced this finding."""
+
+    priority = sgqlc.types.Field(AgentHealthPriority, graphql_name="priority")
+    """The headline issue's priority."""
+
+    payload = sgqlc.types.Field(
+        sgqlc.types.non_null(AgentHealthFindingPayload), graphql_name="payload"
+    )
+    """Report overview parsed from the parent finding's payload."""
+
+    issues = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AgentHealthIssue"))),
+        graphql_name="issues",
+    )
+    """The report's issues — one child finding each, in report order,
+    with evidence and recommended actions resolved inline.
+    """
+
+
+class AgentHealthIssue(sgqlc.types.Type):
+    """One detected health issue, with its evidence and fixes resolved
+    inline.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "finding_uuid",
+        "id",
+        "title",
+        "narrative",
+        "severity",
+        "priority",
+        "confidence",
+        "confidence_score",
+        "related_evidence_ids",
+        "evidence",
+        "recommended_actions",
+    )
+    finding_uuid = sgqlc.types.Field(UUID, graphql_name="findingUuid")
+    """UUID of the child finding carrying this issue (fresh every run)."""
+
+    id = sgqlc.types.Field(String, graphql_name="id")
+    """Deterministic issue id (<issueType>-<hash>) — the cross-run 'same
+    problem' handle.
+    """
+
+    title = sgqlc.types.Field(String, graphql_name="title")
+    """Short declarative headline (the card title)."""
+
+    narrative = sgqlc.types.Field(String, graphql_name="narrative")
+    """Plain-language story — what's wrong and why it matters."""
+
+    severity = sgqlc.types.Field(AgentHealthSeverity, graphql_name="severity")
+    """Max severity of the cited evidence."""
+
+    priority = sgqlc.types.Field(AgentHealthPriority, graphql_name="priority")
+    """Impact bucket of the issue."""
+
+    confidence = sgqlc.types.Field(AgentHealthConfidence, graphql_name="confidence")
+    """Confidence tier in the issue."""
+
+    confidence_score = sgqlc.types.Field(Float, graphql_name="confidenceScore")
+    """Confidence as a derived float (high 0.9 / medium 0.6 / low 0.3)."""
+
+    related_evidence_ids = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="relatedEvidenceIds"
+    )
+    """Ids of the evidence rows this issue is built from."""
+
+    evidence = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AgentHealthEvidence)), graphql_name="evidence"
+    )
+    """The supporting evidence, resolved inline."""
+
+    recommended_actions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("AgentHealthRecommendedAction")),
+        graphql_name="recommendedActions",
+    )
+    """Fixes addressing this issue, resolved inline."""
+
+
+class AgentHealthRecommendedAction(sgqlc.types.Type):
+    """A remediation addressing one or more issues."""
+
+    __schema__ = schema
+    __field_names__ = ("id", "title", "sub_bullets", "addresses_issue_ids", "remediation_context")
+    id = sgqlc.types.Field(String, graphql_name="id")
+    """Action id."""
+
+    title = sgqlc.types.Field(String, graphql_name="title")
+    """Imperative fix headline."""
+
+    sub_bullets = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="subBullets"
+    )
+    """Concrete tactical steps."""
+
+    addresses_issue_ids = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="addressesIssueIds"
+    )
+    """Issue id(s) this fix resolves."""
+
+    remediation_context = sgqlc.types.Field(String, graphql_name="remediationContext")
+    """Reserved free-form remediation context for future automated fixes;
+    null for now.
+    """
+
+
 class AgentLogEntry(sgqlc.types.Type):
     """A log entry from an agent."""
 
@@ -18725,12 +19150,26 @@ class AgentMetadataV2(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("account_uuid", "agent_name", "trace_table_mcon", "source_type")
+    __field_names__ = (
+        "account_uuid",
+        "agent_name",
+        "display_name",
+        "trace_table_mcon",
+        "source_type",
+    )
     account_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="accountUuid")
     """Account UUID"""
 
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
     """Name of the agent"""
+
+    display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
+    """Human-friendly name to show for the agent — the Databricks Agent
+    Bricks tile name for Knowledge-Assistant agents. Falls back to
+    `agentName` when no friendly name is stored (SDK / Snowflake
+    agents and user-managed trace tables), so it is always safe to
+    display directly.
+    """
 
     trace_table_mcon = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="traceTableMcon"
@@ -20801,6 +21240,7 @@ class AvailablePlatformAgentData(sgqlc.types.Type):
         "database_name",
         "schema_name",
         "platform_agent_type",
+        "display_name",
         "table_prefix",
         "requires_manual_trace_storage_setup",
         "trace_table_ingested",
@@ -20814,6 +21254,14 @@ class AvailablePlatformAgentData(sgqlc.types.Type):
     platform_agent_type = sgqlc.types.Field(
         sgqlc.types.non_null(PlatformAgentType), graphql_name="platformAgentType"
     )
+
+    display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
+    """Human-friendly label for the agent — the Databricks Agent Bricks
+    tile name for Knowledge-Assistant agents, falling back to `name`
+    for SDK and Snowflake agents (which have no tile). Always
+    populated; never null, so clients can render it directly without a
+    null check.
+    """
 
     table_prefix = sgqlc.types.Field(String, graphql_name="tablePrefix")
 
@@ -21286,45 +21734,6 @@ class AzureInformation(sgqlc.types.Type):
 
     secondary_region = sgqlc.types.Field(String, graphql_name="secondaryRegion")
     """Azure Secondary Region"""
-
-
-class BackfillAgentDataLineageSchedules(sgqlc.types.Type):
-    """Backfill the daily agent SQL-lineage companion sweep schedule for
-    agents created before that wiring existed. New agents get the
-    sweep at creation; this lets the support team backfill older
-    agents without data-engineering intervention. Idempotent — safe to
-    re-run.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("result",)
-    result = sgqlc.types.Field("BackfillAgentDataLineageSchedulesOutput", graphql_name="result")
-    """Counts from the backfill run"""
-
-
-class BackfillAgentDataLineageSchedulesOutput(sgqlc.types.Type):
-    """Counts from backfilling the agent SQL-lineage companion sweep
-    schedules
-    """
-
-    __schema__ = schema
-    __field_names__ = ("created", "skipped_no_connection", "failed", "dry_run", "message")
-    created = sgqlc.types.Field(Int, graphql_name="created")
-    """Companion sweep schedules created (or that would be created on a
-    dry run).
-    """
-
-    skipped_no_connection = sgqlc.types.Field(Int, graphql_name="skippedNoConnection")
-    """Agents skipped because their real-time schedule has no connection."""
-
-    failed = sgqlc.types.Field(Int, graphql_name="failed")
-    """Agents whose backfill raised an error (see logs)."""
-
-    dry_run = sgqlc.types.Field(Boolean, graphql_name="dryRun")
-    """Whether this was a dry run (no writes)."""
-
-    message = sgqlc.types.Field(String, graphql_name="message")
-    """Human-readable summary of the backfill."""
 
 
 class BiContainer(sgqlc.types.Type):
@@ -21887,6 +22296,7 @@ class BillingMonitorUsage(sgqlc.types.Type):
         "metric_comparison_monitor_credits",
         "troubleshooting_agent_monitor_credits",
         "agent_observability_monitor_credits",
+        "pr_agent_monitor_credits",
     )
     date = sgqlc.types.Field(Date, graphql_name="date")
     """The date for this data point"""
@@ -21939,6 +22349,9 @@ class BillingMonitorUsage(sgqlc.types.Type):
         Float, graphql_name="agentObservabilityMonitorCredits"
     )
     """Credits used by agent observability"""
+
+    pr_agent_monitor_credits = sgqlc.types.Field(Float, graphql_name="prAgentMonitorCredits")
+    """Credits used by the PR Agent"""
 
 
 class BillingMonitorUsageResults(sgqlc.types.Type):
@@ -23226,6 +23639,8 @@ class Connection(sgqlc.types.relay.Connection):
         "connection_identifiers",
         "job_errors",
         "resolved_connection_type",
+        "icon_url",
+        "terminology",
         "sql_job_timeout_maximum",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
@@ -23334,6 +23749,18 @@ class Connection(sgqlc.types.relay.Connection):
 
     resolved_connection_type = sgqlc.types.Field(String, graphql_name="resolvedConnectionType")
     """Identifies the connection type"""
+
+    icon_url = sgqlc.types.Field(String, graphql_name="iconUrl")
+    """For agent-registered custom ETL connectors, the connector's remote
+    icon URL (from its manifest), or null for any other connection
+    type. Consumers should fall back to a default icon on load error.
+    """
+
+    terminology = sgqlc.types.Field("Terminology", graphql_name="terminology")
+    """For ETL connection types, the tool's group/job/task display-noun
+    overrides (e.g. Airflow's DAG/Task, a custom connector's manifest
+    terminology), or null for non-ETL connection types.
+    """
 
     sql_job_timeout_maximum = sgqlc.types.Field(Int, graphql_name="sqlJobTimeoutMaximum")
     """The maximum timeout for SQL jobs that can be set for this
@@ -25584,7 +26011,7 @@ class CustomEtlConnector(sgqlc.types.Type):
     """A custom ETL connector type registered for an account."""
 
     __schema__ = schema
-    __field_names__ = ("id", "name", "job_types", "last_updated_time")
+    __field_names__ = ("id", "name", "job_types", "last_updated_time", "icon_url", "terminology")
     id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="id")
     """Unique connection type identifier."""
 
@@ -25599,6 +26026,17 @@ class CustomEtlConnector(sgqlc.types.Type):
 
     last_updated_time = sgqlc.types.Field(DateTime, graphql_name="lastUpdatedTime")
     """When the connector's manifest was last synced."""
+
+    icon_url = sgqlc.types.Field(String, graphql_name="iconUrl")
+    """Agent-supplied remote URL for the connector's icon, or null if
+    none was registered. Consumers should fall back to a default icon
+    on load error.
+    """
+
+    terminology = sgqlc.types.Field("Terminology", graphql_name="terminology")
+    """Per-connector display-noun overrides for the ETL group/job/task
+    tiers, or null if the connector did not register any.
+    """
 
 
 class CustomIntegrationConnection(sgqlc.types.relay.Connection):
@@ -37534,7 +37972,6 @@ class Mutation(sgqlc.types.Type):
         "delete_azure_devops_installation",
         "set_azure_devops_source_selections",
         "update_data_share",
-        "backfill_agent_data_lineage_schedules",
         "test_confluent_kafka_credentials",
         "test_confluent_kafka_connect_credentials",
         "test_msk_kafka_credentials",
@@ -37648,6 +38085,7 @@ class Mutation(sgqlc.types.Type):
         "set_project_propagate_job_tags",
         "set_job_generates_incidents",
         "set_job_generates_alerts",
+        "set_dbt_cloud_event_filter",
         "snooze_dbt_node",
         "unsnooze_dbt_node",
         "update_dbt_project_info",
@@ -43511,31 +43949,6 @@ class Mutation(sgqlc.types.Type):
     * `input` (`UpdateDataShareInput!`): Data share configuration
     """
 
-    backfill_agent_data_lineage_schedules = sgqlc.types.Field(
-        BackfillAgentDataLineageSchedules,
-        graphql_name="backfillAgentDataLineageSchedules",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "input",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(BackfillAgentDataLineageSchedulesInput),
-                        graphql_name="input",
-                        default=None,
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Backfill the daily agent SQL-lineage companion
-    sweep schedule for existing agents (internal/support use).
-
-    Arguments:
-
-    * `input` (`BackfillAgentDataLineageSchedulesInput!`): Backfill
-      scope and dry-run options
-    """
-
     test_confluent_kafka_credentials = sgqlc.types.Field(
         "TestConfluentKafkaCredentials",
         graphql_name="testConfluentKafkaCredentials",
@@ -47588,6 +48001,51 @@ class Mutation(sgqlc.types.Type):
 
     * `generates_alerts` (`Boolean!`): should generate alerts
     * `job_id` (`UUID!`): dbt job id
+    """
+
+    set_dbt_cloud_event_filter = sgqlc.types.Field(
+        "SetDbtCloudEventFilter",
+        graphql_name="setDbtCloudEventFilter",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "allowed_dbt_cloud_connections",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="allowedDbtCloudConnections",
+                        default=None,
+                    ),
+                ),
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+                (
+                    "filter_dbt_cloud_events",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Boolean),
+                        graphql_name="filterDbtCloudEvents",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Configure dbt Cloud webhook event filtering for a
+    connection
+
+    Arguments:
+
+    * `allowed_dbt_cloud_connections` (`[String!]`): Allow-list of dbt
+      connection ids/names; when provided, only runs whose dbt
+      environment connection id or name is in this list are handled
+      (automatic warehouse matching is not used). Only valid when
+      filterDbtCloudEvents is true.
+    * `connection_id` (`UUID!`): dbt Cloud webhook connection id
+    * `filter_dbt_cloud_events` (`Boolean!`): When true, drop runs
+      that don't belong to this connection's warehouse
     """
 
     snooze_dbt_node = sgqlc.types.Field(
@@ -51649,6 +52107,14 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(Boolean, graphql_name="highSegmentCount", default=False),
                 ),
                 ("is_draft", sgqlc.types.Arg(Boolean, graphql_name="isDraft", default=False)),
+                (
+                    "min_segment_row_count",
+                    sgqlc.types.Arg(Int, graphql_name="minSegmentRowCount", default=None),
+                ),
+                (
+                    "min_segment_row_count_share",
+                    sgqlc.types.Arg(Float, graphql_name="minSegmentRowCountShare", default=None),
+                ),
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 (
                     "notify_rule_run_failure",
@@ -51740,6 +52206,15 @@ class Mutation(sgqlc.types.Type):
       `false`)
     * `is_draft` (`Boolean`): Make target a draft monitor. (default:
       `false`)
+    * `min_segment_row_count` (`Int`): Minimum rolling-average row
+      count for a segment to be monitored. Segments whose average row
+      count falls below this are not detected on. Null disables the
+      filter.
+    * `min_segment_row_count_share` (`Float`): Minimum share of the
+      table's total rolling-average row count for a segment to be
+      monitored, as a fraction between 0 and 1. Segments contributing
+      a smaller share than this are not detected on. Null disables the
+      filter.
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
     * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
@@ -55119,9 +55594,7 @@ class Mutation(sgqlc.types.Type):
                 (
                     "auth_groups",
                     sgqlc.types.Arg(
-                        sgqlc.types.non_null(sgqlc.types.list_of(String)),
-                        graphql_name="authGroups",
-                        default=None,
+                        sgqlc.types.list_of(String), graphql_name="authGroups", default=None
                     ),
                 ),
                 (
@@ -55143,8 +55616,10 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
-    * `auth_groups` (`[String]!`): Names of groups to add user to upon
-      acceptance.
+    * `auth_groups` (`[String]`): Names of groups to add the user to
+      upon acceptance. Optional for SSO/SCIM accounts, where access is
+      governed by the identity provider on login (for example, when
+      reinstating a previously-removed user); required otherwise.
     * `emails` (`[String]!`): List of email addresses to invite
     * `invitation_type` (`InvitationType`): Type of invitation to send
       --typically maps to product.
@@ -56287,6 +56762,14 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 (
+                    "allowed_dbt_cloud_connections",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="allowedDbtCloudConnections",
+                        default=None,
+                    ),
+                ),
+                (
                     "connection_name",
                     sgqlc.types.Arg(String, graphql_name="connectionName", default=None),
                 ),
@@ -56303,6 +56786,10 @@ class Mutation(sgqlc.types.Type):
                 ("ctp_config", sgqlc.types.Arg(JSONString, graphql_name="ctpConfig", default=None)),
                 ("dc_id", sgqlc.types.Arg(UUID, graphql_name="dcId", default=None)),
                 ("dw_id", sgqlc.types.Arg(UUID, graphql_name="dwId", default=None)),
+                (
+                    "filter_dbt_cloud_events",
+                    sgqlc.types.Arg(Boolean, graphql_name="filterDbtCloudEvents", default=None),
+                ),
                 ("is_active", sgqlc.types.Arg(Boolean, graphql_name="isActive", default=True)),
                 ("job_limits", sgqlc.types.Arg(JSONString, graphql_name="jobLimits", default=None)),
                 (
@@ -56324,6 +56811,10 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `allowed_dbt_cloud_connections` (`[String!]`): dbt Cloud webhook
+      only: explicit allow-list of dbt connection ids/names; a run is
+      kept only if its environment connection id or name is listed.
+      Only valid when filterDbtCloudEvents is true.
     * `connection_name` (`String`): Provide a friendly name for the
       connection when creating
     * `connection_type` (`String!`): The type of connection to add
@@ -56334,6 +56825,12 @@ class Mutation(sgqlc.types.Type):
     * `dc_id` (`UUID`): DC UUID. To disambiguate accounts with
       multiple collectors
     * `dw_id` (`UUID`): Add connection to an existing warehouse
+    * `filter_dbt_cloud_events` (`Boolean`): dbt Cloud webhook only.
+      true: drop runs that don't belong to this connection's
+      warehouse. false: explicitly disable filtering — runs are never
+      dropped, though would-be drops are still logged. null / omitted:
+      same runtime behavior as false (filtering left off), but no
+      filtering preference is recorded on the connection.
     * `is_active` (`Boolean`): Set the connection to active or
       inactive (default: true) (default: `true`)
     * `job_limits` (`JSONString`): Customize job operations for all
@@ -62170,6 +62667,7 @@ class Query(sgqlc.types.Type):
         "get_platform_agents",
         "get_agent_health_findings",
         "get_agent_health_card",
+        "get_latest_agent_health_finding",
         "get_available_platform_agents",
         "evaluate_platform_agent_data_source",
         "get_node_attributes",
@@ -63358,6 +63856,48 @@ class Query(sgqlc.types.Type):
       omitted, matches the agent's card regardless of workflow.
     """
 
+    get_latest_agent_health_finding = sgqlc.types.Field(
+        AgentHealthFindingResult,
+        graphql_name="getLatestAgentHealthFinding",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "workflow_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="workflowName", default=None
+                    ),
+                ),
+                (
+                    "trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Newest agent-health report for an (agent_name,
+    workflow_name, trace_table_mcon) combo. The daily agent-health
+    pipeline produces one report per run — a parent finding (the
+    overview) plus one child finding per issue; this returns the
+    latest report by detection time with its issues resolved inline.
+    Returns null when none exists.
+
+    Arguments:
+
+    * `agent_name` (`String!`): Observability agent name.
+    * `workflow_name` (`String!`): Workflow within the agent.
+    * `trace_table_mcon` (`String!`): MCON of the agent's trace table
+      — same value passed as `traceTableMcon` on getAgentGraph.
+      Disambiguates agents with identical names across trace tables.
+    """
+
     get_available_platform_agents = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AvailablePlatformAgentData))),
         graphql_name="getAvailablePlatformAgents",
@@ -63366,9 +63906,7 @@ class Query(sgqlc.types.Type):
                 (
                     "platform_agent_type",
                     sgqlc.types.Arg(
-                        sgqlc.types.non_null(PlatformAgentType),
-                        graphql_name="platformAgentType",
-                        default=None,
+                        PlatformAgentType, graphql_name="platformAgentType", default=None
                     ),
                 ),
                 (
@@ -63385,8 +63923,13 @@ class Query(sgqlc.types.Type):
 
     Arguments:
 
-    * `platform_agent_type` (`PlatformAgentType!`): Platform type to
-      filter agents by
+    * `platform_agent_type` (`PlatformAgentType`): Subtype to filter
+      agents by. Omit to return every agent discoverable on the
+      warehouse: the connection type fixes the platform family, so
+      omitting the subtype lists all Databricks agents (both SDK and
+      KA, tagged per-agent) for a Databricks warehouse — or all
+      Snowflake agents for a Snowflake warehouse — in one call, never
+      crossing platforms.
     * `warehouse_uuid` (`UUID!`): Warehouse UUID to filter agents by
     """
 
@@ -87043,6 +87586,20 @@ class SetDataLakeCatalogMappings(sgqlc.types.Type):
     """Whether the mutation succeeded."""
 
 
+class SetDbtCloudEventFilter(sgqlc.types.Type):
+    """Configure dbt Cloud webhook event filtering on a connection. When
+    filterDbtCloudEvents is true, runs that don't belong to this
+    connection's warehouse are dropped. Provide
+    allowedDbtCloudConnections (dbt connection ids/names) to drop by
+    an explicit allow-list instead of automatic warehouse matching —
+    only valid when filterDbtCloudEvents is true.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("connection",)
+    connection = sgqlc.types.Field(Connection, graphql_name="connection")
+
+
 class SetDefaultAlertGroupInterval(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("warehouse_config",)
@@ -89813,6 +90370,28 @@ class TaskPerformanceSummaryEdge(sgqlc.types.Type):
 
     cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
     """A cursor for use in pagination"""
+
+
+class Terminology(sgqlc.types.Type):
+    """Display-noun overrides for the ETL tiers.  ETL connection types
+    may rename the generic ``group`` / ``job`` / ``task`` nouns to
+    match the tool's own vocabulary (e.g. Airflow's "DAG" / "Task", a
+    Data Factory's "Pipeline" / "Activity"). ``job`` is always
+    present; ``task`` and ``group`` are tool-dependent (e.g. Fivetran
+    has no task tier; only agent-registered custom connectors carry a
+    ``group``).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("job", "task", "group")
+    job = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="job")
+    """Noun for the 'job' tier."""
+
+    task = sgqlc.types.Field(String, graphql_name="task")
+    """Noun for the 'task' tier, or null if the tool has none."""
+
+    group = sgqlc.types.Field(String, graphql_name="group")
+    """Noun for the top-level 'group' tier, or null if the tool has none."""
 
 
 class TestAirflowCredentialsV2(sgqlc.types.Type):
@@ -101180,11 +101759,11 @@ class Finding(sgqlc.types.Type, Node):
     __schema__ = schema
     __field_names__ = (
         "created_time",
-        "updated_time",
         "uuid",
         "title",
         "summary",
         "detection_time",
+        "updated_time",
         "detail_payload",
         "actions",
         "confidence_score",
@@ -101219,8 +101798,6 @@ class Finding(sgqlc.types.Type, Node):
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
-
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Public finding identifier."""
 
@@ -101232,6 +101809,8 @@ class Finding(sgqlc.types.Type, Node):
 
     detection_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="detectionTime")
     """When the agent run produced this finding."""
+
+    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
 
     detail_payload = sgqlc.types.Field(
         sgqlc.types.non_null(JSONString), graphql_name="detailPayload"
@@ -102664,6 +103243,7 @@ class PlatformAgent(sgqlc.types.Type, Node):
         "schedule",
         "sql_tool_calls_schedule",
         "recommendations_generated_at",
+        "display_name",
         "supports_conversation_eval",
         "trace_table_mcon",
         "trace_table_ingested",
@@ -102730,6 +103310,12 @@ class PlatformAgent(sgqlc.types.Type, Node):
     )
     """Timestamp when auto-recommended monitors were generated for this
     platform agent.
+    """
+
+    display_name = sgqlc.types.Field(String, graphql_name="displayName")
+    """Human-friendly display name for this agent (e.g. a Databricks
+    Agent Bricks tile name). Null when unresolved; readers fall back
+    to agent_name.
     """
 
     supports_conversation_eval = sgqlc.types.Field(

@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.clickhouse_pb2 import (
+    GetClickhouseInfoRequest,
+    GetClickhouseInfoResponse,
     GetClickhouseOtelTtlsRequest,
     GetClickhouseOtelTtlsResponse,
     GetClickhouseUriRequest,
@@ -37,6 +39,10 @@ class ClickhouseServiceStub:
         SetClickhouseOtelTtlsRequest,
         SetClickhouseOtelTtlsResponse,
     ]
+    GetClickhouseInfo: UnaryUnaryMultiCallable[
+        GetClickhouseInfoRequest,
+        GetClickhouseInfoResponse,
+    ]
 
 class ClickhouseServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -58,5 +64,11 @@ class ClickhouseServiceServicer(metaclass=ABCMeta):
         request: SetClickhouseOtelTtlsRequest,
         context: ServicerContext,
     ) -> SetClickhouseOtelTtlsResponse: ...
+    @abstractmethod
+    def GetClickhouseInfo(
+        self,
+        request: GetClickhouseInfoRequest,
+        context: ServicerContext,
+    ) -> GetClickhouseInfoResponse: ...
 
 def add_ClickhouseServiceServicer_to_server(servicer: ClickhouseServiceServicer, server: Server) -> None: ...

@@ -12,6 +12,7 @@ from pydantic import BaseModel, ValidationError
 
 from taktile_auth._logging import get_logger
 from taktile_auth._metrics import emit_metric
+from taktile_auth.counter import SharedCounter
 from taktile_auth.exceptions import InvalidAuthException, TaktileAuthException
 from taktile_auth.recursion import RecursionGate, RecursionMode
 from taktile_auth.schemas.session import SessionState, parse_session_prefix
@@ -69,12 +70,12 @@ class AuthClient:
         cert: t.Optional[t.Tuple[str, str]] = None,
         # PEP-295 recursion accounting. Explicit ``recursion_check_enabled``
         # gates the feature; defaults to off. When enabled, a
-        # ``recursion_cache`` is mandatory — the gate has nowhere to
+        # ``recursion_counter`` is mandatory — the gate has nowhere to
         # accumulate hops otherwise. ``recursion_mode`` controls whether
         # threshold crossings raise (``error``) or just emit metrics
         # (``warn``).
         recursion_check_enabled: bool = False,
-        recursion_cache: t.Optional[Cache] = None,
+        recursion_counter: t.Optional[SharedCounter] = None,
         recursion_mode: RecursionMode = settings.RECURSION_MODE,
     ) -> None:
         self.public_key_url = urljoin(url, ".well-known/jwks.json")
@@ -86,17 +87,17 @@ class AuthClient:
         self._salt = salt
         self._recursion_gate: t.Optional[RecursionGate] = None
 
-        if recursion_check_enabled and recursion_cache is None:
-            # Miswired: feature flag flipped on but no cache to
+        if recursion_check_enabled and recursion_counter is None:
+            # Miswired: feature flag flipped on but no counter to
             # accumulate hops in.
             logger.error(
-                "recursion_check_enabled=True but no recursion_cache "
+                "recursion_check_enabled=True but no recursion_counter "
                 "provided; PEP-295 hop counting disabled"
             )
         elif recursion_check_enabled:
-            assert recursion_cache is not None  # narrows type for mypy
+            assert recursion_counter is not None  # narrows type for mypy
             self._recursion_gate = RecursionGate(
-                cache=recursion_cache, mode=recursion_mode
+                counter=recursion_counter, mode=recursion_mode
             )
 
     def _extract_key(self, jwk: t.Any, kid: str) -> t.Any:

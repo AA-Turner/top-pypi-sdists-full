@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from copy import deepcopy
 from dataclasses import dataclass
 from pprint import pformat
-from typing import TYPE_CHECKING, BinaryIO, TextIO
+from typing import IO, TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
 from aiohttp.web import HTTPRequestTimeout
@@ -39,12 +39,11 @@ from .rate_limit import RateLimiter
 from .util import authorization_error_class
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Mapping
 
     from aiohttp import ClientResponse
     from typing_extensions import Self
 
-    from .auth import Authorizer
     from .requestor import Requestor
 
 log = logging.getLogger(__package__)
@@ -143,7 +142,7 @@ class Session:
     @staticmethod
     def _log_request(
         *,
-        data: list[tuple[str, object]] | None,
+        data: list[tuple[str, object]] | bytes | IO[Any] | str | None,
         method: str,
         params: dict[str, object],
         url: str,
@@ -154,7 +153,7 @@ class Session:
 
     @staticmethod
     def _preprocess_dict(data: dict[str, object]) -> dict[str, object]:
-        new_data = {}
+        new_data: dict[str, object] = {}
         for key, value in data.items():
             if isinstance(value, bool):
                 new_data[key] = str(value).lower()
@@ -163,14 +162,25 @@ class Session:
         return new_data
 
     @property
-    def _requestor(self) -> Requestor:
-        return self._authorizer._authenticator._requestor
+    def authorizer(self) -> BaseAuthorizer:
+        """Return the :class:`.BaseAuthorizer` used to authorize requests."""
+        return self._authorizer
+
+    @property
+    def rate_limiter(self) -> RateLimiter:
+        """Return the :class:`.RateLimiter` that throttles requests."""
+        return self._rate_limiter
+
+    @property
+    def requestor(self) -> Requestor:
+        """Return the :class:`.Requestor` used to issue HTTP requests."""
+        return self._authorizer.authenticator.requestor
 
     async def __aenter__(self) -> Self:
         """Allow this object to be used as a context manager."""
         return self
 
-    async def __aexit__(self, *_args) -> None:
+    async def __aexit__(self, *_args: object) -> None:
         """Allow this object to be used as a context manager."""
         await self.close()
 
@@ -195,8 +205,8 @@ class Session:
     async def _do_retry(
         self,
         *,
-        data: list[tuple[str, object]] | None,
-        json: dict[str, object] | None,
+        data: list[tuple[str, object]] | bytes | IO[Any] | str | None,
+        json: dict[str, object] | list[object] | None,
         method: str,
         params: dict[str, object],
         retry_strategy_state: FiniteRetryStrategy,
@@ -219,15 +229,15 @@ class Session:
     @asynccontextmanager
     async def _make_request(
         self,
-        data: list[tuple[str, object]] | None,
-        json: dict[str, object] | None,
+        data: list[tuple[str, object]] | bytes | IO[Any] | str | None,
+        json: dict[str, object] | list[object] | None,
         method: str,
         params: dict[str, object],
         timeout: float,
         url: str,
     ) -> AsyncGenerator[ClientResponse]:
         async with self._rate_limiter.call(
-            self._requestor.request,
+            self.requestor.request,
             self._set_header_callback,
             method,
             url,
@@ -251,7 +261,7 @@ class Session:
     def _preprocess_data(
         self,
         data: dict[str, object],
-        files: dict[str, BinaryIO | TextIO] | None,
+        files: dict[str, IO[Any]] | None,
     ) -> dict[str, object]:
         """Preprocess data and files before request.
 
@@ -271,7 +281,9 @@ class Session:
             ``data``.
 
         """
-        if isinstance(data, dict):
+        # ``data`` is annotated ``dict`` but the guard is kept for runtime parity with
+        # praw, which passes bytes and file-like bodies straight through.
+        if isinstance(data, dict):  # pyright: ignore[reportUnnecessaryIsInstance]
             data = self._preprocess_dict(data)
             if files is not None:
                 data.update(files)
@@ -298,8 +310,8 @@ class Session:
     async def _request_with_retries(  # noqa: PLR0912
         self,
         *,
-        data: list[tuple[str, object]] | None,
-        json: dict[str, object] | None,
+        data: list[tuple[str, object]] | bytes | IO[Any] | str | None,
+        json: dict[str, object] | list[object] | None,
         method: str,
         params: dict[str, object],
         retry_strategy_state: FiniteRetryStrategy | None = None,
@@ -323,7 +335,8 @@ class Session:
             ) as response:
                 retry_status = None
                 if response.status == codes["unauthorized"]:
-                    self._authorizer._clear_access_token()
+                    # _clear_access_token is an internal helper shared with the authorizer.
+                    self._authorizer._clear_access_token()  # pyright: ignore[reportPrivateUsage]
                     if hasattr(self._authorizer, "refresh"):
                         retry_status = f"{response.status} status"
                 elif response.status in self.RETRY_STATUSES:
@@ -343,10 +356,13 @@ class Session:
                 if response.status == codes["no_content"]:
                     return None
                 if response.status in self.STATUS_EXCEPTIONS:
+                    # STATUS_EXCEPTIONS maps each status to its exception class; only
+                    # SpecialError (media_type) takes the parsed body, so pyright cannot
+                    # match the heterogeneous constructors to the runtime status.
                     if response.status == codes["media_type"]:
                         # since exception class needs response.json
-                        raise self.STATUS_EXCEPTIONS[response.status](response, await response.json())
-                    raise self.STATUS_EXCEPTIONS[response.status](response)
+                        raise self.STATUS_EXCEPTIONS[response.status](response, await response.json())  # pyright: ignore[reportCallIssue]
+                    raise self.STATUS_EXCEPTIONS[response.status](response)  # pyright: ignore[reportCallIssue]
                 if response.status not in self.SUCCESS_STATUSES:
                     raise ResponseException(response)
                 if response.headers.get("content-length") == "0":
@@ -379,16 +395,16 @@ class Session:
 
     async def close(self) -> None:
         """Close the session and perform any clean up."""
-        await self._requestor.close()
+        await self.requestor.close()
 
     async def request(
         self,
         method: str,
         path: str,
-        data: dict[str, object] | None = None,
-        files: dict[str, BinaryIO | TextIO] | None = None,
-        json: dict[str, object] | None = None,
-        params: dict[str, object] | None = None,
+        data: dict[str, object] | bytes | IO[Any] | str | None = None,
+        files: dict[str, IO[Any]] | None = None,
+        json: dict[str, object] | list[object] | None = None,
+        params: Mapping[str, object] | None = None,
         timeout: float = TIMEOUT,
     ) -> dict[str, object] | str | None:
         """Return the json content from the resource at ``path``.
@@ -410,7 +426,7 @@ class Session:
             available.
 
         """
-        params = self._preprocess_params(deepcopy(params) or {})
+        params = self._preprocess_params(deepcopy(dict(params)) if params else {})
         params["raw_json"] = "1"
         if isinstance(data, dict):
             data = self._preprocess_data(deepcopy(data), files)
@@ -421,7 +437,7 @@ class Session:
         if isinstance(json, dict):
             json = deepcopy(json)
             json["api_type"] = "json"
-        url = urljoin(self._requestor.oauth_url, path)
+        url = urljoin(self.requestor.oauth_url, path)
         return await self._request_with_retries(
             data=data_list,
             json=json,
@@ -433,12 +449,12 @@ class Session:
 
 
 def session(
-    authorizer: Authorizer | None = None,
+    authorizer: BaseAuthorizer | None = None,
     window_size: int = WINDOW_SIZE,
 ) -> Session:
     """Return a :class:`.Session` instance.
 
-    :param authorizer: An instance of :class:`.Authorizer`.
+    :param authorizer: An instance of :class:`.BaseAuthorizer`.
     :param window_size: The size of the rate limit reset window in seconds.
 
     """

@@ -18,11 +18,13 @@ from collections.abc import Iterable, Sequence
 import logging
 from typing import Any
 
+from openstack.network.v2 import security_group_rule as _security_group_rule
 from osc_lib.cli import parseractions
 from osc_lib import exceptions
 from osc_lib import utils
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 from openstackclient.network import common
@@ -31,15 +33,15 @@ from openstackclient.network import utils as network_utils
 LOG = logging.getLogger(__name__)
 
 
-def _get_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_columns(
+    item: _security_group_rule.SecurityGroupRule,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     hidden_columns = ['location', 'name', 'tenant_id', 'tags']
     return utils.get_osc_show_columns_for_sdk_resource(
         item, {}, hidden_columns
     )
 
 
-# TODO(abhiraut): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class CreateSecurityGroupRule(
     command.ShowOne, common.NeutronCommandWithExtraArgs
 ):
@@ -281,13 +283,16 @@ class DeleteSecurityGroupRule(command.Command):
 class ListSecurityGroupRule(command.Lister):
     _description = _("List security group rules")
 
-    def _format_network_security_group_rule(self, rule: Any) -> dict[str, Any]:
+    @staticmethod
+    def _format_network_security_group_rule(
+        rule: _security_group_rule.SecurityGroupRule,
+    ) -> dict[str, object]:
         """Transform the SDK SecurityGroupRule object to a dict
 
         The SDK object gets in the way of reformatting columns...
         Create port_range column from port_range_min and port_range_max
         """
-        data: dict[str, Any] = rule.to_dict()
+        data = rule.to_dict()
         data['port_range'] = network_utils.format_network_port_range(data)
         data['remote_ip_prefix'] = network_utils.format_remote_ip_prefix(data)
         return data
@@ -344,6 +349,7 @@ class ListSecurityGroupRule(command.Lister):
             help=_("List only rules with the specified project (name or ID)"),
         )
         identity_common.add_project_domain_option_to_parser(parser)
+        pagination.add_marker_pagination_option_to_parser(parser)
         return parser
 
     def _get_column_headers(
@@ -412,6 +418,13 @@ class ListSecurityGroupRule(command.Lister):
                 parsed_args.project_domain,
             ).id
             query['project_id'] = project_id
+
+        if parsed_args.marker is not None:
+            query['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            query['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            query['max_items'] = parsed_args.max_items
 
         rules = [
             self._format_network_security_group_rule(r)

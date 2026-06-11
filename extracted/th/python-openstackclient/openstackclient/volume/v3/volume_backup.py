@@ -394,6 +394,7 @@ class ListVolumeBackup(command.Lister):
             all_tenants=all_tenants,
             marker=marker_backup_id,
             limit=parsed_args.limit,
+            max_items=parsed_args.max_items,
             project_id=project_id,
         )
 
@@ -477,9 +478,7 @@ class RestoreVolumeBackup(command.ShowOne):
                 raise exceptions.CommandError(msg % parsed_args.volume)
 
         restore = volume_client.restore_backup(
-            backup.id,
-            volume_id=volume_id,
-            name=volume_name,
+            backup.id, volume=volume_id, name=volume_name
         )
 
         data = utils.get_dict_properties(restore, columns)

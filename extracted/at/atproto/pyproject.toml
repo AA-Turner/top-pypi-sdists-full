@@ -26,7 +26,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Pre-processors",
 ]
-version = "0.0.67"
+version = "0.0.68"
 
 [project.scripts]
 atp = "atproto_cli:atproto_cli"

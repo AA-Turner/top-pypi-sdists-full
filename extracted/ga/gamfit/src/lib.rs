@@ -93,13 +93,33 @@ pub use geometry::{
 };
 pub use gpu::GpuPolicy;
 pub use inference::{
-    alo, conformal, data, generative, hmc, polya_gamma, predict, probability, psis, quadrature,
-    sample, smooth_test,
+    alo, conformal, data, generative, higher_order, hmc, model_comparison, polya_gamma, predict,
+    probability, psis, quadrature, rho_posterior, sample, smooth_test,
 };
 pub use linalg::{faer_ndarray, matrix, utils};
+// #931-#935 criterion calculus: the profiled-criterion abstraction
+// (CriterionAtom / CriterionSum / Sensitivity) that kills the objective↔gradient
+// desync class. Exposed as the staged public criterion-calculus interface it is
+// designed to be; the #935 calculus that consumes it inside the inner REML path
+// lands per the module's Migration law (one term per pass, FD-verified, old code
+// deleted in the same commit). `PenaltySubspaceTrace` is the #901 spectral kernel
+// the logdet atom's `Sensitivity` is built from.
+pub use solver::estimate::reml::atoms::{
+    BetaChannel, CriterionAtom, CriterionSum, HessianLogdetAtom, SampledBlockAtom, Sensitivity,
+    StratumFingerprint, ThetaDirection,
+};
+pub use solver::estimate::reml::unified::PenaltySubspaceTrace;
+// #986 frontier ρ-scaling: the per-atom decoupled EFS outer engine. `run_outer`
+// auto-routes to it at frontier rho dimension; callers with a known
+// arrow-border overlap drive `run_per_atom_efs` directly with an explicit
+// `SharedBorderTopology` (`new` for a named border set, `disjoint` /
+// `fully_coupled` for the two extremes).
 pub use resource::{
     ByteLruCache, DerivativeStorageMode, MaterializationPolicy, MatrixMaterializationError,
     ProblemHints, ResidentBytes, ResourcePolicy,
+};
+pub use solver::estimate::reml::per_atom_efs::{
+    PerAtomEfsConfig, SharedBorderTopology, run_per_atom_efs,
 };
 pub use solver::{
     estimate, gaussian_reml, mixture_link, pirls, seeding, topology_selector, visualizer,
@@ -120,9 +140,10 @@ pub use solver::protocol::{
 };
 pub use solver::workflow::{
     BernoulliMarginalSlopeFitRequest, BinomialLocationScaleFitRequest, CrossFitScoreCalibration,
-    CtnStage1Recipe, FitConfig, FitRequest, FitResult, GaussianLocationScaleFitRequest,
-    LatentBinaryFitRequest, LatentSurvivalFitRequest, LinkWiggleConfig, MaterializedModel,
-    PreparedSurvivalTimeStack, StandardBinomialWiggleConfig, StandardFitRequest, StandardFitResult,
+    CtnStage1Recipe, DispersionLocationScaleFitRequest, DispersionLocationScaleFitResult,
+    FitConfig, FitRequest, FitResult, GaussianLocationScaleFitRequest, LatentBinaryFitRequest,
+    LatentSurvivalFitRequest, LinkWiggleConfig, MaterializedModel, PreparedSurvivalTimeStack,
+    StandardBinomialWiggleConfig, StandardFitRequest, StandardFitResult,
     SurvivalLocationScaleFitRequest, SurvivalLocationScaleFitResult,
     SurvivalMarginalSlopeFitRequest, SurvivalTransformationFitRequest,
     SurvivalTransformationFitResult, SurvivalTransformationTermSpec,

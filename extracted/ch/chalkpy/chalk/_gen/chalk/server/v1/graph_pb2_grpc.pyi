@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.graph_pb2 import (
     ApplyGraphUpdatesRequest,
     ApplyGraphUpdatesResponse,
+    DiffCandidateRequest,
+    DiffCandidateResponse,
     DiffDeploymentsRequest,
     DiffDeploymentsResponse,
     GetCodegenFeaturesFromGraphRequest,
@@ -95,6 +97,13 @@ class GraphServiceStub:
         SmartDiffDeploymentResponse,
     ]
     """SmartDiffDeployment automatically finds the best comparison target and diffs."""
+    DiffCandidate: UnaryUnaryMultiCallable[
+        DiffCandidateRequest,
+        DiffCandidateResponse,
+    ]
+    """DiffCandidate compares a candidate export against the latest successful
+    deployment's graph and returns the diff.
+    """
 
 class GraphServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -174,5 +183,14 @@ class GraphServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> SmartDiffDeploymentResponse:
         """SmartDiffDeployment automatically finds the best comparison target and diffs."""
+    @abstractmethod
+    def DiffCandidate(
+        self,
+        request: DiffCandidateRequest,
+        context: ServicerContext,
+    ) -> DiffCandidateResponse:
+        """DiffCandidate compares a candidate export against the latest successful
+        deployment's graph and returns the diff.
+        """
 
 def add_GraphServiceServicer_to_server(servicer: GraphServiceServicer, server: Server) -> None: ...

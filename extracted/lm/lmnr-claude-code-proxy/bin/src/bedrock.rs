@@ -95,6 +95,33 @@ pub async fn update_bedrock_signature(
     use aws_sigv4::http_request::{SignableBody, SignableRequest, SigningSettings, sign};
     use aws_sigv4::sign::v4;
 
+    // Prefer Bedrock API key (bearer token) over SigV4 credentials
+    if let Ok(bearer_token) = std::env::var("AWS_BEARER_TOKEN_BEDROCK") {
+        let bedrock_host = target_url
+            .trim_start_matches("https://")
+            .trim_start_matches("http://")
+            .trim_end_matches('/')
+            .to_string();
+
+        parts.headers.remove("authorization");
+        parts.headers.remove("x-amz-date");
+        parts.headers.remove("x-amz-security-token");
+        parts.headers.remove("x-amz-content-sha256");
+
+        parts.headers.insert(
+            hyper::header::HOST,
+            hyper::header::HeaderValue::from_str(&bedrock_host)
+                .map_err(|e| format!("invalid Bedrock host: {e}"))?,
+        );
+        parts.headers.insert(
+            hyper::header::AUTHORIZATION,
+            hyper::header::HeaderValue::from_str(&format!("Bearer {bearer_token}"))
+                .map_err(|e| format!("invalid bearer token: {e}"))?,
+        );
+
+        return Ok(());
+    }
+
     let (access_key, secret_key, session_token) = load_aws_credentials()?;
 
     // "https://bedrock-runtime.us-east-1.amazonaws.com" → "bedrock-runtime.us-east-1.amazonaws.com"

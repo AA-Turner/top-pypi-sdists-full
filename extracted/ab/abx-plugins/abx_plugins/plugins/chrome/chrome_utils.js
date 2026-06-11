@@ -1997,7 +1997,7 @@ async function loadExtensionFromTarget(extensions, target, options = {}) {
   // Update the extension in the array
   Object.assign(extension, new_extension);
 
-  console.log(
+  console.error(
     `[🔌] Connected to extension ${extension.name} (${extension.version})`
   );
 
@@ -2014,7 +2014,7 @@ async function loadUnpackedExtensionsIntoBrowser(
     return extensions;
   }
 
-  console.log(
+  console.error(
     `[⚙️] Loading ${validExtensions.length} unpacked chrome extensions into browser...`
   );
   const perExtensionTimeout = Math.max(
@@ -3725,12 +3725,25 @@ async function connectToPage(options = {}) {
       }
 
       const pages = await browser.pages();
-      if (!page) {
+      if (!page && !requireTargetId) {
         page = pages[pages.length - 1];
       }
 
       if (!page) {
         throw new Error("No page found in browser");
+      }
+      if (requireTargetId && targetId && getTargetIdFromPage(page) !== targetId) {
+        throw new Error(`Resolved page does not match target ${targetId}`);
+      }
+      if (requireTargetId && targetId) {
+        try {
+          const targetSession = await browser.target().createCDPSession();
+          await targetSession.send("Target.activateTarget", { targetId });
+          await targetSession.detach();
+        } catch (error) {}
+      }
+      if (requireTargetId && targetId && typeof page.bringToFront === "function") {
+        await page.bringToFront();
       }
 
       const cdpSession = await page.target().createCDPSession();

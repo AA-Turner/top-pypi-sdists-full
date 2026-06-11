@@ -1072,6 +1072,7 @@ class DatasetRevisionImpl(DatasetRevision):
         timeout: float | timedelta | ellipsis | None = ...,
         skip_failed_shards: bool = False,
         translate_fqns: bool = False,
+        remove_namespace: bool = False,
         caller_name: str = "to_pandas",
     ) -> pd.DataFrame:
         df = self.get_data_as_pandas(
@@ -1085,6 +1086,8 @@ class DatasetRevisionImpl(DatasetRevision):
         )
         if translate_fqns:
             df = df.rename(columns={col: translate_windowed_fqn(col) for col in df.columns})
+        if remove_namespace:
+            df.columns = df.columns.str.split(".", n=1).str[-1]
         return df
 
     def get_data_as_dataframe(
@@ -1773,6 +1776,7 @@ class DatasetImpl(Dataset):
         timeout: float | timedelta | ellipsis | None = ...,
         skip_failed_shards: bool = False,
         translate_fqns: bool = False,
+        remove_namespace: bool = False,
         caller_name: str = "to_pandas",
     ) -> pd.DataFrame:
         df = self.get_data_as_pandas(
@@ -1786,6 +1790,8 @@ class DatasetImpl(Dataset):
         )
         if translate_fqns:
             df = df.rename(columns={col: translate_windowed_fqn(col) for col in df.columns})
+        if remove_namespace:
+            df.columns = df.columns.str.split(".", n=1).str[-1]
         return df
 
     def get_data_as_dataframe(

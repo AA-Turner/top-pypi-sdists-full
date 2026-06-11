@@ -61,11 +61,14 @@ fn run_single_pass(circuit: &mut Circuit) -> PassStats {
     let original = std::mem::take(circuit.instructions_mut());
     let mut out: Vec<Instruction> = Vec::with_capacity(original.len());
     let mut stats = PassStats::default();
+    // 제거된 ±I 게이트가 남긴 전역 위상 누적 (마지막에 회로에 보상).
+    let mut phase_acc = 0.0_f64;
 
     for inst in original {
-        // 1) trivial drop (Id, 0-각도 회전).
+        // 1) trivial drop (Id, 0-각도 회전, −I 회전은 위상 보상).
         if let Instruction::ApplyGate { gate, targets: _ } = &inst {
-            if is_trivial(gate) {
+            if let Some(lambda) = scalar_phase(gate) {
+                phase_acc += lambda;
                 stats.gates_removed += 1;
                 continue;
             }
@@ -75,7 +78,10 @@ fn run_single_pass(circuit: &mut Circuit) -> PassStats {
         if let Some(merged) = try_merge_with_last(&mut out, &inst) {
             match merged {
                 MergeOutcome::Replaced => stats.gates_merged += 1,
-                MergeOutcome::Cancelled => stats.gates_removed += 2,
+                MergeOutcome::Cancelled { phase } => {
+                    phase_acc += phase;
+                    stats.gates_removed += 2;
+                }
             }
             continue;
         }
@@ -90,6 +96,9 @@ fn run_single_pass(circuit: &mut Circuit) -> PassStats {
     }
 
     *circuit.instructions_mut() = out;
+    if phase_acc != 0.0 {
+        circuit.add_global_phase(phase_acc);
+    }
     stats
 }
 
@@ -97,21 +106,37 @@ fn run_single_pass(circuit: &mut Circuit) -> PassStats {
 enum MergeOutcome {
     /// 두 게이트를 하나로 합성 (예: Rz·Rz → Rz, S·S → Z).
     Replaced,
-    /// 두 게이트가 상쇄되어 둘 다 제거됨 (예: X·X → ∅).
-    Cancelled,
+    /// 두 게이트가 상쇄되어 둘 다 제거됨 (예: X·X → ∅).  `phase` 는 제거가
+    /// 남기는 전역 위상 (예: `Rx(a)·Rx(b)`, a+b ≡ 2π (mod 4π) 이면 곱이
+    /// −I 라 π).  호출자가 `Circuit::add_global_phase` 로 보상해야 한다.
+    Cancelled { phase: f64 },
 }
 
-fn is_trivial(gate: &Gate) -> bool {
+/// 게이트가 스칼라 `e^{iλ}·I` 면 `Some(λ)` — 제거 가능하되 λ 를 회로
+/// global phase 에 보상해야 한다.
+///
+/// 반각 컨벤션에서 `R(2π) = −I` 이므로 회전각은 **mod 4π** 로 봐야 한다 —
+/// 이전 구현은 mod 2π 로 `R(2π)` 를 그냥 버려서 statevector 부호가 뒤집혔다.
+fn scalar_phase(gate: &Gate) -> Option<f64> {
     match gate {
-        Gate::Id => true,
-        Gate::Rx(t) | Gate::Ry(t) | Gate::Rz(t) => angle_is_zero(*t),
-        _ => false,
+        Gate::Id => Some(0.0),
+        Gate::Rx(t) | Gate::Ry(t) | Gate::Rz(t) => rotation_scalar_phase(*t),
+        _ => None,
     }
 }
 
-fn angle_is_zero(theta: f64) -> bool {
-    let r = theta.rem_euclid(2.0 * std::f64::consts::PI);
-    r < ANGLE_EPS || (2.0 * std::f64::consts::PI - r) < ANGLE_EPS
+/// `R(θ)` 가 ±I 인지: θ ≡ 0 (mod 4π) → `Some(0)`, θ ≡ 2π (mod 4π) →
+/// `Some(π)` (= −I), 그 외 `None`.
+fn rotation_scalar_phase(theta: f64) -> Option<f64> {
+    use std::f64::consts::PI;
+    let r = theta.rem_euclid(4.0 * PI);
+    if r < ANGLE_EPS || (4.0 * PI - r) < ANGLE_EPS {
+        Some(0.0)
+    } else if (r - 2.0 * PI).abs() < ANGLE_EPS {
+        Some(PI)
+    } else {
+        None
+    }
 }
 
 /// 1큐비트 게이트 + 그 1개 큐비트 인덱스를 추출. 다른 케이스는 None.
@@ -134,8 +159,8 @@ fn try_merge_with_last(out: &mut Vec<Instruction>, current: &Instruction) -> Opt
     if let Some((axis, a, b)) = match_rotation_pair(last_gate, cur_gate) {
         out.pop();
         let summed = a + b;
-        if angle_is_zero(summed) {
-            return Some(MergeOutcome::Cancelled);
+        if let Some(phase) = rotation_scalar_phase(summed) {
+            return Some(MergeOutcome::Cancelled { phase });
         }
         let merged_gate = match axis {
             RotAxis::X => Gate::Rx(summed),
@@ -160,7 +185,7 @@ fn try_merge_with_last(out: &mut Vec<Instruction>, current: &Instruction) -> Opt
                 });
                 return Some(MergeOutcome::Replaced);
             }
-            None => return Some(MergeOutcome::Cancelled),
+            None => return Some(MergeOutcome::Cancelled { phase: 0.0 }),
         }
     }
 
@@ -415,10 +440,34 @@ mod tests {
 
     #[test]
     fn test_2pi_rotation_dropped() {
+        // R(2π) = −I — 게이트는 제거하되 전역 위상 π 를 보상해야 statevector
+        // 부호가 보존된다 (이전 구현은 위상 없이 버려 −1 이 사라졌음).
         let mut qc = Circuit::new(1);
         qc.rz(2.0 * PI, 0);
         peephole_optimize(&mut qc, 16);
         assert_eq!(count_gates(&qc), 0);
+        assert!((qc.global_phase() - PI).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_4pi_rotation_dropped_no_phase() {
+        // R(4π) = +I — 위상 보상 없이 제거.
+        let mut qc = Circuit::new(1);
+        qc.rx(4.0 * PI, 0);
+        peephole_optimize(&mut qc, 16);
+        assert_eq!(count_gates(&qc), 0);
+        assert!(qc.global_phase().abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_rotation_pair_summing_to_2pi_keeps_phase() {
+        // Rx(π)·Rx(π) = Rx(2π) = −I — cancel + 전역 위상 π.
+        let mut qc = Circuit::new(1);
+        qc.rx(PI, 0);
+        qc.rx(PI, 0);
+        peephole_optimize(&mut qc, 16);
+        assert_eq!(count_gates(&qc), 0);
+        assert!((qc.global_phase() - PI).abs() < 1e-12);
     }
 
     #[test]

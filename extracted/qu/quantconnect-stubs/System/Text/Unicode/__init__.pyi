@@ -7,18 +7,6 @@ import System.Buffers
 import System.Text.Unicode
 
 
-class Utf16(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def index_of_invalid_subsequence(value: System.ReadOnlySpan[str]) -> int:
-        ...
-
-    @staticmethod
-    def is_valid(value: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-
 class Utf8(System.Object):
     """This class has no documentation."""
 
@@ -32,6 +20,18 @@ class Utf8(System.Object):
 
     @staticmethod
     def to_utf_16(source: System.ReadOnlySpan[int], destination: System.Span[str], bytes_read: typing.Optional[int], chars_written: typing.Optional[int], replace_invalid_sequences: bool = True, is_final_block: bool = True) -> typing.Tuple[System.Buffers.OperationStatus, int, int]:
+        ...
+
+
+class Utf16(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def index_of_invalid_subsequence(value: System.ReadOnlySpan[str]) -> int:
+        ...
+
+    @staticmethod
+    def is_valid(value: System.ReadOnlySpan[str]) -> bool:
         ...
 
 

@@ -32,6 +32,9 @@ from ..utils.python_sandbox import (
 )
 from .auto_backup import automation_backup_target, with_auto_backup
 from .best_practice_checker import (
+    BestPracticeCheckResult,
+)
+from .best_practice_checker import (
     check_automation_config as _check_best_practices,
 )
 from .helpers import (
@@ -44,7 +47,9 @@ from .helpers import (
 from .reference_validator import validate_config_references
 from .util_helpers import (
     apply_entity_category,
-    coerce_bool_param,
+    attach_skill_content,
+    augment_error_dict_with_skill_content,
+    augment_tool_error_with_skill_content,
     coerce_to_list,
     fetch_entity_category,
     merge_validation_meta,
@@ -54,6 +59,17 @@ from .util_helpers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# Skill files attached to ha_config_set_automation responses when
+# MandatoryBPS=True (default), plus auto-attached on best-practice
+# warning hits regardless of MandatoryBPS. Paths are relative to the
+# home-assistant-best-practices skill directory.
+_AUTOMATION_SKILL_FILES: tuple[str, ...] = (
+    "references/automation-patterns.md",
+    "references/template-guidelines.md",
+)
+
 
 # Distinctive prefix of the soft-failure warning emitted by
 # ``ha_config_set_automation`` when ``_poll_for_automation_entity``
@@ -66,56 +82,37 @@ NOT_VERIFIED_WARNING_PREFIX = (
 )
 
 
-def _normalize_automation_config(
-    config: Any,
-    parent_key: str | None = None,
-    in_choose_or_if: bool = False,
-    is_root: bool = True,
-) -> Any:
+def _normalize_automation_config(config: Any, is_root: bool = True) -> Any:
     """
-    Recursively normalize automation config field names to HA API format.
+    Recursively normalize automation config field names to HA's canonical form.
 
-    Home Assistant accepts both singular ('trigger', 'action', 'condition')
-    and plural ('triggers', 'actions', 'conditions') field names in YAML,
-    but the API expects singular forms at the root level.
+    Home Assistant's 2024.10+ canonical form uses the plural root list keys
+    ('triggers', 'actions', 'conditions'); the singular forms ('trigger',
+    'action', 'condition') remain fully accepted as silent aliases. This tool
+    canonicalizes to the plural root forms so the config-API round-trip and the
+    downstream validators / best-practice checker all see one stable, modern
+    shape (HA accepts whichever we send).
 
-    IMPORTANT: 'triggers' -> 'trigger' and 'actions' -> 'action' normalization
-    is ONLY applied at the root level. Deeper in the tree these keys are either
-    invalid or semantically different, and normalizing them can produce keys
-    that Home Assistant rejects (e.g., 'action' inside a delay object).
-
-    IMPORTANT: Inside 'choose' and 'if' action blocks, the 'conditions' key
-    (plural) is required by the HA schema and should NOT be normalized to
-    'condition' (singular).
-
-    IMPORTANT: Inside compound condition blocks ('or', 'and', 'not'), the
-    'conditions' key (plural) is required and should NOT be normalized to
-    'condition' (singular).
+    Only the ROOT list keys are pluralized. The singular keys that act as type
+    discriminators or service calls inside trigger/condition/action items
+    ('trigger:' = trigger type, 'condition:' = condition type, 'action:' =
+    service call) are semantically different and are left untouched, as is the
+    singular 'sequence' key inside choose/if options and scripts. The nested
+    'conditions' lists required inside choose/if and compound (or/and/not)
+    blocks are already plural and pass through unchanged (issue #498: never
+    rewrite these deeper keys).
 
     Args:
         config: Automation configuration (dict, list, or primitive)
-        parent_key: The parent dictionary key (for context tracking)
-        in_choose_or_if: Whether we're inside a choose/if option that requires
-                         'conditions' (plural) to remain unchanged
-        is_root: Whether this is the root-level automation config dict.
-                 Only root level gets 'triggers'->'trigger' and
-                 'actions'->'action' normalization.
+        is_root: Whether this is the root-level automation config dict. Only the
+                 root level gets the singular -> plural list-key normalization.
 
     Returns:
-        Normalized configuration with singular field names at root level,
-        but preserving 'conditions' (plural) inside choose/if blocks and
-        compound condition blocks (or/and/not)
+        Normalized configuration with plural list field names at the root level.
     """
     # Handle lists - recursively process each item
     if isinstance(config, list):
-        # If parent is 'choose' or 'if', items are options that need 'conditions' preserved
-        is_option_list = parent_key in ("choose", "if")
-        return [
-            _normalize_automation_config(
-                item, parent_key, is_option_list, is_root=False
-            )
-            for item in config
-        ]
+        return [_normalize_automation_config(item, is_root=False) for item in config]
 
     # Handle primitives (strings, numbers, etc.)
     if not isinstance(config, dict):
@@ -124,39 +121,32 @@ def _normalize_automation_config(
     # Process dictionary
     normalized = config.copy()
 
-    # Check if this dict is a compound condition block (or/and/not)
-    # that needs its nested 'conditions' key preserved
-    is_compound_condition_block = normalized.get("condition") in ("or", "and", "not")
-
-    # Build field mappings based on context
+    # Build field mappings (source alias -> canonical key).
     field_mappings: dict[str, str] = {}
 
-    # 'triggers' -> 'trigger' and 'actions' -> 'action' ONLY at root level.
-    # Deeper in the tree these keys are invalid and normalizing them produces
-    # keys HA rejects (e.g., 'action' inside a delay object -- see issue #498).
+    # Pluralize the root list keys to HA's 2024.10+ canonical form. ONLY at the
+    # root level: deeper in the tree 'trigger'/'action'/'condition' are type
+    # discriminators / service calls, not list keys, and must not be touched
+    # (e.g., 'action' inside a delay object -- see issue #498).
     if is_root:
-        field_mappings["triggers"] = "trigger"
-        field_mappings["actions"] = "action"
+        field_mappings["trigger"] = "triggers"
+        field_mappings["action"] = "actions"
+        field_mappings["condition"] = "conditions"
 
-    # 'sequences' -> 'sequence' is safe at any level (only meaningful in choose options)
+    # 'sequences' -> 'sequence': the canonical key is singular at any level.
     field_mappings["sequences"] = "sequence"
 
-    # Only add 'conditions' mapping if NOT inside a choose/if option
-    # AND NOT a compound condition block (or/and/not)
-    if not in_choose_or_if and not is_compound_condition_block:
-        field_mappings["conditions"] = "condition"
-
-    # Apply field mapping to current level
-    for plural, singular in field_mappings.items():
-        if plural in normalized and singular not in normalized:
-            normalized[singular] = normalized.pop(plural)
-        elif plural in normalized and singular in normalized:
-            # Both exist - prefer singular, remove plural
-            del normalized[plural]
+    # Apply field mapping to current level, preferring the canonical key.
+    for src, dst in field_mappings.items():
+        if src in normalized and dst not in normalized:
+            normalized[dst] = normalized.pop(src)
+        elif src in normalized and dst in normalized:
+            # Both present -- prefer the canonical key, drop the alias.
+            del normalized[src]
 
     # Recursively process all values in the dictionary
     for key, value in normalized.items():
-        normalized[key] = _normalize_automation_config(value, key, is_root=False)
+        normalized[key] = _normalize_automation_config(value, is_root=False)
 
     return normalized
 
@@ -165,21 +155,32 @@ def _normalize_trigger_keys(triggers: list[dict[str, Any]]) -> list[dict[str, An
     """
     Normalize trigger objects for round-trip compatibility.
 
-    Home Assistant GET API returns triggers with 'trigger' key for the platform type,
-    but the SET API expects 'platform' key. This function converts between formats.
+    Older Home Assistant configs (and some integrations) still emit triggers
+    keyed by the legacy 'platform'. This tool canonicalizes each trigger to the
+    modern 'trigger' key (HA 2024.10+) so its pipeline and round-trip output use
+    one stable, current shape; HA accepts either form on the SET side.
 
     Args:
         triggers: List of trigger configuration dicts
 
     Returns:
-        List of triggers with 'platform' key instead of 'trigger' key
+        List of triggers with 'trigger' key instead of 'platform' key
     """
     normalized_triggers = []
     for trigger in triggers:
+        # Defensive: a malformed (e.g. LLM-generated) item may not be a dict.
+        if not isinstance(trigger, dict):
+            normalized_triggers.append(trigger)
+            continue
         normalized_trigger = trigger.copy()
-        # Convert 'trigger' key to 'platform' if present and 'platform' is not
-        if "trigger" in normalized_trigger and "platform" not in normalized_trigger:
-            normalized_trigger["platform"] = normalized_trigger.pop("trigger")
+        # Convert legacy 'platform' to modern 'trigger'. If both are present,
+        # drop the legacy alias so HA's strict schema doesn't reject the config
+        # with "extra keys not allowed" (mirrors _normalize_automation_config).
+        if "platform" in normalized_trigger:
+            if "trigger" not in normalized_trigger:
+                normalized_trigger["trigger"] = normalized_trigger.pop("platform")
+            else:
+                del normalized_trigger["platform"]
         normalized_triggers.append(normalized_trigger)
     return normalized_triggers
 
@@ -230,8 +231,9 @@ def _normalize_config_for_roundtrip(config: dict[str, Any]) -> dict[str, Any]:
     directly passed to ha_config_set_automation without modification.
 
     Transformations:
-    1. Field names: triggers -> trigger, actions -> action, conditions -> condition
-    2. Trigger keys: trigger -> platform (inside each trigger object)
+    1. Field names: canonicalized to plural root keys (triggers/actions/conditions);
+       a stray `sequences` key is normalized to `sequence`.
+    2. Trigger keys: platform -> trigger (inside each trigger object)
 
     Args:
         config: Raw automation configuration from HA API
@@ -239,14 +241,44 @@ def _normalize_config_for_roundtrip(config: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Normalized configuration compatible with SET API
     """
-    # First normalize field names (plural -> singular)
+    # First normalize field names (singular -> plural at the root level)
     normalized = _normalize_automation_config(config)
 
-    # Then normalize trigger keys (trigger -> platform)
-    if "trigger" in normalized and isinstance(normalized["trigger"], list):
-        normalized["trigger"] = _normalize_trigger_keys(normalized["trigger"])
+    # Then normalize trigger keys (legacy 'platform' -> modern 'trigger')
+    if "triggers" in normalized and isinstance(normalized["triggers"], list):
+        normalized["triggers"] = _normalize_trigger_keys(normalized["triggers"])
 
     return cast(dict[str, Any], normalized)
+
+
+def _detect_conflicting_root_keys(config: Any) -> list[str]:
+    """Warn when a config carries BOTH a singular alias and its canonical plural
+    root key with *different* values.
+
+    ``_normalize_automation_config`` keeps the canonical plural and silently drops
+    the singular alias, so a caller that set, say, ``config['trigger']`` on a
+    config that already has ``triggers`` would have that change discarded. The
+    config is malformed (a caller should send one form), but surfacing the
+    conflict beats dropping data silently.
+    """
+    if not isinstance(config, dict):
+        return []
+    warnings: list[str] = []
+    for singular, plural in (
+        ("trigger", "triggers"),
+        ("action", "actions"),
+        ("condition", "conditions"),
+    ):
+        if (
+            singular in config
+            and plural in config
+            and config[singular] != config[plural]
+        ):
+            warnings.append(
+                f"Config contains both '{singular}' and '{plural}' with different "
+                f"values; using the canonical '{plural}' and ignoring '{singular}'."
+            )
+    return warnings
 
 
 def _strip_redundant_identifier_echo(
@@ -351,7 +383,7 @@ class AutomationConfigTools:
                 suggestions=[
                     "Pass an automation entity_id (e.g. 'automation.morning_routine')",
                     "Or pass the unique_id of an existing automation",
-                    "Use ha_search_entities(domain_filter='automation') to list automations",
+                    "Use ha_search(domain_filter='automation') to list automations",
                 ],
             )
             normalized_config, config_hash = await self._get_automation_config_internal(
@@ -382,11 +414,12 @@ class AutomationConfigTools:
                 e,
                 context={"identifier": identifier, "action": "get"},
                 suggestions=[
-                    "Verify automation exists using ha_search_entities(domain_filter='automation')",
+                    "Verify automation exists using ha_search(domain_filter='automation')",
                     "Check Home Assistant connection",
                     "Use ha_get_skill_guide for help",
                 ],
             )
+            return None  # unreachable: exception_to_structured_error always raises
 
     @tool(
         name="ha_config_set_automation",
@@ -401,10 +434,10 @@ class AutomationConfigTools:
     async def ha_config_set_automation(
         self,
         config: Annotated[
-            str | dict[str, Any] | None,
+            dict[str, Any] | None,
             Field(
-                description="Complete automation configuration with required fields: 'alias', 'trigger', 'action'. "
-                "Optional: 'description', 'condition', 'mode', 'max', 'initial_state', 'variables'. "
+                description="Complete automation configuration with required fields: 'alias', 'triggers', 'actions'. "
+                "Optional: 'description', 'conditions', 'mode', 'max', 'initial_state', 'variables'. "
                 "Mutually exclusive with python_transform.",
                 default=None,
             ),
@@ -425,8 +458,8 @@ class AutomationConfigTools:
                 "Requires identifier and config_hash for validation. "
                 "WARNING: Expressions with infinite loops will hang the server. "
                 "Examples: "
-                "Simple: python_transform=\"config['action'][0]['data']['brightness'] = 255\" "
-                "Pattern: python_transform=\"for a in config['action']: "
+                "Simple: python_transform=\"config['actions'][0]['data']['brightness'] = 255\" "
+                "Pattern: python_transform=\"for a in config['actions']: "
                 "if a.get('alias') == 'My Step': a['data']['value'] = 100\" "
                 "\n\n" + get_security_documentation(),
             ),
@@ -447,15 +480,43 @@ class AutomationConfigTools:
             ),
         ] = None,
         wait: Annotated[
-            bool | str,
+            bool,
             Field(
                 description="Wait for automation to be queryable before returning. Default: True. Set to False for bulk operations.",
                 default=True,
             ),
         ] = True,
+        MandatoryBPS: Annotated[
+            bool,
+            Field(default=True),
+        ] = True,
     ) -> dict[str, Any]:
         """
-        Create or update a Home Assistant automation.
+        Create or update a Home Assistant automation. MUST call ha_get_skill_guide first.
+
+        PREFER NATIVE SOLUTIONS OVER TEMPLATES (read this before writing any `{{ ... }}`):
+        Native triggers/conditions/actions are validated at config load, fail loudly, and
+        do not bypass HA's schema. Templates fail silently at runtime and obscure intent.
+        - `condition: numeric_state` instead of `{{ states('x') | float > N }}`
+        - `condition: state` (with `state:` list) instead of `{{ is_state(...) }}` /
+          `{{ states(x) in [...] }}`
+        - `condition: time` instead of `{{ now().hour ... }}` or `{{ now().weekday() ... }}`
+        - `condition: sun` instead of `{{ is_state('sun.sun', ...) }}`
+        - Native `for:` field on `state`/`numeric_state` triggers and `state`
+          conditions over `{{ now() - X.last_changed > timedelta(...) }}` duration math.
+        - `wait_for_trigger` instead of `wait_template`
+        - `choose` action instead of template-based service names
+        - For one-shot date firing, use a `time` trigger plus `automation.turn_off` on a
+          hardcoded entity_id — not `{{ now().date() ... }}`.
+        - Hardcode `target.entity_id` literals — never `{{ this.entity_id }}`.
+        Templates are appropriate ONLY in `data.*` fields, notification message/title,
+        `event_data`, and `variables`. The reactive best-practice checker on this tool
+        will surface anything in a logic position that should be native; consult the
+        `best_practice_warnings` field on the response and fix before re-submitting.
+        The relevant skill section is auto-embedded under `skill_content` on warnings,
+        and the full `automation-patterns.md` + `template-guidelines.md` references
+        ship under `skill_content` proactively by default. For comprehensive
+        guidance beyond that, call `ha_get_skill_guide`.
 
         The returned `automation_id` is the resolved entity_id (canonical
         form, e.g. `automation.morning_routine`) when entity registration
@@ -474,27 +535,6 @@ class AutomationConfigTools:
         - Stateful counter / timer / schedule / boolean / etc.
           -> ha_config_set_helper(helper_type='counter' | 'timer' | ...)
 
-        PREFER NATIVE SOLUTIONS OVER TEMPLATES (read this before writing any `{{ ... }}`):
-        Native triggers/conditions/actions are validated at config load, fail loudly, and
-        do not bypass HA's schema. Templates fail silently at runtime and obscure intent.
-        - `condition: numeric_state` instead of `{{ states('x') | float > N }}`
-        - `condition: state` (with `state:` list) instead of `{{ is_state(...) }}` /
-          `{{ states(x) in [...] }}`
-        - `condition: time` instead of `{{ now().hour ... }}` or `{{ now().weekday() ... }}`
-        - `condition: sun` instead of `{{ is_state('sun.sun', ...) }}`
-        - Native `for:` field on `state`/`numeric_state` triggers and conditions over
-          `{{ now() - X.last_changed > timedelta(...) }}` duration math.
-        - `wait_for_trigger` instead of `wait_template`
-        - `choose` action instead of template-based service names
-        - For one-shot date firing, use a `time` trigger plus `automation.turn_off` on a
-          hardcoded entity_id — not `{{ now().date() ... }}`.
-        - Hardcode `target.entity_id` literals — never `{{ this.entity_id }}`.
-        Templates are appropriate ONLY in `data.*` fields, notification message/title,
-        `event_data`, and `variables`. The reactive best-practice checker on this tool
-        will surface anything in a logic position that should be native; consult the
-        `best_practice_warnings` field on the response and fix before re-submitting.
-        For comprehensive guidance, call `ha_get_skill_guide`.
-
         Supports two modes: full config replacement OR Python transformation.
 
         WHEN TO USE WHICH MODE:
@@ -503,10 +543,11 @@ class AutomationConfigTools:
 
         IMPORTANT: python_transform requires 'identifier' and 'config_hash' from ha_config_get_automation().
 
-        PYTHON TRANSFORM EXAMPLES:
-        - Update action: python_transform="config['action'][0]['data']['brightness'] = 255"
-        - Add trigger: python_transform="config['trigger'].append({'platform': 'state', 'entity_id': 'binary_sensor.motion', 'to': 'on'})"
-        - Remove last action: python_transform="config['action'].pop()"
+        PYTHON TRANSFORM EXAMPLES (operate on the fetched config, which uses HA's
+        canonical plural root keys 'triggers'/'actions'/'conditions'):
+        - Update action: python_transform="config['actions'][0]['data']['brightness'] = 255"
+        - Add trigger: python_transform="config['triggers'].append({'trigger': 'state', 'entity_id': 'binary_sensor.motion', 'to': 'on'})"
+        - Remove last action: python_transform="config['actions'].pop()"
 
         Creates a new automation (if identifier omitted) or updates existing automation with provided configuration.
 
@@ -517,8 +558,8 @@ class AutomationConfigTools:
 
         REQUIRED FIELDS (Regular Automations):
         - alias: Human-readable automation name
-        - trigger: List of trigger conditions (time, state, event, etc.)
-        - action: List of actions to execute
+        - triggers: List of triggers (time, state, event, etc.)
+        - actions: List of actions to execute
 
         REQUIRED FIELDS (Blueprint Automations):
         - alias: Human-readable automation name
@@ -529,7 +570,7 @@ class AutomationConfigTools:
         OPTIONAL CONFIG FIELDS (Regular Automations):
         - description: Detailed description of the user's intent (RECOMMENDED: helps safely modify implementation later)
         - category: Category ID for organization (use ha_config_get_category to list, ha_config_set_category to create)
-        - condition: Additional conditions that must be met
+        - conditions: Additional conditions that must be met
         - mode: 'single' (default), 'restart', 'queued', 'parallel'
         - max: Maximum concurrent executions (for queued/parallel modes)
         - initial_state: Whether automation starts enabled (true/false)
@@ -541,27 +582,27 @@ class AutomationConfigTools:
         ha_config_set_automation(config={
             "alias": "Morning Lights",
             "description": "Turn on bedroom lights at 7 AM to help wake up",
-            "trigger": [{"platform": "time", "at": "07:00:00"}],
-            "action": [{"service": "light.turn_on", "target": {"area_id": "bedroom"}}]
+            "triggers": [{"trigger": "time", "at": "07:00:00"}],
+            "actions": [{"action": "light.turn_on", "target": {"area_id": "bedroom"}}]
         })
 
         Motion-activated lighting — `for:` on the off-transition replaces action-delay:
         ha_config_set_automation(config={
             "alias": "Motion Light",
-            "trigger": [
-                {"platform": "state", "entity_id": "binary_sensor.motion", "to": "on", "id": "motion_on"},
-                {"platform": "state", "entity_id": "binary_sensor.motion", "to": "off",
+            "triggers": [
+                {"trigger": "state", "entity_id": "binary_sensor.motion", "to": "on", "id": "motion_on"},
+                {"trigger": "state", "entity_id": "binary_sensor.motion", "to": "off",
                  "for": {"minutes": 5}, "id": "motion_off"}
             ],
-            "action": [
+            "actions": [
                 {"choose": [
                     {"conditions": [
                         {"condition": "trigger", "id": "motion_on"},
                         {"condition": "sun", "after": "sunset"}
                     ],
-                     "sequence": [{"service": "light.turn_on", "target": {"entity_id": "light.hallway"}}]},
+                     "sequence": [{"action": "light.turn_on", "target": {"entity_id": "light.hallway"}}]},
                     {"conditions": [{"condition": "trigger", "id": "motion_off"}],
-                     "sequence": [{"service": "light.turn_off", "target": {"entity_id": "light.hallway"}}]}
+                     "sequence": [{"action": "light.turn_off", "target": {"entity_id": "light.hallway"}}]}
                 ]}
             ]
         })
@@ -571,10 +612,10 @@ class AutomationConfigTools:
             identifier="automation.morning_routine",
             config={
                 "alias": "Updated Morning Routine",
-                "trigger": [{"platform": "time", "at": "06:30:00"}],
-                "action": [
-                    {"service": "light.turn_on", "target": {"area_id": "bedroom"}},
-                    {"service": "climate.set_temperature", "target": {"entity_id": "climate.bedroom"}, "data": {"temperature": 22}}
+                "triggers": [{"trigger": "time", "at": "06:30:00"}],
+                "actions": [
+                    {"action": "light.turn_on", "target": {"area_id": "bedroom"}},
+                    {"action": "climate.set_temperature", "target": {"entity_id": "climate.bedroom"}, "data": {"temperature": 22}}
                 ]
             }
         )
@@ -612,7 +653,7 @@ class AutomationConfigTools:
 
         TRIGGER TYPES: time, time_pattern, sun, state, numeric_state, event, device, zone, template, and more
         CONDITION TYPES: state, numeric_state, time, sun, template, device, zone, and more
-        ACTION TYPES: service calls, delays, wait_for_trigger, wait_template, if/then/else, choose, repeat, parallel
+        ACTION TYPES: action calls, delays, wait_for_trigger, wait_template, if/then/else, choose, repeat, parallel
 
         For comprehensive automation documentation with all trigger/condition/action types and advanced examples:
         - Use: ha_get_skill_guide
@@ -620,11 +661,13 @@ class AutomationConfigTools:
 
         TROUBLESHOOTING:
         - Use ha_get_state() to verify entity_ids exist
-        - Use ha_search_entities() to find correct entity_ids
-        - Use ha_eval_template() to test Jinja2 templates before using in automations
-        - Use ha_search_entities(domain_filter='automation') to find existing automations
+        - Use ha_search() to find correct entity_ids
+        - IF you must use Jinja2 and have no native alternative, test it first with
+          ha_eval_template() before embedding it in the automation config — catches
+          syntax errors and unresolved entity_ids before they fail silently at runtime
+        - Use ha_search(domain_filter='automation') to find existing automations
         """
-        bp_warnings: list[str] = []
+        bp_warnings: BestPracticeCheckResult = BestPracticeCheckResult()
         try:
             # ``identifier`` is optional (omit → create new with generated
             # unique_id; pass → update existing). When provided, reject
@@ -660,7 +703,11 @@ class AutomationConfigTools:
 
             if python_transform is not None:
                 response, bp_warnings = await self._run_python_transform(
-                    identifier, config_hash, python_transform, category
+                    identifier,
+                    config_hash,
+                    python_transform,
+                    category,
+                    MandatoryBPS,
                 )
                 return response
 
@@ -684,7 +731,12 @@ class AutomationConfigTools:
             config_category = config_dict.pop("category", None)
             effective_category = category if category is not None else config_category
 
-            # Normalize field names (triggers -> trigger, actions -> action, etc.)
+            # Detect conflicting singular+plural root keys BEFORE normalization
+            # drops the singular alias (surface rather than silently discard).
+            conflict_warnings = _detect_conflicting_root_keys(config_dict)
+
+            # Normalize field names to HA's canonical plural root keys
+            # (trigger -> triggers, action -> actions, condition -> conditions).
             config_dict = _normalize_automation_config(config_dict)
 
             # Optional hash check for full config updates
@@ -704,10 +756,12 @@ class AutomationConfigTools:
                 wait,
                 bp_warnings,
                 validation_meta,
+                MandatoryBPS,
+                conflict_warnings,
             )
 
-        except ToolError:
-            raise
+        except ToolError as te:
+            raise augment_tool_error_with_skill_content(te, bp_warnings) from None
         except Exception as e:
             # 404 during update only — create (identifier=None) never hits this branch.
             if (
@@ -716,23 +770,47 @@ class AutomationConfigTools:
                 and e.status_code == 404
             ):
                 await self._raise_automation_not_found(identifier)
+            error_text = str(e)
             suggestions = [
                 "Check automation configuration format",
-                "Ensure required fields: alias, trigger, action",
+                "Ensure required fields: alias, triggers, actions",
                 "Use entity_id format: automation.morning_routine or unique_id",
-                "Use ha_search_entities(domain_filter='automation') to find automations",
-                "Use ha_get_skill_guide for help",
+                "Use ha_search(domain_filter='automation') to find automations",
+                "Use ha_get_skill_guide for automation examples",
             ]
+            if isinstance(e, HomeAssistantAPIError):
+                if "'service'" in error_text and "not allowed" in error_text:
+                    suggestions.insert(
+                        0,
+                        "Use 'action:' not 'service:' for service calls in action steps "
+                        "(renamed in HA 2024.8).",
+                    )
+                elif "unexpected keyword argument" in error_text.lower():
+                    suggestions.insert(
+                        0,
+                        "An action step contains a field that belongs at the automation root "
+                        "(e.g. alias, trigger, condition). Each action step should only contain "
+                        "action/target/data/delay/choose/if/repeat/parallel keys.",
+                    )
+                elif "'variables'" in error_text and "dictionary" in error_text:
+                    suggestions.insert(
+                        0,
+                        "variables must be a dict mapping names to values, "
+                        'e.g. {"variables": {"my_var": 42}}',
+                    )
             if bp_warnings:
                 suggestions.append(
                     "Config had best-practice issues that may be related: "
                     + "; ".join(bp_warnings)
                 )
-            exception_to_structured_error(
+            error = exception_to_structured_error(
                 e,
                 context={"identifier": identifier},
                 suggestions=suggestions,
+                raise_error=False,
             )
+            augment_error_dict_with_skill_content(error, bp_warnings)
+            raise_tool_error(error)
 
     async def _run_python_transform(
         self,
@@ -740,7 +818,8 @@ class AutomationConfigTools:
         config_hash: str | None,
         python_transform: str,
         category: str | None,
-    ) -> tuple[dict[str, Any], list[str]]:
+        MandatoryBPS: bool,
+    ) -> tuple[dict[str, Any], BestPracticeCheckResult]:
         """Execute python_transform mode and return (response, bp_warnings)."""
         if not identifier:
             raise_tool_error(
@@ -749,7 +828,7 @@ class AutomationConfigTools:
                     "identifier is required for python_transform",
                     suggestions=[
                         "Provide the automation entity_id or unique_id",
-                        "Use ha_search_entities(domain_filter='automation') to find automations",
+                        "Use ha_search(domain_filter='automation') to find automations",
                     ],
                     context={"action": "python_transform", "identifier": identifier},
                 )
@@ -788,6 +867,11 @@ class AutomationConfigTools:
         transform_category = transformed_config.pop("category", None)
         effective_category = category if category is not None else transform_category
 
+        # Detect conflicting singular+plural root keys (e.g. a transform that set
+        # the singular 'trigger' on a fetched plural config) before normalization
+        # drops the singular alias.
+        conflict_warnings = _detect_conflicting_root_keys(transformed_config)
+
         transformed_config = _normalize_automation_config(transformed_config)
         self._validate_required_fields(transformed_config, identifier)
         bp_warnings = _check_best_practices(transformed_config)
@@ -795,6 +879,8 @@ class AutomationConfigTools:
         result = await self._client.upsert_automation_config(
             transformed_config, identifier
         )
+        for warning in conflict_warnings:
+            result.setdefault("warnings", []).append(warning)
         refetched = await self._get_automation_config_internal(identifier)
         new_config_hash = refetched[1]
 
@@ -821,7 +907,13 @@ class AutomationConfigTools:
             **_strip_redundant_identifier_echo(result, extra_excludes=("success",)),
         }
         if bp_warnings:
-            response["best_practice_warnings"] = bp_warnings
+            response["best_practice_warnings"] = list(bp_warnings)
+        attach_skill_content(
+            response,
+            MandatoryBPS=MandatoryBPS,
+            canonical_files=_AUTOMATION_SKILL_FILES,
+            referenced_files=bp_warnings.referenced_files,
+        )
         return response, bp_warnings
 
     async def _run_config_update(
@@ -829,12 +921,17 @@ class AutomationConfigTools:
         config_dict: dict[str, Any],
         identifier: str | None,
         effective_category: str | None,
-        wait: bool | str,
-        bp_warnings: list[str],
+        wait: bool,
+        bp_warnings: BestPracticeCheckResult,
         validation_meta: dict[str, Any],
+        MandatoryBPS: bool,
+        conflict_warnings: list[str] | None = None,
     ) -> dict[str, Any]:
         """Execute config-replacement mode and return the tool response."""
         result = await self._client.upsert_automation_config(config_dict, identifier)
+
+        for warning in conflict_warnings or []:
+            result.setdefault("warnings", []).append(warning)
 
         if result.get("entity_not_verified"):
             result.setdefault("warnings", []).append(
@@ -846,11 +943,10 @@ class AutomationConfigTools:
             )
             result.pop("entity_not_verified", None)
 
-        wait_bool = coerce_bool_param(wait, "wait", default=True)
         entity_id = result.get("entity_id")
         if not entity_id and identifier and identifier.startswith("automation."):
             entity_id = identifier
-        if wait_bool and entity_id:
+        if wait and entity_id:
             action_word = "created" if identifier is None else "updated"
             try:
                 registered = await wait_for_entity_registered(self._client, entity_id)
@@ -875,20 +971,33 @@ class AutomationConfigTools:
             )
 
         if bp_warnings:
-            result["best_practice_warnings"] = bp_warnings
+            result["best_practice_warnings"] = list(bp_warnings)
 
         merge_validation_meta(result, validation_meta)
 
         automation_id = entity_id or identifier or result.get("unique_id")
-        return {
+        response = {
             "success": True,
             # automation_id omitted when all three fallbacks are falsy —
             # the create path is unguarded by validate_identifier_not_empty,
             # and surfacing automation_id=None would lie about resolvability.
-            # HA's upsert contract makes this branch unreachable in practice.
+            # Defensive: HA's upsert normally returns a usable id, so this
+            # fallback rarely triggers.
             **({"automation_id": automation_id} if automation_id else {}),
             **_strip_redundant_identifier_echo(result),
         }
+        # attach AFTER the outer dict is built so attach_skill_content's
+        # reorder puts skill_content_hint at position 0 of the FINAL
+        # response — building the outer dict via spread otherwise pushes
+        # the hint to position 2-3 behind success/automation_id, which
+        # is the exact position BAT showed small models can't find.
+        attach_skill_content(
+            response,
+            MandatoryBPS=MandatoryBPS,
+            canonical_files=_AUTOMATION_SKILL_FILES,
+            referenced_files=bp_warnings.referenced_files,
+        )
+        return response
 
     async def _list_automation_entity_ids(self) -> list[str]:
         """Best-effort list of automation entity_ids (up to 10) from the entity registry.
@@ -936,7 +1045,7 @@ class AutomationConfigTools:
                     "available_automation_ids": available_ids,
                 },
                 suggestions=[
-                    "Use ha_search_entities(domain_filter='automation') to find existing automations"
+                    "Use ha_search(domain_filter='automation') to find existing automations"
                 ],
             )
         )
@@ -1023,13 +1132,13 @@ class AutomationConfigTools:
         config_dict: dict[str, Any], identifier: str | None
     ) -> None:
         """Raise if an empty-trigger config wraps scene.create (common model misroute)."""
-        trigger_value = config_dict.get("trigger")
+        trigger_value = config_dict.get("triggers")
         trigger_empty = trigger_value is None or (
             isinstance(trigger_value, list) and not trigger_value
         )
         if not trigger_empty:
             return
-        actions_list = coerce_to_list(config_dict.get("action"))
+        actions_list = coerce_to_list(config_dict.get("actions"))
         scene_create_indices = [
             i for i, a in enumerate(actions_list) if _action_contains_scene_create(a)
         ]
@@ -1059,7 +1168,7 @@ class AutomationConfigTools:
     @staticmethod
     def _validate_condition_platform(config_dict: dict[str, Any]) -> None:
         """Raise if any condition uses 'platform' (trigger syntax) instead of 'condition'."""
-        for idx, cond in enumerate(coerce_to_list(config_dict.get("condition"))):
+        for idx, cond in enumerate(coerce_to_list(config_dict.get("conditions"))):
             if not isinstance(cond, dict):
                 continue
             if "platform" in cond and "condition" not in cond:
@@ -1073,7 +1182,7 @@ class AutomationConfigTools:
                         suggestions=[
                             f"Replace 'platform' with 'condition': "
                             f"{{'condition': '{cond['platform']}', ...}}",
-                            "Triggers use 'platform'; conditions use 'condition'.",
+                            "Triggers use 'trigger'; conditions use 'condition'.",
                         ],
                         context={"condition_index": idx, "found_key": "platform"},
                     )
@@ -1086,12 +1195,12 @@ class AutomationConfigTools:
         """Validate required fields and prevent duplicate creation."""
         if "use_blueprint" in config_dict:
             required_fields = ["alias"]
-            # Strip empty trigger/action/condition arrays that would override blueprint
-            for field in ["trigger", "action", "condition"]:
+            # Strip empty triggers/actions/conditions arrays that would override blueprint
+            for field in ["triggers", "actions", "conditions"]:
                 if field in config_dict and config_dict[field] == []:
                     del config_dict[field]
         else:
-            required_fields = ["alias", "trigger", "action"]
+            required_fields = ["alias", "triggers", "actions"]
 
         missing_fields = [f for f in required_fields if f not in config_dict]
         if missing_fields:
@@ -1099,7 +1208,7 @@ class AutomationConfigTools:
             # script — point them at ha_config_set_script instead of the generic
             # missing-fields error.
             if "sequence" in config_dict and (
-                "trigger" in missing_fields or "action" in missing_fields
+                "triggers" in missing_fields or "actions" in missing_fields
             ):
                 context: dict[str, Any] = {"missing_fields": missing_fields}
                 if identifier:
@@ -1110,11 +1219,11 @@ class AutomationConfigTools:
                         message=f"Missing required fields: {', '.join(missing_fields)}",
                         details=(
                             "Config contains 'sequence', which belongs to scripts. "
-                            "Automations use 'trigger' and 'action'; scripts use 'sequence'."
+                            "Automations use 'triggers' and 'actions'; scripts use 'sequence'."
                         ),
                         suggestions=[
                             "Did you mean ha_config_set_script? Scripts use 'sequence' directly.",
-                            "For an automation, replace 'sequence' with 'action' and add a 'trigger'.",
+                            "For an automation, replace 'sequence' with 'actions' and add 'triggers'.",
                         ],
                         context=context,
                     )
@@ -1167,7 +1276,7 @@ class AutomationConfigTools:
             ),
         ],
         wait: Annotated[
-            bool | str,
+            bool,
             Field(
                 description="Wait for automation to be fully removed before returning. Default: True.",
                 default=True,
@@ -1194,7 +1303,7 @@ class AutomationConfigTools:
                 identifier,
                 "identifier",
                 suggestions=[
-                    "Use ha_search_entities(domain_filter='automation') to find existing automations"
+                    "Use ha_search(domain_filter='automation') to find existing automations"
                 ],
                 context={"operation": "remove_automation"},
             )
@@ -1208,8 +1317,7 @@ class AutomationConfigTools:
             result = await self._client.delete_automation_config(identifier)
 
             # Wait for entity to be removed
-            wait_bool = coerce_bool_param(wait, "wait", default=True)
-            if wait_bool and entity_id_for_wait:
+            if wait and entity_id_for_wait:
                 try:
                     removed = await wait_for_entity_removed(
                         self._client, entity_id_for_wait
@@ -1240,11 +1348,12 @@ class AutomationConfigTools:
                 e,
                 context={"identifier": identifier, "action": "delete"},
                 suggestions=[
-                    "Verify automation exists using ha_search_entities(domain_filter='automation')",
+                    "Verify automation exists using ha_search(domain_filter='automation')",
                     "Use entity_id format: automation.morning_routine or unique_id",
                     "Check Home Assistant connection",
                 ],
             )
+            return None  # unreachable: exception_to_structured_error always raises
 
 
 def register_config_automation_tools(mcp: Any, client: Any, **kwargs: Any) -> None:

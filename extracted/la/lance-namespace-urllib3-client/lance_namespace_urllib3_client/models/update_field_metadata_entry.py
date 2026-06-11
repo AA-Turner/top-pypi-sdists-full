@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -26,7 +27,7 @@ class UpdateFieldMetadataEntry(BaseModel):
     """
     UpdateFieldMetadataEntry
     """ # noqa: E501
-    path: StrictStr = Field(description="Field (column) path whose metadata to update")
+    path: Annotated[str, Field(min_length=1, strict=True)] = Field(description="Lance field path whose metadata to update. Nested fields use dot-separated segments; use backtick-quoted segments for literal dots and double backticks inside quoted segments. Use canonical full paths for display and errors; leaf names alone only identify top-level fields; invalid or unresolved paths should return InvalidInput or TableColumnNotFound.")
     metadata: Dict[str, Optional[StrictStr]] = Field(description="Metadata key-value pairs to apply to the field. A null value deletes that key. ")
     replace: Optional[StrictBool] = Field(default=None, description="If true, replace the field's existing metadata entirely; otherwise merge into it (optional, defaults to false). ")
     __properties: ClassVar[List[str]] = ["path", "metadata", "replace"]

@@ -178,14 +178,17 @@ def _cmd_update(args: list[str]) -> dict:
         else:
             i += 1
 
+    from kanban_framework.infra.filesystem import Filesystem
+    _python_bin, _ = Filesystem.resolve_python()
+
     if target:
-        cmd = [sys.executable, "-m", "pip", "install", f"kanban-framework=={target}"]
+        cmd = [_python_bin, "-m", "pip", "install", f"kanban-framework=={target}"]
     elif channel == "stable":
-        cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "kanban-framework"]
+        cmd = [_python_bin, "-m", "pip", "install", "--upgrade", "kanban-framework"]
     elif use_pre:
-        cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "--pre", "kanban-framework"]
+        cmd = [_python_bin, "-m", "pip", "install", "--upgrade", "--pre", "kanban-framework"]
     else:
-        cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "kanban-framework"]
+        cmd = [_python_bin, "-m", "pip", "install", "--upgrade", "kanban-framework"]
 
     _UPDATE_TIMEOUT = 300
 
@@ -232,7 +235,7 @@ def _cmd_update(args: list[str]) -> dict:
     if pip_rc == 0:
         from kanban_framework.infra.filesystem import Filesystem
         init_result = Filesystem.run_no_window(
-            [sys.executable, "-m", "kanban_framework", "init", "--apply", "--non-interactive"]
+            [_python_bin, "-m", "kanban_framework", "init", "--apply", "--non-interactive"]
         )
         if init_result.returncode != 0:
             init_result = {"error": init_result.stderr.strip()}
@@ -278,12 +281,15 @@ def _cmd_check_env(args: list[str]) -> dict:
         except Exception:
             pass
 
+    from kanban_framework.infra.filesystem import Filesystem as _FS
+    _py_bin, _ = _FS.resolve_python()
+
     return {
         "project_root": str(root),
         "has_kanban": kanban_dir.is_dir(),
         "kanban_dir": str(kanban_dir),
         "ok": kanban_dir.is_dir(),
-        "python": sys.executable,
+        "python": _py_bin,
         "agent_sync": {"in_sync": len(agent_sync_issues) == 0, "issues": agent_sync_issues},
         "config_suggestions": [] if task_id_base else ["task_id_base not set — run kanban init and enter your worker ID (e.g. worker ID 6696 → TASK-669601)"],
     }

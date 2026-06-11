@@ -649,6 +649,66 @@ def _scan_latest_markers(
     return markers
 
 
+def _requires_pinned_override_synthesis(
+    fs: gcsfs.GCSFileSystem,
+    *,
+    store: RegistryStore,
+    connector: str,
+    version: str,
+) -> bool:
+    """Return whether `latest/` is missing registry entries that a pin can supply."""
+    base = f"{store.bucket_root}/{METADATA_FOLDER}/airbyte/{connector}"
+    latest_dir = f"{base}/latest"
+    if all(
+        fs.exists(f"{latest_dir}/{registry_type}.json")
+        for registry_type in VALID_REGISTRIES
+    ):
+        return False
+
+    metadata_path = f"{latest_dir}/metadata.yaml"
+    try:
+        with fs.open(metadata_path, "r") as f:
+            raw_metadata = yaml.safe_load(f)
+    except FileNotFoundError:
+        return False
+    except Exception as exc:
+        logger.warning("Failed to read metadata for %s: %s", connector, exc)
+        return False
+
+    if not isinstance(raw_metadata, dict):
+        logger.warning("Metadata for %s is not a mapping", connector)
+        return False
+
+    metadata_data = raw_metadata.get("data", {})
+    if not isinstance(metadata_data, dict):
+        return False
+
+    for registry_type in VALID_REGISTRIES:
+        if fs.exists(f"{latest_dir}/{registry_type}.json"):
+            continue
+
+        override = _get_registry_override(metadata_data, registry_type)
+        if override.get("enabled", True) is False:
+            continue
+
+        pinned_tag = override.get("dockerImageTag")
+        if not pinned_tag or pinned_tag == version:
+            continue
+
+        pinned_entry_path = f"{base}/{pinned_tag}/{registry_type}.json"
+        if fs.exists(pinned_entry_path):
+            return True
+
+        logger.warning(
+            "Pinned version %s/%s.json not found for %s",
+            pinned_tag,
+            registry_type,
+            connector,
+        )
+
+    return False
+
+
 # ---------------------------------------------------------------------------
 # Step 6: Resync stale latest/ directories
 # ---------------------------------------------------------------------------
@@ -792,32 +852,46 @@ def _apply_overrides_to_latest_entry(
 
     for registry_type in VALID_REGISTRIES:
         entry_path = f"{latest_dir}/{registry_type}.json"
+        override = copy.deepcopy(_get_registry_override(metadata_data, registry_type))
+        registry_enabled = override.get("enabled", True) is not False
+        overrides = {
+            k: v for k, v in override.items() if k != "enabled" and v is not None
+        }
+        pinned_tag = overrides.get("dockerImageTag")
 
         try:
-            if not fs.exists(entry_path):
+            if fs.exists(entry_path):
+                with fs.open(entry_path, "r") as f:
+                    entry = json.load(f)
+                modified = False
+            elif registry_enabled and pinned_tag and pinned_tag != version:
+                pinned_entry_path = f"{base}/{pinned_tag}/{registry_type}.json"
+                if not fs.exists(pinned_entry_path):
+                    logger.warning(
+                        "Pinned version %s/%s.json not found for %s",
+                        pinned_tag,
+                        registry_type,
+                        connector,
+                    )
+                    continue
+                with fs.open(pinned_entry_path, "r") as fp:
+                    entry = json.load(fp)
+                modified = True
+            else:
                 continue
-            with fs.open(entry_path, "r") as f:
-                entry = json.load(f)
         except Exception as exc:
             logger.warning(
                 "Failed to read %s.json for %s: %s", registry_type, connector, exc
             )
             continue
 
-        modified = False
-
         # --- Apply registry overrides (skip_docker_image_tag=False for latest) ---
-        overrides = copy.deepcopy(_get_registry_override(metadata_data, registry_type))
-        overrides.pop("enabled", None)
-        overrides = {k: v for k, v in overrides.items() if v is not None}
-
         if overrides:
             entry.update(overrides)
             modified = True
 
         # --- When dockerImageTag is overridden to a different version, copy
         #     version-sensitive fields from the pinned version's entry. ---
-        pinned_tag = overrides.get("dockerImageTag")
         if pinned_tag and pinned_tag != version:
             pinned_entry_path = f"{base}/{pinned_tag}/{registry_type}.json"
             try:
@@ -1522,12 +1596,13 @@ def compile_registry(
         4. Compute active release candidates from versioned markers.
         5. Glob for `version=*` markers in `latest/` dirs for a fast check.
         6. Delete stale `latest/` dirs and recursively copy the versioned dir.
-        7. (Optional) Legacy migration: delete disabled registry entries.
-        8. (Optional) Read latest connector metrics.
-        9. Write global registry JSONs.
-        10. Write composite registry JSON.
-        11. Write per-connector `versions.json`.
-        12. (Optional) Regenerate `specs_secrets_mask.yaml`.
+        7. Synthesize missing registry entries from pinned latest overrides.
+        8. (Optional) Legacy migration: delete disabled registry entries.
+        9. (Optional) Read latest connector metrics.
+        10. Write global registry JSONs.
+        11. Write composite registry JSON.
+        12. Write per-connector `versions.json`.
+        13. (Optional) Regenerate `specs_secrets_mask.yaml`.
 
     Args:
         store: Registry store (bucket + optional prefix).
@@ -1624,12 +1699,23 @@ def compile_registry(
     _log_progress("  Found %d existing markers", len(existing_markers))
 
     stale_connectors: list[str] = []
+    pinned_override_synthesis_connectors: list[str] = []
     for connector, expected_version in sync_scope.items():
         current_marker = existing_markers.get(connector)
-        if not force and current_marker == expected_version:
-            result.latest_already_current += 1
-        else:
+        if force or current_marker != expected_version:
             stale_connectors.append(connector)
+            continue
+
+        if _requires_pinned_override_synthesis(
+            fs,
+            store=store,
+            connector=connector,
+            version=expected_version,
+        ):
+            pinned_override_synthesis_connectors.append(connector)
+            continue
+
+        result.latest_already_current += 1
 
     _log_progress(
         "  %d connectors need latest/ update, %d already current",
@@ -1698,10 +1784,39 @@ def compile_registry(
     else:
         _log_progress("Step 6: All latest/ directories are current, nothing to sync.")
 
-    # --- Step 7: Legacy migration (optional) ---
+    # --- Step 7: Synthesize missing latest entries from pinned overrides ---
+    if pinned_override_synthesis_connectors:
+        _log_progress(
+            "Step 7: Synthesizing %d latest/ registry entries from pinned overrides...",
+            len(pinned_override_synthesis_connectors),
+        )
+        for connector in sorted(pinned_override_synthesis_connectors):
+            if dry_run:
+                _log_progress(
+                    "  [DRY RUN] Would synthesize pinned latest entries for %s",
+                    connector,
+                )
+                result.latest_updated += 1
+                continue
+            try:
+                _apply_overrides_to_latest_entry(
+                    fs,
+                    store=store,
+                    connector=connector,
+                    version=sync_scope[connector],
+                )
+                result.latest_updated += 1
+            except Exception as exc:
+                error_msg = (
+                    f"Failed to synthesize pinned latest entries for {connector}: {exc}"
+                )
+                logger.error(error_msg)
+                result.errors.append(error_msg)
+
+    # --- Step 8: Legacy migration (optional) ---
     if with_legacy_migration == "v1":
         _log_progress(
-            "Step 7: Legacy migration v1 — deleting disabled registry entries..."
+            "Step 8: Legacy migration v1 — deleting disabled registry entries..."
         )
         migration_deleted = _cleanup_disabled_registry_entries(
             fs,
@@ -1725,10 +1840,10 @@ def compile_registry(
             len(migration_deleted),
         )
 
-    # --- Step 8: Read latest connector metrics (optional) ---
+    # --- Step 9: Read latest connector metrics (optional) ---
     metrics_bundle = None
     if with_metrics and store.store_type == StoreType.CORAL:
-        _log_progress("Step 8: Reading latest connector metrics JSONL...")
+        _log_progress("Step 9: Reading latest connector metrics JSONL...")
         try:
             metrics_bundle = read_latest_connector_metrics()
             result.metrics_source = metrics_bundle.blob_path
@@ -1747,13 +1862,13 @@ def compile_registry(
             result.metrics_error = error_msg
             _log_progress("  %s", error_msg)
     elif with_metrics:
-        _log_progress("Step 8: Skipping connector metrics for non-coral registry.")
+        _log_progress("Step 9: Skipping connector metrics for non-coral registry.")
     else:
-        _log_progress("Step 8: Connector metrics injection disabled.")
+        _log_progress("Step 9: Connector metrics injection disabled.")
 
-    # --- Step 9: Compile global registry JSONs ---
-    _log_progress("Step 9: Compiling global registry JSON files...")
-    all_registry_entries: list[dict[str, Any]] = []  # collected for Step 12
+    # --- Step 10: Compile global registry JSONs ---
+    _log_progress("Step 10: Compiling global registry JSON files...")
+    all_registry_entries: list[dict[str, Any]] = []  # collected for Step 13
     entries_by_registry_type: dict[str, list[dict[str, Any]]] = {}
     for registry_type in VALID_REGISTRIES:
         entries = _compile_global_registry(
@@ -1831,8 +1946,8 @@ def compile_registry(
                 entry_count,
             )
 
-    # --- Step 10: Compile composite registry JSON (superset) ---
-    _log_progress("Step 10: Compiling composite_registry.json (superset)...")
+    # --- Step 11: Compile composite registry JSON (superset) ---
+    _log_progress("Step 11: Compiling composite_registry.json (superset)...")
     composite_json = _build_composite_registry_json(
         cloud_entries=entries_by_registry_type.get("cloud", []),
         oss_entries=entries_by_registry_type.get("oss", []),
@@ -1860,9 +1975,9 @@ def compile_registry(
             composite_entry_count,
         )
 
-    # --- Step 11: Per-connector version indexes (parallel) ---
+    # --- Step 12: Per-connector version indexes (parallel) ---
     _log_progress(
-        "Step 11: Writing per-connector version indexes (max_workers=%d)...",
+        "Step 12: Writing per-connector version indexes (max_workers=%d)...",
         _COMPILE_WRITE_MAX_WORKERS,
     )
     base = f"{store.bucket_root}/{METADATA_FOLDER}/airbyte"
@@ -1912,10 +2027,10 @@ def compile_registry(
                     "  Wrote %d / %d version indexes...", i, len(sorted_connectors)
                 )
 
-    # --- Step 12: Specs secrets mask (optional) ---
+    # --- Step 13: Specs secrets mask (optional) ---
     if with_secrets_mask:
-        _log_progress("Step 12: Generating specs secrets mask...")
-        # Reuse entries collected during Step 9 to avoid redundant GCS reads.
+        _log_progress("Step 13: Generating specs secrets mask...")
+        # Reuse entries collected during Step 10 to avoid redundant GCS reads.
         secret_names = _extract_secret_property_names(all_registry_entries)
         sorted_names = sorted(secret_names)
         result.specs_secrets_mask_properties = len(sorted_names)

@@ -20,6 +20,7 @@ import logging
 from typing import Any
 
 from cliff import columns as cliff_columns
+from openstack.network.v2 import subnet as _subnet
 from osc_lib.cli import format_columns
 from osc_lib.cli import parseractions
 from osc_lib import exceptions
@@ -27,6 +28,7 @@ from osc_lib import utils
 from osc_lib.utils import tags as _tag
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 from openstackclient.network import common
@@ -166,7 +168,9 @@ def _get_common_parse_arguments(
     )
 
 
-def _get_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_columns(
+    item: _subnet.Subnet,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     column_map = {
         'is_dhcp_enabled': 'enable_dhcp',
         'subnet_pool_id': 'subnetpool_id',
@@ -302,8 +306,6 @@ def _get_attrs(
     return attrs
 
 
-# TODO(abhiraut): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class CreateSubnet(command.ShowOne, common.NeutronCommandWithExtraArgs):
     _description = _("Create a subnet")
 
@@ -490,8 +492,6 @@ class DeleteSubnet(command.Command):
             raise exceptions.CommandError(msg)
 
 
-# TODO(abhiraut): Use only the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class ListSubnet(command.Lister):
     _description = _("List subnets")
 
@@ -581,6 +581,7 @@ class ListSubnet(command.Lister):
             ),
         )
         _tag.add_tag_filtering_option_to_parser(parser, _('subnets'))
+        pagination.add_marker_pagination_option_to_parser(parser)
         return parser
 
     def take_action(
@@ -588,7 +589,9 @@ class ListSubnet(command.Lister):
     ) -> tuple[tuple[str, ...], Iterable[tuple[Any, ...]]]:
         identity_client = self.app.client_manager.identity
         network_client = self.app.client_manager.network
+
         filters = {}
+
         if parsed_args.ip_version:
             filters['ip_version'] = parsed_args.ip_version
         if parsed_args.dhcp:
@@ -622,7 +625,14 @@ class ListSubnet(command.Lister):
                 parsed_args.subnet_pool, ignore_missing=False
             ).id
             filters['subnetpool_id'] = subnetpool_id
+        if parsed_args.marker is not None:
+            filters['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            filters['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            filters['max_items'] = parsed_args.max_items
         _tag.get_tag_filtering_args(parsed_args, filters)
+
         data = network_client.subnets(**filters)
 
         headers: tuple[str, ...] = ('ID', 'Name', 'Network', 'Subnet')
@@ -664,8 +674,6 @@ class ListSubnet(command.Lister):
         )
 
 
-# TODO(abhiraut): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class SetSubnet(common.NeutronCommandWithExtraArgs):
     _description = _("Set subnet properties")
 

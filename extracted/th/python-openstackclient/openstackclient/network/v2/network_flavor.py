@@ -18,10 +18,12 @@ import logging
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from openstack.network.v2 import flavor as _flavor
 from osc_lib import exceptions
 from osc_lib import utils
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 from openstackclient.network import common
@@ -29,7 +31,9 @@ from openstackclient.network import common
 LOG = logging.getLogger(__name__)
 
 
-def _get_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_columns(
+    item: _flavor.Flavor,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     column_map = {
         'is_enabled': 'enabled',
     }
@@ -92,8 +96,6 @@ class AddNetworkFlavorToProfile(command.Command):
         )
 
 
-# TODO(dasanind): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class CreateNetworkFlavor(command.ShowOne, common.NeutronCommandWithExtraArgs):
     _description = _("Create new network flavor")
 
@@ -192,6 +194,11 @@ class DeleteNetworkFlavor(command.Command):
 class ListNetworkFlavor(command.Lister):
     _description = _("List network flavors")
 
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
+        parser = super().get_parser(prog_name)
+        pagination.add_marker_pagination_option_to_parser(parser)
+        return parser
+
     def take_action(
         self, parsed_args: argparse.Namespace
     ) -> tuple[tuple[str, ...], Iterable[tuple[Any, ...]]]:
@@ -206,7 +213,15 @@ class ListNetworkFlavor(command.Lister):
             'Description',
         )
 
-        data = client.flavors()
+        filters = {}
+        if parsed_args.marker is not None:
+            filters['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            filters['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            filters['max_items'] = parsed_args.max_items
+
+        data = client.flavors(**filters)
         return (
             column_headers,
             (
@@ -247,8 +262,6 @@ class RemoveNetworkFlavorFromProfile(command.Command):
         )
 
 
-# TODO(dasanind): Use only the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class SetNetworkFlavor(common.NeutronCommandWithExtraArgs):
     _description = _("Set network flavor properties")
 

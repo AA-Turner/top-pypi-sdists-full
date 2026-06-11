@@ -21,6 +21,7 @@ import logging
 from typing import Any
 
 from openstack import exceptions as sdk_exc
+from openstack.identity.v3 import group as _group
 from openstack import utils as sdk_utils
 from osc_lib import exceptions
 from osc_lib import utils
@@ -29,11 +30,12 @@ from openstackclient import command
 from openstackclient.i18n import _
 from openstackclient.identity import common
 
-
 LOG = logging.getLogger(__name__)
 
 
-def _format_group(group: Any) -> tuple[tuple[str, ...], Any]:
+def _format_group(
+    group: _group.Group,
+) -> tuple[tuple[str, ...], Iterable[Any]]:
     columns = (
         'description',
         'domain_id',
@@ -325,8 +327,12 @@ class ListGroup(command.Lister):
                 identity_client, parsed_args.domain
             )
 
-        data = []
-        if parsed_args.user:
+        if not parsed_args.user:
+            if domain:
+                data = list(identity_client.groups(domain_id=domain))
+            else:
+                data = list(identity_client.groups())
+        else:
             user = common.find_user_id_sdk(
                 identity_client,
                 parsed_args.user,
@@ -335,12 +341,7 @@ class ListGroup(command.Lister):
             # NOTE(0weng): The API doesn't actually support filtering
             # additionally by domain_id, so this doesn't really do
             # anything.
-            data = identity_client.user_groups(user)
-        else:
-            if domain:
-                data = identity_client.groups(domain_id=domain)
-            else:
-                data = identity_client.groups()
+            data = list(identity_client.user_groups(user))
 
         # List groups
         columns: tuple[str, ...] = ('ID', 'Name')

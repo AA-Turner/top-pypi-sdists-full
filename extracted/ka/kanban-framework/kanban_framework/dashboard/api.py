@@ -271,12 +271,14 @@ def create_app(kanban_dir: str | Path | None = None) -> FastAPI:
     async def transition_phase(task_id: str, request: Request):
         body = await request.json()
         # Run synchronously — phase transitions are fast
-        import subprocess, sys
+        import subprocess
+        from kanban_framework.infra.filesystem import Filesystem
+        _py_bin, _ = Filesystem.resolve_python()
         target = body.get("phase", "")
         if not target:
             raise HTTPException(400, "phase is required")
         result = subprocess.run(
-            [sys.executable, "-m", "kanban_framework", "--json", "workflow", "transition", task_id, target],
+            [_py_bin, "-m", "kanban_framework", "--json", "workflow", "transition", task_id, target],
             capture_output=True, text=True, cwd=str(kanban.parent),
         )
         if result.returncode != 0:
@@ -596,9 +598,11 @@ def create_app(kanban_dir: str | Path | None = None) -> FastAPI:
 
     @app.get("/api/token-stats")
     def token_stats():
-        import subprocess, sys
+        import subprocess
+        from kanban_framework.infra.filesystem import Filesystem
+        _py_bin, _ = Filesystem.resolve_python()
         result = subprocess.run(
-            [sys.executable, "-m", "kanban_framework", "--json", "tokens"],
+            [_py_bin, "-m", "kanban_framework", "--json", "tokens"],
             capture_output=True, text=True, cwd=str(kanban.parent),
         )
         if result.returncode != 0:

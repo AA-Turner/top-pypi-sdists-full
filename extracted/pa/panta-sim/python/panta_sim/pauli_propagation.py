@@ -134,10 +134,31 @@ def _parse_observable(observable, n: int) -> dict:
 
 
 def _iter_gates(circuit):
-    """(matrix-map-key, qubits, name, params) 를 회로 순서로 yield (미지원 게이트는 raise)."""
-    for name, qubits, params in circuit._ops:
-        if name in ("measure", "measure_all", "reset", "barrier"):
+    """(matrix-map-key, qubits, name, params) 를 회로 순서로 yield (미지원 게이트는 raise).
+
+    ``reset`` 과 회로 끝이 아닌 mid-circuit ``measure`` 는 유니터리가 아니라
+    Heisenberg 역전파로 표현할 수 없다 — 조용히 건너뛰면 틀린 값이 나오므로
+    명시적 ``ValueError``.  회로 꼬리의 ``measure``/``measure_all`` 은 기댓값에
+    영향이 없어 skip 한다.
+    """
+    ops = list(circuit._ops)
+    # 회로 꼬리의 연속된 measure/measure_all/barrier 는 무해 — 잘라낸다.
+    tail = len(ops)
+    while tail > 0 and ops[tail - 1][0] in ("measure", "measure_all", "barrier"):
+        tail -= 1
+    for name, qubits, params in ops[:tail]:
+        if name == "barrier":
             continue
+        if name == "reset":
+            raise ValueError(
+                "Pauli propagation 은 reset 을 지원하지 않습니다 (비-유니터리 — "
+                "Heisenberg 역전파 불가). reset 없는 회로로 다시 구성하세요."
+            )
+        if name in ("measure", "measure_all"):
+            raise ValueError(
+                "Pauli propagation 은 mid-circuit measurement 를 지원하지 "
+                "않습니다 (비-유니터리). 회로 끝의 측정만 허용됩니다."
+            )
         yield name, tuple(qubits), tuple(params)
 
 

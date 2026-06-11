@@ -21,7 +21,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.continuous_eval_response import ContinuousEvalResponse
-from arthur_client.api_bindings.models.llm_eval import LLMEval
+from arthur_client.api_bindings.models.eval import Eval
 from arthur_client.api_bindings.models.task_response import TaskResponse
 from arthur_client.api_bindings.models.trace_transform_response import TraceTransformResponse
 from typing import Optional, Set
@@ -34,7 +34,7 @@ class TaskReadResponse(BaseModel):
     task: Optional[TaskResponse] = None
     last_synced_at: Optional[datetime] = None
     scope_model_id: StrictStr = Field(description="The ID of the corresponding scope model for this task.")
-    evals: Optional[List[LLMEval]] = None
+    evals: Optional[List[Eval]] = None
     continuous_evals: Optional[List[ContinuousEvalResponse]] = None
     transforms: Optional[List[TraceTransformResponse]] = None
     __properties: ClassVar[List[str]] = ["task", "last_synced_at", "scope_model_id", "evals", "continuous_evals", "transforms"]
@@ -142,7 +142,7 @@ class TaskReadResponse(BaseModel):
             "task": TaskResponse.from_dict(obj["task"]) if obj.get("task") is not None else None,
             "last_synced_at": obj.get("last_synced_at"),
             "scope_model_id": obj.get("scope_model_id"),
-            "evals": [LLMEval.from_dict(_item) for _item in obj["evals"]] if obj.get("evals") is not None else None,
+            "evals": [Eval.from_dict(_item) for _item in obj["evals"]] if obj.get("evals") is not None else None,
             "continuous_evals": [ContinuousEvalResponse.from_dict(_item) for _item in obj["continuous_evals"]] if obj.get("continuous_evals") is not None else None,
             "transforms": [TraceTransformResponse.from_dict(_item) for _item in obj["transforms"]] if obj.get("transforms") is not None else None
         })

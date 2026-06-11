@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: omegaconf
-Version: 2.3.0
+Version: 2.3.1
 Summary: A flexible configuration library
 Home-page: https://github.com/omry/omegaconf
 Author: Omry Yadan
@@ -17,6 +17,20 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: antlr4-python3-runtime==4.9.*
+Requires-Dist: PyYAML>=5.1.0
+Requires-Dist: dataclasses; python_version == "3.6"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # OmegaConf
 |  | Description |
@@ -31,16 +45,26 @@ providing a consistent API regardless of how the configuration was created.
 
 ## Releases
 
-### Stable (2.2)
-OmegaConf 2.2 is the current stable version.
-* [What's new](https://github.com/omry/omegaconf/releases/tag/v2.2.1)
-* [Documentation](https://omegaconf.readthedocs.io/en/2.2_branch/)
-* [Source code](https://github.com/omry/omegaconf/tree/2.2_branch)
+### Stable (2.3)
+OmegaConf 2.3 is the current stable version.
+* [What's new](https://github.com/omry/omegaconf/releases/tag/v2.3.0)
+* [Documentation](https://omegaconf.readthedocs.io/en/2.3_branch/)
+* [Source code](https://github.com/omry/omegaconf/tree/2.3_branch)
 
 Install with `pip install --upgrade omegaconf`
 
+### Previous release (2.2)
+
+* [What's new](https://github.com/omry/omegaconf/releases/tag/v2.1.1)
+* [Documentation](https://omegaconf.readthedocs.io/en/2.1_branch/)
+* [Slides](https://docs.google.com/presentation/d/e/2PACX-1vT_UIV7hCnquIbLUm4NnkUpXvPEh33IKiUEvPRF850WKA8opOlZOszjKdZ3tPmf8u7hGNP6HpqS-NT5/pub?start=false&loop=false&delayms=3000)
+* [Source code](https://github.com/omry/omegaconf/tree/2.1_branch)
+
+Install with `pip install omegaconf==2.1`
+
+
 ### Previous release (2.1)
-OmegaConf 2.1 is the current stable version.
+
 * [What's new](https://github.com/omry/omegaconf/releases/tag/v2.1.1)
 * [Documentation](https://omegaconf.readthedocs.io/en/2.1_branch/)
 * [Slides](https://docs.google.com/presentation/d/e/2PACX-1vT_UIV7hCnquIbLUm4NnkUpXvPEh33IKiUEvPRF850WKA8opOlZOszjKdZ3tPmf8u7hGNP6HpqS-NT5/pub?start=false&loop=false&delayms=3000)

@@ -161,6 +161,21 @@ def main() -> None:
         return
 
     cmd = args[0]
+
+    # Intercept --help/-h in subcommand args to prevent dirty data (#594).
+    # Without this, `kanban knowledge add --help` would create a blank entry
+    # because the handler treats "--help" as a positional content argument.
+    if "--help" in args or "-h" in args:
+        _output({"success": True, "data": {
+            "help": True,
+            "command": cmd,
+            "message": (
+                f"Use '/kanban help' for the full command list, or read the reference docs.\n"
+                f"Common {cmd} subcommands: kanban {cmd} --help"
+            ),
+        }})
+        return
+
     entry = _CMD_MAP.get(cmd)
     if entry is None:
         _output({"success": False, "error": f"unknown command: {cmd}", "code": "UNKNOWN_COMMAND"})

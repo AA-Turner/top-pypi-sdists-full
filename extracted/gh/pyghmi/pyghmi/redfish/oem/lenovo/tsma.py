@@ -437,7 +437,7 @@ class TsmHandler(generic.OEMHandler):
         self._wc = wc
         return wc
 
-    def update_firmware(self, filename, data=None, progress=None, bank=None):
+    def update_firmware(self, filename, data=None, progress=None, bank=None, otherfields=None):
         wc = self.wc
         wc.set_header('Content-Type', 'application/json')
         basefilename = os.path.basename(filename)

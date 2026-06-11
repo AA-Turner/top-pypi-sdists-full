@@ -297,7 +297,7 @@ tags:
   - name: Webhooks
     description: |
       Configure webhooks for real-time notifications. Webhooks can be created from the dashboard (Settings → Webhooks) or via this API.
-      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, webhook.test.
+      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, webhook.test.
       Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported.
   - name: Webhook Events
     description: |
@@ -789,11 +789,7 @@ components:
           format: uri
           description: Required when type is URL
         example:
-          description: "Example value(s). For URL buttons, an array of URL-suffix samples. For copy_code (marketing) buttons, the coupon code as a string."
-          oneOf:
-            - type: string
-            - type: array
-              items: { type: string }
+          description: "Example value(s). Accepts either a string or an array of strings. For URL buttons, an array of URL-suffix samples; for copy_code (marketing) buttons, the coupon code as a single string. Left untyped (string | string[]) on purpose: a typed oneOf of string-vs-array breaks several SDK code generators."
         phone_number:
           type: string
           description: Required when type is phone_number
@@ -1270,7 +1266,7 @@ components:
           type: array
           items:
             type: string
-            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released]
+            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released]
           description: Events subscribed to
         isActive:
           type: boolean
@@ -6413,6 +6409,38 @@ webhooks:
                     country: { type: string }
                     profileId: { type: string }
                 reason: { type: string, nullable: true }
+      responses:
+        '200':
+          description: Webhook received successfully
+  whatsapp.number.action_required:
+    post:
+      operationId: onWhatsAppNumberActionRequired
+      summary: WhatsApp number action required event
+      description: |
+        Fired when the regulator asks for more information on an already-placed
+        regulated number order. The number stays pending (nothing was rejected);
+        the customer can provide the missing information from the dashboard, or
+        via the remediation endpoint. `reason` carries the regulator's request
+        verbatim when available.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+                event: { type: string, enum: [whatsapp.number.action_required] }
+                timestamp: { type: string, format: date-time }
+                reason: { type: string }
+                number:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    phoneNumber: { type: string }
+                    country: { type: string }
+                    profileId: { type: string }
       responses:
         '200':
           description: Webhook received successfully
@@ -12029,19 +12057,19 @@ paths:
                   description: Required if scope is 'profiles'. Array of profile IDs to grant access to.
                 role:
                   type: string
-                  enum: [member, billing_admin]
+                  enum: [member, billing_admin, viewer]
                   default: member
-                  description: Org role granted to the invitee. Defaults to 'member'.
+                  description: Org role granted to the invitee. Defaults to 'member'. 'viewer' creates a read-only member who can view everything in their profile scope but cannot perform any content mutation (publish, edit, delete, connect accounts).
                 readOnly:
                   type: boolean
-                  default: false
-                  description: When true, the invitee can view everything in their profile scope but cannot perform any content mutation (publish, edit, delete, connect accounts).
+                  deprecated: true
+                  description: Deprecated. Use role 'viewer' instead. When true, the invite is created with role 'viewer'. Cannot be combined with role 'billing_admin'.
             example:
               scope: "profiles"
               profileIds:
                 - "64f0a1b2c3d4e5f6a7b8c9d0"
                 - "64f0a1b2c3d4e5f6a7b8c9d1"
-              readOnly: false
+              role: "member"
       responses:
         '201':
           description: Invite token created
@@ -13801,6 +13829,145 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /v1/accounts/{accountId}/gmb-attribute-metadata:
+    get:
+      operationId: getGmbAttributeMetadata
+      tags: [GMB Attributes]
+      summary: Get attribute metadata
+      description: |
+        Returns metadata about which Google Business Profile attributes are available for
+        a location or business category. Use this endpoint to discover valid attribute names,
+        value types, and allowed enum values before reading or writing via gmb-attributes.
+
+        Two mutually exclusive query modes:
+
+        **Location mode**: pass `locationId` (or rely on the account's stored `selectedLocationId`).
+        Google returns attributes valid for that specific location.
+
+        **Category mode**: pass `categoryName` (must start with `categories/`) and `regionCode`.
+        Google returns attributes valid for that category across the given region.
+        `languageCode` is optional in category mode.
+
+        Both modes support `pageSize` and `pageToken` for pagination.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: locationId
+          in: query
+          schema: { type: string }
+          description: >
+            GBP location ID (e.g. "6257659026299438786"). If omitted, uses the account's
+            stored selectedLocationId. Mutually exclusive with categoryName.
+        - name: categoryName
+          in: query
+          schema: { type: string }
+          description: >
+            Category resource name, must start with "categories/" (e.g.
+            "categories/gcid:plumber"). Required together with regionCode. Mutually
+            exclusive with locationId.
+        - name: regionCode
+          in: query
+          schema: { type: string }
+          description: >
+            BCP-47 region code (e.g. "US", "ES"). Required when categoryName is provided.
+        - name: languageCode
+          in: query
+          schema: { type: string }
+          description: >
+            BCP-47 language code for display names (e.g. "en", "es"). Optional when
+            categoryName is provided. Omitted from the Google call when not supplied.
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+          description: Maximum number of attribute metadata items to return. Google defaults to 200.
+        - name: pageToken
+          in: query
+          schema: { type: string }
+          description: Pagination token from a previous response's nextPageToken field.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Attribute metadata fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  accountId: { type: string }
+                  locationId:
+                    type: string
+                    description: Only present in location mode.
+                  attributeMetadata:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        parent:
+                          type: string
+                          description: Resource name of the attribute (e.g. "attributes/has_delivery").
+                        valueType:
+                          type: string
+                          description: Value type (e.g. BOOL, ENUM, URL, REPEATED_ENUM).
+                        displayName:
+                          type: string
+                          description: Localized human-readable attribute name.
+                        groupDisplayName:
+                          type: string
+                          description: Display name of the attribute group.
+                        repeatable:
+                          type: boolean
+                          description: True if multiple values can be set simultaneously.
+                        deprecated:
+                          type: boolean
+                          description: True if this attribute should no longer be used.
+                        valueMetadata:
+                          type: array
+                          description: Possible enum values (for ENUM / REPEATED_ENUM types).
+                          items:
+                            type: object
+                            properties:
+                              value: { type: string }
+                              displayName: { type: string }
+                  nextPageToken:
+                    type: string
+                    description: Present when additional pages of results are available.
+              example:
+                success: true
+                accountId: "64f1a2b3c4d5e6f7a8b9c0d1"
+                locationId: "6257659026299438786"
+                attributeMetadata:
+                  - parent: "attributes/has_delivery"
+                    valueType: "BOOL"
+                    displayName: "Delivery"
+                    groupDisplayName: "Service options"
+                  - parent: "attributes/pay_credit_card_types_accepted"
+                    valueType: "REPEATED_ENUM"
+                    displayName: "Credit cards accepted"
+                    valueMetadata:
+                      - value: "visa"
+                        displayName: "Visa"
+                      - value: "mastercard"
+                        displayName: "Mastercard"
+        '400':
+          description: Invalid request (mixed modes, missing required params, wrong platform, or Google returned 4xx)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: Access token is invalid or revoked. Reconnect the Google Business Profile account.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Account not found
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -18076,7 +18243,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released]
                   description: Events to subscribe to (at least one required)
                 isActive:
                   type: boolean
@@ -18150,7 +18317,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released]
                   description: Events to subscribe to. Must contain at least one event if provided.
                 isActive:
                   type: boolean
@@ -18652,7 +18819,7 @@ paths:
                 templateParams:
                   type: array
                   items: { type: string }
-                  description: WhatsApp only. Body variable values, in order, substituted into the template body ({{1}}, {{2}}, ...).
+                  description: WhatsApp only. Body variable values, in order. Works with positional placeholders ({{1}}, {{2}}, ...) and with named placeholders ({{name}}, {{company}} - how Meta Business Manager creates templates), where values fill the named slots in order of appearance.
           multipart/form-data:
             schema:
               type: object
@@ -22236,6 +22403,23 @@ paths:
                     the customer must complete KYC at that URL before the number
                     is ordered. See GET /v1/whatsapp/phone-numbers/countries.
                   default: US
+                purchaseIntentId:
+                  type: string
+                  maxLength: 100
+                  description: >
+                    Optional idempotency key. Send the same value when retrying
+                    a purchase: if a number was already bought under this key,
+                    the API returns { status: "already_purchased", numberId,
+                    phoneNumber } instead of provisioning a second number.
+                    Generate a fresh key for each genuinely new purchase.
+                allowMultiple:
+                  type: boolean
+                  default: false
+                  description: >
+                    Any second purchase within 10 minutes of a previous one is
+                    rejected with 409 code PURCHASE_VELOCITY as duplicate
+                    protection. Pass true to confirm the additional purchase is
+                    intentional (e.g. bulk provisioning).
             example:
               profileId: "507f1f77bcf86cd799439011"
               country: "DE"
@@ -22266,9 +22450,29 @@ paths:
                           provisionedAt: { type: string, format: date-time }
                           metaPreverifiedId: { type: string }
                           metaVerificationStatus: { type: string }
+                  - type: object
+                    description: >
+                      A number was already purchased under the supplied
+                      purchaseIntentId; no new number was provisioned.
+                    properties:
+                      status: { type: string, enum: [already_purchased] }
+                      numberId: { type: string }
+                      phoneNumber: { type: string }
         '400': { description: Plan limit reached, profileId required, or country not available }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: A paid plan is required }
+        '409':
+          description: >
+            Duplicate-purchase protection: another number was purchased for
+            this user within the last 10 minutes. Retry with allowMultiple:
+            true to confirm the additional purchase is intentional.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  code: { type: string, enum: [PURCHASE_VELOCITY] }
         '202':
           description: Country requires end-user KYC before the number can be ordered.
           content:
@@ -27185,7 +27389,7 @@ paths:
                 adName: { type: string, maxLength: 255, description: "Meta only. Exact ad name (the single-creative ad object's name). Overrides the default, which is `name`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry instead.)" }
                 tracking:
                   type: object
-                  description: "Meta only. Attaches pixel measurement to the ad regardless of the optimization goal (the \"Website events\" tracking row in Ads Manager). `pixelId` becomes the ad's `tracking_specs` (offsite_conversion + fb_pixel); `urlTags` becomes the ad's `url_tags` (click-tracking query params). Applied to every ad on the legacy single-creative and multi-creative shapes."
+                  description: "Meta only. Attaches pixel measurement to the ad regardless of the optimization goal (the \"Website events\" tracking row in Ads Manager). `pixelId` becomes the ad's `tracking_specs` (offsite_conversion + fb_pixel); `urlTags` becomes the ad's `url_tags` (click-tracking query params). Applied on the legacy single-creative shape, every ad of the multi-creative shape, and the attach shape. NOTE: tracking lives on the AD object and is not inherited from the ad set, so pass it on EVERY attach call that should carry the pixel."
                   properties:
                     pixelId: { type: string, description: "Meta Pixel ID to attach for offsite-conversion measurement." }
                     urlTags:
@@ -27218,9 +27422,10 @@ paths:
                 headline: { type: string, description: "Required for Meta, Google, Pinterest, and LinkedIn on legacy + attach shapes (skip for multi-creative — use `creatives[].headline`). Ignored for TikTok and X/Twitter. Max: Meta=255, Google=30, Pinterest=100, LinkedIn=400. On LinkedIn this is the ad's headline (the bold text on the creative); for traffic ads it's the link card title." }
                 longHeadline: { type: string, maxLength: 90, description: "Google Display only — defaults to `headline` if omitted. On LinkedIn, reused as the optional secondary description text on traffic (link) ads; omitted if not provided." }
                 body: { type: string, description: "Required on legacy + attach shapes. For X/Twitter this is the tweet text (max 280 chars including a ~24-char URL when `linkUrl` is set). On LinkedIn this is the post commentary (the intro text shown above the ad). Max: Google=90, Pinterest=500." }
+                description: { type: string, maxLength: 255, description: "Meta only (facebook/instagram). Link description — the secondary text shown below the headline (Meta's link_data.description; on video creatives mapped to video_data.link_description). When omitted, Meta auto-pulls the destination URL's OpenGraph description. Applies on legacy, attach, and placementAssets shapes; for multi-creative use creatives[].description (this field is the shared fallback). For multi-text variations use dynamicCreative.descriptions instead." }
                 callToAction: { type: string, enum: [LEARN_MORE, SHOP_NOW, SIGN_UP, BOOK_TRAVEL, CONTACT_US, DOWNLOAD, GET_OFFER, GET_QUOTE, SUBSCRIBE, WATCH_MORE, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, BUY_NOW], description: "Required on legacy + attach shapes for Meta. Honoured on TikTok (passes through to the Spark Ad creative's `call_to_action`) and on LinkedIn (the CTA button on the ad; defaults to LEARN_MORE when `linkUrl` is set). LinkedIn accepts: LEARN_MORE, SIGN_UP, DOWNLOAD, SUBSCRIBE, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, SHOP_NOW, BUY_NOW. Ignored by Google, Pinterest, and X/Twitter." }
                 linkUrl: { type: string, format: uri, description: "Required on legacy + attach shapes (skip for multi-creative). On LinkedIn it's the ad's destination URL; required for `traffic` ads, optional for `engagement` / `awareness`. NOT required when `goal` is `lead_generation` (the ad opens a Lead Gen form instead of a destination)." }
-                leadGenFormId: { type: string, description: "Meta Lead Gen forms only (facebook/instagram). The leadgen_forms ID to attach to the ad's creative — create one via POST /v1/ads/lead-forms. REQUIRED when `goal` is `lead_generation`; ignored otherwise. The ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. Both `placementAssets` (per-placement creative) and `dynamicCreative` (multi-text / multi-asset pool, e.g. multiple headlines and primary texts) ARE supported on instant-form lead ads — the form is attached for you, and for `dynamicCreative` the ad set is created as a Dynamic Creative ad set automatically (Meta requires that for any multi-text feed; there is no non-DCO multi-text path). Send a single `imageUrls` entry plus your text variations to get Meta's \"Multiple Text Options\" behavior on a lead ad." }
+                leadGenFormId: { type: string, description: "Meta Lead Gen forms only (facebook/instagram). The leadgen_forms ID to attach to the ad's creative — create one via POST /v1/ads/lead-forms. REQUIRED when `goal` is `lead_generation`, and on every ATTACH (`adSetId`) call that targets a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set). Ignored otherwise. The ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. Both `placementAssets` (per-placement creative) and `dynamicCreative` (multi-text / multi-asset pool, e.g. multiple headlines and primary texts) ARE supported on instant-form lead ads — the form is attached for you, and for `dynamicCreative` the ad set is created as a Dynamic Creative ad set automatically (Meta requires that for any multi-text feed; there is no non-DCO multi-text path). Send a single `imageUrls` entry plus your text variations to get Meta's \"Multiple Text Options\" behavior on a lead ad." }
                 imageUrl: { type: string, format: uri, description: "Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). Ignored for X/Twitter. For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627)." }
                 images:
                   type: object
@@ -27234,7 +27439,7 @@ paths:
                   required: [url]
                   properties:
                     url: { type: string, format: uri, description: "Public URL of the video. Meta: uploaded via chunked transfer on /act_X/advideos, then the request blocks on Meta's transcoding until status.video_status === 'ready'. LinkedIn: uploaded via the Videos API (multipart), then the request blocks until LinkedIn finishes transcoding (status AVAILABLE) — short clips take ~10-30s." }
-                    thumbnailUrl: { type: string, format: uri, description: "Public URL of a still-image thumbnail for the video. Required by Meta on every video creative (uploaded as an ad image and referenced in object_story_spec.video_data). Ignored by LinkedIn (auto-generated poster frame)." }
+                    thumbnailUrl: { type: string, format: uri, description: "Public URL of a still-image thumbnail for the video. OPTIONAL: when omitted on Meta, the poster is auto-generated from Meta's own preferred video thumbnail (the same candidates Ads Manager shows), so video ads publish without supplying one. Provide it to control the poster frame exactly (uploaded as an ad image and referenced in object_story_spec.video_data). Ignored by LinkedIn (auto-generated poster frame)." }
                 creatives:
                   type: array
                   minItems: 1
@@ -27251,11 +27456,12 @@ paths:
                       name: { type: string, maxLength: 255, description: "Exact name for this ad. Falls back to `<name> #N` (N = 1-based position)." }
                       headline: { type: string, maxLength: 255 }
                       body: { type: string }
+                      description: { type: string, maxLength: 255, description: "Link description for this ad (link_data.description; video creatives: video_data.link_description). Falls back to the top-level `description`; when both are omitted Meta scrapes the destination URL's OG description." }
                       imageUrl: { type: string, format: uri, description: "Image creative. Mutually exclusive with `video`." }
                       video:
                         type: object
-                        description: "Video creative for this entry. Mutually exclusive with `imageUrl`."
-                        required: [url, thumbnailUrl]
+                        description: "Video creative for this entry. Mutually exclusive with `imageUrl`. thumbnailUrl is optional — when omitted, the poster is auto-generated from Meta's preferred video thumbnail."
+                        required: [url]
                         properties:
                           url: { type: string, format: uri }
                           thumbnailUrl: { type: string, format: uri }
@@ -27271,6 +27477,16 @@ paths:
                     in attach mode returns 400. To change an existing ad set's
                     bid, use `PUT /v1/ads/ad-sets/{adSetId}`. Mutually exclusive
                     with `creatives[]`.
+
+                    The attached ad takes the full single-creative surface:
+                    `headline`/`body`/`description`/`callToAction` plus either
+                    `imageUrl`/`video` OR `placementAssets` (its own per-placement
+                    Feed/Story assets), and `leadGenFormId` when the target is a
+                    lead ad set (the parent must be ON_AD — true for ad sets
+                    created via goal `lead_generation`; Meta rejects a formless ad
+                    there, so pass the form on EVERY attached ad). This is the way
+                    to build N full ads sharing one ad set: create the first ad
+                    via the normal shape, then attach the rest one call each.
 
                     Supported on Meta (facebook, instagram) and TikTok. On TikTok
                     the `adSetId` is the ad group ID; the new ad inherits the
@@ -27492,8 +27708,11 @@ paths:
                     each placement group on a SINGLE ad (e.g. a 9:16 on Stories/Reels and a 4:5 on Feed).
                     The same thing Meta Ads Manager produces with "different creative per placement",
                     mapped to the creative's `asset_feed_spec` + `asset_customization_rules`. Deterministic
-                    pinning, NOT the auto-optimizing pool of `dynamicCreative` (mutually exclusive, and it
-                    cannot be combined with `creatives[]` or `adSetId`). Shared copy (headline, body, link,
+                    pinning, NOT the auto-optimizing pool of `dynamicCreative` (mutually exclusive). Works
+                    on the legacy single shape AND the attach shape (`adSetId` + placementAssets adds one
+                    placement-customized ad to an existing ad set — the way to build N per-placement ads
+                    sharing one ad set: create the first normally, attach the rest). Cannot be combined
+                    with `creatives[]`. Shared copy (headline, body, link,
                     CTA) comes from the top-level single-creative fields since only the asset varies by
                     placement. Each rule's `placements` accepts the same fields as the top-level
                     `placements` object; Meta enforces co-selection rules and returns an actionable error.

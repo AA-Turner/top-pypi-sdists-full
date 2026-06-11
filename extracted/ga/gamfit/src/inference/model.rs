@@ -1,6 +1,8 @@
 use crate::basis::BasisOptions;
 use crate::estimate::{BlockRole, FittedLinkState, UnifiedFitResult};
-use crate::families::bms::{LatentMeasureKind, LatentZRankIntCalibration};
+use crate::families::bms::{
+    LatentMeasureKind, LatentZConditionalCalibration, LatentZRankIntCalibration,
+};
 use crate::families::lognormal_kernel::FrailtySpec;
 use crate::families::survival_construction::{
     SurvivalBaselineConfig, SurvivalTimeBasisConfig, parse_survival_baseline_config,
@@ -317,6 +319,16 @@ pub struct FittedModelPayload {
     /// continue to deserialize cleanly (interpreted as: no calibration).
     #[serde(default)]
     pub latent_z_rank_int_calibration: Option<LatentZRankIntCalibration>,
+    /// Optional conditional location-scale calibration of the latent score
+    /// (#905, BMS family). When `Some`, the marginal-slope predictor replaces
+    /// the (normalized) input `z` by `ζ = (z − m(C))/√v(C)` — rebuilding the
+    /// conditioning span `a(C)` from the marginal prediction design — before
+    /// the closed-form standard-normal kernel, matching fit-time semantics.
+    /// Mutually exclusive with `latent_z_rank_int_calibration`. `#[serde(default)]`
+    /// so pre-existing models deserialize cleanly (interpreted as: no
+    /// conditional calibration).
+    #[serde(default)]
+    pub latent_z_conditional_calibration: Option<LatentZConditionalCalibration>,
     #[serde(default)]
     pub marginal_baseline: Option<f64>,
     #[serde(default)]
@@ -637,6 +649,7 @@ impl FittedModelPayload {
             latent_score_contract: None,
             latent_measure: None,
             latent_z_rank_int_calibration: None,
+            latent_z_conditional_calibration: None,
             marginal_baseline: None,
             logslope_baseline: None,
             logslope_baselines: None,
@@ -895,6 +908,12 @@ pub struct SavedPredictionRuntime {
     /// `None` for non-BMS models and for BMS fits whose latent measure
     /// did not require rank-INT calibration.
     pub latent_z_rank_int_calibration: Option<LatentZRankIntCalibration>,
+    /// Conditional location-scale latent-z calibration (#905) carried into the
+    /// predictor build. `None` for non-BMS models and for BMS fits whose Auto
+    /// path did not detect a conditional `E[z|C]`/`Var(z|C)` shift. When
+    /// `Some`, the predictor replaces the normalized `z` by `ζ = (z−m(C))/√v(C)`
+    /// using the marginal prediction design as the conditioning span.
+    pub latent_z_conditional_calibration: Option<LatentZConditionalCalibration>,
     /// Width `p₁` of the absorbed Stage-1 influence block (#461) when the
     /// survival marginal-slope fit hosted a dedicated additive absorber (the
     /// trailing block). `None` when no CTN Stage-1 chain produced an influence
@@ -1917,20 +1936,6 @@ impl SavedCompiledFlexBlock {
             BasisOptions::second_derivative().derivative_order,
         )
     }
-
-    pub fn third_derivative_design(
-        &self,
-        values: &Array1<f64>,
-    ) -> Result<Array2<f64>, FittedModelError> {
-        self.evaluate_span_polynomial_design(values, 3)
-    }
-
-    pub fn fourth_derivative_design(
-        &self,
-        values: &Array1<f64>,
-    ) -> Result<Array2<f64>, FittedModelError> {
-        self.evaluate_span_polynomial_design(values, 4)
-    }
 }
 
 impl FittedFamily {
@@ -2771,13 +2776,22 @@ impl FittedModel {
     /// over the coefficient posterior — reporting the posterior mean
     /// `E[g⁻¹(Xβ)]` — rather than plugging in the posterior mode `g⁻¹(Xβ̂)`.
     ///
-    /// SPEC: the posterior mean is *always* the default point estimate (never
-    /// MAP). It is only observably distinct from the plug-in when the inverse
-    /// link is curved over the posterior's support: Binomial standard / SAS /
-    /// BetaLogistic / Mixture / LatentCLogLog links, or any model carrying a
-    /// link wiggle or baseline-time wiggle. For effectively-linear cases
-    /// (identity-link Gaussian, …) the integral collapses to the plug-in, so
-    /// the cheaper plug-in path is exact and is taken instead.
+    /// SPEC (issue #960): the posterior mean is *always* the default point
+    /// estimate (never MAP). It is observably distinct from the plug-in exactly
+    /// when the inverse link is *curved* over the posterior's uncertainty, so
+    /// `E[g⁻¹(η)] ≠ g⁻¹(E[η])` by Jensen. The curvature-based classification is:
+    ///   * all log-link families (Poisson / Gamma / Tweedie / NegativeBinomial):
+    ///     `E[exp η] = exp(η + se²/2) ≠ exp(η)` (log-normal MGF);
+    ///   * all Binomial links (logit / probit / cloglog / SAS / BetaLogistic /
+    ///     Mixture / LatentCLogLog): bounded sigmoidal inverse links;
+    ///   * Beta (logit link): `E[σ(η)] ≠ σ(E[η])`;
+    ///   * Royston–Parmar (curved survival-probability inverse link).
+    /// The integral collapses to the plug-in (so the cheaper plug-in path is
+    /// exact and taken instead) only for the effectively-linear identity-link
+    /// Gaussian. Any model carrying a link wiggle or baseline-time wiggle is
+    /// curved regardless of family. This curvature partition mirrors
+    /// `families::strategy::posterior_mean`, the compute path that produces the
+    /// corrected mean for each of these families.
     ///
     /// This is the single source of truth shared by the CLI (`gam predict`)
     /// and the Python FFI prediction path so the two can never drift on which
@@ -2785,15 +2799,31 @@ impl FittedModel {
     #[inline]
     pub fn prediction_uses_posterior_mean(&self) -> bool {
         let family = self.likelihood();
-        matches!(
-            (&family.response, &family.link),
-            (ResponseFamily::Binomial, InverseLink::Standard(_))
-                | (ResponseFamily::Binomial, InverseLink::Sas(_))
-                | (ResponseFamily::Binomial, InverseLink::BetaLogistic(_))
-                | (ResponseFamily::Binomial, InverseLink::Mixture(_))
-                | (ResponseFamily::Binomial, InverseLink::LatentCLogLog(_))
-        ) || self.has_link_wiggle()
-            || self.has_baseline_time_wiggle()
+        let curved_family = match &family.response {
+            // Identity-link Gaussian: inverse link is linear, so the posterior
+            // mean equals the plug-in and the cheaper exact path is taken.
+            ResponseFamily::Gaussian => false,
+            // Log-link families: E[exp η] = exp(η + se²/2) ≠ exp(η).
+            ResponseFamily::Poisson
+            | ResponseFamily::Gamma
+            | ResponseFamily::Tweedie { .. }
+            | ResponseFamily::NegativeBinomial { .. } => true,
+            // Beta (logit link): E[σ(η)] ≠ σ(E[η]).
+            ResponseFamily::Beta { .. } => true,
+            // Royston–Parmar: curved survival-probability inverse link.
+            ResponseFamily::RoystonParmar => true,
+            // Binomial: every link variant (logit / probit / cloglog / SAS /
+            // BetaLogistic / Mixture / LatentCLogLog) is a curved sigmoid.
+            ResponseFamily::Binomial => matches!(
+                &family.link,
+                InverseLink::Standard(_)
+                    | InverseLink::Sas(_)
+                    | InverseLink::BetaLogistic(_)
+                    | InverseLink::Mixture(_)
+                    | InverseLink::LatentCLogLog(_)
+            ),
+        };
+        curved_family || self.has_link_wiggle() || self.has_baseline_time_wiggle()
     }
 
     pub fn saved_prediction_runtime(&self) -> Result<SavedPredictionRuntime, FittedModelError> {
@@ -2826,6 +2856,10 @@ impl FittedModel {
             score_warp: self.payload().score_warp_runtime.clone(),
             link_deviation: self.payload().link_deviation_runtime.clone(),
             latent_z_rank_int_calibration: self.payload().latent_z_rank_int_calibration.clone(),
+            latent_z_conditional_calibration: self
+                .payload()
+                .latent_z_conditional_calibration
+                .clone(),
             influence_absorber_width: self.payload().influence_absorber_width,
         };
         if matches!(
@@ -3157,6 +3191,7 @@ impl FittedModel {
                     runtime.score_warp,
                     runtime.link_deviation,
                     runtime.latent_z_rank_int_calibration,
+                    runtime.latent_z_conditional_calibration,
                 )
                 .ok()?;
                 Some(Box::new(predictor) as Box<dyn PredictableModel>)
@@ -4083,6 +4118,8 @@ mod tests {
                 null_space_dim: None,
                 survival_link_wiggle_knots: None,
                 survival_link_wiggle_degree: None,
+                criterion_certificate: None,
+                rho_posterior_certificate: None,
             },
             inner_cycles: 0,
         }

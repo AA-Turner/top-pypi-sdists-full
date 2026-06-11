@@ -949,16 +949,29 @@ def verify_command(
     console.print("\n[bold]FK Integrity:[/bold]")
     fk_result = result["fk"]
     for check in fk_result["checks"]:
+        target = f" → {check['ref']}" if check.get("ref") else ""
         if check["status"] == "ok":
-            console.print(f"  [green]✓[/green] {check['entity']}.{check['field']} → {check['ref']}")
+            console.print(f"  [green]✓[/green] {check['entity']}.{check['field']}{target}")
         elif check["status"] == "orphans":
             console.print(
-                f"  [red]✗[/red] {check['entity']}.{check['field']} → {check['ref']}: "
+                f"  [red]✗[/red] {check['entity']}.{check['field']}{target}: "
                 f"{check['orphan_count']} orphans"
+            )
+        elif check["status"] == "required_null":
+            # #1364: required ref is NULL — app-layer `required` was bypassed.
+            console.print(
+                f"  [red]✗[/red] {check['entity']}.{check['field']}{target}: "
+                f"{check['null_count']} NULL(s) in a required ref"
+            )
+        elif check["status"] == "unanchored":
+            # #1364: at-least-one-anchor invariant violated in the DB.
+            console.print(
+                f"  [red]✗[/red] {check['entity']} ({check['field']}): "
+                f"{check['unanchored_count']} unanchored row(s) — all anchor refs NULL"
             )
         else:
             console.print(
-                f"  [yellow]![/yellow] {check['entity']}.{check['field']} → {check['ref']}: "
+                f"  [yellow]![/yellow] {check['entity']}.{check['field']}{target}: "
                 f"{check.get('error', 'unknown error')}"
             )
 
@@ -1211,6 +1224,13 @@ def cleanup_command(
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be deleted"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
     as_json: bool = typer.Option(False, "--json", help="Output as JSON"),
+    unanchored: bool = typer.Option(
+        False,
+        "--unanchored",
+        help="#1364: also sweep rows violating an at-least-one-anchor invariant "
+        "(`a != null or b != null`). Off by default — unanchored rows may be "
+        "mid-flow data, unlike orphans.",
+    ),
 ) -> None:
     """Find and remove FK orphan records."""
     import json as json_mod
@@ -1226,7 +1246,9 @@ def cleanup_command(
     if dry_run:
 
         async def _run_dry(conn: Any) -> Any:
-            return await db_cleanup_impl(entities=entities, conn=conn, dry_run=True)
+            return await db_cleanup_impl(
+                entities=entities, conn=conn, dry_run=True, unanchored=unanchored
+            )
 
         result = asyncio.run(_run_with_connection(project_root, url, _run_dry, schema=schema))
 
@@ -1240,9 +1262,14 @@ def cleanup_command(
 
         console.print(f"\n[bold]Found {result['would_delete']} orphan records:[/bold]")
         for f in result["findings"]:
-            console.print(
-                f"  {f['orphan_count']} × {f['entity']} ({f['field']} → {f['ref']}: missing)"
-            )
+            if "unanchored_count" in f:
+                console.print(
+                    f"  {f['unanchored_count']} × {f['entity']} ({f['field']}: all anchors NULL)"
+                )
+            else:
+                console.print(
+                    f"  {f['orphan_count']} × {f['entity']} ({f['field']} → {f['ref']}: missing)"
+                )
         console.print("\nRun without --dry-run to delete.")
         return
 
@@ -1253,7 +1280,7 @@ def cleanup_command(
             raise typer.Exit(0)
 
     async def _run(conn: Any) -> Any:
-        return await db_cleanup_impl(entities=entities, conn=conn)
+        return await db_cleanup_impl(entities=entities, conn=conn, unanchored=unanchored)
 
     result = asyncio.run(_run_with_connection(project_root, url, _run, schema=schema))
 
@@ -1446,13 +1473,23 @@ def explain_aggregate_command(
         )
 
     # Parse measures: 'n=count,avg_score=avg:score' → {'n': 'count', 'avg_score': 'avg:score'}
+    # #1359 slice 2: anything that is NOT a recognised aggregate spec is
+    # treated as a derived-metric expression (e.g. 'rate=done/total*100') and
+    # shown as the Python post-aggregation step — keeping this detector live
+    # for the derived-metrics path, not merely documented.
+    _AGG_SPECS = ("count", "sum:", "avg:", "min:", "max:")
     measure_dict: dict[str, str] = {}
+    derived_dict: dict[str, str] = {}
     for pair in measures.split(","):
         pair = pair.strip()
         if not pair or "=" not in pair:
             continue
         name, _, expr = pair.partition("=")
-        measure_dict[name.strip()] = expr.strip()
+        expr = expr.strip()
+        if expr == "count" or expr.startswith(_AGG_SPECS[1:]):
+            measure_dict[name.strip()] = expr
+        else:
+            derived_dict[name.strip()] = expr
 
     sql, params = build_aggregate_sql(
         table_name=src_entity.name,
@@ -1479,3 +1516,11 @@ def explain_aggregate_command(
         console.print(f"FROM {parts[1]}")
     console.print("")
     console.print(f"[bold]Params:[/bold] {params}")
+    if derived_dict:
+        console.print(
+            "\n[bold]Post-aggregation (Python, #1359)[/bold] "
+            "([dim]evaluated per bucket over the metric values above — "
+            "zero extra queries; division by zero → 0[/dim])"
+        )
+        for name, expr in derived_dict.items():
+            console.print(f"  {name} = {expr}")

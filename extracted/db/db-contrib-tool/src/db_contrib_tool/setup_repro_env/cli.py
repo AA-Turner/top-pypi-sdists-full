@@ -211,7 +211,7 @@ def setup_logging(debug: bool = False) -> None:
 )
 @click.option(
     "--releaseFeedSource",
-    "release_source",
+    "release_feed_source",
     type=click.Choice([s.value for s in ReleaseSource], case_sensitive=False),
     default=ReleaseSource.PUBLIC_FEED.value,
     show_default=True,
@@ -266,7 +266,7 @@ def setup_repro_env(
     require_push: bool,
     resmoke_cmd: str,
     fallback_to_master: bool,
-    release_source: str,
+    release_feed_source: str,
     evg_versions_file: str,
     extract_downloads: bool,
     binaries_name: str,
@@ -346,14 +346,14 @@ def setup_repro_env(
         evg_versions_file=evg_versions_file,
     )
     evg_api = get_evergreen_api(evergreen_config)
-    release_source_enum = ReleaseSource(release_source.lower())
+    release_feed_source_enum = ReleaseSource(release_feed_source.lower())
 
     def dependencies(binder: inject.Binder) -> None:
         """Define dependencies for execution."""
         binder.bind(SetupReproEnvConfig, SETUP_REPRO_ENV_CONFIG)
         binder.bind(EvergreenApi, evg_api)
         binder.bind(ResmokeProxy, ResmokeProxy.with_cmd(resmoke_cmd))
-        binder.bind(ReleaseFeedProvider, release_feed_provider_for(release_source_enum))
+        binder.bind(ReleaseFeedProvider, release_feed_provider_for(release_feed_source_enum))
 
     inject.configure(dependencies)
     setup_repro_orchestrator = inject.instance(SetupReproOrchestrator)

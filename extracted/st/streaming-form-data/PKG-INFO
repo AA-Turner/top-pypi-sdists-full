@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: streaming-form-data
-Version: 2.0.0
+Version: 2.1.0
 Summary: Streaming parser for multipart/form-data
 Author-email: Siddhant Goel <me@sgoel.dev>
 Project-URL: Homepage, https://github.com/siddhantgoel/streaming-form-data
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown

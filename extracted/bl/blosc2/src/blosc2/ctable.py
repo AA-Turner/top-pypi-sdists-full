@@ -819,6 +819,34 @@ class Column:
         return col is not None and isinstance(col.spec, NDArraySpec)
 
     @property
+    def raw(self):
+        """The underlying storage container for this column, without null-value processing.
+
+        Returns the raw :class:`blosc2.NDArray`, :class:`~blosc2.ListArray`,
+        :class:`~blosc2.DictionaryColumn`, or scalar varlen array directly.
+        Unlike :meth:`__getitem__`, which always materializes NumPy arrays,
+        this is the column as a blosc2-native compressed object: usable as a
+        lazy-expression operand without decompressing, and exposing storage
+        details such as ``schunk``, ``chunks``, ``cparams`` or
+        ``iterchunks_info()``.
+
+        This is a physical view of the column: fixed-width containers are
+        over-allocated to chunk capacity for appends, so their first axis is
+        longer than ``len(column)`` and positions of rows deleted from the
+        table still hold their old values.  No validity-mask or null-sentinel
+        processing is applied; use the :class:`Column` interface for logical
+        reads.
+
+        Raises :exc:`AttributeError` for computed (virtual) columns, which have
+        no backing storage.
+        """
+        if self.is_computed:
+            raise AttributeError(
+                f"Column {self._col_name!r} is a computed column and has no underlying array"
+            )
+        return self._raw_col
+
+    @property
     def _valid_rows(self):
         if self._mask is None:
             return self._table._valid_rows
@@ -2711,18 +2739,34 @@ class _LazyColumnDict(dict):
     the column payloads.
     """
 
-    def __init__(self, table: CTable, storage: TableStorage, col_names: list[str]):
+    def __init__(
+        self,
+        table: CTable,
+        storage: TableStorage,
+        col_names: list[str],
+        *,
+        source_cols: dict | None = None,
+    ):
         super().__init__()
         self._table = table
         self._storage = storage
         self._col_names = list(col_names)
         self._available = set(col_names)
+        # When set, columns are projected lazily from another table's ``_cols``
+        # mapping (e.g. a ``select()`` view) instead of opened from storage.
+        # The source mapping itself opens on demand, so the same NDArray object
+        # is shared (no copy) — identical to eager projection, just deferred.
+        self._source_cols = source_cols
 
     def _load(self, name: str):
         if name not in self._available:
             raise KeyError(name)
         if not dict.__contains__(self, name):
-            dict.__setitem__(self, name, self._table._open_column_from_storage(self._storage, name))
+            if self._source_cols is not None:
+                value = self._source_cols[name]
+            else:
+                value = self._table._open_column_from_storage(self._storage, name)
+            dict.__setitem__(self, name, value)
         return dict.__getitem__(self, name)
 
     def _load_all(self) -> None:
@@ -3901,6 +3945,28 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
             + self._format_display_row(values, widths, col_names, float_precisions)
         )
 
+    def _prewarm_display_cache(self, display_cols: list[str], head_pos, tail_pos) -> None:
+        """Pre-populate the render cache with one combined head+tail gather/col.
+
+        Each storage column is then sparse-read a single time (for head ∪ tail)
+        instead of once per slice; the values are split back so the
+        ``(col, id(head_pos))`` and ``(col, id(tail_pos))`` lookups made by
+        precision detection, width sizing and row rendering all hit the cache.
+        Only pays off when both slices are non-empty.
+        """
+        cache = getattr(self, "_display_fetch_cache", None)
+        if cache is None or len(head_pos) == 0 or len(tail_pos) == 0:
+            return
+        real_cols = [n for n in display_cols if n != "..." and (n in self._cols or n in self._computed_cols)]
+        if not real_cols:
+            return
+        nh = len(head_pos)
+        combined = np.concatenate([head_pos, tail_pos])
+        for name in real_cols:
+            vals = self._fetch_col_at_positions_uncached(name, combined)
+            cache[(name, id(head_pos))] = vals[:nh]
+            cache[(name, id(tail_pos))] = vals[nh:]
+
     def _rows_to_dicts(self, positions, col_names: list[str] | None = None) -> list[dict]:
         if len(positions) == 0:
             return []
@@ -4116,10 +4182,26 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
         nrows = self._n_rows
         ncols = len(self.col_names)
         head_pos, tail_pos, hidden = self._display_positions()
+        # Memoise per-column sparse gathers for the duration of this render so
+        # the repeated (column, head_pos/tail_pos) lookups across precision,
+        # width and row formatting only touch storage once.  head_pos/tail_pos
+        # stay referenced below, so keying the cache on their id() is safe.
+        self._display_fetch_cache = {}
+        try:
+            return self._to_string_body(display_index, index_name, nrows, ncols, head_pos, tail_pos, hidden)
+        finally:
+            self._display_fetch_cache = None
+
+    def _to_string_body(self, display_index, index_name, nrows, ncols, head_pos, tail_pos, hidden) -> str:
         index_width = self._display_index_width(nrows, hidden, index_name) if display_index else 0
         display_cols, hidden_cols = self._display_columns(
             display_index=display_index, index_width=index_width
         )
+        # Warm the fetch cache with a single combined head+tail gather per column.
+        # head_pos/tail_pos land in different blocks, but folding them into one
+        # sparse read still halves the per-call gather overhead vs reading head
+        # and tail separately (and every downstream consumer hits the cache).
+        self._prewarm_display_cache(display_cols, head_pos, tail_pos)
         fancy = _CTABLE_PRINT_OPTIONS["fancy"]
         float_precisions = {} if fancy else self._compact_float_precisions(display_cols, head_pos, tail_pos)
         widths = (
@@ -5148,8 +5230,12 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
         obj._summary_indexes_built = True  # views never build indexes
         obj.base = self
 
-        # Stored columns — same NDArray objects, no copy
-        obj._cols = {name: self._cols[name] for name in cols if name in self._cols}
+        # Stored columns — same NDArray objects, no copy.  Project lazily so a
+        # column is only opened when the view actually reads it: selecting then
+        # touching a subset (or aggregating one column) no longer opens every
+        # projected column up front.
+        stored_names = [name for name in cols if name in self._cols]
+        obj._cols = _LazyColumnDict(obj, self._storage, stored_names, source_cols=self._cols)
         obj.col_names = list(cols)
         obj._materialized_cols = {
             name: dict(self._materialized_cols[name]) for name in cols if name in self._materialized_cols
@@ -7844,7 +7930,25 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
         return re.sub(r"\bo(\d+)\b", _sub, cc["expression"])
 
     def _fetch_col_at_positions(self, name: str, positions: np.ndarray):
-        """Fetch values at *positions* (physical indices) — used for display."""
+        """Fetch values at *positions* (physical indices) — used for display.
+
+        During a single ``to_string()`` call the same ``(column, positions)``
+        pair is requested repeatedly — by float-precision detection, column
+        width sizing and the final row rendering — all sharing the same
+        ``head_pos``/``tail_pos`` arrays.  When ``to_string`` installs a
+        ``_display_fetch_cache`` we memoise the sparse gather (keyed by the
+        positions array identity) so each column is read from storage once
+        instead of ~6 times.
+        """
+        cache = getattr(self, "_display_fetch_cache", None)
+        if cache is None:
+            return self._fetch_col_at_positions_uncached(name, positions)
+        key = (name, id(positions))
+        if key not in cache:
+            cache[key] = self._fetch_col_at_positions_uncached(name, positions)
+        return cache[key]
+
+    def _fetch_col_at_positions_uncached(self, name: str, positions: np.ndarray):
         cc = self._computed_cols.get(name)
         if cc is not None:
             if len(positions) == 0:
@@ -8548,6 +8652,25 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
                 "jit_backend": obj.kwargs.get("jit_backend"),
             }
         lazy, col_deps = self._normalize_expression_transformer(obj)
+        # Guard: verify the expression string round-trips before storing.
+        # An empty string means the LazyExpr was not fully constructed, and a
+        # malformed string would silently break on reload.  Catching both here
+        # gives an early, actionable error instead of a confusing failure later.
+        expression = lazy.expression
+        if not expression:
+            raise ValueError(
+                "The computed-column expression serializes to an empty string "
+                "and cannot be persisted. Make sure the lambda returns a "
+                "blosc2 expression built from table columns (e.g. cols['x'] * 2)."
+            )
+        try:
+            _ops = {f"o{i}": self._cols[dep] for i, dep in enumerate(col_deps)}
+            blosc2.lazyexpr(expression, _ops)
+        except Exception as exc:
+            raise ValueError(
+                f"The computed-column expression {expression!r} cannot be safely "
+                f"persisted and reloaded: {exc}"
+            ) from exc
         return {"kind": "expression", "lazy": lazy, "col_deps": col_deps}
 
     def _dsl_result_dtype(self, kernel, col_deps, dtype):

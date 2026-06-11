@@ -39,13 +39,23 @@ from .helpers import (
 from .reference_validator import validate_config_references
 from .util_helpers import (
     apply_entity_category,
-    coerce_bool_param,
+    attach_skill_content,
+    augment_error_dict_with_skill_content,
+    augment_tool_error_with_skill_content,
     fetch_entity_category,
     merge_validation_meta,
     parse_json_param,
     wait_for_entity_registered,
     wait_for_entity_removed,
 )
+
+# No scene-specific reference file exists in home-assistant-best-practices;
+# SKILL.md is the top-level generic best-practice doc covering entity-naming,
+# safe-refactoring, and helper-vs-template trade-offs the agent benefits
+# from when authoring scenes. Scenes have NO actions/conditions/triggers
+# (only an ``entities`` state-snapshot dict) so the automation/script
+# reference files don't apply.
+_SCENE_SKILL_FILES: tuple[str, ...] = ("SKILL.md",)
 
 logger = logging.getLogger(__name__)
 
@@ -233,8 +243,7 @@ class ConfigSceneTools:
                 message="scene_id must not be empty",
                 suggestions=[
                     "Pass a non-empty scene identifier (e.g. 'movie_night')",
-                    "Use ha_search_entities(domain_filter='scene') "
-                    "to find existing scene_ids",
+                    "Use ha_search(domain_filter='scene') to find existing scene_ids",
                 ],
                 context={"scene_id": scene_id},
             )
@@ -279,11 +288,15 @@ class ConfigSceneTools:
                     "entity_id": f"scene.{scene_id.removeprefix('scene.')}",
                 },
                 suggestions=[
-                    "Verify scene_id exists using ha_search_entities(domain_filter='scene')",
+                    "Verify scene_id exists using ha_search(domain_filter='scene')",
                     "Check Home Assistant connection",
                     "Use ha_get_skill_guide for help",
                 ],
             )
+            # ``exception_to_structured_error`` always raises (NoReturn); this
+            # explicit raise makes the function's exit unambiguous (no implicit
+            # ``return None`` fall-through) and is never reached at runtime.
+            raise
 
     async def _get_scene_config_internal(
         self, scene_id: str
@@ -424,7 +437,7 @@ class ConfigSceneTools:
             str, Field(description="Scene identifier (e.g., 'movie_night')")
         ],
         config: Annotated[
-            str | dict[str, Any] | None,
+            dict[str, Any] | None,
             Field(
                 description=(
                     "Scene configuration dictionary. Must include 'entities' "
@@ -472,7 +485,7 @@ class ConfigSceneTools:
             ),
         ] = None,
         wait: Annotated[
-            bool | str,
+            bool,
             Field(
                 description=(
                     "Wait for scene to be queryable before returning. Default: True. "
@@ -481,9 +494,13 @@ class ConfigSceneTools:
                 default=True,
             ),
         ] = True,
+        MandatoryBPS: Annotated[
+            bool,
+            Field(default=True),
+        ] = True,
     ) -> dict[str, Any]:
         """
-        Create or update a Home Assistant scene.
+        Create or update a Home Assistant scene. MUST call ha_get_skill_guide first.
 
         Supports two modes: full config replacement (``config``) or
         Python transformation of an existing scene (``python_transform``).
@@ -501,7 +518,7 @@ class ConfigSceneTools:
           service="turn_on", target=...) — this tool only manages scene
           *configuration*, not the runtime turn-on/off side.
         - To list or look up existing scenes, use
-          ha_search_entities(domain_filter="scene") or ha_deep_search.
+          ha_search(domain_filter="scene").
 
         SCENE SHAPE: ``entities`` is a dict keyed by entity_id (e.g.,
         ``{'light.kitchen': {'state': 'on', 'brightness': 200}}``), NOT a
@@ -518,7 +535,11 @@ class ConfigSceneTools:
             "icon": "mdi:movie",
         })
 
-        For detailed scene configuration help, use ha_get_skill_guide.
+        The top-level ``SKILL.md`` for home-assistant-best-practices ships in
+        this response under ``skill_content`` by default — generic
+        best-practice index covering entity-naming and
+        safe-refactoring patterns that intersect with scene authoring. For
+        detailed scene configuration help beyond that, use ha_get_skill_guide.
         """
         try:
             # Issue #1168 R6 blocker 16: empty ``scene_id`` pre-flight before
@@ -723,9 +744,8 @@ class ConfigSceneTools:
                 # post-upsert finalisation the full-config branch runs. Without
                 # these, ``wait`` and ``category`` are silently dropped on
                 # python_transform calls.
-                wait_bool = coerce_bool_param(wait, "wait", default=True)
                 entity_id = await self._resolve_scene_entity_id(resolved_id)
-                if wait_bool:
+                if wait:
                     try:
                         registered = await wait_for_entity_registered(
                             self._client, entity_id
@@ -766,6 +786,12 @@ class ConfigSceneTools:
                     "python_expression": python_transform,
                     "message": f"Scene {resolved_id} updated via Python transform",
                 }
+                attach_skill_content(
+                    response,
+                    MandatoryBPS=MandatoryBPS,
+                    canonical_files=_SCENE_SKILL_FILES,
+                    referenced_files=None,
+                )
                 return response
 
             if config is None:
@@ -841,8 +867,7 @@ class ConfigSceneTools:
             entity_id = await self._resolve_scene_entity_id(resolved_id)
 
             # Wait for scene to be queryable
-            wait_bool = coerce_bool_param(wait, "wait", default=True)
-            if wait_bool:
+            if wait:
                 try:
                     registered = await wait_for_entity_registered(
                         self._client, entity_id
@@ -877,25 +902,38 @@ class ConfigSceneTools:
             # ``result["scene_id"]`` is also the storage key (from
             # rest_client); explicit assignment after the spread guards
             # against any future result-shape drift.
-            return {
+            response = {
                 "success": True,
                 **result,
                 "scene_id": resolved_id,
             }
+            # attach AFTER the outer dict is built so hint lands at
+            # position 0 of the FINAL response (see
+            # util_helpers._SKILL_CONTENT_OPTOUT_HINT).
+            attach_skill_content(
+                response,
+                MandatoryBPS=MandatoryBPS,
+                canonical_files=_SCENE_SKILL_FILES,
+                referenced_files=None,
+            )
+            return response
 
-        except ToolError:
-            raise
+        except ToolError as te:
+            raise augment_tool_error_with_skill_content(te, bp_warnings=None) from None
         except Exception as e:
-            exception_to_structured_error(
+            error = exception_to_structured_error(
                 e,
                 context={"scene_id": scene_id},
                 suggestions=[
                     "Ensure config includes an 'entities' field (a dict keyed by entity_id)",
                     "Scene shape: {'entities': {'light.kitchen': {'state': 'on'}}}",
-                    "Use ha_search_entities(domain_filter='scene') to find scenes",
+                    "Use ha_search(domain_filter='scene') to find scenes",
                     "Use ha_get_skill_guide for help",
                 ],
+                raise_error=False,
             )
+            augment_error_dict_with_skill_content(error, bp_warnings=None)
+            raise_tool_error(error)
 
     @tool(
         name="ha_config_remove_scene",
@@ -914,7 +952,7 @@ class ConfigSceneTools:
             str, Field(description="Scene identifier to delete (e.g., 'old_scene')")
         ],
         wait: Annotated[
-            bool | str,
+            bool,
             Field(
                 description="Wait for scene to be fully removed before returning. Default: True.",
                 default=True,
@@ -950,8 +988,7 @@ class ConfigSceneTools:
                 message="scene_id must not be empty",
                 suggestions=[
                     "Pass a non-empty scene identifier (e.g. 'old_scene')",
-                    "Use ha_search_entities(domain_filter='scene') "
-                    "to find existing scene_ids",
+                    "Use ha_search(domain_filter='scene') to find existing scene_ids",
                 ],
                 context={"scene_id": scene_id},
             )
@@ -970,8 +1007,7 @@ class ConfigSceneTools:
 
             result = await self._client.delete_scene_config(resolved_id)
 
-            wait_bool = coerce_bool_param(wait, "wait", default=True)
-            if wait_bool:
+            if wait:
                 try:
                     removed = await wait_for_entity_removed(self._client, entity_id)
                     if not removed:
@@ -996,11 +1032,15 @@ class ConfigSceneTools:
                 e,
                 context={"scene_id": scene_id},
                 suggestions=[
-                    "Verify scene_id exists using ha_search_entities(domain_filter='scene')",
+                    "Verify scene_id exists using ha_search(domain_filter='scene')",
                     "Check if scene is being used by automations or scripts",
                     "Use ha_get_skill_guide for help",
                 ],
             )
+            # ``exception_to_structured_error`` always raises (NoReturn); this
+            # explicit raise makes the function's exit unambiguous (no implicit
+            # ``return None`` fall-through) and is never reached at runtime.
+            raise
 
 
 def register_config_scene_tools(mcp: Any, client: Any, **kwargs: Any) -> None:

@@ -21,6 +21,7 @@ import logging
 from typing import Any
 
 from cliff import columns as cliff_columns
+from openstack.network.v2 import port as _port
 from osc_lib.cli import format_columns
 from osc_lib.cli import parseractions
 from osc_lib import exceptions
@@ -28,6 +29,7 @@ from osc_lib import utils
 from osc_lib.utils import tags as _tag
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 from openstackclient.network import common
@@ -74,7 +76,9 @@ _list_formatters = copy.deepcopy(_formatters)
 _list_formatters.update({'trunk_details': SubPortColumn})
 
 
-def _get_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_columns(
+    item: _port.Port,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     column_data_mapping = {
         'admin_state_up': 'is_admin_state_up',
         'allowed_address_pairs': 'allowed_address_pairs',
@@ -105,6 +109,8 @@ def _get_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
         'port_security_enabled': 'is_port_security_enabled',
         'project_id': 'project_id',
         'propagate_uplink_status': 'propagate_uplink_status',
+        'pvlan_type': 'pvlan_type',
+        'pvlan_community': 'pvlan_community',
         'resource_request': 'resource_request',
         'revision_number': 'revision_number',
         'qos_network_policy_id': 'qos_network_policy_id',
@@ -189,8 +195,6 @@ def _get_attrs(
     if 'network' in parsed_args and parsed_args.network is not None:
         attrs['network_id'] = parsed_args.network
     if 'project' in parsed_args and parsed_args.project is not None:
-        # TODO(singhj): since 'project' logic is common among
-        # router, network, port etc., maybe move it to a common file.
         identity_client = client_manager.identity
         project_id = identity_common.find_project(
             identity_client,
@@ -256,7 +260,46 @@ def _get_attrs(
     if parsed_args.trusted:
         attrs['trusted'] = True
 
+    if 'pvlan_type' in parsed_args and parsed_args.pvlan_type is not None:
+        attrs['pvlan_type'] = parsed_args.pvlan_type
+    if (
+        'pvlan_community' in parsed_args
+        and parsed_args.pvlan_community is not None
+    ):
+        attrs['pvlan_community'] = parsed_args.pvlan_community
+
+    _validate_pvlan_port(attrs)
+
     return attrs
+
+
+def _validate_pvlan_port(attrs: dict[str, Any]) -> None:
+    if (attrs.get('pvlan_type') or attrs.get('pvlan_community')) and attrs.get(
+        'port_security_enabled'
+    ) is False:
+        msg = _(
+            "PVLAN attributes cannot be set when port security is disabled."
+        )
+        raise exceptions.CommandError(msg)
+
+    if attrs.get('pvlan_type') == 'community' and not attrs.get(
+        'pvlan_community'
+    ):
+        msg = _(
+            "--pvlan-community is required when --pvlan-type is 'community'."
+        )
+        raise exceptions.CommandError(msg)
+
+
+def _validate_pvlan_network_port(attrs: dict[str, Any], network: Any) -> None:
+    if not (attrs.get('pvlan_type') or attrs.get('pvlan_community')):
+        return
+    if not network.pvlan:
+        msg = _(
+            "PVLAN attributes cannot be set on a port whose "
+            "network does not have PVLAN enabled."
+        )
+        raise exceptions.CommandError(msg)
 
 
 def _prepare_fixed_ips(
@@ -445,10 +488,28 @@ def _add_updatable_args(
             "which expect it in this dictionary (for example, Nova)."
         ),
     )
+    parser.add_argument(
+        '--pvlan-type',
+        metavar='<type>',
+        choices=['promiscuous', 'isolated', 'community'],
+        dest='pvlan_type',
+        help=_(
+            "Set Private VLAN type for this port. Requires PVLAN service "
+            "plugin. Default: promiscuous."
+        ),
+    )
+    parser.add_argument(
+        '--pvlan-community',
+        metavar='<community>',
+        dest='pvlan_community',
+        help=_(
+            "Set PVLAN community name for this port. "
+            "Only applies when pvlan-type is 'community'. "
+            "Requires PVLAN service plugin. Default: None."
+        ),
+    )
 
 
-# TODO(abhiraut): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 def _convert_address_pairs(
     parsed_args: argparse.Namespace,
 ) -> list[dict[str, Any]]:
@@ -732,6 +793,8 @@ class CreatePort(command.ShowOne, common.NeutronCommandWithExtraArgs):
             self._parse_extra_properties(parsed_args.extra_properties)
         )
 
+        _validate_pvlan_network_port(attrs, network)
+
         with common.check_missing_extension_if_error(network_client, attrs):
             obj = network_client.create_port(**attrs)
 
@@ -785,8 +848,6 @@ class DeletePort(command.Command):
             raise exceptions.CommandError(msg)
 
 
-# TODO(abhiraut): Use only the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class ListPort(command.Lister):
     _description = _("List ports")
 
@@ -886,6 +947,7 @@ class ListPort(command.Lister):
             ),
         )
         _tag.add_tag_filtering_option_to_parser(parser, _('ports'))
+        pagination.add_marker_pagination_option_to_parser(parser)
         return parser
 
     def take_action(
@@ -917,7 +979,6 @@ class ListPort(command.Lister):
             column_headers.extend(
                 ['Security Groups', 'Device Owner', 'Tags', 'Trunk subports']
             )
-
         if parsed_args.device_owner is not None:
             filters['device_owner'] = parsed_args.device_owner
         if parsed_args.device_id is not None:
@@ -960,6 +1021,12 @@ class ListPort(command.Lister):
             )
         if parsed_args.security_groups:
             filters['security_group_ids'] = parsed_args.security_groups
+        if parsed_args.marker is not None:
+            filters['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            filters['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            filters['max_items'] = parsed_args.max_items
 
         _tag.get_tag_filtering_args(parsed_args, filters)
 
@@ -984,8 +1051,6 @@ class ListPort(command.Lister):
         )
 
 
-# TODO(abhiraut): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class SetPort(common.NeutronCommandWithExtraArgs):
     _description = _("Set port properties")
 
@@ -1232,6 +1297,10 @@ class SetPort(common.NeutronCommandWithExtraArgs):
             self._parse_extra_properties(parsed_args.extra_properties)
         )
 
+        if attrs.get('pvlan_type') or attrs.get('pvlan_community'):
+            network = client.find_network(obj.network_id, ignore_missing=False)
+            _validate_pvlan_network_port(attrs, network)
+
         if attrs:
             with common.check_missing_extension_if_error(
                 self.app.client_manager.network, attrs
@@ -1262,8 +1331,6 @@ class ShowPort(command.ShowOne):
         return (display_columns, data)
 
 
-# TODO(abhiraut): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class UnsetPort(common.NeutronUnsetCommandWithExtraArgs):
     _description = _("Unset port properties")
 
@@ -1355,6 +1422,13 @@ class UnsetPort(common.NeutronUnsetCommandWithExtraArgs):
             default=False,
             help=_("Clear device owner for the port."),
         )
+        parser.add_argument(
+            '--pvlan-community',
+            action='store_true',
+            default=False,
+            dest='pvlan_community',
+            help=_("Clear PVLAN community name for the port."),
+        )
         _tag.add_tag_option_to_parser_for_unset(parser, _('port'))
         parser.add_argument(
             'port',
@@ -1425,6 +1499,8 @@ class UnsetPort(common.NeutronUnsetCommandWithExtraArgs):
             attrs['device_id'] = ''
         if parsed_args.device_owner:
             attrs['device_owner'] = ''
+        if parsed_args.pvlan_community:
+            attrs['pvlan_community'] = None
 
         attrs.update(
             self._parse_extra_properties(parsed_args.extra_properties)

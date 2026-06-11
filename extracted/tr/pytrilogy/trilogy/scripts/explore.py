@@ -18,7 +18,7 @@ import click
 
 from trilogy.constants import DEFAULT_NAMESPACE
 from trilogy.core.models.author import Concept
-from trilogy.core.models.environment import Environment
+from trilogy.core.models.environment import Environment, Import
 from trilogy.parser import parse_text
 from trilogy.scripts.display import emit_event, is_json_mode, print_error, print_info
 
@@ -277,6 +277,8 @@ def _emit_imported_summary(
     chains keep their full dotted namespace (``store_sales.customer``)."""
     by_ns: dict[str, list[str]] = defaultdict(list)
     for addr, c in imported_items:
+        if c.namespace.startswith("__"):  # internal model — never expose
+            continue
         by_ns[c.namespace].append(_display_address(addr))
     click.echo()
     print_info(
@@ -452,6 +454,71 @@ def _grouped_decls(
     return out
 
 
+def _import_entry(alias: str, stmt: Import) -> dict[str, str] | None:
+    """One structured import-listing entry, or ``None`` to drop it. Internal
+    ``__``-prefixed models are never exposed. The default-namespace alias
+    (``local`` — a no-alias ``import std.date;``) is omitted rather than shown,
+    and an empty trailing-comment description is dropped entirely."""
+    path = str(stmt.path)
+    if path.startswith("__") or alias.startswith("__"):
+        return None
+    entry: dict[str, str] = {}
+    if alias and alias != DEFAULT_NAMESPACE:
+        entry["alias"] = alias
+    entry["path"] = path
+    desc = (stmt.description or "").strip()
+    if desc:
+        entry["description"] = desc
+    return entry
+
+
+def build_concepts_payload(
+    env: Environment,
+    concept_items: list[tuple[str, Concept]],
+    expand_imports: bool = False,
+    import_descriptions: dict[str, str] | None = None,
+) -> dict:
+    """Build the JSON-serializable concept dump: local namespaces rendered in
+    full Trilogy declaration syntax, imported namespaces collapsed to a
+    name-only list (unless ``expand_imports``) so a fact file's dozens of
+    inherited dimensions don't drown the local declarations. ``None``-valued
+    keys are dropped so the payload stays compact whether emitted as a JSON
+    event or embedded in an agent prompt."""
+    if expand_imports:
+        local_items, imported_items = concept_items, []
+    else:
+        local_items = [
+            (a, c) for a, c in concept_items if c.namespace == DEFAULT_NAMESPACE
+        ]
+        imported_items = [
+            (a, c) for a, c in concept_items if c.namespace != DEFAULT_NAMESPACE
+        ]
+    # Imported namespaces collapse to ONE comma-joined line of bare leaf
+    # names (the `<ns>.` prefix is in the key, so repeating it per leaf —
+    # let alone one leaf per pretty-printed line — just burns tokens). The
+    # agent reaches a concept as `<ns>.<leaf>`; drill in with --regex.
+    imported: dict[str, list[str]] = defaultdict(list)
+    for addr, c in sorted(imported_items, key=lambda kc: kc[0]):
+        if c.namespace.startswith("__"):  # internal model — never expose
+            continue
+        disp = _display_address(addr)
+        prefix = f"{c.namespace}."
+        leaf = disp[len(prefix) :] if disp.startswith(prefix) else disp
+        if leaf.startswith("_"):  # internal/intermediate concept — hide
+            continue
+        imported[c.namespace].append(leaf)
+    imported_joined = {
+        ns: ", ".join(imported[ns]) for ns in sorted(imported) if imported[ns]
+    }
+    payload = {
+        "count": len(concept_items),
+        "namespaces": _grouped_decls(env, local_items) or None,
+        "imported": imported_joined or None,
+        "import_descriptions": import_descriptions or None,
+    }
+    return {k: v for k, v in payload.items() if v is not None}
+
+
 def _emit_explore_json(
     env: Environment,
     concept_items: list[tuple[str, Concept]],
@@ -465,36 +532,12 @@ def _emit_explore_json(
     to a name-only list (unless ``--expand-imports``/``--regex``) so a fact
     file's dozens of inherited dimensions don't drown the local declarations."""
     if show in ("all", "groups", "concepts"):
-        if expand_imports:
-            local_items, imported_items = concept_items, []
-        else:
-            local_items = [
-                (a, c) for a, c in concept_items if c.namespace == DEFAULT_NAMESPACE
-            ]
-            imported_items = [
-                (a, c) for a, c in concept_items if c.namespace != DEFAULT_NAMESPACE
-            ]
-        # Imported namespaces collapse to ONE comma-joined line of bare leaf
-        # names (the `<ns>.` prefix is in the key, so repeating it per leaf —
-        # let alone one leaf per pretty-printed line — just burns tokens). The
-        # agent reaches a concept as `<ns>.<leaf>`; drill in with --regex.
-        imported: dict[str, list[str]] = defaultdict(list)
-        for addr, c in sorted(imported_items, key=lambda kc: kc[0]):
-            disp = _display_address(addr)
-            prefix = f"{c.namespace}."
-            leaf = disp[len(prefix) :] if disp.startswith(prefix) else disp
-            if leaf.startswith("_"):  # internal/intermediate concept — hide
-                continue
-            imported[c.namespace].append(leaf)
-        imported_joined = {
-            ns: ", ".join(imported[ns]) for ns in sorted(imported) if imported[ns]
-        }
         emit_event(
             "concepts",
-            count=len(concept_items),
-            namespaces=_grouped_decls(env, local_items) or None,
-            imported=imported_joined or None,
-            import_descriptions=import_descriptions or None,
+            discriminator="type",
+            **build_concepts_payload(
+                env, concept_items, expand_imports, import_descriptions
+            ),
         )
     if show in ("all", "datasources"):
         datasources = [
@@ -504,18 +547,20 @@ def _emit_explore_json(
             }
             for name, ds in sorted(env.datasources.items())
         ]
-        emit_event("datasources", count=len(datasources), datasources=datasources)
+        emit_event(
+            "datasources",
+            discriminator="type",
+            count=len(datasources),
+            datasources=datasources,
+        )
     if show in ("all", "imports"):
-        imports = [
-            {
-                "alias": alias,
-                "path": str(stmt.path),
-                "description": (stmt.description or "").strip() or None,
-            }
-            for alias, stmts in sorted(env.imports.items())
-            for stmt in stmts
-        ]
-        emit_event("imports", count=len(imports), imports=imports)
+        imports = []
+        for alias, stmts in sorted(env.imports.items()):
+            for stmt in stmts:
+                entry = _import_entry(alias, stmt)
+                if entry is not None:
+                    imports.append(entry)
+        emit_event("imports", discriminator="type", count=len(imports), imports=imports)
 
 
 @click.command("explore")
@@ -678,8 +723,15 @@ def explore(
         import_rows = []
         for alias, stmts in sorted(env.imports.items()):
             for stmt in stmts:
+                entry = _import_entry(alias, stmt)
+                if entry is None:
+                    continue
                 import_rows.append(
-                    (alias, str(stmt.path), (stmt.description or "").strip())
+                    (
+                        entry.get("alias", ""),
+                        entry["path"],
+                        entry.get("description", ""),
+                    )
                 )
         _emit_table(
             f"Imports ({len(import_rows)})",

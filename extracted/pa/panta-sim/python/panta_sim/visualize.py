@@ -76,14 +76,26 @@ def _label_for(name: str, params: Sequence[float]) -> str:
     return name.upper()
 
 
+# 블록 제어흐름 op (qubits=() 로 기록됨) — 전체 wire 에 걸친 라벨 box 로 렌더.
+_BLOCK_OPS = ("if_else", "while_loop", "for_loop", "switch")
+
+
 def _markers_for_op(
     op: OpRecord,
+    num_qubits: Optional[int] = None,
 ) -> Tuple[Dict[int, Tuple[str, str]], Tuple[int, int]]:
     """op → ({qubit: (kind, label)}, (qmin, qmax)) 변환.
 
     kind 는 "box" (단일 게이트 / target / SWAP / measure) 또는 "ctrl" (제어 점).
+    ``num_qubits`` 는 블록 제어흐름 op (qubits=()) 의 전체-폭 렌더링에 쓰인다.
     """
     name, qubits, params = op
+    if name in _BLOCK_OPS:
+        # 블록 body 의 내용은 nested ops 라 한 column 에 그릴 수 없다 —
+        # 전체 wire 에 걸친 ``[name]`` 라벨 box placeholder 로 표시.
+        n = num_qubits if num_qubits is not None and num_qubits > 0 else 1
+        label = f"[{name}]"
+        return {q: ("box", label) for q in range(n)}, (0, n - 1)
     if not qubits:
         raise ValueError(f"op {name!r} has no qubits")
     qmin, qmax = min(qubits), max(qubits)
@@ -150,12 +162,13 @@ def _markers_for_op(
         # params = (cbits_tuple, value, inner_name, inner_params).
         _, _, inner_name, inner_params = params
         inner_op = (inner_name, qubits, tuple(inner_params))
-        return _markers_for_op(inner_op)
+        return _markers_for_op(inner_op, num_qubits)
     raise ValueError(f"unsupported op for draw(): {name!r}")
 
 
 def _pack_columns(
     ops: Sequence[OpRecord],
+    num_qubits: Optional[int] = None,
 ) -> List[List[Tuple[OpRecord, Dict[int, Tuple[str, str]], Tuple[int, int]]]]:
     """op 들을 column 으로 packing.
 
@@ -166,7 +179,7 @@ def _pack_columns(
     """
     columns: List[Dict[str, object]] = []
     for op in ops:
-        markers, (qmin, qmax) = _markers_for_op(op)
+        markers, (qmin, qmax) = _markers_for_op(op, num_qubits)
         span = set(range(qmin, qmax + 1))
         if columns:
             last_used: set = columns[-1]["used"]  # type: ignore[assignment]
@@ -216,7 +229,7 @@ def _draw_circuit_text(
         rows = [_prefix(q) + g["wire"] * 4 for q in range(num_qubits)]
         return "\n".join(rows)
 
-    columns = _pack_columns(ops)
+    columns = _pack_columns(ops, num_qubits)
 
     rows = [_prefix(q) for q in range(num_qubits)]
 

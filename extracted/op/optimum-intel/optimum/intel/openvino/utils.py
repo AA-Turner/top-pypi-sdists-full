@@ -32,7 +32,6 @@ from openvino import Core, Model, properties
 from openvino import Type as OVType
 from packaging.version import Version
 from transformers import AutoTokenizer, CLIPTokenizer, PreTrainedTokenizer, PreTrainedTokenizerFast
-from transformers.onnx.utils import ParameterFormat, compute_serialized_parameters_size
 
 from optimum.intel.utils.import_utils import is_torch_version
 
@@ -96,6 +95,7 @@ OV_TO_PT_TYPE = {
     "f16": torch.float16,
     "f32": torch.float32,
     "f64": torch.float64,
+    "bf16": torch.bfloat16,
 }
 
 if is_torch_version(">=", "2.4.0"):
@@ -153,23 +153,34 @@ _HEAD_TO_AUTOMODELS = {
 PREDEFINED_CAUSAL_LANGUAGE_DATASETS = {"wikitext2", "c4", "c4-new", "auto", "gsm8k"}
 
 PREDEFINED_LANGUAGE_DATASETS = {
-    "wikitext2": {"id": "wikitext", "name": "wikitext-2-raw-v1", "split": "train", "streaming": False},
+    "wikitext2": {"id": "Salesforce/wikitext", "name": "wikitext-2-raw-v1", "split": "train", "streaming": False},
     "c4": {"id": "allenai/c4", "name": "en", "split": "train", "streaming": True},
 }
 
 PREDEFINED_SD_DATASETS = {
-    "conceptual_captions": {"split": "train", "prompt_column_name": "caption", "streaming": True},
-    "laion/220k-GPT4Vision-captions-from-LIVIS": {
+    "conceptual_captions": {
+        "id": "google-research-datasets/conceptual_captions",
         "split": "train",
         "prompt_column_name": "caption",
         "streaming": True,
     },
-    "laion/filtered-wit": {"split": "train", "prompt_column_name": "caption", "streaming": True},
+    "laion/220k-GPT4Vision-captions-from-LIVIS": {
+        "id": "laion/220k-GPT4Vision-captions-from-LIVIS",
+        "split": "train",
+        "prompt_column_name": "caption",
+        "streaming": True,
+    },
+    "laion/filtered-wit": {
+        "id": "laion/filtered-wit",
+        "split": "train",
+        "prompt_column_name": "caption",
+        "streaming": True,
+    },
 }
 
 PREDEFINED_TEXT_IMAGE_ENCODER_DATASETS = {
     "conceptual_captions": {
-        "id": "conceptual_captions",
+        "id": "google-research-datasets/conceptual_captions",
         "split": "train",
         "text_column_name": "caption",
         "image_column_name": "image_url",
@@ -226,18 +237,6 @@ def maybe_convert_tokenizer_to_fast(
             return hf_tokenizer
 
     return hf_tokenizer
-
-
-def use_external_data_format(num_parameters: int) -> bool:
-    """
-    Returns whether or not the model requires using external data format for the ONNX export
-    Args:
-        num_parameters: Number of parameter on the model
-    Returns:
-        True if model.num_parameters() * size_of(float32) >= 2Gb False otherwise
-    """
-
-    return compute_serialized_parameters_size(num_parameters, ParameterFormat.Float) >= EXTERNAL_DATA_FORMAT_SIZE_LIMIT
 
 
 def _is_timm_ov_dir(model_dir):
@@ -301,6 +300,14 @@ def np_to_pt_generators(np_object, device):
         return {k: np_to_pt_generators(v, device) for k, v in np_object.items()}
     else:
         return np_object
+
+
+def ensure_numpy(x):
+    if isinstance(x, torch.Tensor):
+        return x.cpu().numpy()
+    if not isinstance(x, (np.ndarray, type(None))):
+        raise TypeError(f"`x` must be a np.ndarray or torch.Tensor, got {type(x)}")
+    return x
 
 
 def _raise_invalid_batch_size(

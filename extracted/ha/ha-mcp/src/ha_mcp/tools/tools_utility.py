@@ -9,9 +9,10 @@ import logging
 import re
 import time
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from fastmcp.exceptions import ToolError
+from pydantic import Field
 
 from .._version import is_running_in_addon
 from ..client.rest_client import (
@@ -23,8 +24,6 @@ from ..errors import ErrorCode, create_error_response
 from .helpers import exception_to_structured_error, log_tool_usage, raise_tool_error
 from .util_helpers import (
     add_timezone_metadata,
-    coerce_bool_param,
-    coerce_int_param,
     normalize_log_level,
 )
 
@@ -83,29 +82,23 @@ class UtilityTools:
 
     @staticmethod
     def _coerce_limit(
-        limit: int | str | None,
+        limit: int | None,
         default: int = DEFAULT_LIMIT,
         suggestion_example: str = "50",
     ) -> int:
-        """Coerce and validate a limit parameter, raising a structured tool error on failure."""
-        try:
-            return coerce_int_param(
-                limit,
-                param_name="limit",
-                default=default,
-                min_value=1,
-                max_value=MAX_LIMIT,
-            )
-        except ValueError as e:
+        """Validate a limit parameter, raising a structured tool error on failure."""
+        effective = limit if limit is not None else default
+        if effective < 1:
             raise_tool_error(
                 create_error_response(
                     ErrorCode.VALIDATION_INVALID_PARAMETER,
-                    str(e),
+                    f"limit must be at least 1, got {effective}",
                     suggestions=[
                         f"Provide limit as an integer (e.g., {suggestion_example})"
                     ],
                 )
             )
+        return min(effective, MAX_LIMIT)
 
     @staticmethod
     def _validate_log_level(level: str | None) -> str | None:
@@ -179,7 +172,7 @@ class UtilityTools:
                         suggestions=[
                             "Pick a valid service name (e.g. 'supervisor', 'host')",
                             "For add-on container logs use source='supervisor' with "
-                            "the add-on slug instead",
+                            + "the add-on slug instead",
                         ],
                     )
                 )
@@ -198,13 +191,13 @@ class UtilityTools:
     async def _fetch_log_source(
         self,
         source: str,
-        limit: int | str | None,
+        limit: int | None,
         search: str | None,
-        hours_back: int | str,
+        hours_back: int,
         entity_id: str | None,
         end_time: str | None,
-        offset: int | str,
-        compact: bool | str,
+        offset: int,
+        compact: bool,
         level: str | None,
         slug: str | None,
     ) -> dict[str, Any]:
@@ -235,13 +228,13 @@ class UtilityTools:
     async def get_logs(
         self,
         source: str,
-        limit: int | str | None,
+        limit: int | None,
         search: str | None,
-        hours_back: int | str,
+        hours_back: int,
         entity_id: str | None,
         end_time: str | None,
-        offset: int | str,
-        compact: bool | str,
+        offset: int,
+        compact: bool,
         level: str | None,
         slug: str | None,
     ) -> dict[str, Any]:
@@ -266,42 +259,12 @@ class UtilityTools:
 
     @staticmethod
     def _coerce_logbook_params(
-        hours_back: int | str,
-        limit: int | str | None,
-        offset: int | str,
+        hours_back: int,
+        limit: int | None,
+        offset: int,
     ) -> tuple[int, int, int]:
-        try:
-            hours_back_int = coerce_int_param(
-                hours_back,
-                param_name="hours_back",
-                default=1,
-                min_value=1,
-            )
-        except ValueError as e:
-            raise_tool_error(
-                create_error_response(
-                    ErrorCode.VALIDATION_INVALID_PARAMETER,
-                    str(e),
-                    suggestions=["Provide hours_back as an integer (e.g., 24)"],
-                )
-            )
         effective_limit = UtilityTools._coerce_limit(limit)
-        try:
-            offset_int = coerce_int_param(
-                offset,
-                param_name="offset",
-                default=0,
-                min_value=0,
-            )
-        except ValueError as e:
-            raise_tool_error(
-                create_error_response(
-                    ErrorCode.VALIDATION_INVALID_PARAMETER,
-                    str(e),
-                    suggestions=["Provide offset as an integer (e.g., 0)"],
-                )
-            )
-        return hours_back_int, effective_limit, offset_int
+        return hours_back, effective_limit, offset
 
     @staticmethod
     def _build_pagination_hint(
@@ -338,17 +301,15 @@ class UtilityTools:
 
     async def _get_logbook(
         self,
-        hours_back: int | str = 1,
+        hours_back: int = 1,
         entity_id: str | None = None,
         end_time: str | None = None,
-        limit: int | str | None = None,
-        offset: int | str = 0,
+        limit: int | None = None,
+        offset: int = 0,
         search: str | None = None,
-        compact: bool | str = True,
+        compact: bool = True,
     ) -> dict[str, Any]:
         """Fetch logbook entries with search and pagination."""
-        compact_bool = coerce_bool_param(compact, "compact", default=True)
-        assert compact_bool is not None  # default=True guarantees non-None
         hours_back_int, effective_limit, offset_int = self._coerce_logbook_params(
             hours_back, limit, offset
         )
@@ -390,7 +351,7 @@ class UtilityTools:
             # In compact mode, strip entries to essential fields only.
             # This prevents full attribute dictionaries from exhausting
             # the LLM context window during debugging workflows.
-            if compact_bool and isinstance(paginated_entries, list):
+            if compact and isinstance(paginated_entries, list):
                 paginated_entries = _compact_logbook_entries(paginated_entries)
 
             logbook_data: dict[str, Any] = {
@@ -421,7 +382,7 @@ class UtilityTools:
                     end_time,
                     entity_id,
                     search,
-                    compact_bool,
+                    compact,
                 )
 
             return await add_timezone_metadata(self._client, logbook_data)
@@ -453,10 +414,11 @@ class UtilityTools:
                 },
                 suggestions=suggestions,
             )
+            raise  # unreachable: exception_to_structured_error always raises
 
     async def _get_system_log(
         self,
-        limit: int | str | None = None,
+        limit: int | None = None,
         search: str | None = None,
         level: str | None = None,
     ) -> dict[str, Any]:
@@ -531,10 +493,11 @@ class UtilityTools:
                     "Verify system_log integration is enabled",
                 ],
             )
+            raise  # unreachable: exception_to_structured_error always raises
 
     async def _get_error_log(
         self,
-        limit: int | str | None = None,
+        limit: int | None = None,
         search: str | None = None,
         level: str | None = None,
     ) -> dict[str, Any]:
@@ -597,6 +560,7 @@ class UtilityTools:
                     "The error log may be empty if no errors have occurred",
                 ],
             )
+            raise  # unreachable: exception_to_structured_error always raises
 
     @staticmethod
     def _parse_logger_entry(entry: Any) -> dict[str, Any] | None:
@@ -617,7 +581,7 @@ class UtilityTools:
 
     async def _get_logger_info(
         self,
-        limit: int | str | None = None,
+        limit: int | None = None,
         search: str | None = None,
     ) -> dict[str, Any]:
         """Fetch per-integration log levels via the ``logger/log_info`` WS command."""
@@ -694,11 +658,12 @@ class UtilityTools:
                     "Verify the 'logger' integration is enabled",
                 ],
             )
+            raise  # unreachable: exception_to_structured_error always raises
 
     async def _get_supervisor_log(
         self,
         slug: str,
-        limit: int | str | None = None,
+        limit: int | None = None,
         search: str | None = None,
     ) -> dict[str, Any]:
         """Fetch add-on container logs.
@@ -812,6 +777,8 @@ class UtilityTools:
                     "Ensure Supervisor is available (HA OS or Supervised install)",
                 ],
             )
+            raise  # unreachable: exception_to_structured_error always raises
+        return None  # py/mixed-returns: explicit terminal; error handlers above always raise (NoReturn), unreachable
 
     @staticmethod
     def _addon_auth_error_suggestions() -> list[str]:
@@ -828,7 +795,7 @@ class UtilityTools:
     async def _get_system_service_log(
         self,
         service: str,
-        limit: int | str | None = None,
+        limit: int | None = None,
         search: str | None = None,
     ) -> dict[str, Any]:
         """Fetch HA system-service logs from Supervisor's per-service endpoint.
@@ -902,16 +869,16 @@ class UtilityTools:
                 if is_running_in_addon():
                     suggestions = [
                         "Addon's hassio_role must be 'manager' or higher to "
-                        "read /<service>/logs",
+                        + "read /<service>/logs",
                         "Verify the addon was reinstalled after the role bump "
-                        "took effect",
+                        + "took effect",
                     ]
                 else:
                     suggestions = [
                         "The Long-Lived Access Token must belong to a user "
-                        "with admin privileges",
+                        + "with admin privileges",
                         "Generate a new LLAT under an admin account and set "
-                        "HOMEASSISTANT_TOKEN to it",
+                        + "HOMEASSISTANT_TOKEN to it",
                     ]
                 exception_to_structured_error(
                     e,
@@ -950,15 +917,12 @@ class UtilityTools:
                     "Ensure Supervisor is available (HA OS or Supervised install)",
                 ],
             )
+            raise  # unreachable: exception_to_structured_error always raises
+        return None  # py/mixed-returns: explicit terminal; error handlers above always raise (NoReturn), unreachable
 
     async def eval_template(
-        self, template: str, timeout: int, report_errors: bool | str
+        self, template: str, timeout: int, report_errors: bool
     ) -> dict[str, Any]:
-        # Coerce boolean parameter that may come as string from XML-style calls
-        report_errors_bool = coerce_bool_param(
-            report_errors, "report_errors", default=True
-        )
-        assert report_errors_bool is not None  # default=True guarantees non-None
 
         try:
             request_id = int(time.time() * 1000) % 1000000  # Simple unique ID
@@ -967,7 +931,7 @@ class UtilityTools:
                 "type": "render_template",
                 "template": template,
                 "timeout": timeout,
-                "report_errors": report_errors_bool,
+                "report_errors": report_errors,
                 "id": request_id,
             }
 
@@ -1042,6 +1006,8 @@ class UtilityTools:
                 context={"template": template},
                 suggestions=suggestions,
             )
+            raise  # unreachable: exception_to_structured_error always raises
+        return None  # py/mixed-returns: explicit terminal; error handlers above always raise (NoReturn), unreachable
 
 
 def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
@@ -1067,14 +1033,14 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             "logger",
         ] = "logbook",
         # Shared parameters
-        limit: int | str | None = None,
+        limit: int | None = None,
         search: str | None = None,
         # Logbook-specific (ignored for other sources)
-        hours_back: int | str = 1,
+        hours_back: Annotated[int, Field(ge=1)] = 1,
         entity_id: str | None = None,
         end_time: str | None = None,
-        offset: int | str = 0,
-        compact: bool | str = True,
+        offset: Annotated[int, Field(ge=0)] = 0,
+        compact: bool = True,
         # System/error_log-specific
         level: str | None = None,
         # Supervisor + system_service-specific (different namespaces)
@@ -1124,7 +1090,7 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
     )
     @log_tool_usage
     async def ha_eval_template(
-        template: str, timeout: int = 3, report_errors: bool | str = True
+        template: str, timeout: int = 3, report_errors: bool = True
     ) -> dict[str, Any]:
         """
         Evaluate Jinja2 templates using Home Assistant's template engine.
@@ -1132,6 +1098,39 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         This tool allows testing and debugging of Jinja2 template expressions that are commonly used in
         Home Assistant automations, scripts, and configurations. It provides real-time evaluation with
         access to all Home Assistant states, functions, and template variables.
+
+        **When NOT to use this for automation/script logic:**
+        Templates have legitimate uses (notification bodies, dynamic `data.*` values,
+        debugging existing templates), but `condition:` / `trigger:` positions and
+        action service names are better expressed as native HA constructs:
+        native constructs are schema-validated at config load and surface
+        structural errors loudly, whereas equivalent template logic only errors
+        at runtime — and a template that renders a non-truthy value is silently
+        treated as false.
+        Prefer:
+        - `condition: numeric_state` over `{{ states('x') | float > N }}`
+        - `condition: state` over `{{ is_state(...) }}`
+        - `condition: time` / `condition: sun` over `now().hour` / `is_state('sun.sun', ...)`
+        - Native `for:` field on state/numeric_state triggers and state conditions over
+          `{{ now() - X.last_changed > timedelta(...) }}` duration math
+        - `choose` action over templated `service:` / `action:` strings
+        See `ha_get_skill_guide` (best-practices skill) for the full anti-pattern list.
+
+        **When to use (reach for this tool, don't compute it yourself):**
+        Any one-shot question whose answer is DERIVED from current HA state — an
+        average/sum/min/max across sensors, a count of entities matching a
+        condition, a boolean comparison, or a rendered message with live values.
+        One render call beats fetching N states and doing the math yourself, and
+        it is the canonical way to *test* a template before embedding it. This is
+        for one-shot answers and template testing only — NOT for putting templates
+        into automation logic; for `condition:` / `trigger:` positions native
+        constructs win.
+        - "average temperature across the bedroom sensors"
+          -> `{{ ([states('sensor.a'), states('sensor.b')] | map('float', 0) | sum) / 2 }}`
+        - "how many lights are on"
+          -> `{{ states.light | selectattr('state', 'eq', 'on') | list | count }}`
+        NOT for a plain single-entity value ("what's the state of X") — that is
+        `ha_get_state` / `ha_search`; rendering `{{ states('X') }}` there is over-use.
 
         **Parameters:**
         - template: The Jinja2 template string to evaluate
@@ -1151,8 +1150,8 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         **Numeric Operations:**
         ```jinja2
         {{ states('sensor.temperature') | float(0) }}   # Convert to float with default
-        {{ states('sensor.humidity') | int }}           # Convert to integer
-        {{ (states('sensor.temp') | float + 5) | round(1) }} # Math operations
+        {{ states('sensor.humidity') | int(0) }}        # Convert to integer with default
+        {{ (states('sensor.temp') | float(0) + 5) | round(1) }} # Math operations
         ```
 
         **Time and Date:**
@@ -1197,20 +1196,6 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         {{ device_id('light.bedroom') }}               # Get device ID for entity
         ```
 
-        **When NOT to use this for automation/script logic:**
-        Templates have legitimate uses (notification bodies, dynamic `data.*` values,
-        debugging existing templates), but `condition:` / `trigger:` positions and
-        action service names are better expressed as native HA constructs — they
-        validate at config load, fail loudly, and avoid silent runtime failures.
-        Prefer:
-        - `condition: numeric_state` over `{{ states('x') | float > N }}`
-        - `condition: state` over `{{ is_state(...) }}`
-        - `condition: time` / `condition: sun` over `now().hour` / `is_state('sun.sun', ...)`
-        - Native `for:` field on state/numeric_state triggers and conditions over
-          `{{ now() - X.last_changed > timedelta(...) }}` duration math
-        - `choose` action over templated `service:` / `action:` strings
-        See `ha_get_skill_guide` (best-practices skill) for the full anti-pattern list.
-
         **Common Use Cases (legitimate template positions):**
 
         **Dynamic Service Data:**
@@ -1236,7 +1221,7 @@ def register_utility_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
 
         **Test mathematical operations:**
         ```python
-        ha_eval_template("{{ (states('sensor.temperature') | float + 5) | round(1) }}")
+        ha_eval_template("{{ (states('sensor.temperature') | float(0) + 5) | round(1) }}")
         ```
 
         **Test entity counting:**

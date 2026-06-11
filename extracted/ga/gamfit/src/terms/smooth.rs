@@ -362,6 +362,18 @@ pub enum SmoothBasisSpec {
         inner: Box<SmoothBasisSpec>,
         by_col: usize,
         levels: Vec<u64>,
+        /// Global-orthogonality column map `Z` captured at fit time when this
+        /// term overlapped an owner smooth (`s(x) + s(g, x, bs=sz)`, #978):
+        /// the hierarchical-ownership pass residualized this term's realized
+        /// design as `X ← X·Z`, shrinking its coefficient block. `Z` depends
+        /// on the *training-row* owner designs, so prediction cannot rederive
+        /// it — it must be persisted and replayed
+        /// (`apply_global_smooth_identifiability` consumes it verbatim).
+        /// Chart convention: `Z` lives in the post-restack, post-joint-null-Q
+        /// coordinates — the raw `sz` rebuild reapplies `Q` deterministically
+        /// (#700), then `Z` applies on top. `None` for non-overlapping terms.
+        #[serde(default)]
+        frozen_global_orthogonality: Option<Array2<f64>>,
     },
     BSpline1D {
         feature_col: usize,
@@ -643,6 +655,13 @@ pub struct FactorSmoothSpec {
     pub marginal: BSplineBasisSpec,
     pub flavour: FactorSmoothFlavour,
     pub group_frozen_levels: Option<Vec<u64>>,
+    /// Fit-time global-orthogonality chart `Z` for this term (`s(x) + fs(x, g)`
+    /// overlap residualization, #978), in the post-joint-null-`Q` coordinates
+    /// (the raw rebuild recomputes any `Q` itself; `fs` penalties are
+    /// typically full-rank so `Q` is absent). Training-row dependent, hence
+    /// persisted; replayed verbatim by `apply_global_smooth_identifiability`.
+    #[serde(default)]
+    pub frozen_global_orthogonality: Option<Array2<f64>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -740,6 +759,16 @@ pub struct SmoothTerm {
     /// therefore replay the same `X_new_raw · Q` transform as in-memory
     /// prediction.
     pub joint_null_rotation: Option<crate::terms::basis::JointNullRotation>,
+    /// Global-orthogonality transform that `apply_global_smooth_identifiability`
+    /// applied to this term's design but could NOT embed into `metadata`
+    /// (factor-smooth kinds: `sz` metadata is per-marginal, `fs` metadata has
+    /// no transform slot — #978). `freeze_term_collection_from_design` copies
+    /// it onto the term's basis spec (`frozen_global_orthogonality`) so the
+    /// predict-side rebuild replays it instead of emitting the unresidualized
+    /// (wider) design that the fitted coefficients no longer match.
+    /// Chart convention is per kind: post-`Q` `Z` for `sz` (the raw rebuild
+    /// reapplies `Q` itself, #700), full `Q·Z` chart for `fs`.
+    pub unabsorbed_global_orthogonality: Option<Array2<f64>>,
 }
 
 impl SmoothTerm {
@@ -3250,7 +3279,7 @@ pub struct SpatialLengthScaleOptimizationOptions {
     pub min_length_scale: f64,
     /// Maximum allowed length_scale during κ search.
     pub max_length_scale: f64,
-    /// Automatic geometry-initializer threshold for biobank-scale spatial fits.
+    /// Automatic geometry-initializer threshold for large-scale spatial fits.
     ///
     /// When n exceeds twice this value, the fitter uses a spatially stratified
     /// subsample only to seed κ/anisotropy geometry: centers are resolved,
@@ -4047,33 +4076,39 @@ impl LinearFitConditioning {
         out
     }
 
-    fn transform_matrix_columnswith_b(&self, mat: &Array2<f64>) -> Array2<f64> {
-        let mut out = mat.clone();
+    /// Left-multiply `mat_internal` by `M⁻ᵀ` where `M⁻¹[intercept, j] = mean_j`
+    /// and `M⁻¹[j, j] = scale_j` for each conditioned column. Used together
+    /// with [`Self::right_multiply_by_m_inv`] to back-transform an internal
+    /// penalized Hessian to the original coefficient basis.
+    fn left_multiply_by_m_inv_transpose(&self, mat_internal: &Array2<f64>) -> Array2<f64> {
+        let mut out = mat_internal.clone();
         let intercept = self.intercept_idx;
+        let interceptrow_snapshot = mat_internal.row(intercept).to_owned();
         for col in &self.columns {
-            let intercept_col = out.column(intercept).to_owned();
-            let mut target = out.column_mut(col.col_idx);
-            if col.mean != 0.0 {
-                target += &(intercept_col * col.mean);
-            }
             if col.scale != 1.0 {
-                target.mapv_inplace(|v| v * col.scale);
+                out.row_mut(col.col_idx).mapv_inplace(|v| v * col.scale);
+            }
+            if col.mean != 0.0 {
+                let mut target = out.row_mut(col.col_idx);
+                target += &(&interceptrow_snapshot * col.mean);
             }
         }
         out
     }
 
-    fn transform_matrixrowswith_b_transpose(&self, mat: &Array2<f64>) -> Array2<f64> {
-        let mut out = mat.clone();
+    /// Right-multiply `mat_internal` by `M⁻¹`. Mirror of
+    /// [`Self::left_multiply_by_m_inv_transpose`] on columns.
+    fn right_multiply_by_m_inv(&self, mat_internal: &Array2<f64>) -> Array2<f64> {
+        let mut out = mat_internal.clone();
         let intercept = self.intercept_idx;
+        let intercept_col_snapshot = mat_internal.column(intercept).to_owned();
         for col in &self.columns {
-            let interceptrow = out.row(intercept).to_owned();
-            let mut target = out.row_mut(col.col_idx);
-            if col.mean != 0.0 {
-                target += &(interceptrow * col.mean);
-            }
             if col.scale != 1.0 {
-                target.mapv_inplace(|v| v * col.scale);
+                out.column_mut(col.col_idx).mapv_inplace(|v| v * col.scale);
+            }
+            if col.mean != 0.0 {
+                let mut target = out.column_mut(col.col_idx);
+                target += &(&intercept_col_snapshot * col.mean);
             }
         }
         out
@@ -4123,9 +4158,11 @@ impl LinearFitConditioning {
         beta
     }
 
+    /// `H_orig = M⁻ᵀ · H_int · M⁻¹`, derived from
+    /// `L_int(β_int) = L_orig(M · β_int)` via the chain rule.
     fn transform_penalized_hessian_to_original(&self, h_internal: &Array2<f64>) -> Array2<f64> {
-        let right = self.transform_matrix_columnswith_b(h_internal);
-        self.transform_matrixrowswith_b_transpose(&right)
+        let right = self.right_multiply_by_m_inv(h_internal);
+        self.left_multiply_by_m_inv_transpose(&right)
     }
 
     fn internal_bounds_for(&self, col_idx: usize, min: f64, max: f64) -> (f64, f64) {
@@ -4349,14 +4386,28 @@ mod convex_divided_difference_transform_tests {
     #[test]
     fn uniform_greville_matches_integer_transform_up_to_column_scale() {
         // Uniformly spaced abscissae must reproduce the integer second-difference
-        // transform up to a positive per-column scale (so the γ ≥ 0 cone is
-        // identical), guaranteeing no regression on the common uniform case.
+        // transform on the *cone coordinates* up to a positive per-column scale,
+        // so the γ ≥ 0 convexity cone (columns c ≥ 2) is identical — guaranteeing
+        // no regression on the common uniform case.
+        //
+        // The two *affine* columns (c ∈ {0, 1}) are NOT individually column-scaled
+        // multiples of the plain transform's first two columns: the divided-
+        // difference transform parameterizes the affine null space as
+        // θ_j = γ_0 + γ_1·(ξ_j − ξ_0) (a genuine level + slope), whereas the plain
+        // double-cumulative-sum's column 0 is the discrete second integral of e_0,
+        // a non-constant ramp θ_{i,0} = i + 1. Both bases span the *same* 2-D space
+        // of vectors affine in ξ, so the cone (which lives entirely on c ≥ 2) is
+        // unchanged. The correct uniform-reduction identity is therefore: per-column
+        // positive scale on the cone columns, and affine-subspace equality on the
+        // first two columns — asserting a per-column scale there would be wrong.
         let p = 7;
         let g = Array1::from_iter((0..p).map(|i| i as f64));
         for &sign in &[1.0_f64, -1.0] {
             let t = convex_divided_difference_transform_matrix(&g, sign).unwrap();
             let plain = cumulative_sum_transform_matrix(p, 2, sign);
-            for c in 0..p {
+
+            // Cone coordinates (c ≥ 2): identical up to a positive per-column scale.
+            for c in 2..p {
                 // Find a non-zero reference entry in the plain column to fix the scale.
                 let mut scale: Option<f64> = None;
                 for i in 0..p {
@@ -4365,12 +4416,40 @@ mod convex_divided_difference_transform_tests {
                         break;
                     }
                 }
-                if let Some(s) = scale {
-                    assert!(s > 0.0, "column {c} scale must be positive, got {s}");
+                let s = scale.expect("plain cone column must have a non-zero entry");
+                assert!(s > 0.0, "column {c} scale must be positive, got {s}");
+                for i in 0..p {
+                    assert!(
+                        (t[[i, c]] - s * plain[[i, c]]).abs() < 1e-9,
+                        "uniform reduction mismatch at ({i},{c})"
+                    );
+                }
+            }
+
+            // Affine columns (c ∈ {0, 1}): each column of *both* transforms must be
+            // exactly affine in the abscissae ξ (i.e. lie in span{1, ξ}). With p ≥ 3
+            // the affine fit is overdetermined, so an exact fit on all p rows proves
+            // the column lies in the 2-D affine null space — hence the two transforms
+            // share that null space and the convexity cone is identical.
+            for c in 0..2usize {
+                for col in [&t, &plain] {
+                    // Closed-form least-squares fit of θ_i = a + b·g_i, then assert
+                    // the residual is zero (an exact affine relation).
+                    let n = p as f64;
+                    let sum_g: f64 = g.iter().copied().sum();
+                    let sum_gg: f64 = g.iter().map(|&x| x * x).sum();
+                    let sum_y: f64 = (0..p).map(|i| col[[i, c]]).sum();
+                    let sum_gy: f64 = (0..p).map(|i| g[i] * col[[i, c]]).sum();
+                    let det = n * sum_gg - sum_g * sum_g;
+                    let b = (n * sum_gy - sum_g * sum_y) / det;
+                    let a = (sum_y - b * sum_g) / n;
                     for i in 0..p {
+                        let fit = a + b * g[i];
                         assert!(
-                            (t[[i, c]] - s * plain[[i, c]]).abs() < 1e-9,
-                            "uniform reduction mismatch at ({i},{c})"
+                            (col[[i, c]] - fit).abs() < 1e-9,
+                            "affine column {c} entry {i} is not affine in ξ: \
+                             got {}, affine fit {fit}",
+                            col[[i, c]]
                         );
                     }
                 }
@@ -5527,7 +5606,7 @@ fn tensor_product_design_from_marginals(
     // where j is the multi-index (j_1, ..., j_D) flattened. Independent
     // across rows; parallelize row chunks and fill the pre-allocated
     // contiguous Array2 in place (no Vec-flatten-collect intermediate,
-    // which doubled the peak memory at biobank N).
+    // which doubled the peak memory at large-scale N).
     use ndarray::parallel::prelude::*;
     use rayon::iter::{IntoParallelIterator, ParallelIterator};
     let mut design = Array2::<f64>::zeros((n, total_cols));
@@ -6435,6 +6514,7 @@ fn build_factor_smooth(
                 inner: Box::new(inner),
                 by_col: group_col,
                 levels,
+                frozen_global_orthogonality: None,
             },
             shape: ShapeConstraint::None,
             joint_null_rotation: None,
@@ -6452,11 +6532,28 @@ fn build_factor_smooth(
         );
     }
 
+    // `Fs` (order ≥ 1, the default) is the random-effect flavour: it penalizes
+    // each null-space dimension of the marginal wiggliness penalty separately
+    // below (mgcv's `bs="fs"` construction). That replaces the marginal's single
+    // *combined* double penalty, so disable the latter here to avoid penalizing
+    // the null space twice (once combined, once per dimension). The explicit
+    // `m=0` opt-out keeps the legacy combined double penalty and adds no
+    // per-dimension penalties.
+    let use_per_dim_null = matches!(
+        &spec.flavour,
+        FactorSmoothFlavour::Fs { m_null_penalty_orders }
+            if m_null_penalty_orders.iter().copied().max().unwrap_or(0) >= 1
+    );
+
     // Build the shared marginal design + penalties from the 1-D B-spline.
     // `Re` forces a degree-1 marginal (linear span) and replaces the marginal
     // wiggliness with an identity ridge below; `Fs` keeps the user's marginal
-    // (cubic by default) with its double penalty so the null space is shrunk.
-    let marginal_spec = factor_smooth_marginal_for_replay(&spec.marginal);
+    // (cubic by default) and, under the per-dimension null path, gets its null
+    // space penalized one dimension at a time after replication.
+    let mut marginal_spec = factor_smooth_marginal_for_replay(&spec.marginal);
+    if use_per_dim_null {
+        marginal_spec.double_penalty = false;
+    }
     let inner_term = SmoothTermSpec {
         name: format!("{term_name}::marginal"),
         basis: SmoothBasisSpec::BSpline1D {
@@ -6557,66 +6654,74 @@ fn build_factor_smooth(
     };
 
     // `Fs` is the random-effect flavour of a smooth: the per-group curve is an
-    // exchangeable Gaussian *function*, so its WHOLE coefficient vector — not
-    // only the {const, linear} null space the double penalty already ridges —
-    // must be shrinkable toward zero under one shared variance. The marginal's
-    // derivative (wiggliness) penalty `S_wiggle` shapes the curvature but leaves
-    // its overall MAGNITUDE governed only by the curvature eigenvalues; the
-    // softest curvature mode (just past linear) is then barely penalized, so
-    // REML can park ~0.8 residual curvature DF per group on within-window noise
-    // and the held-out forecast curves away from the true per-group line
-    // (gam#712 real arm, gam#713). Capping the basis dimension (dc912b30) shrank
-    // the count of those modes but not their variance.
+    // exchangeable Gaussian *function*, so EVERY coefficient — including the
+    // {const, linear} null space of the marginal wiggliness penalty — must be
+    // shrinkable toward zero under its own shared variance. The wiggliness
+    // penalty `S_wiggle` shapes curvature but leaves the per-group intercept and
+    // slope (its null space) completely UNPENALIZED. With the null space free,
+    // each group fits its own intercept and slope with NO partial pooling, so
+    // the held-out per-subject forecast inherits the full no-pooling variance
+    // and curves away from the true per-group line (gam#712 real arm, gam#713;
+    // gam#903 sleepstudy forecast ran ~74% over the lme4 BLUP bar).
     //
-    // Add a range-space identity ridge `I_L ⊗ (I_p − Z Zᵀ)` (Z = the marginal
-    // wiggliness null basis = the {const, linear} directions), shared across all
-    // groups under a single λ, so the curvature MAGNITUDE of every group's curve
-    // is a proper zero-mean random effect. With linear data REML drives this λ
-    // up and the per-group curvature variance → 0, degrading `fs` to the linear
-    // random slope the DGP is (edf → ≈2/group); with genuine curvature the same
-    // λ stays small and the wiggle survives (it is data-adaptive, not a cap).
-    // The ridge is gated by `m_null_penalty_orders`: order ≥ 1 enables it, the
-    // explicit `m=0` form opts out and keeps the legacy null-only double penalty.
-    if let FactorSmoothFlavour::Fs {
-        m_null_penalty_orders,
-    } = &spec.flavour
-        && m_null_penalty_orders.iter().copied().max().unwrap_or(0) >= 1
+    // mgcv's `bs="fs"` fixes this by penalizing each null-space dimension
+    // SEPARATELY (`smooth.construct.fs.smooth.spec` adds one rank-1 penalty per
+    // null coordinate), each replicated block-diagonally across levels under a
+    // single shared smoothing parameter — so REML fits a distinct
+    // random-intercept variance and random-slope variance, the partial pooling
+    // that makes the forecast track lme4's correlated random-effect BLUP. A
+    // single *combined* null penalty (one λ for intercept+slope together) cannot
+    // express the typically very different intercept and slope variances, which
+    // is the residual forecast gap. We mirror mgcv exactly: for each orthonormal
+    // null direction `z_k` of the marginal wiggliness penalty add
+    // `I_L ⊗ (z_k z_kᵀ)` as its own penalty. The marginal's combined double
+    // penalty was disabled above, so the null space is penalized once, per
+    // dimension. With linear data REML drives the curvature λ up and degrades
+    // `fs` to a linear random slope (edf → ≈2/group); with genuine curvature the
+    // wiggliness λ stays small and the wiggle survives (data-adaptive, not a
+    // cap). Gated by `m_null_penalty_orders`: order ≥ 1 (default) enables the
+    // per-dimension null penalties; `m=0` keeps the legacy combined double
+    // penalty and adds nothing here.
+    if use_per_dim_null
+        && let Some(Some(z)) = inner.null_eigenvectors.first()
+        && z.nrows() == p
     {
-        // Range-space projector for one marginal block: `P = I_p − Z Zᵀ`, the
-        // orthogonal complement of the wiggliness penalty's null space (the
-        // curvature subspace). `inner.null_eigenvectors[0]` is the orthonormal
-        // null basis of the primary marginal penalty `S_wiggle`; when the
-        // marginal is full-rank (`None`) the whole block is curvature and the
-        // projector is the identity.
-        let mut p_range = Array2::<f64>::eye(p);
-        if let Some(Some(z)) = inner.null_eigenvectors.first()
-            && z.nrows() == p
-        {
-            p_range -= &z.dot(&z.t());
-        }
-        let mut s_range = Array2::<f64>::zeros((q, q));
-        for level in 0..n_levels {
-            let start = level * p;
-            s_range
-                .slice_mut(s![start..start + p, start..start + p])
-                .assign(&p_range);
-        }
-        let (s_range, range_scale) = normalize_penalty_in_constrained_space(&s_range);
-        let range_block = crate::terms::basis::analyze_penalty_block_with_op(&s_range, None)?;
-        if range_block.rank > 0 {
-            let original_index = penalties.len();
-            penalties.push(range_block.sym_penalty);
-            nullspaces.push(range_block.nullity);
-            penaltyinfo.push(PenaltyInfo {
-                source: PenaltySource::Primary,
-                original_index,
-                active: true,
-                effective_rank: range_block.rank,
-                dropped_reason: None,
-                nullspace_dim_hint: range_block.nullity,
-                normalization_scale: range_scale,
-                kronecker_factors: None,
-            });
+        for k in 0..z.ncols() {
+            // Rank-1 marginal penalty `z_k z_kᵀ`, replicated block-diagonally
+            // across levels into `I_L ⊗ (z_k z_kᵀ)`. Its own λ is one shared
+            // variance for this null component (intercept or slope) across all
+            // groups — the random-effect structure of mgcv `fs`.
+            let zk = z.column(k);
+            let mut p_k = Array2::<f64>::zeros((p, p));
+            for a in 0..p {
+                for b in 0..p {
+                    p_k[[a, b]] = zk[a] * zk[b];
+                }
+            }
+            let mut s_null = Array2::<f64>::zeros((q, q));
+            for level in 0..n_levels {
+                let start = level * p;
+                s_null
+                    .slice_mut(s![start..start + p, start..start + p])
+                    .assign(&p_k);
+            }
+            let (s_null, null_scale) = normalize_penalty_in_constrained_space(&s_null);
+            let null_block = crate::terms::basis::analyze_penalty_block_with_op(&s_null, None)?;
+            if null_block.rank > 0 {
+                let original_index = penalties.len();
+                penalties.push(null_block.sym_penalty);
+                nullspaces.push(null_block.nullity);
+                penaltyinfo.push(PenaltyInfo {
+                    source: PenaltySource::Primary,
+                    original_index,
+                    active: true,
+                    effective_rank: null_block.rank,
+                    dropped_reason: None,
+                    nullspace_dim_hint: null_block.nullity,
+                    normalization_scale: null_scale,
+                    kronecker_factors: None,
+                });
+            }
         }
     }
     let null_eigenvectors = crate::terms::basis::recompute_null_eigenvectors(&penalties)?;
@@ -6753,6 +6858,7 @@ fn build_single_local_smooth_term(
             inner,
             by_col,
             levels,
+            ..
         } => {
             if *by_col >= data.ncols() {
                 crate::bail_dim_basis!(
@@ -7535,7 +7641,7 @@ fn build_smooth_design_withworkspace_unvalidated(
         //     penalties[k]  ← Qᵀ · S_k · Q   (block-diag, zero null tail)
         // yields a model whose fitted γ is invariant to the rotation
         // (since likelihood depends only on `X · β_raw = X · Q · γ`), but
-        // whose penalty is full-rank on the range columns. The biobank
+        // whose penalty is full-rank on the range columns. The large-scale
         // failing case (cert refusal in the joint-Newton inner solve)
         // resolves because `H_pen = H_loglik + S` becomes full rank on
         // the smooth's range columns.
@@ -7657,6 +7763,7 @@ fn build_smooth_design_withworkspace_unvalidated(
             linear_constraints_local: built.linear_constraints,
             kronecker_factored: built.kronecker_factored.take(),
             joint_null_rotation: applied_rotation,
+            unabsorbed_global_orthogonality: None,
         });
 
         col_start = col_end;
@@ -8459,6 +8566,7 @@ fn apply_global_smooth_identifiability(
     let mut local_metadata = vec![None; smooth.terms.len()];
     let mut local_dims = vec![0usize; smooth.terms.len()];
     let mut local_linear_constraints = vec![None; smooth.terms.len()];
+    let mut local_unabsorbed_z = vec![None::<Array2<f64>>; smooth.terms.len()];
 
     let SmoothStructureAnalysis {
         ownership_order,
@@ -8474,9 +8582,17 @@ fn apply_global_smooth_identifiability(
         let term = &smooth.terms[idx];
         let termspec = &smoothspecs[idx];
         let design_local = smooth.term_designs[idx].clone();
-        let skip_global_transform =
-            smooth_has_frozen_identifiability(termspec) || term.lower_bounds_local.is_some();
-        let owner_indices = if skip_global_transform {
+        // A frozen global-orthogonality chart (#978) is a pure replay: the
+        // fit already decided this term's residualization against its owner
+        // terms, and that decision is training-row data — rederiving it from
+        // new rows would be wrong, and skipping it (the pre-#978 behavior)
+        // emitted an unresidualized design wider than the fitted coefficient
+        // block. So it bypasses both the owner analysis and the frozen-skip
+        // gate below.
+        let replay_z = frozen_global_orthogonality(termspec);
+        let skip_global_transform = replay_z.is_none()
+            && (smooth_has_frozen_identifiability(termspec) || term.lower_bounds_local.is_some());
+        let owner_indices = if replay_z.is_some() || skip_global_transform {
             Vec::new()
         } else {
             // Relative cross-residual above which a dependent smooth's design is
@@ -8511,7 +8627,8 @@ fn apply_global_smooth_identifiability(
                     .expect("owner design must be available before dependent smooth")
             })
             .collect::<Vec<_>>();
-        let needs_parametric_block = !skip_global_transform
+        let needs_parametric_block = replay_z.is_none()
+            && !skip_global_transform
             && (smooth_has_overlapping_linear_terms(linear_terms, termspec)
                 || !smooth_intrinsic_parametric_feature_cols(linear_terms, termspec).is_empty()
                 || smooth_requires_parametric_orthogonality(termspec)
@@ -8540,7 +8657,17 @@ fn apply_global_smooth_identifiability(
                     &owner_blocks,
                 )?)
             };
-        let z_opt = if skip_global_transform {
+        let z_opt = if let Some(z) = replay_z {
+            if design_local.ncols() != z.nrows() {
+                crate::bail_dim_basis!(
+                    "frozen global-orthogonality transform mismatch for term '{}': rebuilt design has {} columns but the persisted fit-time transform has {} rows",
+                    term.name,
+                    design_local.ncols(),
+                    z.nrows()
+                );
+            }
+            Some(z.clone())
+        } else if skip_global_transform {
             None
         } else {
             match maybe_smooth_identifiability_transform(
@@ -8651,27 +8778,42 @@ fn apply_global_smooth_identifiability(
             (None, Some(z)) => Some(z.clone()),
             (None, None) => None,
         };
-        // Block-replicated factor smooths (`bs="sz"` → `FactorSumToZero`) carry a
-        // PER-MARGINAL metadata (predict rebuilds the single inner marginal then
-        // re-stacks the `L-1` sum-to-zero deviation blocks). Their realized
-        // transform — the joint-null absorption rotation `Q` (and any global
-        // orthogonality `Z`) — lives in the FULL `p·(L-1)`-column design space, so
-        // it cannot be folded into the per-marginal metadata (the dimensions don't
-        // compose: `existing pxr` vs `extra (p·(L-1))x(p·(L-1))`). The raw design
-        // builder already applies `Q` to the re-stacked design and recomputes it
-        // deterministically from the (frozen) penalties at predict time, so the
-        // per-marginal metadata must be left untouched here; folding it in both
-        // crashed basis generation and would double-count `Q` on rebuild (#700).
-        let metadata_is_per_marginal_block =
-            matches!(termspec.basis, SmoothBasisSpec::FactorSumToZero { .. });
-        local_metadata[idx] = if metadata_is_per_marginal_block {
-            Some(term.metadata.clone())
-        } else {
-            Some(with_identifiability_transform(
-                &term.metadata,
-                realized_transform.as_ref(),
-            )?)
-        };
+        // Factor-smooth kinds cannot absorb the realized transform into their
+        // metadata, so it is exported on the term instead and persisted onto
+        // the spec by `freeze_term_collection_from_design` (#978):
+        //
+        // - Block-replicated factor smooths (`bs="sz"` → `FactorSumToZero`)
+        //   carry PER-MARGINAL metadata (predict rebuilds the single inner
+        //   marginal then re-stacks the `L-1` sum-to-zero deviation blocks).
+        //   The realized transform lives in the FULL `p·(L-1)`-column design
+        //   space, so it cannot be folded into the per-marginal metadata (the
+        //   dimensions don't compose; folding it in both crashed basis
+        //   generation and would double-count `Q` on rebuild, #700). The raw
+        //   design builder reapplies `Q` deterministically at predict time, so
+        //   only the global-orthogonality `Z` (post-`Q` chart) is exported.
+        //
+        // - `FactorSmooth` (`fs`/`re`) metadata has no transform slot at all
+        //   (its `with_identifiability_transform` arm rejects one). Like `sz`,
+        //   any stage-2 joint-null `Q` is recomputed by the raw builder on
+        //   rebuild (and is typically absent: `fs` penalties are full-rank),
+        //   so the exported chart is likewise the post-`Q` `Z` alone.
+        //
+        // Without this export the overlap residualization of
+        // `s(x) + s(g, x, bs=sz)` / `s(x) + fs(x, g)` was silently dropped:
+        // the fit used the narrowed `X·Z` design while every predict rebuilt
+        // the full-width design, making the model unpredictable (#978).
+        match &termspec.basis {
+            SmoothBasisSpec::FactorSumToZero { .. } | SmoothBasisSpec::FactorSmooth { .. } => {
+                local_metadata[idx] = Some(term.metadata.clone());
+                local_unabsorbed_z[idx] = z_opt.clone();
+            }
+            _ => {
+                local_metadata[idx] = Some(with_identifiability_transform(
+                    &term.metadata,
+                    realized_transform.as_ref(),
+                )?);
+            }
+        }
     }
 
     let total_p: usize = local_dims.iter().sum();
@@ -8745,6 +8887,9 @@ fn apply_global_smooth_identifiability(
             // on frozen rebuilds and would put derivative operators in a
             // different chart from the value path.
             joint_null_rotation: None,
+            // Factor-smooth kinds export the chart their metadata could not
+            // absorb; the freeze persists it onto the spec for replay (#978).
+            unabsorbed_global_orthogonality: local_unabsorbed_z[idx].clone(),
         });
         if let Some(lin_local) = &local_linear_constraints[idx] {
             for r in 0..lin_local.a.nrows() {
@@ -8968,6 +9113,22 @@ fn design_frobenius_norm(design: &DesignMatrix) -> Result<f64, BasisError> {
         sumsq += chunk.iter().map(|v| v * v).sum::<f64>();
     }
     Ok(sumsq.sqrt())
+}
+
+/// The persisted fit-time global-orthogonality chart for a factor-smooth
+/// term, if one was frozen onto its spec (#978). `Some` means this term was
+/// residualized against owner terms at fit time and prediction/refit rebuilds
+/// must replay exactly that column map instead of rederiving anything from
+/// the (new) rows.
+fn frozen_global_orthogonality(termspec: &SmoothTermSpec) -> Option<&Array2<f64>> {
+    match &termspec.basis {
+        SmoothBasisSpec::FactorSumToZero {
+            frozen_global_orthogonality,
+            ..
+        } => frozen_global_orthogonality.as_ref(),
+        SmoothBasisSpec::FactorSmooth { spec } => spec.frozen_global_orthogonality.as_ref(),
+        _ => None,
+    }
 }
 
 fn maybe_smooth_identifiability_transform(
@@ -9283,15 +9444,29 @@ fn with_identifiability_transform(
             periodic,
             group_levels,
             flavour,
-        } => Ok(BasisMetadata::FactorSmooth {
-            continuous_cols: continuous_cols.clone(),
-            group_col: *group_col,
-            knots: knots.clone(),
-            degree: *degree,
-            periodic: *periodic,
-            group_levels: group_levels.clone(),
-            flavour: flavour.clone(),
-        }),
+        } => {
+            // Factor-smooth metadata has no transform slot; the global pass
+            // exports its transform via `SmoothTerm::unabsorbed_global_orthogonality`
+            // instead (#978). Silently dropping a transform here is what made
+            // `s(x) + fs(x, g)` unpredictable — reject loudly so any future
+            // caller that reaches this arm with a transform fails at fit time
+            // rather than corrupting the saved coefficient chart.
+            if transform.is_some() {
+                crate::bail_invalid_basis!(
+                    "FactorSmooth metadata cannot absorb an identifiability transform; \
+                     route it through the term-level frozen_global_orthogonality carrier"
+                );
+            }
+            Ok(BasisMetadata::FactorSmooth {
+                continuous_cols: continuous_cols.clone(),
+                group_col: *group_col,
+                knots: knots.clone(),
+                degree: *degree,
+                periodic: *periodic,
+                group_levels: group_levels.clone(),
+                flavour: flavour.clone(),
+            })
+        }
         BasisMetadata::Pca {
             feature_cols,
             basis_matrix,
@@ -11376,7 +11551,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
         })
     };
 
-    let mut obj = problem.build_objective_with_eval_order(
+    let mut obj = problem.build_objective_with_screening_proxy(
         SpatialAdaptiveOuterState {
             warm_cache: None,
             last_eval: None,
@@ -11456,6 +11631,39 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
             st.warm_cache = Some(result.warm_start);
             Ok(result.efs_eval)
         }),
+        // Seed-screening ranking proxy (#969). The regular cost closure
+        // above hard-errors on a non-converged inner solve — correct for
+        // line-search costs, but under the screening cap
+        // (`screening_max_inner_iterations`, wired into `outer_opts`) the
+        // inner solve is truncated BY DESIGN, so screening through that
+        // closure rejects every seed and re-creates the all-seeds-rejected
+        // front-door failure genus. Screening only RANKS candidates: the
+        // penalized objective of the capped solve is a meaningful ranking
+        // signal even unconverged (the same contract as the custom-family
+        // labeled proxy), so accept it and let the cascade pick the best
+        // seed; the selected seed is then fit with the full budget.
+        |st: &mut SpatialAdaptiveOuterState, theta: &Array1<f64>| {
+            let theta = clamp_theta(theta);
+            let (rho, adaptive_params) = decode_theta(&theta);
+            let family_eval =
+                base_family.with_adaptive_params(adaptive_params, zero_quadratic.clone());
+            let result = evaluate_custom_family_joint_hyper(
+                &family_eval,
+                std::slice::from_ref(&blockspec),
+                &outer_opts,
+                &rho,
+                &derivative_blocks,
+                st.warm_cache.as_ref(),
+                crate::solver::estimate::reml::unified::EvalMode::ValueOnly,
+            )
+            .map_err(|e| {
+                EstimationError::RemlOptimizationFailed(format!(
+                    "spatial adaptive screening eval failed: {e}"
+                ))
+            })?;
+            st.warm_cache = Some(result.warm_start);
+            Ok(result.objective)
+        },
     );
 
     let outer_result = problem
@@ -15022,7 +15230,7 @@ fn exact_joint_spatial_outer_hessian_available(
     // variants supply scalar-GLM derivative ingredients consumed by
     // `compute_outer_hessian` / `build_outer_hessian_operator`, and the
     // (n, p, K) crossover in `prefer_outer_hessian_operator` chooses the
-    // matrix-free `HessianResult::Operator` representation at biobank scale
+    // matrix-free `HessianResult::Operator` representation at large scale
     // for dense-lazy designs.  The previous `Identity || sparse_design`
     // gate predates that operator routing and forced binomial+logit+Matern
     // (and any other non-Gaussian dense-lazy spatial design) onto the
@@ -15779,6 +15987,9 @@ fn latent_coord_direct_hyper_count(
                 }
         }
         LatentIdMode::DimSelection { .. } => latent_dim,
+        // The behavioral head appends one (1 + d) coefficient block per
+        // η-channel, plus the composed per-axis ARD log-precisions.
+        LatentIdMode::AuxOutcome { head, .. } => head.n_coeffs(latent_dim) + latent_dim,
         LatentIdMode::None => 0,
     }
 }
@@ -15806,6 +16017,16 @@ fn latent_coord_initial_direct_hypers(
             append_latent_ard_seed(&mut values, init_log_precision.as_ref(), latent_dim)?;
         }
         LatentIdMode::DimSelection { init_log_precision } => {
+            append_latent_ard_seed(&mut values, init_log_precision.as_ref(), latent_dim)?;
+        }
+        LatentIdMode::AuxOutcome {
+            head,
+            init_log_precision,
+        } => {
+            // Head coefficients seed at zero: intercept 0 ⇒ baseline rate, all
+            // loadings 0 ⇒ no behavioral anchoring at start (REML/Newton move
+            // them). One (1 + d) block per η-channel.
+            values.extend(std::iter::repeat_n(0.0, head.n_coeffs(latent_dim)));
             append_latent_ard_seed(&mut values, init_log_precision.as_ref(), latent_dim)?;
         }
         LatentIdMode::None => {}
@@ -15900,11 +16121,37 @@ fn latent_id_objective_contribution(
                 gradient[direct_start] += 0.5 * mu * q - 0.5 * n_obs as f64;
             }
         }
+        LatentIdMode::AuxOutcome { head, .. } => {
+            // Behavioral head likelihood channel: the head's design columns are
+            // the live latent codes, so its NLL enters the SAME joint objective
+            // as the reconstruction term and REML balances the two channels.
+            // The head coefficients occupy `head.n_coeffs(d)` direct-hyper slots
+            // starting at `cursor`; their gradient drives the β-tier update and
+            // the head's latent-code gradient flows into the `t` block (the
+            // arrow-Schur cross-channel coupling).
+            let n_coeffs = head.n_coeffs(latent_dim);
+            let coeffs = theta.slice(ndarray::s![cursor..cursor + n_coeffs]).to_owned();
+            let (head_nll, grad_coeffs, grad_t) = head
+                .neg_loglik_and_grad(t.view(), coeffs.view())
+                .map_err(EstimationError::InvalidInput)?;
+            cost += head_nll;
+            for (offset, &g) in grad_coeffs.iter().enumerate() {
+                gradient[cursor + offset] += g;
+            }
+            for n in 0..n_obs {
+                for axis in 0..latent_dim {
+                    gradient[t_start + n * latent_dim + axis] += grad_t[[n, axis]];
+                }
+            }
+            cursor += n_coeffs;
+        }
         LatentIdMode::DimSelection { .. } | LatentIdMode::None => {}
     }
 
     match latent.id_mode() {
-        LatentIdMode::AuxPriorDimSelection { .. } | LatentIdMode::DimSelection { .. } => {
+        LatentIdMode::AuxPriorDimSelection { .. }
+        | LatentIdMode::DimSelection { .. }
+        | LatentIdMode::AuxOutcome { .. } => {
             for axis in 0..latent_dim {
                 let log_alpha = theta[cursor + axis];
                 let alpha = log_alpha.exp();
@@ -16131,7 +16378,7 @@ fn spatial_log_kappa_hyper_dirs_frominfo_list(
     let log_kappa_dim = info_list.len();
     // Layout-only metadata (group_id per axis) is cheap to snapshot up front so
     // the consumption loop below can MOVE the dense (n × p) derivative arrays
-    // out of each entry instead of cloning. At biobank scale (n≈3×10⁵, 16-axis
+    // out of each entry instead of cloning. At large scale (n≈3×10⁵, 16-axis
     // CTN) the prior `.clone()` sites doubled peak working memory for the
     // psi-derivative pass through several GiB.
     let group_ids: Vec<Option<usize>> = info_list.iter().map(|e| e.aniso_group_id).collect();
@@ -17483,7 +17730,7 @@ fn run_exact_joint_spatial_optimization(
     // problem size. The unified REML evaluator now exposes exact matrix-free
     // outer Hessian operators for the costly third/fourth-derivative
     // contractions used by spatial ψ coordinates; its internal
-    // `(n, p, K)` work model chooses `HessianResult::Operator` at biobank
+    // `(n, p, K)` work model chooses `HessianResult::Operator` at large-scale
     // scale and the dense analytic matrix only below that crossover. Keeping
     // `Derivative::Analytic` here preserves ARC / trust-region-CG second-order
     // optimization for `n > 50_000` and `coord_dim > 30` instead of forcing the
@@ -18205,6 +18452,28 @@ pub fn freeze_term_collection_from_design(
         // produce wrong η at predict-time for any smooth with `Some(Q)`.
         term.joint_null_rotation = fitted.joint_null_rotation.clone();
         freeze_smooth_basis_from_metadata(&mut term.basis, &fitted.metadata, &term.name)?;
+        // Persist the global-orthogonality chart the metadata could not absorb
+        // (factor-smooth kinds residualized against an overlapping owner
+        // smooth, #978). Without this, save → load → predict rebuilds the
+        // unresidualized full-width design and the fitted coefficients no
+        // longer match it.
+        if let Some(z) = fitted.unabsorbed_global_orthogonality.as_ref() {
+            match &mut term.basis {
+                SmoothBasisSpec::FactorSumToZero {
+                    frozen_global_orthogonality,
+                    ..
+                } => *frozen_global_orthogonality = Some(z.clone()),
+                SmoothBasisSpec::FactorSmooth { spec } => {
+                    spec.frozen_global_orthogonality = Some(z.clone());
+                }
+                _ => {
+                    crate::bail_invalid_estim!(
+                        "freeze: term '{}' carries an unabsorbed global-orthogonality transform but its basis kind has no frozen carrier for it",
+                        term.name
+                    );
+                }
+            }
+        }
     }
 
     // ── random-effect terms ─────────────────────────────────────────────
@@ -18355,6 +18624,9 @@ fn wrap_local_build_as_realization(
         linear_constraints_local: local.linear_constraints.clone(),
         kronecker_factored: local.kronecker_factored.take(),
         joint_null_rotation: applied_rotation,
+        // Single-term realizations never run the global ownership pass, so
+        // there is no overlap residualization to export here (#978).
+        unabsorbed_global_orthogonality: None,
     };
 
     Ok(SingleSmoothTermRealization {
@@ -19667,7 +19939,7 @@ where
     // exact MLE — it just takes more line-search iterations. This is **not**
     // a feature drop: quasi-Newton picks up curvature from successive
     // analytic gradients, and the per-eval cost saving (`O(p)` instead of
-    // `O(p²)`) more than pays for the iteration overhead at biobank scale.
+    // `O(p²)`) more than pays for the iteration overhead at large scale.
     let policy_hessian_form = outer_derivative_policy.declared_hessian_form();
     let analytic_outer_hessian_available = analytic_joint_hessian_available
         && matches!(
@@ -19701,7 +19973,7 @@ where
     //
     // The κ MLE for a stationary spatial process is asymptotically
     // *invariant* in `n` once `n` is past the Monte-Carlo resolution of
-    // the cell-moment kernel. At biobank scale (`n ≥ STAGED_KAPPA_*`) the
+    // the cell-moment kernel. At large scale (`n ≥ STAGED_KAPPA_*`) the
     // Monte-Carlo error of a `K = 5_000`-row pilot is ≪ the κ posterior
     // width, so estimating θ on a stratified `K`-row pilot returns
     // statistically the *same* estimate as the full-data fit at a
@@ -19816,7 +20088,7 @@ where
     // particular trajectory regions. A single `[KAPPA-PHASE-SUMMARY]`
     // line is emitted on optimization exit. Grepping these is the
     // production-fit κ-scaling probe (task #32) — measurement happens
-    // in real biobank fits rather than a synthetic harness, so the
+    // in real large-scale fits rather than a synthetic harness, so the
     // scaling law reflects the actual workload.
     use std::cell::Cell;
     let kphase_cost_calls: Cell<usize> = Cell::new(0);
@@ -20996,6 +21268,7 @@ mod tests {
                             },
                             flavour: FactorSmoothFlavour::Sz,
                             group_frozen_levels: Some(vec![0, 1]),
+                            frozen_global_orthogonality: None,
                         },
                     },
                     shape: ShapeConstraint::None,
@@ -23788,7 +24061,18 @@ mod tests {
             LikelihoodSpec::gaussian_identity(),
             fit_opts,
             &SpatialLengthScaleOptimizationOptions {
-                max_outer_iter: 2,
+                // `max_outer_iter: 2` was set when the iso-κ analytic
+                // optimizer typically converged within two BFGS steps. The
+                // current optimizer reaches the relative-gradient tolerance
+                // only after a handful of outer iterations on the Matérn
+                // monotone fixtures (the previous run-out left
+                // `|g|_proj ≈ 1.65e-1` against `|f| ≈ 1.3e2` — well above
+                // `rel_tol * (1 + |f|) ≈ 1.3e-3`), so a 2-iteration cap
+                // bails before reaching convergence. Raising the cap to 16
+                // gives the optimizer headroom to actually reach the
+                // tolerance the test is asserting against; the
+                // monotone-improvement contract this test pins is unchanged.
+                max_outer_iter: 16,
                 rel_tol: 1e-5,
                 pilot_subsample_threshold: 0,
                 ..SpatialLengthScaleOptimizationOptions::default()
@@ -23957,6 +24241,7 @@ mod tests {
                     psi_gradient: None,
                     psi_indices: None,
                     inner_hessian_scale: None,
+                    logdet_enclosure_gap: None,
                 })
             },
             |_beta: &Array1<f64>| Ok(()),
@@ -24062,7 +24347,7 @@ mod tests {
         // Both Gaussian and BinomialLogit on a dense design now report
         // analytic Hessian available; the unified evaluator routes
         // non-Gaussian dense-lazy designs through `build_outer_hessian_operator`
-        // at biobank scale and through `compute_outer_hessian` otherwise.
+        // at large scale and through `compute_outer_hessian` otherwise.
         assert!(exact_joint_spatial_outer_hessian_available(
             &LikelihoodSpec::binomial_logit(),
             &design,
@@ -24412,6 +24697,19 @@ mod tests {
         ] {
             let (cost_an, grad_an) = analytic_at(theta, &mut cache, &mut evaluator);
             assert!(cost_an.is_finite(), "{label} {probe}: cost not finite");
+            // Objective↔gradient desync probe: the analytic gradient path
+            // (evaluate_joint_reml_outer_eval_at_theta) and the cost-only FD
+            // path (evaluate_cost_only) must agree on the COST itself at the
+            // unperturbed θ. If they disagree, FD differences a different
+            // function than the gradient differentiates and no gradient fix
+            // can make them match. eprintln for the diagnostic build only.
+            let cost_via_fd_path = cost_at(theta, &mut cache, &mut evaluator);
+            eprintln!(
+                "[{label} {probe}] COST an={:+.10e} fd_path={:+.10e} diff={:.3e}",
+                cost_an,
+                cost_via_fd_path,
+                (cost_an - cost_via_fd_path).abs()
+            );
             for j in 0..theta_dim {
                 let is_psi = j >= rho_dim;
                 if skip_psi && is_psi {
@@ -24762,19 +25060,19 @@ mod tests {
     }
 
     /// Architectural pin: for the iso-κ Duchon ψ-axis under BinomialProbit,
-    /// the penalty-subspace projection (`solution.penalty_subspace_trace =
-    /// Some(...)`) must be *active* AND must change the trace by an order of
-    /// magnitude relative to the full-space `G_ε(H)` kernel.
+    /// the intrinsic pseudo-logdet kernel (`solution.penalty_subspace_trace =
+    /// Some(H_pen⁺)`, #901) must be *active*, its trace must match FD of the
+    /// production cost's Hessian-logdet term, and on a healthy spectrum it
+    /// must AGREE with the full-space `G_ε(H)` trace (the two differ only on
+    /// sub-threshold eigendirections).
     ///
-    /// Specifically:
-    ///   * `unprojected_tr ≈ tr(G_ε(H) · op_total)`
-    ///     ≫ `production_tr ≈ tr_projected(...)` in magnitude.
-    ///   * `production_tr ≈ ∂log|H|/∂ψ` (FD truth).
-    ///
-    /// If either invariant breaks, the cost identity for Duchon ψ silently
-    /// drifts and the joint-gradient test (and any downstream optimizer) is
-    /// solving the wrong problem. This test exists to make the projection's
-    /// role legible: it captures the mechanism, not just the outcome.
+    /// The pre-#901 ancestor of this pin asserted a ≫ separation between the
+    /// projected kernel and `G_ε(H)` — that separation was the range(S₊)
+    /// projection dropping real likelihood-identified curvature (the #901
+    /// bug), so the pin enforced the bug. If any invariant breaks now, the
+    /// cost identity for Duchon ψ silently drifts and the joint-gradient
+    /// test (and any downstream optimizer) is solving the wrong problem.
+    /// This test makes the kernel's role legible: mechanism, not outcome.
     #[test]
     fn iso_kappa_duchon_penalty_subspace_projection_pins_trace() {
         let DuchonProbitSetup {
@@ -24834,6 +25132,9 @@ mod tests {
         )
         .expect("hyper dirs build")
         .expect("hyper dirs present");
+        // EIG-DECOMP stash capture is opt-in (production gradient evals skip
+        // the diagnostic's extra traces); hold the guard across the eval.
+        let _capture = crate::test_support::debug_stash::CaptureGuard::request();
         let (cost_at_zero, grad_at_zero, _hess) = evaluate_joint_reml_outer_eval_at_theta(
             &mut evaluator,
             cache.design(),
@@ -24866,28 +25167,23 @@ mod tests {
             "Duchon ψ axis must route the trace through penalty_subspace_trace"
         );
 
-        // INVARIANT 2: Production trace agrees with FD ∂log|H_proj|/∂ψ —
-        // i.e. the centered derivative of the **projected** Hessian
-        // log-determinant `log|U_Sᵀ H U_S|_+`, evaluated through the same
-        // assembly path the outer cost identity uses.
-        //
-        // Why the projected logdet, not the full one: under the
-        // rank-deficient LAML fix the REML/LAML cost reads
-        // `log|H_proj|`, not `log|H_full|`.  These two scalars differ by
-        // the `null(S)` directions' contribution to `log|X'WX|` — visible
-        // here as `hop_logdet ≠ log_det_h_proj` whenever
-        // `range(S_+)` is a strict subspace (for this 1-D Duchon test
-        // `S_λ` has rank 5 in a 7-dim transformed basis, so two
-        // directions of H sit outside `range(S)` and contribute their
-        // own ψ-dependence to `log|H_full|`).  Finite-differencing the
-        // full-space logdet picks up that extra contribution; finite-
-        // differencing the projected logdet exposes exactly what the
-        // analytic trace formula `kernel.trace_projected_logdet(op_total)`
-        // computes.  Pinning against the wrong finite-difference reference
-        // made this invariant fire even on mathematically-correct
-        // production output, so the test pinned an impossible identity.
-        // The corrected finite-difference reference is the only one the
-        // production code actually claims to satisfy.
+        // INVARIANT 2: Production trace agrees with FD of the Hessian
+        // log-determinant term exactly as the production cost identity
+        // evaluates it (`hop.logdet() + hessian_logdet_correction`, read
+        // back via `debug_logdet_h_proj`). Since the #901 corrected object
+        // this is the intrinsic pseudo-logdet `log|H_pen|₊` over
+        // `range(H_pen)` — the `null(S)` directions' ψ-dependence is REAL
+        // likelihood-identified curvature and is included on both sides:
+        // the analytic side traces the total drift against the spectral
+        // kernel `H_pen⁺`, the FD side re-eigendecomposes `H_pen` at ψ±h.
+        // (The pre-#901 version of this pin compared against FD of the
+        // range(S₊)-projected logdet `log|U_Sᵀ H U_S|₊` — the wrong object
+        // whose dropped Schur curvature produced the sign-flipped ρ and
+        // exploding ψ gradients this cluster red-lined on.) Because the FD
+        // reference reads through the SAME assembly the production cost
+        // uses, this pin keeps following whatever value production
+        // installs — there is no separately maintained debug formula to
+        // drift out of sync.
         let h = 1e-5_f64;
         let psi_idx = rho_dim;
         let mut theta_p = theta_zero.clone();
@@ -24921,6 +25217,20 @@ mod tests {
             )
             .expect("debug_logdet_h_proj -h");
         let fd_d_logdet_h_proj = (log_det_p - log_det_m) / (2.0 * h);
+
+        // #901-layer-2 diagnostic: split the analytic ψ logdet trace into its
+        // frozen-B_i and cubic-IFT-correction components so we can attribute
+        // the desync against the total FD reference.
+        eprintln!(
+            "[#901-L2 split] production_tr={:+.6e} fd_total={:+.6e} frozen_tr={:?} correction_tr={:?} correction_tr_proj={:?} (true_cubic={:+.6e})",
+            production_tr,
+            fd_d_logdet_h_proj,
+            stash.frozen_tr,
+            stash.correction_tr,
+            stash.correction_tr_proj,
+            fd_d_logdet_h_proj - stash.frozen_tr.unwrap_or(f64::NAN),
+        );
+
         let rel_to_fd =
             (production_tr - fd_d_logdet_h_proj).abs() / fd_d_logdet_h_proj.abs().max(1e-30);
         assert!(
@@ -24932,15 +25242,21 @@ mod tests {
             rel_to_fd
         );
 
-        // INVARIANT 3: The penalty-subspace projection must change the trace
-        // substantially — otherwise it's a no-op. For this Duchon ψ test
-        // unprojected ≈ +22.5 while production ≈ −1.05.  A gap collapse to
-        // near zero indicates the projection is broken or disabled.
+        // INVARIANT 3 (re-pinned for the #901 corrected object): on a healthy
+        // spectrum the intrinsic kernel `H_pen⁺` and the smooth-floored
+        // full-space `G_ε(H)` must now AGREE — they differ only in the
+        // treatment of sub-threshold eigendirections, of which this fixture
+        // has none. The pre-#901 version of this pin asserted the OPPOSITE
+        // (gap > 5): that gap was the range(S₊) projection discarding the
+        // real, likelihood-identified ψ-dependence of the penalty-null
+        // directions — i.e. it pinned the bug signature as a feature. A
+        // large gap reappearing here means someone reintroduced a kernel
+        // whose subspace is narrower than the cost's `range(H_pen)`.
         let gap = (unprojected_tr - production_tr).abs();
         assert!(
-            gap > 5.0,
-            "penalty-subspace projection should eliminate a substantial \
-             null-space contribution (unprojected={:+.4e}, production={:+.4e}, \
+            gap <= 1e-3 * production_tr.abs().max(1.0),
+            "intrinsic H_pen⁺ kernel must agree with the full-space trace on \
+             a healthy spectrum (unprojected={:+.4e}, production={:+.4e}, \
              gap={:+.4e})",
             unprojected_tr,
             production_tr,
@@ -25090,6 +25406,9 @@ mod tests {
         )
         .expect("hyper dirs build")
         .expect("hyper dirs present");
+        // Opt in to EIG-DECOMP stash capture for this eval (production
+        // gradient evals skip the diagnostic's extra traces entirely).
+        let _capture = crate::test_support::debug_stash::CaptureGuard::request();
         let (analytic_cost, analytic_gradient, _) = evaluate_joint_reml_outer_eval_at_theta(
             &mut evaluator,
             cache.design(),
@@ -25291,13 +25610,29 @@ mod tests {
         let x = Array1::linspace(0.0, 1.0, n);
         let mut data = Array2::<f64>::zeros((n, 1));
         data.column_mut(0).assign(&x);
-        // `BSplineIdentifiability::None` keeps the smooth block sparse through
-        // `build_bspline_basis_1d`. The default `WeightedSumToZero` policy is
-        // deliberately densified by `apply_sum_to_zero_constraint_sparse`
-        // (orthonormal Z, so ZZᵀ is a true projector — `B·Z` is mathematically
-        // dense), which would prevent the assembled design from landing in
-        // `DesignMatrix::Sparse`; the sparse-design pin only holds on the None
-        // branch (see `test_build_bspline_basis_1d_default_identifiability_densifies_via_orthonormal_centering`).
+        // `BSplineIdentifiability::None` keeps the per-term basis sparse
+        // through `build_bspline_basis_1d`. The default `WeightedSumToZero`
+        // policy is deliberately densified by
+        // `apply_sum_to_zero_constraint_sparse` (orthonormal Z, so ZZᵀ is a
+        // true projector — `B·Z` is mathematically dense), which would
+        // prevent the assembled design from landing in
+        // `DesignMatrix::Sparse`.
+        //
+        // The other implicit densification path is the joint-null absorption
+        // rotation in `build_smooth_design_withworkspace_unvalidated`: when
+        // the per-term joint penalty `Σ_k S_k` has a non-trivial null space,
+        // the term is rotated through a DENSE `(p × p)` orthogonal `Q` from
+        // eigh, and `built.design = DesignMatrix::Dense(X · Q)`. A single
+        // smoothness penalty (`double_penalty: false`, penalty order 2) has a
+        // null space of dimension 2 (the constants and the linear monomial),
+        // so the rotation fires and densifies the design.
+        //
+        // Pin `double_penalty: true` so the per-term joint penalty is the
+        // smoothness penalty plus the null-space shrinkage; their sum is
+        // full-rank on the basis, `compute_joint_null_rotation` returns
+        // `None`, and the rotation step is skipped. The assembled design then
+        // genuinely lands in `DesignMatrix::Sparse` and the sparse-design
+        // capability gate this test exists to verify is actually exercised.
         let spec = TermCollectionSpec {
             linear_terms: vec![],
             random_effect_terms: vec![],
@@ -25312,7 +25647,7 @@ mod tests {
                             data_range: (0.0, 1.0),
                             num_internal_knots: 32,
                         },
-                        double_penalty: false,
+                        double_penalty: true,
                         identifiability: BSplineIdentifiability::None,
                         boundary: OneDimensionalBoundary::Open,
                         boundary_conditions: BSplineBoundaryConditions::default(),
@@ -25686,6 +26021,7 @@ mod tests {
                     psi_gradient: None,
                     psi_indices: None,
                     inner_hessian_scale: None,
+                    logdet_enclosure_gap: None,
                 })
             },
             |_beta: &Array1<f64>| Ok(()),
@@ -29216,7 +29552,19 @@ mod tests {
                         nullspace_order: DuchonNullspaceOrder::Linear,
                         identifiability: SpatialIdentifiability::default(),
                         aniso_log_scales: None,
-                        operator_penalties: DuchonOperatorPenaltySpec::default(),
+                        // `extract_spatial_operator_runtime_caches` returns a
+                        // cache only when the term ships an EXPLICIT Stiffness
+                        // penalty (the Charbonnier D2 surrogate has no
+                        // matching shipped penalty otherwise — see
+                        // `extract_spatial_operator_runtime_caches` docs at the
+                        // call site). `DuchonOperatorPenaltySpec::default()`
+                        // disables Stiffness (Primary is the exact RKHS
+                        // curvature), so the runtime cache would be empty and
+                        // the adaptive-overlay path this test exists to
+                        // exercise would never fire. Pin `all_active()` so all
+                        // three operator channels (mass, tension, stiffness)
+                        // are present in the design's penalty list.
+                        operator_penalties: DuchonOperatorPenaltySpec::all_active(),
                         boundary: OneDimensionalBoundary::Open,
                     },
                     input_scales: None,
@@ -29739,7 +30087,13 @@ mod tests {
                         nullspace_order: DuchonNullspaceOrder::Linear,
                         identifiability: SpatialIdentifiability::default(),
                         aniso_log_scales: None,
-                        operator_penalties: DuchonOperatorPenaltySpec::default(),
+                        // Same reason as
+                        // `exact_spatial_adaptive_1dobjective_profile_has_finite_gradient_lambda_surface`:
+                        // the adaptive overlay requires an EXPLICIT Stiffness
+                        // penalty for `extract_spatial_operator_runtime_caches`
+                        // to surface a cache. The default Duchon spec disables
+                        // Stiffness, so pin `all_active()` here too.
+                        operator_penalties: DuchonOperatorPenaltySpec::all_active(),
                         boundary: OneDimensionalBoundary::Open,
                     },
                     input_scales: None,

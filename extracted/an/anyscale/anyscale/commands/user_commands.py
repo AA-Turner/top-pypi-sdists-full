@@ -62,6 +62,10 @@ def user_cli() -> None:
     name="batch-create",
     cls=AnyscaleCommand,
     example=command_examples.USER_BATCH_CREATE_EXAMPLE,
+    # Gated behind an internal feature flag; remains callable for enabled
+    # customers but is omitted from `--help` and the generated reference. See
+    # CI-2068.
+    hidden=True,
 )
 @click.option(
     "--users-file",

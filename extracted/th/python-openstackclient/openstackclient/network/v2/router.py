@@ -22,6 +22,7 @@ import logging
 from typing import Any
 
 from cliff import columns as cliff_columns
+from openstack.network.v2 import router as _router
 from osc_lib.cli import format_columns
 from osc_lib.cli import parseractions
 from osc_lib import exceptions
@@ -29,6 +30,7 @@ from osc_lib import utils
 from osc_lib.utils import tags as _tag
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 from openstackclient.network import common
@@ -69,7 +71,9 @@ _formatters = {
 }
 
 
-def _get_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_columns(
+    item: _router.Router,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     column_map = {
         'is_ha': 'ha',
         'is_distributed': 'distributed',
@@ -84,6 +88,8 @@ def _get_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
     if item.is_distributed is None:
         hidden_columns.append('is_distributed')
         column_map.pop('is_distributed')
+    if not hasattr(item, 'evpn_vni'):
+        hidden_columns.append('evpn_vni')
     return utils.get_osc_show_columns_for_sdk_resource(
         item, column_map, hidden_columns
     )
@@ -344,7 +350,7 @@ class AddPortToRouter(command.Command):
         port = client.find_port(parsed_args.port, ignore_missing=False)
         client.add_interface_to_router(
             client.find_router(parsed_args.router, ignore_missing=False),
-            port_id=port.id,
+            port=port.id,
         )
 
 
@@ -370,7 +376,7 @@ class AddSubnetToRouter(command.Command):
         subnet = client.find_subnet(parsed_args.subnet, ignore_missing=False)
         client.add_interface_to_router(
             client.find_router(parsed_args.router, ignore_missing=False),
-            subnet_id=subnet.id,
+            subnet=subnet.id,
         )
 
 
@@ -478,8 +484,6 @@ class RemoveExtraRoutesFromRouter(command.ShowOne):
         return (display_columns, data)
 
 
-# TODO(yanxing'an): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class CreateRouter(command.ShowOne, common.NeutronCommandWithExtraArgs):
     _description = _("Create a new router")
 
@@ -713,8 +717,6 @@ class DeleteRouter(command.Command):
             raise exceptions.CommandError(msg)
 
 
-# TODO(yanxing'an): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class ListRouter(command.Lister):
     _description = _("List routers")
 
@@ -754,6 +756,7 @@ class ListRouter(command.Lister):
             ),
         )
         _tag.add_tag_filtering_option_to_parser(parser, _('routers'))
+        pagination.add_marker_pagination_option_to_parser(parser)
 
         return parser
 
@@ -798,16 +801,26 @@ class ListRouter(command.Lister):
             ).id
             args['project_id'] = project_id
 
+        if parsed_args.marker is not None:
+            args['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            args['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            args['max_items'] = parsed_args.max_items
+
         _tag.get_tag_filtering_args(parsed_args, args)
 
-        if parsed_args.agent is not None:
+        if parsed_args.agent is None:
+            data = list(client.routers(**args))
+        else:
             agent = client.get_agent(parsed_args.agent)
-            data = client.agent_hosted_routers(agent)
             # NOTE: Networking API does not support filtering by parameters,
             # so we need filtering in the client side.
-            data = [d for d in data if self._filter_match(d, args)]
-        else:
-            data = client.routers(**args)
+            data = [
+                d
+                for d in client.agent_hosted_routers(agent)
+                if self._filter_match(d, args)
+            ]
 
         # check if "HA" and "Distributed" columns should be displayed also
         data = list(data)
@@ -887,7 +900,7 @@ class RemovePortFromRouter(command.Command):
         port = client.find_port(parsed_args.port, ignore_missing=False)
         client.remove_interface_from_router(
             client.find_router(parsed_args.router, ignore_missing=False),
-            port_id=port.id,
+            port=port.id,
         )
 
 
@@ -915,12 +928,10 @@ class RemoveSubnetFromRouter(command.Command):
         subnet = client.find_subnet(parsed_args.subnet, ignore_missing=False)
         client.remove_interface_from_router(
             client.find_router(parsed_args.router, ignore_missing=False),
-            subnet_id=subnet.id,
+            subnet=subnet.id,
         )
 
 
-# TODO(yanxing'an): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class SetRouter(common.NeutronCommandWithExtraArgs):
     _description = _("Set router properties")
 

@@ -24,7 +24,7 @@ use uv_distribution_types::{
 };
 use uv_normalize::{ExtraName, GroupName, PackageName, PipGroupName};
 use uv_pep508::{MarkerTree, Requirement};
-use uv_preview::PreviewFeature;
+use uv_preview::MaybePreviewFeature;
 use uv_pypi_types::VerbatimParsedUrl;
 use uv_python::{PythonDownloads, PythonPreference, PythonVersion};
 use uv_redacted::DisplaySafeUrl;
@@ -326,9 +326,8 @@ pub struct GlobalArgs {
         value_delimiter = ',',
         hide = true,
         alias = "preview-feature",
-        value_enum,
     )]
-    pub preview_features: Vec<PreviewFeature>,
+    pub preview_features: Vec<MaybePreviewFeature>,
 
     /// Avoid discovering a `pyproject.toml` or `uv.toml` file [env: UV_ISOLATED=]
     ///
@@ -1168,6 +1167,9 @@ pub enum ProjectCommand {
         after_long_help = ""
     )]
     Lock(LockArgs),
+    /// Upgrade a dependency in the project.
+    #[command(hide = true)]
+    Upgrade(UpgradeArgs),
     /// Export the project's lockfile to an alternate format.
     ///
     /// At present, `requirements.txt`, `pylock.toml` (PEP 751) and CycloneDX v1.5 JSON output
@@ -4000,7 +4002,7 @@ pub struct SyncArgs {
     #[arg(long, overrides_with = "active", hide = true)]
     pub no_active: bool,
 
-    /// Do not install the current project.
+    /// Do not install the current project [env: UV_NO_INSTALL_PROJECT=]
     ///
     /// By default, the current project is installed into the environment with all of its
     /// dependencies. The `--no-install-project` option allows the project to be excluded, but all
@@ -4017,7 +4019,7 @@ pub struct SyncArgs {
     #[arg(long, conflicts_with = "no_install_project", hide = true)]
     pub only_install_project: bool,
 
-    /// Do not install any workspace members, including the root project.
+    /// Do not install any workspace members, including the root project [env: UV_NO_INSTALL_WORKSPACE=]
     ///
     /// By default, all workspace members and their dependencies are installed into the
     /// environment. The `--no-install-workspace` option allows exclusion of all the workspace
@@ -4034,7 +4036,7 @@ pub struct SyncArgs {
     #[arg(long, conflicts_with = "no_install_workspace", hide = true)]
     pub only_install_workspace: bool,
 
-    /// Do not install local path dependencies
+    /// Do not install local path dependencies [env: UV_NO_INSTALL_LOCAL=]
     ///
     /// Skips the current project, workspace members, and any other local (path or editable)
     /// packages. Only remote/indexed dependencies are installed. Useful in Docker builds to cache
@@ -4271,6 +4273,13 @@ pub struct LockArgs {
 }
 
 #[derive(Args)]
+pub struct UpgradeArgs {
+    /// The package to upgrade.
+    #[arg(value_hint = ValueHint::Other)]
+    pub package: PackageName,
+}
+
+#[derive(Args)]
 #[command(group = clap::ArgGroup::new("sources").required(true).multiple(true))]
 pub struct AddArgs {
     /// The packages to add, as PEP 508 requirements (e.g., `ruff==0.5.0`).
@@ -4502,7 +4511,7 @@ pub struct AddArgs {
     #[arg(long, overrides_with = "workspace")]
     pub no_workspace: bool,
 
-    /// Do not install the current project.
+    /// Do not install the current project [env: UV_NO_INSTALL_PROJECT=]
     ///
     /// By default, the current project is installed into the environment with all of its
     /// dependencies. The `--no-install-project` option allows the project to be excluded, but all of
@@ -4530,7 +4539,7 @@ pub struct AddArgs {
     )]
     pub only_install_project: bool,
 
-    /// Do not install any workspace members, including the current project.
+    /// Do not install any workspace members, including the current project [env: UV_NO_INSTALL_WORKSPACE=]
     ///
     /// By default, all workspace members and their dependencies are installed into the
     /// environment. The `--no-install-workspace` option allows exclusion of all the workspace
@@ -4558,7 +4567,7 @@ pub struct AddArgs {
     )]
     pub only_install_workspace: bool,
 
-    /// Do not install local path dependencies
+    /// Do not install local path dependencies [env: UV_NO_INSTALL_LOCAL=]
     ///
     /// Skips the current project, workspace members, and any other local (path or editable)
     /// packages. Only remote/indexed dependencies are installed. Useful in Docker builds to cache
@@ -4973,6 +4982,20 @@ pub struct ExportArgs {
 
     #[arg(long, overrides_with("no_header"), hide = true)]
     pub header: bool,
+
+    /// Include `--index-url` and `--extra-index-url` entries in the generated output file.
+    #[arg(long, overrides_with("no_emit_index_url"))]
+    pub emit_index_url: bool,
+
+    #[arg(long, overrides_with("emit_index_url"), hide = true)]
+    pub no_emit_index_url: bool,
+
+    /// Include `--find-links` entries in the generated output file.
+    #[arg(long, overrides_with("no_emit_find_links"))]
+    pub emit_find_links: bool,
+
+    #[arg(long, overrides_with("emit_find_links"), hide = true)]
+    pub no_emit_find_links: bool,
 
     /// Export any non-editable dependencies, including the project and any workspace members, as
     /// editable.

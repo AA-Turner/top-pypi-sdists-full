@@ -21,6 +21,7 @@ def sdk_command(
     doc_py_example: str,
     arg_docstrings: Dict[str, str],
     hidden_args: Optional[Set[str]] = None,
+    hidden: bool = False,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Decorator to automatically inject an `_sdk` arg into the wrapped function.
 
@@ -30,6 +31,9 @@ def sdk_command(
     `hidden_args` lists argument names that should be functional but excluded
     from generated docs. Used for private-beta surfaces that still need to work
     for enabled customers.
+
+    `hidden=True` extends the same idea to the whole function: it stays in the
+    public surface and remains callable, but the docgen skips it entirely.
     """
 
     # The P and T type hints allow f's type hints to pass through this decorator.
@@ -59,6 +63,7 @@ def sdk_command(
         wrapper.__doc_py_example__ = doc_py_example  # type: ignore
         wrapper.__arg_docstrings__ = arg_docstrings  # type: ignore
         wrapper.__hidden_args__ = hidden_args or set()  # type: ignore
+        wrapper.__hidden__ = hidden  # type: ignore
 
         return wrapper
 
@@ -70,6 +75,7 @@ def sdk_docs(
     doc_py_example: str,
     arg_docstrings: Dict[str, str],
     hidden_args: Optional[Set[str]] = None,
+    hidden: bool = False,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Decorator to add documentation for an SDK command."""
 
@@ -87,6 +93,7 @@ def sdk_docs(
         f.__doc_py_example__ = doc_py_example  # type: ignore
         f.__arg_docstrings__ = arg_docstrings  # type: ignore
         f.__hidden_args__ = hidden_args or set()  # type: ignore
+        f.__hidden__ = hidden  # type: ignore
 
         return f
 
@@ -98,6 +105,7 @@ def sdk_command_v2(
     doc_py_example: str,
     arg_docstrings: Dict[str, str],
     hidden_args: Optional[Set[str]] = None,
+    hidden: bool = False,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Similar to `@sdk_command`, but relies on the SDK function initializing `sdk()` in the function body.
 
@@ -117,19 +125,21 @@ def sdk_command_v2(
         wrapper.__doc_py_example__ = doc_py_example  # type: ignore
         wrapper.__arg_docstrings__ = arg_docstrings  # type: ignore
         wrapper.__hidden_args__ = hidden_args or set()  # type: ignore
+        wrapper.__hidden__ = hidden  # type: ignore
 
         return wrapper
 
     return _wrap_sdk_function
 
 
-def deprecated_sdk_command(
+def deprecated_sdk_command(  # noqa: PLR0913
     key: str,
     sdk_cls: Type,
     *,
     doc_py_example: str,
     arg_docstrings: Dict[str, str],
     hidden_args: Optional[Set[str]] = None,
+    hidden: bool = False,
     deprecation_message: Optional[str] = None,
     removal_date: Optional[Union[str, date, datetime]] = None,
     alternative: Optional[str] = None,
@@ -144,6 +154,7 @@ def deprecated_sdk_command(
         doc_py_example: Documentation example
         arg_docstrings: Argument documentation
         hidden_args: Argument names to exclude from generated docs while keeping them functional
+        hidden: When True, exclude the function from generated docs while keeping it functional
         deprecation_message: Custom deprecation message
         removal_date: When the command will be removed (YYYY-MM-DD string, date, or datetime)
         alternative: Suggested alternative command
@@ -236,6 +247,7 @@ def deprecated_sdk_command(
         wrapper.__doc_py_example__ = doc_py_example  # type: ignore
         wrapper.__arg_docstrings__ = arg_docstrings  # type: ignore
         wrapper.__hidden_args__ = hidden_args or set()  # type: ignore
+        wrapper.__hidden__ = hidden  # type: ignore
         wrapper.__deprecated__ = True  # type: ignore
         wrapper.__deprecation_message__ = deprecation_message  # type: ignore
         wrapper.__removal_date__ = removal_date  # type: ignore

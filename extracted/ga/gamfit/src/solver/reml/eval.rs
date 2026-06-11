@@ -367,22 +367,29 @@ pub(crate) fn accumulate_sigma_cubature_total_covariance(
 pub static SMOOTHING_CORRECTION_CUBATURE_COUNT: AtomicU64 = AtomicU64::new(0);
 
 impl<'a> RemlState<'a> {
-    /// Compute first and second derivatives of the exact pseudo-logdet
-    /// log|S|₊ with respect to ρ.
+    /// Compute the pseudo-logdet `log|Σ λ_k S_k|₊`, its rank, and its first and
+    /// second derivatives with respect to ρ — all from one eigendecomposition.
     ///
-    /// Uses eigendecomposition to identify the positive eigenspace, then
-    /// computes exact derivatives on that subspace:
+    /// On the positive eigenspace of `Σ λ_k S_k`:
     ///
     ///   ∂_k L = tr(S⁺ Aₖ)
     ///   ∂²_kl L = δ_{kl} ∂_k L − λₖ λₗ tr(S⁺ Sₖ S⁺ Sₗ)
     ///
-    /// where Aₖ = λₖ Sₖ and S⁺ is the pseudoinverse on the positive eigenspace.
-    pub(super) fn structural_penalty_logdet_derivatives(
+    /// where Aₖ = λₖ Sₖ and S⁺ is the pseudoinverse on that eigenspace.
+    ///
+    /// The value `log|Σ λ_k S_k|₊` and its ρ-derivatives must range over the
+    /// SAME positive eigenspace, or the analytic gradient differentiates a
+    /// different function than the cost reports (the objective↔gradient desync
+    /// class). Sourcing both from one [`PenaltyPseudologdet`] is the structural
+    /// cure — the rank convention (eigenvalue-threshold over `Σ λ_k S_k +
+    /// ridge·I`) is identical on both sides by construction (#901: a separate
+    /// structural-rank value path desynced the GLM ρ-gradient against FD).
+    pub(super) fn structural_penalty_logdet_value_and_derivatives(
         &self,
         rs_transformed: &[Array2<f64>],
         lambdas: &Array1<f64>,
         ridge: f64,
-    ) -> Result<(Array1<f64>, Array2<f64>), EstimationError> {
+    ) -> Result<(f64, usize, Array1<f64>, Array2<f64>), EstimationError> {
         let k_count = lambdas.len();
         if rs_transformed.len() != k_count {
             return Err(EstimationError::LayoutError(format!(
@@ -392,7 +399,12 @@ impl<'a> RemlState<'a> {
             )));
         }
         if k_count == 0 {
-            return Ok((Array1::zeros(k_count), Array2::zeros((k_count, k_count))));
+            return Ok((
+                0.0,
+                0,
+                Array1::zeros(k_count),
+                Array2::zeros((k_count, k_count)),
+            ));
         }
 
         // Build S_k = R_k^T R_k for each penalty component.
@@ -406,8 +418,10 @@ impl<'a> RemlState<'a> {
         let pld = PenaltyPseudologdet::from_components(&s_k_matrices, lambdas_slice, ridge)
             .map_err(EstimationError::LayoutError)?;
 
+        let value = pld.value();
+        let rank = pld.rank();
         let (det1, det2) = pld.rho_derivatives(&s_k_matrices, lambdas_slice);
-        Ok((det1, det2))
+        Ok((value, rank, det1, det2))
     }
 
     /// Block-local penalty logdet derivatives using `CanonicalPenalty`.
@@ -418,8 +432,24 @@ impl<'a> RemlState<'a> {
     pub(super) fn structural_penalty_logdet_derivatives_block_local(
         &self,
         lambdas: &Array1<f64>,
-        ridge: f64,
+        bundle: &EvalShared,
     ) -> Result<(Array1<f64>, Array2<f64>), EstimationError> {
+        let (_, _, det1, det2) =
+            self.structural_penalty_logdet_value_and_derivatives_block_local(lambdas, bundle)?;
+        Ok((det1, det2))
+    }
+
+    /// Same as [`structural_penalty_logdet_derivatives_block_local`] but also
+    /// returns the pseudo-logdet VALUE and rank from the SAME object the
+    /// derivatives are taken on — see
+    /// [`structural_penalty_logdet_value_and_derivatives`] for why value and
+    /// derivative must share one positive eigenspace (#901).
+    pub(super) fn structural_penalty_logdet_value_and_derivatives_block_local(
+        &self,
+        lambdas: &Array1<f64>,
+        bundle: &EvalShared,
+    ) -> Result<(f64, usize, Array1<f64>, Array2<f64>), EstimationError> {
+        let ridge = bundle.ridge_passport.penalty_logdet_ridge();
         // Kronecker fast path: compute logdet derivatives directly from the
         // marginal eigenvalue grid.  O(d · ∏q_j) with no coordinate-frame
         // dependence — eigenvalues of Σ_k λ_k (I⊗...⊗S_k⊗...⊗I) are invariant
@@ -427,28 +457,37 @@ impl<'a> RemlState<'a> {
         // whether P-IRLS uses standard or factored Qs.
         if let Some(ref kron) = self.kronecker_penalty_system {
             let lambdas_slice = lambdas.as_slice().unwrap();
-            let (_, det1, det2) = kron.logdet_and_derivatives(lambdas_slice, ridge);
-            return Ok((det1, det2));
+            let (logdet, rank, det1, det2) = kron.logdet_rank_and_derivatives(lambdas_slice, ridge);
+            return Ok((logdet, rank, det1, det2));
         }
 
         let k_count = self.canonical_penalties.len();
         if k_count == 0 || lambdas.len() != k_count {
-            return Ok((Array1::zeros(k_count), Array2::zeros((k_count, k_count))));
+            return Ok((
+                0.0,
+                0,
+                Array1::zeros(k_count),
+                Array2::zeros((k_count, k_count)),
+            ));
         }
 
         let lambdas_slice = lambdas.as_slice().unwrap();
 
-        let pld = PenaltyPseudologdet::from_penalties(
+        // ONE factorization per evaluation point (#931): the same object also
+        // serves the τ/ψ hyper-coordinate components in hyper.rs, so the
+        // ridge and positive-eigenspace threshold of `log|Sλ|₊` are decided
+        // exactly once for value, ρ-derivatives, and τ components alike.
+        let pld = bundle.penalty_pseudologdet_original(
             &self.canonical_penalties,
             lambdas_slice,
-            ridge,
             self.p,
-        )
-        .map_err(EstimationError::LayoutError)?;
+        )?;
 
+        let value = pld.value();
+        let rank = pld.rank();
         let (det1, det2) =
             pld.rho_derivatives_from_penalties(&self.canonical_penalties, lambdas_slice);
-        Ok((det1, det2))
+        Ok((value, rank, det1, det2))
     }
 
     pub(super) fn compute_lamlhessian_exact_from_bundle(
@@ -484,6 +523,42 @@ impl<'a> RemlState<'a> {
                 self.compute_lamlhessian_exact_from_bundle(rho, &bundle)
             }
         }
+    }
+
+    /// Tier-0 of the exact marginal-smoothing inference stack (#938): the PSIS
+    /// `ρ`-uncertainty certificate, evaluated against THIS live objective.
+    ///
+    /// This is the objective-lifecycle seam. The marginal posterior factorizes
+    /// as `π(β, ρ | y) = π(β | ρ, y) · π(ρ | y)` with
+    /// `π(ρ|y) ∝ exp(−criterion(ρ))`, and the certificate needs to evaluate the
+    /// outer criterion at a handful of `ρ` near `ρ̂`. The criterion IS
+    /// [`Self::compute_cost`] and the proposal Hessian IS
+    /// [`Self::compute_lamlhessian_consistent`] — both `&self` — so a converged
+    /// fit can produce the certificate WITHOUT retaining or rebuilding a
+    /// separate objective: it runs against the same `RemlState` the fit
+    /// converged on, while it is still in scope. The criterion the certificate
+    /// samples is therefore the fit's own criterion bit-for-bit
+    /// (`criterion(ρ̂) == reml_score`), so no fingerprint reconciliation is
+    /// needed — there is exactly one objective.
+    ///
+    /// Returns `None` when there are no smoothing parameters (`K == 0`), the
+    /// outer Hessian at `final_rho` is unavailable, or the criterion is
+    /// infeasible at `ρ̂` — the diagnostic is simply absent, never an error.
+    pub(crate) fn tier0_rho_certificate(
+        &self,
+        final_rho: &Array1<f64>,
+        n_samples: Option<usize>,
+    ) -> Option<crate::inference::rho_posterior::RhoPosteriorCertificate> {
+        if final_rho.is_empty() {
+            return None;
+        }
+        let outer_hessian = self.compute_lamlhessian_consistent(final_rho).ok()?;
+        crate::inference::rho_posterior::rho_posterior_certificate(
+            final_rho,
+            &outer_hessian,
+            |rho| self.compute_cost(rho).ok(),
+            n_samples,
+        )
     }
 
     pub(crate) fn compute_smoothing_correction_auto(
@@ -572,7 +647,7 @@ impl<'a> RemlState<'a> {
         // smoothing correction is the local linearization at ρ̂; cubature
         // upgrades it when the linearization is suspect (boundary contact, or
         // the outer gradient is genuinely large). An absolute ‖g‖>1e-3 gate
-        // is wrong at every scale: biobank deviance ≈ 10⁵–10⁶ makes ‖g‖≈1
+        // is wrong at every scale: large-scale deviance ≈ 10⁵–10⁶ makes ‖g‖≈1
         // perfectly fine but trips the gate unconditionally, while tiny CI
         // problems with deviance ≈ 10–100 stay under 1e-3 even when actually
         // unconverged. Use the same `τ·(1+|F|)` rescaling the OUTER paths use
@@ -1580,11 +1655,11 @@ mod sigma_cubature_accumulation_tests {
     /// V100 hill-climb scaffold — sigma loop perf baseline + 5× target.
     ///
     /// This codifies the per-charter perf goal (5× speedup over the CPU
-    /// Rayon sigma loop at biobank scale on V100) in CI. It runs in two
+    /// Rayon sigma loop at large scale on V100) in CI. It runs in two
     /// layers:
     ///
     ///   * **Today (this test)**: measures the *accumulator-only* cost
-    ///     at biobank shape — `p = 50`, `M = 8`, synthetic
+    ///     at large-scale shape — `p = 50`, `M = 8`, synthetic
     ///     `(A_m = SPD, b_m = random)` pairs — and asserts the
     ///     measurement completes in well under a wall-clock ceiling
     ///     (sanity-check that the math kernel scales as expected). The
@@ -1595,7 +1670,7 @@ mod sigma_cubature_accumulation_tests {
     ///
     ///   * **Future (when `device_pirls_stage3_ready()` flips)**:
     ///     promote this test to drive `sigma_cubature_dispatch` on a
-    ///     real biobank-shaped REML state, time both branches via
+    ///     real large-scale-shaped REML state, time both branches via
     ///     `std::time::Instant::elapsed`, and assert
     ///     `t_cpu / t_gpu >= 5.0`. The promotion is one block of edits
     ///     to the same test function (no new test name, no CI churn).
@@ -1607,7 +1682,7 @@ mod sigma_cubature_accumulation_tests {
     /// to encode it.
     #[test]
     fn sigma_loop_v100_hill_climb_baseline() {
-        // Biobank-shape accumulator inputs: p=50, M=8.
+        // Large-scale accumulator inputs: p=50, M=8.
         let p = 50_usize;
         let m = 8_usize;
 

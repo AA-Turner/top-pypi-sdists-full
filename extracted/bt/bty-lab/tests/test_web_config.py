@@ -76,6 +76,53 @@ def test_single_toml_overrides_defaults(tmp_path: Path) -> None:
     assert r.primary_toml == p
 
 
+def test_tftp_probe_host_derives_from_withcache_url(tmp_path: Path) -> None:
+    """Unset ``[netboot] tftp_probe_host`` resolves to the withcache
+    URL's host -- the LAN address clients reach, where the
+    host-networked bty-tftp sidecar serves udp/69. This is the bug
+    that broke the /ui/netboot probe: the default must not be loopback
+    when a withcache host is configured."""
+    p = _toml(
+        tmp_path,
+        "bty.toml",
+        """
+        [withcache]
+        url = "http://192.168.1.110:3000"
+        """,
+    )
+    cfg = load_config([p]).cfg
+    assert cfg.netboot.tftp_probe_host == ""  # unset
+    assert cfg.advertised_host == "192.168.1.110"
+    assert cfg.effective_tftp_probe_host == "192.168.1.110"
+
+
+def test_tftp_probe_host_explicit_overrides_withcache(tmp_path: Path) -> None:
+    """An explicit ``[netboot] tftp_probe_host`` wins over the derived
+    withcache host (TFTP-on-the-router case)."""
+    p = _toml(
+        tmp_path,
+        "bty.toml",
+        """
+        [withcache]
+        url = "http://192.168.1.110:3000"
+
+        [netboot]
+        tftp_probe_host = "192.168.1.1"
+        """,
+    )
+    cfg = load_config([p]).cfg
+    assert cfg.effective_tftp_probe_host == "192.168.1.1"
+
+
+def test_tftp_probe_host_falls_back_to_loopback(tmp_path: Path) -> None:
+    """No withcache URL and no explicit probe host -> loopback (a
+    co-located host install where TFTP runs on the same box)."""
+    p = _toml(tmp_path, "bty.toml", '[admin]\npassword = "x"\n')
+    cfg = load_config([p]).cfg
+    assert cfg.advertised_host is None
+    assert cfg.effective_tftp_probe_host == "127.0.0.1"
+
+
 def test_unknown_section_or_key_ignored(tmp_path: Path) -> None:
     """Forward-compat: a TOML carrying a section / key bty-web
     doesn't know yet must not blow up. Newer bty.toml on an older
@@ -206,6 +253,42 @@ def test_env_int_coerce_raises_on_garbage(monkeypatch: pytest.MonkeyPatch) -> No
         load_config([])
 
 
+def test_every_legacy_env_alias_maps_to_its_config_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The v0.41 flat env names must keep working until their
+    scheduled removal -- this is the backward-compat contract an
+    unmodified v0.41 ``envvars`` file relies on. Iterates the alias
+    table itself so a new entry is covered automatically."""
+    from bty.web._config import _LEGACY_ENV_ALIASES
+
+    # Unique numeric strings work for both str- and int-typed fields
+    # (the loader coerces by the dataclass's declared type).
+    expected: dict[str, str] = {}
+    for i, env_name in enumerate(sorted(_LEGACY_ENV_ALIASES)):
+        value = str(7000 + i)
+        monkeypatch.setenv(env_name, value)
+        expected[env_name] = value
+
+    r = load_config([])
+    for env_name, (section, key) in _LEGACY_ENV_ALIASES.items():
+        actual = getattr(getattr(r.cfg, section), key)
+        assert str(actual) == expected[env_name], f"{env_name} -> [{section}] {key}"
+        assert r.sources[f"{section}.{key}"] == f"env({env_name})"
+
+
+def test_canonical_env_name_wins_over_legacy_alias(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When both the legacy and the canonical env name are set, the
+    canonical one wins (documented migration semantics)."""
+    monkeypatch.setenv("BTY_WEB_PORT", "1111")  # legacy
+    monkeypatch.setenv("BTY_SERVER_PORT", "2222")  # canonical
+    r = load_config([])
+    assert r.cfg.server.port == 2222
+    assert r.sources["server.port"] == "env(BTY_SERVER_PORT)"
+
+
 # ---------- derived path resolvers -------------------------------------------
 
 
@@ -275,6 +358,34 @@ def test_save_value_atomic_no_tmpfile_left_behind(tmp_path: Path) -> None:
     after a successful write."""
     p = tmp_path / "bty.toml"
     save_value(p, "admin", "password", "x")
+    leftovers = [child.name for child in tmp_path.iterdir() if child.name.startswith(".")]
+    assert leftovers == []
+
+
+def test_save_value_falls_back_to_in_place_on_ebusy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The container deploys bind-mount ``bty.toml`` as a single file
+    at ``/etc/bty/bty.toml``; rename onto a mount point fails with
+    EBUSY regardless of the mount's rw flag. save_value must fall back
+    to an in-place write so Settings-page edits work in containers."""
+    import errno
+
+    p = tmp_path / "bty.toml"
+    p.write_text('[admin]\npassword = "old"\n', encoding="utf-8")
+
+    real_replace = Path.replace
+
+    def ebusy_replace(self: Path, target):  # type: ignore[no-untyped-def]
+        if Path(target) == p:
+            raise OSError(errno.EBUSY, "Device or resource busy")
+        return real_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", ebusy_replace)
+    save_value(p, "admin", "password", "new")
+
+    assert 'password = "new"' in p.read_text(encoding="utf-8")
+    # The fallback also cleans up its tempfile.
     leftovers = [child.name for child in tmp_path.iterdir() if child.name.startswith(".")]
     assert leftovers == []
 

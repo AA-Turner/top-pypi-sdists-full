@@ -339,6 +339,8 @@ class ListFlavor(command.Lister):
 
         if parsed_args.limit:
             query_attrs['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            query_attrs['max_items'] = parsed_args.max_items
 
         if parsed_args.limit or parsed_args.marker:
             # User passed explicit pagination request, switch off SDK
@@ -351,7 +353,7 @@ class ListFlavor(command.Lister):
         if parsed_args.min_ram:
             query_attrs['min_ram'] = parsed_args.min_ram
 
-        data = list(compute_client.flavors(**query_attrs))
+        data = list(compute_client.flavors(**query_attrs))  # type: ignore[arg-type]
         # Even if server supports 2.61 some policy might stop it sending us
         # extra_specs. So try to fetch them if they are absent
         for f in data:

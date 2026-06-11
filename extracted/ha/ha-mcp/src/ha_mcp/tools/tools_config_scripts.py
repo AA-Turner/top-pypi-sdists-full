@@ -27,6 +27,9 @@ from ..utils.python_sandbox import (
 )
 from .auto_backup import with_auto_backup
 from .best_practice_checker import (
+    BestPracticeCheckResult,
+)
+from .best_practice_checker import (
     check_script_config as _check_best_practices,
 )
 from .helpers import (
@@ -39,7 +42,9 @@ from .helpers import (
 from .reference_validator import validate_config_references
 from .util_helpers import (
     apply_entity_category,
-    coerce_bool_param,
+    attach_skill_content,
+    augment_error_dict_with_skill_content,
+    augment_tool_error_with_skill_content,
     fetch_entity_category,
     merge_validation_meta,
     parse_json_param,
@@ -48,6 +53,15 @@ from .util_helpers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# Scripts share the automation skill mapping — both use
+# action / condition / trigger templates and benefit from the same
+# native-vs-template guidance.
+_SCRIPT_SKILL_FILES: tuple[str, ...] = (
+    "references/automation-patterns.md",
+    "references/template-guidelines.md",
+)
 
 
 def _strip_empty_script_fields(config: dict[str, Any]) -> dict[str, Any]:
@@ -122,7 +136,7 @@ class ConfigScriptTools:
             # parity with ``ha_config_get_automation`` (mechanism differs:
             # automations resolve via state lookup; scripts strip the
             # prefix). ``_raise_script_not_found`` suggests
-            # ``ha_search_entities(domain_filter='script')`` which returns
+            # ``ha_search(domain_filter='script')`` which returns
             # entity_ids; without this strip, feeding that output back into
             # the GET tool fails and reseeds the wrong-tool spiral that
             # #1297 closes.
@@ -137,7 +151,7 @@ class ConfigScriptTools:
                 "script_id",
                 suggestions=[
                     "Pass a script identifier (e.g. 'morning_routine')",
-                    "Use ha_search_entities(domain_filter='script') to list scripts",
+                    "Use ha_search(domain_filter='script') to list scripts",
                 ],
             )
             config_result = await self._fetch_script_config_envelope(script_id)
@@ -182,11 +196,12 @@ class ConfigScriptTools:
                 e,
                 context={"script_id": script_id},
                 suggestions=[
-                    "Verify script_id exists using ha_search_entities(domain_filter='script')",
+                    "Verify script_id exists using ha_search(domain_filter='script')",
                     "Check Home Assistant connection",
                     "Use ha_get_skill_guide for help",
                 ],
             )
+            return None  # unreachable: exception_to_structured_error always raises
 
     async def _list_script_entity_ids(self) -> list[str]:
         """Best-effort list of bare script IDs (up to 10) from the entity registry.
@@ -237,7 +252,7 @@ class ConfigScriptTools:
                     "available_script_ids": available_ids,
                 },
                 suggestions=[
-                    "Use ha_search_entities(domain_filter='script') to find existing scripts"
+                    "Use ha_search(domain_filter='script') to find existing scripts"
                 ],
             )
         )
@@ -383,7 +398,7 @@ class ConfigScriptTools:
             ),
         ],
         config: Annotated[
-            str | dict[str, Any] | None,
+            dict[str, Any] | None,
             Field(
                 description="Script configuration dictionary. Must include EITHER 'sequence' (for regular scripts) OR 'use_blueprint' (for blueprint-based scripts). "
                 "Optional fields: 'alias', 'description', 'icon', 'mode', 'max', 'fields'. "
@@ -421,28 +436,38 @@ class ConfigScriptTools:
             ),
         ] = None,
         wait: Annotated[
-            bool | str,
+            bool,
             Field(
                 description="Wait for script to be queryable before returning. Default: True. Set to False for bulk operations.",
                 default=True,
             ),
         ] = True,
+        MandatoryBPS: Annotated[
+            bool,
+            Field(default=True),
+        ] = True,
     ) -> dict[str, Any]:
         """
-        Create or update a Home Assistant script.
+        Create or update a Home Assistant script. MUST call ha_get_skill_guide first.
 
         PREFER NATIVE ACTIONS OVER TEMPLATES (read this before writing any `{{ ... }}`):
         Native actions are validated at config load, fail loudly, and do not bypass HA's
         schema. Templates in logic positions fail silently and obscure intent.
         - `choose` / `if/then/else` instead of template-based service names
         - `wait_for_trigger` instead of `wait_template`
+        - Native `for:` field on `state` conditions inside `choose`/`if`, and on
+          `state`/`numeric_state` triggers in `wait_for_trigger`, instead of
+          `{{ now() - X.last_changed > timedelta(...) }}` duration math.
         - `repeat` with `for_each` instead of template loops
         - Hardcode `target.entity_id` literals — never `{{ this.entity_id }}`.
         Templates are appropriate ONLY in `data.*` fields, notification message/title,
         `event_data`, and `variables`. The reactive best-practice checker on this tool
         will surface anything in a logic position that should be native; consult the
         `best_practice_warnings` field on the response and fix before re-submitting.
-        For comprehensive guidance, call `ha_get_skill_guide`.
+        The relevant skill section is auto-embedded under `skill_content` on warnings,
+        and the full `automation-patterns.md` + `template-guidelines.md` references
+        ship under `skill_content` proactively by default. For comprehensive
+        guidance beyond that, call `ha_get_skill_guide`.
 
         Supports two modes: full config replacement OR Python transformation.
 
@@ -487,9 +512,9 @@ class ConfigScriptTools:
         Create service call script:
         ha_config_set_script(script_id="blink_light", config={
             "sequence": [
-                {"service": "light.turn_on", "target": {"entity_id": "light.living_room"}},
+                {"action": "light.turn_on", "target": {"entity_id": "light.living_room"}},
                 {"delay": {"seconds": 2}},
-                {"service": "light.turn_off", "target": {"entity_id": "light.living_room"}}
+                {"action": "light.turn_off", "target": {"entity_id": "light.living_room"}}
             ],
             "alias": "Light Blink",
             "mode": "single"
@@ -522,8 +547,8 @@ class ConfigScriptTools:
         Update script:
         ha_config_set_script(script_id="morning_routine", config={
             "sequence": [
-                {"service": "light.turn_on", "target": {"area_id": "bedroom"}},
-                {"service": "climate.set_temperature", "target": {"entity_id": "climate.bedroom"}, "data": {"temperature": 22}}
+                {"action": "light.turn_on", "target": {"area_id": "bedroom"}},
+                {"action": "climate.set_temperature", "target": {"entity_id": "climate.bedroom"}, "data": {"temperature": 22}}
             ],
             "alias": "Updated Morning Routine"
         })
@@ -555,7 +580,7 @@ class ConfigScriptTools:
         Note: Scripts use Home Assistant's action syntax. Check the documentation for advanced
         features like conditions, variables, parallel execution, and service call options.
         """
-        bp_warnings: list[str] = []
+        bp_warnings: BestPracticeCheckResult = BestPracticeCheckResult()
         try:
             # Strip BEFORE validate so a bare ``"script."`` (empty after
             # strip) is rejected as ``VALIDATION_INVALID_PARAMETER`` rather
@@ -566,7 +591,7 @@ class ConfigScriptTools:
             # ``ha_config_get_script("foo")``. Behavioral parity with
             # ``ha_config_get_script`` so an agent that received an
             # entity_id (``script.foo``) from
-            # ``ha_search_entities(domain_filter='script')`` can update it
+            # ``ha_search(domain_filter='script')`` can update it
             # without a manual prefix-strip step.
             script_id = script_id.removeprefix("script.")
             # ``script_id`` is required (always non-None). Reject empty/
@@ -580,7 +605,7 @@ class ConfigScriptTools:
                 "script_id",
                 suggestions=[
                     "Pass a script identifier (e.g. 'morning_routine')",
-                    "Use ha_search_entities(domain_filter='script') to list scripts",
+                    "Use ha_search(domain_filter='script') to list scripts",
                 ],
                 context={"action": "set"},
             )
@@ -679,7 +704,13 @@ class ConfigScriptTools:
                     **{k: v for k, v in result.items() if k != "success"},
                 }
                 if bp_warnings:
-                    response["best_practice_warnings"] = bp_warnings
+                    response["best_practice_warnings"] = list(bp_warnings)
+                attach_skill_content(
+                    response,
+                    MandatoryBPS=MandatoryBPS,
+                    canonical_files=_SCRIPT_SKILL_FILES,
+                    referenced_files=bp_warnings.referenced_files,
+                )
                 return response
 
             if config is None:
@@ -718,9 +749,8 @@ class ConfigScriptTools:
             result = await self._client.upsert_script_config(config_dict, script_id)
 
             # Wait for script to be queryable
-            wait_bool = coerce_bool_param(wait, "wait", default=True)
             entity_id = f"script.{script_id}"
-            if wait_bool:
+            if wait:
                 try:
                     registered = await wait_for_entity_registered(
                         self._client, entity_id
@@ -747,24 +777,34 @@ class ConfigScriptTools:
                 )
 
             if bp_warnings:
-                result["best_practice_warnings"] = bp_warnings
+                result["best_practice_warnings"] = list(bp_warnings)
 
             merge_validation_meta(result, validation_meta)
 
-            return {
+            response = {
                 "success": True,
                 **result,
             }
+            # attach AFTER the outer dict is built so hint lands at
+            # position 0 of the FINAL response (see BAT history in
+            # util_helpers._SKILL_CONTENT_OPTOUT_HINT).
+            attach_skill_content(
+                response,
+                MandatoryBPS=MandatoryBPS,
+                canonical_files=_SCRIPT_SKILL_FILES,
+                referenced_files=bp_warnings.referenced_files,
+            )
+            return response
 
-        except ToolError:
-            raise
+        except ToolError as te:
+            raise augment_tool_error_with_skill_content(te, bp_warnings) from None
         except Exception as e:
             suggestions = [
                 "Ensure config includes either 'sequence' field (regular scripts) or 'use_blueprint' field (blueprint-based scripts)",
                 "For blueprint scripts, use ha_get_blueprint(domain='script') to list available blueprints",
                 "Validate sequence actions syntax for regular scripts",
                 "Check entity_ids exist if using service calls",
-                "Use ha_search_entities(domain_filter='script') to find scripts",
+                "Use ha_search(domain_filter='script') to find scripts",
                 "Use ha_get_skill_guide for help",
             ]
             if bp_warnings:
@@ -777,11 +817,14 @@ class ConfigScriptTools:
             # script_id form is what callers pass and what the registry stores.
             if isinstance(e, HomeAssistantAPIError) and e.status_code == 404:
                 await self._raise_script_not_found(script_id)
-            exception_to_structured_error(
+            error = exception_to_structured_error(
                 e,
                 context={"script_id": script_id},
                 suggestions=suggestions,
+                raise_error=False,
             )
+            augment_error_dict_with_skill_content(error, bp_warnings)
+            raise_tool_error(error)
 
     @tool(
         name="ha_config_remove_script",
@@ -803,7 +846,7 @@ class ConfigScriptTools:
             ),
         ],
         wait: Annotated[
-            bool | str,
+            bool,
             Field(
                 description="Wait for script to be fully removed before returning. Default: True.",
                 default=True,
@@ -840,16 +883,15 @@ class ConfigScriptTools:
                 script_id,
                 "script_id",
                 suggestions=[
-                    "Use ha_search_entities(domain_filter='script') to find existing script_ids"
+                    "Use ha_search(domain_filter='script') to find existing script_ids"
                 ],
                 context={"operation": "remove_script"},
             )
             result = await self._client.delete_script_config(script_id)
 
             # Wait for script to be removed
-            wait_bool = coerce_bool_param(wait, "wait", default=True)
             entity_id = f"script.{script_id}"
-            if wait_bool:
+            if wait:
                 try:
                     removed = await wait_for_entity_removed(self._client, entity_id)
                     if not removed:
@@ -871,11 +913,12 @@ class ConfigScriptTools:
                 e,
                 context={"script_id": script_id},
                 suggestions=[
-                    "Verify script_id exists using ha_search_entities(domain_filter='script')",
+                    "Verify script_id exists using ha_search(domain_filter='script')",
                     "Check if script is being used by automations",
                     "Use ha_get_skill_guide for help",
                 ],
             )
+            return None  # unreachable: exception_to_structured_error always raises
 
 
 def register_config_script_tools(mcp: Any, client: Any, **kwargs: Any) -> None:

@@ -281,10 +281,10 @@ class SAGEBackend:
 
 
 def _load_sage_token() -> tuple[str, str]:
-    from sage.core.cli_auth import get_valid_token, SAGE_API_BASE
+    from sage.core.cli_auth import get_valid_token, get_api_base
     try:
         token = get_valid_token()
-        return token, SAGE_API_BASE
+        return token, get_api_base()
     except RuntimeError:
         raise RuntimeError(
             "sage sms requires you to be logged in.\n"
@@ -2351,12 +2351,10 @@ class SAGEMessageBridge:
                         out = _extract_final_answer(raw)
                         return out or "Task completed successfully."
                         
-                    # If first variant failed with FileNotFoundError, it will be caught below
-                    if result.returncode != 0 and cmd == cmd_variants[-1]:
-                        return f"❌ Error: {raw or 'Process exited with code %d' % result.returncode}"
+                    if "No module named" in raw:
+                        break
                         
-                    # Break out of retry loop to try next cmd variant if this one failed (but not due to rate limit)
-                    break
+                    return f"❌ Error: {raw or ('Process exited with code %d' % result.returncode)}"
                         
                 except FileNotFoundError:
                     break

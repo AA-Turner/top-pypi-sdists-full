@@ -257,7 +257,7 @@ class DashboardManager:
         issues = []
         ok = []
         # Python (always available since we're running in it)
-        ok.append(f"python ({sys.executable})")
+        ok.append(f"python ({Filesystem.resolve_python()[0]})")
         # FastAPI
         try:
             import fastapi
@@ -371,8 +371,9 @@ class DashboardManager:
                 kwargs["creationflags"] = flags
             kwargs["start_new_session"] = True
         # Launch uvicorn with the FastAPI app
+        _py_bin, _ = Filesystem.resolve_python()
         proc = subprocess.Popen([
-            sys.executable, "-m", "uvicorn",
+            _py_bin, "-m", "uvicorn",
             "kanban_framework.dashboard.api:create_app",
             "--factory",
             "--host", "127.0.0.1",

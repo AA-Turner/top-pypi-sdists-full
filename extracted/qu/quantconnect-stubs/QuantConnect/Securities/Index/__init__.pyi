@@ -10,6 +10,32 @@ import QuantConnect.Securities.Index
 import System
 
 
+class IndexSymbol(System.Object):
+    """Helper methods for Index Symbols"""
+
+    @staticmethod
+    def get_index_exchange(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
+        """
+        Gets the actual exchange the index lives on
+        
+        :returns: The exchange of the index.
+        """
+        ...
+
+    @staticmethod
+    def try_get_index_market(ticker: str, market: typing.Optional[str]) -> typing.Tuple[bool, str]:
+        """
+        Gets the lean market for this index ticker
+        
+        :returns: The market of the index.
+        """
+        ...
+
+
+class IndexDataFilter(QuantConnect.Securities.SecurityDataFilter):
+    """Index packet by packet data filtering mechanism for dynamically detecting bad ticks."""
+
+
 class Index(QuantConnect.Securities.Security):
     """INDEX Security Object Implementation for INDEX Assets"""
 
@@ -61,28 +87,6 @@ class Index(QuantConnect.Securities.Security):
         ...
 
 
-class IndexSymbol(System.Object):
-    """Helper methods for Index Symbols"""
-
-    @staticmethod
-    def get_index_exchange(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
-        """
-        Gets the actual exchange the index lives on
-        
-        :returns: The exchange of the index.
-        """
-        ...
-
-    @staticmethod
-    def try_get_index_market(ticker: str, market: typing.Optional[str]) -> typing.Tuple[bool, str]:
-        """
-        Gets the lean market for this index ticker
-        
-        :returns: The market of the index.
-        """
-        ...
-
-
 class IndexCache(QuantConnect.Securities.SecurityCache):
     """INDEX specific caching support"""
 
@@ -103,10 +107,6 @@ class IndexExchange(QuantConnect.Securities.SecurityExchange):
         :param exchange_hours: Contains the weekly exchange schedule plus holidays
         """
         ...
-
-
-class IndexDataFilter(QuantConnect.Securities.SecurityDataFilter):
-    """Index packet by packet data filtering mechanism for dynamically detecting bad ticks."""
 
 
 class IndexHolding(QuantConnect.Securities.SecurityHolding):

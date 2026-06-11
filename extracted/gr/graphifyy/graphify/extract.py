@@ -10202,8 +10202,64 @@ def extract_razor(path: Path) -> dict:
     return {"nodes": nodes, "edges": edges}
 
 
+# Config/manifest JSON filenames the structural extractor understands. Anything
+# else (eval fixtures, datasets, GeoJSON, API dumps) is *data* and must NOT be
+# AST-walked into per-key nodes — that floods the graph with orphan key-nodes
+# and near-duplicate communities (#1224). Data JSON is left to the LLM semantic
+# pass instead. Matched case-insensitively against the bare filename.
+_CONFIG_JSON_NAMES = frozenset({
+    "package.json", "tsconfig.json", "jsconfig.json", "composer.json",
+    "deno.json", "deno.jsonc", "bower.json", "manifest.json",
+    "app.json", "now.json", "vercel.json", "angular.json", "nest-cli.json",
+    "biome.json", "biome.jsonc", "renovate.json", ".babelrc", ".babelrc.json",
+    ".eslintrc.json", ".prettierrc.json", ".prettierrc", "babel.config.json",
+})
+
+# Top-level keys that prove a JSON object is a config/manifest the extractor can
+# draw *cross-file* edges from (deps, extends chains, schema refs).
+_CONFIG_JSON_KEYS = frozenset({
+    "dependencies", "devDependencies", "peerDependencies",
+    "optionalDependencies", "bundleDependencies", "bundledDependencies",
+    "extends", "$ref", "$schema", "compilerOptions",
+})
+
+
+def _is_config_json(path: Path, obj_node, source: bytes) -> bool:
+    """True if a .json file is a recognized config/manifest worth AST-extracting.
+
+    Matches by filename first (cheap), then falls back to a top-level key probe
+    so arbitrarily-named config files (e.g. ``api.tsconfig.json``,
+    ``foo.eslintrc.json``) are still picked up. Returns False for data JSON so it
+    is skipped by the structural pass (#1224)."""
+    name = path.name.casefold()
+    if name in _CONFIG_JSON_NAMES:
+        return True
+    # Common compound config names: *.eslintrc.json, *.prettierrc.json, etc.
+    if name.endswith((".eslintrc.json", ".prettierrc.json", ".babelrc.json",
+                      "tsconfig.json", "jsconfig.json")):
+        return True
+    # Top-level key probe: scan the root object's immediate keys (no deep walk).
+    for top_key in obj_node.children:
+        if top_key.type != "pair":
+            continue
+        key_node = top_key.child_by_field_name("key")
+        if key_node is None:
+            continue
+        kc = key_node.child_by_field_name("string_content")
+        text = _read_text(kc, source) if kc else _read_text(key_node, source).strip('"\'')
+        if text in _CONFIG_JSON_KEYS:
+            return True
+    return False
+
+
 def extract_json(path: Path) -> dict:
-    """Extract top-level keys, nested structure, and dependency edges from a .json file."""
+    """Extract structure and dependency edges from a *config/manifest* .json file.
+
+    Data-shaped JSON (eval fixtures, datasets, GeoJSON, API response dumps) is
+    deliberately skipped — AST-walking it produced hundreds of orphan key-nodes
+    and duplicate communities that swamped real structure (#1224). Recognition
+    is by filename (package.json, tsconfig.json, …) or a top-level key probe
+    (dependencies / extends / $ref / $schema / compilerOptions)."""
     _JSON_MAX_BYTES = 1_048_576  # 1 MiB — skip large fixture dumps / GeoJSON blobs
 
     try:
@@ -10342,7 +10398,15 @@ def extract_json(path: Path) -> dict:
     if doc.type == "document" and doc.child_count > 0:
         doc = doc.children[0]
     if doc.type == "object":
+        # Only AST-extract recognized config/manifest JSON. Data JSON (fixtures,
+        # datasets, GeoJSON, API dumps) is skipped so it doesn't explode into
+        # orphan key-nodes (#1224); it's left to the LLM semantic pass.
+        if not _is_config_json(path, doc, source):
+            return {"nodes": [], "edges": [], "skipped": "data json (not a config/manifest)"}
         walk_object(doc, file_nid, None, 0, [0])
+    else:
+        # Top-level array or scalar => data JSON, never a config/manifest.
+        return {"nodes": [], "edges": [], "skipped": "data json (non-object root)"}
 
     return {"nodes": nodes, "edges": edges}
 
@@ -11540,26 +11604,53 @@ def extract(
         if rc.get("is_member_call"):
             continue
         candidates = global_label_to_nids.get(callee.lower(), [])
-        # Skip ambiguous names that resolve to multiple nodes — these are
-        # common short names (log, execute, find) with no import evidence
-        # to pick the right target; emitting all edges inflates god_nodes.
-        if len(candidates) != 1:
+        if not candidates:
             continue
-        tgt = candidates[0]
         caller = rc["caller_nid"]
+        caller_file_nid = nid_to_file_nid.get(caller)
+        imported_symbols = file_to_symbol_imports.get(caller_file_nid, set())
+        imported_modules = file_to_module_imports.get(caller_file_nid, set())
+
+        def _has_import_evidence(candidate_id: str) -> bool:
+            # Direct symbol import (`import { foo }`) is the strongest evidence:
+            # the caller's file has an `imports` edge straight to this symbol.
+            # A module import (`import './helper.js'`) confirms the caller pulled
+            # in the file the candidate lives in.
+            candidate_file_nid = nid_to_file_nid.get(candidate_id)
+            return (
+                candidate_id in imported_symbols
+                or (candidate_file_nid is not None and candidate_file_nid in imported_modules)
+            )
+
+        if len(candidates) == 1:
+            tgt = candidates[0]
+            has_import_evidence = _has_import_evidence(tgt)
+        else:
+            # Ambiguous name (defined in 2+ files). Don't bail outright (#1219):
+            # if the caller has explicit import evidence pointing at exactly one
+            # of the candidates, that named import disambiguates unambiguously.
+            # Prefer direct symbol-import matches; fall back to module-import
+            # matches only when they too collapse to a single target. Without a
+            # unique evidence-backed pick we skip, preserving the #543 guard
+            # against over-connecting common short names (log, execute, find).
+            symbol_matches = [c for c in candidates if c in imported_symbols]
+            if len(symbol_matches) == 1:
+                tgt = symbol_matches[0]
+            else:
+                module_matches = [
+                    c for c in candidates
+                    if (cf := nid_to_file_nid.get(c)) is not None and cf in imported_modules
+                ]
+                if len(module_matches) == 1:
+                    tgt = module_matches[0]
+                else:
+                    continue
+            has_import_evidence = True
         if tgt != caller and (caller, tgt) not in existing_pairs:
             existing_pairs.add((caller, tgt))
             # Promote to EXTRACTED when there's a direct import edge from the
             # caller's file pointing at either the callee symbol itself or the
             # file the callee lives in.
-            caller_file_nid = nid_to_file_nid.get(caller)
-            callee_file_nid = nid_to_file_nid.get(tgt)
-            imported_symbols = file_to_symbol_imports.get(caller_file_nid, set())
-            imported_modules = file_to_module_imports.get(caller_file_nid, set())
-            has_import_evidence = (
-                tgt in imported_symbols
-                or (callee_file_nid is not None and callee_file_nid in imported_modules)
-            )
             if has_import_evidence:
                 confidence = "EXTRACTED"
                 confidence_score = 1.0

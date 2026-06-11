@@ -1,7 +1,10 @@
 Metadata-Version: 2.4
 Name: browser-use-sdk
-Version: 3.8.1
+Version: 3.8.4
 Summary: Python SDK for the Browser Use cloud API
+Project-URL: Homepage, https://github.com/browser-use/sdk
+Project-URL: Repository, https://github.com/browser-use/sdk
+Project-URL: Issues, https://github.com/browser-use/sdk/issues
 License-Expression: MIT
 Requires-Python: >=3.9
 Requires-Dist: httpx>=0.24

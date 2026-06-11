@@ -27,6 +27,7 @@ use crate::linalg::sparse_exact::{
     factorize_sparse_spd, solve_sparse_spd_into, sparse_symmetric_upper_matvec_public,
 };
 use crate::linalg::utils::{array_is_finite, inf_norm};
+use crate::solver::loop_guard::{FlatStreak, IterationBound, LoopVerdict, RejectEscalator};
 use crate::types::Coefficients;
 use faer::sparse::SparseColMat;
 use ndarray::{Array1, Zip};
@@ -85,10 +86,14 @@ pub(super) fn madsen_lm_accept_factor(rho: f64) -> f64 {
 /// face (the underdetermined I-spline case the plateau branch was built for)
 /// gets the relaxed `ACTIVE_SET_KKT_DEGENERATE_STATIONARITY_TOL`; a
 /// non-degenerate face is held to a strict band (`10 · kkt_tolerance`, the same
-/// near-stationary band `near_stationary_kkt` uses), kept well under the outer
-/// gate's absolute stationarity tolerance. Returns `true` for an unconstrained
-/// fit (no constraint-KKT gate to honour) and when no constraint rows can be
-/// derived (no bound is finite).
+/// near-stationary band `near_stationary_kkt` uses). Stationarity is checked
+/// scale-invariantly — absolute residual OR the relative ratio
+/// `stationarity / max(‖grad‖∞, 1)` within the band — exactly as the outer gate
+/// and the inner active-set solver do, so an O(n) gradient scale (issue #879)
+/// does not leave a converged optimum stranded above a fixed absolute band
+/// (issue #989). Returns `true` for an unconstrained fit (no constraint-KKT
+/// gate to honour) and when no constraint rows can be derived (no bound is
+/// finite).
 fn constraint_kkt_admits_soft_accept(
     options: &WorkingModelPirlsOptions,
     beta: &Array1<f64>,
@@ -113,8 +118,71 @@ fn constraint_kkt_admits_soft_accept(
             } else {
                 kkt_tolerance * 10.0
             };
+            // Scale-invariant stationarity, in lockstep with the outer gate
+            // (`enforce_constraint_kkt`) and the inner active-set solver: accept
+            // when EITHER the absolute residual OR the relative ratio
+            // `stationarity / max(‖grad‖∞, 1)` is within the band. An O(n)
+            // gradient scale (issue #879) leaves the absolute residual above any
+            // fixed band at a genuine optimum; gating only on it would refuse a
+            // converged soft-accept the outer gate now admits (issue #989).
+            let stationarity_rel = kkt.stationarity / kkt.gradient_scale.max(1.0);
             kkt.primal_feasibility <= crate::solver::active_set::ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
-                && kkt.stationarity <= stationarity_band
+                && (kkt.stationarity <= stationarity_band || stationarity_rel <= stationarity_band)
+        }
+    }
+}
+
+/// Constraint-KKT cleanliness gate for the LONG (20-iteration) constrained
+/// objective-plateau certificate — the stall exit for fits whose objective is
+/// genuinely exhausted while the raw stationarity residual stays above the
+/// `near_stationary_kkt` band (e.g. a shallow, almost-linear direction where
+/// the gradient is small-but-not-tiny and every Newton step buys progress far
+/// below the convergence tolerance).
+///
+/// Deliberately DIFFERENT from [`constraint_kkt_admits_soft_accept`]: the
+/// stationarity band is *not* required here. What discriminates a legitimate
+/// progress-exhausted stall from the failure modes the stationarity band
+/// protects against is carried by the certificate's other conjuncts:
+///
+/// * **Value↔gradient desync** (the recurring objective/gradient drift class)
+///   cannot certify: its quadratic model keeps PREDICTING above-tolerance
+///   progress that the value never realizes, and the long-plateau branch
+///   requires the model-predicted reduction itself to be sub-tolerance for
+///   the whole streak (see `model_progress_exhausted` at the call site).
+/// * **The #873 degenerate-vertex stall** cannot certify: a rank-deficient
+///   working set is refused outright here (the fast 2-iteration path keeps
+///   its relaxed degenerate band — that path still demands stationarity).
+/// * **A wrong-side or infeasible iterate** cannot certify: primal
+///   feasibility, dual feasibility (no wrong-sign multipliers), and
+///   complementarity must all sit inside the same bands the outer gate uses.
+///
+/// At a strictly-interior iterate every constraint-KKT component except
+/// stationarity is exactly zero, so this gate reduces to "feasible, clean,
+/// non-degenerate" — which is precisely the set of states for which a
+/// 20-iteration monotone sub-tolerance plateau with a sub-tolerance model
+/// prediction is an honest "no useful progress is available" certificate.
+fn constraint_kkt_admits_progress_exhausted_stall(
+    options: &WorkingModelPirlsOptions,
+    beta: &Array1<f64>,
+    gradient: &Array1<f64>,
+    kkt_tolerance: f64,
+) -> bool {
+    let diag = match options.linear_constraints.as_ref() {
+        Some(lin) => Some(compute_constraint_kkt_diagnostics(beta, gradient, lin)),
+        None => options.coefficient_lower_bounds.as_ref().and_then(|lb| {
+            linear_constraints_from_lower_bounds(lb)
+                .map(|lin| compute_constraint_kkt_diagnostics(beta, gradient, &lin))
+        }),
+    };
+    match diag {
+        None => true,
+        Some(kkt) => {
+            let cleanliness_band = kkt_tolerance * 10.0;
+            !kkt.working_set_rank_deficient
+                && kkt.primal_feasibility
+                    <= crate::solver::active_set::ACTIVE_SET_PRIMAL_FEASIBILITY_TOL
+                && kkt.dual_feasibility <= cleanliness_band
+                && kkt.complementarity <= cleanliness_band
         }
     }
 }
@@ -129,7 +197,6 @@ where
     M: WorkingModel + ?Sized,
     F: FnMut(&WorkingModelIterationInfo),
 {
-    const LM_MAX_LAMBDA: f64 = 1e12;
     const CONSTRAINED_OBJECTIVE_PLATEAU_STREAK: usize = 20;
     // Minimum reduced-system dimension K at which building the GPU Y_i matvec
     // backend for matrix-free InexactPCG pays for the device round-trip; below
@@ -314,11 +381,13 @@ where
             _ => false,
         }
     }
+    // Exhaustion policy is owned by the shared loop guard (#968) — the #874
+    // hang was guard drift between sibling branches. The damping-window
+    // question delegates here; the count-or-window exhaustion question is
+    // `IterationBound::exhausted_at`, answered from guard-owned state, so
+    // no branch in this file can re-derive either predicate locally.
     fn lm_can_retry(loop_lambda: f64) -> bool {
-        loop_lambda.is_finite() && loop_lambda < LM_MAX_LAMBDA
-    }
-    fn lm_retry_exhausted(loop_lambda: f64, attempts: usize, max_attempts: usize) -> bool {
-        attempts >= max_attempts || !loop_lambda.is_finite() || loop_lambda > LM_MAX_LAMBDA
+        crate::solver::loop_guard::madsen_can_retry(loop_lambda)
     }
     fn lm_nonconvergence_error(
         options: &WorkingModelPirlsOptions,
@@ -355,8 +424,9 @@ where
     // can fake it), so we require two consecutive matches before exiting
     // — virtually free when the optimizer has truly settled, and a
     // principled defence against false positives otherwise.
-    let mut plateau_streak = 0usize;
-    let mut constrained_objective_plateau_streak = 0usize;
+    let mut plateau_streak = FlatStreak::new(2);
+    let mut constrained_objective_plateau_streak =
+        FlatStreak::new(CONSTRAINED_OBJECTIVE_PLATEAU_STREAK);
     let has_explicit_constraints =
         options.coefficient_lower_bounds.is_some() || options.linear_constraints.is_some();
     let mut min_penalized_deviance = f64::INFINITY;
@@ -401,11 +471,6 @@ where
     // Pre-allocated buffer for the regularized hessian to avoid O(p²) clone
     // per PIRLS iteration. Reused across iterations when dimensions match.
     let mut regularized_buf: Option<crate::linalg::matrix::SymmetricMatrix> = None;
-    // EMA of per-iter wall-clock for the timing-driven adaptive early-exit.
-    // α = 0.3 gives a short memory (~3 iters) so the EMA tracks the recent
-    // cost trend without over-reacting to a single cheap iteration.
-    // None until the first iter completes.
-    let mut ema_iter_elapsed_secs: Option<f64> = None;
 
     let penalizedobjective = |state: &WorkingState| {
         let mut value = state.deviance + state.penalty_term;
@@ -428,7 +493,7 @@ where
     //     post-multiply `.max(1e-9)` enforces this absolute lower bound),
     //     so any positive cached value gets through unchanged.
     //   * ceiling 1.0 covers the gradient-descent regime; values above
-    //     that are pathological (the LM_MAX_LAMBDA = 1e12 ceiling is the
+    //     that are pathological (the MADSEN_DAMPING_CAP = 1e12 ceiling is the
     //     LM exit condition, well above any sensible warm-start).
     // The runtime layer (`solver/reml/runtime.rs::execute_pirls_if_needed`)
     // applies an *adaptive* clamp before this one, narrowing the range
@@ -449,7 +514,7 @@ where
     // Both certificates are scale-invariant under F → c·F (the additive 1
     // is a NaN-safe floor; for non-trivial fits the natural scale dominates
     // it within one PIRLS iteration). The absolute test ‖g‖ < τ that this
-    // replaces was systematically too tight at biobank n because ‖g‖₂ grows
+    // replaces was systematically too tight at large-scale n because ‖g‖₂ grows
     // as O(√n) for standardized columns.
 
     // ─── Observed vs expected information in PIRLS (see response.md Section 3) ───
@@ -476,7 +541,7 @@ where
         // adaptive-convergence work (replacing the path #3 schedule
         // bandaid) — we need to see what fraction of inner cost is
         // curvature update vs LM solve vs deviance check, plus per-iter
-        // timing distribution at biobank scale.
+        // timing distribution at large scale.
         // ApproxKind: TemporarySolverDamping — LM ridge + step-halving
         // schedule are inactive at convergence; fixed point is exact Newton.
         let iter_start = std::time::Instant::now();
@@ -506,7 +571,7 @@ where
         // are already populated at this beta. Rebuilding the curvature here
         // would reproduce identical numbers at the cost of a full sweep
         // (XᵀWX assembly + PD ridge + gradient) — measured 23 s / iter on
-        // the biobank duchon60 lane (n=320 K, p_eff=42), where it doubled
+        // the large-scale duchon60 lane (n=320 K, p_eff=42), where it doubled
         // wall-clock per iter on top of the candidate eval that already paid
         // the same cost. Reuse `final_state` only when the cached curvature
         // kind, Firth mode, exact coefficient bits, and any arrow-Schur latent
@@ -555,7 +620,7 @@ where
         // preferred_curvature here would systematically under-count
         // Fisher fallbacks for the bench runner's `pirls_fisher_frac`
         // diagnostic (commit 971e67ad), masking observed-Hessian PD
-        // failures at biobank scale.
+        // failures at large scale.
         log::info!(
             "[STAGE] PIRLS update_with_curvature iter={} curvature={:?} elapsed={:.3}s source={}",
             iter,
@@ -571,7 +636,7 @@ where
         // spends time when the LM has to halve repeatedly: solve-direction
         // work (assemble + factorize + back-solve), candidate evaluation
         // (model.update_candidate — for FLEX margslope this is the per-row
-        // sextic-kernel intercept root-find, the dominant cost at biobank
+        // sextic-kernel intercept root-find, the dominant cost at large-scale
         // shape per memory/scaling_law_margslope_inner_pirls.md), and the
         // predicted-reduction quadratic form. The breakdown emits at
         // iter-end alongside the existing [PIRLS iter-end] line, giving a
@@ -589,8 +654,7 @@ where
 
         // Capture the initial gradient norm at iter 1 (the first iter
         // where `state.gradient` has been computed by `update_with_curvature`).
-        // Used by both the [PIRLS solve-end] summary log and the
-        // timing-driven adaptive early-exit predicate.
+        // Used by the [PIRLS solve-end] summary log's convergence-rate report.
         if initial_gradient_norm.is_none() {
             let g0_sq: f64 = state
                 .gradient
@@ -623,7 +687,13 @@ where
         // Loop to adjust lambda until we accept a step or fail
         // In standard LM, we solve (H + λI)δ = -g
         let mut loop_lambda = lambda;
-        let mut attempts = 0;
+        // Per-iteration hard bound (#968): ticks at the top of EVERY LM
+        // pass — including `continue` paths that reach no reject ritual
+        // (Fisher fallback, special cases) — so the unbounded `loop {}`
+        // below is structurally bounded no matter which branch a pass
+        // takes. Distinct from the reject escalator by design; see the
+        // loop_guard module docs.
+        let mut lm_bound = IterationBound::new(lm_max_attempts);
         // Snapshot the LM trajectory's starting λ for the
         // `[PIRLS lm-trajectory]` log emitted at iter-end. This is what
         // the runtime-layer adaptive clamp (commit 43be42be) selected for
@@ -631,7 +701,7 @@ where
         // shrink/expand) reveals how the LM trajectory moved this iter.
         // Aggregating start→final ratios across a fit tells us whether
         // the textbook LM updates (commits 58ae42d1, d37626e6) are
-        // actually moving λ in useful directions at biobank scale.
+        // actually moving λ in useful directions at large scale.
         let lm_start_lambda = lambda;
         // Track the gain ratio of the accepted step. Aggregating ρ
         // accepted across iters tells us whether the LM model is
@@ -649,12 +719,15 @@ where
         // rejection, so successive bumps are ×2, ×4, ×8, ×16, ... vs the
         // older fixed ×10 every time. The textbook progression gives
         // more chances to find a usable trust radius before
-        // `lm_can_retry` declares LM_MAX_LAMBDA exhausted; the older ×10
-        // hit the ceiling in just 12 rejections (10^12 = LM_MAX_LAMBDA),
+        // `lm_can_retry` declares MADSEN_DAMPING_CAP exhausted; the older ×10
+        // hit the ceiling in just 12 rejections (10^12 = MADSEN_DAMPING_CAP),
         // while ×2 doubling needs 40 rejections to exceed the same
-        // ceiling — well past `lm_max_attempts`. Resets to 2.0 on
+        // ceiling — well past `lm_max_attempts`. Restarts on
         // Fisher-fallback (different problem, restart the LM trajectory).
-        let mut madsen_reject_factor = 2.0_f64;
+        // The doubling discipline itself is owned by the shared escalator
+        // (#968) so no reject branch can apply the damping bump without
+        // advancing the schedule.
+        let mut madsen_escalator = RejectEscalator::new();
         let mut pending_arrow_latent_restore: Option<Array1<f64>> = None;
         let mut pending_arrow_predicted_reduction: Option<f64>;
 
@@ -679,7 +752,7 @@ where
         loop {
             restore_pending_arrow_latent_if_needed(options, &mut pending_arrow_latent_restore);
             pending_arrow_predicted_reduction = None;
-            attempts += 1;
+            lm_bound.tick();
             lm_attempts_done += 1;
             let attempt_solve_start = std::time::Instant::now();
 
@@ -955,8 +1028,7 @@ where
                     // Singular even with ridge (unlikely unless huge). Increase lambda.
                     if lm_can_retry(loop_lambda) {
                         lm_solve_total += attempt_solve_start.elapsed();
-                        loop_lambda *= madsen_reject_factor;
-                        madsen_reject_factor *= 2.0;
+                        madsen_escalator.escalate(&mut loop_lambda);
                         continue;
                     } else {
                         // Fallback to gradient descent
@@ -969,8 +1041,7 @@ where
             lm_solve_total += attempt_solve_start.elapsed();
             if !array_is_finite(direction) {
                 if lm_can_retry(loop_lambda) {
-                    loop_lambda *= madsen_reject_factor;
-                    madsen_reject_factor *= 2.0;
+                    madsen_escalator.escalate(&mut loop_lambda);
                     continue;
                 }
                 let detail = if has_constraints {
@@ -1203,7 +1274,7 @@ where
                                         );
                                         return Err(err);
                                     }
-                                    if lm_retry_exhausted(loop_lambda, attempts, lm_max_attempts) {
+                                    if lm_bound.exhausted_at(loop_lambda) {
                                         restore_pending_arrow_latent_if_needed(
                                             options,
                                             &mut pending_arrow_latent_restore,
@@ -1219,13 +1290,11 @@ where
                                         ));
                                     }
                                     candidate_buf = candidate_beta.into();
-                                    if lm_can_retry(loop_lambda) {
-                                        loop_lambda *= madsen_reject_factor;
-                                        madsen_reject_factor *= 2.0;
-                                        continue;
-                                    }
-                                    loop_lambda *= madsen_reject_factor;
-                                    madsen_reject_factor *= 2.0;
+                                    // Exhaustion was ruled out just above, so
+                                    // the retry is unconditional; the two
+                                    // historical branches here were identical
+                                    // (one indivisible escalation either way).
+                                    madsen_escalator.escalate(&mut loop_lambda);
                                     continue;
                                 }
                             }
@@ -1293,7 +1362,7 @@ where
                                 lastgradient_norm = projected_grad;
                                 last_deviance_change = 0.0;
                                 last_step_size = 0.0;
-                                last_step_halving = attempts;
+                                last_step_halving = lm_bound.used();
                                 max_abs_eta = inf_norm(state.eta.iter().copied());
                                 restore_pending_arrow_latent_if_needed(
                                     options,
@@ -1303,7 +1372,7 @@ where
                                 status = PirlsStatus::StalledAtValidMinimum;
                                 break 'pirls_loop;
                             }
-                            if lm_retry_exhausted(loop_lambda, attempts, lm_max_attempts) {
+                            if lm_bound.exhausted_at(loop_lambda) {
                                 lastgradient_norm = projected_grad;
                                 if state.near_stationary_kkt(projected_grad, kkt_tolerance) {
                                     status = PirlsStatus::StalledAtValidMinimum;
@@ -1317,8 +1386,7 @@ where
                                 final_state = Some(state);
                                 break 'pirls_loop;
                             }
-                            loop_lambda *= madsen_reject_factor;
-                            madsen_reject_factor *= 2.0;
+                            madsen_escalator.escalate(&mut loop_lambda);
                             continue;
                         }
                         if preferred_curvature == HessianCurvatureKind::Observed
@@ -1372,13 +1440,13 @@ where
                             deviance: accepted_state.deviance,
                             gradient_norm: candidategrad_norm,
                             step_size: 1.0,
-                            step_halving: attempts, // repurpose as attempt count
+                            step_halving: lm_bound.used(), // repurpose as attempt count
                         });
 
                         lastgradient_norm = candidategrad_norm;
                         last_deviance_change = deviance_change;
                         last_step_size = 1.0;
-                        last_step_halving = attempts;
+                        last_step_halving = lm_bound.used();
                         max_abs_eta = accepted_state
                             .eta
                             .iter()
@@ -1526,8 +1594,7 @@ where
                         .filter(|_| soft_accept_kkt_ok)
                         {
                             Some(reason) => {
-                                plateau_streak += 1;
-                                if plateau_streak >= 2 {
+                                if plateau_streak.note(true) == LoopVerdict::Plateaued {
                                     log::debug!(
                                         "[PIRLS] iter {iter} early-exit on soft acceptance: \
                                          {reason:?} (‖g‖={convergence_grad_norm:.3e}, \
@@ -1538,7 +1605,7 @@ where
                                 }
                             }
                             None => {
-                                plateau_streak = 0;
+                                plateau_streak.note(false);
                             }
                         }
 
@@ -1552,40 +1619,69 @@ where
                         // clipping boundary. This is deliberately separate
                         // from the two-iteration soft-acceptance gate above:
                         // unconstrained one-off plateaus must still run out
-                        // as MaxIterationsReached. The same constraint-KKT
-                        // band (`constraint_kkt_admits_soft_accept`) gates this
-                        // plateau too, so a non-degenerate near-vertex stall is
-                        // not accepted as a valid minimum (#873).
+                        // as MaxIterationsReached.
+                        //
+                        // Gate composition for the long streak (vs the fast
+                        // path's stationarity band):
+                        //
+                        // * `model_progress_exhausted` — the accepted step's
+                        //   OWN quadratic model predicted only sub-tolerance
+                        //   progress. This is the discriminator that keeps a
+                        //   value↔gradient desync (analytic gradient
+                        //   promising progress the value never realizes) from
+                        //   ever certifying: a desynced model keeps predicting
+                        //   above-tolerance reductions, breaking the streak,
+                        //   while a genuinely exhausted direction predicts
+                        //   next-to-nothing for 20 consecutive accepted steps.
+                        //   A small-but-not-tiny gradient along an almost-flat
+                        //   ray (e.g. ‖g‖ ~ 50× the near-stationary band with
+                        //   per-step gains ~10⁻⁹·scale) is exactly the
+                        //   progress-exhausted stall this branch certifies —
+                        //   the stationarity band would starve it into
+                        //   MaxIterationsReached after burning the entire
+                        //   budget on numerically invisible progress.
+                        // * `constraint_kkt_admits_progress_exhausted_stall`
+                        //   — primal/dual/complementarity cleanliness inside
+                        //   the outer gate's bands plus a hard refusal of
+                        //   rank-deficient working sets, so the #873
+                        //   degenerate-vertex stall still cannot be accepted
+                        //   here (it remains confined to the fast path's
+                        //   relaxed degenerate band, which demands
+                        //   stationarity).
                         let objective_scale = final_state_ref
                             .deviance
                             .abs()
                             .max(final_state_ref.penalty_term.abs())
                             .max(1.0);
+                        let plateau_band = options.convergence_tolerance * objective_scale * 0.1;
+                        let model_progress_exhausted = predicted_reduction.is_finite()
+                            && predicted_reduction.abs() <= plateau_band;
                         let strict_objective_plateau = has_explicit_constraints
-                            && soft_accept_kkt_ok
                             && deviance_change.is_finite()
                             && deviance_change >= 0.0
                             && deviance_change.abs()
                                 // Objective-plateau progress test, not a KKT certificate.
-                                <= options.convergence_tolerance * objective_scale * 0.1
+                                <= plateau_band
+                            && model_progress_exhausted
                             && max_abs_eta.is_finite()
-                            && max_abs_eta < PIRLS_ETA_ABS_CAP * 0.5;
-                        if strict_objective_plateau {
-                            constrained_objective_plateau_streak += 1;
-                            if constrained_objective_plateau_streak
-                                >= CONSTRAINED_OBJECTIVE_PLATEAU_STREAK
-                            {
-                                log::debug!(
-                                    "[PIRLS] iter {iter} early-exit on constrained objective \
-                                     plateau (streak={}, ‖g‖={convergence_grad_norm:.3e}, \
-                                     Δdev={deviance_change:.3e})",
-                                    constrained_objective_plateau_streak,
-                                );
-                                status = PirlsStatus::StalledAtValidMinimum;
-                                break 'pirls_loop;
-                            }
-                        } else {
-                            constrained_objective_plateau_streak = 0;
+                            && max_abs_eta < PIRLS_ETA_ABS_CAP * 0.5
+                            && constraint_kkt_admits_progress_exhausted_stall(
+                                options,
+                                beta.as_ref(),
+                                &final_state_ref.gradient,
+                                kkt_tolerance,
+                            );
+                        if constrained_objective_plateau_streak.note(strict_objective_plateau)
+                            == LoopVerdict::Plateaued
+                        {
+                            log::debug!(
+                                "[PIRLS] iter {iter} early-exit on constrained objective \
+                                 plateau (streak={}, ‖g‖={convergence_grad_norm:.3e}, \
+                                 Δdev={deviance_change:.3e})",
+                                constrained_objective_plateau_streak.streak(),
+                            );
+                            status = PirlsStatus::StalledAtValidMinimum;
+                            break 'pirls_loop;
                         }
 
                         break; // Break inner lambda loop, continue outer pirls loop
@@ -1638,7 +1734,7 @@ where
                             lm_d2 = compute_lm_d2(&state.hessian);
                             // Different problem (Hessian curvature changed):
                             // restart the Madsen rejection-factor trajectory.
-                            madsen_reject_factor = 2.0;
+                            madsen_escalator.restart();
                             continue;
                         }
                         // Reject Step
@@ -1685,7 +1781,7 @@ where
                             lastgradient_norm = stategrad_norm;
                             last_deviance_change = 0.0;
                             last_step_size = 0.0;
-                            last_step_halving = attempts;
+                            last_step_halving = lm_bound.used();
                             max_abs_eta = inf_norm(state.eta.iter().copied());
                             // `state` is unused after `break 'pirls_loop` — move it
                             // instead of cloning to avoid an n+p² full-state copy.
@@ -1698,7 +1794,7 @@ where
                             break 'pirls_loop;
                         }
 
-                        if lm_retry_exhausted(loop_lambda, attempts, lm_max_attempts) {
+                        if lm_bound.exhausted_at(loop_lambda) {
                             lastgradient_norm = stategrad_norm;
                             // Only accept "stalled but valid" when we are near stationarity.
                             // Otherwise report MaxIterationsReached so callers can fail fast.
@@ -1709,9 +1805,8 @@ where
                                 // ceiling, retry counter exhausted, or lambda went non-
                                 // finite. The collapsed status hides that distinction;
                                 // this debug log restores it.
-                                let ceiling =
-                                    !loop_lambda.is_finite() || loop_lambda > LM_MAX_LAMBDA;
-                                let attempts_used = attempts >= lm_max_attempts;
+                                let ceiling = !lm_can_retry(loop_lambda);
+                                let attempts_used = lm_bound.count_exhausted();
                                 let max_abs_eta_now = state
                                     .eta
                                     .iter()
@@ -1726,8 +1821,8 @@ where
                                      current_pen={:.6e} predicted_reduction={:.3e} \
                                      max|eta|={:.1} attempts_exhausted={}",
                                     iter,
-                                    attempts,
-                                    lm_max_attempts,
+                                    lm_bound.used(),
+                                    lm_bound.max(),
                                     loop_lambda,
                                     ceiling,
                                     projected_grad,
@@ -1749,8 +1844,7 @@ where
                             final_state = Some(state);
                             break 'pirls_loop;
                         }
-                        loop_lambda *= madsen_reject_factor;
-                        madsen_reject_factor *= 2.0;
+                        madsen_escalator.escalate(&mut loop_lambda);
                     }
                 }
                 Err(err) => {
@@ -1796,7 +1890,7 @@ where
                         lm_d2 = compute_lm_d2(&state.hessian);
                         // Different problem (Hessian curvature changed):
                         // restart the Madsen rejection-factor trajectory.
-                        madsen_reject_factor = 2.0;
+                        madsen_escalator.restart();
                         continue;
                     }
                     if !is_lm_retriable_candidate_error(&err) {
@@ -1806,7 +1900,7 @@ where
                         );
                         return Err(err);
                     }
-                    if lm_retry_exhausted(loop_lambda, attempts, lm_max_attempts) {
+                    if lm_bound.exhausted_at(loop_lambda) {
                         restore_pending_arrow_latent_if_needed(
                             options,
                             &mut pending_arrow_latent_restore,
@@ -1822,8 +1916,7 @@ where
                         ));
                     }
                     // Retry only clearly numerical candidate-evaluation failures.
-                    loop_lambda *= madsen_reject_factor;
-                    madsen_reject_factor *= 2.0;
+                    madsen_escalator.escalate(&mut loop_lambda);
                 }
             }
         } // end loop (lambda search)
@@ -1851,7 +1944,7 @@ where
         // spent time. Sum of (curvature + solve + predred + candidate) is
         // a lower bound on iter_elapsed; the residual is everything else
         // (bookkeeping, soft-acceptance checks, KKT certification, etc).
-        // For FLEX margslope at biobank shape we expect candidate to
+        // For FLEX margslope at large-scale shape we expect candidate to
         // dominate (per-row sextic-kernel intercept root-find, see
         // memory/scaling_law_margslope_inner_pirls.md). For dense
         // standard-GAM with no per-row Newton inner, solve typically
@@ -1909,80 +2002,17 @@ where
             );
         }
 
-        // ── Timing-driven adaptive early-exit ──────────────────────────────
-        // Update the short EMA of per-iter wall-clock. The smoothing factor α
-        // gives a memory of roughly 1/α ≈ 3 iters.
-        const ITER_TIME_EMA_ALPHA: f64 = 0.3;
-        let iter_secs = iter_elapsed.as_secs_f64();
-        let ema = match ema_iter_elapsed_secs {
-            None => iter_secs,
-            Some(prev) => ITER_TIME_EMA_ALPHA * iter_secs + (1.0 - ITER_TIME_EMA_ALPHA) * prev,
-        };
-        ema_iter_elapsed_secs = Some(ema);
-
-        // Only attempt the predicate after we have at least 2 data points
-        // (so the EMA is meaningful) and when the hard convergence checks
-        // above have NOT already exited (we are still in the loop).
-        //
-        // Constants (baked in, no CLI flags):
-        //   the iter must run in under this fraction of the EMA to be
-        //   "trivially cheap", and the relaxed deviance / grad-ratio bands sit
-        //   at this multiple of the hard convergence tolerance.
-        const TRIVIALLY_CHEAP_ITER_EMA_FRACTION: f64 = 0.25;
-        const RELAXED_CONVERGENCE_BAND_MULTIPLE: f64 = 10.0;
-        if iter >= 2 {
-            // (a) Iteration has become trivially cheap: the solver is coasting.
-            let iter_cheap = ema > 0.0 && iter_secs < TRIVIALLY_CHEAP_ITER_EMA_FRACTION * ema;
-
-            // (b) Deviance change is negligible relative to |F|.
-            let f_abs = current_penalized.abs().max(1.0);
-            let deviance_ok = (last_deviance_change / f_abs).abs()
-                < options.convergence_tolerance * RELAXED_CONVERGENCE_BAND_MULTIPLE;
-
-            // (c) Gradient has collapsed relative to its initial value.
-            let grad_ok = match initial_gradient_norm {
-                Some(g0) if g0 > 0.0 && lastgradient_norm.is_finite() => {
-                    lastgradient_norm / g0
-                        < options.convergence_tolerance * RELAXED_CONVERGENCE_BAND_MULTIPLE
-                }
-                _ => false,
-            };
-
-            // (d) For a constrained fit, a relative gradient collapse is not a
-            // constrained-stationarity certificate (the absolute constraint-KKT
-            // residual can stall on a non-degenerate cone face while ‖g‖/‖g₀‖
-            // looks small for a large ‖g₀‖). Hold the timing exit to the SAME
-            // degeneracy-aware band the outer gate uses, so a cold-cache fit
-            // cannot coast off a stalled face the outer gate would reject (#873).
-            let constrained_kkt_ok = !has_explicit_constraints
-                || final_state.as_ref().is_some_and(|st| {
-                    constraint_kkt_admits_soft_accept(
-                        options,
-                        beta.as_ref(),
-                        &st.gradient,
-                        kkt_tolerance,
-                    )
-                });
-
-            if iter_cheap && deviance_ok && grad_ok && constrained_kkt_ok {
-                log::info!(
-                    "[PIRLS] iter {iter} timing-driven adaptive early-exit: \
-                     iter={:.4}s ema={:.4}s dev_rel={:.3e} grad_ratio={:.3e}",
-                    iter_secs,
-                    ema,
-                    (last_deviance_change / f_abs).abs(),
-                    match initial_gradient_norm {
-                        Some(g0) if g0 > 0.0 => lastgradient_norm / g0,
-                        _ => f64::NAN,
-                    },
-                );
-                // Use the best accepted state we have (set by the accept
-                // branch earlier this iteration, or the previous iter).
-                status = PirlsStatus::Converged;
-                break 'pirls_loop;
-            }
-        }
-        // ── end timing-driven adaptive early-exit ──────────────────────────
+        // NOTE: there is deliberately NO wall-clock-driven "adaptive
+        // early-exit" here (formerly: accept convergence when an iter ran
+        // in <25% of the per-iter EMA while deviance/gradient sat within a
+        // 10× relaxed band). A convergence verdict keyed on wall-clock is
+        // non-deterministic under CPU contention — the same fit converges to
+        // a different β in a parallel sweep than it does run alone, which
+        // cascades into different outer seed screening and load-unstable
+        // fire/collapse decisions downstream (gam#979). It also accepted
+        // iterates up to 10× outside `convergence_tolerance`, an
+        // unrequested weakening of the inner certificate. Convergence is
+        // certified only by the deterministic mathematical tests above.
     }
 
     // Solve-end summary: one line per accepted (or rescued) PIRLS solve

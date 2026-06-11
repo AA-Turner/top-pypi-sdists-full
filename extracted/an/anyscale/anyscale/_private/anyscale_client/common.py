@@ -47,6 +47,12 @@ from anyscale.client.openapi_client.models import (
     WorkspaceDataplaneProxiedArtifacts,
     WriteProject,
 )
+from anyscale.client.openapi_client.models.apply_scheduler_config_request import (
+    ApplySchedulerConfigRequest,
+)
+from anyscale.client.openapi_client.models.apply_scheduler_config_response import (
+    ApplySchedulerConfigResponse,
+)
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
 from anyscale.client.openapi_client.models.databricks_connection_config_item import (
     DatabricksConnectionConfigItem,
@@ -71,6 +77,12 @@ from anyscale.client.openapi_client.models.job_run_summary import (
 )
 from anyscale.client.openapi_client.models.production_job import ProductionJob
 from anyscale.client.openapi_client.models.resource_tag_record import ResourceTagRecord
+from anyscale.client.openapi_client.models.scheduler_config_response import (
+    SchedulerConfigResponse,
+)
+from anyscale.client.openapi_client.models.schedulerconfigversionsummary_list_response import (
+    SchedulerconfigversionsummaryListResponse,
+)
 from anyscale.client.openapi_client.models.session_ssh_key import SessionSshKey
 from anyscale.sdk.anyscale_client.models import (
     ApplyProductionServiceV2Model,
@@ -1043,6 +1055,32 @@ class AnyscaleClientInterface(ABC):
         self, resource_quota_id: str, is_enabled: bool
     ) -> None:
         """Set the status of a resource quota."""
+        raise NotImplementedError
+
+    # ---- Scheduler config ----
+
+    @abstractmethod
+    def apply_scheduler_config(
+        self, request: ApplySchedulerConfigRequest,
+    ) -> ApplySchedulerConfigResponse:
+        """Apply a new scheduler config version (creates a new active version)."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_active_scheduler_config(self) -> SchedulerConfigResponse:
+        """Get the active scheduler config for the org."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_scheduler_config_version(self, version: int,) -> SchedulerConfigResponse:
+        """Get a specific scheduler config version."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_scheduler_config_versions(
+        self, *, count: Optional[int] = None, paging_token: Optional[str] = None,
+    ) -> SchedulerconfigversionsummaryListResponse:
+        """Per-page wrapper. Returns a page response with .results and .metadata.next_paging_token."""
         raise NotImplementedError
 
     @abstractmethod

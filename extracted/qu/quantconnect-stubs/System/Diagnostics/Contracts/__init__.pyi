@@ -19,85 +19,6 @@ System_Diagnostics_Contracts_Contract_ForAll_T = typing.TypeVar("System_Diagnost
 System_Diagnostics_Contracts_Contract_Exists_T = typing.TypeVar("System_Diagnostics_Contracts_Contract_Exists_T")
 
 
-class ContractFailureKind(IntEnum):
-    """This class has no documentation."""
-
-    PRECONDITION = 0
-
-    POSTCONDITION = 1
-
-    POSTCONDITION_ON_EXCEPTION = 2
-
-    INVARIANT = 3
-
-    ASSERT = 4
-
-    ASSUME = 5
-
-
-class ContractException(System.Exception):
-    """This class has no documentation."""
-
-    @property
-    def kind(self) -> System.Diagnostics.Contracts.ContractFailureKind:
-        ...
-
-    @property
-    def failure(self) -> str:
-        ...
-
-    @property
-    def user_message(self) -> str:
-        ...
-
-    @property
-    def condition(self) -> str:
-        ...
-
-    def __init__(self, kind: System.Diagnostics.Contracts.ContractFailureKind, failure: str, user_message: str, condition: str, inner_exception: System.Exception) -> None:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-
-class ContractFailedEventArgs(System.EventArgs):
-    """This class has no documentation."""
-
-    @property
-    def message(self) -> str:
-        ...
-
-    @property
-    def condition(self) -> str:
-        ...
-
-    @property
-    def failure_kind(self) -> System.Diagnostics.Contracts.ContractFailureKind:
-        ...
-
-    @property
-    def original_exception(self) -> System.Exception:
-        ...
-
-    @property
-    def handled(self) -> bool:
-        ...
-
-    @property
-    def unwind(self) -> bool:
-        ...
-
-    def __init__(self, failure_kind: System.Diagnostics.Contracts.ContractFailureKind, message: str, condition: str, original_exception: System.Exception) -> None:
-        ...
-
-    def set_handled(self) -> None:
-        ...
-
-    def set_unwind(self) -> None:
-        ...
-
-
 class PureAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -323,6 +244,59 @@ class _Contract_Exists:
         ...
 
 
+class ContractFailureKind(IntEnum):
+    """This class has no documentation."""
+
+    PRECONDITION = 0
+
+    POSTCONDITION = 1
+
+    POSTCONDITION_ON_EXCEPTION = 2
+
+    INVARIANT = 3
+
+    ASSERT = 4
+
+    ASSUME = 5
+
+
+class ContractFailedEventArgs(System.EventArgs):
+    """This class has no documentation."""
+
+    @property
+    def message(self) -> str:
+        ...
+
+    @property
+    def condition(self) -> str:
+        ...
+
+    @property
+    def failure_kind(self) -> System.Diagnostics.Contracts.ContractFailureKind:
+        ...
+
+    @property
+    def original_exception(self) -> System.Exception:
+        ...
+
+    @property
+    def handled(self) -> bool:
+        ...
+
+    @property
+    def unwind(self) -> bool:
+        ...
+
+    def __init__(self, failure_kind: System.Diagnostics.Contracts.ContractFailureKind, message: str, condition: str, original_exception: System.Exception) -> None:
+        ...
+
+    def set_handled(self) -> None:
+        ...
+
+    def set_unwind(self) -> None:
+        ...
+
+
 class Contract(System.Object):
     """This class has no documentation."""
 
@@ -385,6 +359,32 @@ class Contract(System.Object):
     @overload
     def invariant(condition: bool, user_message: str) -> None:
         ...
+
+
+class ContractException(System.Exception):
+    """This class has no documentation."""
+
+    @property
+    def kind(self) -> System.Diagnostics.Contracts.ContractFailureKind:
+        ...
+
+    @property
+    def failure(self) -> str:
+        ...
+
+    @property
+    def user_message(self) -> str:
+        ...
+
+    @property
+    def condition(self) -> str:
+        ...
+
+    def __init__(self, kind: System.Diagnostics.Contracts.ContractFailureKind, failure: str, user_message: str, condition: str, inner_exception: System.Exception) -> None:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
 
 class _EventContainer(typing.Generic[System_Diagnostics_Contracts__EventContainer_Callable, System_Diagnostics_Contracts__EventContainer_ReturnType]):

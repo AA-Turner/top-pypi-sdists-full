@@ -78,14 +78,12 @@ def get_lora_lr_over_full_finetune_lr(model_name: str, lora_alpha: int = 32) -> 
 
 def _get_hidden_size(model_name: str) -> int:
     # Known hidden sizes for models in the lineup. This avoids network lookups and
-    # works around gated repos (Llama) and configs that nest hidden_size under
-    # text_config (Qwen3-VL, Qwen3.5, Kimi-K2.5).
+    # works around configs that nest hidden_size under text_config (Qwen3.5/3.6,
+    # Kimi-K2.6).
     _KNOWN_HIDDEN_SIZES: dict[str, int] = {
         # Llama-3 (gated — cannot fetch config without HF_TOKEN)
         "meta-llama/Llama-3.2-1B": 2048,
-        "meta-llama/Llama-3.2-1B-Instruct": 2048,
         "meta-llama/Llama-3.2-3B": 3072,
-        "meta-llama/Llama-3.2-3B-Instruct": 3072,
         "meta-llama/Llama-3.1-8B": 4096,
         "meta-llama/Llama-3.1-8B-Instruct": 4096,
         "meta-llama/Llama-3.1-70B": 8192,
@@ -112,8 +110,14 @@ def _get_hidden_size(model_name: str) -> int:
         # Qwen3.5 (config nests hidden_size under text_config)
         "Qwen/Qwen3.5-397B-A17B": 4096,
         "Qwen/Qwen3.5-35B-A3B": 2048,
+        "Qwen/Qwen3.5-35B-A3B-Base": 2048,
         "Qwen/Qwen3.5-27B": 5120,
+        "Qwen/Qwen3.5-9B": 4096,
+        "Qwen/Qwen3.5-9B-Base": 4096,
         "Qwen/Qwen3.5-4B": 2560,
+        # Qwen/Qwen3.5-9B and Qwen/Qwen3.5-9B-Base intentionally omitted —
+        # the values weren't independently verified. The fallback path fetches
+        # hidden_size from HF AutoConfig, which works for non-gated Qwen repos.
         # Qwen3.6 (same architecture family as Qwen3.5, hidden_size under text_config)
         "Qwen/Qwen3.6-27B": 5120,
         "Qwen/Qwen3.6-35B-A3B": 2048,
@@ -121,6 +125,7 @@ def _get_hidden_size(model_name: str) -> int:
         "openai/gpt-oss-120b": 2880,
         "openai/gpt-oss-20b": 2880,
         # NVIDIA Nemotron
+        "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16": 8192,
         "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16": 4096,
         "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16": 2688,
     }
@@ -170,8 +175,11 @@ _LORA_PARAMS_PER_RANK_BY_COMPONENT: dict[str, dict[str, int]] = {
     "Qwen/Qwen3-VL-30B-A3B-Instruct": {"mlp": 14_450_688, "attn": 835_584, "unembed": 153_984},
     "Qwen/Qwen3.5-27B": {"mlp": 4_325_376, "attn": 2_965_504, "unembed": 253_440},
     "Qwen/Qwen3.5-35B-A3B": {"mlp": 16_281_600, "attn": 1_013_760, "unembed": 250_368},
+    "Qwen/Qwen3.5-35B-A3B-Base": {"mlp": 16_281_600, "attn": 1_013_760, "unembed": 250_368},
     "Qwen/Qwen3.5-397B-A17B": {"mlp": 96_030_720, "attn": 2_841_600, "unembed": 252_416},
     "Qwen/Qwen3.5-4B": {"mlp": 1_130_496, "attn": 897_024, "unembed": 250_880},
+    "Qwen/Qwen3.5-9B": {"mlp": 1_572_864, "attn": 1_130_496, "unembed": 252_416},
+    "Qwen/Qwen3.5-9B-Base": {"mlp": 1_572_864, "attn": 1_130_496, "unembed": 252_416},
     "Qwen/Qwen3.6-27B": {"mlp": 4_325_376, "attn": 2_965_504, "unembed": 253_440},
     "Qwen/Qwen3.6-35B-A3B": {"mlp": 16_281_600, "attn": 1_013_760, "unembed": 250_368},
     "deepseek-ai/DeepSeek-V3.1": {"mlp": 94_307_328, "attn": 2_440_000, "unembed": 136_448},
@@ -194,6 +202,11 @@ _LORA_PARAMS_PER_RANK_BY_COMPONENT: dict[str, dict[str, int]] = {
         "mlp": 111_349_760,
         "attn": 1_675_264,
         "unembed": 135_168,
+    },
+    "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16": {
+        "mlp": 254_529_536,
+        "attn": 4_134_912,
+        "unembed": 139_264,
     },
     "openai/gpt-oss-120b": {"mlp": 40_124_160, "attn": 746_496, "unembed": 203_968},
     "openai/gpt-oss-20b": {"mlp": 6_842_880, "attn": 497_664, "unembed": 203_968},
@@ -263,14 +276,12 @@ def get_lr(model_name: str, is_lora: bool = True) -> float:
         exponent_model = 0.0775
     elif model_name in (
         "deepseek-ai/DeepSeek-V3.1",
-        "deepseek-ai/DeepSeek-V3.1-Base",
         "openai/gpt-oss-20b",
         "openai/gpt-oss-120b",
-        "moonshotai/Kimi-K2-Thinking",
-        "moonshotai/Kimi-K2.5",
         "moonshotai/Kimi-K2.6",
         "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
         "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
+        "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
     ):
         raise NotImplementedError(
             f"Learning rate formula for {model_name} is not yet calibrated. "

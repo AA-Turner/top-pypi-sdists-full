@@ -10,8 +10,10 @@ import re
 from typing import Annotated, Any, cast, overload
 
 from fastmcp.exceptions import ToolError
+from fastmcp.tools.tool import ToolResult
 from pydantic import Field
 
+from ..dashboard_screenshot.capture import FULL_PAGE_PARAM_DESC
 from ..errors import ErrorCode, create_error_response
 from ..utils.config_hash import compute_config_hash
 from ..utils.python_sandbox import (
@@ -29,9 +31,36 @@ from .helpers import (
     raise_tool_error,
     validate_identifier_not_empty,
 )
-from .util_helpers import parse_json_param
+from .util_helpers import (
+    attach_skill_content,
+    augment_error_dict_with_skill_content,
+    augment_tool_error_with_skill_content,
+    parse_json_param,
+)
 
 logger = logging.getLogger(__name__)
+
+
+# dashboard-guide.md + dashboard-cards.md cover layout patterns and the
+# card-type taxonomy — both relevant on every dashboard write.
+_DASHBOARD_SKILL_FILES: tuple[str, ...] = (
+    "references/dashboard-guide.md",
+    "references/dashboard-cards.md",
+)
+
+
+def _attach_dashboard_skill(response: dict[str, Any], MandatoryBPS: bool) -> None:
+    """In-place attach skill_content to a dashboard response when applicable.
+
+    Delegates to the shared :func:`attach_skill_content` so the
+    missing-vendor-warning path is consistent across every write tool.
+    """
+    attach_skill_content(
+        response,
+        MandatoryBPS=MandatoryBPS,
+        canonical_files=_DASHBOARD_SKILL_FILES,
+        referenced_files=None,
+    )
 
 
 async def _get_dashboard_config_internal(
@@ -406,7 +435,8 @@ async def _lazy_resolve_and_retry(
     url_path: str,
     ws_data: dict[str, Any],
     response: Any,
-) -> tuple[str, Any]: ...
+) -> tuple[str, Any]:
+    pass
 
 
 @overload
@@ -415,7 +445,8 @@ async def _lazy_resolve_and_retry(
     url_path: None,
     ws_data: dict[str, Any],
     response: Any,
-) -> tuple[None, Any]: ...
+) -> tuple[None, Any]:
+    pass
 
 
 async def _lazy_resolve_and_retry(
@@ -488,6 +519,112 @@ async def _lazy_resolve_and_retry(
     return url_path, response
 
 
+def _dashboard_frontend_path(url_path: str | None) -> str:
+    """Map a dashboard url_path to its Lovelace frontend path for screenshots."""
+    if not url_path or url_path == "default":
+        return "lovelace"
+    return url_path
+
+
+def _note_screenshot_ignored(
+    result: dict[str, Any],
+    *,
+    include_screenshot: bool,
+    full_page: bool,
+    mode: str,
+) -> None:
+    """Warn when a screenshot was requested in a mode that can't render one.
+
+    ``include_screenshot`` / ``full_page`` are only honoured in get mode. In
+    list and search mode they are accepted but inapplicable, so surface a
+    ``warnings`` entry rather than dropping the request as a silent no-op
+    (matches the warn-don't-fail contract the params document)."""
+    if include_screenshot or full_page:
+        result.setdefault("warnings", []).append(
+            f"include_screenshot/full_page is ignored in {mode} mode; call "
+            "ha_config_get_dashboard with a url_path (and no search criteria) "
+            "to get a screenshot."
+        )
+
+
+async def _maybe_attach_screenshot(
+    result: dict[str, Any],
+    url_path: str | None,
+    requested: bool,
+    *,
+    full_page: bool = False,
+    raise_on_failure: bool = False,
+) -> "dict[str, Any] | ToolResult":
+    """Optionally render the dashboard and attach it as an image content block.
+
+    Shared by ``ha_config_get_dashboard`` (include_screenshot) and
+    ``ha_config_set_dashboard`` (return_screenshot). On success returns a
+    FastMCP ``ToolResult`` carrying ``result`` as structured_content plus the
+    PNG as an image content block — so structured_content is present on both
+    the screenshot and no-screenshot paths (a bare ``[dict, Image]`` list
+    would drop structured_content because the Image isn't JSON-serializable).
+    ``full_page`` captures the whole scrollable dashboard rather than the
+    viewport.
+
+    ``raise_on_failure`` governs what a capture failure does. The set path
+    (``return_screenshot``) leaves it False: a screenshot failure must never
+    break a write that already committed, so it degrades to a ``warnings``
+    entry. The get path (``include_screenshot``) passes True: it is a pure
+    read with nothing to protect, and the screenshot is the requested payload,
+    so an engine failure propagates as a ToolError (matching the dedicated
+    ``ha_get_dashboard_screenshot`` tool) instead of being demoted to a
+    warning the caller may never inspect. A disabled feature flag is always a
+    warning either way — it is an expected configuration state, not a failure.
+    """
+    if not requested:
+        if full_page:
+            result.setdefault("warnings", []).append(
+                "full_page is ignored because no screenshot was requested "
+                "(set include_screenshot / return_screenshot to use it)."
+            )
+        return result
+
+    from ..config import get_global_settings
+
+    if not get_global_settings().enable_dashboard_screenshot:
+        result.setdefault("warnings", []).append(
+            "Screenshot requested but dashboard screenshot mode is disabled. "
+            "Enable the 'dashboard screenshot' beta feature to use it."
+        )
+        return result
+
+    try:
+        from fastmcp.utilities.types import Image
+
+        from ..dashboard_screenshot.capture import capture_dashboard_png
+
+        png = await capture_dashboard_png(
+            _dashboard_frontend_path(url_path), full_page=full_page
+        )
+        return ToolResult(
+            content=[Image(data=png, format="png").to_image_content()],
+            structured_content=result,
+        )
+    except ToolError as e:
+        if raise_on_failure:
+            raise
+        result.setdefault("warnings", []).append(
+            f"Screenshot unavailable: {extract_tool_error_message(e)}"
+        )
+        return result
+    except Exception as e:
+        # On the set path a screenshot failure must never break a write that
+        # already committed, so catch everything non-ToolError (lazy import
+        # errors, Image construction, timeouts, transport) and degrade to a
+        # warning. On the get path (raise_on_failure) there is nothing to
+        # protect, so let it surface.
+        if raise_on_failure:
+            raise
+        logger.warning("Dashboard screenshot capture failed: %s", e, exc_info=True)
+        result.setdefault("warnings", []).append(f"Screenshot unavailable: {e}")
+        return result
+
+
 def register_config_dashboard_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
     """Register Home Assistant dashboard configuration tools."""
 
@@ -554,7 +691,23 @@ def register_config_dashboard_tools(mcp: Any, client: Any, **kwargs: Any) -> Non
                 "not the full dashboard. Ignored outside search mode."
             ),
         ] = False,
-    ) -> dict[str, Any]:
+        include_screenshot: Annotated[
+            bool,
+            Field(
+                description="Get mode only: also return a rendered PNG of the "
+                "dashboard for visual verification. Requires the 'dashboard "
+                "screenshot' beta feature + engine add-on/sidecar. If the "
+                "feature is disabled the config is returned with a warning; if "
+                "the engine is configured but the render fails, the call errors "
+                "(the screenshot is the requested payload). Ignored in "
+                "list/search mode."
+            ),
+        ] = False,
+        full_page: Annotated[
+            bool,
+            Field(description=f"With include_screenshot: {FULL_PAGE_PARAM_DESC}."),
+        ] = False,
+    ) -> "dict[str, Any] | ToolResult":
         """
         Get dashboard info - list all dashboards, get config, or search for cards.
 
@@ -600,12 +753,19 @@ def register_config_dashboard_tools(mcp: Any, client: Any, **kwargs: Any) -> Non
             # List mode
             if list_only:
                 dashboards = await fetch_dashboards_list(client) or []
-                return {
+                list_result: dict[str, Any] = {
                     "success": True,
                     "action": "list",
                     "dashboards": dashboards,
                     "count": len(dashboards),
                 }
+                _note_screenshot_ignored(
+                    list_result,
+                    include_screenshot=include_screenshot,
+                    full_page=full_page,
+                    mode="list",
+                )
+                return list_result
 
             # ``url_path`` is optional in this tool (omitted with
             # ``list_only=True`` lists all dashboards — handled above; omitted
@@ -727,6 +887,12 @@ def register_config_dashboard_tools(mcp: Any, client: Any, **kwargs: Any) -> Non
                 }
                 if search_resolved_from is not None:
                     search_result["resolved_from"] = search_resolved_from
+                _note_screenshot_ignored(
+                    search_result,
+                    include_screenshot=include_screenshot,
+                    full_page=full_page,
+                    mode="search",
+                )
                 return search_result
 
             # Get mode - build WebSocket message
@@ -799,7 +965,13 @@ def register_config_dashboard_tools(mcp: Any, client: Any, **kwargs: Any) -> Non
                     "instead of full config replacement."
                 )
 
-            return get_result
+            return await _maybe_attach_screenshot(
+                get_result,
+                url_path,
+                include_screenshot,
+                full_page=full_page,
+                raise_on_failure=True,
+            )
         except ToolError:
             raise
         except Exception as e:
@@ -830,6 +1002,7 @@ def register_config_dashboard_tools(mcp: Any, client: Any, **kwargs: Any) -> Non
                 context=context,
                 suggestions=suggestions,
             )
+            return None
 
     @mcp.tool(
         tags={"Dashboards"},
@@ -847,10 +1020,9 @@ def register_config_dashboard_tools(mcp: Any, client: Any, **kwargs: Any) -> Non
             ),
         ],
         config: Annotated[
-            str | dict[str, Any] | None,
+            dict[str, Any] | None,
             Field(
                 description="Dashboard configuration with views and cards. "
-                "Can be dict or JSON string. "
                 "Omit or set to None to create dashboard without initial config. "
                 "Mutually exclusive with python_transform."
             ),
@@ -902,9 +1074,27 @@ def register_config_dashboard_tools(mcp: Any, client: Any, **kwargs: Any) -> Non
                 "For existing dashboards, only updated when explicitly provided."
             ),
         ] = None,
-    ) -> dict[str, Any]:
+        MandatoryBPS: Annotated[
+            bool,
+            Field(default=True),
+        ] = True,
+        return_screenshot: Annotated[
+            bool,
+            Field(
+                description="After writing, also return a rendered PNG of the "
+                "dashboard so you can see what it looks like in a single call "
+                "(the dashboard creation/iteration loop). Requires the "
+                "'dashboard screenshot' beta feature + engine add-on/sidecar; "
+                "if unavailable, the write result is returned with a warning."
+            ),
+        ] = False,
+        full_page: Annotated[
+            bool,
+            Field(description=f"With return_screenshot: {FULL_PAGE_PARAM_DESC}."),
+        ] = False,
+    ) -> "dict[str, Any] | ToolResult":
         """
-        Create or update a Home Assistant dashboard.
+        Create or update a Home Assistant dashboard. MUST call ha_get_skill_guide first.
 
         Creates a new dashboard or updates an existing one with the provided configuration.
         Supports two modes: full config replacement OR Python transformation.
@@ -929,7 +1119,7 @@ def register_config_dashboard_tools(mcp: Any, client: Any, **kwargs: Any) -> Non
         - Pattern-based update: 'for card in config["views"][0]["cards"]: if "light" in card.get("entity", ""): card["icon"] = "mdi:lightbulb"'
         - Multi-operation: 'config["views"][0]["cards"][0]["icon"] = "mdi:a"; config["views"][0]["cards"][1]["icon"] = "mdi:b"'
 
-        MODERN DASHBOARD BEST PRACTICES (2024+):
+        MODERN DASHBOARD BEST PRACTICES:
         - Use "sections" view type (default) with grid-based layouts
         - Use "tile" cards as primary card type (replaces legacy entity/light/climate cards)
         - Use "grid" cards for multi-column layouts within sections
@@ -939,15 +1129,15 @@ def register_config_dashboard_tools(mcp: Any, client: Any, **kwargs: Any) -> Non
         DISCOVERING ENTITY IDs FOR DASHBOARDS:
         Do NOT guess entity IDs - use these tools to find exact entity IDs:
         1. ha_get_overview(include_entity_id=True) - Get all entities organized by domain/area
-        2. ha_search_entities(query, domain_filter, area_filter) - Find specific entities
-        3. ha_deep_search(query) - Comprehensive search across entities, areas, automations
+        2. ha_search(query, domain_filter, area_filter, search_types) - Find entities and config-body references in one call
 
         If unsure about entity IDs, ALWAYS use one of these tools first.
 
-        DASHBOARD DOCUMENTATION (via MCP skills):
-        - skill://home-assistant-best-practices/references/dashboard-guide.md — comprehensive guide
-        - skill://home-assistant-best-practices/references/dashboard-cards.md — card types list
-        - ha_get_skill_guide — guidance on card types and configuration
+        DASHBOARD DOCUMENTATION:
+        - dashboard-guide.md and dashboard-cards.md ship in this response
+          under ``skill_content`` by default — layout patterns,
+          card-type taxonomy, and worked examples.
+        - ha_get_skill_guide — deeper card-type and configuration guidance.
 
         EXAMPLES:
 
@@ -1009,6 +1199,20 @@ def register_config_dashboard_tools(mcp: Any, client: Any, **kwargs: Any) -> Non
 
         Note: When updating an existing dashboard, title/icon/require_admin/show_in_sidebar
         are also updated if explicitly provided alongside (or instead of) a config change.
+
+        STORAGE-MODE vs YAML-MODE DASHBOARDS:
+        This tool only manages storage-mode dashboards (created via UI/API and stored in
+        Home Assistant's storage backend). It does NOT touch YAML-defined dashboards.
+        Two distinct YAML cases exist and this tool covers neither:
+        - "YAML-mode" dashboards: written in their own .yaml file referenced from
+          configuration.yaml under ``lovelace: dashboards:``. The dashboard itself lives
+          in a separate YAML file but its registration is in configuration.yaml.
+        - Dashboards inlined directly in ``configuration.yaml`` under the ``lovelace:``
+          key (legacy single-dashboard mode).
+        For either YAML case, edit the dashboard's .yaml file directly.
+        ``ha_config_set_yaml`` can update the ``lovelace:`` registration
+        entry in configuration.yaml but does NOT touch the dashboard
+        body in the referenced .yaml file.
         """
         try:
             # ``url_path`` is required (always non-None). Reject empty/
@@ -1234,6 +1438,7 @@ def register_config_dashboard_tools(mcp: Any, client: Any, **kwargs: Any) -> Non
                 }
                 if pre_resolved_from is not None:
                     transform_result["resolved_from"] = pre_resolved_from
+                _attach_dashboard_skill(transform_result, MandatoryBPS)
                 return transform_result
 
             # Check if dashboard exists. When the pre-resolver fired
@@ -1395,6 +1600,10 @@ def register_config_dashboard_tools(mcp: Any, client: Any, **kwargs: Any) -> Non
                             existing_hash,
                         ) = await _get_dashboard_config_internal(client, url_path)
                     except ToolError:
+                        # Pre-read failure is non-fatal on the force-replace
+                        # path: skip the optimistic-lock check and large-config
+                        # warning and proceed with the replacement (see the
+                        # rationale above the try).
                         pass
 
                     if isinstance(existing_config, dict):
@@ -1472,12 +1681,15 @@ def register_config_dashboard_tools(mcp: Any, client: Any, **kwargs: Any) -> Non
                 # an existing dashboard was updated instead.
                 result_dict["resolved_from"] = pre_resolved_from
 
-            return result_dict
+            _attach_dashboard_skill(result_dict, MandatoryBPS)
+            return await _maybe_attach_screenshot(
+                result_dict, url_path, return_screenshot, full_page=full_page
+            )
 
-        except ToolError:
-            raise
+        except ToolError as te:
+            raise augment_tool_error_with_skill_content(te, bp_warnings=None) from None
         except Exception as e:
-            exception_to_structured_error(
+            error = exception_to_structured_error(
                 e,
                 context={"action": "set", "url_path": url_path},
                 suggestions=[
@@ -1486,7 +1698,11 @@ def register_config_dashboard_tools(mcp: Any, client: Any, **kwargs: Any) -> Non
                     "Check that you have admin permissions",
                     "Verify config format is valid Lovelace JSON",
                 ],
+                raise_error=False,
             )
+            augment_error_dict_with_skill_content(error, bp_warnings=None)
+            raise_tool_error(error)
+            return None
 
     @mcp.tool(
         tags={"Dashboards"},
@@ -1620,6 +1836,7 @@ def register_config_dashboard_tools(mcp: Any, client: Any, **kwargs: Any) -> Non
                     "Cannot delete YAML-mode or default dashboard",
                 ],
             )
+        return None  # py/mixed-returns: explicit terminal; error handlers above always raise (NoReturn), unreachable
 
     # =========================================================================
     # Dashboard Resource Management Tools

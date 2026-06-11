@@ -50,7 +50,6 @@ def test_native_copy_heif(img_path):
 @pytest.mark.parametrize(
     "img_path", ("images/heif/zPug_3.heic", "images/heif_other/arrow.heic", "images/heif_special/guitar_cw90.hif")
 )
-@mock.patch("pi_heif.options.ALLOW_INCORRECT_HEADERS", True)
 def test_native_deepcopy_heif(img_path):
     im_heif = pi_heif.open_heif(Path(img_path))
     im_heif_deepcopy = deepcopy(im_heif)
@@ -397,61 +396,6 @@ def test_hdr_read(im_path, original_path):
     helpers.compare_hashes([im_path, original_path], hash_size=16)
 
 
-@pytest.mark.parametrize(
-    "image_path",
-    (
-        "images/heif_special/L_8__29(255)x100.heif",
-        "images/heif_special/L_8__29x100(255).heif",
-        "images/heif_special/L_8__29x100(100x29).heif",
-    ),
-)
-def test_invalid_ispe_fail(image_path):
-    im = Image.open(image_path)
-    with pytest.raises(ValueError):
-        im.load()
-
-
-@pytest.mark.parametrize(
-    "image_path",
-    ("images/heif_special/L_8__128(64)x128(64).heif",),
-)
-def test_invalid_ispe_ok(image_path):
-    im = Image.open(image_path)
-    im.load()
-
-
-@pytest.mark.parametrize(
-    "image_path",
-    (
-        "images/heif_special/L_8__29(255)x100.heif",
-        "images/heif_special/L_8__29x100(255).heif",
-        "images/heif_special/L_8__128(64)x128(64).heif",
-        "images/heif_special/L_8__29x100(100x29).heif",
-    ),
-)
-@mock.patch("pi_heif.options.ALLOW_INCORRECT_HEADERS", True)
-def test_invalid_ispe_allow(image_path):
-    im = Image.open(image_path)
-    im.load()
-
-
-@pytest.mark.parametrize(
-    "image_path",
-    (
-        "images/heif_special/L_8__29(255)x100.heif",
-        "images/heif_special/L_8__29x100(255).heif",
-        "images/heif_special/L_8__128(64)x128(64).heif",
-        "images/heif_special/L_8__29x100(100x29).heif",
-    ),
-)
-@mock.patch("pi_heif.options.ALLOW_INCORRECT_HEADERS", True)
-def test_invalid_ispe_stride(image_path):
-    im = pi_heif.open_heif(image_path)
-    stride = im.stride
-    _ = im.data
-    assert stride == im.stride
-
-
 def test_depth_image():
     im = pi_heif.open_heif("images/heif_other/pug.heic")
     assert len(im.info["depth_images"]) == 1
@@ -501,9 +445,6 @@ def test_aux_image_ycbcr():
     assert aux_pil.mode == "RGB"
 
 
-@pytest.mark.skipif(
-    parse_version(pi_heif.libheif_version()) < parse_version("1.18.0"), reason="requires LibHeif 1.18+"
-)
 def test_read_heif_metadata():
     im = pi_heif.open_heif("images/heif_other/spatial_photo.heic")
     assert "heif" in im.info
@@ -517,9 +458,6 @@ def test_read_heif_metadata():
     assert im.info["heif"]["camera_extrinsic_matrix_rot"] == (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
 
 
-@pytest.mark.skipif(
-    parse_version(pi_heif.libheif_version()) < parse_version("1.18.0"), reason="requires LibHeif 1.18+"
-)
 def test_pillow_read_heif_metadata():
     im = Image.open("images/heif_other/spatial_photo.heic")
     assert "heif" in im.info

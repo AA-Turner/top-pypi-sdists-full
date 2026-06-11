@@ -18,12 +18,14 @@ import logging
 from typing import Any
 
 from cliff import columns as cliff_columns
+from openstack.network.v2 import network as _network
 from osc_lib.cli import format_columns
 from osc_lib import exceptions
 from osc_lib import utils
 from osc_lib.utils import tags as _tag
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 from openstackclient.network import common
@@ -54,7 +56,9 @@ _formatters = {
 }
 
 
-def _get_columns_network(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_columns_network(
+    item: _network.Network,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     column_map = {
         'subnet_ids': 'subnets',
         'is_admin_state_up': 'admin_state_up',
@@ -146,6 +150,13 @@ def _get_attrs_network(
         attrs['qos_policy_id'] = _qos_policy.id
     if 'no_qos_policy' in parsed_args and parsed_args.no_qos_policy:
         attrs['qos_policy_id'] = None
+
+    # Set pvlan
+    if parsed_args.pvlan:
+        attrs['pvlan'] = True
+    if parsed_args.no_pvlan:
+        attrs['pvlan'] = False
+
     # Update DNS network options
     if parsed_args.dns_domain is not None:
         attrs['dns_domain'] = parsed_args.dns_domain
@@ -208,8 +219,6 @@ def _add_additional_network_options(parser: argparse.ArgumentParser) -> None:
     )
 
 
-# TODO(sindhu): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class CreateNetwork(command.ShowOne, common.NeutronCommandWithExtraArgs):
     _description = _("Create new network")
 
@@ -348,6 +357,24 @@ class CreateNetwork(command.ShowOne, common.NeutronCommandWithExtraArgs):
             help=_("Disable VLAN QinQ (S-Tag ethtype 0x8a88) for the network"),
         )
 
+        pvlan_grp = parser.add_mutually_exclusive_group()
+        pvlan_grp.add_argument(
+            '--pvlan',
+            action='store_true',
+            help=_(
+                "Enable Private VLAN for the network "
+                "(PVLAN extension required)"
+            ),
+        )
+        pvlan_grp.add_argument(
+            '--no-pvlan',
+            action='store_true',
+            help=_(
+                "Disable Private VLAN for the network "
+                "(PVLAN extension required)"
+            ),
+        )
+
         _add_additional_network_options(parser)
         _tag.add_tag_option_to_parser_for_create(parser, _('network'))
         return parser
@@ -367,6 +394,11 @@ class CreateNetwork(command.ShowOne, common.NeutronCommandWithExtraArgs):
         if parsed_args.no_qinq_vlan:
             attrs['vlan_qinq'] = False
 
+        if parsed_args.pvlan:
+            attrs['pvlan'] = True
+        if parsed_args.no_pvlan:
+            attrs['pvlan'] = False
+
         if attrs.get('vlan_transparent') and attrs.get('vlan_qinq'):
             msg = _(
                 "--transparent-vlan and --qinq-vlan can not be both enabled "
@@ -374,6 +406,14 @@ class CreateNetwork(command.ShowOne, common.NeutronCommandWithExtraArgs):
             )
             raise exceptions.CommandError(msg)
 
+        if (
+            attrs.get('port_security_enabled') is False
+            and attrs.get('pvlan') is True
+        ):
+            msg = _(
+                "--disable-port-security and --pvlan can not be used together."
+            )
+            raise exceptions.CommandError(msg)
         if (
             parsed_args.segmentation_id
             and not parsed_args.provider_network_type
@@ -439,8 +479,6 @@ class DeleteNetwork(command.Command):
             raise exceptions.CommandError(msg)
 
 
-# TODO(sindhu): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class ListNetwork(command.Lister):
     _description = _("List networks")
 
@@ -542,6 +580,7 @@ class ListNetwork(command.Lister):
             help=_('List only networks hosted the specified agent (ID only)'),
         )
         _tag.add_tag_filtering_option_to_parser(parser, _('networks'))
+        pagination.add_marker_pagination_option_to_parser(parser)
         return parser
 
     def take_action(
@@ -576,7 +615,15 @@ class ListNetwork(command.Lister):
                 'Availability Zones',
                 'Tags',
             )
-        elif parsed_args.agent_id:
+        else:
+            columns = ('id', 'name', 'subnet_ids')
+            column_headers = (
+                'ID',
+                'Name',
+                'Subnets',
+            )
+
+        if parsed_args.agent_id:
             columns = ('id', 'name', 'subnet_ids')
             column_headers = (
                 'ID',
@@ -585,7 +632,6 @@ class ListNetwork(command.Lister):
             )
             client = self.app.client_manager.network
             dhcp_agent = client.get_agent(parsed_args.agent_id)
-            data = client.dhcp_agent_hosting_networks(dhcp_agent)
 
             return (
                 column_headers,
@@ -595,15 +641,8 @@ class ListNetwork(command.Lister):
                         columns,
                         formatters=_formatters,
                     )
-                    for s in data
+                    for s in client.dhcp_agent_hosting_networks(dhcp_agent)
                 ),
-            )
-        else:
-            columns = ('id', 'name', 'subnet_ids')
-            column_headers = (
-                'ID',
-                'Name',
-                'Subnets',
             )
 
         args = {}
@@ -653,9 +692,14 @@ class ListNetwork(command.Lister):
             args['provider:segmentation_id'] = parsed_args.segmentation_id
             args['provider_segmentation_id'] = parsed_args.segmentation_id
 
-        _tag.get_tag_filtering_args(parsed_args, args)
+        if parsed_args.marker is not None:
+            args['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            args['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            args['max_items'] = parsed_args.max_items
 
-        data = client.networks(**args)
+        _tag.get_tag_filtering_args(parsed_args, args)
 
         return (
             column_headers,
@@ -665,13 +709,11 @@ class ListNetwork(command.Lister):
                     columns,
                     formatters=_formatters,
                 )
-                for s in data
+                for s in client.networks(**args)
             ),
         )
 
 
-# TODO(sindhu): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class SetNetwork(common.NeutronCommandWithExtraArgs):
     _description = _("Set network properties")
 
@@ -770,6 +812,23 @@ class SetNetwork(common.NeutronCommandWithExtraArgs):
             action='store_true',
             help=_("Remove the QoS policy attached to this network"),
         )
+        pvlan_grp = parser.add_mutually_exclusive_group()
+        pvlan_grp.add_argument(
+            '--pvlan',
+            action='store_true',
+            help=_(
+                "Enable Private VLAN for the network. PVLAN extension "
+                "required."
+            ),
+        )
+        pvlan_grp.add_argument(
+            '--no-pvlan',
+            action='store_true',
+            help=_(
+                "Disable Private VLAN for the network (Default). "
+                "PVLAN extension required."
+            ),
+        )
         _tag.add_tag_option_to_parser_for_set(parser, _('network'))
         _add_additional_network_options(parser)
         return parser
@@ -782,6 +841,14 @@ class SetNetwork(common.NeutronCommandWithExtraArgs):
         attrs.update(
             self._parse_extra_properties(parsed_args.extra_properties)
         )
+        if (
+            attrs.get('port_security_enabled') is False
+            and attrs.get('pvlan') is True
+        ):
+            msg = _(
+                "--disable-port-security and --pvlan can not be used together."
+            )
+            raise exceptions.CommandError(msg)
         if attrs:
             with common.check_missing_extension_if_error(
                 self.app.client_manager.network, attrs

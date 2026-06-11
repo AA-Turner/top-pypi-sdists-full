@@ -17,10 +17,12 @@ import argparse
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from openstack.network.v2 import network_ip_availability as _ip_availability
 from osc_lib.cli import format_columns
 from osc_lib import utils
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 
@@ -29,15 +31,15 @@ _formatters = {
 }
 
 
-def _get_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_columns(
+    item: _ip_availability.NetworkIPAvailability,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     hidden_columns = ['id', 'name', 'location', 'tenant_id']
     return utils.get_osc_show_columns_for_sdk_resource(
         item, {}, hidden_columns
     )
 
 
-# TODO(ankur-gupta-f): Use the SDK resource mapped attribute names once
-# the OSC minimum requirements include SDK 1.0.
 class ListIPAvailability(command.Lister):
     _description = _("List IP availability for network")
 
@@ -64,6 +66,7 @@ class ListIPAvailability(command.Lister):
             ),
         )
         identity_common.add_project_domain_option_to_parser(parser)
+        pagination.add_marker_pagination_option_to_parser(parser)
         return parser
 
     def take_action(
@@ -87,7 +90,6 @@ class ListIPAvailability(command.Lister):
         filters = {}
         if parsed_args.ip_version:
             filters['ip_version'] = parsed_args.ip_version
-
         if parsed_args.project:
             identity_client = self.app.client_manager.identity
             project_id = identity_common.find_project(
@@ -96,6 +98,13 @@ class ListIPAvailability(command.Lister):
                 parsed_args.project_domain,
             ).id
             filters['project_id'] = project_id
+        if parsed_args.marker is not None:
+            filters['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            filters['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            filters['max_items'] = parsed_args.max_items
+
         data = client.network_ip_availabilities(**filters)
         return (
             column_headers,

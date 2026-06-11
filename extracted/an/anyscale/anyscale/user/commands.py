@@ -34,6 +34,9 @@ _ADMIN_BATCH_CREATE_ARG_DOCSTRINGS = {
     PrivateUserSDK,
     doc_py_example=_ADMIN_BATCH_CREATE_EXAMPLE,
     arg_docstrings=_ADMIN_BATCH_CREATE_ARG_DOCSTRINGS,
+    # Gated behind an internal feature flag; the function remains callable but
+    # is omitted from the generated reference. See CI-2068.
+    hidden=True,
 )
 def admin_batch_create(
     admin_create_users: List[AdminCreateUser],

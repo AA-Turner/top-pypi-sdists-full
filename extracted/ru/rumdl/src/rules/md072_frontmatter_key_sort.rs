@@ -278,7 +278,7 @@ impl Rule for MD072FrontmatterKeySort {
                     None
                 } else {
                     // Compute the actual fix: full content replacement
-                    let fixed_content = self.fix_yaml(content);
+                    let fixed_content = self.fix_yaml(content, ctx.front_matter_end_line());
                     if fixed_content != content {
                         Some(Fix::new(0..content.len(), fixed_content))
                     } else {
@@ -337,7 +337,7 @@ impl Rule for MD072FrontmatterKeySort {
                     None
                 } else {
                     // Compute the actual fix: full content replacement
-                    let fixed_content = self.fix_toml(content);
+                    let fixed_content = self.fix_toml(content, ctx.front_matter_end_line());
                     if fixed_content != content {
                         Some(Fix::new(0..content.len(), fixed_content))
                     } else {
@@ -379,7 +379,7 @@ impl Rule for MD072FrontmatterKeySort {
                 };
 
                 // Compute the actual fix: full content replacement
-                let fixed_content = self.fix_json(content);
+                let fixed_content = self.fix_json(content, ctx.front_matter_end_line());
                 let fix = if fixed_content != content {
                     Some(Fix::new(0..content.len(), fixed_content))
                 } else {
@@ -419,10 +419,11 @@ impl Rule for MD072FrontmatterKeySort {
 
         let fm_type = FrontMatterUtils::detect_front_matter_type(content);
 
+        let fm_end = ctx.front_matter_end_line();
         Ok(match fm_type {
-            FrontMatterType::Yaml => self.fix_yaml(content),
-            FrontMatterType::Toml => self.fix_toml(content),
-            FrontMatterType::Json => self.fix_json(content),
+            FrontMatterType::Yaml => self.fix_yaml(content, fm_end),
+            FrontMatterType::Toml => self.fix_toml(content, fm_end),
+            FrontMatterType::Json => self.fix_json(content, fm_end),
             _ => content.to_string(),
         })
     }
@@ -440,18 +441,7 @@ impl Rule for MD072FrontmatterKeySort {
         self
     }
 
-    fn default_config_section(&self) -> Option<(String, toml::Value)> {
-        let table = crate::rule_config_serde::config_schema_table(&MD072Config::default())?;
-        Some((MD072Config::RULE_NAME.to_string(), toml::Value::Table(table)))
-    }
-
-    fn from_config(config: &crate::config::Config) -> Box<dyn Rule>
-    where
-        Self: Sized,
-    {
-        let rule_config = crate::rule_config_serde::load_rule_config::<MD072Config>(config);
-        Box::new(Self::from_config_struct(rule_config))
-    }
+    crate::impl_rule_config_methods!(MD072Config, nullable);
 }
 
 impl MD072FrontmatterKeySort {
@@ -466,7 +456,7 @@ impl MD072FrontmatterKeySort {
         result
     }
 
-    fn fix_yaml(&self, content: &str) -> String {
+    fn fix_yaml(&self, content: &str, fm_end: usize) -> String {
         let frontmatter_lines = FrontMatterUtils::extract_front_matter(content);
         if frontmatter_lines.is_empty() {
             return content.to_string();
@@ -504,7 +494,6 @@ impl MD072FrontmatterKeySort {
 
         // Reassemble frontmatter
         let content_lines: Vec<&str> = content.lines().collect();
-        let fm_end = FrontMatterUtils::get_front_matter_end_line(content);
 
         let mut result = String::new();
         result.push_str("---\n");
@@ -524,7 +513,7 @@ impl MD072FrontmatterKeySort {
         Self::preserve_trailing_newline(content, result)
     }
 
-    fn fix_toml(&self, content: &str) -> String {
+    fn fix_toml(&self, content: &str, fm_end: usize) -> String {
         let frontmatter_lines = FrontMatterUtils::extract_front_matter(content);
         if frontmatter_lines.is_empty() {
             return content.to_string();
@@ -562,7 +551,6 @@ impl MD072FrontmatterKeySort {
 
         // Reassemble frontmatter
         let content_lines: Vec<&str> = content.lines().collect();
-        let fm_end = FrontMatterUtils::get_front_matter_end_line(content);
 
         let mut result = String::new();
         result.push_str("+++\n");
@@ -582,7 +570,7 @@ impl MD072FrontmatterKeySort {
         Self::preserve_trailing_newline(content, result)
     }
 
-    fn fix_json(&self, content: &str) -> String {
+    fn fix_json(&self, content: &str, fm_end: usize) -> String {
         let frontmatter_lines = FrontMatterUtils::extract_front_matter(content);
         if frontmatter_lines.is_empty() {
             return content.to_string();
@@ -619,7 +607,6 @@ impl MD072FrontmatterKeySort {
                 match serde_json::to_string_pretty(&serde_json::Value::Object(sorted_map)) {
                     Ok(sorted_json) => {
                         let lines: Vec<&str> = content.lines().collect();
-                        let fm_end = FrontMatterUtils::get_front_matter_end_line(content);
 
                         // The pretty-printed JSON includes the outer braces
                         // We need to format it properly for frontmatter

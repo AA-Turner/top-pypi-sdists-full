@@ -123,7 +123,7 @@ class GerritRevision(GerritBase):
     ref: str
     description: None | str = None
     conflicts: None | Mapping[str, bool | str] = None
-    kind: Literal["REWORK", "TRIVIAL_REBASE"]
+    kind: Literal["REWORK", "TRIVIAL_REBASE", "TRIVIAL_REBASE_WITH_MESSAGE_UPDATE"]
     created: datetime
     uploader: GerritUser
     fetch: Mapping[str, Mapping[str, str]]

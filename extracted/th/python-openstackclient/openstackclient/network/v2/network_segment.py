@@ -18,17 +18,21 @@ from collections.abc import Iterable, Sequence
 import logging
 from typing import Any
 
+from openstack.network.v2 import segment as _segment
 from osc_lib import exceptions
 from osc_lib import utils
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.network import common
 
 LOG = logging.getLogger(__name__)
 
 
-def _get_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_columns(
+    item: _segment.Segment,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     hidden_columns = ['location', 'tenant_id']
     return utils.get_osc_show_columns_for_sdk_resource(
         item, {}, hidden_columns
@@ -169,6 +173,7 @@ class ListNetworkSegment(command.Lister):
                 'network (name or ID)'
             ),
         )
+        pagination.add_marker_pagination_option_to_parser(parser)
         return parser
 
     def take_action(
@@ -182,6 +187,13 @@ class ListNetworkSegment(command.Lister):
                 parsed_args.network, ignore_missing=False
             )
             filters = {'network_id': _network.id}
+        if parsed_args.marker is not None:
+            filters['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            filters['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            filters['max_items'] = parsed_args.max_items
+
         data = network_client.segments(**filters)
 
         headers: tuple[str, ...] = (

@@ -36,6 +36,7 @@ def _format_resource_quotas(resource_quotas: List[ResourceQuota]) -> str:
                 if resource_quota.deleted_at
                 else None,
                 resource_quota.quota,
+                resource_quota.is_soft_quota,
             ]
         )
     table = tabulate.tabulate(
@@ -50,6 +51,7 @@ def _format_resource_quotas(resource_quotas: List[ResourceQuota]) -> str:
             "CREATED AT",
             "DELETED AT",
             "QUOTA",
+            "IS SOFT QUOTA",
         ],
         tablefmt="plain",
     )
@@ -108,6 +110,11 @@ def _format_resource_quotas(resource_quotas: List[ResourceQuota]) -> str:
     type=(str, int),
     multiple=True,
 )
+@click.option(
+    "--is-soft-quota/--no-is-soft-quota",
+    default=False,
+    help="Whether this is a soft quota. When True, workloads can exceed the quota limit without being blocked.",
+)
 def create(  # noqa: PLR0913
     name: str,
     cloud: str,
@@ -117,6 +124,7 @@ def create(  # noqa: PLR0913
     num_instances: Optional[int],
     num_gpus: Optional[int],
     num_accelerators: List[Tuple[str, int]],
+    is_soft_quota: bool,
 ) -> None:
     """Creates a resource quota.
 
@@ -133,6 +141,7 @@ def create(  # noqa: PLR0913
         num_instances=num_instances,
         num_gpus=num_gpus,
         num_accelerators=dict(num_accelerators),
+        is_soft_quota=is_soft_quota,
     )
 
     try:
@@ -156,6 +165,8 @@ def create(  # noqa: PLR0913
             create_resource_quota_message.append(
                 f"Number of accelerators: {dict(num_accelerators)}"
             )
+        if is_soft_quota:
+            create_resource_quota_message.append("Is soft quota: True")
 
         log.info("\n".join(create_resource_quota_message))
         log.info(f"Resource quota created successfully ID: {resource_quota.id}")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: transformers
-Version: 5.10.2
+Version: 5.11.0
 Summary: Transformers: the model-definition framework for state-of-the-art machine learning models in text, vision, audio, and multimodal models, for both inference and training.
 Home-page: https://github.com/huggingface/transformers
 Author: The Hugging Face team (past and future) with the help of all our contributors (https://github.com/huggingface/transformers/graphs/contributors)
@@ -30,7 +30,7 @@ Requires-Dist: regex>=2025.10.22
 Requires-Dist: tokenizers<=0.23.0,>=0.22.0
 Requires-Dist: typer
 Requires-Dist: safetensors>=0.4.3
-Requires-Dist: tqdm>=4.27
+Requires-Dist: tqdm>=4.60
 Provides-Extra: torch
 Requires-Dist: torch>=2.4; extra == "torch"
 Requires-Dist: accelerate>=1.1.0; extra == "torch"

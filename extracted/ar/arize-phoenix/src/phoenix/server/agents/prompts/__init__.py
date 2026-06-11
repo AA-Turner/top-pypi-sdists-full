@@ -7,6 +7,7 @@ from jinja2 import Template
 from phoenix.server.agents.prompts.templating import get_template
 
 _BASE_INSTRUCTIONS = get_template("base/BASE_INSTRUCTIONS.xml.j2")
+_BASE_SUBAGENT_INSTRUCTIONS = get_template("base/BASE_SUBAGENT_INSTRUCTIONS.xml.j2")
 _DOCS_TOOL_INSTRUCTIONS = get_template("tools/DOCS_TOOL_INSTRUCTIONS.xml.j2")
 _BASH_TOOL_INSTRUCTIONS = get_template("tools/BASH_TOOL_INSTRUCTIONS.xml.j2")
 _ASK_USER_TOOL_INSTRUCTIONS = get_template("tools/ASK_USER_TOOL_INSTRUCTIONS.xml.j2")
@@ -33,6 +34,12 @@ _READ_PLAYGROUND_OUTPUT_TOOL_INSTRUCTIONS = get_template(
 _CLONE_PROMPT_INSTANCE_TOOL_INSTRUCTIONS = get_template(
     "tools/CLONE_PROMPT_INSTANCE_TOOL_INSTRUCTIONS.xml.j2"
 )
+_ADD_PROMPT_INSTANCE_TOOL_INSTRUCTIONS = get_template(
+    "tools/ADD_PROMPT_INSTANCE_TOOL_INSTRUCTIONS.xml.j2"
+)
+_REMOVE_PROMPT_INSTANCE_TOOL_INSTRUCTIONS = get_template(
+    "tools/REMOVE_PROMPT_INSTANCE_TOOL_INSTRUCTIONS.xml.j2"
+)
 _EDIT_PROMPT_INSTANCE_TOOL_INSTRUCTIONS = get_template(
     "tools/EDIT_PROMPT_INSTANCE_TOOL_INSTRUCTIONS.xml.j2"
 )
@@ -43,11 +50,74 @@ _WRITE_PROMPT_TOOLS_TOOL_INSTRUCTIONS = get_template(
     "tools/WRITE_PROMPT_TOOLS_TOOL_INSTRUCTIONS.xml.j2"
 )
 _RUN_PLAYGROUND_TOOL_INSTRUCTIONS = get_template("tools/RUN_PLAYGROUND_TOOL_INSTRUCTIONS.xml.j2")
+_CANCEL_PLAYGROUND_RUN_TOOL_INSTRUCTIONS = get_template(
+    "tools/CANCEL_PLAYGROUND_RUN_TOOL_INSTRUCTIONS.xml.j2"
+)
 _SAVE_PROMPT_TOOL_INSTRUCTIONS = get_template("tools/SAVE_PROMPT_TOOL_INSTRUCTIONS.xml.j2")
 _SET_VARIABLE_VALUES_TOOL_INSTRUCTIONS = get_template(
     "tools/SET_VARIABLE_VALUES_TOOL_INSTRUCTIONS.xml.j2"
 )
+_SET_PLAYGROUND_EXPERIMENT_RECORDING_TOOL_INSTRUCTIONS = get_template(
+    "tools/SET_PLAYGROUND_EXPERIMENT_RECORDING_TOOL_INSTRUCTIONS.xml.j2"
+)
+_SET_PLAYGROUND_REPETITIONS_TOOL_INSTRUCTIONS = get_template(
+    "tools/SET_PLAYGROUND_REPETITIONS_TOOL_INSTRUCTIONS.xml.j2"
+)
+_SET_TEMPLATE_VARIABLES_PATH_TOOL_INSTRUCTIONS = get_template(
+    "tools/SET_TEMPLATE_VARIABLES_PATH_TOOL_INSTRUCTIONS.xml.j2"
+)
+_SET_APPENDED_MESSAGES_PATH_TOOL_INSTRUCTIONS = get_template(
+    "tools/SET_APPENDED_MESSAGES_PATH_TOOL_INSTRUCTIONS.xml.j2"
+)
 _LOAD_DATASET_TOOL_INSTRUCTIONS = get_template("tools/LOAD_DATASET_TOOL_INSTRUCTIONS.xml.j2")
+_ADD_DATASET_EXAMPLES_TOOL_INSTRUCTIONS = get_template(
+    "tools/ADD_DATASET_EXAMPLES_TOOL_INSTRUCTIONS.xml.j2"
+)
+_LIST_DATASET_EXAMPLES_TOOL_INSTRUCTIONS = get_template(
+    "tools/LIST_DATASET_EXAMPLES_TOOL_INSTRUCTIONS.xml.j2"
+)
+_LIST_DATASET_SPLITS_TOOL_INSTRUCTIONS = get_template(
+    "tools/LIST_DATASET_SPLITS_TOOL_INSTRUCTIONS.xml.j2"
+)
+_LIST_SPLITS_TOOL_INSTRUCTIONS = get_template("tools/LIST_SPLITS_TOOL_INSTRUCTIONS.xml.j2")
+_CREATE_DATASET_SPLIT_TOOL_INSTRUCTIONS = get_template(
+    "tools/CREATE_DATASET_SPLIT_TOOL_INSTRUCTIONS.xml.j2"
+)
+_SET_DATASET_EXAMPLE_SPLITS_TOOL_INSTRUCTIONS = get_template(
+    "tools/SET_DATASET_EXAMPLE_SPLITS_TOOL_INSTRUCTIONS.xml.j2"
+)
+_LIST_DATASET_LABELS_TOOL_INSTRUCTIONS = get_template(
+    "tools/LIST_DATASET_LABELS_TOOL_INSTRUCTIONS.xml.j2"
+)
+_CREATE_DATASET_LABEL_TOOL_INSTRUCTIONS = get_template(
+    "tools/CREATE_DATASET_LABEL_TOOL_INSTRUCTIONS.xml.j2"
+)
+_SET_DATASET_LABELS_TOOL_INSTRUCTIONS = get_template(
+    "tools/SET_DATASET_LABELS_TOOL_INSTRUCTIONS.xml.j2"
+)
+_PATCH_DATASET_TOOL_INSTRUCTIONS = get_template("tools/PATCH_DATASET_TOOL_INSTRUCTIONS.xml.j2")
+_DELETE_DATASET_TOOL_INSTRUCTIONS = get_template("tools/DELETE_DATASET_TOOL_INSTRUCTIONS.xml.j2")
+_PATCH_DATASET_EXAMPLES_TOOL_INSTRUCTIONS = get_template(
+    "tools/PATCH_DATASET_EXAMPLES_TOOL_INSTRUCTIONS.xml.j2"
+)
+_DELETE_DATASET_EXAMPLES_TOOL_INSTRUCTIONS = get_template(
+    "tools/DELETE_DATASET_EXAMPLES_TOOL_INSTRUCTIONS.xml.j2"
+)
+_PATCH_DATASET_SPLIT_TOOL_INSTRUCTIONS = get_template(
+    "tools/PATCH_DATASET_SPLIT_TOOL_INSTRUCTIONS.xml.j2"
+)
+_DELETE_DATASET_SPLITS_TOOL_INSTRUCTIONS = get_template(
+    "tools/DELETE_DATASET_SPLITS_TOOL_INSTRUCTIONS.xml.j2"
+)
+_DELETE_DATASET_LABELS_TOOL_INSTRUCTIONS = get_template(
+    "tools/DELETE_DATASET_LABELS_TOOL_INSTRUCTIONS.xml.j2"
+)
+_ADD_SPANS_TO_DATASET_TOOL_INSTRUCTIONS = get_template(
+    "tools/ADD_SPANS_TO_DATASET_TOOL_INSTRUCTIONS.xml.j2"
+)
+_LIST_DATASETS_TOOL_INSTRUCTIONS = get_template("tools/LIST_DATASETS_TOOL_INSTRUCTIONS.xml.j2")
+_LIST_LABELS_TOOL_INSTRUCTIONS = get_template("tools/LIST_LABELS_TOOL_INSTRUCTIONS.xml.j2")
+_CREATE_DATASET_TOOL_INSTRUCTIONS = get_template("tools/CREATE_DATASET_TOOL_INSTRUCTIONS.xml.j2")
 _BATCH_SPAN_ANNOTATE_TOOL_INSTRUCTIONS = get_template(
     "tools/BATCH_SPAN_ANNOTATE_TOOL_INSTRUCTIONS.xml.j2"
 )
@@ -75,6 +145,12 @@ _TEST_LLM_EVALUATOR_DRAFT_TOOL_INSTRUCTIONS = get_template(
 _OPEN_LLM_EVALUATOR_FORM_TOOL_INSTRUCTIONS = get_template(
     "tools/OPEN_LLM_EVALUATOR_FORM_TOOL_INSTRUCTIONS.xml.j2"
 )
+_SUBMIT_CODE_EVALUATOR_DRAFT_TOOL_INSTRUCTIONS = get_template(
+    "tools/SUBMIT_CODE_EVALUATOR_DRAFT_TOOL_INSTRUCTIONS.xml.j2"
+)
+_SUBMIT_LLM_EVALUATOR_DRAFT_TOOL_INSTRUCTIONS = get_template(
+    "tools/SUBMIT_LLM_EVALUATOR_DRAFT_TOOL_INSTRUCTIONS.xml.j2"
+)
 _APP_CONTEXT_TEMPLATE = get_template("context/APP_CONTEXT_INSTRUCTIONS.xml.j2")
 _PROJECT_CONTEXT_TEMPLATE = get_template("context/PROJECT_CONTEXT_INSTRUCTIONS.xml.j2")
 _TRACE_CONTEXT_TEMPLATE = get_template("context/TRACE_CONTEXT_INSTRUCTIONS.xml.j2")
@@ -90,6 +166,10 @@ _SKILLS_TEMPLATE = get_template("skills/SKILLS_INSTRUCTIONS.xml.j2")
 _LOAD_SKILL_TEMPLATE = get_template("skills/LOAD_SKILL.xml.j2")
 _LOAD_SKILL_TOOL_TEMPLATE = get_template("skills/LOAD_SKILL_TOOL.xml.j2")
 _READ_SKILL_RESOURCE_TOOL_TEMPLATE = get_template("skills/READ_SKILL_RESOURCE_TOOL.xml.j2")
+_CALL_SUBAGENT_TOOL_INSTRUCTIONS = get_template("tools/CALL_SUBAGENT_TOOL_INSTRUCTIONS.xml.j2")
+_RUN_GRAPHQL_QUERY_TOOL_INSTRUCTIONS = get_template(
+    "tools/RUN_GRAPHQL_QUERY_TOOL_INSTRUCTIONS.xml.j2"
+)
 
 SUMMARIZATION_INSTRUCTIONS_TEMPLATE = get_template(
     "summarization/SUMMARIZATION_PROMPT_INSTRUCTIONS.xml.j2"
@@ -98,7 +178,7 @@ SUMMARIZATION_INSTRUCTIONS_TEMPLATE = get_template(
 
 @dataclass(frozen=True)
 class AgentPrompts:
-    """Typed bundle of every prompt template the chat agent uses."""
+    """Every prompt template the chat agent uses."""
 
     base: Template = _BASE_INSTRUCTIONS
     docs_tool: Template = _DOCS_TOOL_INSTRUCTIONS
@@ -113,22 +193,53 @@ class AgentPrompts:
     read_prompt_instance_tool: Template = _READ_PROMPT_INSTANCE_TOOL_INSTRUCTIONS
     read_playground_output_tool: Template = _READ_PLAYGROUND_OUTPUT_TOOL_INSTRUCTIONS
     clone_prompt_instance_tool: Template = _CLONE_PROMPT_INSTANCE_TOOL_INSTRUCTIONS
+    add_prompt_instance_tool: Template = _ADD_PROMPT_INSTANCE_TOOL_INSTRUCTIONS
+    remove_prompt_instance_tool: Template = _REMOVE_PROMPT_INSTANCE_TOOL_INSTRUCTIONS
     edit_prompt_instance_tool: Template = _EDIT_PROMPT_INSTANCE_TOOL_INSTRUCTIONS
     save_prompt_tool: Template = _SAVE_PROMPT_TOOL_INSTRUCTIONS
     read_prompt_tools_tool: Template = _READ_PROMPT_TOOLS_TOOL_INSTRUCTIONS
     write_prompt_tools_tool: Template = _WRITE_PROMPT_TOOLS_TOOL_INSTRUCTIONS
     run_playground_tool: Template = _RUN_PLAYGROUND_TOOL_INSTRUCTIONS
+    cancel_playground_run_tool: Template = _CANCEL_PLAYGROUND_RUN_TOOL_INSTRUCTIONS
     set_variable_values_tool: Template = _SET_VARIABLE_VALUES_TOOL_INSTRUCTIONS
+    set_playground_experiment_recording_tool: Template = (
+        _SET_PLAYGROUND_EXPERIMENT_RECORDING_TOOL_INSTRUCTIONS
+    )
+    set_playground_repetitions_tool: Template = _SET_PLAYGROUND_REPETITIONS_TOOL_INSTRUCTIONS
+    set_template_variables_path_tool: Template = _SET_TEMPLATE_VARIABLES_PATH_TOOL_INSTRUCTIONS
+    set_appended_messages_path_tool: Template = _SET_APPENDED_MESSAGES_PATH_TOOL_INSTRUCTIONS
     load_dataset_tool: Template = _LOAD_DATASET_TOOL_INSTRUCTIONS
+    add_dataset_examples_tool: Template = _ADD_DATASET_EXAMPLES_TOOL_INSTRUCTIONS
+    list_dataset_examples_tool: Template = _LIST_DATASET_EXAMPLES_TOOL_INSTRUCTIONS
+    list_dataset_splits_tool: Template = _LIST_DATASET_SPLITS_TOOL_INSTRUCTIONS
+    list_splits_tool: Template = _LIST_SPLITS_TOOL_INSTRUCTIONS
+    create_dataset_split_tool: Template = _CREATE_DATASET_SPLIT_TOOL_INSTRUCTIONS
+    set_dataset_example_splits_tool: Template = _SET_DATASET_EXAMPLE_SPLITS_TOOL_INSTRUCTIONS
+    list_dataset_labels_tool: Template = _LIST_DATASET_LABELS_TOOL_INSTRUCTIONS
+    create_dataset_label_tool: Template = _CREATE_DATASET_LABEL_TOOL_INSTRUCTIONS
+    set_dataset_labels_tool: Template = _SET_DATASET_LABELS_TOOL_INSTRUCTIONS
+    patch_dataset_tool: Template = _PATCH_DATASET_TOOL_INSTRUCTIONS
+    delete_dataset_tool: Template = _DELETE_DATASET_TOOL_INSTRUCTIONS
+    patch_dataset_examples_tool: Template = _PATCH_DATASET_EXAMPLES_TOOL_INSTRUCTIONS
+    delete_dataset_examples_tool: Template = _DELETE_DATASET_EXAMPLES_TOOL_INSTRUCTIONS
+    patch_dataset_split_tool: Template = _PATCH_DATASET_SPLIT_TOOL_INSTRUCTIONS
+    delete_dataset_splits_tool: Template = _DELETE_DATASET_SPLITS_TOOL_INSTRUCTIONS
+    delete_dataset_labels_tool: Template = _DELETE_DATASET_LABELS_TOOL_INSTRUCTIONS
+    add_spans_to_dataset_tool: Template = _ADD_SPANS_TO_DATASET_TOOL_INSTRUCTIONS
+    list_datasets_tool: Template = _LIST_DATASETS_TOOL_INSTRUCTIONS
+    list_labels_tool: Template = _LIST_LABELS_TOOL_INSTRUCTIONS
+    create_dataset_tool: Template = _CREATE_DATASET_TOOL_INSTRUCTIONS
     batch_span_annotate_tool: Template = _BATCH_SPAN_ANNOTATE_TOOL_INSTRUCTIONS
     read_code_evaluator_draft_tool: Template = _READ_CODE_EVALUATOR_DRAFT_TOOL_INSTRUCTIONS
     edit_code_evaluator_draft_tool: Template = _EDIT_CODE_EVALUATOR_DRAFT_TOOL_INSTRUCTIONS
     test_code_evaluator_draft_tool: Template = _TEST_CODE_EVALUATOR_DRAFT_TOOL_INSTRUCTIONS
     open_code_evaluator_form_tool: Template = _OPEN_CODE_EVALUATOR_FORM_TOOL_INSTRUCTIONS
+    submit_code_evaluator_draft_tool: Template = _SUBMIT_CODE_EVALUATOR_DRAFT_TOOL_INSTRUCTIONS
     read_llm_evaluator_draft_tool: Template = _READ_LLM_EVALUATOR_DRAFT_TOOL_INSTRUCTIONS
     edit_llm_evaluator_draft_tool: Template = _EDIT_LLM_EVALUATOR_DRAFT_TOOL_INSTRUCTIONS
     test_llm_evaluator_draft_tool: Template = _TEST_LLM_EVALUATOR_DRAFT_TOOL_INSTRUCTIONS
     open_llm_evaluator_form_tool: Template = _OPEN_LLM_EVALUATOR_FORM_TOOL_INSTRUCTIONS
+    submit_llm_evaluator_draft_tool: Template = _SUBMIT_LLM_EVALUATOR_DRAFT_TOOL_INSTRUCTIONS
     app_context: Template = _APP_CONTEXT_TEMPLATE
     project_context: Template = _PROJECT_CONTEXT_TEMPLATE
     trace_context: Template = _TRACE_CONTEXT_TEMPLATE
@@ -142,9 +253,20 @@ class AgentPrompts:
     load_skill: Template = _LOAD_SKILL_TEMPLATE
     load_skill_tool: Template = _LOAD_SKILL_TOOL_TEMPLATE
     read_skill_resource_tool: Template = _READ_SKILL_RESOURCE_TOOL_TEMPLATE
+    call_subagent_tool: Template = _CALL_SUBAGENT_TOOL_INSTRUCTIONS
+
+
+@dataclass(frozen=True)
+class ServerAgentPrompts:
+    """Every prompt template the server agent uses."""
+
+    base: Template = _BASE_SUBAGENT_INSTRUCTIONS
+    run_graphql_query_tool: Template = _RUN_GRAPHQL_QUERY_TOOL_INSTRUCTIONS
+    docs_tool: Template = _DOCS_TOOL_INSTRUCTIONS
 
 
 __all__ = [
     "AgentPrompts",
+    "ServerAgentPrompts",
     "SUMMARIZATION_INSTRUCTIONS_TEMPLATE",
 ]

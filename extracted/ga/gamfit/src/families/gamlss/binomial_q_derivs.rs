@@ -11,11 +11,73 @@
 //! other link falls back to the generic inverse-link jet plus the analytic
 //! fourth derivative of the inverse-link pdf. All functions here are pure.
 
-use crate::mixture_link::inverse_link_pdffourth_derivative_for_inverse_link;
+use crate::mixture_link::inverse_link_pdfthird_derivative_for_inverse_link;
 use crate::probability::signed_probit_logcdf_and_mills_ratio;
 use crate::types::{InverseLink, StandardLink};
 
-use super::MIN_PROB;
+/// Exact derivatives of the per-row binomial log-likelihood in μ-space,
+///   ℓ(μ) = y·ln μ + (1−y)·ln(1−μ),
+/// through fourth order, returned as `(ℓ', ℓ'', ℓ''', ℓ'''')`.
+///
+/// This is a pure function of the **raw, unclamped** probability `mu` and the
+/// observed proportion `y ∈ [0, 1]`. There is no flooring: the values are the
+/// exact derivatives of the loss the family actually evaluates. The closed
+/// forms are
+///   ℓ'    =  y/μ − (1−y)/(1−μ)
+///   ℓ''   = −y/μ² − (1−y)/(1−μ)²
+///   ℓ'''  =  2y/μ³ − 2(1−y)/(1−μ)³
+///   ℓ'''' = −6y/μ⁴ − 6(1−y)/(1−μ)⁴
+///
+/// Each half is split by its numerator (`y` and `1−y`) so that a saturated
+/// **compatible** observation — `y = 0` at any μ, or `y = 1` at any μ — cannot
+/// manufacture a `0/0 = NaN`: the dead half is forced to exactly zero, which is
+/// its true value (that branch of the likelihood is constant). Callers must
+/// have already screened `μ ∈ (0, 1)`; an incompatible saturated boundary
+/// (`y > 0` with `μ = 0`, or `y < 1` with `μ = 1`) is a genuine ±∞ and is the
+/// caller's responsibility (see the saturation guard in the `*_from_jet`
+/// consumers).
+#[inline]
+pub(super) fn binomial_loglik_mu_derivatives(y: f64, mu: f64) -> (f64, f64, f64, f64) {
+    // y-branch (numerator y): y/μ, −y/μ², 2y/μ³, −6y/μ⁴.
+    let (a1, a2, a3, a4) = if y == 0.0 {
+        (0.0, 0.0, 0.0, 0.0)
+    } else {
+        let im = 1.0 / mu;
+        let y_im = y * im;
+        (
+            y_im,
+            -y_im * im,
+            2.0 * y_im * im * im,
+            -6.0 * y_im * im * im * im,
+        )
+    };
+    // (1−y)-branch (numerator z = 1−y): −z/(1−μ), −z/(1−μ)², −2z/(1−μ)³, −6z/(1−μ)⁴.
+    let z = 1.0 - y;
+    let (b1, b2, b3, b4) = if z == 0.0 {
+        (0.0, 0.0, 0.0, 0.0)
+    } else {
+        let io = 1.0 / (1.0 - mu);
+        let z_io = z * io;
+        (
+            -z_io,
+            -z_io * io,
+            -2.0 * z_io * io * io,
+            -6.0 * z_io * io * io * io,
+        )
+    };
+    (a1 + b1, a2 + b2, a3 + b3, a4 + b4)
+}
+
+/// True iff `mu` is strictly interior, i.e. the inverse link has NOT saturated
+/// past the representable range. When this is false the μ-space tower above has
+/// no finite f64 representation, but the q-space derivatives built on top of it
+/// have collapsed below precision (the inverse-link density `d1 = μ'` and its
+/// successors underflow at least as fast as μ reaches the boundary), so the
+/// honest q-space limit is zero — NOT a clipped-μ surrogate (issue #948).
+#[inline]
+fn binomial_mu_is_interior(mu: f64) -> bool {
+    mu > 0.0 && mu < 1.0
+}
 
 #[inline]
 pub(super) fn binomial_score_curvaturethird_from_jet(
@@ -31,22 +93,22 @@ pub(super) fn binomial_score_curvaturethird_from_jet(
     //   ell_i = m_i * [ y_i log(mu_i) + (1-y_i) log(1-mu_i) ],
     // where `weight = m_i` and `y` is the observed proportion in [0,1].
     //
-    // mu-space derivatives:
-    //   ellmu    = y/mu - (1-y)/(1-mu)
-    //   ellmumu  = -y/mu^2 - (1-y)/(1-mu)^2
-    //   ellmumum = 2y/mu^3 - 2(1-y)/(1-mu)^3
-    //
-    // q-jet using mu(q) derivatives d1=mu', d2=mu'', d3=mu''':
+    // q-jet using the EXACT mu-space derivatives (binomial_loglik_mu_derivatives)
+    // and the inverse-link mu(q) derivatives d1=mu', d2=mu'', d3=mu''':
     //   s = dell/dq   = ellmu * mu'
     //   c = d2ell/dq2 = ellmumu*(mu')^2 + ellmu*mu''
     //   t = d3ell/dq3 = ellmumum*(mu')^3 + 3*ellmumu*mu'*mu'' + ellmu*mu'''
     //
     // Returns (score_q, curvature_q, third_q) with curvature_q = -d2ell/dq2.
-    let m = mu;
-    let one_minus = 1.0 - m;
-    let ellmu = y / m - (1.0 - y) / one_minus;
-    let ellmumu = -y / (m * m) - (1.0 - y) / (one_minus * one_minus);
-    let ellmumum = 2.0 * y / (m * m * m) - 2.0 * (1.0 - y) / (one_minus * one_minus * one_minus);
+    //
+    // `mu` is the RAW inverse-link value (no flooring): the result is the exact
+    // derivative of the evaluated loss for every representable mu in (0,1). A
+    // saturated boundary mu collapses the q-space tower below precision, so we
+    // return zero there rather than a clipped surrogate (issue #948).
+    if weight == 0.0 || !binomial_mu_is_interior(mu) {
+        return (0.0, 0.0, 0.0);
+    }
+    let (ellmu, ellmumu, ellmumum, _) = binomial_loglik_mu_derivatives(y, mu);
 
     let score_q = weight * ellmu * d1;
     let d2ell_dq2 = weight * (ellmumu * d1 * d1 + ellmu * d2);
@@ -167,6 +229,32 @@ pub(super) fn binomial_neglog_q_fourth_derivative_probit_closed_form(
 // Reference: response.md Section 1a.
 // ---------------------------------------------------------------------------
 
+/// Stable logistic probability `p = σ(q)` and its variance `s = p(1−p)`, with
+/// NO flooring.
+///
+/// `p` uses the branched expit (avoids overflow of `e^{±q}`), and `s` is formed
+/// directly from the tail exponential as `s = t/(1+t)²` with `t = e^{−|q|}`,
+/// the cancellation-free spelling of `p(1−p)`:
+///   q ≥ 0: p = 1/(1+t),  1−p = t/(1+t)  ⇒  p(1−p) = t/(1+t)²
+///   q < 0: p = t/(1+t),  1−p = 1/(1+t)  ⇒  p(1−p) = t/(1+t)²
+/// This is exact across the whole range and underflows *gracefully to the true
+/// value 0* in the saturated tail — the Bernoulli curvature genuinely vanishes
+/// there. It is never recovered as `1 − p` after `p` has rounded to 1 (which
+/// would catastrophically cancel) nor floored to a surrogate (issue #948). At
+/// `q = 40`, `s ≈ e^{−40} ≈ 4.25e−18`, the true variance — not `1e−10`.
+#[inline]
+fn logit_probability_and_variance(q: f64) -> (f64, f64) {
+    if q >= 0.0 {
+        let t = (-q).exp();
+        let denom = 1.0 + t;
+        (1.0 / denom, t / (denom * denom))
+    } else {
+        let t = q.exp();
+        let denom = 1.0 + t;
+        (t / denom, t / (denom * denom))
+    }
+}
+
 #[inline]
 pub(super) fn binomial_neglog_q_derivatives_logit_closed_form(
     y: f64,
@@ -174,37 +262,16 @@ pub(super) fn binomial_neglog_q_derivatives_logit_closed_form(
     q: f64,
 ) -> (f64, f64, f64) {
     // Returns (m1, m2, m3) for F(q) = -w[y log G(q) + (1-y) log(1-G(q))]
-    // with G = logistic CDF.
+    // with G = logistic CDF. All three are exact derivatives of the evaluated
+    // softplus loss F(q) = w[(1-y)q + softplus(-q)]:
+    //   m1 = w(p - y),  m2 = ws,  m3 = ws(1 - 2p),  with s = p(1-p).
     if weight == 0.0 || !q.is_finite() {
         return (0.0, 0.0, 0.0);
     }
-    // Branched expit for numerical stability:
-    //   q >= 0: p = 1/(1+e^{-q}), avoids overflow in e^q
-    //   q < 0:  p = e^q/(1+e^q),  avoids overflow in e^{-q}
-    let p = if q >= 0.0 {
-        1.0 / (1.0 + (-q).exp())
-    } else {
-        let eq = q.exp();
-        eq / (1.0 + eq)
-    };
-    // Clamp `p` AND its complement `1 - p` separately so that the
-    // saturated-boundary product `p_var * one_minus_p_var` equals the
-    // mathematical `MIN_PROB · (1 − MIN_PROB)` exactly. Recomputing
-    // `1 - p_var` after clamping `p` would catastrophically cancel near the
-    // boundary (e.g. `1 - (1 − 1e-10)` yields `1.0000000827e-10`, not the
-    // intended `1e-10`), inflating the variance by ~8e-18 — small in
-    // absolute terms but enough to corrupt the Fisher information used by
-    // the GAMLSS exact-Newton step in the deep tail.
-    let p_var = p.clamp(MIN_PROB, 1.0 - MIN_PROB);
-    let one_minus_p_var = (1.0 - p).clamp(MIN_PROB, 1.0 - MIN_PROB);
-    let s = p_var * one_minus_p_var;
-    // For extreme |q|, s settles at the clamped floor `MIN_PROB·(1−MIN_PROB)`
-    // — never below — so the second-order Newton block stays bounded away
-    // from zero curvature on saturated rows.
+    let (p, s) = logit_probability_and_variance(q);
 
     let m1 = weight * (p - y);
     let m2 = weight * s;
-    // m3 = ws(1 - 2p). Using the identity 1-2p = -tanh(q/2) for stability:
     let m3 = weight * s * (1.0 - 2.0 * p);
     (m1, m2, m3)
 }
@@ -226,18 +293,9 @@ pub(super) fn binomial_neglog_q_fourth_derivative_logit_closed_form(
     if weight == 0.0 || !q.is_finite() {
         return 0.0;
     }
-    let p = if q >= 0.0 {
-        1.0 / (1.0 + (-q).exp())
-    } else {
-        let eq = q.exp();
-        eq / (1.0 + eq)
-    };
-    // Same cancellation-free `p · (1 − p)` form as
-    // `binomial_neglog_q_derivatives_logit_closed_form` above — see the
-    // note there.
-    let p_var = p.clamp(MIN_PROB, 1.0 - MIN_PROB);
-    let one_minus_p_var = (1.0 - p).clamp(MIN_PROB, 1.0 - MIN_PROB);
-    let s = p_var * one_minus_p_var;
+    // Exact `s = p(1-p)` via the cancellation-free tail form — see
+    // `logit_probability_and_variance`. m4 depends only on s.
+    let (_p, s) = logit_probability_and_variance(q);
     weight * s * (1.0 - 6.0 * s)
 }
 
@@ -396,11 +454,13 @@ pub(super) fn binomial_neglog_q_fourth_derivative_from_jet(
     d3: f64,
     d4: f64,
 ) -> f64 {
-    // Stability (Issue 5): floor μ inside divisions but allow the chain
-    // rule to propagate; non-finite inputs still short-circuit (the LM
-    // gain-ratio guard rejects non-finite candidate gradients).
+    // Exact m4 from the RAW inverse-link value (no flooring). A saturated
+    // boundary mu, or any non-finite jet input, collapses the q-space tower
+    // below precision, so we short-circuit to zero rather than a clipped
+    // surrogate (issue #948). Non-finite inputs short-circuiting also matches
+    // the LM gain-ratio guard, which rejects non-finite candidate gradients.
     if weight == 0.0
-        || !mu.is_finite()
+        || !binomial_mu_is_interior(mu)
         || !d1.is_finite()
         || !d2.is_finite()
         || !d3.is_finite()
@@ -408,12 +468,7 @@ pub(super) fn binomial_neglog_q_fourth_derivative_from_jet(
     {
         return 0.0;
     }
-    let m = mu.clamp(MIN_PROB, 1.0 - MIN_PROB);
-    let one_minus = 1.0 - m;
-    let ellmu = y / m - (1.0 - y) / one_minus;
-    let ellmumu = -y / (m * m) - (1.0 - y) / (one_minus * one_minus);
-    let ellmumum = 2.0 * y / (m * m * m) - 2.0 * (1.0 - y) / (one_minus * one_minus * one_minus);
-    let ellmumumum = -6.0 * y / m.powi(4) - 6.0 * (1.0 - y) / one_minus.powi(4);
+    let (ellmu, ellmumu, ellmumum, ellmumumum) = binomial_loglik_mu_derivatives(y, mu);
     let fourth_q = weight
         * (ellmumumum * d1.powi(4)
             + 6.0 * ellmumum * d1 * d1 * d2
@@ -429,7 +484,8 @@ pub(super) fn binomial_neglog_q_fourth_derivative_from_jet(
 // Closed forms remain the fast path for Probit, Logit, and CLogLog, but the
 // exact joint Newton calculus is not restricted to those links. When no
 // closed form is available, we use the generic inverse-link jet plus the
-// analytic fourth derivative of the inverse-link pdf.
+// analytic third derivative of the inverse-link pdf (f''' = μ'''', the fourth
+// derivative of the inverse-link CDF).
 // ---------------------------------------------------------------------------
 
 #[inline]
@@ -465,8 +521,13 @@ pub(super) fn binomial_neglog_q_fourth_derivative_dispatch(
             y, weight, q, link_kind,
         ));
     }
-    let d4 = inverse_link_pdffourth_derivative_for_inverse_link(link_kind, q)
-        .map_err(|e| format!("binomial inverse-link fourth derivative evaluation failed: {e}"))?;
+    // `binomial_neglog_q_fourth_derivative_from_jet` consumes `d4 = μ''''(q)`,
+    // the fourth derivative of the inverse link μ = G. Since the pdf f = G' = μ',
+    // this equals f''' — the THIRD derivative of the inverse-link pdf (= the
+    // fourth derivative of the inverse-link CDF). The `pdffourth` helper would
+    // return f'''' = μ''''', one order too high (issue #947).
+    let d4 = inverse_link_pdfthird_derivative_for_inverse_link(link_kind, q)
+        .map_err(|e| format!("binomial inverse-link third derivative evaluation failed: {e}"))?;
     Ok(binomial_neglog_q_fourth_derivative_from_jet(
         y, weight, mu, d1, d2, d3, d4,
     ))
@@ -528,4 +589,234 @@ pub(super) fn binomial_link_has_closed_form(link_kind: &InverseLink) -> bool {
             | InverseLink::Standard(StandardLink::Logit)
             | InverseLink::Standard(StandardLink::CLogLog)
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Cauchit inverse link μ(q) = ½ + atan(q)/π and its eta-derivatives, derived
+    // independently of the production link machinery. With u = 1 + q²:
+    //   μ'    = 1 / (π u)
+    //   μ''   = −2 q / (π u²)
+    //   μ'''  = 2 (3 q² − 1) / (π u³)
+    //   μ'''' = 24 q (1 − q²) / (π u⁴)
+    fn cauchit_jet(q: f64) -> (f64, f64, f64, f64, f64) {
+        let u = 1.0 + q * q;
+        let mu = 0.5 + q.atan() / std::f64::consts::PI;
+        let d1 = 1.0 / (std::f64::consts::PI * u);
+        let d2 = -2.0 * q / (std::f64::consts::PI * u.powi(2));
+        let d3 = 2.0 * (3.0 * q * q - 1.0) / (std::f64::consts::PI * u.powi(3));
+        let d4 = 24.0 * q * (1.0 - q * q) / (std::f64::consts::PI * u.powi(4));
+        (mu, d1, d2, d3, d4)
+    }
+
+    // Analytic generic m4 for the cauchit link via the jet path, matching the
+    // dispatch's `from_jet` consumer exactly.
+    fn cauchit_m4(y: f64, weight: f64, q: f64) -> f64 {
+        let (mu, d1, d2, d3, d4) = cauchit_jet(q);
+        binomial_neglog_q_fourth_derivative_from_jet(y, weight, mu, d1, d2, d3, d4)
+    }
+
+    // Analytic generic m3 for the cauchit link via the jet path (third entry of
+    // the returned (m1, m2, m3) tuple).
+    fn cauchit_m3(y: f64, weight: f64, q: f64) -> f64 {
+        let (mu, d1, d2, d3, _d4) = cauchit_jet(q);
+        binomial_neglog_q_derivatives_from_jet(y, weight, mu, d1, d2, d3).2
+    }
+
+    #[test]
+    fn generic_binomial_m4_matches_finite_difference_of_m3_cauchit() {
+        // High-order (5-point) central finite difference of m3 = dF³/dq³ should
+        // equal the analytic m4 = dF⁴/dq⁴. This independently pins the receiving
+        // fourth-derivative formula and is blind to the dispatch helper naming
+        // (regression for issue #947: the wrong helper injected a spurious μ'''''
+        // term, flipping both sign and magnitude).
+        let h = 1e-4;
+        for &(y, weight, q) in &[
+            (0.3_f64, 2.0_f64, 0.7_f64),
+            (0.8_f64, 1.0_f64, -0.4_f64),
+            (0.1_f64, 3.0_f64, 1.3_f64),
+            (0.6_f64, 0.5_f64, -1.1_f64),
+        ] {
+            let fd = (-cauchit_m3(y, weight, q + 2.0 * h) + 8.0 * cauchit_m3(y, weight, q + h)
+                - 8.0 * cauchit_m3(y, weight, q - h)
+                + cauchit_m3(y, weight, q - 2.0 * h))
+                / (12.0 * h);
+            let analytic = cauchit_m4(y, weight, q);
+            let tol = 1e-5 * (1.0 + analytic.abs());
+            assert!(
+                (analytic - fd).abs() < tol,
+                "cauchit m4 (y={y}, w={weight}, q={q}): analytic={analytic}, fd={fd}, diff={}",
+                (analytic - fd).abs()
+            );
+        }
+    }
+
+    #[test]
+    fn generic_binomial_m4_matches_analytic_cauchit_ground_truth() {
+        // Issue #947 concrete check: at q=0.7, y=0.3, w=2 the correct generic m4
+        // is +2.1168155916; the off-by-one bug produced −10.3779706944.
+        let analytic = cauchit_m4(0.3, 2.0, 0.7);
+        assert!(
+            (analytic - 2.1168155916).abs() < 1e-7,
+            "expected +2.1168155916, got {analytic}"
+        );
+        // Guard against regression to the buggy fifth-derivative value.
+        assert!(
+            (analytic - (-10.3779706944)).abs() > 1.0,
+            "matched the buggy m4 value {analytic}"
+        );
+    }
+
+    // Logit inverse-link jet (μ and its first four q-derivatives), derived
+    // independently of production code: with p = σ(q) and s = p(1-p),
+    //   μ = p,  μ' = s,  μ'' = s(1-2p),  μ''' = s(1-6s),  μ'''' = s(1-2p)(1-12s).
+    fn logit_jet(q: f64) -> (f64, f64, f64, f64, f64) {
+        let p = 1.0 / (1.0 + (-q).exp());
+        let s = p * (1.0 - p);
+        (
+            p,
+            s,
+            s * (1.0 - 2.0 * p),
+            s * (1.0 - 6.0 * s),
+            s * (1.0 - 2.0 * p) * (1.0 - 12.0 * s),
+        )
+    }
+
+    #[test]
+    fn logit_closed_form_agrees_with_generic_jet_path() {
+        // The canonical-logit closed form and the generic μ-jet path are two
+        // independent computations of the same derivative tower. Where both are
+        // numerically valid (μ comfortably interior) they must agree to float
+        // precision — a cross-check that pins the sign and coefficient of every
+        // term in BOTH paths (issue #948).
+        for &(y, w, q) in &[
+            (0.3_f64, 2.0_f64, 0.5_f64),
+            (0.7, 1.0, -1.3),
+            (0.0, 1.5, 2.0),
+            (1.0, 0.5, -0.8),
+            (0.42, 3.0, 0.0),
+        ] {
+            let (m1, m2, m3) = binomial_neglog_q_derivatives_logit_closed_form(y, w, q);
+            let m4 = binomial_neglog_q_fourth_derivative_logit_closed_form(y, w, q);
+
+            let (mu, d1, d2, d3, d4) = logit_jet(q);
+            let (s1, c2, t3) = binomial_neglog_q_derivatives_from_jet(y, w, mu, d1, d2, d3);
+            let j4 = binomial_neglog_q_fourth_derivative_from_jet(y, w, mu, d1, d2, d3, d4);
+
+            let tol = 1e-9 * (1.0 + m1.abs() + m2.abs() + m3.abs() + m4.abs());
+            assert!(
+                (m1 - s1).abs() < tol,
+                "m1 mismatch q={q}: closed={m1} jet={s1}"
+            );
+            assert!(
+                (m2 - c2).abs() < tol,
+                "m2 mismatch q={q}: closed={m2} jet={c2}"
+            );
+            assert!(
+                (m3 - t3).abs() < tol,
+                "m3 mismatch q={q}: closed={m3} jet={t3}"
+            );
+            assert!(
+                (m4 - j4).abs() < tol,
+                "m4 mismatch q={q}: closed={m4} jet={j4}"
+            );
+        }
+    }
+
+    #[test]
+    fn logit_curvature_exact_through_the_old_clamp_boundary() {
+        // Issue #948 (2b): once 1-p < MIN_PROB (q ≳ 23) the old code floored the
+        // variance at MIN_PROB·(1-MIN_PROB) ≈ 1e-10. The exact Bernoulli variance
+        // is s = p(1-p) = e^{-q}/(1+e^{-q})², which must be reported verbatim.
+        // Walk several q past the boundary and require exactness — and that the
+        // result is emphatically NOT the ~1e-10 floor.
+        for &q in &[24.0_f64, 30.0, 40.0, 50.0] {
+            let t = (-q).exp();
+            let denom = 1.0 + t;
+            let s_exact = t / (denom * denom);
+            let (_, m2, _) = binomial_neglog_q_derivatives_logit_closed_form(1.0, 1.0, q);
+            let m4 = binomial_neglog_q_fourth_derivative_logit_closed_form(1.0, 1.0, q);
+            assert!(
+                (m2 - s_exact).abs() <= 1e-12 * s_exact,
+                "q={q}: m2={m2} != exact s={s_exact}"
+            );
+            assert!(
+                m2 < 1e-10,
+                "q={q}: m2={m2} looks floored at MIN_PROB·(1-MIN_PROB)"
+            );
+            assert!(
+                (m4 - s_exact * (1.0 - 6.0 * s_exact)).abs() <= 1e-12 * s_exact,
+                "q={q}: m4={m4} not exact ws(1-6s)"
+            );
+        }
+    }
+
+    #[test]
+    fn generic_jet_uses_raw_sub_min_prob_mu_not_floored() {
+        // Issue #948 (2a): the generic μ-jet path must divide by the RAW μ, not a
+        // value floored at MIN_PROB=1e-10. Feed μ = 1e-12 (a representable
+        // probability two orders below the old floor) with a unit jet to isolate
+        // the ℓ''''(μ)·(μ')⁴ term: m4 = -w·(-6y/μ⁴) = 6wy/μ⁴, ~1e8× the value the
+        // old clamp-to-1e-10 produced.
+        let (y, w) = (1.0_f64, 1.0_f64);
+        let mu = 1e-12_f64;
+        let m4 = binomial_neglog_q_fourth_derivative_from_jet(y, w, mu, 1.0, 0.0, 0.0, 0.0);
+        let exact = 6.0 * w * y / mu.powi(4);
+        assert!(
+            (m4 - exact).abs() <= 1e-6 * exact,
+            "raw-μ m4 should be 6yw/μ⁴={exact}, got {m4}"
+        );
+        let floored = 6.0 * w * y / 1e-10_f64.powi(4);
+        assert!(
+            m4 > 100.0 * floored,
+            "m4={m4} is near the floored value {floored}; μ was clamped"
+        );
+
+        // score_q = w·ℓ'(μ)·μ' = w·y/μ at y=1 — also raw.
+        let (score, _curv, _third) =
+            binomial_score_curvaturethird_from_jet(y, w, mu, 1.0, 0.0, 0.0);
+        let exact_score = w * y / mu;
+        assert!(
+            (score - exact_score).abs() <= 1e-6 * exact_score,
+            "raw-μ score should be wy/μ={exact_score}, got {score}"
+        );
+    }
+
+    #[test]
+    fn generic_jet_saturated_boundary_collapses_to_zero() {
+        // Issue #948 (2a): a μ that has saturated past the representable range
+        // (μ ≤ 0 or μ ≥ 1, or non-finite) has no finite μ-space tower, but the
+        // q-space derivatives have collapsed below precision. The honest limit is
+        // exactly zero — never NaN, ∞, or a clipped surrogate.
+        for &mu in &[0.0_f64, 1.0, -0.0, f64::NAN, f64::INFINITY] {
+            let (s, c, t) = binomial_score_curvaturethird_from_jet(0.7, 2.0, mu, 1.0, 0.5, 0.1);
+            let m4 = binomial_neglog_q_fourth_derivative_from_jet(0.7, 2.0, mu, 1.0, 0.5, 0.1, 0.2);
+            assert_eq!(
+                (s, c, t),
+                (0.0, 0.0, 0.0),
+                "boundary μ={mu} must give zero score/curv/third"
+            );
+            assert_eq!(m4, 0.0, "boundary μ={mu} must give zero m4");
+        }
+    }
+
+    #[test]
+    fn loglik_mu_derivatives_no_nan_at_compatible_boundary() {
+        // The per-branch split must keep a compatible saturated observation
+        // finite: y=0 kills the y/μ half (no 0/0 at μ=0), y=1 kills the
+        // (1-y)/(1-μ) half (no 0/0 at μ=1).
+        let (e1, e2, e3, e4) = binomial_loglik_mu_derivatives(0.0, 0.0);
+        for v in [e1, e2, e3, e4] {
+            assert!(v.is_finite(), "y=0,μ=0 produced non-finite {v}");
+        }
+        assert_eq!(e1, -1.0, "ℓ'(0)=-(1-y)/(1-μ)=-1 at y=0,μ=0");
+
+        let (f1, f2, f3, f4) = binomial_loglik_mu_derivatives(1.0, 1.0);
+        for v in [f1, f2, f3, f4] {
+            assert!(v.is_finite(), "y=1,μ=1 produced non-finite {v}");
+        }
+        assert_eq!(f1, 1.0, "ℓ'(1)=y/μ=1 at y=1,μ=1");
+    }
 }

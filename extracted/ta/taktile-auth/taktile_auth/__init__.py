@@ -7,6 +7,10 @@ from importlib.metadata import version
 __version__ = version(__name__.split(".", maxsplit=1)[0])
 
 from taktile_auth.client import AuthClient  # noqa: 401
+from taktile_auth.counter import (  # noqa: 401
+    DynamoDBSharedCounter,
+    SharedCounter,
+)
 from taktile_auth.exceptions import (  # noqa: 401
     InsufficientRightsException,
     InvalidAuthException,
@@ -29,6 +33,7 @@ from taktile_auth.schemas.token import TaktileIdToken  # noqa: 401
 __all__ = [
     "RECURSION_CACHE_REALM",
     "AuthClient",
+    "DynamoDBSharedCounter",
     "InsufficientRightsException",
     "InvalidAuthException",
     "LoopDetectedException",
@@ -36,6 +41,7 @@ __all__ = [
     "RecursionGate",
     "RecursionMode",
     "SessionState",
+    "SharedCounter",
     "TaktileAuthException",
     "TaktileIdToken",
     "parse_session_prefix",

@@ -1,0 +1,77 @@
+# Anyscale Global Resource Scheduler (GRS) — example config
+#
+# Apply with:
+#   anyscale scheduler config apply -f scheduler-config.yaml
+#
+# A scheduler config is org-scoped. Applying creates a new active version;
+# previous versions remain queryable via `config list` and
+# `config get --version N`.
+
+# Resource flavors — named flavors with optional match-expression requirements
+# (against instance labels) and optional advanced cloud-provider overrides.
+resource_flavors:
+  - name: spot
+    requirements:
+      - key: market
+        operator: in
+        values: [spot]
+  - name: ondemand
+    requirements:
+      - key: market
+        operator: in
+        values: [ondemand]
+    # Cloud-provider-specific advanced launch overrides (pass-through).
+    advanced_instance_config:
+      CapacityReservationSpecification:
+        CapacityReservationTarget:
+          CapacityReservationId: cr-xxxx
+
+# Resource queues — where requests land.
+resource_queues:
+  - name: research
+    preemption:
+      # Preempt strictly lower-priority requests within this queue.
+      within_resource_queue: lower_priority
+    resource_groups:
+      # Quotas are scoped per resource (e.g., gpu) and per flavor.
+      - covered_resources: [gpu]
+        flavors:
+          - name: spot
+            resources:
+              - name: gpu
+                # Guaranteed capacity for this queue+flavor+resource.
+                nominal_quota: 64
+          - name: ondemand
+            resources:
+              - name: gpu
+                nominal_quota: 32
+  # Default queue: no preemption.
+  - name: default
+    resource_groups:
+      - covered_resources: [gpu]
+        flavors:
+          - name: ondemand
+            resources:
+              - name: gpu
+                nominal_quota: 8
+
+# Scheduling rules — route incoming requests using structured label selectors.
+# `selector` is a list of match expressions; all must match.
+scheduling_rules:
+  - resource_queue: research
+    selector:
+      - key: team
+        operator: in
+        values: [research]
+    priority_policy:
+      # Default priority assigned to requests matching this rule.
+      default: 50
+      # Allowed priority range. Requests outside the range are handled per
+      # `on_violation`.
+      min: 0
+      max: 100
+      # 'reject' rejects out-of-range priorities; 'force_update' clamps the
+      # priority to the nearest in-range value and continues.
+      on_violation: reject
+  # Catch-all rule (no selector) routes everything else to the default queue.
+  - resource_queue: default

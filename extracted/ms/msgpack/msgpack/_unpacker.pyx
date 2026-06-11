@@ -1,5 +1,3 @@
-# coding: utf-8
-
 from cpython cimport *
 cdef extern from "Python.h":
     ctypedef struct PyObject
@@ -131,10 +129,9 @@ cdef inline int get_data_from_buffer(object obj,
         PyBuffer_Release(view)
         # create a contiguous copy and get buffer
         contiguous = PyMemoryView_GetContiguous(obj, PyBUF_READ, b'C')
-        PyObject_GetBuffer(contiguous, view, PyBUF_SIMPLE)
-        # view must hold the only reference to contiguous,
-        # so memory is freed when view is released
-        Py_DECREF(contiguous)
+        if PyObject_GetBuffer(contiguous, view, PyBUF_SIMPLE) == -1:
+            raise
+
     buffer_len[0] = view.len
     buf[0] = <char*> view.buf
     return 1
@@ -207,7 +204,10 @@ def unpackb(object packed, *, object object_hook=None, object list_hook=None,
         raise FormatError
     elif ret == -3:
         raise StackError
-    raise ValueError("Unpack failed: error = %d" % (ret,))
+    elif PyErr_Occurred():
+        raise
+    else:
+        raise ValueError("Unpack failed: error = %d" % (ret,))
 
 
 cdef class Unpacker:
@@ -317,13 +317,12 @@ cdef class Unpacker:
     cdef Py_ssize_t max_buffer_size
     cdef uint64_t stream_offset
 
-    def __cinit__(self):
-        self.buf = NULL
-
     def __dealloc__(self):
+        unpack_clear(&self.ctx)
         PyMem_Free(self.buf)
         self.buf = NULL
 
+    @cython.critical_section
     def __init__(self, file_like=None, *, Py_ssize_t read_size=0,
                  bint use_list=True, bint raw=False, int timestamp=0, bint strict_map_key=True,
                  object object_hook=None, object object_pairs_hook=None, object list_hook=None,
@@ -335,6 +334,12 @@ cdef class Unpacker:
                  Py_ssize_t max_map_len=-1,
                  Py_ssize_t max_ext_len=-1):
         cdef const char *cerr=NULL
+
+        unpack_clear(&self.ctx)
+        unpack_init(&self.ctx)
+        if self.buf != NULL:
+            PyMem_Free(self.buf)
+            self.buf = NULL
 
         self.object_hook = object_hook
         self.object_pairs_hook = object_pairs_hook
@@ -384,6 +389,7 @@ cdef class Unpacker:
                  max_str_len, max_bin_len, max_array_len,
                  max_map_len, max_ext_len)
 
+    @cython.critical_section
     def feed(self, object next_bytes):
         """Append `next_bytes` to internal buffer."""
         cdef Py_buffer pybuff
@@ -481,9 +487,12 @@ cdef class Unpacker:
                 raise FormatError
             elif ret == -3:
                 raise StackError
+            elif PyErr_Occurred():
+                raise
             else:
                 raise ValueError("Unpack failed: error = %d" % (ret,))
 
+    @cython.critical_section
     def read_bytes(self, Py_ssize_t nbytes):
         """Read a specified number of raw bytes from the stream"""
         cdef Py_ssize_t nread
@@ -496,6 +505,7 @@ cdef class Unpacker:
         self.stream_offset += nread
         return ret
 
+    @cython.critical_section
     def unpack(self):
         """Unpack one object
 
@@ -503,6 +513,7 @@ cdef class Unpacker:
         """
         return self._unpack(unpack_construct)
 
+    @cython.critical_section
     def skip(self):
         """Read and ignore one object, returning None
 
@@ -510,6 +521,7 @@ cdef class Unpacker:
         """
         return self._unpack(unpack_skip)
 
+    @cython.critical_section
     def read_array_header(self):
         """assuming the next object is an array, return its size n, such that
         the next n unpack() calls will iterate over its contents.
@@ -518,6 +530,7 @@ cdef class Unpacker:
         """
         return self._unpack(read_array_header)
 
+    @cython.critical_section
     def read_map_header(self):
         """assuming the next object is a map, return its size n, such that the
         next n * 2 unpack() calls will iterate over its key-value pairs.
@@ -526,6 +539,7 @@ cdef class Unpacker:
         """
         return self._unpack(read_map_header)
 
+    @cython.critical_section
     def tell(self):
         """Returns the current position of the Unpacker in bytes, i.e., the
         number of bytes that were read from the input, also the starting
@@ -536,6 +550,7 @@ cdef class Unpacker:
     def __iter__(self):
         return self
 
+    @cython.critical_section
     def __next__(self):
         return self._unpack(unpack_construct, 1)
 

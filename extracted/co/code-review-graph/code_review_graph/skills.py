@@ -15,6 +15,7 @@ import platform
 import re
 import shutil
 import stat
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -639,10 +640,19 @@ def generate_codex_hooks_config(repo_root: Path) -> dict[str, Any]:
 def install_git_hook(repo_root: Path) -> Path | None:
     """Install a git pre-commit hook that prints a risk summary before each commit.
 
-    Called automatically by ``code-review-graph install``
-    Creates ``.git/hooks/pre-commit`` if it doesn't exist, or appends to an
-    existing one — preserving any hooks already there. Returns None when no
-    ``.git`` directory is found.
+    Called automatically by ``code-review-graph install``.
+    The hooks directory is resolved via ``git rev-parse --git-path hooks`` so
+    the hook lands where git actually runs it — including linked worktrees
+    and submodules (where ``.git`` is a file, not a directory) and repos with
+    ``core.hooksPath`` set (issue #313). ``core.hooksPath`` users with their
+    own hook manager (husky, pre-commit) may prefer integrating the
+    ``code-review-graph`` commands into that manager manually instead.
+
+    Creates ``pre-commit`` if it doesn't exist, or appends to an existing
+    one — the hook is appended, not overwritten, preserving any hooks
+    already there. Falls back to the legacy ``.git/hooks`` resolution when
+    git itself is unavailable. Returns None when no hooks directory can be
+    determined.
     """
     script = """\
 #!/bin/sh
@@ -654,13 +664,35 @@ fi
 """
     marker = "code-review-graph detect-changes"
 
-    git_dir = repo_root / ".git"
-    if not git_dir.is_dir():
-        logger.warning("No .git directory found at %s — skipping git hook install.", repo_root)
-        return None
+    hooks_dir: Path | None = None
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-path", "hooks"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            cwd=str(repo_root),
+            timeout=10,
+            stdin=subprocess.DEVNULL,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            # Output is relative to repo_root (".git/hooks", a core.hooksPath
+            # value such as ".husky") or absolute (linked worktrees).
+            hooks_dir = repo_root / result.stdout.strip()
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        logger.warning("git unavailable (%s); falling back to .git/hooks resolution.", exc)
 
-    hook_path = git_dir / "hooks" / "pre-commit"
-    hook_path.parent.mkdir(exist_ok=True)
+    if hooks_dir is None:
+        git_dir = repo_root / ".git"
+        if not git_dir.is_dir():
+            logger.warning(
+                "No git hooks directory found at %s — skipping git hook install.", repo_root
+            )
+            return None
+        hooks_dir = git_dir / "hooks"
+
+    hook_path = hooks_dir / "pre-commit"
+    hook_path.parent.mkdir(parents=True, exist_ok=True)
 
     if hook_path.exists():
         existing = hook_path.read_text(encoding="utf-8")

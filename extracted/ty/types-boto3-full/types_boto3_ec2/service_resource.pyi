@@ -204,6 +204,7 @@ from .type_defs import (
     IamInstanceProfileTypeDef,
     ImageAttributeTypeDef,
     ImageCreateTagsRequestTypeDef,
+    ImageWatermarkTypeDef,
     ImportKeyPairRequestServiceResourceImportKeyPairTypeDef,
     InstanceAttributeTypeDef,
     InstanceBlockDeviceMappingTypeDef,
@@ -2865,6 +2866,7 @@ class Image(ServiceResource):
     source_image_id: str
     source_image_region: str
     free_tier_eligible: bool
+    image_watermarks: list[ImageWatermarkTypeDef]
     image_id: str
     image_location: str
     state: ImageStateType

@@ -4,6 +4,8 @@ Functionality for formatting vulnerability results as a set of human-readable co
 
 from __future__ import annotations
 
+import re
+import sys
 from collections.abc import Iterable
 from itertools import zip_longest
 from typing import Any, cast
@@ -13,7 +15,24 @@ from packaging.version import Version
 import pip_audit._fix as fix
 import pip_audit._service as service
 
-from .interface import VulnerabilityFormat
+from .interface import VulnerabilityFormat, pypi_url, vuln_id_url
+
+_OSC8_RE = re.compile(r"\033]8;;[^\033]*\033\\")
+
+
+def _osc8_link(text: str, url: str) -> str:
+    """Wrap text in an OSC 8 terminal hyperlink."""
+    return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
+
+
+def _visible_len(s: str) -> int:
+    """Return the visible length of a string, ignoring OSC 8 escape sequences."""
+    return len(_OSC8_RE.sub("", s))
+
+
+def _visible_ljust(s: str, width: int) -> str:
+    """Left-justify a string to the given visible width, ignoring OSC 8 escapes."""
+    return s + " " * (width - _visible_len(s))
 
 
 def tabulate(rows: Iterable[Iterable[Any]]) -> tuple[list[str], list[int]]:
@@ -23,8 +42,8 @@ def tabulate(rows: Iterable[Iterable[Any]]) -> tuple[list[str], list[int]]:
     (['foobar     2000', '3735928559'], [10, 4])
     """
     rows = [tuple(map(str, row)) for row in rows]
-    sizes = [max(map(len, col)) for col in zip_longest(*rows, fillvalue="")]
-    table = [" ".join(map(str.ljust, row, sizes)).rstrip() for row in rows]
+    sizes = [max(map(_visible_len, col)) for col in zip_longest(*rows, fillvalue="")]
+    table = [" ".join(map(_visible_ljust, row, sizes)).rstrip() for row in rows]
     return table, sizes
 
 
@@ -74,13 +93,19 @@ class ColumnsFormat(VulnerabilityFormat):
         if self.output_desc:
             header.append("Description")
         vuln_data.append(header)
-        for dep, vulns in result.items():
-            if dep.is_skipped():
-                continue
-            dep = cast(service.ResolvedDependency, dep)
-            applied_fix = next((f for f in fixes if f.dep == dep), None)
-            for vuln in vulns:
-                vuln_data.append(self._format_vuln(dep, vuln, applied_fix))
+
+        vuln_rows = [
+            self._format_vuln(
+                cast(service.ResolvedDependency, dep),
+                vuln,
+                next((f for f in fixes if f.dep == dep), None),
+            )
+            for dep, vulns in result.items()
+            if not dep.is_skipped()
+            for vuln in vulns
+        ]
+
+        vuln_data.extend(vuln_rows)
 
         columns_string = ""
 
@@ -90,7 +115,7 @@ class ColumnsFormat(VulnerabilityFormat):
 
             # Create and add a separator.
             if len(vuln_data) > 0:
-                vuln_strings.insert(1, " ".join(map(lambda x: "-" * x, sizes)))
+                vuln_strings.insert(1, " ".join("-" * x for x in sizes))
 
             for row in vuln_strings:
                 if columns_string:
@@ -98,29 +123,23 @@ class ColumnsFormat(VulnerabilityFormat):
                 columns_string += row
 
         # Now display the skipped dependencies
-        skip_data: list[list[Any]] = []
-        skip_header = ["Name", "Skip Reason"]
+        skip_data = [
+            self._format_skipped_dep(cast(service.SkippedDependency, dep))
+            for dep in result.keys()
+            if dep.is_skipped()
+        ]
 
-        skip_data.append(skip_header)
-        for dep, _ in result.items():
-            if dep.is_skipped():
-                dep = cast(service.SkippedDependency, dep)
-                skip_data.append(self._format_skipped_dep(dep))
+        if skip_data:
+            skip_data.insert(0, ["Name", "Skip Reason"])
+            skip_strings, sizes = tabulate(skip_data)
+            skip_strings.insert(1, " ".join("-" * x for x in sizes))
 
-        # If we only have the header, that means that we haven't skipped any dependencies
-        # In that case, don't bother printing the header
-        if len(skip_data) <= 1:
-            return columns_string
-
-        skip_strings, sizes = tabulate(skip_data)
-
-        # Create separator for skipped dependencies columns
-        skip_strings.insert(1, " ".join(map(lambda x: "-" * x, sizes)))
-
-        for row in skip_strings:
             if columns_string:
                 columns_string += "\n"
-            columns_string += row
+            for row in skip_strings:
+                if columns_string:
+                    columns_string += "\n"
+                columns_string += row
 
         return columns_string
 
@@ -130,16 +149,17 @@ class ColumnsFormat(VulnerabilityFormat):
         vuln: service.VulnerabilityResult,
         applied_fix: fix.FixVersion | None,
     ) -> list[Any]:
+        link = _osc8_link if sys.stdout.isatty() else lambda text, _url: text
         vuln_data = [
-            dep.canonical_name,
+            link(dep.canonical_name, pypi_url(dep.canonical_name)),
             dep.version,
-            vuln.id,
+            link(vuln.id, vuln_id_url(vuln.id)),
             self._format_fix_versions(vuln.fix_versions),
         ]
         if applied_fix is not None:
             vuln_data.append(self._format_applied_fix(applied_fix))
         if self.output_aliases:
-            vuln_data.append(", ".join(vuln.aliases))
+            vuln_data.append(", ".join(link(a, vuln_id_url(a)) for a in vuln.aliases))
         if self.output_desc:
             vuln_data.append(vuln.description)
         return vuln_data

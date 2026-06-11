@@ -21,6 +21,7 @@ import logging
 from typing import Any
 
 from openstack import exceptions as sdk_exceptions
+from openstack.identity.v3 import trust as _trust
 from openstack import utils as sdk_utils
 from osc_lib import exceptions
 from osc_lib import utils
@@ -29,11 +30,12 @@ from openstackclient import command
 from openstackclient.i18n import _
 from openstackclient.identity import common
 
-
 LOG = logging.getLogger(__name__)
 
 
-def _format_trust(trust: Any) -> tuple[tuple[str, ...], Any]:
+def _format_trust(
+    trust: _trust.Trust,
+) -> tuple[tuple[str, ...], tuple[Any, ...]]:
     columns = (
         'expires_at',
         'id',
@@ -371,9 +373,10 @@ class ListTrust(command.Lister):
                 except sdk_exceptions.ForbiddenException:
                     trustee = parsed_args.trustee
 
-            data = identity_client.trusts(
-                trustor_user_id=trustor,
-                trustee_user_id=trustee,
+            data = list(
+                identity_client.trusts(
+                    trustor_user_id=trustor, trustee_user_id=trustee
+                )
             )
 
         column_headers = (

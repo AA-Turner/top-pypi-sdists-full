@@ -1,7 +1,7 @@
 from setuptools import setup, Extension
 
 NAME = 'tinybird-toolset'
-VERSION = '2.4.2'
+VERSION = '2.4.3'
 
 try:
     from conf import *

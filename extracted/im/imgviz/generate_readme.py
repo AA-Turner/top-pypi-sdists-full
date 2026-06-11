@@ -6,7 +6,7 @@ import os.path as osp
 import PIL.Image
 
 
-def tabulate(rows):
+def tabulate(rows: list[list[str]]) -> str:
     html = "<table>"
     for row in rows:
         html += "\n\t<tr>"
@@ -17,11 +17,7 @@ def tabulate(rows):
     return html
 
 
-def _get_github_image_url(relpath: str) -> str:
-    return f"https://github.com/wkentaro/imgviz/raw/main/{relpath}"
-
-
-def main():
+def main() -> None:
     examples = []
     for py_file in sorted(glob.glob("examples/*.py")):
         img_file = osp.splitext(osp.basename(py_file))[0] + ".jpg"
@@ -33,7 +29,7 @@ def main():
         examples.append(
             (
                 f'<pre><a href="{py_file}">{py_file}</a></pre>',
-                f'<img src="{_get_github_image_url(relpath=img_file)}" width="{width}%" />',  # NOQA: E501
+                f'<img src="{img_file}" width="{width}%" />',
             )
         )
     examples = tabulate(examples)
@@ -89,7 +85,7 @@ def main():
 <br/>
 
 <div align="center">
-  <img src="https://github.com/wkentaro/imgviz/raw/main/assets/getting_started.jpg" width="95%">
+  <img src="assets/getting_started.jpg" width="95%">
 </div>
 
 ## Installation
@@ -100,7 +96,6 @@ pip install imgviz
 # there are optional dependencies like skimage, below installs all.
 pip install imgviz[all]
 ```
-
 
 ## Dependencies
 

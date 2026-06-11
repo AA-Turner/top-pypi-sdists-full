@@ -18,10 +18,12 @@ import logging
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from openstack.network.v2 import address_scope as _address_scope
 from osc_lib import exceptions
 from osc_lib import utils
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 from openstackclient.network import common
@@ -29,7 +31,9 @@ from openstackclient.network import common
 LOG = logging.getLogger(__name__)
 
 
-def _get_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_columns(
+    item: _address_scope.AddressScope,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     column_map = {
         'is_shared': 'shared',
     }
@@ -61,8 +65,6 @@ def _get_attrs(
     return attrs
 
 
-# TODO(rtheis): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class CreateAddressScope(command.ShowOne, common.NeutronCommandWithExtraArgs):
     _description = _("Create a new Address Scope")
 
@@ -156,8 +158,6 @@ class DeleteAddressScope(command.Command):
             raise exceptions.CommandError(msg)
 
 
-# TODO(yanxing'an): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class ListAddressScope(command.Lister):
     _description = _("List address scopes")
 
@@ -189,7 +189,7 @@ class ListAddressScope(command.Lister):
             ),
         )
         identity_common.add_project_domain_option_to_parser(parser)
-
+        pagination.add_marker_pagination_option_to_parser(parser)
         shared_group = parser.add_mutually_exclusive_group()
         shared_group.add_argument(
             '--share',
@@ -201,6 +201,7 @@ class ListAddressScope(command.Lister):
             action='store_true',
             help=_("List only address scopes not shared between projects"),
         )
+
         return parser
 
     def take_action(
@@ -238,6 +239,12 @@ class ListAddressScope(command.Lister):
                 parsed_args.project_domain,
             ).id
             attrs['project_id'] = project_id
+        if parsed_args.marker is not None:
+            attrs['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            attrs['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            attrs['max_items'] = parsed_args.max_items
         data = client.address_scopes(**attrs)
 
         return (
@@ -253,8 +260,6 @@ class ListAddressScope(command.Lister):
         )
 
 
-# TODO(rtheis): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class SetAddressScope(common.NeutronCommandWithExtraArgs):
     _description = _("Set address scope properties")
 

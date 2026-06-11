@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tinker_cookbook
-Version: 0.4.1
+Version: 0.4.2
 Summary: Implementations of post-training algorithms using the Tinker API
 Project-URL: Homepage, https://thinkingmachines.ai/tinker
 Project-URL: Repository, https://github.com/thinking-machines-lab/tinker-cookbook
@@ -23,7 +23,7 @@ Requires-Dist: rich>=13.0.0
 Requires-Dist: safetensors>=0.4.0
 Requires-Dist: termcolor>=2.0.0
 Requires-Dist: tiktoken>=0.12.0
-Requires-Dist: tinker>=0.9.0
+Requires-Dist: tinker>=0.22.3
 Requires-Dist: torch>=2.0
 Requires-Dist: tqdm>=4.60.0
 Requires-Dist: transformers<=5.5.3,>=4.57.6
@@ -107,6 +107,12 @@ Provides-Extra: neptune-scale
 Requires-Dist: neptune-scale>=0.27.0; extra == 'neptune-scale'
 Provides-Extra: trackio
 Requires-Dist: trackio<1.0.0; extra == 'trackio'
+Provides-Extra: tutorials
+Requires-Dist: marimo>=0.23.8; extra == 'tutorials'
+Requires-Dist: math-verify>=0.5.0; extra == 'tutorials'
+Requires-Dist: matplotlib>=3.7.0; extra == 'tutorials'
+Requires-Dist: pylatexenc>=2.0; extra == 'tutorials'
+Requires-Dist: sympy>=1.12.0; extra == 'tutorials'
 Provides-Extra: vector-search
 Requires-Dist: chromadb>=1.0.0; extra == 'vector-search'
 Requires-Dist: google-genai>=1.0.0; extra == 'vector-search'
@@ -264,15 +270,15 @@ We welcome PR contributions after our private beta is over. If you have any feed
 ## Citation
 If you use Tinker for your research, please cite it as:
 ```
-Thinking Machines Lab, 2025. Tinker. https://thinkingmachines.ai/tinker/.
+Thinking Machines Lab, 2026. Tinker. https://thinkingmachines.ai/tinker/.
 ```
 
 Or use this BibTeX citation:
 ```
-@misc{tml2025tinker,
+@misc{tml2026tinker,
   author = {Thinking Machines Lab},
   title = {Tinker},
-  year = {2025},
+  year = {2026},
   url = {https://thinkingmachines.ai/tinker/},
 }
 ```

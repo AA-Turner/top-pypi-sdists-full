@@ -4,13 +4,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import torch
-from wisent.core.utils.config_tools.constants import (
-    COMBO_OFFSET,
-    INDEX_FIRST,
-    INDEX_LAST,
-    JSON_INDENT,
-    MIN_COMBO_PATH_PARTS,
-)
+COMBO_OFFSET, INDEX_FIRST, INDEX_LAST = 1, 0, -1
+JSON_INDENT, MIN_COMBO_PATH_PARTS = 2, 3
 from .hf_config import (
     HF_REPO_ID,
     HF_REPO_TYPE,
@@ -69,7 +64,7 @@ def upload_activation_shard(
         print(f"  [DRY RUN] Would upload {hf_path} ({n_pairs} pairs, dim={dim})")
         return hf_path
 
-    if stable_ids is not None and not staging_dir:
+    if stable_ids is not None and os.environ.get("WISENT_REPLACE_ACTIVATION_SHARDS", "") != "1":
         merged = _merge_existing_shard(hf_path, pos_activations, neg_activations,
                                        stable_ids, pair_ids)
         if merged is not None:
@@ -369,6 +364,19 @@ def _merge_existing_shard(
         return None
     new_set = set(new_stable_ids)
     keep_idx = [i for i, sid in enumerate(old_stable) if sid not in new_set]
+    expected_raw = os.environ.get("WISENT_EXPECTED_STABLE_COUNT", "")
+    try:
+        expected_count = int(expected_raw) if expected_raw else 0
+    except ValueError:
+        expected_count = 0
+    if expected_count and len(keep_idx) + len(new_stable_ids) > expected_count:
+        print(
+            f"  Existing {hf_path} has {len(keep_idx)} rows outside the "
+            f"current batch; dropping them because merge would exceed "
+            f"expected stable-id count {expected_count}",
+            flush=True,
+        )
+        keep_idx = []
     if keep_idx:
         kept_pos = old_pos[keep_idx]
         kept_neg = old_neg[keep_idx]

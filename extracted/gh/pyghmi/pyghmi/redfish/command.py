@@ -60,6 +60,7 @@ boot_devices_read = {
     'Pxe': 'network',
     'Usb': 'usb',
     'SDCard': 'sdcard',
+    'UefiHttp': 'http',
 }
 
 
@@ -1093,7 +1094,7 @@ class Command(object):
         cidr = _mask_to_cidr(currip['SubnetMask'])
         retval['ipv4_address'] = '{0}/{1}'.format(currip['Address'], cidr)
         retval['mac_address'] = netcfg['MACAddress']
-        hasgateway = _mask_to_cidr(currip['Gateway'])
+        hasgateway = _mask_to_cidr(currip['Gateway']) if currip['Gateway'] else None
         retval['ipv4_gateway'] = currip['Gateway'] if hasgateway else None
         retval['ipv4_configuration'] = currip['AddressOrigin']
         tagged = netcfg.get('VLAN', {}).get('VLANEnable', False)
@@ -1486,7 +1487,7 @@ class Command(object):
     def get_update_status(self):
         return self.oem.get_update_status()
 
-    def update_firmware(self, file, data=None, progress=None, bank=None):
+    def update_firmware(self, file, data=None, progress=None, bank=None, otherfields=()):
         """Send file to BMC to perform firmware update
 
          :param filename:  The filename to upload to the target BMC
@@ -1498,7 +1499,7 @@ class Command(object):
         """
         if progress is None:
             progress = lambda x: True
-        return self.oem.update_firmware(file, data, progress, bank)
+        return self.oem.update_firmware(file, data, progress, bank, otherfields)
 
     def get_diagnostic_data(self, savefile, progress=None, autosuffix=False):
         if os.path.exists(savefile) and not os.path.isdir(savefile):

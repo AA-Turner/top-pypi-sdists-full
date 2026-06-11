@@ -9,6 +9,14 @@ import QuantConnect.Securities
 import QuantConnect.Securities.Cfd
 
 
+class CfdCache(QuantConnect.Securities.SecurityCache):
+    """CFD specific caching support"""
+
+
+class CfdDataFilter(QuantConnect.Securities.SecurityDataFilter):
+    """CFD packet by packet data filtering mechanism for dynamically detecting bad ticks."""
+
+
 class Cfd(QuantConnect.Securities.Security):
     """CFD Security Object Implementation for CFD Assets"""
 
@@ -101,12 +109,17 @@ class Cfd(QuantConnect.Securities.Security):
         ...
 
 
-class CfdCache(QuantConnect.Securities.SecurityCache):
-    """CFD specific caching support"""
+class CfdHolding(QuantConnect.Securities.SecurityHolding):
+    """CFD holdings implementation of the base securities class"""
 
-
-class CfdDataFilter(QuantConnect.Securities.SecurityDataFilter):
-    """CFD packet by packet data filtering mechanism for dynamically detecting bad ticks."""
+    def __init__(self, security: QuantConnect.Securities.Cfd.Cfd, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+        """
+        CFD Holding Class constructor
+        
+        :param security: The CFD security being held
+        :param currency_converter: A currency converter instance
+        """
+        ...
 
 
 class CfdExchange(QuantConnect.Securities.SecurityExchange):
@@ -123,19 +136,6 @@ class CfdExchange(QuantConnect.Securities.SecurityExchange):
         exchange hours to determine open/close times
         
         :param exchange_hours: Contains the weekly exchange schedule plus holidays
-        """
-        ...
-
-
-class CfdHolding(QuantConnect.Securities.SecurityHolding):
-    """CFD holdings implementation of the base securities class"""
-
-    def __init__(self, security: QuantConnect.Securities.Cfd.Cfd, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
-        """
-        CFD Holding Class constructor
-        
-        :param security: The CFD security being held
-        :param currency_converter: A currency converter instance
         """
         ...
 

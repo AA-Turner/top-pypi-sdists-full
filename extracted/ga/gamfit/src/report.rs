@@ -13,6 +13,20 @@ pub struct ReportInput {
     pub deviance: f64,
     pub reml_score: f64,
     pub iterations: usize,
+    /// Human-readable P-IRLS / outer convergence status (e.g. "Converged",
+    /// "Max iterations reached"). Plain text so report.rs stays free of gam
+    /// library types; main.rs supplies `PirlsStatus::label()`.
+    pub convergence_status: String,
+    /// Whether the fit cleanly converged. Drives the visual flag on the
+    /// convergence line — any non-converged state is highlighted.
+    pub converged: bool,
+    /// Final outer-objective gradient norm at the recorded solution, when the
+    /// outer loop measured it (`None` for cache-hit / gradient-free exits).
+    pub outer_gradient_norm: Option<f64>,
+    /// First-order optimality certificate (#934), when the fit recorded one.
+    /// Plain data so report.rs stays free of gam library types; main.rs maps
+    /// the fit's `CriterionCertificate` into this row.
+    pub criterion_certificate: Option<CriterionCertificateRow>,
     pub edf_total: f64,
     pub r_squared: Option<f64>,
     pub coefficients: Vec<CoefficientRow>,
@@ -29,6 +43,23 @@ pub struct EdfBlockRow {
     pub index: usize,
     pub edf: f64,
     pub role: Option<String>,
+}
+
+/// First-order optimality certificate row (#934): the fit's self-audit of its
+/// analytic gradient against a finite difference of the actual criterion
+/// value at the returned optimum, plus curvature-definiteness and λ-rail
+/// facts. `consistent` / `clean` are precomputed verdicts so the renderer
+/// never re-derives policy.
+pub struct CriterionCertificateRow {
+    pub analytic_directional: f64,
+    pub fd_directional: f64,
+    pub fd_error: f64,
+    pub agreement_z: f64,
+    pub grad_norm: f64,
+    pub hessian_pd: Option<bool>,
+    pub lambdas_railed: Vec<usize>,
+    pub consistent: bool,
+    pub clean: bool,
 }
 
 pub struct CoefficientRow {
@@ -303,7 +334,66 @@ pub fn render_html(input: &ReportInput) -> Result<String, String> {
         summary_pairs.push(("R-squared", format!("{:.6}", r2)));
     }
     summary_pairs.push(("EDF (total)", format!("{:.4}", input.edf_total)));
-    summary_pairs.push(("Outer Iterations", format!("{}", input.iterations)));
+    // Outer iterations, annotated with the cap when the solver did not
+    // converge cleanly so "47" cannot be misread as "converged at 47".
+    let iter_value = if input.converged {
+        format!("{}", input.iterations)
+    } else {
+        format!(
+            "{} <span class=\"conv-warn\">(did not converge)</span>",
+            input.iterations
+        )
+    };
+    summary_pairs.push(("Outer Iterations", iter_value));
+    // Convergence status: always shown, visually flagged when not `Converged`,
+    // so a reader can immediately tell a healthy fit from one that hit the
+    // iteration cap, exhausted the LM step search, or went unstable.
+    let conv_value = if input.converged {
+        format!(
+            "<span class=\"conv-ok\">{}</span>",
+            esc(&input.convergence_status)
+        )
+    } else {
+        format!(
+            "<span class=\"conv-warn\">\u{26A0} {}</span>",
+            esc(&input.convergence_status)
+        )
+    };
+    summary_pairs.push(("Convergence", conv_value));
+    if let Some(g) = input.outer_gradient_norm {
+        summary_pairs.push(("Outer Gradient Norm", format!("{g:.3e}")));
+    }
+    // Optimality certificate (#934): the fit's own gradient-vs-objective
+    // audit at the optimum. A desync flag here names the broken criterion
+    // the moment it is introduced — surface it as loudly as non-convergence.
+    if let Some(cert) = &input.criterion_certificate {
+        let cert_value = if cert.clean {
+            format!(
+                "<span class=\"conv-ok\">consistent</span> \
+                 (grad\u{00B7}v={:.3e}, fd\u{00B7}v={:.3e}\u{00B1}{:.1e}, z={:.2})",
+                cert.analytic_directional, cert.fd_directional, cert.fd_error, cert.agreement_z
+            )
+        } else {
+            let mut flags = Vec::new();
+            if !cert.consistent {
+                flags.push(format!(
+                    "gradient\u{2194}objective desync (grad\u{00B7}v={:.3e} vs fd\u{00B7}v={:.3e}\u{00B1}{:.1e}, z={:.2})",
+                    cert.analytic_directional, cert.fd_directional, cert.fd_error, cert.agreement_z
+                ));
+            }
+            if cert.hessian_pd == Some(false) {
+                flags.push("outer Hessian not positive definite".to_string());
+            }
+            if !cert.lambdas_railed.is_empty() {
+                flags.push(format!("\u{03BB} railed at bound: {:?}", cert.lambdas_railed));
+            }
+            format!(
+                "<span class=\"conv-warn\">\u{26A0} {}</span>",
+                esc(&flags.join("; "))
+            )
+        };
+        summary_pairs.push(("Optimality Certificate", cert_value));
+    }
 
     let summary_items = summary_pairs
         .iter()
@@ -648,6 +738,8 @@ body {{ font-family:var(--font);background:var(--bg);color:var(--text);line-heig
 }}
 .stat-label {{ font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em; }}
 .stat-value {{ font-size:15px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums;margin-top:2px; }}
+.conv-ok {{ color:#15803d; }}
+.conv-warn {{ color:#b45309;font-weight:700; }}
 
 .alert {{
   background:#fffbeb;border:1px solid #fde68a;border-radius:var(--radius);

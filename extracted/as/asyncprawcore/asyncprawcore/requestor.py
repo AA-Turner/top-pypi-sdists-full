@@ -13,10 +13,8 @@ from .const import TIMEOUT
 from .exceptions import InvalidInvocation, RequestException, ResponseException
 
 if TYPE_CHECKING:
-    from asyncio import AbstractEventLoop
+    import asyncio
     from collections.abc import AsyncGenerator
-
-    from aiohttp import ClientResponse, ClientSession
 
 
 class Requestor:
@@ -35,8 +33,8 @@ class Requestor:
         user_agent: str,
         oauth_url: str = "https://oauth.reddit.com",
         reddit_url: str = "https://www.reddit.com",
-        session: ClientSession | None = None,
-        loop: AbstractEventLoop | None = None,
+        session: aiohttp.ClientSession | None = None,
+        loop: asyncio.AbstractEventLoop | None = None,
         timeout: float = TIMEOUT,
     ) -> None:
         """Create an instance of the Requestor class.
@@ -66,7 +64,11 @@ class Requestor:
             msg = "The loop argument is deprecated and will be ignored."
             warn(msg, DeprecationWarning, stacklevel=2)
 
-        if user_agent is None or len(user_agent) < self.MIN_USER_AGENT_LENGTH:
+        # ``user_agent`` is typed ``str``, but validate at runtime for untyped callers.
+        if (
+            not isinstance(user_agent, str)  # pyright: ignore[reportUnnecessaryIsInstance]
+            or len(user_agent) < self.MIN_USER_AGENT_LENGTH
+        ):
             msg = "user_agent is not descriptive"
             raise InvalidInvocation(msg)
 
@@ -94,7 +96,9 @@ class Requestor:
             await self._http.close()
 
     @asynccontextmanager
-    async def request(self, *args: Any, timeout: float | None = None, **kwargs: Any) -> AsyncGenerator[ClientResponse]:
+    async def request(
+        self, *args: Any, timeout: float | None = None, **kwargs: Any
+    ) -> AsyncGenerator[aiohttp.ClientResponse]:
         """Issue the HTTP request capturing any errors that may occur.
 
         :param args: Positional arguments to pass to ``aiohttp.ClientSession.request``.
@@ -121,4 +125,4 @@ class Requestor:
         except ResponseException as exc:
             raise exc
         except Exception as exc:  # noqa: BLE001
-            raise RequestException(exc, args, kwargs) from None
+            raise RequestException(exc, args, kwargs) from exc

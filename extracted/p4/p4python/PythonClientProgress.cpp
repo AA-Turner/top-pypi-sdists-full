@@ -33,7 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * Description	: C++ Subclass for ClientProgress used by Python ClientProgress.
  * 		  Allows Perforce API to indicate progress of calls to P4Python
  *
- * 		  $Id: //depot/r25.2/p4-python/PythonClientProgress.cpp#1 $
+ * 		  $Id: //depot/r26.1/p4-python/PythonClientProgress.cpp#1 $
  *
  ******************************************************************************/
 

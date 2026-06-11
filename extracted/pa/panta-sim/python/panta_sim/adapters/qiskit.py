@@ -163,8 +163,6 @@ def from_qiskit(qiskit_circuit: "QiskitCircuit") -> PantaCircuit:
             "Call qc.assign_parameters({...}) before from_qiskit()."
         )
 
-    n_qubits = qiskit_circuit.num_qubits
-
     # 1차: 모든 op 이 직접 매핑 가능한지 확인. 하나라도 매핑 표 외면
     # QASM2 fallback 으로 일괄 변환 (mixed walk 보다 단순 + 안정).
     # v0.4.7: block control flow (IfElseOp / WhileLoopOp / ForLoopOp /
@@ -188,12 +186,8 @@ def from_qiskit(qiskit_circuit: "QiskitCircuit") -> PantaCircuit:
     n_qubits_full = qiskit_circuit.num_qubits
     n_clbits_full = qiskit_circuit.num_clbits
     panta = PantaCircuit(n_qubits_full)
-    # 사용자 cbit register 폭을 보존 — measure 가 한 번도 안 나와도 outer cbit 폭은
-    # block control flow 의 cond_indices 가 참조 가능해야 함.  dummy 로 grow.
-    if n_clbits_full > 0:
-        # n_cbits 는 measure / c_if / block control flow 의 cbit_indices 로 자동 grow.
-        # 여기서 미리 grow 시킬 직접 API 가 없으므로 instructions 진행 시 처리.
-        pass
+    # cbit 폭은 measure / c_if / block control flow 의 cbit_indices 진행 시
+    # 자동으로 grow 된다 (미리 grow 시킬 직접 API 없음).
 
     q_map = list(range(n_qubits_full))
     c_map = list(range(n_clbits_full))
@@ -639,10 +633,18 @@ def to_qiskit(panta_circuit: PantaCircuit) -> "QiskitCircuit":
 
             g = XXPlusYYGate if name == "xx_plus_yy" else XXMinusYYGate
             return qc.append(g(float(params[0])), [qubits[0], qubits[1]])
-        if name in ("rx", "ry", "rz", "p", "u1"):
+        if name in ("rx", "ry", "rz", "p"):
             return getattr(qc, name)(float(params[0]), qubits[0])
+        # u1/u2/cu1/cu3 메서드는 Qiskit 1.0 에서 제거됨 — 이름을 보존하기 위해
+        # circuit.library 의 gate 객체를 append 한다 (라운드트립 시 동일 표기).
+        if name == "u1":
+            from qiskit.circuit.library import U1Gate
+
+            return qc.append(U1Gate(float(params[0])), [qubits[0]])
         if name == "u2":
-            return qc.u2(float(params[0]), float(params[1]), qubits[0])
+            from qiskit.circuit.library import U2Gate
+
+            return qc.append(U2Gate(float(params[0]), float(params[1])), [qubits[0]])
         if name == "u":
             return qc.u(
                 float(params[0]),
@@ -650,15 +652,18 @@ def to_qiskit(panta_circuit: PantaCircuit) -> "QiskitCircuit":
                 float(params[2]),
                 qubits[0],
             )
-        if name in ("crx", "cry", "crz", "cp", "cu1", "rxx", "ryy", "rzz", "rzx"):
+        if name == "cu1":
+            from qiskit.circuit.library import CU1Gate
+
+            return qc.append(CU1Gate(float(params[0])), [qubits[0], qubits[1]])
+        if name in ("crx", "cry", "crz", "cp", "rxx", "ryy", "rzz", "rzx"):
             return getattr(qc, name)(float(params[0]), qubits[0], qubits[1])
         if name == "cu3":
-            return qc.cu3(
-                float(params[0]),
-                float(params[1]),
-                float(params[2]),
-                qubits[0],
-                qubits[1],
+            from qiskit.circuit.library import CU3Gate
+
+            return qc.append(
+                CU3Gate(float(params[0]), float(params[1]), float(params[2])),
+                [qubits[0], qubits[1]],
             )
         if name == "cu":
             return qc.cu(

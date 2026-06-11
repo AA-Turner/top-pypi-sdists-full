@@ -79,15 +79,19 @@ class SharedLineItemPool(google.protobuf.message.Message):
     SHARED_LINE_ITEM_FIELD_NUMBER: builtins.int
     BASE_PRICE_CENTS_FIELD_NUMBER: builtins.int
     FLEXIBLE_BASE_PRICE_CENTS_FIELD_NUMBER: builtins.int
+    RESERVED_TIER_FIELD_NUMBER: builtins.int
     reserved_pool_cents: builtins.int
     """how much money this shared pool has. For example, if logs costs $1.00 per GB and metrics
     costs $1.00 per GB and we wanted to give metrics and logs a shared 5GB pool, the reserved_pool_cents
     would be 500 ($5)
+    DEPRECATED: Use reserved_tier
     """
     is_optional_add_on: builtins.bool
     """Whether this LineItem is included in the base package or not (ie Seer)"""
     base_price_cents: builtins.int
-    """Cost of the shared line item pool, in cents(a customer can pay $X and get $Y of credit, where X!=Y)."""
+    """Cost of the shared line item pool, in cents(a customer can pay $X and get $Y of credit, where X!=Y).
+    DEPRECATED: Use reserved_tier
+    """
     @property
     def line_items(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.common.v1.line_item_details_pb2.LineItemDetails]: ...
     @property
@@ -95,7 +99,15 @@ class SharedLineItemPool(google.protobuf.message.Message):
         """The unique line item details used when invoicing this shared pool."""
 
     @property
-    def flexible_base_price_cents(self) -> sentry_protos.billing.v1.common.v1.flexible_price_pb2.FlexiblePrice: ...
+    def flexible_base_price_cents(self) -> sentry_protos.billing.v1.common.v1.flexible_price_pb2.FlexiblePrice:
+        """DEPRECATED: Use reserved_tier"""
+
+    @property
+    def reserved_tier(self) -> sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate:
+        """Similar to LineItemConfig.reserved_rate, this field will hold the list of available reserved tiers for this line item
+        as well as the prices for each respective tier.
+        """
+
     def __init__(
         self,
         *,
@@ -105,9 +117,10 @@ class SharedLineItemPool(google.protobuf.message.Message):
         shared_line_item: sentry_protos.billing.v1.common.v1.line_item_details_pb2.LineItemDetails | None = ...,
         base_price_cents: builtins.int = ...,
         flexible_base_price_cents: sentry_protos.billing.v1.common.v1.flexible_price_pb2.FlexiblePrice | None = ...,
+        reserved_tier: sentry_protos.billing.v1.common.v1.pricing_tier_pb2.TieredPricingRate | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["flexible_base_price_cents", b"flexible_base_price_cents", "shared_line_item", b"shared_line_item"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "flexible_base_price_cents", b"flexible_base_price_cents", "is_optional_add_on", b"is_optional_add_on", "line_items", b"line_items", "reserved_pool_cents", b"reserved_pool_cents", "shared_line_item", b"shared_line_item"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["flexible_base_price_cents", b"flexible_base_price_cents", "reserved_tier", b"reserved_tier", "shared_line_item", b"shared_line_item"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["base_price_cents", b"base_price_cents", "flexible_base_price_cents", b"flexible_base_price_cents", "is_optional_add_on", b"is_optional_add_on", "line_items", b"line_items", "reserved_pool_cents", b"reserved_pool_cents", "reserved_tier", b"reserved_tier", "shared_line_item", b"shared_line_item"]) -> None: ...
 
 global___SharedLineItemPool = SharedLineItemPool
 

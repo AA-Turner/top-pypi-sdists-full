@@ -198,7 +198,7 @@ class CrawlService(BaseService):
                 # 60s; ``None`` would silently hang on a failed spawn.
                 started_wait_timeout = 60.0
             else:
-                handler_timeout = timeout + 30.0
+                handler_timeout = float(timeout or 0) + 30.0
                 handler_slow_timeout = slow_warning_timeout(handler_timeout)
                 started_wait_timeout = handler_timeout
             process_event = ProcessEvent(

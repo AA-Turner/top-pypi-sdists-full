@@ -75,179 +75,6 @@ class ResultHandlerInitializeParameters(System.Object):
         ...
 
 
-class IResultHandler(QuantConnect.Statistics.IStatisticsService, metaclass=abc.ABCMeta):
-    """
-    Handle the results of the backtest: where should we send the profit, portfolio updates:
-    Backtester or the Live trading platform:
-    """
-
-    @property
-    @abc.abstractmethod
-    def messages(self) -> System.Collections.Concurrent.ConcurrentQueue[QuantConnect.Packets.Packet]:
-        """Put messages to process into the queue so they are processed by this thread."""
-        ...
-
-    @messages.setter
-    def messages(self, value: System.Collections.Concurrent.ConcurrentQueue[QuantConnect.Packets.Packet]) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def is_active(self) -> bool:
-        """
-        Boolean flag indicating the result hander thread is busy.
-        False means it has completely finished and ready to dispose.
-        """
-        ...
-
-    def algorithm_name_updated(self, name: str) -> None:
-        """
-        Handles updates to the algorithm's name
-        
-        :param name: The new name
-        """
-        ...
-
-    def algorithm_tags_updated(self, tags: System.Collections.Generic.HashSet[str]) -> None:
-        """
-        Handles updates to the algorithm's tags
-        
-        :param tags: The new tags
-        """
-        ...
-
-    def brokerage_message(self, brokerage_message_event: QuantConnect.Brokerages.BrokerageMessageEvent) -> None:
-        """
-        Process brokerage message events
-        
-        :param brokerage_message_event: The brokerage message event
-        """
-        ...
-
-    def debug_message(self, message: str) -> None:
-        """
-        Process debug messages with the preconfigured settings.
-        
-        :param message: String debug message
-        """
-        ...
-
-    def error_message(self, error: str, stacktrace: str = ...) -> None:
-        """
-        Send an error message back to the browser highlighted in red with a stacktrace.
-        
-        :param error: Error message we'd like shown in console.
-        :param stacktrace: Stacktrace information string
-        """
-        ...
-
-    def exit(self) -> None:
-        """Terminate the result thread and apply any required exit procedures like sending final results."""
-        ...
-
-    def initialize(self, parameters: QuantConnect.Lean.Engine.Results.ResultHandlerInitializeParameters) -> None:
-        """
-        Initialize the result handler with this result packet.
-        
-        :param parameters: DTO parameters class to initialize a result handler
-        """
-        ...
-
-    def log_message(self, message: str) -> None:
-        """
-        Send a logging message to the log list for storage.
-        
-        :param message: Message we'd in the log.
-        """
-        ...
-
-    def on_securities_changed(self, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
-        """Event fired each time that we add/remove securities from the data feed"""
-        ...
-
-    def order_event(self, new_event: QuantConnect.Orders.OrderEvent) -> None:
-        """
-        Send a new order event.
-        
-        :param new_event: Update, processing or cancellation of an order, update the IDE in live mode or ignore in backtesting.
-        """
-        ...
-
-    def process_synchronous_events(self, force_process: bool = False) -> None:
-        """Process any synchronous events in here that are primarily triggered from the algorithm loop"""
-        ...
-
-    def runtime_error(self, message: str, stacktrace: str = ...) -> None:
-        """
-        Send a runtime error message back to the browser highlighted with in red
-        
-        :param message: Error message.
-        :param stacktrace: Stacktrace information string
-        """
-        ...
-
-    def runtime_statistic(self, key: str, value: str) -> None:
-        """
-        Set a dynamic runtime statistic to show in the (live) algorithm header
-        
-        :param key: Runtime headline statistic name
-        :param value: Runtime headline statistic value
-        """
-        ...
-
-    def sample(self, time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Method to update the IResultHandler with various performance metrics.
-        Called once a day by scheduled event in AlgorithmManager
-        
-        :param time: Current time
-        """
-        ...
-
-    def save_results(self, name: str, result: QuantConnect.Result) -> None:
-        """
-        Save the results
-        
-        :param name: The name of the results
-        :param result: The results to save
-        """
-        ...
-
-    def security_type(self, types: typing.List[QuantConnect.SecurityType]) -> None:
-        """
-        Send a list of security types to the browser
-        
-        :param types: Security types list inside algorithm
-        """
-        ...
-
-    def send_status_update(self, status: QuantConnect.AlgorithmStatus, message: str = ...) -> None:
-        """
-        Send a algorithm status update to the user of the algorithms running state.
-        
-        :param status: Status enum of the algorithm.
-        :param message: Optional string message describing reason for status change.
-        """
-        ...
-
-    def set_algorithm(self, algorithm: QuantConnect.Interfaces.IAlgorithm, starting_portfolio_value: float) -> None:
-        """
-        Set the algorithm of the result handler after its been initialized.
-        
-        :param algorithm: Algorithm object matching IAlgorithm interface
-        :param starting_portfolio_value: Algorithm starting capital for statistics calculations
-        """
-        ...
-
-    def system_debug_message(self, message: str) -> None:
-        """
-        Process system debug messages with the preconfigured settings.
-        
-        :param message: String debug message
-        """
-        ...
-
-
 class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
     """Provides base functionality to the implementations of IResultHandler"""
 
@@ -1129,11 +956,45 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
-class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandler, QuantConnect.Lean.Engine.Results.IResultHandler):
-    """Live trading result handler implementation passes the messages to the QC live trading interface."""
+class IResultHandler(QuantConnect.Statistics.IStatisticsService, metaclass=abc.ABCMeta):
+    """
+    Handle the results of the backtest: where should we send the profit, portfolio updates:
+    Backtester or the Live trading platform:
+    """
 
-    def __init__(self) -> None:
-        """Creates a new instance"""
+    @property
+    @abc.abstractmethod
+    def messages(self) -> System.Collections.Concurrent.ConcurrentQueue[QuantConnect.Packets.Packet]:
+        """Put messages to process into the queue so they are processed by this thread."""
+        ...
+
+    @messages.setter
+    def messages(self, value: System.Collections.Concurrent.ConcurrentQueue[QuantConnect.Packets.Packet]) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def is_active(self) -> bool:
+        """
+        Boolean flag indicating the result hander thread is busy.
+        False means it has completely finished and ready to dispose.
+        """
+        ...
+
+    def algorithm_name_updated(self, name: str) -> None:
+        """
+        Handles updates to the algorithm's name
+        
+        :param name: The new name
+        """
+        ...
+
+    def algorithm_tags_updated(self, tags: System.Collections.Generic.HashSet[str]) -> None:
+        """
+        Handles updates to the algorithm's tags
+        
+        :param tags: The new tags
+        """
         ...
 
     def brokerage_message(self, brokerage_message_event: QuantConnect.Brokerages.BrokerageMessageEvent) -> None:
@@ -1144,42 +1005,25 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         """
         ...
 
-    def create_safe_chart_name(self, chart_name: str) -> str:
-        """
-        Escape the chartname so that it can be saved to a file system
-        
-        
-        This Class is protected.
-        
-        :param chart_name: The name of a chart
-        :returns: The name of the chart will all escape all characters except RFC 2396 unreserved characters.
-        """
-        ...
-
     def debug_message(self, message: str) -> None:
         """
-        Send a live trading debug message to the live console.
+        Process debug messages with the preconfigured settings.
         
-        :param message: Message we'd like shown in console.
+        :param message: String debug message
         """
         ...
 
-    def error_message(self, message: str, stacktrace: str = ...) -> None:
+    def error_message(self, error: str, stacktrace: str = ...) -> None:
         """
-        Send an error message back to the browser console and highlight it read.
+        Send an error message back to the browser highlighted in red with a stacktrace.
         
-        :param message: Message we'd like shown in console.
-        :param stacktrace: Stacktrace to show in the console.
+        :param error: Error message we'd like shown in console.
+        :param stacktrace: Stacktrace information string
         """
         ...
 
     def exit(self) -> None:
-        """Terminate the result thread and apply any required exit procedures like sending final results"""
-        ...
-
-    @staticmethod
-    def get_holdings(securities: typing.List[QuantConnect.Securities.Security], subscription_data_config_service: QuantConnect.Interfaces.ISubscriptionDataConfigService, only_invested: bool = False) -> System.Collections.Generic.Dictionary[str, QuantConnect.Holding]:
-        """Helper method to fetch the algorithm holdings"""
+        """Terminate the result thread and apply any required exit procedures like sending final results."""
         ...
 
     def initialize(self, parameters: QuantConnect.Lean.Engine.Results.ResultHandlerInitializeParameters) -> None:
@@ -1192,50 +1036,34 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
 
     def log_message(self, message: str) -> None:
         """
-        Log string messages and send them to the console.
+        Send a logging message to the log list for storage.
         
-        :param message: String message wed like logged.
+        :param message: Message we'd in the log.
         """
         ...
 
     def on_securities_changed(self, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
-        """
-        Event fired each time that we add/remove securities from the data feed.
-        On Security change we re determine when should we sample charts, if the user added Crypto, Forex or an extended market hours subscription
-        we will always sample charts. Else, we will keep the exchange per market to query later on demand
-        """
+        """Event fired each time that we add/remove securities from the data feed"""
         ...
 
     def order_event(self, new_event: QuantConnect.Orders.OrderEvent) -> None:
         """
-        New order event for the algorithm
+        Send a new order event.
         
-        :param new_event: New event details
+        :param new_event: Update, processing or cancellation of an order, update the IDE in live mode or ignore in backtesting.
         """
         ...
 
     def process_synchronous_events(self, force_process: bool = False) -> None:
-        """
-        Process the synchronous result events, sampling and message reading.
-        This method is triggered from the algorithm manager thread.
-        """
-        ...
-
-    def run(self) -> None:
-        """
-        Live trading result handler thread.
-        
-        
-        This Class is protected.
-        """
+        """Process any synchronous events in here that are primarily triggered from the algorithm loop"""
         ...
 
     def runtime_error(self, message: str, stacktrace: str = ...) -> None:
         """
-        Send a runtime error back to the users browser and highlight it red.
+        Send a runtime error message back to the browser highlighted with in red
         
-        :param message: Runtime error message
-        :param stacktrace: Associated error stack trace.
+        :param message: Error message.
+        :param stacktrace: Stacktrace information string
         """
         ...
 
@@ -1248,49 +1076,29 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         """
         ...
 
-    def sample(self, chart_name: str, series_name: str, series_index: int, series_type: QuantConnect.SeriesType, value: QuantConnect.ISeriesPoint, unit: str = "$") -> None:
+    def sample(self, time: typing.Union[datetime.datetime, datetime.date]) -> None:
         """
-        Add a sample to the chart specified by the chart_name, and series_name.
+        Method to update the IResultHandler with various performance metrics.
+        Called once a day by scheduled event in AlgorithmManager
         
-        
-        This Class is protected.
-        
-        :param chart_name: String chart name to place the sample.
-        :param series_name: Series name for the chart.
-        :param series_index: Series chart index - which chart should this series belong
-        :param series_type: Series type for the chart.
-        :param value: Value for the chart sample.
-        :param unit: Unit for the chart axis
+        :param time: Current time
         """
         ...
 
-    def sample_range(self, updates: typing.List[QuantConnect.Chart]) -> None:
+    def save_results(self, name: str, result: QuantConnect.Result) -> None:
         """
-        Add a range of samples from the users algorithms to the end of our current list.
+        Save the results
         
-        
-        This Class is protected.
-        
-        :param updates: Chart updates since the last request.
+        :param name: The name of the results
+        :param result: The results to save
         """
         ...
 
-    def save_logs(self, id: str, logs: typing.List[QuantConnect.Logging.LogEntry]) -> str:
+    def security_type(self, types: typing.List[QuantConnect.SecurityType]) -> None:
         """
-        Process the log entries and save it to permanent storage
+        Send a list of security types to the browser
         
-        :param id: Id that will be incorporated into the algorithm log name
-        :param logs: Log list
-        :returns: Returns the location of the logs.
-        """
-        ...
-
-    def send_final_result(self) -> None:
-        """
-        Send a final analysis result back to the IDE.
-        
-        
-        This Class is protected.
+        :param types: Security types list inside algorithm
         """
         ...
 
@@ -1312,69 +1120,12 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         """
         ...
 
-    def set_next_status_update(self) -> None:
-        """
-        Assigns the next earliest status update time
-        
-        
-        This Class is protected.
-        """
-        ...
-
-    def set_summary_statistic(self, name: str, value: str) -> None:
-        """
-        Sets or updates a custom summary statistic
-        
-        :param name: The statistic name
-        :param value: The statistic value
-        """
-        ...
-
-    def statistics_results(self) -> QuantConnect.Statistics.StatisticsResults:
-        """
-        Calculates and gets the current statistics for the algorithm
-        
-        :returns: The current statistics.
-        """
-        ...
-
-    def store_order_events(self, utc_time: typing.Union[datetime.datetime, datetime.date], order_events: typing.List[QuantConnect.Orders.OrderEvent]) -> None:
-        """
-        Stores the order events
-        
-        
-        This Class is protected.
-        
-        :param utc_time: The utc date associated with these order events
-        :param order_events: The order events to store
-        """
-        ...
-
-    def store_result(self, packet: QuantConnect.Packets.Packet) -> None:
-        """
-        Save the snapshot of the total results to storage.
-        
-        
-        This Class is protected.
-        
-        :param packet: Packet to store.
-        """
-        ...
-
     def system_debug_message(self, message: str) -> None:
         """
-        Send a live trading system debug message to the live console.
+        Process system debug messages with the preconfigured settings.
         
-        :param message: Message we'd like shown in console.
+        :param message: String debug message
         """
-        ...
-
-    def update_benchmark_value(self, time: typing.Union[datetime.datetime, datetime.date], force: bool = False) -> None:
-        """This Class is protected."""
-        ...
-
-    def update_portfolio_values(self, time: typing.Union[datetime.datetime, datetime.date], force: bool = False) -> None:
-        """This Class is protected."""
         ...
 
 
@@ -1747,6 +1498,255 @@ class RegressionResultHandler(QuantConnect.Lean.Engine.Results.BacktestingResult
         
         :param message: Message we'd like shown in console.
         """
+        ...
+
+
+class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandler, QuantConnect.Lean.Engine.Results.IResultHandler):
+    """Live trading result handler implementation passes the messages to the QC live trading interface."""
+
+    def __init__(self) -> None:
+        """Creates a new instance"""
+        ...
+
+    def brokerage_message(self, brokerage_message_event: QuantConnect.Brokerages.BrokerageMessageEvent) -> None:
+        """
+        Process brokerage message events
+        
+        :param brokerage_message_event: The brokerage message event
+        """
+        ...
+
+    def create_safe_chart_name(self, chart_name: str) -> str:
+        """
+        Escape the chartname so that it can be saved to a file system
+        
+        
+        This Class is protected.
+        
+        :param chart_name: The name of a chart
+        :returns: The name of the chart will all escape all characters except RFC 2396 unreserved characters.
+        """
+        ...
+
+    def debug_message(self, message: str) -> None:
+        """
+        Send a live trading debug message to the live console.
+        
+        :param message: Message we'd like shown in console.
+        """
+        ...
+
+    def error_message(self, message: str, stacktrace: str = ...) -> None:
+        """
+        Send an error message back to the browser console and highlight it read.
+        
+        :param message: Message we'd like shown in console.
+        :param stacktrace: Stacktrace to show in the console.
+        """
+        ...
+
+    def exit(self) -> None:
+        """Terminate the result thread and apply any required exit procedures like sending final results"""
+        ...
+
+    @staticmethod
+    def get_holdings(securities: typing.List[QuantConnect.Securities.Security], subscription_data_config_service: QuantConnect.Interfaces.ISubscriptionDataConfigService, only_invested: bool = False) -> System.Collections.Generic.Dictionary[str, QuantConnect.Holding]:
+        """Helper method to fetch the algorithm holdings"""
+        ...
+
+    def initialize(self, parameters: QuantConnect.Lean.Engine.Results.ResultHandlerInitializeParameters) -> None:
+        """
+        Initialize the result handler with this result packet.
+        
+        :param parameters: DTO parameters class to initialize a result handler
+        """
+        ...
+
+    def log_message(self, message: str) -> None:
+        """
+        Log string messages and send them to the console.
+        
+        :param message: String message wed like logged.
+        """
+        ...
+
+    def on_securities_changed(self, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
+        """
+        Event fired each time that we add/remove securities from the data feed.
+        On Security change we re determine when should we sample charts, if the user added Crypto, Forex or an extended market hours subscription
+        we will always sample charts. Else, we will keep the exchange per market to query later on demand
+        """
+        ...
+
+    def order_event(self, new_event: QuantConnect.Orders.OrderEvent) -> None:
+        """
+        New order event for the algorithm
+        
+        :param new_event: New event details
+        """
+        ...
+
+    def process_synchronous_events(self, force_process: bool = False) -> None:
+        """
+        Process the synchronous result events, sampling and message reading.
+        This method is triggered from the algorithm manager thread.
+        """
+        ...
+
+    def run(self) -> None:
+        """
+        Live trading result handler thread.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def runtime_error(self, message: str, stacktrace: str = ...) -> None:
+        """
+        Send a runtime error back to the users browser and highlight it red.
+        
+        :param message: Runtime error message
+        :param stacktrace: Associated error stack trace.
+        """
+        ...
+
+    def runtime_statistic(self, key: str, value: str) -> None:
+        """
+        Set a dynamic runtime statistic to show in the (live) algorithm header
+        
+        :param key: Runtime headline statistic name
+        :param value: Runtime headline statistic value
+        """
+        ...
+
+    def sample(self, chart_name: str, series_name: str, series_index: int, series_type: QuantConnect.SeriesType, value: QuantConnect.ISeriesPoint, unit: str = "$") -> None:
+        """
+        Add a sample to the chart specified by the chart_name, and series_name.
+        
+        
+        This Class is protected.
+        
+        :param chart_name: String chart name to place the sample.
+        :param series_name: Series name for the chart.
+        :param series_index: Series chart index - which chart should this series belong
+        :param series_type: Series type for the chart.
+        :param value: Value for the chart sample.
+        :param unit: Unit for the chart axis
+        """
+        ...
+
+    def sample_range(self, updates: typing.List[QuantConnect.Chart]) -> None:
+        """
+        Add a range of samples from the users algorithms to the end of our current list.
+        
+        
+        This Class is protected.
+        
+        :param updates: Chart updates since the last request.
+        """
+        ...
+
+    def save_logs(self, id: str, logs: typing.List[QuantConnect.Logging.LogEntry]) -> str:
+        """
+        Process the log entries and save it to permanent storage
+        
+        :param id: Id that will be incorporated into the algorithm log name
+        :param logs: Log list
+        :returns: Returns the location of the logs.
+        """
+        ...
+
+    def send_final_result(self) -> None:
+        """
+        Send a final analysis result back to the IDE.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def send_status_update(self, status: QuantConnect.AlgorithmStatus, message: str = ...) -> None:
+        """
+        Send a algorithm status update to the user of the algorithms running state.
+        
+        :param status: Status enum of the algorithm.
+        :param message: Optional string message describing reason for status change.
+        """
+        ...
+
+    def set_algorithm(self, algorithm: QuantConnect.Interfaces.IAlgorithm, starting_portfolio_value: float) -> None:
+        """
+        Set the algorithm of the result handler after its been initialized.
+        
+        :param algorithm: Algorithm object matching IAlgorithm interface
+        :param starting_portfolio_value: Algorithm starting capital for statistics calculations
+        """
+        ...
+
+    def set_next_status_update(self) -> None:
+        """
+        Assigns the next earliest status update time
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def set_summary_statistic(self, name: str, value: str) -> None:
+        """
+        Sets or updates a custom summary statistic
+        
+        :param name: The statistic name
+        :param value: The statistic value
+        """
+        ...
+
+    def statistics_results(self) -> QuantConnect.Statistics.StatisticsResults:
+        """
+        Calculates and gets the current statistics for the algorithm
+        
+        :returns: The current statistics.
+        """
+        ...
+
+    def store_order_events(self, utc_time: typing.Union[datetime.datetime, datetime.date], order_events: typing.List[QuantConnect.Orders.OrderEvent]) -> None:
+        """
+        Stores the order events
+        
+        
+        This Class is protected.
+        
+        :param utc_time: The utc date associated with these order events
+        :param order_events: The order events to store
+        """
+        ...
+
+    def store_result(self, packet: QuantConnect.Packets.Packet) -> None:
+        """
+        Save the snapshot of the total results to storage.
+        
+        
+        This Class is protected.
+        
+        :param packet: Packet to store.
+        """
+        ...
+
+    def system_debug_message(self, message: str) -> None:
+        """
+        Send a live trading system debug message to the live console.
+        
+        :param message: Message we'd like shown in console.
+        """
+        ...
+
+    def update_benchmark_value(self, time: typing.Union[datetime.datetime, datetime.date], force: bool = False) -> None:
+        """This Class is protected."""
+        ...
+
+    def update_portfolio_values(self, time: typing.Union[datetime.datetime, datetime.date], force: bool = False) -> None:
+        """This Class is protected."""
         ...
 
 

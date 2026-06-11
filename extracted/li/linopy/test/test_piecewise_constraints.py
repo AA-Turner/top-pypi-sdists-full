@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 
@@ -41,7 +41,11 @@ from linopy.constants import (
     SEGMENT_DIM,
 )
 from linopy.piecewise import _slopes_to_points
-from linopy.solver_capabilities import SolverFeature, get_available_solvers_with_feature
+from linopy.solver_capabilities import (
+    SolverFeature,
+    get_available_solvers_with_feature,
+    solver_supports,
+)
 
 if TYPE_CHECKING:
     from linopy.piecewise import BreaksLike, _PwlInputs
@@ -52,6 +56,13 @@ Method: TypeAlias = Literal["sos2", "incremental", "lp", "auto"]
 _sos2_solvers = get_available_solvers_with_feature(
     SolverFeature.SOS_CONSTRAINTS, available_solvers
 )
+_sos2_direct_solvers = sorted(
+    s for s in _sos2_solvers if solver_supports(s, SolverFeature.DIRECT_API)
+)
+_SOS_PATHS = [
+    *[pytest.param(s, "direct", id=f"{s}-direct") for s in _sos2_direct_solvers],
+    *[pytest.param(s, "lp", id=f"{s}-lp") for s in sorted(_sos2_solvers)],
+]
 _any_solvers = [
     s for s in ["highs", "gurobi", "glpk", "cplex"] if s in available_solvers
 ]
@@ -1372,6 +1383,23 @@ class TestBroadcasting:
         assert "generator" in delta.dims
         assert "time" in delta.dims
 
+    def test_broadcast_points_dim_order_follows_exprs(self) -> None:
+        """Expanded dims follow the expression dim order, not set ordering."""
+        import xarray as xr
+
+        from linopy.piecewise import BREAKPOINT_DIM, _broadcast_points
+
+        m = Model()
+        coords = [
+            pd.Index(["v0", "v1"], name="alpha"),
+            pd.Index(["w0", "w1"], name="beta"),
+            pd.Index([0, 1], name="gamma"),
+        ]
+        x = m.add_variables(coords=coords, name="x")
+        points = xr.DataArray([0, 1, 2, 3], dims=[BREAKPOINT_DIM])
+        out = _broadcast_points(points, 1 * x)
+        assert out.dims == ("alpha", "beta", "gamma", BREAKPOINT_DIM)
+
 
 # ===========================================================================
 # NaN masking
@@ -2064,6 +2092,31 @@ class TestValidationEdgeCases:
 # ===========================================================================
 
 
+@pytest.fixture
+def nan_padded_pwl_model() -> Callable[[Method], Model]:
+    """Factory: NaN-padded per-entity piecewise model parametrized by method."""
+    from linopy.piecewise import breakpoints
+
+    def _build(method: Method) -> Model:
+        bp_y = pd.DataFrame([[0, 20, 30, 35], [0, 10, 15, np.nan]], index=["a", "b"])
+        bp_x = pd.DataFrame([[0, 10, 20, 30], [0, 5, 15, np.nan]], index=["a", "b"])
+
+        m = Model()
+        coord = pd.Index(["a", "b"], name="entity")
+        x = m.add_variables(lower=0, upper=20, coords=[coord], name="x")
+        y = m.add_variables(lower=0, upper=40, coords=[coord], name="y")
+        m.add_piecewise_formulation(
+            (y, breakpoints(bp_y, dim="entity"), "<="),
+            (x, breakpoints(bp_x, dim="entity")),
+            method=method,
+        )
+        m.add_constraints(x.sel(entity="b") == 10)
+        m.add_objective(-y.sel(entity="b"))
+        return m
+
+    return _build
+
+
 class TestSignParameter:
     """Tests for per-tuple sign on add_piecewise_formulation."""
 
@@ -2281,35 +2334,44 @@ class TestSignParameter:
         assert f_asc.method != "lp"
         assert f_desc.method != "lp"
 
-    def test_lp_per_entity_nan_padding(self) -> None:
+    def test_lp_per_entity_nan_padding(
+        self, nan_padded_pwl_model: Callable[[Method], Model]
+    ) -> None:
         """
         Per-entity NaN-padded breakpoints with method='lp': padded
         segments must be masked out so they don't create spurious
         ``y ≤ 0`` constraints (bug-2 regression).
         """
-        from linopy.piecewise import breakpoints
-
-        bp_y = pd.DataFrame([[0, 20, 30, 35], [0, 10, 15, np.nan]], index=["a", "b"])
-        bp_x = pd.DataFrame([[0, 10, 20, 30], [0, 5, 15, np.nan]], index=["a", "b"])
-        results: dict[str, float] = {}
-        methods: list[Method] = ["lp", "sos2"]
-        for method in methods:
-            m = Model()
-            coord = pd.Index(["a", "b"], name="entity")
-            x = m.add_variables(lower=0, upper=20, coords=[coord], name="x")
-            y = m.add_variables(lower=0, upper=40, coords=[coord], name="y")
-            m.add_piecewise_formulation(
-                (y, breakpoints(bp_y, dim="entity"), "<="),
-                (x, breakpoints(bp_x, dim="entity")),
-                method=method,
-            )
-            m.add_constraints(x.sel(entity="b") == 10)
-            m.add_objective(-y.sel(entity="b"))
-            m.solve()
-            results[method] = float(m.solution.sel({"entity": "b"})["y"])
+        m = nan_padded_pwl_model("lp")
+        m.solve()
         # f_b(10) on chord (5,10)→(15,15) is 12.5
-        assert abs(results["lp"] - 12.5) < 1e-3
-        assert abs(results["sos2"] - results["lp"]) < 1e-3
+        assert abs(float(m.solution.sel({"entity": "b"})["y"]) - 12.5) < 1e-3
+
+    @pytest.mark.skipif(not _SOS_PATHS, reason="No SOS-capable solver installed")
+    @pytest.mark.parametrize(("solver", "io_api"), _SOS_PATHS)
+    def test_sos2_per_entity_nan_padding(
+        self,
+        nan_padded_pwl_model: Callable[[Method], Model],
+        solver: str,
+        io_api: str,
+    ) -> None:
+        """
+        Per-entity NaN-padded breakpoints with method='sos2': the SOS
+        lambda variable's masked entries must flow through both the
+        direct API (via label→position resolution) and the LP writer
+        (via masked-member filtering) so the solve returns the same
+        answer as ``method='lp'``. Regression for #688.
+
+        Parametrized across every SOS-capable solver × io_api so the
+        bug surfaces no matter which backend handles the SOS section
+        (gurobi-lp masked the bug on master by silently dropping
+        unknown ``x-1`` members; cplex-lp and gurobi-direct surfaced
+        it as a parse / OOB error).
+        """
+        m = nan_padded_pwl_model("sos2")
+        m.solve(solver_name=solver, io_api=io_api)
+        # f_b(10) on chord (5,10)→(15,15) is 12.5 — same oracle as lp variant
+        assert abs(float(m.solution.sel({"entity": "b"})["y"]) - 12.5) < 1e-3
 
     def test_lp_rejects_decreasing_x_concave_ge(self) -> None:
         """

@@ -136,7 +136,7 @@
 use ndarray::{Array1, ArrayView1};
 
 use crate::terms::analytic_penalties::{AnalyticPenalty, SparsityPenalty};
-use crate::terms::atom_codes::{BitVec, SparseAtomCode, SparseAtomCodes};
+use crate::terms::atom_codes::{BitVec, SparseAtomCode};
 use crate::terms::latent_coord::LatentCoordValues;
 
 // ---------------------------------------------------------------------------
@@ -237,10 +237,6 @@ impl AtomLibrary {
         &self.atoms[k]
     }
 
-    pub fn atom_mut(&mut self, k: usize) -> &mut AtomRecord {
-        &mut self.atoms[k]
-    }
-
     pub fn iter(&self) -> impl Iterator<Item = &AtomRecord> {
         self.atoms.iter()
     }
@@ -249,11 +245,6 @@ impl AtomLibrary {
     /// size `K + Σ_k d_k` (assignment plus per-atom coord).
     pub fn total_intrinsic_dim(&self) -> usize {
         self.atoms.iter().map(|a| a.intrinsic_dim()).sum()
-    }
-
-    /// Allocate matching [`SparseAtomCodes`] storage (all-empty).
-    pub fn fresh_codes(&self) -> SparseAtomCodes {
-        SparseAtomCodes::empty(self.n_obs, self.k_atoms())
     }
 }
 

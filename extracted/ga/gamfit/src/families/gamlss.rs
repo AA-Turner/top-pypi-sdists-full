@@ -14,9 +14,7 @@ use crate::custom_family::{
     weighted_crossprod_psi_maps,
 };
 use crate::estimate::UnifiedFitResult;
-use crate::faer_ndarray::{
-    fast_ab, fast_atv, fast_av, fast_joint_hessian_2x2, fast_xt_diag_x, fast_xt_diag_y,
-};
+use crate::faer_ndarray::{fast_ab, fast_atv, fast_av, fast_joint_hessian_2x2};
 use crate::families::location_scale_engine::build_location_scale_exact_joint_setup;
 use crate::families::parameter_block::ParameterBlockInput;
 use crate::families::scale_design::{
@@ -43,12 +41,8 @@ use crate::families::wiggle::{
 };
 use crate::generative::{CustomFamilyGenerative, GenerativeSpec, NoiseModel};
 use crate::matrix::SymmetricMatrix;
-use crate::matrix::{
-    DenseDesignMatrix, DenseDesignOperator, DesignMatrix, LinearOperator, SignedWeightsView,
-};
-use crate::mixture_link::{
-    inverse_link_jet_for_inverse_link, inverse_link_mu_d1_for_inverse_link,
-};
+use crate::matrix::{DenseDesignMatrix, DenseDesignOperator, DesignMatrix};
+use crate::mixture_link::{inverse_link_jet_for_inverse_link, inverse_link_mu_d1_for_inverse_link};
 use crate::pirls::LinearInequalityConstraints;
 use crate::probability::{normal_logcdf, normal_logsf, standard_normal_quantile};
 use crate::smooth::{
@@ -60,8 +54,9 @@ use crate::smooth::{
 };
 use crate::solver::estimate::validate_all_finite_estimation;
 use crate::types::{InverseLink, RidgePolicy, StandardLink};
-use ndarray::{Array1, Array2, ArrayView1, ArrayView2, ArrayViewMut2, Axis, s};
+use ndarray::{Array1, Array2, ArrayView1, ArrayView2, Axis, s};
 use rayon::prelude::*;
+use statrs::function::gamma::{digamma, ln_gamma};
 use std::borrow::Cow;
 use std::collections::{HashMap, hash_map::DefaultHasher};
 use std::hash::{Hash, Hasher};
@@ -76,9 +71,16 @@ use binomial_q_derivs::{
 mod validation;
 use validation::{
     minimum_monotone_wiggle_knot_count, validate_binomial_location_scale_termspec,
-    validate_binomial_location_scalewiggle_termspec, validate_binomial_response, validate_blockrows,
-    validate_gaussian_location_scale_termspec, validate_gaussian_location_scalewiggle_termspec,
-    validate_len_match, validate_term_weights, validateweights,
+    validate_binomial_location_scalewiggle_termspec, validate_binomial_response,
+    validate_blockrows, validate_gaussian_location_scale_termspec,
+    validate_gaussian_location_scalewiggle_termspec, validate_len_match, validate_term_weights,
+    validateweights,
+};
+
+mod weighted_design_products;
+use weighted_design_products::{
+    mirror_upper_to_lower, scaled_outer_add, signedwith_floor, xt_diag_x_dense, xt_diag_x_design,
+    xt_diag_y_dense, xt_diag_y_design,
 };
 
 /// Typed errors surfaced from this module's helpers and family
@@ -157,7 +159,7 @@ const MIN_DERIV: f64 = 1e-8;
 /// the inner Newton system); the floor only fires for *strictly
 /// positive* tiny weights. The 1e-12 magnitude is chosen so that
 /// `1e-12 · max|x|² · n` stays comfortably above `f64::MIN_POSITIVE`
-/// at biobank scale.
+/// at large scale.
 ///
 /// This is the canonical PIRLS positive-weight floor (`1e-12`); the value is
 /// owned by [`crate::solver::pirls::MIN_WEIGHT`] so every floored family shares
@@ -675,7 +677,10 @@ fn dense_blocks_planned_budget(blocks: &[&DesignMatrix]) -> Vec<usize> {
     planned
 }
 
-fn exact_design_row_chunks(n: usize, p: usize) -> impl Iterator<Item = std::ops::Range<usize>> {
+pub(super) fn exact_design_row_chunks(
+    n: usize,
+    p: usize,
+) -> impl Iterator<Item = std::ops::Range<usize>> {
     const TARGET_BYTES: usize = 8 * 1024 * 1024;
     const MIN_ROWS: usize = 512;
     const MAX_ROWS: usize = 131_072;
@@ -2111,7 +2116,7 @@ fn fit_location_scale_terms<B: LocationScaleFamilyBuilder>(
     // Large-n location-scale fits keep the caller's explicit Hessian request.
     // The unified REML evaluator chooses a dense or matrix-free exact
     // representation from the realized (n, p, K) work model, so there is no
-    // biobank-scale downgrade to BFGS here.
+    // large-scale downgrade to BFGS here.
 
     let mut mean_beta_hint: Option<Array1<f64>> = None;
     let mut noise_beta_hint: Option<Array1<f64>> = None;
@@ -2218,7 +2223,7 @@ fn fit_location_scale_terms<B: LocationScaleFamilyBuilder>(
                 // total p — produces honest `predicted_*_work` estimates.
                 // Previously this fed `predicted_*_work: 0` to the planner,
                 // which then ungated dense outer Hessian work that costs
-                // hundreds of seconds per eval at biobank scale (see
+                // hundreds of seconds per eval at large scale (see
                 // `OuterDerivativePolicy::OUTER_HESSIAN_WORK_BUDGET`).
                 let theta_seed = joint_setup.theta0();
                 let rho_dim = joint_setup.rho_dim();
@@ -3180,6 +3185,678 @@ pub(crate) fn fit_gaussian_location_scale_terms_with_selected_wiggle(
     })
 }
 
+// ============================================================================
+// #913: dispersion-channel GAMLSS location-scale families.
+//
+// `noise_formula` (a second linear predictor on the dispersion channel) was
+// wired only for Gaussian/Binomial location-scale and the survival families.
+// The genuine-dispersion mean families — NegativeBinomial, Gamma, Beta and
+// Tweedie — were mean-only with a single scalar dispersion. This module adds a
+// SINGLE generic two-block family that routes all four through the existing
+// blockwise REML engine and the shared `LocationScaleFamilyBuilder` /
+// `fit_location_scale_terms` plumbing, so the κ-coordinate assembly, warm
+// start, shrinkage-penalised scale block and result extraction are reused
+// verbatim. A family is added by supplying only its per-row log-likelihood and
+// the (mean, log-precision) working sets — everything else is shared.
+//
+// Block layout: block 0 = mean predictor (η_μ, log link for NB/Gamma/Tweedie,
+// logit for Beta); block 1 = log-precision predictor (η_d). The dispersion
+// channel models log(precision) uniformly — `θ` for NegativeBinomial, the
+// shape `ν` for Gamma, `φ` for Beta, and `1/φ` for Tweedie — so a larger η_d
+// always means *less* dispersion, matching the Gaussian/Binomial convention
+// where η_logσ smaller ⇒ tighter. With no `noise_formula` the log-precision
+// block is a single intercept and the fit reduces to the scalar-dispersion
+// model.
+//
+// The mean and dispersion parameters of every exponential-dispersion family
+// (and NB2) are Fisher-orthogonal, so block-cyclic Fisher-scoring IRLS — the
+// Rigby–Stasinopoulos scheme `gamlss` uses — converges to the joint MLE with
+// block-diagonal working sets; the inner solver therefore needs no cross-block
+// curvature. Smoothing-parameter selection runs through the engine's
+// first-order (gradient-only) outer path: the family declines the dense outer
+// Hessian capability because its working weights couple the two blocks
+// (`W_μ` depends on the precision and vice-versa), which the block-local
+// diagonal-drift hook cannot represent exactly. The REML criterion *value* is
+// the exact penalised Laplace surface at the converged β̂; only the analytic
+// ρ-Hessian is omitted, exactly as for any first-order custom family.
+// ============================================================================
+
+/// The genuine-dispersion mean family whose precision (overdispersion) channel
+/// can carry a second `noise_formula` linear predictor (issue #913).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum DispersionFamilyKind {
+    /// NB2: `Var = μ + μ²/θ`; the precision channel models `log θ`.
+    NegativeBinomial,
+    /// Gamma with `Var = μ²/ν`; the precision channel models `log ν` (shape).
+    Gamma,
+    /// Beta(μφ, (1−μ)φ) with a logit mean link; the precision channel models
+    /// `log φ`.
+    Beta,
+    /// Tweedie compound Poisson–Gamma with `Var = φ μ^p`, fixed power `p`; the
+    /// precision channel models `log(1/φ)`. The per-row density uses the
+    /// saddlepoint (Nelder–Pregibon) approximation for `y > 0` and the exact
+    /// point mass at `y = 0`; this is the standard tractable Tweedie ML
+    /// surface (an exact-series φ-derivative is the remaining hard sub-item of
+    /// #913).
+    Tweedie { p: f64 },
+}
+
+impl DispersionFamilyKind {
+    pub const fn family_tag(self) -> &'static str {
+        match self {
+            DispersionFamilyKind::NegativeBinomial => FAMILY_NEGBIN_LOCATION_SCALE,
+            DispersionFamilyKind::Gamma => FAMILY_GAMMA_LOCATION_SCALE,
+            DispersionFamilyKind::Beta => FAMILY_BETA_LOCATION_SCALE,
+            DispersionFamilyKind::Tweedie { .. } => FAMILY_TWEEDIE_LOCATION_SCALE,
+        }
+    }
+
+    /// The mean link is logit for Beta (a probability mean) and log otherwise.
+    const fn mean_is_logit(self) -> bool {
+        matches!(self, DispersionFamilyKind::Beta)
+    }
+}
+
+pub const FAMILY_NEGBIN_LOCATION_SCALE: &str = "negbin-location-scale";
+pub const FAMILY_GAMMA_LOCATION_SCALE: &str = "gamma-location-scale";
+pub const FAMILY_BETA_LOCATION_SCALE: &str = "beta-location-scale";
+pub const FAMILY_TWEEDIE_LOCATION_SCALE: &str = "tweedie-location-scale";
+
+/// `η` magnitude clamp shared by both channels (mirrors PIRLS `ETA_CLAMP`):
+/// keeps `exp(η)` and the logit jet away from overflow while staying in the
+/// smooth interior of every link.
+const DISPERSION_ETA_CLAMP: f64 = 30.0;
+/// Floor for a per-row IRLS working weight / curvature so the block normal
+/// equations stay positive-definite. The working *response* always carries the
+/// exact score, so the stationary point (penalised score = 0) is independent
+/// of this floor; it only conditions the inner solve.
+const DISPERSION_MIN_CURVATURE: f64 = 1e-12;
+
+/// Trigamma `ψ'(x)` for `x > 0` via upward recurrence to the asymptotic
+/// regime; matches the PIRLS implementation used by the scalar-dispersion
+/// NB/Beta/Gamma paths so the location-scale derivatives agree with them.
+fn dispersion_trigamma(mut x: f64) -> f64 {
+    if !(x.is_finite() && x > 0.0) {
+        return f64::NAN;
+    }
+    let mut acc = 0.0;
+    while x < 8.0 {
+        acc += 1.0 / (x * x);
+        x += 1.0;
+    }
+    let inv = 1.0 / x;
+    let inv2 = inv * inv;
+    // ψ'(x) ≈ 1/x + 1/(2x²) + 1/(6x³) − 1/(30x⁵) + 1/(42x⁷)
+    acc + inv + 0.5 * inv2 + inv * inv2 / 6.0 - inv * inv2 * inv2 / 30.0
+        + inv * inv2 * inv2 * inv2 / 42.0
+}
+
+/// Per-row working quantities for both channels at the current `(η_μ, η_d)`.
+struct DispersionRowKernel {
+    loglik: f64,
+    mean_weight: f64,
+    mean_response: f64,
+    disp_weight: f64,
+    disp_response: f64,
+}
+
+/// Evaluate the row log-likelihood and the (mean, log-precision) Fisher-scoring
+/// working sets for one observation. `eta_mu`/`eta_d` already include any
+/// per-channel offset (they are the block predictors). `prior_weight` is the
+/// observation's prior weight.
+fn dispersion_row_kernel(
+    kind: DispersionFamilyKind,
+    yi: f64,
+    eta_mu: f64,
+    eta_d: f64,
+    prior_weight: f64,
+) -> DispersionRowKernel {
+    let wi = prior_weight.max(0.0);
+    let em = eta_mu.clamp(-DISPERSION_ETA_CLAMP, DISPERSION_ETA_CLAMP);
+    let ed = eta_d.clamp(-DISPERSION_ETA_CLAMP, DISPERSION_ETA_CLAMP);
+    match kind {
+        DispersionFamilyKind::NegativeBinomial => {
+            let mu = em.exp().max(1e-300);
+            let theta = ed.exp().max(1e-12); // precision (size)
+            let tpm = theta + mu;
+            let tpy = theta + yi;
+            let loglik = wi
+                * (ln_gamma(yi + theta) - ln_gamma(theta) - ln_gamma(yi + 1.0)
+                    + theta * theta.ln()
+                    - theta * tpm.ln()
+                    + yi * mu.ln()
+                    - yi * tpm.ln());
+            // Mean block (log link): W = μθ/(θ+μ) = full NB2 Fisher weight,
+            // z = η + (y−μ)/μ.
+            let mean_weight = wi * mu * theta / tpm;
+            let mean_response = em + (yi - mu) / mu;
+            // Precision block (log link on θ): MASS glm.nb θ score / observed
+            // information, chained to η_d = log θ.
+            let s_theta =
+                digamma(yi + theta) - digamma(theta) + theta.ln() + 1.0 - tpm.ln() - tpy / tpm;
+            let info_theta = -dispersion_trigamma(yi + theta) + dispersion_trigamma(theta)
+                - 1.0 / theta
+                + 2.0 / tpm
+                - tpy / (tpm * tpm);
+            let info_pos = info_theta.max(DISPERSION_MIN_CURVATURE);
+            let disp_weight = wi * theta * theta * info_pos;
+            let disp_response = ed + s_theta / (theta * info_pos);
+            DispersionRowKernel {
+                loglik,
+                mean_weight,
+                mean_response,
+                disp_weight,
+                disp_response,
+            }
+        }
+        DispersionFamilyKind::Gamma => {
+            let mu = em.exp().max(1e-300);
+            let nu = ed.exp().max(1e-12); // precision = shape ν
+            let y_pos = yi.max(1e-300);
+            let loglik = wi
+                * (nu * nu.ln() - nu * mu.ln() - ln_gamma(nu) + (nu - 1.0) * y_pos.ln()
+                    - nu * yi / mu);
+            // Mean block (log link): Var = μ²/ν ⇒ W = ν, z = η + (y−μ)/μ.
+            let mean_weight = wi * nu;
+            let mean_response = em + (yi - mu) / mu;
+            // Shape block (log link on ν): deterministic Fisher information
+            // ψ'(ν) − 1/ν > 0 for all ν > 0.
+            let s_nu = nu.ln() + 1.0 - mu.ln() - digamma(nu) + y_pos.ln() - yi / mu;
+            let info_nu = (dispersion_trigamma(nu) - 1.0 / nu).max(DISPERSION_MIN_CURVATURE);
+            let disp_weight = wi * nu * nu * info_nu;
+            let disp_response = ed + s_nu / (nu * info_nu);
+            DispersionRowKernel {
+                loglik,
+                mean_weight,
+                mean_response,
+                disp_weight,
+                disp_response,
+            }
+        }
+        DispersionFamilyKind::Beta => {
+            // logit mean link.
+            let mu = (1.0 / (1.0 + (-em).exp())).clamp(1e-12, 1.0 - 1e-12);
+            let phi = ed.exp().max(1e-12); // precision
+            let q = (mu * (1.0 - mu)).max(1e-12); // dμ/dη
+            let yc = yi.clamp(1e-12, 1.0 - 1e-12);
+            let a = (mu * phi).max(1e-12);
+            let b = ((1.0 - mu) * phi).max(1e-12);
+            let loglik = wi
+                * (ln_gamma(phi) - ln_gamma(a) - ln_gamma(b)
+                    + (a - 1.0) * yc.ln()
+                    + (b - 1.0) * (1.0 - yc).ln());
+            // Mean block (logit link): Ferrari–Cribari-Neto score/information.
+            let score_mu = phi * (digamma(b) - digamma(a) + yc.ln() - (1.0 - yc).ln());
+            let info_mu = (phi * phi * (dispersion_trigamma(a) + dispersion_trigamma(b)))
+                .max(DISPERSION_MIN_CURVATURE);
+            let mean_weight = wi * q * q * info_mu;
+            let mean_response = em + score_mu / (q * info_mu);
+            // Precision block (log link on φ).
+            let s_phi = digamma(phi) - mu * digamma(a) - (1.0 - mu) * digamma(b)
+                + mu * yc.ln()
+                + (1.0 - mu) * (1.0 - yc).ln();
+            let info_phi = (mu * mu * dispersion_trigamma(a)
+                + (1.0 - mu) * (1.0 - mu) * dispersion_trigamma(b)
+                - dispersion_trigamma(phi))
+            .max(DISPERSION_MIN_CURVATURE);
+            let disp_weight = wi * phi * phi * info_phi;
+            let disp_response = ed + s_phi / (phi * info_phi);
+            DispersionRowKernel {
+                loglik,
+                mean_weight,
+                mean_response,
+                disp_weight,
+                disp_response,
+            }
+        }
+        DispersionFamilyKind::Tweedie { p } => {
+            let mu = em.exp().max(1e-300);
+            // Precision channel models log(1/φ) ⇒ φ = exp(−η_d).
+            let phi = (-ed).exp().max(1e-12);
+            let one_minus_p = 1.0 - p;
+            let two_minus_p = 2.0 - p;
+            let mean_weight = wi * mu.powf(two_minus_p) / phi;
+            let mean_response = em + (yi - mu) / mu;
+            if yi > 0.0 {
+                // Saddlepoint (Nelder–Pregibon) density for y > 0.
+                let dev = 2.0
+                    * (yi.powf(two_minus_p) / (one_minus_p * two_minus_p)
+                        - yi * mu.powf(one_minus_p) / one_minus_p
+                        + mu.powf(two_minus_p) / two_minus_p);
+                let loglik = wi
+                    * (-dev / (2.0 * phi)
+                        - 0.5 * (2.0 * std::f64::consts::PI * phi).ln()
+                        - 0.5 * p * yi.ln());
+                // ∂ℓ/∂φ = dev/(2φ²) − 1/(2φ); chain to η_d = −log φ.
+                let s_phi = dev / (2.0 * phi * phi) - 1.0 / (2.0 * phi);
+                let s_eta = -phi * s_phi;
+                // Fisher information wrt φ is 1/(2φ²) (E[dev] = φ) ⇒ wrt η_d it
+                // is the constant 1/2.
+                let disp_weight = wi * 0.5;
+                let disp_response = ed + s_eta / 0.5;
+                DispersionRowKernel {
+                    loglik,
+                    mean_weight,
+                    mean_response,
+                    disp_weight,
+                    disp_response,
+                }
+            } else {
+                // Exact point mass P(Y=0) = exp(−μ^{2−p}/(φ(2−p))) (1 < p < 2).
+                let c = mu.powf(two_minus_p) / two_minus_p;
+                let loglik = wi * (-c / phi);
+                // ∂ℓ/∂φ = c/φ²; chain to η_d = −log φ.
+                let s_phi = c / (phi * phi);
+                let s_eta = -phi * s_phi;
+                // −∂²ℓ/∂φ² = 2c/φ³ ⇒ Fisher information wrt η_d is 2c/φ. The
+                // working response divides by this per-row curvature so the
+                // prior weight cancels (and a zero-prior-weight row stays
+                // excluded via `disp_weight = 0`).
+                let curvature_eta = (2.0 * c / phi).max(DISPERSION_MIN_CURVATURE);
+                let disp_weight = wi * curvature_eta;
+                let disp_response = ed + s_eta / curvature_eta;
+                DispersionRowKernel {
+                    loglik,
+                    mean_weight,
+                    mean_response,
+                    disp_weight,
+                    disp_response,
+                }
+            }
+        }
+    }
+}
+
+/// Two-block GAMLSS family for the genuine-dispersion mean families (#913).
+#[derive(Clone)]
+pub(crate) struct DispersionGlmLocationScaleFamily {
+    kind: DispersionFamilyKind,
+    y: Array1<f64>,
+    weights: Array1<f64>,
+}
+
+impl DispersionGlmLocationScaleFamily {
+    const BLOCK_MEAN: usize = 0;
+    const BLOCK_DISP: usize = 1;
+}
+
+impl CustomFamily for DispersionGlmLocationScaleFamily {
+    fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
+        if block_states.len() != 2 {
+            return Err(format!(
+                "{} expects 2 blocks (mean, log-precision), got {}",
+                self.kind.family_tag(),
+                block_states.len()
+            ));
+        }
+        let eta_mu = &block_states[Self::BLOCK_MEAN].eta;
+        let eta_d = &block_states[Self::BLOCK_DISP].eta;
+        let n = self.y.len();
+        if eta_mu.len() != n || eta_d.len() != n || self.weights.len() != n {
+            return Err(format!(
+                "{} row-count mismatch: y={n}, eta_mu={}, eta_d={}, weights={}",
+                self.kind.family_tag(),
+                eta_mu.len(),
+                eta_d.len(),
+                self.weights.len()
+            ));
+        }
+        let mut log_likelihood = 0.0;
+        let mut mean_weights = Array1::<f64>::zeros(n);
+        let mut mean_response = Array1::<f64>::zeros(n);
+        let mut disp_weights = Array1::<f64>::zeros(n);
+        let mut disp_response = Array1::<f64>::zeros(n);
+        for i in 0..n {
+            let row =
+                dispersion_row_kernel(self.kind, self.y[i], eta_mu[i], eta_d[i], self.weights[i]);
+            if row.loglik.is_finite() {
+                log_likelihood += row.loglik;
+            }
+            mean_weights[i] = row.mean_weight.max(0.0);
+            mean_response[i] = row.mean_response;
+            disp_weights[i] = row.disp_weight.max(0.0);
+            disp_response[i] = row.disp_response;
+        }
+        Ok(FamilyEvaluation {
+            log_likelihood,
+            blockworking_sets: vec![
+                BlockWorkingSet::diagonal_checked(mean_response, mean_weights)?,
+                BlockWorkingSet::diagonal_checked(disp_response, disp_weights)?,
+            ],
+        })
+    }
+
+    fn log_likelihood_only(&self, block_states: &[ParameterBlockState]) -> Result<f64, String> {
+        if block_states.len() != 2 {
+            return Err(format!(
+                "{} expects 2 blocks for log-likelihood, got {}",
+                self.kind.family_tag(),
+                block_states.len()
+            ));
+        }
+        let eta_mu = &block_states[Self::BLOCK_MEAN].eta;
+        let eta_d = &block_states[Self::BLOCK_DISP].eta;
+        let mut ll = 0.0;
+        for i in 0..self.y.len() {
+            let row =
+                dispersion_row_kernel(self.kind, self.y[i], eta_mu[i], eta_d[i], self.weights[i]);
+            if row.loglik.is_finite() {
+                ll += row.loglik;
+            }
+        }
+        Ok(ll)
+    }
+
+    fn coefficient_hessian_cost(&self, specs: &[ParameterBlockSpec]) -> u64 {
+        crate::families::location_scale_engine::location_scale_coefficient_hessian_cost(
+            self.y.len() as u64,
+            specs,
+        )
+    }
+
+    /// The mean and precision working weights couple across both blocks, which
+    /// the block-local diagonal drift hook cannot represent, so decline the
+    /// dense outer Hessian capability whenever the actual two-block (or
+    /// larger) geometry is in play; a degenerate single-block probe — there
+    /// is no cross-block coupling to reject — keeps the trait default's
+    /// availability verdict.
+    ///
+    /// The override still validates the block-spec slice it is handed (the
+    /// same consistency check the trait default's assertion bottoms out in)
+    /// so a malformed probe is reported here rather than downstream.
+    fn outer_hyper_hessian_dense_available(&self, specs: &[ParameterBlockSpec]) -> bool {
+        assert!(
+            crate::custom_family::validate_blockspec_consistency(specs).is_ok(),
+            "DispersionGlmLocationScale outer hyper-Hessian dense availability: \
+             inconsistent parameter block specs"
+        );
+        specs.len() < 2
+    }
+}
+
+/// Term spec consumed by [`fit_dispersion_glm_location_scale_terms`]; mirrors
+/// [`GaussianLocationScaleTermSpec`] with the dispersion channel in place of
+/// the Gaussian log-σ channel.
+pub struct DispersionGlmLocationScaleTermSpec {
+    pub kind: DispersionFamilyKind,
+    pub y: Array1<f64>,
+    pub weights: Array1<f64>,
+    pub meanspec: TermCollectionSpec,
+    pub log_dispspec: TermCollectionSpec,
+    pub mean_offset: Array1<f64>,
+    pub log_disp_offset: Array1<f64>,
+}
+
+struct DispersionGlmLocationScaleTermBuilder {
+    kind: DispersionFamilyKind,
+    y: Array1<f64>,
+    weights: Array1<f64>,
+    meanspec: TermCollectionSpec,
+    noisespec: TermCollectionSpec,
+    mean_offset: Array1<f64>,
+    noise_offset: Array1<f64>,
+}
+
+/// Warm start for a dispersion location-scale fit: project a link-transformed
+/// response onto the mean block and seed the log-precision block at a constant
+/// (precision ≈ 1) baseline. The block-cyclic IRLS then refines both jointly.
+fn dispersion_location_scale_warm_start(
+    kind: DispersionFamilyKind,
+    y: &Array1<f64>,
+    weights: &Array1<f64>,
+    mean_block: &ParameterBlockSpec,
+    disp_block: &ParameterBlockSpec,
+    mean_beta_hint: Option<&Array1<f64>>,
+    disp_beta_hint: Option<&Array1<f64>>,
+) -> Result<(Array1<f64>, Array1<f64>), String> {
+    let ridge_floor = 1e-10;
+    let mean_beta = if let Some(beta) = mean_beta_hint {
+        beta.clone()
+    } else {
+        let target = Array1::from_shape_fn(y.len(), |i| {
+            if kind.mean_is_logit() {
+                let yi = y[i].clamp(1e-3, 1.0 - 1e-3);
+                (yi / (1.0 - yi)).ln()
+            } else {
+                // log mean link; the +0.1 keeps zero counts finite.
+                (y[i].max(0.0) + 0.1).ln()
+            }
+        });
+        solve_penalizedweighted_projection(
+            &mean_block.design,
+            &mean_block.offset,
+            &target,
+            weights,
+            &mean_block.penalties,
+            &mean_block.initial_log_lambdas,
+            ridge_floor,
+        )?
+    };
+    let disp_beta = if let Some(beta) = disp_beta_hint {
+        beta.clone()
+    } else {
+        // η_d ≈ 0 ⇒ precision ≈ 1 baseline; project the constant onto the
+        // dispersion design so any non-intercept columns start at zero.
+        let target = Array1::<f64>::zeros(y.len());
+        solve_penalizedweighted_projection(
+            &disp_block.design,
+            &disp_block.offset,
+            &target,
+            weights,
+            &disp_block.penalties,
+            &disp_block.initial_log_lambdas,
+            ridge_floor,
+        )?
+    };
+    Ok((mean_beta, disp_beta))
+}
+
+impl LocationScaleFamilyBuilder for DispersionGlmLocationScaleTermBuilder {
+    type Family = DispersionGlmLocationScaleFamily;
+
+    fn meanspec(&self) -> &TermCollectionSpec {
+        &self.meanspec
+    }
+
+    fn noisespec(&self) -> &TermCollectionSpec {
+        &self.noisespec
+    }
+
+    fn noise_penalty_count(&self, noise_design: &TermCollectionDesign) -> usize {
+        // Mirror the Gaussian/Binomial scale block: a full-span shrinkage
+        // penalty pins the log-precision nullspace so REML does not optimise
+        // the dispersion smoothing on a flat surface.
+        noise_design.penalties.len() + 1
+    }
+
+    fn build_blocks(
+        &self,
+        theta: &Array1<f64>,
+        mean_design: &TermCollectionDesign,
+        noise_design: &TermCollectionDesign,
+        mean_beta_hint: Option<Array1<f64>>,
+        noise_beta_hint: Option<Array1<f64>>,
+    ) -> Result<Vec<ParameterBlockSpec>, String> {
+        let layout = GamlssLambdaLayout::two_block(
+            mean_design.penalties.len(),
+            self.noise_penalty_count(noise_design),
+        );
+        layout.validate_theta_len(theta.len(), "dispersion location-scale")?;
+
+        let mut meanspec = build_location_scale_block(
+            "mu",
+            mean_design.design.clone(),
+            self.mean_offset.clone(),
+            mean_design.penalties_as_penalty_matrix(),
+            mean_design.nullspace_dims.clone(),
+            layout.mean_from(theta),
+            mean_beta_hint,
+            0,
+            LOCATION_SCALE_N_OUTPUTS,
+            "DispersionLocationScale::build_blocks: mu",
+        )?;
+
+        let p_disp = noise_design.design.ncols();
+        let mut disp_penalties = noise_design.penalties_as_penalty_matrix();
+        disp_penalties.push(PenaltyMatrix::Dense(identity_penalty(p_disp)));
+        let mut disp_nullspace = noise_design.nullspace_dims.clone();
+        disp_nullspace.push(0);
+        let mut dispspec = build_location_scale_block(
+            "log_precision",
+            noise_design.design.clone(),
+            self.noise_offset.clone(),
+            disp_penalties,
+            disp_nullspace,
+            layout.noise_from(theta),
+            noise_beta_hint,
+            1,
+            LOCATION_SCALE_N_OUTPUTS,
+            "DispersionLocationScale::build_blocks: log_precision",
+        )?;
+
+        if meanspec.initial_beta.is_none() || dispspec.initial_beta.is_none() {
+            let (mean_beta0, disp_beta0) = dispersion_location_scale_warm_start(
+                self.kind,
+                &self.y,
+                &self.weights,
+                &meanspec,
+                &dispspec,
+                meanspec.initial_beta.as_ref(),
+                dispspec.initial_beta.as_ref(),
+            )?;
+            if meanspec.initial_beta.is_none() {
+                meanspec.initial_beta = Some(mean_beta0);
+            }
+            if dispspec.initial_beta.is_none() {
+                dispspec.initial_beta = Some(disp_beta0);
+            }
+        }
+
+        Ok(vec![meanspec, dispspec])
+    }
+
+    fn build_family(
+        &self,
+        mean_design: &TermCollectionDesign,
+        noise_design: &TermCollectionDesign,
+    ) -> Self::Family {
+        // The family stores y/weights/kind directly and does not need the
+        // designs at construction time, but the row geometry of the offered
+        // designs is the only cross-check that ties this family back to the
+        // builder's data — assert it before handing the family to the engine
+        // so a misaligned design surfaces here rather than downstream in the
+        // inner solver.
+        assert_eq!(
+            mean_design.design.nrows(),
+            self.y.len(),
+            "DispersionGlmLocationScale::build_family: mean design row count must match y"
+        );
+        assert_eq!(
+            noise_design.design.nrows(),
+            self.y.len(),
+            "DispersionGlmLocationScale::build_family: noise design row count must match y"
+        );
+        DispersionGlmLocationScaleFamily {
+            kind: self.kind,
+            y: self.y.clone(),
+            weights: self.weights.clone(),
+        }
+    }
+
+    fn extract_primary_betas(
+        &self,
+        fit: &UnifiedFitResult,
+    ) -> Result<(Array1<f64>, Array1<f64>), String> {
+        let mean_beta = fit
+            .block_states
+            .get(DispersionGlmLocationScaleFamily::BLOCK_MEAN)
+            .ok_or_else(|| "missing dispersion mean block state".to_string())?
+            .beta
+            .clone();
+        let disp_beta = fit
+            .block_states
+            .get(DispersionGlmLocationScaleFamily::BLOCK_DISP)
+            .ok_or_else(|| "missing dispersion log-precision block state".to_string())?
+            .beta
+            .clone();
+        Ok((mean_beta, disp_beta))
+    }
+
+    fn build_psiderivative_blocks(
+        &self,
+        data: ndarray::ArrayView2<'_, f64>,
+        meanspec: &TermCollectionSpec,
+        noisespec: &TermCollectionSpec,
+        mean_design: &TermCollectionDesign,
+        noise_design: &TermCollectionDesign,
+    ) -> Result<Vec<Vec<CustomFamilyBlockPsiDerivative>>, String> {
+        // The dispersion location-scale families have no closed-form analytic
+        // spatial psi derivatives, and `fit_dispersion_glm_location_scale_terms`
+        // disables the κ/ψ joint optimizer before the engine ever asks. If we
+        // do get called (for example by a future caller that forgets the
+        // disable), return a real diagnostic rather than a sentinel — emit the
+        // exact data and design shape that was passed in so the bug is
+        // diagnosable from the error string alone.
+        Err(format!(
+            "dispersion location-scale ({:?}) does not implement analytic spatial \
+             psi derivatives; the κ/ψ joint optimizer must be disabled before \
+             this builder is consulted. Called with data {n_rows}×{n_cols}, mean \
+             spec (linear={mean_lin}, random={mean_re}, smooth={mean_sm}), noise \
+             spec (linear={noise_lin}, random={noise_re}, smooth={noise_sm}), \
+             mean design cols={mean_p}, noise design cols={noise_p}",
+            self.kind,
+            n_rows = data.nrows(),
+            n_cols = data.ncols(),
+            mean_lin = meanspec.linear_terms.len(),
+            mean_re = meanspec.random_effect_terms.len(),
+            mean_sm = meanspec.smooth_terms.len(),
+            noise_lin = noisespec.linear_terms.len(),
+            noise_re = noisespec.random_effect_terms.len(),
+            noise_sm = noisespec.smooth_terms.len(),
+            mean_p = mean_design.design.ncols(),
+            noise_p = noise_design.design.ncols(),
+        ))
+    }
+}
+
+/// Fit a dispersion-channel GAMLSS location-scale model (#913). All four
+/// genuine-dispersion mean families share this single entry; the per-family
+/// likelihood lives in [`dispersion_row_kernel`].
+pub fn fit_dispersion_glm_location_scale_terms(
+    data: ndarray::ArrayView2<'_, f64>,
+    spec: DispersionGlmLocationScaleTermSpec,
+    options: &BlockwiseFitOptions,
+    kappa_options: &SpatialLengthScaleOptimizationOptions,
+) -> Result<BlockwiseTermFitResult, String> {
+    if let DispersionFamilyKind::Tweedie { p } = spec.kind {
+        if !(p.is_finite() && p > 1.0 && p < 2.0) {
+            return Err(format!(
+                "Tweedie location-scale requires a variance power strictly in (1, 2); got p={p}"
+            ));
+        }
+    }
+    // The κ/ψ anisotropic-kernel joint optimizer needs analytic psi
+    // derivatives this family does not provide; disable it so the engine runs
+    // the full ρ REML directly via `fit_custom_family` (1-D and tensor smooth
+    // penalties λ are still REML-selected).
+    let mut kappa = kappa_options.clone();
+    kappa.enabled = false;
+    fit_location_scale_terms(
+        data,
+        DispersionGlmLocationScaleTermBuilder {
+            kind: spec.kind,
+            y: spec.y,
+            weights: spec.weights,
+            meanspec: spec.meanspec,
+            noisespec: spec.log_dispspec,
+            mean_offset: spec.mean_offset,
+            noise_offset: spec.log_disp_offset,
+        },
+        options,
+        &kappa,
+    )
+}
+
 pub(crate) fn fit_binomial_location_scale_terms(
     data: ndarray::ArrayView2<'_, f64>,
     spec: BinomialLocationScaleTermSpec,
@@ -3719,7 +4396,7 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
         })
     };
 
-    let mut obj = problem.build_objective_with_eval_order(
+    let mut obj = problem.build_objective_with_screening_proxy(
         MeanWiggleOuterState {
             warm_cache: None,
             last_eval: None,
@@ -3774,6 +4451,27 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
             state.warm_cache = Some(eval.warm_start);
             Ok(eval.efs_eval)
         }),
+        // Seed-screening ranking proxy (#969). The cost closure above
+        // hard-errors on a non-converged inner solve — correct for
+        // line-search costs, but under the screening cap (wired into the
+        // outer options and installed by the cascade) the inner solve is
+        // truncated BY DESIGN, so screening through it rejects every seed
+        // — the all-seeds-rejected front-door genus. Screening only RANKS
+        // candidates: the truncated solve's penalized objective is the
+        // ranking signal; convergence is demanded of the selected seed's
+        // full-budget fit, not of capped probes.
+        |state: &mut MeanWiggleOuterState, theta: &Array1<f64>| {
+            if let Some((cached_theta, cached_cost, _, _, cached_warm)) = &state.last_eval
+                && cached_theta == theta
+            {
+                state.warm_cache = Some(cached_warm.clone());
+                return Ok(*cached_cost);
+            }
+            let (eval, _, _) = build_eval(theta, state.warm_cache.as_ref(), false)
+                .map_err(EstimationError::InvalidInput)?;
+            state.warm_cache = Some(eval.warm_start);
+            Ok(eval.objective)
+        },
     );
 
     let outer = problem
@@ -3849,131 +4547,6 @@ pub enum ParameterLink {
     InverseLink,
     /// Learnable smooth departure from a known base link.
     Wiggle,
-}
-
-fn signedwith_floor(v: f64, floor: f64) -> f64 {
-    let a = v.abs().max(floor);
-    if v >= 0.0 { a } else { -a }
-}
-
-fn xt_diag_x_dense(design: &Array2<f64>, diag: &Array1<f64>) -> Result<Array2<f64>, String> {
-    if design.nrows() != diag.len() {
-        return Err(GamlssError::DimensionMismatch {
-            reason: format!(
-                "xt_diag_x_dense row mismatch: design has {} rows but diag has {} entries",
-                design.nrows(),
-                diag.len()
-            ),
-        }
-        .into());
-    }
-    Ok(fast_xt_diag_x(design, diag))
-}
-
-fn xt_diag_y_dense(
-    left: &Array2<f64>,
-    diag: &Array1<f64>,
-    right: &Array2<f64>,
-) -> Result<Array2<f64>, String> {
-    if left.nrows() != diag.len() {
-        return Err(GamlssError::DimensionMismatch {
-            reason: format!(
-                "xt_diag_y_dense row mismatch: left has {} rows but diag has {} entries",
-                left.nrows(),
-                diag.len()
-            ),
-        }
-        .into());
-    }
-    if right.nrows() != diag.len() {
-        return Err(GamlssError::DimensionMismatch {
-            reason: format!(
-                "xt_diag_y_dense row mismatch: right has {} rows but diag has {} entries",
-                right.nrows(),
-                diag.len()
-            ),
-        }
-        .into());
-    }
-    Ok(fast_xt_diag_y(left, diag, right))
-}
-
-fn xt_diag_x_design(design: &DesignMatrix, diag: &Array1<f64>) -> Result<Array2<f64>, String> {
-    if design.nrows() != diag.len() {
-        return Err(format!(
-            "xt_diag_x_design row mismatch: design has {} rows but diag has {} entries",
-            design.nrows(),
-            diag.len()
-        ));
-    }
-    design.xt_diag_x_signed_op(SignedWeightsView::from_array(diag))
-}
-
-fn xt_diag_y_design(
-    left: &DesignMatrix,
-    diag: &Array1<f64>,
-    right: &DesignMatrix,
-) -> Result<Array2<f64>, String> {
-    if left.nrows() != diag.len() {
-        return Err(format!(
-            "xt_diag_y_design row mismatch: left has {} rows but diag has {} entries",
-            left.nrows(),
-            diag.len()
-        ));
-    }
-    if right.nrows() != diag.len() {
-        return Err(format!(
-            "xt_diag_y_design row mismatch: right has {} rows but diag has {} entries",
-            right.nrows(),
-            diag.len()
-        ));
-    }
-    if let (Some(left_dense), Some(right_dense)) = (left.as_dense_ref(), right.as_dense_ref()) {
-        return xt_diag_y_dense(left_dense, diag, right_dense);
-    }
-
-    let mut out = Array2::<f64>::zeros((left.ncols(), right.ncols()));
-    for rows in exact_design_row_chunks(diag.len(), left.ncols() + right.ncols()) {
-        let left_chunk = left
-            .try_row_chunk(rows.clone())
-            .map_err(|e| format!("xt_diag_y_design left row chunk materialization failed: {e}"))?;
-        let right_chunk = right
-            .try_row_chunk(rows.clone())
-            .map_err(|e| format!("xt_diag_y_design right row chunk materialization failed: {e}"))?;
-        out += &fast_xt_diag_y(&left_chunk, &diag.slice(s![rows]), &right_chunk);
-    }
-    Ok(out)
-}
-
-fn mirror_upper_to_lower(target: &mut Array2<f64>) {
-    for i in 0..target.nrows() {
-        for j in 0..i {
-            target[[i, j]] = target[[j, i]];
-        }
-    }
-}
-
-#[inline]
-fn scaled_outer_add(
-    mut target: ArrayViewMut2<'_, f64>,
-    scale: f64,
-    left: ArrayView1<'_, f64>,
-    right: ArrayView1<'_, f64>,
-) {
-    let n_left = left.len();
-    let n_right = right.len();
-    for i in 0..n_left {
-        // SAFETY: `i < left.len()` by loop construction; target rows match the
-        // caller-selected left block.
-        let scaled_left = unsafe { *left.uget(i) } * scale;
-        for j in 0..n_right {
-            // SAFETY: `j < right.len()` by loop construction; target columns
-            // match the caller-selected right block.
-            unsafe {
-                *target.uget_mut((i, j)) += scaled_left * *right.uget(j);
-            }
-        }
-    }
 }
 
 struct BinomialLocationScaleCore {
@@ -4162,15 +4735,6 @@ fn nonwiggle_q_directional(
 }
 
 #[inline]
-fn clamped_binomial_probability(mu: f64) -> (f64, bool) {
-    if !mu.is_finite() {
-        return (0.5, true);
-    }
-    let clamped = mu.clamp(MIN_PROB, 1.0 - MIN_PROB);
-    (clamped, clamped != mu)
-}
-
-#[inline]
 fn log1mexp_neg_positive(z: f64) -> f64 {
     assert!(z >= 0.0);
     if z == 0.0 {
@@ -4278,17 +4842,18 @@ fn binomial_location_scalerow(
     } = exp_sigma_jet1_scalar(eta_ls);
     let q0 = binomial_location_scale_q0(eta_t, sigma);
     let q = q0 + etawiggle;
-    let mut jet = inverse_link_jet_for_inverse_link(link_kind, q)
+    let jet = inverse_link_jet_for_inverse_link(link_kind, q)
         .map_err(|e| format!("location-scale inverse-link evaluation failed: {e}"))?;
     let raw_mu = jet.mu;
-    // Stability (Issue 5): floor μ for downstream 1/μ divisions but DO
-    // NOT zero d1/d2/d3 — those are derivatives of the inverse link
-    // (dμ/dq, ...) which are bounded for any sane link and carry the
-    // legitimate gradient signal. Zeroing them created a phantom flat
-    // region that the optimizer would converge to as a stationary point,
-    // silently misreporting separated/saturated fits as well-fit modes.
-    let (mu_clamped, _clamp_active) = clamped_binomial_probability(jet.mu);
-    jet.mu = mu_clamped;
+    // μ is stored RAW (unclamped). The q-derivative tower built downstream
+    // (binomial_neglog_q_derivatives_dispatch et al.) is the EXACT derivative
+    // of the loss evaluated here, computed via the per-branch reciprocals in
+    // `binomial_loglik_mu_derivatives` plus the saturation guard in the
+    // `*_from_jet` consumers. Flooring μ at MIN_PROB here would replace every
+    // representable sub-MIN_PROB tail probability with a 1e-10 surrogate,
+    // corrupting the Fisher curvature throughout the saturated tail (#948).
+    // The inverse-link derivatives d1/d2/d3 carry the legitimate gradient
+    // signal and are likewise preserved.
     let inverse_link = jet;
     let ll = binomial_location_scale_log_likelihood(y, weight, q, link_kind, raw_mu)?;
     Ok(BinomialLocationScaleRow {
@@ -4302,7 +4867,7 @@ fn binomial_location_scalerow(
 
 /// Compute only the log-likelihood scalar for the binomial location-scale model.
 /// This avoids allocating 7 n-vectors that `binomial_location_scale_core` would produce,
-/// making backtracking line searches much cheaper at biobank scale.
+/// making backtracking line searches much cheaper at large scale.
 fn binomial_location_scale_ll_only(
     y: &Array1<f64>,
     weights: &Array1<f64>,
@@ -4366,7 +4931,7 @@ fn binomial_location_scale_core(
         .into());
     }
 
-    // Parallel per-row probit/inverse-link evaluation. At biobank scale
+    // Parallel per-row probit/inverse-link evaluation. At large scale
     // (n = 320K) the sequential probit erfc loop was a major single-thread
     // hotspot called dozens of times per outer REML gradient evaluation.
     let y_slice = y.as_slice().expect("y must be contiguous");
@@ -4379,7 +4944,7 @@ fn binomial_location_scale_core(
     // output buffers in parallel, reducing the per-row log-likelihood
     // alongside. The previous path collected a `Vec<BinomialLocationScaleRow>`
     // (8 scalar fields plus alignment) and then serially scattered into the
-    // seven `Array1`s, which at biobank scale n=3e5 cost ~50 MB of transient
+    // seven `Array1`s, which at large scale n=3e5 cost ~50 MB of transient
     // allocation and a single-threaded post-pass.
     let mut sigma = vec![0.0_f64; n];
     let mut dsigma_deta = vec![0.0_f64; n];
@@ -8362,7 +8927,7 @@ impl ExactNewtonJointHessianWorkspace for GaussianLocationScaleHessianWorkspace 
         // Same Hv structure as `hessian_matvec`, but built once via 3 GEMMs
         // (`Xᵀ diag(W) X` per block) instead of letting
         // `MatrixFreeSpdOperator::materialize_dense_operator` reconstruct the
-        // dense Hessian via `total` canonical-basis HVPs. At biobank scale
+        // dense Hessian via `total` canonical-basis HVPs. At large scale
         // (n≈320k, p_total≈82) the canonical-basis path takes ~568s per κ-iter
         // while the dense build via fast_xt_diag_x/y is ~1s.
         let pmu = self.xmu.ncols();
@@ -11393,7 +11958,7 @@ impl ExactNewtonJointHessianWorkspace for GaussianLocationScaleWiggleHessianWork
         // already-existing `assemble_dense` row-pieces helper (six GEMMs:
         // h_mm, h_ml, h_mw_b, h_mw_d, h_lw, h_ww). Avoids `total` canonical-
         // basis HVPs in `MatrixFreeSpdOperator::materialize_dense_operator`,
-        // which at biobank scale (n≈320k, p_total≈82) costs ~568s per κ-iter
+        // which at large scale (n≈320k, p_total≈82) costs ~568s per κ-iter
         // versus ~1s for the dense build.
         let dense = self
             .pieces
@@ -11777,13 +12342,11 @@ impl BinomialMeanWiggleFamily {
     }
 
     fn neglog_q_derivatives(&self, y: f64, weight: f64, q: f64) -> Result<(f64, f64, f64), String> {
-        let mut jet = inverse_link_jet_for_inverse_link(&self.link_kind, q)
+        let jet = inverse_link_jet_for_inverse_link(&self.link_kind, q)
             .map_err(|e| format!("fixed-link wiggle inverse-link evaluation failed: {e}"))?;
-        // Stability (Issue 5): floor μ for downstream divisions only;
-        // preserve d1/d2/d3 so the chain rule reflects the true geometry.
-        // See binomial_location_scalerow for the full rationale.
-        let (mu_clamped, _clamp_active) = clamped_binomial_probability(jet.mu);
-        jet.mu = mu_clamped;
+        // Pass μ RAW: the dispatch returns the exact q-derivatives of the
+        // evaluated loss for every representable μ in (0,1) and handles the
+        // saturated boundary itself. See binomial_location_scalerow (#948).
         Ok(binomial_neglog_q_derivatives_dispatch(
             y,
             weight,
@@ -11799,12 +12362,12 @@ impl BinomialMeanWiggleFamily {
     fn neglog_q_fourth_derivative(&self, y: f64, weight: f64, q: f64) -> Result<f64, String> {
         let jet = inverse_link_jet_for_inverse_link(&self.link_kind, q)
             .map_err(|e| format!("fixed-link wiggle inverse-link evaluation failed: {e}"))?;
-        let (mu_clamped, _) = clamped_binomial_probability(jet.mu);
+        // Pass μ RAW — see neglog_q_derivatives above (#948).
         binomial_neglog_q_fourth_derivative_dispatch(
             y,
             weight,
             q,
-            mu_clamped,
+            jet.mu,
             jet.d1,
             jet.d2,
             jet.d3,
@@ -14678,7 +15241,7 @@ impl BinomialLocationScaleFamily {
         let (z_t, z_ls) = (&dir_a.z_primary_psi, &dir_a.z_ls_psi);
 
         // Per-row scalars assembled in parallel. The probit/inverse-link
-        // derivatives are O(n) at biobank scale and are called O(K) times per
+        // derivatives are O(n) at large scale and are called O(K) times per
         // outer REML gradient (K = number of psi coords), so a parallel pass is
         // worthwhile here.
         struct PsiTermsRow {
@@ -16125,7 +16688,7 @@ impl CustomFamily for BinomialLocationScaleFamily {
     /// Falls through to `None` (generic per-θ_j path) whenever any θ_j is a
     /// ψ coordinate; the design-drift composition for ψ is handled by the
     /// existing unified evaluator. ρ-only is the common warm-start regime
-    /// and the dominant biobank-scale cost.
+    /// and the dominant large-scale cost.
     fn batched_outer_gradient_terms(
         &self,
         block_states: &[ParameterBlockState],
@@ -16172,7 +16735,7 @@ impl CustomFamily for BinomialLocationScaleFamily {
         // (matvec + dH/d²H operators) and never materializes the dense
         // total×total joint Hessian, the dense Cholesky factor, or the
         // total×n leverage panels (`Q_t`, `Q_l`) that this batched fast-path
-        // builds below. At biobank scale (e.g. n≈4·10⁵, total≈120) those
+        // builds below. At large scale (e.g. n≈4·10⁵, total≈120) those
         // dense allocations and the n·total² leverage solve dominate
         // wall-clock time and inflate resident memory by ~6 GiB. Decline
         // the batched path when the joint dimensions cross the same gate
@@ -16625,7 +17188,7 @@ struct BinomialLocationScaleHessianWorkspace {
     direction_eta_cache: Mutex<HashMap<BinomialDirectionKey, Arc<BinomialDirectionEta>>>,
     first_coeff_cache: Mutex<HashMap<BinomialDirectionKey, Arc<BinomialRowCoeffTriple>>>,
     // No `second_coeff_cache` deliberately: see `second_coefficients` for why
-    // the per-pair cache was a memory-only loss at biobank shape.
+    // the per-pair cache was a memory-only loss at large-scale shape.
 }
 
 #[derive(Clone, Eq, Hash, PartialEq)]
@@ -16755,7 +17318,7 @@ impl BinomialLocationScaleHessianWorkspace {
             .clone()
     }
 
-    /// No caching here, deliberately: at biobank shape (n=320k, K=14 outer
+    /// No caching here, deliberately: at large-scale shape (n=320k, K=14 outer
     /// coords) the K² ≈ 196 unique direction-pairs are queried exactly once
     /// per outer Hessian eval, and each cached entry stored 3·n f64s
     /// = ~7.7 MB → ~1.5 GB peak per eval with zero practical hit-rate.
@@ -16820,7 +17383,7 @@ impl ExactNewtonJointHessianWorkspace for BinomialLocationScaleHessianWorkspace 
         //   H_ll = X_lsᵀ diag(coeff_ll) X_ls,
         // versus letting `MatrixFreeSpdOperator::materialize_dense_operator`
         // reconstruct the dense Hessian via `total` canonical-basis HVPs. At
-        // biobank scale, canonical-basis materialization costs p_total full
+        // large scale, canonical-basis materialization costs p_total full
         // Hessian-vector products. The design helpers below stream row chunks,
         // so the only dense object retained here is the small p_total×p_total
         // coefficient Hessian.
@@ -21314,7 +21877,7 @@ impl ExactNewtonJointHessianWorkspace for BinomialLocationScaleWiggleHessianWork
         // covering h_tt, h_tl, h_ll, h_tw_b, h_tw_d, h_lw_b, h_lw_d, h_ww).
         // Avoids `total` canonical-basis HVPs in
         // `MatrixFreeSpdOperator::materialize_dense_operator`, which at
-        // biobank scale (n≈320k, p_total≈82) costs ~568s per κ-iter versus
+        // large scale (n≈320k, p_total≈82) costs ~568s per κ-iter versus
         // ~1s for the dense build.
         let dense = self
             .pieces
@@ -21905,20 +22468,41 @@ mod tests {
     }
 
     #[test]
-    fn logit_binomial_tail_derivatives_clip_probability_variance() {
+    fn logit_binomial_tail_derivatives_are_exact_not_clipped() {
+        // Regression for issue #948 (2b): the logit curvature/4th derivative
+        // must be the EXACT Bernoulli variance s = p(1-p) in the saturated
+        // tail — never floored to MIN_PROB·(1−MIN_PROB) ≈ 1e-10. At q=50 the
+        // true variance is s = e^{-50}/(1+e^{-50})² ≈ e^{-50} ≈ 1.93e-22.
         let q = 50.0;
-        let (_, m2, m3) = binomial_neglog_q_derivatives_logit_closed_form(1.0, 1.0, q);
-        let m4 = binomial_neglog_q_fourth_derivative_logit_closed_form(1.0, 1.0, q);
-        let expected_variance = MIN_PROB * (1.0 - MIN_PROB);
+        let t = (-q).exp();
+        let denom = 1.0 + t;
+        let s_exact = t / (denom * denom);
 
+        let (m1, m2, m3) = binomial_neglog_q_derivatives_logit_closed_form(1.0, 1.0, q);
+        let m4 = binomial_neglog_q_fourth_derivative_logit_closed_form(1.0, 1.0, q);
+
+        // The clipped surrogate would have reported ~1e-10; the exact value is
+        // ~1.9e-22, twelve orders of magnitude smaller.
         assert!(
-            (m2 - expected_variance).abs() <= 1e-20,
-            "logit curvature should use clipped p*(1-p) in the saturated tail; got {m2}"
+            s_exact < 1e-21,
+            "sanity: exact tail variance should be ~1e-22, got {s_exact}"
+        );
+        // m1 = w(p - y); at q=50, p rounds to 1.0 exactly, so m1 = 0.
+        assert!(m1.abs() <= 1e-15, "m1 should be ~0 at p≈1, got {m1}");
+        assert!(
+            (m2 - s_exact).abs() <= 1e-30,
+            "logit curvature must equal exact s=p(1-p) in the tail, got {m2}, want {s_exact}"
+        );
+        // The clipped floor would be ~5e-12 larger than the truth: assert we
+        // are nowhere near it.
+        assert!(
+            m2 < 1e-15,
+            "logit curvature must NOT be floored at MIN_PROB·(1−MIN_PROB)≈1e-10, got {m2}"
         );
         assert!(m3.is_finite());
         assert!(
-            (m4 - expected_variance * (1.0 - 6.0 * expected_variance)).abs() <= 1e-20,
-            "logit fourth derivative should use clipped p*(1-p) in the saturated tail; got {m4}"
+            (m4 - s_exact * (1.0 - 6.0 * s_exact)).abs() <= 1e-30,
+            "logit fourth derivative must equal exact ws(1-6s) in the tail, got {m4}"
         );
     }
 
@@ -22435,7 +23019,7 @@ mod tests {
 
     /// Bit-equivalence guard for the `hessian_dense` hook. The dispatch site
     /// `exact_newton_joint_hessian_source_from_workspace` prefers
-    /// `hessian_dense` over the canonical-basis HVP fallback at biobank
+    /// `hessian_dense` over the canonical-basis HVP fallback at large-scale
     /// scale; this test pins the dense build against the same column-by-
     /// column HVP path it replaces. Any future regression in the GEMM
     /// fill (e.g. swapped block coordinates, sign error in `coeff_ml`)

@@ -92,8 +92,8 @@ def _decode_cirq_channel(ch: Any, cirq: Any) -> Tuple[str, float]:
 
     - BitFlipChannel: ``ch.p`` = bit-flip 확률
     - PhaseFlipChannel: ``ch.p`` = phase-flip 확률
-    - DepolarizingChannel: ``ch.p`` = depolarizing 확률 (panta 와 동일 의미 —
-      ``p`` 가 nontrivial Pauli error 의 총 확률)
+    - DepolarizingChannel: ``ch.p`` = 총 Pauli 오류율 (각 Pauli p/3) →
+      panta 의 λ = 4p/3 으로 변환 (panta/Aer 는 각 Pauli λ/4 컨벤션)
     - AmplitudeDampingChannel: ``ch.gamma`` = γ
     """
     name = type(ch).__name__
@@ -103,14 +103,24 @@ def _decode_cirq_channel(ch: Any, cirq: Any) -> Tuple[str, float]:
     if isinstance(ch, cirq.PhaseFlipChannel):
         return ("phase_flip", float(ch.p))
     if isinstance(ch, cirq.DepolarizingChannel):
-        # cirq.depolarize(p) 의 p 는 panta 의 p 와 동일 의미 (Pauli error 총 확률).
+        # 컨벤션 변환: cirq.depolarize(p) 는 각 Pauli 를 p/3 로 적용
+        # (Λ = (1-p)ρ + (p/3)Σ PρP, 총 오류율 p).  panta / Aer 의
+        # Depolarizing(λ) 는 각 Pauli 를 λ/4 로 적용 (Λ = (1-λ)ρ + λ·I/2,
+        # 총 오류율 3λ/4).  동일 채널이 되려면 λ = 4p/3 — 그대로 넘기면
+        # 25% 약한 노이즈가 된다.
         # cirq 1.x 에서 single-qubit channel 의 num_qubits == 1 검증.
         if getattr(ch, "num_qubits", lambda: 1)() != 1:
             raise NotImplementedError(
                 f"Cirq DepolarizingChannel num_qubits={ch.num_qubits()} — "
                 "panta-sim 의 1-qubit channel 외, multi-qubit depolarizing 미지원."
             )
-        return ("depolarizing", float(ch.p))
+        p = float(ch.p)
+        if p > 0.75:
+            raise ValueError(
+                f"cirq.depolarize(p={p}) 는 panta 의 λ = 4p/3 = {4 * p / 3:.4f} > 1 — "
+                "panta-sim Depolarizing 표현 범위 (λ ≤ 1, p ≤ 0.75) 를 벗어납니다."
+            )
+        return ("depolarizing", 4.0 * p / 3.0)
     if isinstance(ch, cirq.AmplitudeDampingChannel):
         return ("amplitude_damping", float(ch.gamma))
 

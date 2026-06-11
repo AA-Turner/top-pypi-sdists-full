@@ -93,13 +93,25 @@ def search_fts(km, keyword: str, limit: int = 20, *, biz_context: str | None = N
                 r["score"] = float(current_score) + bonus
 
     if not results and keyword:
-        kw = f"%{keyword}%"
-        like_rows = conn.execute(
-            "SELECT * FROM entries WHERE status='active' AND "
-            "(title LIKE ? OR content LIKE ?) LIMIT ?",
-            (kw, kw, limit),
-        ).fetchall()
-        results = [row_to_dict(r) for r in like_rows]
+        # LIKE fallback — for Chinese, segment and OR-match each token (#598)
+        if _get_jieba() and any('一' <= c <= '鿿' for c in keyword):
+            tokens = [w for w in _get_jieba().cut(keyword) if w.strip()]
+            if tokens:
+                clauses = " OR ".join(["(title LIKE ? OR content LIKE ?)"] * len(tokens))
+                like_params = [p for t in tokens for p in (f"%{t}%", f"%{t}%")]
+                like_rows = conn.execute(
+                    f"SELECT * FROM entries WHERE status='active' AND ({clauses}) LIMIT ?",
+                    like_params + [limit],
+                ).fetchall()
+                results = [row_to_dict(r) for r in like_rows]
+        if not results:
+            kw = f"%{keyword}%"
+            like_rows = conn.execute(
+                "SELECT * FROM entries WHERE status='active' AND "
+                "(title LIKE ? OR content LIKE ?) LIMIT ?",
+                (kw, kw, limit),
+            ).fetchall()
+            results = [row_to_dict(r) for r in like_rows]
 
     # Final relevance normalization across all results
     _normalize_relevance(results)
@@ -123,19 +135,19 @@ def search_semantic(km, query: str, limit: int = 20, *, biz_context: str | None 
     from kanban_framework.domain.knowledge_chroma import ensure_chroma
 
     if not query or _EMBED_FAILED:
-        return search_fts(km, query, limit=limit) if query else []
+        return search_fts(km, query, limit=limit, biz_context=biz_context) if query else []
 
     model = _get_embed_model()
     if model is None:
-        return search_fts(km, query, limit=limit)
+        return search_fts(km, query, limit=limit, biz_context=biz_context)
 
     import sys
     if "chromadb" not in sys.modules and "fastembed" not in sys.modules:
-        return search_fts(km, query, limit=limit)
+        return search_fts(km, query, limit=limit, biz_context=biz_context)
 
     q_emb = _embed(query)
     if q_emb is None:
-        return search_fts(km, query, limit=limit)
+        return search_fts(km, query, limit=limit, biz_context=biz_context)
 
     q_vec = _unpack_embedding(q_emb)
 

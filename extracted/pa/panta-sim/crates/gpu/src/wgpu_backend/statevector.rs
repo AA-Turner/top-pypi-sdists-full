@@ -117,6 +117,8 @@ struct TwoQubitK2Uniforms {
     m: [[f32; 2]; 16],
 }
 
+// (v1.4: split_ctrl 필드 제거 — shader 가 읽지 않던 dead field.
+// controlled_1q_k2.wgsl 의 Uniforms 와 layout 일치 필수.)
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 struct Controlled1qK2Uniforms {
@@ -124,10 +126,10 @@ struct Controlled1qK2Uniforms {
     tgt_stride: u32,
     n_amplitudes: u32,
     half_dim: u32,
-    split_ctrl: u32,
     split_tgt: u32,
     dispatches_x: u32,
     _pad0: u32,
+    _pad1: u32,
     m00: [f32; 2],
     m01: [f32; 2],
     m10: [f32; 2],
@@ -162,10 +164,10 @@ type SingleQubitK16Uniforms = SingleQubitK8Uniforms;
 type TwoQubitK16Uniforms = TwoQubitK8Uniforms;
 type Controlled1qK16Uniforms = Controlled1qK8Uniforms;
 
-// v0.5.18: K=32 Uniform structs.  layout 동일.
+// v0.5.18: K=32 Uniform structs.  layout 동일.  (Controlled1q K=32 는
+// apply_circuit_k32 가 모든 op 를 거부하므로 uniform alias 도 없음 — v1.4.)
 type SingleQubitK32Uniforms = SingleQubitK8Uniforms;
 type TwoQubitK32Uniforms = TwoQubitK8Uniforms;
-type Controlled1qK32Uniforms = Controlled1qK8Uniforms;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -386,9 +388,11 @@ pub struct WgpuStatevectorBackend {
     controlled_1q_k16: Pipeline,
     // v0.5.18: K=32 buffer-split pipelines.  N=32 일 때 사용.  adapter 의
     // max_storage_buffers_per_shader_stage ≥ 33 면 Some(..), 아니면 None.
+    // controlled_1q 변종은 `apply_circuit_k32` 가 모든 Controlled1q op 를
+    // 거부하므로 (N=32 dim u32 wrap, v0.6.2) 지원 전까지 빌드하지 않는다 —
+    // shader 재설계 시 `shaders/controlled_1q_k32.wgsl` 와 함께 복원.
     single_qubit_k32: Option<Pipeline>,
     two_qubit_k32: Option<Pipeline>,
-    controlled_1q_k32: Option<Pipeline>,
     // v0.5.13: norm reduction pipeline.  ‖ψ‖² 의 GPU 계산 (workgroup partial
     // sum + CPU final).  v0.5.14/15 의 토대.
     norm_reduction: Pipeline,
@@ -532,7 +536,11 @@ impl WgpuStatevectorBackend {
         // (NVIDIA / AMD desktop 만 지원, Apple Metal 31 / Intel Arc 16 / lavapipe 16 fail).
         let device_limits = device.limits();
         let k32_supported = device_limits.max_storage_buffers_per_shader_stage >= 33;
-        let (single_qubit_k32, two_qubit_k32, controlled_1q_k32) = if k32_supported {
+        // controlled_1q_k32 는 빌드하지 않음 (v1.4 dead-code 정리):
+        // `apply_circuit_k32` 가 모든 Controlled1q op 를 명시 거부하므로
+        // (N=32 에서 `dim as u32` 가 0 으로 wrap — apply_circuit_k32 의
+        // Controlled1q 거부 분기 참조) 지원 전까지 init 비용을 지불하지 않는다.
+        let (single_qubit_k32, two_qubit_k32) = if k32_supported {
             (
                 Some(build_pipeline_kn(
                     &device,
@@ -546,15 +554,9 @@ impl WgpuStatevectorBackend {
                     include_str!("shaders/two_qubit_k32.wgsl"),
                     32,
                 )),
-                Some(build_pipeline_kn(
-                    &device,
-                    "controlled_1q_k32",
-                    include_str!("shaders/controlled_1q_k32.wgsl"),
-                    32,
-                )),
             )
         } else {
-            (None, None, None)
+            (None, None)
         };
         // v0.5.13: norm reduction pipeline.
         let norm_reduction = build_pipeline_norm_reduction(
@@ -602,7 +604,6 @@ impl WgpuStatevectorBackend {
             controlled_1q_k16,
             single_qubit_k32,
             two_qubit_k32,
-            controlled_1q_k32,
             norm_reduction,
             collapse_renormalize,
             qubit_prob_reduction,
@@ -1292,7 +1293,7 @@ impl WgpuStatevectorBackend {
     ///
     /// statevector 를 두 buffer (state_lo / state_hi) 로 분할 — 각 buffer
     /// length = 2^(n_qubits - 1).  shader 가 same-buffer / cross-buffer 동적
-    /// 분기로 처리 (split_target / split_q1 / split_ctrl / split_tgt uniform).
+    /// 분기로 처리 (split_target / split_q1 / split_tgt uniform).
     fn apply_circuit_k2(
         &self,
         state: &mut [Complex<f32>],
@@ -1445,10 +1446,10 @@ impl WgpuStatevectorBackend {
                         tgt_stride: 1u32 << tgt,
                         n_amplitudes: dim as u32,
                         half_dim: half_dim as u32,
-                        split_ctrl: if *ctrl == split_bit { 1 } else { 0 },
                         split_tgt: if *tgt == split_bit { 1 } else { 0 },
                         dispatches_x,
                         _pad0: 0,
+                        _pad1: 0,
                         m00: [matrix[0][0].re, matrix[0][0].im],
                         m01: [matrix[0][1].re, matrix[0][1].im],
                         m10: [matrix[1][0].re, matrix[1][0].im],
@@ -2044,12 +2045,13 @@ impl WgpuStatevectorBackend {
     /// layout (`array<vec2<f32>>`, length = `n_amplitudes`).  caller 가
     /// usage 에 `STORAGE | COPY_SRC` 포함했을 것.
     ///
-    /// 반환: f32 norm² 값.
+    /// 반환: norm² 값.  workgroup partial sum (f32) 들의 CPU 합산은 f64 로
+    /// 누적 (v1.4) — 큰 N 에서 수만 개 partial 의 f32 누적 오차 제거.
     pub fn compute_norm_squared(
         &self,
         state_buffer: &wgpu::Buffer,
         n_amplitudes: usize,
-    ) -> Result<f32, GpuError> {
+    ) -> Result<f64, GpuError> {
         let n_amp = n_amplitudes as u32;
         let (wg_x, wg_y, dispatches_x) = dispatch_2d(n_amp.div_ceil(64));
         let n_workgroups = (wg_x * wg_y) as usize;
@@ -2126,7 +2128,9 @@ impl WgpuStatevectorBackend {
             .map_err(|e| GpuError::Buffer(format!("map_async: {e:?}")))?;
         let data = slice.get_mapped_range();
         let partials: &[f32] = bytemuck::cast_slice(&data);
-        let total: f32 = partials.iter().take(n_workgroups).sum();
+        // v1.4: f32 partial 들을 f64 로 누적 — n_workgroups 가 클 때의
+        // floating-point 누적 오차 방지.
+        let total: f64 = partials.iter().take(n_workgroups).map(|&x| x as f64).sum();
         drop(data);
         staging.unmap();
         Ok(total)
@@ -2206,7 +2210,8 @@ impl WgpuStatevectorBackend {
     /// v0.5.15: state buffer 의 qubit 측정 prob (P(qubit=0)) 를 GPU 에서 계산.
     ///
     /// norm_reduction 의 outcome filter 변형 — `i bit qubit == 0` 인 amplitude
-    /// 만 합산해 partial sums 에 write.  CPU 가 partial sums sum.
+    /// 만 합산해 partial sums 에 write.  CPU 가 partial sums 를 f64 로 누적
+    /// (v1.4 — 누적 오차 방지).
     ///
     /// 반환값 ∈ [0, 1].  P(qubit=1) = 1 - P(qubit=0).
     pub fn compute_qubit_prob_zero(
@@ -2214,7 +2219,7 @@ impl WgpuStatevectorBackend {
         state_buffer: &wgpu::Buffer,
         n_amplitudes: usize,
         qubit: usize,
-    ) -> Result<f32, GpuError> {
+    ) -> Result<f64, GpuError> {
         let n_amp = n_amplitudes as u32;
         let (wg_x, wg_y, dispatches_x) = dispatch_2d(n_amp.div_ceil(64));
         let n_workgroups = (wg_x * wg_y) as usize;
@@ -2290,7 +2295,8 @@ impl WgpuStatevectorBackend {
             .map_err(|e| GpuError::Buffer(format!("map_async: {e:?}")))?;
         let data = slice.get_mapped_range();
         let partials: &[f32] = bytemuck::cast_slice(&data);
-        let prob: f32 = partials.iter().take(n_workgroups).sum();
+        // v1.4: f32 partial 들을 f64 로 누적 (measure path 의 prob 정밀도).
+        let prob: f64 = partials.iter().take(n_workgroups).map(|&x| x as f64).sum();
         drop(data);
         staging.unmap();
         Ok(prob.clamp(0.0, 1.0))
@@ -2317,13 +2323,18 @@ impl WgpuStatevectorBackend {
         qubit: usize,
         random_uniform: f32,
     ) -> Result<u8, GpuError> {
+        // v1.4: prob 누적/비교는 f64 — collapse shader 입력만 f32 로 변환.
         let p_zero = self.compute_qubit_prob_zero(state_buffer, n_amplitudes, qubit)?;
-        let outcome: u8 = if random_uniform < p_zero { 0 } else { 1 };
+        let outcome: u8 = if (random_uniform as f64) < p_zero {
+            0
+        } else {
+            1
+        };
         let prob = if outcome == 0 { p_zero } else { 1.0 - p_zero };
         // numerically extreme: prob ≈ 0 인 outcome 은 발생 안 해야 (random_uniform
         // 분포로 차단) — 안전장치로 epsilon clamp.
         let safe_prob = prob.max(1e-30);
-        let inv_sqrt_prob = 1.0 / safe_prob.sqrt();
+        let inv_sqrt_prob = (1.0 / safe_prob.sqrt()) as f32;
         self.collapse_qubit(state_buffer, n_amplitudes, qubit, outcome, inv_sqrt_prob)?;
         Ok(outcome)
     }
@@ -2614,10 +2625,8 @@ impl WgpuStatevectorBackend {
             .two_qubit_k32
             .as_ref()
             .ok_or_else(|| GpuError::Unsupported("K=32 pipeline 미가용".into()))?;
-        let ctrl_pl = self
-            .controlled_1q_k32
-            .as_ref()
-            .ok_or_else(|| GpuError::Unsupported("K=32 pipeline 미가용".into()))?;
+        // controlled_1q K=32 pipeline 없음 — 아래 Controlled1q 분기가 모든
+        // op 를 거부하므로 빌드 자체를 생략 (v1.4, struct 필드 주석 참조).
 
         let dim = state.len();
         let buf_dim = dim / K;
@@ -2736,46 +2745,20 @@ impl WgpuStatevectorBackend {
                     owned_bgs.push(bg);
                     dispatches.push((1, wg_x, wg_y));
                 }
-                WgpuGateOp::Controlled1q { matrix, ctrl, tgt } => {
-                    if *ctrl == *tgt || *ctrl >= n_qubits || *tgt >= n_qubits {
-                        return Err(GpuError::Unsupported(format!(
-                            "Controlled1q: ctrl={ctrl} tgt={tgt} 잘못됨"
-                        )));
-                    }
+                WgpuGateOp::Controlled1q { ctrl, tgt, .. } => {
                     // v0.6.2: K=32 controlled_1q shader 는 amplitude index 전체
                     // ([0, dim)) 를 work-unit 으로 사용한다.  N=32 (dim=2^32) 에서
                     // `dim as u32` 가 0 wrap → 모든 thread silent return.  shader
                     // re-design (work-unit 을 valid pair 단위로) 은 후속 PR 에서
                     // 별도 처리 — 우선 silent corruption 방지를 위해 명시 reject.
-                    if n_qubits >= 32 {
-                        return Err(GpuError::Unsupported(format!(
-                            "Controlled1q gate on N={n_qubits} (K=32 path) 는 \
-                             v0.6.2 에서 미지원 — N≤31 까지 사용하거나 transpile \
-                             로 single-qubit + Z 분해 후 실행하세요. 자세한 내용은 \
-                             docs/v0.6.2-postmortem.md 참고."
-                        )));
-                    }
-                    let total = dim as u32;
-                    let (wg_x, wg_y, dispatches_x) = dispatch_2d(total.div_ceil(64));
-                    let uniforms = Controlled1qK32Uniforms {
-                        ctrl_bit: 1u32 << ctrl,
-                        tgt_stride: 1u32 << tgt,
-                        n_amplitudes: dim as u32,
-                        offset_bits,
-                        offset_mask,
-                        dispatches_x,
-                        _pad0: 0,
-                        _pad1: 0,
-                        m00: [matrix[0][0].re, matrix[0][0].im],
-                        m01: [matrix[0][1].re, matrix[0][1].im],
-                        m10: [matrix[1][0].re, matrix[1][0].im],
-                        m11: [matrix[1][1].re, matrix[1][1].im],
-                    };
-                    let ubuf = self.create_uniform_buffer(bytemuck::bytes_of(&uniforms));
-                    let bg = self.create_bind_group_kn(&ctrl_pl.bgl, &storages, &ubuf, K, "k32 bg");
-                    owned_bufs.push(ubuf);
-                    owned_bgs.push(bg);
-                    dispatches.push((2, wg_x, wg_y));
+                    // (v1.4: 이 거부로 controlled_1q_k32 pipeline 은 빌드도 생략 —
+                    // `WgpuStatevectorBackend::new` 의 k32 분기 주석 참조.)
+                    return Err(GpuError::Unsupported(format!(
+                        "Controlled1q gate (ctrl={ctrl} tgt={tgt}) on N={n_qubits} \
+                         (K=32 path) 는 v0.6.2 에서 미지원 — N≤31 까지 사용하거나 \
+                         transpile 로 single-qubit + Z 분해 후 실행하세요. 자세한 \
+                         내용은 docs/v0.6.2-postmortem.md 참고."
+                    )));
                 }
             }
         }
@@ -2786,10 +2769,10 @@ impl WgpuStatevectorBackend {
                 label: Some("apply_circuit_k32 encoder"),
             });
         for (i, (pipeline_idx, wg_x, wg_y)) in dispatches.iter().enumerate() {
+            // Controlled1q (idx 2) 는 위에서 거부됨 — single/two 만 도달.
             let pl = match pipeline_idx {
                 0 => single_pl,
-                1 => two_pl,
-                _ => ctrl_pl,
+                _ => two_pl,
             };
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("apply_circuit_k32 op"),
@@ -3763,16 +3746,16 @@ mod tests {
     fn k32_pipeline_availability() {
         // sandbox lavapipe (Mesa) 의 max_storage_buffers_per_shader_stage = 16 →
         // K=32 pipeline = None.  사용자 NVIDIA / AMD desktop (binding ≥ 33) 에서만 Some.
+        // controlled_1q_k32 는 apply_circuit_k32 가 모든 Controlled1q 를 거부하는
+        // 동안 빌드하지 않음 (v1.4) — 필드 자체가 없다.
         let Some(b) = make_backend() else { return };
         let limit = b.device.limits().max_storage_buffers_per_shader_stage;
         if limit >= 33 {
             assert!(b.single_qubit_k32.is_some());
             assert!(b.two_qubit_k32.is_some());
-            assert!(b.controlled_1q_k32.is_some());
         } else {
             assert!(b.single_qubit_k32.is_none());
             assert!(b.two_qubit_k32.is_none());
-            assert!(b.controlled_1q_k32.is_none());
         }
     }
 
@@ -3928,6 +3911,46 @@ mod tests {
         for amp in s_k2.iter().take(8).skip(1) {
             assert!(approx(*amp, Complex::new(0.0, 0.0), 1e-6));
         }
+    }
+
+    #[test]
+    fn k2_force_n4_ctrl_split_bit() {
+        // v1.4 회귀: ctrl == split_bit (= N-1 = 3) 인 controlled-1q.
+        // (제거된 split_ctrl uniform 이 담당한다고 표기됐던 케이스 — ctrl=1
+        // amplitude pair 가 모두 hi buffer 의 same-buffer path 로 처리됨을 고정.)
+        let Some(b) = make_backend() else { return };
+        let n = 16usize;
+        // |0000⟩ → H q3 → CX(q3→q0): (|0000⟩ + |1001⟩)/√2.
+        let ops = vec![
+            WgpuGateOp::Single {
+                matrix: h(),
+                target: 3,
+            },
+            WgpuGateOp::Controlled1q {
+                matrix: x(),
+                ctrl: 3, // == split_bit
+                tgt: 0,
+            },
+        ];
+        let mut s_k2 = vec![Complex::new(0.0_f32, 0.0); n];
+        s_k2[0] = Complex::new(1.0, 0.0);
+        b.apply_circuit_k2(&mut s_k2, &ops, 4).unwrap();
+
+        // K=1 reference.
+        let mut s_k1 = vec![Complex::new(0.0_f32, 0.0); n];
+        s_k1[0] = Complex::new(1.0, 0.0);
+        b.apply_circuit(&mut s_k1, &ops).unwrap();
+        for i in 0..n {
+            assert!(
+                (s_k2[i] - s_k1[i]).norm() < 1e-6,
+                "K=2 vs K=1 mismatch at i={i}: k2={:?} k1={:?}",
+                s_k2[i],
+                s_k1[i]
+            );
+        }
+        let inv = 1.0_f32 / 2.0_f32.sqrt();
+        assert!(approx(s_k2[0], Complex::new(inv, 0.0), 1e-6));
+        assert!(approx(s_k2[9], Complex::new(inv, 0.0), 1e-6));
     }
 
     // =====================================================================

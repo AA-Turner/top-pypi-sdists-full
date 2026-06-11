@@ -176,6 +176,9 @@ class _MemoComponentWrapper:
 def create_passthrough_component_memo(
     component: Component,
 ) -> tuple[Callable[..., MemoComponent], MemoComponentDefinition]: ...
+def create_component_memo(
+    component: Component, name: str
+) -> MemoComponentDefinition: ...
 
 _MemoVarT = TypeVar("_MemoVarT")
 
@@ -192,6 +195,7 @@ __all__ = [
     "MemoComponentDefinition",
     "MemoDefinition",
     "MemoFunctionDefinition",
+    "create_component_memo",
     "create_passthrough_component_memo",
     "memo",
 ]

@@ -20,7 +20,7 @@ class Data(base.DataModelBase):
     """Input data model for :obj:`chat.bsky.group.createGroup`."""
 
     members: t.List[string_formats.Did] = Field(max_length=49)  #: Members.
-    name: str = Field(min_length=1, max_length=1280)  #: Name.
+    name: str = Field(min_length=1, max_length=500)  #: Name.
 
 
 class DataDict(t.TypedDict):

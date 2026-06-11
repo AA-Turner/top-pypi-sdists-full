@@ -13,6 +13,11 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 InventoryItemKind = Literal[
     "agent",
+    "daemon_plugin",
+    "harness",
+    "model_provider",
+    "package",
+    "prompt_pack",
     "skill",
     "mcp_server",
     "mcp_tool",
@@ -65,6 +70,34 @@ _SENSITIVE_KEY_RE = re.compile(
     re.IGNORECASE,
 )
 _SENSITIVE_VALUE_RE = re.compile(r"(?i)(gh[pousr]_[a-z0-9_]+|sk-[a-z0-9_-]+|guard_live_[a-z0-9_-]+|bearer\s+\S+)")
+_UNSAFE_PATH_MARKERS = (
+    "".join(("/", "Users", "/")),
+    "".join(("/", "home", "/")),
+    "".join(("/", "root", "/")),
+    "".join(("\\", "Users", "\\")),
+    "".join(("/", "var", "/", "folders", "/")),
+    "".join(("/", "workspace", "/")),
+    "".join(("/", "tmp", "/")),
+    "".join(("/", "etc", "/")),
+    "".join(("/", "mnt", "/")),
+)
+_SERIALIZER_UNSAFE_PATH_PATTERN = (
+    r"(?:^|[\s\"'=:({])(?:" + "|".join(re.escape(marker) for marker in _UNSAFE_PATH_MARKERS) + ")"
+)
+_SERIALIZER_UNSAFE_PATH_RE = re.compile(_SERIALIZER_UNSAFE_PATH_PATTERN, re.IGNORECASE)
+_SERIALIZER_SECRET_ASSIGNMENT_RE = re.compile(
+    r"(?i)\b(?:api[_-]?key|authorization|password|secret|token|access[_-]?token|refresh[_-]?token)\b\s*[:=]\s*(?!redacted\b)\S+",
+)
+_SERIALIZER_REDACTED_VALUE = "[REDACTED]"
+_SAFE_SERIALIZED_MARKERS = frozenset(
+    {
+        _SERIALIZER_REDACTED_VALUE,
+        "present_redacted",
+        "present",
+        "redacted",
+        "malformed_url_redacted",
+    }
+)
 _WHITESPACE_RE = re.compile(r"\s+")
 _MCP_READ_RE = re.compile(
     r"(?<![a-z0-9])(read|reads|reading|search|searches|list|lists)(?![a-z0-9])",
@@ -97,6 +130,14 @@ _MCP_PERMISSION_RE = re.compile(
 )
 _IGNORED_TREE_DIR_NAMES = {".git", ".hg", ".svn", "__pycache__", ".mypy_cache", ".ruff_cache", ".venv", "node_modules"}
 _MAX_FINGERPRINT_FILE_BYTES = 1024 * 1024
+_AIBOM_METADATA_KEYS = (
+    "instructionRole",
+    "registryIdentity",
+    "sourceLinks",
+    "sourceOfTruth",
+    "trustResolution",
+    "versionInfo",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -208,7 +249,18 @@ def serialize_inventory_snapshot(snapshot: GuardAgentInventorySnapshot) -> dict[
     payload = _safe_json(asdict(snapshot))
     if not isinstance(payload, dict):
         raise TypeError("Inventory snapshot serialization produced invalid payload.")
+    _assert_serialized_inventory_payload_safe(payload)
     return payload
+
+
+def extract_aibom_metadata_extensions(metadata: dict[str, object]) -> dict[str, object]:
+    """Return redacted AIBOM metadata extensions for CLI and inventory JSON output."""
+
+    extensions = {key: _safe_json(metadata[key]) for key in _AIBOM_METADATA_KEYS if key in metadata}
+    source_of_truth = extensions.get("sourceOfTruth")
+    if "sourceLinks" not in extensions and isinstance(source_of_truth, dict):
+        extensions["sourceLinks"] = [_safe_json(source_of_truth)]
+    return extensions
 
 
 def inventory_snapshot_from_detection(
@@ -219,16 +271,34 @@ def inventory_snapshot_from_detection(
     workspace_dir: Path | None = None,
     runtime_version: str | None = None,
     cisco_runs: tuple[object, ...] = (),
+    include_symlinks: bool = True,
+    follow_unsafe_symlinks: bool = False,
 ) -> GuardAgentInventorySnapshot:
+    from .aibom_detection import discover_shared_workspace_aibom_artifacts
+
     harness = str(getattr(detection, "harness", "unknown"))
-    artifacts = tuple(getattr(detection, "artifacts", ()))
+    artifacts = list(getattr(detection, "artifacts", ()))
+    if workspace_dir is not None:
+        existing_ids = {str(getattr(artifact, "artifact_id", "")) for artifact in artifacts}
+        for artifact in discover_shared_workspace_aibom_artifacts(
+            harness,
+            home_dir=home_dir,
+            workspace_dir=workspace_dir,
+        ):
+            if artifact.artifact_id not in existing_ids:
+                artifacts.append(artifact)
+                existing_ids.add(artifact.artifact_id)
+    artifacts = tuple(artifacts)
     items: list[GuardAgentInventoryItem] = []
     for artifact in artifacts:
         item = _item_from_artifact(
             harness,
             artifact,
+            generated_at=generated_at,
             home_dir=home_dir,
             workspace_dir=workspace_dir,
+            include_symlinks=include_symlinks,
+            follow_unsafe_symlinks=follow_unsafe_symlinks,
         )
         items.append(item)
         items.extend(_mcp_tool_items_from_artifact(harness, artifact, item))
@@ -243,12 +313,14 @@ def inventory_snapshot_from_detection(
         )
         for path in config_paths
     )
+    item_tuple = tuple(items)
     cisco_findings = _cisco_inventory_findings(
         cisco_runs,
-        items=tuple(items),
+        items=item_tuple,
         home_dir=home_dir,
         workspace_dir=workspace_dir,
     )
+    symlink_findings = _symlink_findings_from_items(harness, item_tuple) if include_symlinks else ()
     sources = (*config_sources, *_cisco_inventory_sources(cisco_runs))
     snapshot_hash = fingerprint_mapping(
         {
@@ -264,8 +336,8 @@ def inventory_snapshot_from_detection(
         agent_type=_agent_type(harness),
         generated_at=generated_at,
         runtime_version=runtime_version,
-        items=tuple(items),
-        findings=cisco_findings,
+        items=item_tuple,
+        findings=(*cisco_findings, *symlink_findings),
         sources=sources,
         redaction_report={
             "rawSecretsIncluded": False,
@@ -321,7 +393,7 @@ def redact_local_path(path: str | Path, *, home_dir: Path | None = None) -> str:
         return candidate.name
     try:
         relative = candidate.resolve().relative_to(home_dir.resolve())
-    except ValueError:
+    except (OSError, RuntimeError, ValueError):
         return candidate.name
     return f"{{home}}/{relative.as_posix()}"
 
@@ -374,14 +446,34 @@ def _item_from_artifact(
     harness: str,
     artifact: object,
     *,
+    generated_at: str,
     home_dir: Path,
     workspace_dir: Path | None,
+    include_symlinks: bool = True,
+    follow_unsafe_symlinks: bool = False,
 ) -> GuardAgentInventoryItem:
     artifact_id = str(getattr(artifact, "artifact_id", "artifact"))
     artifact_type = str(getattr(artifact, "artifact_type", "unknown"))
     name = str(getattr(artifact, "name", artifact_id))
     safe_metadata = _safe_artifact_metadata(artifact, home_dir=home_dir, workspace_dir=workspace_dir)
     item_kind = _item_kind(artifact_type)
+    safe_metadata = _apply_aibom_metadata_enrichment(
+        artifact,
+        captured_at=generated_at,
+        item_kind=item_kind,
+        metadata=safe_metadata,
+        workspace_dir=workspace_dir,
+    )
+    if include_symlinks:
+        safe_metadata = _apply_source_of_truth_metadata(
+            artifact,
+            harness=harness,
+            item_kind=item_kind,
+            metadata=safe_metadata,
+            home_dir=home_dir,
+            workspace_dir=workspace_dir,
+            follow_unsafe_symlinks=follow_unsafe_symlinks,
+        )
     semantic_text = fingerprint_mapping(
         {
             "artifact_id": artifact_id,
@@ -390,12 +482,13 @@ def _item_from_artifact(
             "metadata": safe_metadata,
         }
     )
+    content_hash = _resolve_item_content_hash(safe_metadata, semantic_text)
     return GuardAgentInventoryItem(
         item_id=artifact_id,
         item_kind=item_kind,
         display_name=name,
         source_fingerprint=fingerprint_mapping({"harness": harness, "artifact_id": artifact_id}),
-        content_hash=semantic_text,
+        content_hash=content_hash,
         capability_categories=_capabilities_for_artifact(artifact_type, safe_metadata),
         risk_level=_risk_level(safe_metadata),
         scanner_sources=("hol-detector",),
@@ -717,15 +810,154 @@ def _agent_type(value: str) -> AgentInventoryType:
 
 
 def _item_kind(artifact_type: str) -> InventoryItemKind:
-    if artifact_type in {"skill", "skill_file"}:
-        return "skill"
-    if artifact_type == "mcp_server":
-        return "mcp_server"
-    if artifact_type == "channel":
-        return "channel"
-    if artifact_type in {"gateway_config", "config"}:
-        return "agent"
-    return "plugin"
+    mapping: dict[str, InventoryItemKind] = {
+        "skill": "skill",
+        "skill_file": "skill",
+        "mcp_server": "mcp_server",
+        "mcp_tool": "mcp_tool",
+        "channel": "channel",
+        "gateway_config": "agent",
+        "config": "agent",
+        "agent": "agent",
+        "hook": "hook",
+        "instruction": "overlay",
+        "overlay": "overlay",
+        "command": "prompt_pack",
+        "extension": "plugin",
+        "plugin": "plugin",
+        "plugin-file": "plugin",
+        "repository": "repository",
+        "container_image": "container_image",
+        "policy": "policy",
+        "secret_reference": "secret_reference",
+        "network_endpoint": "network_endpoint",
+        "guard_launcher_shim": "harness",
+        "package": "package",
+        "daemon_plugin": "daemon_plugin",
+        "model_provider": "model_provider",
+        "prompt_pack": "prompt_pack",
+    }
+    return mapping.get(artifact_type, "plugin")
+
+
+def _resolve_item_content_hash(metadata: dict[str, object], semantic_text: str) -> str:
+    for key in ("content_hash", "directory_hash"):
+        candidate = metadata.get(key)
+        if isinstance(candidate, str) and candidate:
+            return candidate
+    version_info = metadata.get("versionInfo")
+    if isinstance(version_info, dict):
+        version_hash = version_info.get("contentHash")
+        if isinstance(version_hash, str) and version_hash:
+            return version_hash
+    return semantic_text
+
+
+def _safe_roots_for_inspection(
+    *,
+    home_dir: Path,
+    workspace_dir: Path | None,
+) -> tuple[Path, ...]:
+    roots: list[Path] = [home_dir]
+    if workspace_dir is not None:
+        roots.insert(0, workspace_dir)
+    return tuple(roots)
+
+
+def _apply_source_of_truth_metadata(
+    artifact: object,
+    *,
+    harness: str,
+    item_kind: InventoryItemKind,
+    metadata: dict[str, object],
+    home_dir: Path,
+    workspace_dir: Path | None,
+    follow_unsafe_symlinks: bool = False,
+) -> dict[str, object]:
+    from .aibom_symlink import inspect_aibom_source_path, source_of_truth_metadata_from_inspection
+
+    config_path = getattr(artifact, "config_path", None)
+    if not isinstance(config_path, str) or not config_path:
+        return metadata
+    path = Path(config_path)
+    if not path.is_symlink():
+        return metadata
+    inspection = inspect_aibom_source_path(
+        path,
+        safe_roots=_safe_roots_for_inspection(home_dir=home_dir, workspace_dir=workspace_dir),
+        home_dir=home_dir,
+        workspace_dir=workspace_dir,
+        follow_unsafe_symlinks=follow_unsafe_symlinks,
+    )
+    source_link_id = f"{harness}:{item_kind}:{inspection.source_fingerprint[:24]}"
+    enriched = dict(metadata)
+    enriched["sourceOfTruth"] = source_of_truth_metadata_from_inspection(
+        inspection,
+        source_link_id=source_link_id,
+    )
+    return enriched
+
+
+def _symlink_findings_from_items(
+    harness: str,
+    items: tuple[GuardAgentInventoryItem, ...],
+) -> tuple[GuardAgentInventoryFinding, ...]:
+    findings: list[GuardAgentInventoryFinding] = []
+    for item in items:
+        source_of_truth = item.metadata.get("sourceOfTruth")
+        if not isinstance(source_of_truth, dict):
+            continue
+        validation_state = source_of_truth.get("validationState")
+        if validation_state == "valid":
+            continue
+        if not isinstance(validation_state, str):
+            continue
+        severity: InventorySeverity = "high" if validation_state in {"loop", "escape_blocked"} else "medium"
+        findings.append(
+            GuardAgentInventoryFinding(
+                finding_id=f"{harness}:symlink:{item.item_id}:{validation_state}",
+                source="hol-detector",
+                severity=severity,
+                confidence="high",
+                title=f"Symlink source {validation_state.replace('_', ' ')}",
+                artifact_id=item.item_id,
+                check_id=f"aibom.symlink.{validation_state}",
+                summary=f"Inventory item references a symlink source in state {validation_state}.",
+                evidence={
+                    "validationState": validation_state,
+                    "sourceFingerprint": source_of_truth.get("sourceFingerprint"),
+                    "pathClass": source_of_truth.get("pathClass"),
+                },
+            )
+        )
+    return tuple(findings)
+
+
+def _apply_aibom_metadata_enrichment(
+    artifact: object,
+    *,
+    captured_at: str,
+    item_kind: InventoryItemKind,
+    metadata: dict[str, object],
+    workspace_dir: Path | None,
+) -> dict[str, object]:
+    from .aibom_detection import instruction_role_for_path
+    from .aibom_trust_metadata import apply_local_trust_metadata
+
+    enriched = dict(metadata)
+    if item_kind == "overlay" and "instructionRole" not in enriched:
+        config_path = getattr(artifact, "config_path", None)
+        if isinstance(config_path, str):
+            role = instruction_role_for_path(Path(config_path))
+            if role is not None:
+                enriched["instructionRole"] = role
+    return apply_local_trust_metadata(
+        artifact,
+        captured_at=captured_at,
+        item_kind=item_kind,
+        metadata=enriched,
+        workspace_dir=workspace_dir,
+    )
 
 
 def _capabilities_for_artifact(
@@ -734,6 +966,8 @@ def _capabilities_for_artifact(
 ) -> tuple[InventoryCapability, ...]:
     capabilities: set[InventoryCapability] = set()
     if artifact_type in {"skill", "skill_file"}:
+        capabilities.add("reads_files")
+    if artifact_type in {"instruction", "overlay", "command"}:
         capabilities.add("reads_files")
     if artifact_type == "mcp_server":
         capabilities.add("network_egress")
@@ -846,15 +1080,61 @@ def _redact_command_value(value: str, home_dir: Path, workspace_dir: Path | None
     return redacted
 
 
-def _safe_json(value: object) -> object:
+def _sanitize_serializer_string(
+    value: str,
+    *,
+    parent_key: str = "",
+    parent_sensitive: bool = False,
+) -> str:
+    if value in _SAFE_SERIALIZED_MARKERS:
+        return value
+    if parent_sensitive or (parent_key and _SENSITIVE_KEY_RE.search(parent_key)):
+        return _SERIALIZER_REDACTED_VALUE
+    if _SERIALIZER_UNSAFE_PATH_RE.search(value):
+        return _SERIALIZER_REDACTED_VALUE
+    if _SENSITIVE_VALUE_RE.search(value):
+        return _SERIALIZER_REDACTED_VALUE
+    if _SERIALIZER_SECRET_ASSIGNMENT_RE.search(value):
+        return _SERIALIZER_REDACTED_VALUE
+    return value
+
+
+def _assert_serialized_inventory_payload_safe(payload: object) -> None:
+    encoded = json.dumps(payload, sort_keys=True)
+    if (
+        _SERIALIZER_UNSAFE_PATH_RE.search(encoded)
+        or _SENSITIVE_VALUE_RE.search(encoded)
+        or _SERIALIZER_SECRET_ASSIGNMENT_RE.search(encoded)
+    ):
+        raise ValueError("Inventory snapshot serialization produced unsafe payload.")
+
+
+def _safe_json(
+    value: object,
+    *,
+    parent_key: str = "",
+    parent_sensitive: bool = False,
+) -> object:
+    key_sensitive = parent_sensitive or bool(parent_key and _SENSITIVE_KEY_RE.search(parent_key))
     if isinstance(value, dict):
-        return {str(key): _safe_json(item) for key, item in value.items()}
+        return {
+            _sanitize_serializer_string(str(key), parent_sensitive=parent_sensitive): _safe_json(
+                item,
+                parent_key=str(key),
+                parent_sensitive=key_sensitive,
+            )
+            for key, item in value.items()
+        }
     if isinstance(value, (list, tuple)):
-        return [_safe_json(item) for item in value]
+        return [_safe_json(item, parent_key=parent_key, parent_sensitive=parent_sensitive) for item in value]
     if isinstance(value, Path):
         return value.name
     if isinstance(value, str):
-        return value
+        return _sanitize_serializer_string(
+            value,
+            parent_key=parent_key,
+            parent_sensitive=parent_sensitive,
+        )
     return value
 
 

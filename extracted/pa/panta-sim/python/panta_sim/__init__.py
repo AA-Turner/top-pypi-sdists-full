@@ -67,7 +67,7 @@ from .variational import (
 )
 from .visualize import histogram_text, plot_bloch, plot_histogram
 
-__version__ = "1.4.0"
+__version__ = "1.4.1"
 __all__ = [
     "QuantumCircuit",
     "SimulationResult",

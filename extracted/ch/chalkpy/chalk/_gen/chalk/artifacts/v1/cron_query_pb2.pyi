@@ -44,6 +44,9 @@ class CronQuery(_message.Message):
         "num_workers",
         "input_sql",
         "unload_resolvers",
+        "max_retries",
+        "resources",
+        "environment_override",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -73,6 +76,9 @@ class CronQuery(_message.Message):
     NUM_WORKERS_FIELD_NUMBER: _ClassVar[int]
     INPUT_SQL_FIELD_NUMBER: _ClassVar[int]
     UNLOAD_RESOLVERS_FIELD_NUMBER: _ClassVar[int]
+    MAX_RETRIES_FIELD_NUMBER: _ClassVar[int]
+    RESOURCES_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
     name: str
     cron: str
     file_name: str
@@ -93,6 +99,9 @@ class CronQuery(_message.Message):
     num_workers: int
     input_sql: str
     unload_resolvers: _containers.RepeatedCompositeFieldContainer[_offline_query_pb2.UnloadResolverSpec]
+    max_retries: int
+    resources: _offline_query_pb2.ResourceRequests
+    environment_override: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -115,4 +124,7 @@ class CronQuery(_message.Message):
         num_workers: _Optional[int] = ...,
         input_sql: _Optional[str] = ...,
         unload_resolvers: _Optional[_Iterable[_Union[_offline_query_pb2.UnloadResolverSpec, _Mapping]]] = ...,
+        max_retries: _Optional[int] = ...,
+        resources: _Optional[_Union[_offline_query_pb2.ResourceRequests, _Mapping]] = ...,
+        environment_override: _Optional[str] = ...,
     ) -> None: ...

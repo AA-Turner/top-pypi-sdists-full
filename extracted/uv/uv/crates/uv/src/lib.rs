@@ -270,6 +270,12 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
     //    If found, this file is combined with the user configuration file.
     // 3. The nearest configuration file (`uv.toml` or `pyproject.toml`) in the directory tree,
     //    starting from the current directory.
+
+    // Pass the (possibly non-existent) cache dir path to the initial workspace discovery.
+    let discovery_cache = Cache::from_settings(
+        cli.top_level.cache_args.no_cache,
+        cli.top_level.cache_args.cache_dir.clone(),
+    )?;
     let workspace_cache = WorkspaceCache::default();
     let filesystem = if let Some(config_file) = cli.top_level.config_file.as_ref() {
         if config_file
@@ -288,8 +294,13 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
         FilesystemOptions::user()
             .map_err(map_settings_error)?
             .combine(FilesystemOptions::system().map_err(map_settings_error)?)
-    } else if let Ok(workspace) =
-        Workspace::discover(&project_dir, &DiscoveryOptions::default(), &workspace_cache).await
+    } else if let Ok(workspace) = Workspace::discover(
+        &project_dir,
+        &DiscoveryOptions::default(),
+        &discovery_cache,
+        &workspace_cache,
+    )
+    .await
     {
         let project =
             FilesystemOptions::find(workspace.install_path()).map_err(map_settings_error)?;
@@ -527,6 +538,7 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
         debug!("Disabling the uv cache due to `--no-cache`");
     }
     let cache = Cache::from_settings(cache_settings.no_cache, cache_settings.cache_dir)?;
+    let workspace_cache = WorkspaceCache::default();
 
     // Configure the global network settings.
     let client_builder = BaseClientBuilder::new(
@@ -707,6 +719,8 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 args.settings.index_locations,
                 args.settings.index_strategy,
                 args.settings.torch_backend,
+                args.settings.cuda_driver_version,
+                args.settings.amd_gpu_architecture,
                 args.settings.dependency_metadata,
                 args.settings.keyring_provider,
                 &client_builder.subcommand(vec!["pip".to_owned(), "compile".to_owned()]),
@@ -791,6 +805,8 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 args.settings.index_locations,
                 args.settings.index_strategy,
                 args.settings.torch_backend,
+                args.settings.cuda_driver_version,
+                args.settings.amd_gpu_architecture,
                 args.settings.dependency_metadata,
                 args.settings.keyring_provider,
                 &client_builder.subcommand(vec!["pip".to_owned(), "sync".to_owned()]),
@@ -947,6 +963,8 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 args.settings.index_locations,
                 args.settings.index_strategy,
                 args.settings.torch_backend,
+                args.settings.cuda_driver_version,
+                args.settings.amd_gpu_architecture,
                 args.settings.dependency_metadata,
                 args.settings.keyring_provider,
                 &client_builder.subcommand(vec!["pip".to_owned(), "install".to_owned()]),
@@ -1519,11 +1537,11 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 .check_refresh_conflict(&args.refresh);
 
             // Initialize the cache.
-            let cache = cache.init().await?.with_refresh(
-                args.refresh
-                    .combine(Refresh::from(args.settings.reinstall.clone()))
-                    .combine(Refresh::from(args.settings.resolver.upgrade.clone())),
-            );
+            let refresh = args
+                .refresh
+                .combine(Refresh::from(args.settings.reinstall.clone()))
+                .combine(Refresh::from(args.settings.resolver.upgrade.clone()));
+            let cache = cache.init().await?.with_refresh(refresh.clone());
 
             let mut entrypoints = Vec::with_capacity(args.with_executables_from.len());
             let mut requirements = Vec::with_capacity(
@@ -1600,6 +1618,7 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 globals.concurrency,
                 cli.top_level.no_config,
                 cache,
+                refresh,
                 &workspace_cache,
                 printer,
                 globals.preview,
@@ -1972,10 +1991,17 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 .await
             }
             WorkspaceCommand::Dir(args) => {
-                commands::dir(args.package, &project_dir, &workspace_cache, printer).await
+                commands::dir(
+                    args.package,
+                    &project_dir,
+                    &cache,
+                    &workspace_cache,
+                    printer,
+                )
+                .await
             }
             WorkspaceCommand::List(args) => {
-                commands::list(&project_dir, args.paths, &workspace_cache, printer).await
+                commands::list(&project_dir, args.paths, &cache, &workspace_cache, printer).await
             }
         },
         Commands::BuildBackend { command } => spawn_blocking(move || match command {
@@ -2331,6 +2357,34 @@ async fn run_project(
             ))
             .await
         }
+        ProjectCommand::Upgrade(args) => {
+            // Resolve the settings from the command-line arguments and workspace configuration.
+            let args = settings::UpgradeSettings::resolve(args, filesystem, environment);
+            show_settings!(args);
+
+            // Initialize the cache.
+            let cache = cache
+                .init()
+                .await?
+                .with_refresh(Refresh::from(args.settings.upgrade.clone()));
+
+            Box::pin(commands::upgrade(
+                project_dir,
+                args.package,
+                args.install_mirrors,
+                args.settings,
+                client_builder.subcommand(vec!["upgrade".to_owned()]),
+                globals.python_preference,
+                globals.python_downloads,
+                globals.concurrency,
+                no_config,
+                &cache,
+                workspace_cache,
+                printer,
+                globals.preview,
+            ))
+            .await
+        }
         ProjectCommand::Add(args) => {
             // Resolve the settings from the command-line arguments and workspace configuration.
             let mut args = settings::AddSettings::resolve(args, filesystem, environment);
@@ -2639,6 +2693,8 @@ async fn run_project(
                 args.frozen,
                 args.include_annotations,
                 args.include_header,
+                args.include_index_url,
+                args.include_find_links,
                 script,
                 args.python,
                 args.install_mirrors,

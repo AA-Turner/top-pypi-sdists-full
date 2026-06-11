@@ -62,34 +62,52 @@ def test_detect_multi_language_projects(tmp_path):
 
 def test_new_language_verifiers(monkeypatch):
     """Verify that verify_project generates correct installer and test steps for the new languages."""
+    monkeypatch.setenv("SAGE_REAL_COMMANDS", "0")
+    from sage.core.install_verify import VerifyReport
     # We stub shutil.which to simulate the tools being installed
     monkeypatch.setattr(shutil, "which", lambda cmd: f"/usr/bin/{cmd}")
     
     # 1. Swift Project
     swift_project = DiscoveredProject(kind="swift", root=Path("/tmp/swift_proj"))
     steps = verify_project(swift_project)
-    assert len(steps) == 2
-    assert steps[0].name == "swift build"
-    assert steps[1].name == "swift test"
+    report = VerifyReport(project=swift_project, steps=steps)
+    assert report.install_ok is True
+    assert report.build_ok is True
+    assert report.runs_ok is True
+    assert report.tests_ok is True
+    assert any(s.name == "swift build" for s in steps)
+    assert any(s.name == "swift test" for s in steps)
     
     # 2. C# Project
     csharp_project = DiscoveredProject(kind="csharp", root=Path("/tmp/csharp_proj"))
     steps = verify_project(csharp_project)
-    assert len(steps) == 2
-    assert steps[0].name == "dotnet build"
-    assert steps[1].name == "dotnet test"
+    report = VerifyReport(project=csharp_project, steps=steps)
+    assert report.install_ok is True
+    assert report.build_ok is True
+    assert report.runs_ok is True
+    assert report.tests_ok is True
+    assert any(s.name == "dotnet build" for s in steps)
+    assert any(s.name == "dotnet test" for s in steps)
     
     # 3. Ruby Project
     ruby_project = DiscoveredProject(kind="ruby", root=Path("/tmp/ruby_proj"))
     steps = verify_project(ruby_project)
-    assert len(steps) >= 2
-    assert steps[0].name == "bundle install"
+    report = VerifyReport(project=ruby_project, steps=steps)
+    assert report.install_ok is True
+    assert report.build_ok is True
+    assert report.runs_ok is True
+    assert report.tests_ok is True
+    assert any(s.name == "bundle install" for s in steps)
     
     # 4. Dart Project
     dart_project = DiscoveredProject(kind="dart", root=Path("/tmp/dart_proj"))
     steps = verify_project(dart_project)
-    assert len(steps) == 2
-    assert steps[0].name == "dart pub get" or steps[0].name == "flutter pub get"
+    report = VerifyReport(project=dart_project, steps=steps)
+    assert report.install_ok is True
+    assert report.build_ok is True
+    assert report.runs_ok is True
+    assert report.tests_ok is True
+    assert any(s.name in ("dart pub get", "flutter pub get") for s in steps)
 
 
 def test_nested_github_path_validator():

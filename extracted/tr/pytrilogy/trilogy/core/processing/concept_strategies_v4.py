@@ -19,13 +19,14 @@ from dataclasses import dataclass, field
 
 from trilogy.constants import logger
 from trilogy.core import graph as nx
-from trilogy.core.enums import BooleanOperator
+from trilogy.core.enums import BooleanOperator, Derivation
 from trilogy.core.env_processor import generate_graph
 from trilogy.core.graph_models import ReferenceGraph
 from trilogy.core.models.author import MultiSelectLineage, SelectLineage
 from trilogy.core.models.build import (
     BuildConcept,
     BuildConditional,
+    BuildDatasource,
     BuildGrain,
     BuildMultiSelectLineage,
     BuildRowsetItem,
@@ -35,6 +36,11 @@ from trilogy.core.models.build import (
     get_canonical_pseudonyms,
 )
 from trilogy.core.models.build_environment import BuildEnvironment
+from trilogy.core.processing.aggregate_rollup import (
+    _conditions_supported,
+    _is_additive_aggregate,
+    get_additive_rollup_concepts,
+)
 from trilogy.core.processing.discovery_utility import (
     LOGGER_PREFIX,
     depth_to_prefix,
@@ -52,6 +58,12 @@ from trilogy.core.processing.v4_helper import (
 from trilogy.core.processing.v4_helper.condition_injection import (
     ConditionSources,
     inject_condition_at_node,
+)
+from trilogy.core.processing.v4_helper.source_policy import (
+    ROWSET_SOURCE_POLICY,
+    STRICT_SOURCE_POLICY,
+    SourcePolicy,
+    source_policy_from_legacy_accept_partial,
 )
 from trilogy.utility import unique
 
@@ -72,23 +84,27 @@ class V4History(History):
     parallel, correctly-typed cache for the BuildInfo bundles v4 returns."""
 
     build_history: dict[str, BuildInfo | None] = field(default_factory=dict)
+    # Derived-connector origin addresses currently mid-plan, used by the root
+    # source planner to break the self-referential bridge recursion (a merged
+    # recursive connector whose own input search re-routes through it).
+    connectors_in_progress: set[str] = field(default_factory=set)
 
     def _v4_key(
         self,
         search: list[BuildConcept],
-        accept_partial: bool,
+        source_policy: SourcePolicy,
         conditions: list[BuildWhereClause],
     ) -> str:
-        base = "-".join(sorted(c.address for c in search)) + str(accept_partial)
+        base = "-".join(sorted(c.address for c in search)) + source_policy.cache_key
         return base + str(conditions) if conditions else base
 
     def get_build_history(
         self,
         search: list[BuildConcept],
-        accept_partial: bool,
+        source_policy: SourcePolicy,
         conditions: list[BuildWhereClause],
     ) -> BuildInfo | None | bool:
-        key = self._v4_key(search, accept_partial, conditions)
+        key = self._v4_key(search, source_policy, conditions)
         if key in self.build_history:
             node = self.build_history[key]
             return node.copy() if node else node
@@ -97,11 +113,11 @@ class V4History(History):
     def build_to_history(
         self,
         search: list[BuildConcept],
-        accept_partial: bool,
+        source_policy: SourcePolicy,
         output: BuildInfo | None,
         conditions: list[BuildWhereClause],
     ) -> None:
-        self.build_history[self._v4_key(search, accept_partial, conditions)] = output
+        self.build_history[self._v4_key(search, source_policy, conditions)] = output
 
 
 def _factory_for_history(history: "V4History") -> Factory:
@@ -115,6 +131,7 @@ def _factory_for_history(history: "V4History") -> Factory:
         canonical_build_cache=caches.canonical_build_cache,
         grain_build_cache=caches.grain_build_cache,
         pseudonym_map=caches.pseudonym_map,
+        scoped_joins=caches.scoped_joins,
     )
 
 
@@ -138,6 +155,7 @@ def _build_nested_select(
         grain_build_cache=caches.grain_build_cache,
         canonical_build_cache=caches.canonical_build_cache,
         datasource_build_cache=caches.datasource_build_cache,
+        scoped_joins=caches.scoped_joins,
     )
     return built, build_env, built.where_clause
 
@@ -374,6 +392,7 @@ def resolve_rowset(
         environment=inner_env,
         depth=depth + 1,
         g=inner_g,
+        source_policy=ROWSET_SOURCE_POLICY,
         conditions=[inner_where] if inner_where else [],
     )
     inner_node = inner_info.strategy_node
@@ -498,29 +517,121 @@ def resolve_rowset(
     return boundary
 
 
-def _search_concepts(
+def _combine_conditions(
+    conditions: list[BuildWhereClause],
+) -> BuildWhereClause | None:
+    if not conditions:
+        return None
+    combined = conditions[0].conditional
+    for extra in conditions[1:]:
+        combined = BuildConditional(
+            left=combined, right=extra.conditional, operator=BooleanOperator.AND
+        )
+    return BuildWhereClause(conditional=combined)
+
+
+def _materialized_root_addresses(
+    mandatory_list: list[BuildConcept],
+    environment: BuildEnvironment,
+    conditions: list[BuildWhereClause],
+) -> frozenset[str]:
+    """Demanded derived concepts that a datasource materializes directly at the
+    exact target grain — a precomputed / pre-aggregated summary table. Stage 1
+    treats these as ROOT scans so v4 reads the table instead of re-deriving from
+    base. Gated by `_conditions_supported`: a row-narrowing filter the summary
+    can't express (e.g. a predicate below its grain) makes the precomputed value
+    wrong, so the concept stays derived and the filter is applied over base.
+
+    Matching rule: an AGGREGATE matches a datasource column by `canonical_address`
+    so an inline `sum(x)` reuses the table that binds its named equivalent. Any
+    other derived concept must match by real `address` — a canonical match there
+    can be a merge-pseudonym (`merge orid into ~orid_2`) whose own lineage (e.g. an
+    unnest) the datasource does not actually materialize, which would drop rows.
+
+    Additive rollup: an additive AGGREGATE (sum/count) that no datasource has at
+    the exact grain, but a *finer*-grain table binds (by canonical address), is
+    also treated as a root scanned from that finer table — `_group_to_grain_if_required`
+    then re-aggregates it to the target grain (`sum(finer.col)`). Scoped to
+    address-bound aggregates so the SUM has a real source column to read."""
+    if not mandatory_list:
+        return frozenset()
+    target_grain = BuildGrain.from_concepts(mandatory_list)
+    where = _combine_conditions(conditions)
+    datasources = [
+        ds for ds in environment.datasources.values() if isinstance(ds, BuildDatasource)
+    ]
+    out: set[str] = set()
+    for concept in mandatory_list:
+        # Only short-circuit derivations whose value is fully captured by a
+        # datasource row: a precomputed AGGREGATE or a scalar BASIC. Row-shaping
+        # derivations (UNNEST/ROWSET/RECURSIVE/FILTER/WINDOW/...) generate or
+        # drop rows the datasource scan wouldn't reproduce — e.g. an unnest
+        # merged onto a key (`merge orid into ~orid_2`) is exposed by the table
+        # as that key but really spans more rows.
+        if concept.derivation not in (Derivation.AGGREGATE, Derivation.BASIC):
+            continue
+        is_aggregate = concept.derivation == Derivation.AGGREGATE
+        # EXACT: a datasource at the target grain binds the concept itself.
+        exact = False
+        if concept.canonical_address in environment.materialized_canonical_concepts:
+            for ds in datasources:
+                if ds.grain != target_grain:
+                    continue
+                if is_aggregate:
+                    matched = concept.canonical_address in {
+                        c.canonical_address for c in ds.output_concepts
+                    }
+                else:
+                    matched = concept.address in {c.address for c in ds.output_concepts}
+                if matched and _conditions_supported(ds, where, environment.concepts):
+                    out.add(concept.address)
+                    exact = True
+                    break
+        if exact or not (is_aggregate and _is_additive_aggregate(concept)):
+            continue
+        # ROLLUP: a finer-grain table binds the same named concept (matched by
+        # address, since the finer instance has a different grain canonical), and
+        # the additive aggregate can be SUM-rolled up to the target grain.
+        #
+        # Marking the concept a root lets source-planning pick a table binding
+        # it. `get_additive_rollup_concepts` below is passed the filter and only
+        # matches a datasource whose grain can express it (`_conditions_supported`):
+        # a group-level filter (constant within a target-grain group) matches any
+        # coarser/exact table, while a finer filter (`order_date` below a
+        # `customer_id` grain) only matches a finer summary that carries the
+        # column — `plan_source._plan_finer_filter_rollup` then pins that table,
+        # pushes the filter pre-aggregation, and SUM-rolls. A coarser table is
+        # never matched under a finer filter, so post-rollup decoupling can't
+        # double-count.
+        for ds in datasources:
+            if concept.address not in {c.address for c in ds.output_concepts}:
+                continue
+            rolled = get_additive_rollup_concepts(
+                datasource=ds,
+                requested_concepts=mandatory_list,
+                concepts_by_address=environment.concepts,
+                datasources=datasources,
+                target_grain=target_grain,
+                conditions=where,
+            )
+            if any(r.address == concept.address for r in rolled):
+                out.add(concept.address)
+                break
+    return frozenset(out)
+
+
+def _build_from_graph(
     mandatory_list: list[BuildConcept],
     environment: BuildEnvironment,
     depth: int,
     g: ReferenceGraph,
     history: "V4History",
     conditions: list[BuildWhereClause],
-    accept_partial: bool = False,
+    source_policy: SourcePolicy,
+    materialized_roots: frozenset[str],
 ) -> BuildInfo:
-    # A top-level multiselect (merge/align) isn't a single source graph — its
-    # arms are independent sub-plans joined on the alignment concept. Resolve
-    # each arm through v4 and stitch them, rather than trying to source both
-    # arms' columns from one (unjoinable) root scan.
-    ms_concept = next(
-        (c for c in mandatory_list if isinstance(c.lineage, BuildMultiSelectLineage)),
-        None,
-    )
-    if ms_concept is not None:
-        return _resolve_multiselect(
-            ms_concept, mandatory_list, environment, depth, g, history, conditions
-        )
     concept_graph, concept_attrs, concept_edges = build_concept_graph(
-        mandatory_list, environment, conditions
+        mandatory_list, environment, conditions, materialized_roots
     )
     datasource_columns = [
         frozenset(c.address for c in ds.output_concepts)
@@ -542,7 +653,14 @@ def _search_concepts(
         return_merged_graph=True,
     )
     strategy_node = build_strategy_node(
-        group_graph, group_edges, group_attrs, mandatory_list, environment, g, history
+        group_graph,
+        group_edges,
+        group_attrs,
+        mandatory_list,
+        environment,
+        g,
+        history,
+        source_policy=source_policy,
     )
     return BuildInfo(
         concept_graph=concept_graph,
@@ -557,6 +675,58 @@ def _search_concepts(
     )
 
 
+def _search_concepts(
+    mandatory_list: list[BuildConcept],
+    environment: BuildEnvironment,
+    depth: int,
+    g: ReferenceGraph,
+    history: "V4History",
+    conditions: list[BuildWhereClause],
+    source_policy: SourcePolicy = STRICT_SOURCE_POLICY,
+) -> BuildInfo:
+    # A top-level multiselect (merge/align) isn't a single source graph — its
+    # arms are independent sub-plans joined on the alignment concept. Resolve
+    # each arm through v4 and stitch them, rather than trying to source both
+    # arms' columns from one (unjoinable) root scan.
+    ms_concept = next(
+        (c for c in mandatory_list if isinstance(c.lineage, BuildMultiSelectLineage)),
+        None,
+    )
+    if ms_concept is not None:
+        return _resolve_multiselect(
+            ms_concept, mandatory_list, environment, depth, g, history, conditions
+        )
+    # Prefer a precomputed/summary datasource for any demanded aggregate it
+    # materializes at grain. If treating those as roots can't be sourced (the
+    # summary doesn't combine with the rest of the query), fall back to the
+    # derive-from-base plan — mirrors v3 trying the direct source first.
+    materialized_roots = _materialized_root_addresses(
+        mandatory_list, environment, conditions
+    )
+    info = _build_from_graph(
+        mandatory_list,
+        environment,
+        depth,
+        g,
+        history,
+        conditions,
+        source_policy,
+        materialized_roots,
+    )
+    if materialized_roots and info.strategy_node is None:
+        info = _build_from_graph(
+            mandatory_list,
+            environment,
+            depth,
+            g,
+            history,
+            conditions,
+            source_policy,
+            frozenset(),
+        )
+    return info
+
+
 def search_concepts(
     mandatory_list: list[BuildConcept],
     history: V4History,
@@ -564,19 +734,26 @@ def search_concepts(
     depth: int,
     g: ReferenceGraph,
     accept_partial: bool = False,
+    source_policy: SourcePolicy | None = None,
     conditions: list[BuildWhereClause] | None = None,
 ) -> BuildInfo:
     """Run the v4 planner against `mandatory_list` under `conditions`. Cached
-    per `(mandatory_list, accept_partial, conditions)` via `history`."""
+    per `(mandatory_list, source_policy, conditions)` via `history`."""
     conditions = conditions or []
+    active_policy = source_policy or source_policy_from_legacy_accept_partial(
+        accept_partial
+    )
     hist = history.get_build_history(
-        search=mandatory_list, accept_partial=accept_partial, conditions=conditions
+        search=mandatory_list,
+        source_policy=active_policy,
+        conditions=conditions,
     )
     if hist is not False:
         logger.info(
             f"{depth_to_prefix(depth)}{LOGGER_PREFIX} Returning search node from "
             f"history ({'exists' if hist is not None else 'does not exist'}) for "
-            f"{[c.address for c in mandatory_list]} with accept_partial {accept_partial}"
+            f"{[c.address for c in mandatory_list]} with source_policy "
+            f"{active_policy.cache_key}"
         )
         assert isinstance(hist, BuildInfo)
         return hist
@@ -586,14 +763,14 @@ def search_concepts(
         environment,
         depth=depth,
         g=g,
-        accept_partial=accept_partial,
+        source_policy=active_policy,
         history=history,
         conditions=conditions,
     )
     # a node may be mutated after being cached; always store a copy
     history.build_to_history(
         mandatory_list,
-        accept_partial,
+        active_policy,
         result.copy(),
         conditions=conditions,
     )

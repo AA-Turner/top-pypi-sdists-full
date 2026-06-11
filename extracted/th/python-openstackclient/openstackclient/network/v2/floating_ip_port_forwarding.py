@@ -18,10 +18,12 @@ import logging
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from openstack.network.v2 import port_forwarding as _port_forwarding
 from osc_lib import exceptions
 from osc_lib import utils
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.network import common
 
@@ -91,7 +93,9 @@ def validate_port(port: int) -> None:
         raise exceptions.CommandError(msg)
 
 
-def _get_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_columns(
+    item: _port_forwarding.PortForwarding,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     hidden_columns = ['location', 'tenant_id']
     return utils.get_osc_show_columns_for_sdk_resource(
         item, {}, hidden_columns
@@ -294,7 +298,7 @@ class ListFloatingIPPortForwarding(command.Lister):
                 "specified protocol number"
             ),
         )
-
+        pagination.add_marker_pagination_option_to_parser(parser)
         return parser
 
     def take_action(
@@ -340,6 +344,12 @@ class ListFloatingIPPortForwarding(command.Lister):
                 )
         if parsed_args.protocol is not None:
             query['protocol'] = parsed_args.protocol
+        if parsed_args.marker is not None:
+            query['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            query['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            query['max_items'] = parsed_args.max_items
 
         obj = client.find_ip(
             parsed_args.floating_ip,

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "docling-slim"
-version = "2.100.0"  # DO NOT EDIT, updated automatically
+version = "2.101.0"  # DO NOT EDIT, updated automatically
 description = "Modular version of the Docling package: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications."
 license = "MIT"
 keywords = [
@@ -326,6 +326,8 @@ members = ["packages/docling"]
 
 [tool.uv.sources]
 docling = { workspace = true }
+# docling-core = { git = "https://github.com/docling-project/docling-core/", rev = "main" }
+
 
 [tool.uv]
 package = true

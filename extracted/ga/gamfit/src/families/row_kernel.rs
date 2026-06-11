@@ -28,10 +28,20 @@ use std::sync::Arc;
 
 /// Minimum row count that justifies periodic loop-progress logging from
 /// `build_row_kernel_cache`. Below this, the cache build finishes in
-/// well under a second on biobank-scale hardware and the progress ticker
+/// well under a second on large-scale hardware and the progress ticker
 /// machinery is pure noise. Above this, a silent multi-minute build is
 /// the documented failure mode this logging exists to expose.
 const ROW_KERNEL_CACHE_PROGRESS_MIN_ROWS: usize = 100_000;
+const ARROW_ROW_CHUNK: usize = 256;
+
+#[inline]
+fn arrow_row_chunk_count(n_rows: usize) -> usize {
+    if n_rows == 0 {
+        0
+    } else {
+        (n_rows - 1) / ARROW_ROW_CHUNK + 1
+    }
+}
 
 // ── Row selector ─────────────────────────────────────────────────────
 //
@@ -130,10 +140,21 @@ impl RowSet {
     {
         match self {
             Self::All => {
-                (0..n_total).into_par_iter().for_each(|i| body(i, 1.0));
+                let chunks = arrow_row_chunk_count(n_total);
+                (0..chunks).into_par_iter().for_each(|chunk_idx| {
+                    let start = chunk_idx * ARROW_ROW_CHUNK;
+                    let end = (start + ARROW_ROW_CHUNK).min(n_total);
+                    for i in start..end {
+                        body(i, 1.0);
+                    }
+                });
             }
             Self::Subsample { rows, .. } => {
-                rows.par_iter().for_each(|r| body(r.index, r.weight));
+                rows.par_chunks(ARROW_ROW_CHUNK).for_each(|chunk| {
+                    for r in chunk {
+                        body(r.index, r.weight);
+                    }
+                });
             }
         }
     }
@@ -142,8 +163,10 @@ impl RowSet {
     /// accumulator, `fold` is the per-row update, `reduce` combines two
     /// accumulators.
     ///
-    /// Returns the reduced result. No `Vec` is allocated per call; both
-    /// branches forward directly to rayon's `par_iter` adapters.
+    /// Returns the reduced result. Both branches process fixed-size row chunks
+    /// in parallel, then combine the chunk accumulators in chunk-index order on
+    /// the caller thread. The resulting floating-point reduction tree is fixed
+    /// across Rayon worker counts and work-stealing decisions.
     #[inline]
     pub fn par_reduce_fold<T, I, F, R>(&self, n_total: usize, init: I, fold: F, reduce: R) -> T
     where
@@ -153,18 +176,47 @@ impl RowSet {
         R: Fn(T, T) -> T + Send + Sync,
     {
         match self {
-            Self::All => (0..n_total)
-                .into_par_iter()
-                .fold(&init, |acc, i| fold(acc, i, 1.0))
-                .reduce(&init, &reduce),
-            Self::Subsample { rows, .. } => rows
-                .par_iter()
-                .fold(&init, |acc, r| fold(acc, r.index, r.weight))
-                .reduce(&init, &reduce),
+            Self::All => {
+                let chunk_accumulators: Vec<T> = (0..arrow_row_chunk_count(n_total))
+                    .into_par_iter()
+                    .map(|chunk_idx| {
+                        let start = chunk_idx * ARROW_ROW_CHUNK;
+                        let end = (start + ARROW_ROW_CHUNK).min(n_total);
+                        let mut acc = init();
+                        for i in start..end {
+                            acc = fold(acc, i, 1.0);
+                        }
+                        acc
+                    })
+                    .collect();
+                let mut total = init();
+                for acc in chunk_accumulators {
+                    total = reduce(total, acc);
+                }
+                total
+            }
+            Self::Subsample { rows, .. } => {
+                let chunk_accumulators: Vec<T> = rows
+                    .par_chunks(ARROW_ROW_CHUNK)
+                    .map(|chunk| {
+                        let mut acc = init();
+                        for r in chunk {
+                            acc = fold(acc, r.index, r.weight);
+                        }
+                        acc
+                    })
+                    .collect();
+                let mut total = init();
+                for acc in chunk_accumulators {
+                    total = reduce(total, acc);
+                }
+                total
+            }
         }
     }
 
-    /// Parallel try-fold-reduce: short-circuits on the first `Err`.
+    /// Parallel try-fold over fixed-size row chunks, followed by deterministic
+    /// chunk-index-order reduction on the caller thread.
     #[inline]
     pub fn par_try_reduce_fold<T, E, I, F, R>(
         &self,
@@ -181,16 +233,60 @@ impl RowSet {
         R: Fn(T, T) -> Result<T, E> + Send + Sync,
     {
         match self {
-            Self::All => (0..n_total)
-                .into_par_iter()
-                .try_fold(&init, |acc, i| fold(acc, i, 1.0))
-                .try_reduce(&init, &reduce),
-            Self::Subsample { rows, .. } => rows
-                .par_iter()
-                .try_fold(&init, |acc, r| fold(acc, r.index, r.weight))
-                .try_reduce(&init, &reduce),
+            Self::All => {
+                let chunk_accumulators: Vec<Result<T, E>> = (0..arrow_row_chunk_count(n_total))
+                    .into_par_iter()
+                    .map(|chunk_idx| {
+                        let start = chunk_idx * ARROW_ROW_CHUNK;
+                        let end = (start + ARROW_ROW_CHUNK).min(n_total);
+                        let mut acc = init();
+                        for i in start..end {
+                            acc = fold(acc, i, 1.0)?;
+                        }
+                        Ok(acc)
+                    })
+                    .collect();
+                let mut total = init();
+                for acc in chunk_accumulators {
+                    total = reduce(total, acc?)?;
+                }
+                Ok(total)
+            }
+            Self::Subsample { rows, .. } => {
+                let chunk_accumulators: Vec<Result<T, E>> = rows
+                    .par_chunks(ARROW_ROW_CHUNK)
+                    .map(|chunk| {
+                        let mut acc = init();
+                        for r in chunk {
+                            acc = fold(acc, r.index, r.weight)?;
+                        }
+                        Ok(acc)
+                    })
+                    .collect();
+                let mut total = init();
+                for acc in chunk_accumulators {
+                    total = reduce(total, acc?)?;
+                }
+                Ok(total)
+            }
         }
     }
+}
+
+#[inline]
+fn deterministic_chunked_sum<F>(n_items: usize, map_chunk: F) -> f64
+where
+    F: Fn(usize) -> f64 + Send + Sync,
+{
+    let partials: Vec<f64> = (0..arrow_row_chunk_count(n_items))
+        .into_par_iter()
+        .map(map_chunk)
+        .collect();
+    let mut total = 0.0_f64;
+    for partial in partials {
+        total += partial;
+    }
+    total
 }
 
 // ── Trait ────────────────────────────────────────────────────────────
@@ -345,7 +441,7 @@ pub struct RowKernelCache<const K: usize> {
 /// Errors short-circuit via `Result` collection — the first failing row's
 /// `Err` is returned and remaining work is dropped.
 ///
-/// At biobank scale (n ≳ 3·10⁵) the per-row kernels for survival/GAMLSS
+/// At large scale (n ≳ 3·10⁵) the per-row kernels for survival/GAMLSS
 /// families dominate this build (multiple `exp`/`erf`/special calls per
 /// row); serial evaluation was the last sequential step in the otherwise
 /// fully-parallel row-kernel framework.
@@ -366,58 +462,75 @@ pub fn build_row_kernel_cache<const K: usize>(
         (work_count >= ROW_KERNEL_CACHE_PROGRESS_MIN_ROWS).then(LoopProgress::default_interval);
     match rows {
         RowSet::All => {
-            let evaluated: Vec<(f64, [f64; K], [[f64; K]; K])> = (0..n)
-                .into_par_iter()
-                .map(|row| {
-                    let out = kern.row_kernel(row);
-                    if let Some(ticker) = progress_ticker.as_ref() {
-                        ticker.tick(1, |progress, elapsed| {
-                            log::info!(
-                                "[STAGE] row-kernel cache (all) progress={}/{} ({:.1}%) elapsed={:.1}s threads={}",
-                                progress.min(n),
-                                n,
-                                100.0 * progress.min(n) as f64 / n.max(1) as f64,
-                                elapsed,
-                                rayon::current_num_threads(),
-                            );
-                        });
-                    }
-                    out
-                })
-                .collect::<Result<Vec<_>, String>>()?;
-            for (i, (l, g, h)) in evaluated.into_iter().enumerate() {
-                nll[i] = l;
-                gradients[i] = g;
-                hessians[i] = h;
+            let evaluated_chunks: Vec<Vec<(f64, [f64; K], [[f64; K]; K])>> =
+                (0..arrow_row_chunk_count(n))
+                    .into_par_iter()
+                    .map(|chunk_idx| {
+                        let start = chunk_idx * ARROW_ROW_CHUNK;
+                        let end = (start + ARROW_ROW_CHUNK).min(n);
+                        let mut chunk = Vec::with_capacity(end - start);
+                        for row in start..end {
+                            let out = kern.row_kernel(row)?;
+                            if let Some(ticker) = progress_ticker.as_ref() {
+                                ticker.tick(1, |progress, elapsed| {
+                                    log::info!(
+                                        "[STAGE] row-kernel cache (all) progress={}/{} ({:.1}%) elapsed={:.1}s threads={}",
+                                        progress.min(n),
+                                        n,
+                                        100.0 * progress.min(n) as f64 / n.max(1) as f64,
+                                        elapsed,
+                                        rayon::current_num_threads(),
+                                    );
+                                });
+                            }
+                            chunk.push(out);
+                        }
+                        Ok(chunk)
+                    })
+                    .collect::<Result<Vec<_>, String>>()?;
+            for (chunk_idx, chunk) in evaluated_chunks.into_iter().enumerate() {
+                let start = chunk_idx * ARROW_ROW_CHUNK;
+                for (local, (l, g, h)) in chunk.into_iter().enumerate() {
+                    let i = start + local;
+                    nll[i] = l;
+                    gradients[i] = g;
+                    hessians[i] = h;
+                }
             }
         }
         RowSet::Subsample { rows: list, .. } => {
             // Evaluate only the sampled rows in parallel; scatter into
             // the n-sized cache slots keyed by their full-data index.
             let total = list.len();
-            let pairs: Vec<(usize, (f64, [f64; K], [[f64; K]; K]))> = list
-                .par_iter()
-                .map(|r| {
-                    let out = kern.row_kernel(r.index).map(|out| (r.index, out));
-                    if let Some(ticker) = progress_ticker.as_ref() {
-                        ticker.tick(1, |progress, elapsed| {
-                            log::info!(
-                                "[STAGE] row-kernel cache (subsample) progress={}/{} ({:.1}%) elapsed={:.1}s threads={}",
-                                progress.min(total),
-                                total,
-                                100.0 * progress.min(total) as f64 / total.max(1) as f64,
-                                elapsed,
-                                rayon::current_num_threads(),
-                            );
-                        });
+            let pair_chunks: Vec<Vec<(usize, (f64, [f64; K], [[f64; K]; K]))>> = list
+                .par_chunks(ARROW_ROW_CHUNK)
+                .map(|row_chunk| {
+                    let mut chunk = Vec::with_capacity(row_chunk.len());
+                    for r in row_chunk {
+                        let out = kern.row_kernel(r.index).map(|out| (r.index, out))?;
+                        if let Some(ticker) = progress_ticker.as_ref() {
+                            ticker.tick(1, |progress, elapsed| {
+                                log::info!(
+                                    "[STAGE] row-kernel cache (subsample) progress={}/{} ({:.1}%) elapsed={:.1}s threads={}",
+                                    progress.min(total),
+                                    total,
+                                    100.0 * progress.min(total) as f64 / total.max(1) as f64,
+                                    elapsed,
+                                    rayon::current_num_threads(),
+                                );
+                            });
+                        }
+                        chunk.push(out);
                     }
-                    out
+                    Ok(chunk)
                 })
                 .collect::<Result<Vec<_>, String>>()?;
-            for (idx, (l, g, h)) in pairs {
-                nll[idx] = l;
-                gradients[idx] = g;
-                hessians[idx] = h;
+            for chunk in pair_chunks {
+                for (idx, (l, g, h)) in chunk {
+                    nll[idx] = l;
+                    gradients[idx] = g;
+                    hessians[idx] = h;
+                }
             }
         }
     }
@@ -732,7 +845,7 @@ impl<const K: usize, T: RowKernel<K>> HyperOperator
     /// `T_r = row_third_contracted(row, J_r · self.direction)` per row. The
     /// `T_r` matrix only depends on `self.direction` — which is fixed for the
     /// operator — so the rank-many recomputations are pure waste. On the
-    /// biobank-shape margslope-aniso-duchon16d shard the
+    /// large-scale margslope-aniso-duchon16d shard the
     /// `BernoulliRigidRowKernel::row_third_contracted` evaluation (the closed-form
     /// IFT third-derivative tensor, which re-solves the per-row intercept and
     /// sweeps the grid moments) dominates the per-axis trace, with `rank≈p≈95`
@@ -760,13 +873,13 @@ impl<const K: usize, T: RowKernel<K>> HyperOperator
         self.trace_projected_factor_with_jf(factor, jf.view())
     }
 
-    /// Cached variant — biobank-scale hot path. Within one outer iter
+    /// Cached variant — large-scale hot path. Within one outer iter
     /// `factor = g_factor` (or `w_factor`) is fixed and ~2000 trace calls
     /// against operators sharing the same kernel `Arc` recompute the same
     /// `n × rank` projection `J · F` redundantly. Caching keyed on
     /// `(Arc::as_ptr(kern), factor)` collapses all of those to a single
     /// row-streamed `J · F` build per outer iter; with `p_block = 24` at
-    /// biobank shape this is ~24× per trace, turning the ~30 min trace
+    /// large-scale shape this is ~24× per trace, turning the ~30 min trace
     /// pile into ~1.5 min.
     fn trace_projected_factor_cached(
         &self,
@@ -788,7 +901,7 @@ impl<const K: usize, T: RowKernel<K>> HyperOperator
     /// The default `HyperOperator::projected_matrix` routes through
     /// `mul_mat`, which does `rank` independent `mul_vec` calls each
     /// firing its own `par_reduce_fold` over n rows and recomputing
-    /// `row_third_contracted(row, J_r·direction)` per row. At biobank
+    /// `row_third_contracted(row, J_r·direction)` per row. At large-scale
     /// shape (n ≈ 1e5, rank ≈ 80) that's `n × rank` jet evaluations =
     /// ~8M per call — and `projected_matrix` is called multiple times
     /// per outer eval. Measured 3 s/call at N=100K.
@@ -830,7 +943,7 @@ impl<const K: usize, T: RowKernel<K>> HyperOperator
         //
         // The override reorganises `Fᵀ B F` into K(K+1)/2 weighted
         // matrix-matrix products + one per-row jet sweep, which is a
-        // big win at biobank scale (n ≥ 1e4, where the default
+        // big win at large scale (n ≥ 1e4, where the default
         // mul_mat path's `rank × n` jet evaluations dominate). At
         // small n the BLAS-3 setup cost (per-row T tensor allocation,
         // axis-block copies for contiguous matmul layout, output
@@ -1023,9 +1136,11 @@ impl<const K: usize, T: RowKernel<K>> RowKernelDirectionalDerivativeOperator<K, 
         assert_eq!(jf.dim(), (n_rows, K * rank));
         let direction = self.direction.as_slice();
 
-        (0..n_rows)
-            .into_par_iter()
-            .map(|row| -> f64 {
+        deterministic_chunked_sum(n_rows, |chunk_idx| -> f64 {
+            let start = chunk_idx * ARROW_ROW_CHUNK;
+            let end = (start + ARROW_ROW_CHUNK).min(n_rows);
+            let mut chunk_total = 0.0_f64;
+            for row in start..end {
                 let dir_k = self.kern.jacobian_action(row, direction);
                 let third = self
                     .kern
@@ -1052,9 +1167,10 @@ impl<const K: usize, T: RowKernel<K>> RowKernelDirectionalDerivativeOperator<K, 
                     }
                     row_total += quad;
                 }
-                row_total
-            })
-            .sum()
+                chunk_total += row_total;
+            }
+            chunk_total
+        })
     }
 }
 
@@ -1192,9 +1308,11 @@ impl<const K: usize, T: RowKernel<K>> RowKernelSecondDirectionalDerivativeOperat
         let direction_u = self.direction_u.as_slice();
         let direction_v = self.direction_v.as_slice();
 
-        (0..n_rows)
-            .into_par_iter()
-            .map(|row| -> f64 {
+        deterministic_chunked_sum(n_rows, |chunk_idx| -> f64 {
+            let start = chunk_idx * ARROW_ROW_CHUNK;
+            let end = (start + ARROW_ROW_CHUNK).min(n_rows);
+            let mut chunk_total = 0.0_f64;
+            for row in start..end {
                 let dir_u = self.kern.jacobian_action(row, direction_u);
                 let dir_v = self.kern.jacobian_action(row, direction_v);
                 let fourth = self.kern.row_fourth_contracted(row, &dir_u, &dir_v).expect(
@@ -1220,9 +1338,10 @@ impl<const K: usize, T: RowKernel<K>> RowKernelSecondDirectionalDerivativeOperat
                     }
                     row_total += quad;
                 }
-                row_total
-            })
-            .sum()
+                chunk_total += row_total;
+            }
+            chunk_total
+        })
     }
 }
 
@@ -1307,7 +1426,7 @@ impl<const K: usize, T: RowKernel<K> + 'static> ExactNewtonJointHessianWorkspace
         // calls `MatrixFreeSpdOperator::materialize_dense_operator`, which
         // rebuilds the same dense matrix by applying the Hv operator to
         // every canonical basis vector: a `p * O(n*K^2)` redundant
-        // re-stream of the row data. At biobank scale (n~320k, p~200) that
+        // re-stream of the row data. At large scale (n~320k, p~200) that
         // is hundreds of seconds of pure waste per outer-Hessian build.
         Ok(Some(row_kernel_hessian_dense(
             &*self.kern,

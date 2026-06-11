@@ -143,6 +143,10 @@ class Module:
     legacy_cli_commands: Optional[List[LegacyAnyscaleCommand]] = None
     legacy_sdk_commands: Optional[Dict[str, Optional[Callable]]] = None
     legacy_sdk_models: Optional[List[str]] = None
+    # When True, the entire module is skipped by the generator and excluded
+    # from the docs-side introspector. Use for internal-only modules that
+    # should remain importable but absent from public reference docs.
+    hidden: bool = False
 
 
 class MarkdownGenerator:
@@ -168,6 +172,10 @@ class MarkdownGenerator:
         Each module will generate two files:
         - Main file: contains current Models, CLI, and SDK
         - Legacy file (in legacy/ subfolder): contains legacy CLI, SDK, and Models
+
+        Modules with `hidden=True` are skipped entirely. The function and
+        model-level filters that hide individual surfaces live in
+        `_generate_clis`, `_generate_sdks`, and `_generate_models`.
         """
 
         output_files: Dict[str, str] = {}
@@ -176,6 +184,8 @@ class MarkdownGenerator:
             os.path.join(os.path.dirname(__file__), "models.md"),
         )
         for m in self._modules:
+            if getattr(m, "hidden", False):
+                continue
             # Generate main (current) documentation
             output = "import Tabs from '@theme/Tabs';\n"
             output += "import TabItem from '@theme/TabItem';\n\n"
@@ -199,10 +209,15 @@ class MarkdownGenerator:
         return output_files
 
     def _generate_sdks(self, m: Module) -> str:
-        if not m.sdk_commands:
+        # Skip SDK functions decorated with `hidden=True` — they remain
+        # callable but are absent from the public reference.
+        visible = [
+            t for t in (m.sdk_commands or []) if not getattr(t, "__hidden__", False)
+        ]
+        if not visible:
             return ""
         output = f"## {m.title} SDK\n"
-        for t in m.sdk_commands:
+        for t in visible:
             output += "\n" + self._gen_markdown_for_sdk_command(
                 t, sdk_prefix=m.sdk_prefix
             )
@@ -231,11 +246,15 @@ class MarkdownGenerator:
         return output
 
     def _generate_models(self, m: Module) -> str:
-        """Generate documentation for a list of models."""
-        if not m.models:
+        """Generate documentation for a list of models.
+
+        Models with `__hidden__ = True` set as a class attribute are skipped.
+        """
+        visible = [t for t in (m.models or []) if not getattr(t, "__hidden__", False)]
+        if not visible:
             return ""
         output = f"## {m.title} Models\n"
-        for t in m.models:
+        for t in visible:
             output += "\n" + self._gen_markdown_for_model(t)
 
         return output
@@ -265,12 +284,15 @@ class MarkdownGenerator:
     ) -> str:
         """Generate CLI documentation for a module.
 
-        Returns a tuple of CLI and legacy CLI documentation.
+        Returns a tuple of CLI and legacy CLI documentation. Commands marked
+        `hidden=True` at the Click level (`click.command(hidden=True)`) are
+        omitted so they don't appear in either `--help` or the generated docs.
         """
         commands = m.legacy_cli_commands if is_legacy_cli else m.cli_commands
         cli_prefix = m.legacy_cli_prefix if is_legacy_cli else m.cli_prefix
 
-        if not commands:
+        visible = [t for t in (commands or []) if not getattr(t, "hidden", False)]
+        if not visible:
             return ""
 
         if is_legacy_cli:
@@ -281,7 +303,7 @@ class MarkdownGenerator:
         else:
             output = f"## {m.title} CLI\n"
 
-        for t in commands or []:
+        for t in visible:
             cli_command_prefix = cli_prefix
             if m.cli_command_group_prefix and t in m.cli_command_group_prefix:
                 cli_command_prefix = f"{cli_prefix} {m.cli_command_group_prefix[t]}"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pi_heif
-Version: 1.3.0
+Version: 1.4.0
 Summary: Python interface for libheif library
 Home-page: https://github.com/bigcat88/pillow_heif
 Author: Alexander Piskun

@@ -915,7 +915,7 @@ async def _compute_bucketed_aggregates(
     parsed_aggs: list[tuple[str, str, str, str | None, Any]] = []
     for name, ref in aggregates.items():
         if not isinstance(ref, AggregateRef):
-            continue
+            continue  # DerivedMetric entries are evaluated post-query (#1359 slice 2)
         arg = ref.entity or "" if ref.func == "count" else ref.column or ""
         where_str = condition_expr_to_legacy_where(ref.where)
         parsed_aggs.append((name, ref.func, arg, where_str, ref.where))
@@ -972,7 +972,7 @@ async def _compute_bucketed_aggregates(
                 fk_target = None
                 if not is_bucket_ref:
                     fk_target = _resolve_fk_target_spec(agg_repo, group_by, repositories)
-                return await _aggregate_via_groupby(
+                rows = await _aggregate_via_groupby(
                     agg_repo,
                     measures=measures,
                     group_by=group_by,
@@ -981,6 +981,8 @@ async def _compute_bucketed_aggregates(
                     source_entity_spec=getattr(agg_repo, "entity_spec", None),
                     fk_target_spec=fk_target,
                 )
+                _apply_derived_to_bucket_rows(aggregates, rows)
+                return rows
             except Exception:
                 logger.warning(
                     "GROUP BY aggregate failed for %s.%r — falling back to N+1",
@@ -1122,6 +1124,9 @@ async def _compute_bucketed_aggregates(
                 "metrics": {metric_name: value},
             }
         )
+    # #1359 slice 2: derived metrics over each bucket's metrics (a derived
+    # over a single slow-path measure is degenerate but stays consistent).
+    _apply_derived_to_bucket_rows(aggregates, out)
     return out
 
 
@@ -1161,6 +1166,93 @@ def _bucket_key_label(value: Any) -> tuple[str, str]:
                 return key_str, str(value[field])
         return key_str, key_str
     return str(value), str(value)
+
+
+def _evaluate_derived_expr(expr: Any, values: dict[str, Any]) -> float | int:
+    """Evaluate a DerivedMetricExpr tree over aggregated scalar *values*.
+
+    Division by zero yields 0 (a dashboard ratio over an empty set reads as
+    0%, not an error); missing/None operands coerce to 0.
+    """
+    if expr.metric_name is not None:
+        v = values.get(expr.metric_name)
+        return v if isinstance(v, int | float) else 0
+    if expr.number_literal is not None:
+        literal: int | float = expr.number_literal
+        return literal
+    if expr.binary_op is not None:
+        left = _evaluate_derived_expr(expr.binary_left, values)
+        right = _evaluate_derived_expr(expr.binary_right, values)
+        if expr.binary_op == "+":
+            return left + right
+        if expr.binary_op == "-":
+            return left - right
+        if expr.binary_op == "*":
+            return left * right
+        return left / right if right else 0
+    # Function call (whitelist enforced by the IR validator).
+    args = [_evaluate_derived_expr(a, values) for a in expr.function_args]
+    if expr.function_name == "round":
+        return round(args[0], int(args[1])) if len(args) > 1 else round(args[0])
+    if expr.function_name == "abs":
+        return abs(args[0])
+    if expr.function_name == "nullif":
+        return 0 if args[0] == args[1] else args[0]
+    # coalesce — first non-zero arg (None never survives evaluation here).
+    return next((a for a in args if a), 0)
+
+
+def _apply_derived_to_bucket_rows(
+    aggregates: dict[str, Any],
+    rows: list[dict[str, Any]],
+) -> None:
+    """Evaluate DerivedMetric entries per bucket row (#1359 slice 2).
+
+    Grouped-chart rows carry ``metrics: {name: value}`` from the single
+    GROUP BY query; derived metrics compute over each bucket's own values
+    in declaration order (so a derived metric may reference an earlier
+    derived one), mutating the row's metrics dict in place. The primary
+    ``value`` stays the first *aggregate* metric — derived values ride in
+    ``metrics`` for multi-series templates.
+    """
+    from dazzle.core.ir import DerivedMetric
+
+    derived = [(n, ref) for n, ref in aggregates.items() if isinstance(ref, DerivedMetric)]
+    if not derived:
+        return
+    for row in rows:
+        metrics = row.get("metrics")
+        if not isinstance(metrics, dict):
+            continue
+        for name, ref in derived:
+            try:
+                metrics[name] = _evaluate_derived_expr(ref.expression, metrics)
+            except Exception:  # defensive — a bad tree must not kill the chart
+                logger.warning("Derived metric %r evaluation failed", name, exc_info=True)
+                metrics[name] = 0
+
+
+def _evaluate_derived_metrics(
+    aggregates: dict[str, Any],
+    sync_results: dict[str, Any],
+    metric_order: list[str],
+) -> None:
+    """Fill ``sync_results`` for DerivedMetric entries, in declaration order.
+
+    The parser guarantees a derived metric only references names declared
+    earlier in the block, so a single ordered pass resolves chains
+    (a derived metric may reference another derived metric).
+    """
+    from dazzle.core.ir import DerivedMetric
+
+    for name in metric_order:
+        ref = aggregates.get(name)
+        if isinstance(ref, DerivedMetric):
+            try:
+                sync_results[name] = _evaluate_derived_expr(ref.expression, sync_results)
+            except Exception:  # defensive — a bad tree must not kill the dashboard
+                logger.warning("Derived metric %r evaluation failed", name, exc_info=True)
+                sync_results[name] = 0
 
 
 async def _compute_aggregate_metrics(
@@ -1260,6 +1352,12 @@ async def _compute_aggregate_metrics(
                 sync_results[result[0]] = result[1]
             elif isinstance(result, BaseException):
                 logger.warning("Aggregate metric query failed: %s", result)
+
+    # #1359: derived metrics — Python arithmetic over the aggregated scalars,
+    # evaluated in declaration order AFTER all queries resolved. Zero extra
+    # queries; scope filters already applied pre-aggregation, so the
+    # one-query-per-chart scope-safety contract is untouched.
+    _evaluate_derived_metrics(aggregates, sync_results, metric_order)
 
     # Build output in original order. v0.61.65: attach per-tile `tone` from
     # the region-level `tones:` map when the metric name has an entry. The

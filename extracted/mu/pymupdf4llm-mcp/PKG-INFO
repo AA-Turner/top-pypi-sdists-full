@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: pymupdf4llm-mcp
-Version: 0.0.4
+Version: 1.27.2
 Summary: MCP Server for pymupdf4llm
 Project-URL: Homepage, https://github.com/pymupdf/pymupdf4llm-mcp/
 Project-URL: Repository, https://github.com/pymupdf/pymupdf4llm-mcp/
 Project-URL: Documentation, https://pymupdf.readthedocs.io/en/latest/pymupdf4llm/
-Author-email: Wh1isper <jizhongsheng957@gmail.com>
+Author-email: "Artifex Software, Inc." <info@artifex.com>
 License-File: LICENSE
 Keywords: python
 Classifier: Intended Audience :: Developers
@@ -19,7 +19,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <4.0,>=3.10
 Requires-Dist: mcp[cli]>=1.6.0
 Requires-Dist: pydantic>=2.11.3
-Requires-Dist: pymupdf4llm>=0.0.21
+Requires-Dist: pymupdf4llm==1.27.2.3
 Requires-Dist: typer>=0.15.2
 Description-Content-Type: text/markdown
 
@@ -57,4 +57,16 @@ Configure your cursor/windsurf/... and other MCP client to this server:
     }
   }
 }
+```
+
+## Testing
+
+Ensure you have:
+
+`pip install inline-snapshot`
+
+Then from the root folder of the repo run:
+
+```bash
+python -m pytest
 ```

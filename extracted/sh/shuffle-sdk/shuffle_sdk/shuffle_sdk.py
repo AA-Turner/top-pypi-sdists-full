@@ -3540,6 +3540,9 @@ class AppBase:
             #    self.logger.info(f"[WARNING] Failed checking startnode: {error}")
             #    #return True, ""
             #    #return True, ""
+            is_startnode = False
+            if action["id"] == fullexecution["start"]:
+                is_startnode = True 
 
             if os.getenv("DEBUG", "").lower() == "true":
                 self.logger.info("[DEBUG] Checking branch conditions for action %s" % action["id"])
@@ -3584,8 +3587,9 @@ class AppBase:
 
                             break
 
-                    if should_skip:
+                    if should_skip and not is_startnode:
                         continue
+
                 except Exception as e:
                     self.logger.info("[WARNING] Failed handling check of if parent is skipped") 
 
@@ -3669,8 +3673,20 @@ class AppBase:
         #
         if self.standalone:
             fullexecution["start"] = "standalone"
+            fullexecution["results"] = [{
+                "status": "SKIPPED",
+                "result": "tmp",
+                "action": {
+                    "name": "temporary name",
+                    "label": "temporary label",
+
+                    "id": "MATCHING_ID",
+                },
+            }]
+
             fullexecution["workflow"]["branches"] = [{
-                "source_id": "huh",
+                "source_id": "MATCHING_ID",
+
                 "destination_id": "standalone",
                 "_id": "b0170bd1-11bc-4bc0-ab2f-c09b2d55f47f",
                 "id": "b0170bd1-11bc-4bc0-ab2f-c09b2d55f47f",

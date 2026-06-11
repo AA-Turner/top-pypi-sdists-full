@@ -87,6 +87,10 @@ class _LazyFrameGroupBy:
         """Apply ``sum``"""
         return self._construct(function_name="sum")
 
+    def head(self, n: int, order_by: typing.Sequence = ()) -> "LazyFramePlaceholder":
+        """Return the first ``n`` rows per group, optionally ordered within each group."""
+        return self._construct(function_name="head", n=n, order_by=list(order_by))
+
 
 @dataclass
 class _LazyFrameGroupingSetsGroupBy:
@@ -390,6 +394,7 @@ class LazyFramePlaceholder:
         cls,
         table: str,
         *,
+        schema: typing.Optional[pyarrow.Schema] = None,
         storage_options: typing.Optional[typing.Mapping[str, str]] = None,
         snapshot_id: typing.Optional[int] = None,
     ) -> "LazyFramePlaceholder":
@@ -400,6 +405,8 @@ class LazyFramePlaceholder:
         table
             Catalog-qualified table identifier. For Glue, ``database.table``.
             Also used as the plan-node name.
+        schema
+            Optional Arrow schema. If omitted, inferred from the Iceberg catalog.
         storage_options
             Apache Iceberg catalog + FileIO properties. ``None`` uses the
             ambient catalog configuration from the host engine's environment.
@@ -415,6 +422,7 @@ class LazyFramePlaceholder:
             self_dataframe=None,
             function_name="scan_iceberg",
             table=table,
+            schema=schema,
             storage_options=storage_options,
             snapshot_id=snapshot_id,
         )
@@ -465,6 +473,7 @@ class LazyFramePlaceholder:
         return LazyFramePlaceholder._construct(
             self_dataframe=None,
             function_name="scan_glue_iceberg",
+            glue_table_name=glue_table_name,
             schema=schema,
             batch_row_count=batch_row_count,
             aws_catalog_account_id=aws_catalog_account_id,

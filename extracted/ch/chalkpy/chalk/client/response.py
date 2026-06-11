@@ -1106,6 +1106,7 @@ class Dataset(Protocol):
         timeout: float | timedelta | None | ellipsis = ...,
         skip_failed_shards: bool = False,
         translate_fqns: bool = False,
+        remove_namespace: bool = False,
     ) -> pd.DataFrame:
         """Loads a `pd.DataFrame` containing the output of the most recent revision.
 
@@ -1131,6 +1132,9 @@ class Dataset(Protocol):
             If `True`, rewrite windowed feature column names from their internal FQN format
             (e.g. `user.login_count__86400__`) to a human-readable format
             (e.g. `user.login_count["1d"]`).
+        remove_namespace
+            If True, drop the feature-namespace prefix from column names (e.g.
+            user.login_count → login_count).
 
         Returns
         -------

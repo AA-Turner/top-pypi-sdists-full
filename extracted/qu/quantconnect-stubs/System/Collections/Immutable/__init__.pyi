@@ -8,49 +8,28 @@ import System.Collections
 import System.Collections.Generic
 import System.Collections.Immutable
 
+System_Collections_Immutable_ImmutableList_Enumerator = typing.Any
 System_Collections_Immutable_ImmutableArray = typing.Any
 System_Collections_Immutable_ImmutableHashSet_Enumerator = typing.Any
 System_Collections_Immutable_ImmutableSortedSet_Enumerator = typing.Any
-System_Collections_Immutable_ImmutableList_Enumerator = typing.Any
 
+System_Collections_Immutable_ImmutableList_T = typing.TypeVar("System_Collections_Immutable_ImmutableList_T")
 System_Collections_Immutable_ImmutableArray_T = typing.TypeVar("System_Collections_Immutable_ImmutableArray_T")
+System_Collections_Immutable_ImmutableSortedDictionary_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_TValue")
+System_Collections_Immutable_ImmutableSortedDictionary_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_TKey")
 System_Collections_Immutable_IImmutableList_T = typing.TypeVar("System_Collections_Immutable_IImmutableList_T")
 System_Collections_Immutable_ImmutableHashSet_T = typing.TypeVar("System_Collections_Immutable_ImmutableHashSet_T")
 System_Collections_Immutable_ImmutableSortedSet_T = typing.TypeVar("System_Collections_Immutable_ImmutableSortedSet_T")
-System_Collections_Immutable_ImmutableList_T = typing.TypeVar("System_Collections_Immutable_ImmutableList_T")
-System_Collections_Immutable_ImmutableDictionary_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableDictionary_TValue")
-System_Collections_Immutable_ImmutableDictionary_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableDictionary_TKey")
-System_Collections_Immutable_ImmutableSortedDictionary_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_TValue")
-System_Collections_Immutable_ImmutableSortedDictionary_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_TKey")
-System_Collections_Immutable_IImmutableStack_T = typing.TypeVar("System_Collections_Immutable_IImmutableStack_T")
-System_Collections_Immutable_IImmutableQueue_T = typing.TypeVar("System_Collections_Immutable_IImmutableQueue_T")
-System_Collections_Immutable_ImmutableStack_T = typing.TypeVar("System_Collections_Immutable_ImmutableStack_T")
 System_Collections_Immutable_IImmutableDictionary_TKey = typing.TypeVar("System_Collections_Immutable_IImmutableDictionary_TKey")
 System_Collections_Immutable_IImmutableDictionary_TValue = typing.TypeVar("System_Collections_Immutable_IImmutableDictionary_TValue")
 System_Collections_Immutable_ImmutableQueue_T = typing.TypeVar("System_Collections_Immutable_ImmutableQueue_T")
+System_Collections_Immutable_ImmutableStack_T = typing.TypeVar("System_Collections_Immutable_ImmutableStack_T")
+System_Collections_Immutable_ImmutableDictionary_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableDictionary_TValue")
+System_Collections_Immutable_ImmutableDictionary_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableDictionary_TKey")
+System_Collections_Immutable_IImmutableStack_T = typing.TypeVar("System_Collections_Immutable_IImmutableStack_T")
 System_Collections_Immutable_IImmutableSet_T = typing.TypeVar("System_Collections_Immutable_IImmutableSet_T")
-System_Collections_Immutable_ImmutableArray_CastUp_TDerived = typing.TypeVar("System_Collections_Immutable_ImmutableArray_CastUp_TDerived")
-System_Collections_Immutable_ImmutableArray_CastArray_TOther = typing.TypeVar("System_Collections_Immutable_ImmutableArray_CastArray_TOther")
-System_Collections_Immutable_ImmutableArray_As_TOther = typing.TypeVar("System_Collections_Immutable_ImmutableArray_As_TOther")
-System_Collections_Immutable_ImmutableArray_Create_T = typing.TypeVar("System_Collections_Immutable_ImmutableArray_Create_T")
-System_Collections_Immutable_ImmutableArray_ToImmutableArray_T = typing.TypeVar("System_Collections_Immutable_ImmutableArray_ToImmutableArray_T")
-System_Collections_Immutable_ImmutableArray_ToImmutableArray_TSource = typing.TypeVar("System_Collections_Immutable_ImmutableArray_ToImmutableArray_TSource")
-System_Collections_Immutable_ImmutableArray_CreateRange_T = typing.TypeVar("System_Collections_Immutable_ImmutableArray_CreateRange_T")
-System_Collections_Immutable_ImmutableArray_CreateRange_TArg = typing.TypeVar("System_Collections_Immutable_ImmutableArray_CreateRange_TArg")
-System_Collections_Immutable_ImmutableArray_CreateRange_TResult = typing.TypeVar("System_Collections_Immutable_ImmutableArray_CreateRange_TResult")
-System_Collections_Immutable_ImmutableArray_CreateRange_TSource = typing.TypeVar("System_Collections_Immutable_ImmutableArray_CreateRange_TSource")
-System_Collections_Immutable_ImmutableArray_CreateBuilder_T = typing.TypeVar("System_Collections_Immutable_ImmutableArray_CreateBuilder_T")
-System_Collections_Immutable_ImmutableArray_BinarySearch_T = typing.TypeVar("System_Collections_Immutable_ImmutableArray_BinarySearch_T")
-System_Collections_Immutable_ImmutableArray_AddRange_TDerived = typing.TypeVar("System_Collections_Immutable_ImmutableArray_AddRange_TDerived")
-System_Collections_Immutable_ImmutableArray_OfType_TResult = typing.TypeVar("System_Collections_Immutable_ImmutableArray_OfType_TResult")
-System_Collections_Immutable_ImmutableHashSet_Create_T = typing.TypeVar("System_Collections_Immutable_ImmutableHashSet_Create_T")
-System_Collections_Immutable_ImmutableHashSet_CreateRange_T = typing.TypeVar("System_Collections_Immutable_ImmutableHashSet_CreateRange_T")
-System_Collections_Immutable_ImmutableHashSet_CreateBuilder_T = typing.TypeVar("System_Collections_Immutable_ImmutableHashSet_CreateBuilder_T")
-System_Collections_Immutable_ImmutableHashSet_ToImmutableHashSet_TSource = typing.TypeVar("System_Collections_Immutable_ImmutableHashSet_ToImmutableHashSet_TSource")
-System_Collections_Immutable_ImmutableSortedSet_Create_T = typing.TypeVar("System_Collections_Immutable_ImmutableSortedSet_Create_T")
-System_Collections_Immutable_ImmutableSortedSet_CreateRange_T = typing.TypeVar("System_Collections_Immutable_ImmutableSortedSet_CreateRange_T")
-System_Collections_Immutable_ImmutableSortedSet_CreateBuilder_T = typing.TypeVar("System_Collections_Immutable_ImmutableSortedSet_CreateBuilder_T")
-System_Collections_Immutable_ImmutableSortedSet_ToImmutableSortedSet_TSource = typing.TypeVar("System_Collections_Immutable_ImmutableSortedSet_ToImmutableSortedSet_TSource")
+System_Collections_Immutable_IImmutableQueue_T = typing.TypeVar("System_Collections_Immutable_IImmutableQueue_T")
+System_Collections_Immutable_ImmutableList_ConvertAll_TOutput = typing.TypeVar("System_Collections_Immutable_ImmutableList_ConvertAll_TOutput")
 System_Collections_Immutable_ImmutableList_Create_T = typing.TypeVar("System_Collections_Immutable_ImmutableList_Create_T")
 System_Collections_Immutable_ImmutableList_CreateRange_T = typing.TypeVar("System_Collections_Immutable_ImmutableList_CreateRange_T")
 System_Collections_Immutable_ImmutableList_CreateBuilder_T = typing.TypeVar("System_Collections_Immutable_ImmutableList_CreateBuilder_T")
@@ -60,7 +39,43 @@ System_Collections_Immutable_ImmutableList_Remove_T = typing.TypeVar("System_Col
 System_Collections_Immutable_ImmutableList_RemoveRange_T = typing.TypeVar("System_Collections_Immutable_ImmutableList_RemoveRange_T")
 System_Collections_Immutable_ImmutableList_IndexOf_T = typing.TypeVar("System_Collections_Immutable_ImmutableList_IndexOf_T")
 System_Collections_Immutable_ImmutableList_LastIndexOf_T = typing.TypeVar("System_Collections_Immutable_ImmutableList_LastIndexOf_T")
-System_Collections_Immutable_ImmutableList_ConvertAll_TOutput = typing.TypeVar("System_Collections_Immutable_ImmutableList_ConvertAll_TOutput")
+System_Collections_Immutable_ImmutableArray_Create_T = typing.TypeVar("System_Collections_Immutable_ImmutableArray_Create_T")
+System_Collections_Immutable_ImmutableArray_ToImmutableArray_T = typing.TypeVar("System_Collections_Immutable_ImmutableArray_ToImmutableArray_T")
+System_Collections_Immutable_ImmutableArray_ToImmutableArray_TSource = typing.TypeVar("System_Collections_Immutable_ImmutableArray_ToImmutableArray_TSource")
+System_Collections_Immutable_ImmutableArray_CreateRange_T = typing.TypeVar("System_Collections_Immutable_ImmutableArray_CreateRange_T")
+System_Collections_Immutable_ImmutableArray_CreateRange_TArg = typing.TypeVar("System_Collections_Immutable_ImmutableArray_CreateRange_TArg")
+System_Collections_Immutable_ImmutableArray_CreateRange_TResult = typing.TypeVar("System_Collections_Immutable_ImmutableArray_CreateRange_TResult")
+System_Collections_Immutable_ImmutableArray_CreateRange_TSource = typing.TypeVar("System_Collections_Immutable_ImmutableArray_CreateRange_TSource")
+System_Collections_Immutable_ImmutableArray_CreateBuilder_T = typing.TypeVar("System_Collections_Immutable_ImmutableArray_CreateBuilder_T")
+System_Collections_Immutable_ImmutableArray_BinarySearch_T = typing.TypeVar("System_Collections_Immutable_ImmutableArray_BinarySearch_T")
+System_Collections_Immutable_ImmutableArray_CastUp_TDerived = typing.TypeVar("System_Collections_Immutable_ImmutableArray_CastUp_TDerived")
+System_Collections_Immutable_ImmutableArray_CastArray_TOther = typing.TypeVar("System_Collections_Immutable_ImmutableArray_CastArray_TOther")
+System_Collections_Immutable_ImmutableArray_As_TOther = typing.TypeVar("System_Collections_Immutable_ImmutableArray_As_TOther")
+System_Collections_Immutable_ImmutableArray_AddRange_TDerived = typing.TypeVar("System_Collections_Immutable_ImmutableArray_AddRange_TDerived")
+System_Collections_Immutable_ImmutableArray_OfType_TResult = typing.TypeVar("System_Collections_Immutable_ImmutableArray_OfType_TResult")
+System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey")
+System_Collections_Immutable_ImmutableSortedDictionary_Create_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_Create_TValue")
+System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey")
+System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue")
+System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TKey")
+System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TValue")
+System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource")
+System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey")
+System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue")
+System_Collections_Immutable_ImmutableHashSet_Create_T = typing.TypeVar("System_Collections_Immutable_ImmutableHashSet_Create_T")
+System_Collections_Immutable_ImmutableHashSet_CreateRange_T = typing.TypeVar("System_Collections_Immutable_ImmutableHashSet_CreateRange_T")
+System_Collections_Immutable_ImmutableHashSet_CreateBuilder_T = typing.TypeVar("System_Collections_Immutable_ImmutableHashSet_CreateBuilder_T")
+System_Collections_Immutable_ImmutableHashSet_ToImmutableHashSet_TSource = typing.TypeVar("System_Collections_Immutable_ImmutableHashSet_ToImmutableHashSet_TSource")
+System_Collections_Immutable_ImmutableSortedSet_Create_T = typing.TypeVar("System_Collections_Immutable_ImmutableSortedSet_Create_T")
+System_Collections_Immutable_ImmutableSortedSet_CreateRange_T = typing.TypeVar("System_Collections_Immutable_ImmutableSortedSet_CreateRange_T")
+System_Collections_Immutable_ImmutableSortedSet_CreateBuilder_T = typing.TypeVar("System_Collections_Immutable_ImmutableSortedSet_CreateBuilder_T")
+System_Collections_Immutable_ImmutableSortedSet_ToImmutableSortedSet_TSource = typing.TypeVar("System_Collections_Immutable_ImmutableSortedSet_ToImmutableSortedSet_TSource")
+System_Collections_Immutable_ImmutableQueue_Create_T = typing.TypeVar("System_Collections_Immutable_ImmutableQueue_Create_T")
+System_Collections_Immutable_ImmutableQueue_CreateRange_T = typing.TypeVar("System_Collections_Immutable_ImmutableQueue_CreateRange_T")
+System_Collections_Immutable_ImmutableQueue_Dequeue_T = typing.TypeVar("System_Collections_Immutable_ImmutableQueue_Dequeue_T")
+System_Collections_Immutable_ImmutableStack_Create_T = typing.TypeVar("System_Collections_Immutable_ImmutableStack_Create_T")
+System_Collections_Immutable_ImmutableStack_CreateRange_T = typing.TypeVar("System_Collections_Immutable_ImmutableStack_CreateRange_T")
+System_Collections_Immutable_ImmutableStack_Pop_T = typing.TypeVar("System_Collections_Immutable_ImmutableStack_Pop_T")
 System_Collections_Immutable_ImmutableDictionary_Create_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableDictionary_Create_TKey")
 System_Collections_Immutable_ImmutableDictionary_Create_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableDictionary_Create_TValue")
 System_Collections_Immutable_ImmutableDictionary_CreateRange_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableDictionary_CreateRange_TKey")
@@ -76,23 +91,6 @@ System_Collections_Immutable_ImmutableDictionary_Contains_TKey = typing.TypeVar(
 System_Collections_Immutable_ImmutableDictionary_Contains_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableDictionary_Contains_TValue")
 System_Collections_Immutable_ImmutableDictionary_GetValueOrDefault_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableDictionary_GetValueOrDefault_TKey")
 System_Collections_Immutable_ImmutableDictionary_GetValueOrDefault_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableDictionary_GetValueOrDefault_TValue")
-System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey")
-System_Collections_Immutable_ImmutableSortedDictionary_Create_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_Create_TValue")
-System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey")
-System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue")
-System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TKey")
-System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TValue")
-System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource")
-System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey")
-System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue = typing.TypeVar("System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue")
-System_Collections_Immutable_ImmutableStack_Create_T = typing.TypeVar("System_Collections_Immutable_ImmutableStack_Create_T")
-System_Collections_Immutable_ImmutableStack_CreateRange_T = typing.TypeVar("System_Collections_Immutable_ImmutableStack_CreateRange_T")
-System_Collections_Immutable_ImmutableStack_Pop_T = typing.TypeVar("System_Collections_Immutable_ImmutableStack_Pop_T")
-System_Collections_Immutable_ImmutableArray_AddRange_Builder_TDerived = typing.TypeVar("System_Collections_Immutable_ImmutableArray_AddRange_Builder_TDerived")
-System_Collections_Immutable_ImmutableQueue_Create_T = typing.TypeVar("System_Collections_Immutable_ImmutableQueue_Create_T")
-System_Collections_Immutable_ImmutableQueue_CreateRange_T = typing.TypeVar("System_Collections_Immutable_ImmutableQueue_CreateRange_T")
-System_Collections_Immutable_ImmutableQueue_Dequeue_T = typing.TypeVar("System_Collections_Immutable_ImmutableQueue_Dequeue_T")
-System_Collections_Immutable_ImmutableList_ConvertAll_Builder_TOutput = typing.TypeVar("System_Collections_Immutable_ImmutableList_ConvertAll_Builder_TOutput")
 System_Collections_Immutable_ImmutableInterlocked_Update_T = typing.TypeVar("System_Collections_Immutable_ImmutableInterlocked_Update_T")
 System_Collections_Immutable_ImmutableInterlocked_Update_TArg = typing.TypeVar("System_Collections_Immutable_ImmutableInterlocked_Update_TArg")
 System_Collections_Immutable_ImmutableInterlocked_InterlockedExchange_T = typing.TypeVar("System_Collections_Immutable_ImmutableInterlocked_InterlockedExchange_T")
@@ -113,50 +111,636 @@ System_Collections_Immutable_ImmutableInterlocked_TryPop_T = typing.TypeVar("Sys
 System_Collections_Immutable_ImmutableInterlocked_Push_T = typing.TypeVar("System_Collections_Immutable_ImmutableInterlocked_Push_T")
 System_Collections_Immutable_ImmutableInterlocked_TryDequeue_T = typing.TypeVar("System_Collections_Immutable_ImmutableInterlocked_TryDequeue_T")
 System_Collections_Immutable_ImmutableInterlocked_Enqueue_T = typing.TypeVar("System_Collections_Immutable_ImmutableInterlocked_Enqueue_T")
+System_Collections_Immutable_ImmutableArray_AddRange_Builder_TDerived = typing.TypeVar("System_Collections_Immutable_ImmutableArray_AddRange_Builder_TDerived")
+System_Collections_Immutable_ImmutableList_ConvertAll_Builder_TOutput = typing.TypeVar("System_Collections_Immutable_ImmutableList_ConvertAll_Builder_TOutput")
 
 
-class _Typed_ImmutableArray_CastUp(typing.Generic[System_Collections_Immutable_ImmutableArray_CastUp_TDerived]):
+class _Typed_ImmutableList_ConvertAll(typing.Generic[System_Collections_Immutable_ImmutableList_ConvertAll_TOutput]):
     """"""
 
     @overload
-    def __call__(self, items: System.Collections.Immutable.ImmutableArray[System_Collections_Immutable_ImmutableArray_CastUp_TDerived]) -> System.Collections.Immutable.ImmutableArray[System_Collections_Immutable_ImmutableArray_T]:
+    def __call__(self, converter: typing.Callable[[System_Collections_Immutable_ImmutableList_T], System_Collections_Immutable_ImmutableList_ConvertAll_TOutput]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_ConvertAll_TOutput]:
         ...
 
 
-class _ImmutableArray_CastUp:
+class _ImmutableList_ConvertAll:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableArray_CastUp_TDerived]) -> System.Collections.Immutable._Typed_ImmutableArray_CastUp[System_Collections_Immutable_ImmutableArray_CastUp_TDerived]:
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_ConvertAll_TOutput]) -> System.Collections.Immutable._Typed_ImmutableList_ConvertAll[System_Collections_Immutable_ImmutableList_ConvertAll_TOutput]:
         ...
 
 
-class _Typed_ImmutableArray_CastArray(typing.Generic[System_Collections_Immutable_ImmutableArray_CastArray_TOther]):
-    """"""
-
-    @overload
-    def __call__(self) -> System.Collections.Immutable.ImmutableArray[System_Collections_Immutable_ImmutableArray_CastArray_TOther]:
-        ...
-
-
-class _ImmutableArray_CastArray:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableArray_CastArray_TOther]) -> System.Collections.Immutable._Typed_ImmutableArray_CastArray[System_Collections_Immutable_ImmutableArray_CastArray_TOther]:
-        ...
-
-
-class _Typed_ImmutableArray_As(typing.Generic[System_Collections_Immutable_ImmutableArray_As_TOther]):
+class _Typed_ImmutableList_Create(typing.Generic[System_Collections_Immutable_ImmutableList_Create_T]):
     """"""
 
     @overload
-    def __call__(self) -> System.Collections.Immutable.ImmutableArray[System_Collections_Immutable_ImmutableArray_As_TOther]:
+    def __call__(self) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_Create_T]:
+        ...
+
+    @overload
+    def __call__(self, item: System_Collections_Immutable_ImmutableList_Create_T) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_Create_T]:
+        ...
+
+    @overload
+    def __call__(self, *items: typing.Union[System_Collections_Immutable_ImmutableList_Create_T, typing.Iterable[System_Collections_Immutable_ImmutableList_Create_T]]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_Create_T]:
+        ...
+
+    @overload
+    def __call__(self, *items: typing.Union[System_Collections_Immutable_ImmutableList_Create_T, typing.Iterable[System_Collections_Immutable_ImmutableList_Create_T]]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_Create_T]:
         ...
 
 
-class _ImmutableArray_As:
+class _ImmutableList_Create:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableArray_As_TOther]) -> System.Collections.Immutable._Typed_ImmutableArray_As[System_Collections_Immutable_ImmutableArray_As_TOther]:
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_Create_T]) -> System.Collections.Immutable._Typed_ImmutableList_Create[System_Collections_Immutable_ImmutableList_Create_T]:
+        ...
+
+
+class _Typed_ImmutableList_CreateRange(typing.Generic[System_Collections_Immutable_ImmutableList_CreateRange_T]):
+    """"""
+
+    @overload
+    def __call__(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_CreateRange_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_CreateRange_T]:
+        ...
+
+
+class _ImmutableList_CreateRange:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_CreateRange_T]) -> System.Collections.Immutable._Typed_ImmutableList_CreateRange[System_Collections_Immutable_ImmutableList_CreateRange_T]:
+        ...
+
+
+class _Typed_ImmutableList_CreateBuilder(typing.Generic[System_Collections_Immutable_ImmutableList_CreateBuilder_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Immutable.ImmutableList.Builder:
+        ...
+
+
+class _ImmutableList_CreateBuilder:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_CreateBuilder_T]) -> System.Collections.Immutable._Typed_ImmutableList_CreateBuilder[System_Collections_Immutable_ImmutableList_CreateBuilder_T]:
+        ...
+
+
+class _Typed_ImmutableList_ToImmutableList(typing.Generic[System_Collections_Immutable_ImmutableList_ToImmutableList_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_ToImmutableList_TSource]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_ToImmutableList_TSource]:
+        ...
+
+    @overload
+    def __call__(self, builder: System.Collections.Immutable.ImmutableList.Builder) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_ToImmutableList_TSource]:
+        ...
+
+
+class _ImmutableList_ToImmutableList:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_ToImmutableList_TSource]) -> System.Collections.Immutable._Typed_ImmutableList_ToImmutableList[System_Collections_Immutable_ImmutableList_ToImmutableList_TSource]:
+        ...
+
+
+class _Typed_ImmutableList_Replace(typing.Generic[System_Collections_Immutable_ImmutableList_Replace_T]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_Replace_T], old_value: System_Collections_Immutable_ImmutableList_Replace_T, new_value: System_Collections_Immutable_ImmutableList_Replace_T) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_Replace_T]:
+        ...
+
+
+class _ImmutableList_Replace:
+    """"""
+
+    @overload
+    def __call__(self, old_value: System_Collections_Immutable_ImmutableList_T, new_value: System_Collections_Immutable_ImmutableList_T) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    @overload
+    def __call__(self, old_value: System_Collections_Immutable_ImmutableList_T, new_value: System_Collections_Immutable_ImmutableList_T, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_Replace_T]) -> System.Collections.Immutable._Typed_ImmutableList_Replace[System_Collections_Immutable_ImmutableList_Replace_T]:
+        ...
+
+
+class _Typed_ImmutableList_Remove(typing.Generic[System_Collections_Immutable_ImmutableList_Remove_T]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_Remove_T], value: System_Collections_Immutable_ImmutableList_Remove_T) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_Remove_T]:
+        ...
+
+
+class _ImmutableList_Remove:
+    """"""
+
+    @overload
+    def __call__(self, value: System_Collections_Immutable_ImmutableList_T) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    @overload
+    def __call__(self, value: System_Collections_Immutable_ImmutableList_T, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_Remove_T]) -> System.Collections.Immutable._Typed_ImmutableList_Remove[System_Collections_Immutable_ImmutableList_Remove_T]:
+        ...
+
+
+class _Typed_ImmutableList_RemoveRange(typing.Generic[System_Collections_Immutable_ImmutableList_RemoveRange_T]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_RemoveRange_T], items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_RemoveRange_T]) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_RemoveRange_T]:
+        ...
+
+
+class _ImmutableList_RemoveRange:
+    """"""
+
+    @overload
+    def __call__(self, index: int, count: int) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    @overload
+    def __call__(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    @overload
+    def __call__(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_T], equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_RemoveRange_T]) -> System.Collections.Immutable._Typed_ImmutableList_RemoveRange[System_Collections_Immutable_ImmutableList_RemoveRange_T]:
+        ...
+
+
+class _Typed_ImmutableList_IndexOf(typing.Generic[System_Collections_Immutable_ImmutableList_IndexOf_T]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_IndexOf_T], item: System_Collections_Immutable_ImmutableList_IndexOf_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_IndexOf_T], item: System_Collections_Immutable_ImmutableList_IndexOf_T, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_IndexOf_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_IndexOf_T], item: System_Collections_Immutable_ImmutableList_IndexOf_T, start_index: int) -> int:
+        ...
+
+    @overload
+    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_IndexOf_T], item: System_Collections_Immutable_ImmutableList_IndexOf_T, start_index: int, count: int) -> int:
+        ...
+
+
+class _ImmutableList_IndexOf:
+    """"""
+
+    @overload
+    def __call__(self, item: System_Collections_Immutable_ImmutableList_T, index: int, count: int, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, value: System_Collections_Immutable_ImmutableList_T) -> int:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_IndexOf_T]) -> System.Collections.Immutable._Typed_ImmutableList_IndexOf[System_Collections_Immutable_ImmutableList_IndexOf_T]:
+        ...
+
+
+class _Typed_ImmutableList_LastIndexOf(typing.Generic[System_Collections_Immutable_ImmutableList_LastIndexOf_T]):
+    """"""
+
+    @overload
+    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_LastIndexOf_T], item: System_Collections_Immutable_ImmutableList_LastIndexOf_T) -> int:
+        ...
+
+    @overload
+    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_LastIndexOf_T], item: System_Collections_Immutable_ImmutableList_LastIndexOf_T, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_LastIndexOf_T]) -> int:
+        ...
+
+    @overload
+    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_LastIndexOf_T], item: System_Collections_Immutable_ImmutableList_LastIndexOf_T, start_index: int) -> int:
+        ...
+
+    @overload
+    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_LastIndexOf_T], item: System_Collections_Immutable_ImmutableList_LastIndexOf_T, start_index: int, count: int) -> int:
+        ...
+
+
+class _ImmutableList_LastIndexOf:
+    """"""
+
+    @overload
+    def __call__(self, item: System_Collections_Immutable_ImmutableList_T, index: int, count: int, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> int:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_LastIndexOf_T]) -> System.Collections.Immutable._Typed_ImmutableList_LastIndexOf[System_Collections_Immutable_ImmutableList_LastIndexOf_T]:
+        ...
+
+
+class ImmutableList(typing.Generic[System_Collections_Immutable_ImmutableList_T], System.Object, System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_T], System.Collections.Generic.IList[System_Collections_Immutable_ImmutableList_T], System.Collections.IList, System.Collections.Immutable.IStrongEnumerable[System_Collections_Immutable_ImmutableList_T, System_Collections_Immutable_ImmutableList_Enumerator], typing.Iterable[System_Collections_Immutable_ImmutableList_T]):
+    """This class has no documentation."""
+
+    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Immutable_ImmutableList_T], System.Collections.Immutable.ISecurePooledObjectUser, System.Collections.Immutable.IStrongEnumerator[System_Collections_Immutable_ImmutableList_T]):
+        """This class has no documentation."""
+
+        @property
+        def current(self) -> System_Collections_Immutable_ImmutableList_T:
+            ...
+
+        def dispose(self) -> None:
+            ...
+
+        def move_next(self) -> bool:
+            ...
+
+        def reset(self) -> None:
+            ...
+
+    class Builder(System.Object, System.Collections.Generic.IList[System_Collections_Immutable_ImmutableList_T], System.Collections.IList, System.Collections.Generic.IReadOnlyList[System_Collections_Immutable_ImmutableList_T], typing.Iterable[System_Collections_Immutable_ImmutableList_T]):
+        """This class has no documentation."""
+
+        @property
+        def count(self) -> int:
+            ...
+
+        @property
+        def convert_all(self) -> System.Collections.Immutable._ImmutableList.Builder_ConvertAll:
+            ...
+
+        def __getitem__(self, index: int) -> System_Collections_Immutable_ImmutableList_T:
+            ...
+
+        def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableList_T]:
+            ...
+
+        def __len__(self) -> int:
+            ...
+
+        def __setitem__(self, index: int, value: System_Collections_Immutable_ImmutableList_T) -> None:
+            ...
+
+        def add(self, item: System_Collections_Immutable_ImmutableList_T) -> None:
+            ...
+
+        def add_range(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_T]) -> None:
+            ...
+
+        @overload
+        def binary_search(self, item: System_Collections_Immutable_ImmutableList_T) -> int:
+            ...
+
+        @overload
+        def binary_search(self, item: System_Collections_Immutable_ImmutableList_T, comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableList_T]) -> int:
+            ...
+
+        @overload
+        def binary_search(self, index: int, count: int, item: System_Collections_Immutable_ImmutableList_T, comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableList_T]) -> int:
+            ...
+
+        def clear(self) -> None:
+            ...
+
+        def contains(self, item: System_Collections_Immutable_ImmutableList_T) -> bool:
+            ...
+
+        @overload
+        def copy_to(self, array: typing.List[System_Collections_Immutable_ImmutableList_T]) -> None:
+            ...
+
+        @overload
+        def copy_to(self, array: typing.List[System_Collections_Immutable_ImmutableList_T], array_index: int) -> None:
+            ...
+
+        @overload
+        def copy_to(self, index: int, array: typing.List[System_Collections_Immutable_ImmutableList_T], array_index: int, count: int) -> None:
+            ...
+
+        def exists(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> bool:
+            ...
+
+        def find(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> System_Collections_Immutable_ImmutableList_T:
+            ...
+
+        def find_all(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+            ...
+
+        @overload
+        def find_index(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
+            ...
+
+        @overload
+        def find_index(self, start_index: int, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
+            ...
+
+        @overload
+        def find_index(self, start_index: int, count: int, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
+            ...
+
+        def find_last(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> System_Collections_Immutable_ImmutableList_T:
+            ...
+
+        @overload
+        def find_last_index(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
+            ...
+
+        @overload
+        def find_last_index(self, start_index: int, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
+            ...
+
+        @overload
+        def find_last_index(self, start_index: int, count: int, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
+            ...
+
+        def for_each(self, action: typing.Callable[[System_Collections_Immutable_ImmutableList_T], typing.Any]) -> None:
+            ...
+
+        def get_enumerator(self) -> System.Collections.Immutable.ImmutableList.Enumerator:
+            ...
+
+        def get_range(self, index: int, count: int) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+            ...
+
+        @overload
+        def index_of(self, item: System_Collections_Immutable_ImmutableList_T) -> int:
+            ...
+
+        @overload
+        def index_of(self, item: System_Collections_Immutable_ImmutableList_T, index: int) -> int:
+            ...
+
+        @overload
+        def index_of(self, item: System_Collections_Immutable_ImmutableList_T, index: int, count: int) -> int:
+            ...
+
+        @overload
+        def index_of(self, item: System_Collections_Immutable_ImmutableList_T, index: int, count: int, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> int:
+            ...
+
+        def insert(self, index: int, item: System_Collections_Immutable_ImmutableList_T) -> None:
+            ...
+
+        def insert_range(self, index: int, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_T]) -> None:
+            ...
+
+        def item_ref(self, index: int) -> typing.Any:
+            ...
+
+        @overload
+        def last_index_of(self, item: System_Collections_Immutable_ImmutableList_T) -> int:
+            ...
+
+        @overload
+        def last_index_of(self, item: System_Collections_Immutable_ImmutableList_T, start_index: int) -> int:
+            ...
+
+        @overload
+        def last_index_of(self, item: System_Collections_Immutable_ImmutableList_T, start_index: int, count: int) -> int:
+            ...
+
+        @overload
+        def last_index_of(self, item: System_Collections_Immutable_ImmutableList_T, start_index: int, count: int, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> int:
+            ...
+
+        @overload
+        def remove(self, item: System_Collections_Immutable_ImmutableList_T) -> bool:
+            ...
+
+        @overload
+        def remove(self, item: System_Collections_Immutable_ImmutableList_T, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> bool:
+            ...
+
+        def remove_all(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
+            ...
+
+        def remove_at(self, index: int) -> None:
+            ...
+
+        @overload
+        def remove_range(self, index: int, count: int) -> None:
+            ...
+
+        @overload
+        def remove_range(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_T], equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> None:
+            ...
+
+        @overload
+        def remove_range(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_T]) -> None:
+            ...
+
+        @overload
+        def replace(self, old_value: System_Collections_Immutable_ImmutableList_T, new_value: System_Collections_Immutable_ImmutableList_T) -> None:
+            ...
+
+        @overload
+        def replace(self, old_value: System_Collections_Immutable_ImmutableList_T, new_value: System_Collections_Immutable_ImmutableList_T, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> None:
+            ...
+
+        @overload
+        def reverse(self) -> None:
+            ...
+
+        @overload
+        def reverse(self, index: int, count: int) -> None:
+            ...
+
+        @overload
+        def sort(self) -> None:
+            ...
+
+        @overload
+        def sort(self, comparison: typing.Callable[[System_Collections_Immutable_ImmutableList_T, System_Collections_Immutable_ImmutableList_T], int]) -> None:
+            ...
+
+        @overload
+        def sort(self, comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableList_T]) -> None:
+            ...
+
+        @overload
+        def sort(self, index: int, count: int, comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableList_T]) -> None:
+            ...
+
+        def to_immutable(self) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+            ...
+
+        def true_for_all(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> bool:
+            ...
+
+    EMPTY: System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T] = ...
+
+    @property
+    def is_empty(self) -> bool:
+        ...
+
+    @property
+    def count(self) -> int:
+        ...
+
+    @property
+    def convert_all(self) -> System.Collections.Immutable._ImmutableList_ConvertAll:
+        ...
+
+    create: System.Collections.Immutable._ImmutableList_Create
+
+    create_range: System.Collections.Immutable._ImmutableList_CreateRange
+
+    create_builder: System.Collections.Immutable._ImmutableList_CreateBuilder
+
+    to_immutable_list: System.Collections.Immutable._ImmutableList_ToImmutableList
+
+    replace: System.Collections.Immutable._ImmutableList_Replace
+
+    remove: System.Collections.Immutable._ImmutableList_Remove
+
+    remove_range: System.Collections.Immutable._ImmutableList_RemoveRange
+
+    index_of: System.Collections.Immutable._ImmutableList_IndexOf
+
+    last_index_of: System.Collections.Immutable._ImmutableList_LastIndexOf
+
+    def __getitem__(self, index: int) -> System_Collections_Immutable_ImmutableList_T:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def add(self, value: System_Collections_Immutable_ImmutableList_T) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    def add_range(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    @overload
+    def binary_search(self, item: System_Collections_Immutable_ImmutableList_T) -> int:
+        ...
+
+    @overload
+    def binary_search(self, item: System_Collections_Immutable_ImmutableList_T, comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableList_T]) -> int:
+        ...
+
+    @overload
+    def binary_search(self, index: int, count: int, item: System_Collections_Immutable_ImmutableList_T, comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableList_T]) -> int:
+        ...
+
+    def clear(self) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    def contains(self, value: System_Collections_Immutable_ImmutableList_T) -> bool:
+        ...
+
+    @overload
+    def copy_to(self, array: typing.List[System_Collections_Immutable_ImmutableList_T]) -> None:
+        ...
+
+    @overload
+    def copy_to(self, array: typing.List[System_Collections_Immutable_ImmutableList_T], array_index: int) -> None:
+        ...
+
+    @overload
+    def copy_to(self, index: int, array: typing.List[System_Collections_Immutable_ImmutableList_T], array_index: int, count: int) -> None:
+        ...
+
+    def exists(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> bool:
+        ...
+
+    def find(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> System_Collections_Immutable_ImmutableList_T:
+        ...
+
+    def find_all(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    @overload
+    def find_index(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
+        ...
+
+    @overload
+    def find_index(self, start_index: int, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
+        ...
+
+    @overload
+    def find_index(self, start_index: int, count: int, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
+        ...
+
+    def find_last(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> System_Collections_Immutable_ImmutableList_T:
+        ...
+
+    @overload
+    def find_last_index(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
+        ...
+
+    @overload
+    def find_last_index(self, start_index: int, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
+        ...
+
+    @overload
+    def find_last_index(self, start_index: int, count: int, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
+        ...
+
+    def for_each(self, action: typing.Callable[[System_Collections_Immutable_ImmutableList_T], typing.Any]) -> None:
+        ...
+
+    def get_enumerator(self) -> System.Collections.Immutable.ImmutableList.Enumerator:
+        ...
+
+    def get_range(self, index: int, count: int) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    def insert(self, index: int, item: System_Collections_Immutable_ImmutableList_T) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    def insert_range(self, index: int, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    def item_ref(self, index: int) -> typing.Any:
+        ...
+
+    def remove_all(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    def remove_at(self, index: int) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    @overload
+    def reverse(self) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    @overload
+    def reverse(self, index: int, count: int) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    def set_item(self, index: int, value: System_Collections_Immutable_ImmutableList_T) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    @overload
+    def sort(self) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    @overload
+    def sort(self, comparison: typing.Callable[[System_Collections_Immutable_ImmutableList_T, System_Collections_Immutable_ImmutableList_T], int]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    @overload
+    def sort(self, comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableList_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    @overload
+    def sort(self, index: int, count: int, comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableList_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
+        ...
+
+    def to_builder(self) -> System.Collections.Immutable.ImmutableList.Builder:
+        ...
+
+    def true_for_all(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> bool:
         ...
 
 
@@ -315,6 +899,51 @@ class _ImmutableArray_BinarySearch:
         ...
 
 
+class _Typed_ImmutableArray_CastUp(typing.Generic[System_Collections_Immutable_ImmutableArray_CastUp_TDerived]):
+    """"""
+
+    @overload
+    def __call__(self, items: System.Collections.Immutable.ImmutableArray[System_Collections_Immutable_ImmutableArray_CastUp_TDerived]) -> System.Collections.Immutable.ImmutableArray[System_Collections_Immutable_ImmutableArray_T]:
+        ...
+
+
+class _ImmutableArray_CastUp:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableArray_CastUp_TDerived]) -> System.Collections.Immutable._Typed_ImmutableArray_CastUp[System_Collections_Immutable_ImmutableArray_CastUp_TDerived]:
+        ...
+
+
+class _Typed_ImmutableArray_CastArray(typing.Generic[System_Collections_Immutable_ImmutableArray_CastArray_TOther]):
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Immutable.ImmutableArray[System_Collections_Immutable_ImmutableArray_CastArray_TOther]:
+        ...
+
+
+class _ImmutableArray_CastArray:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableArray_CastArray_TOther]) -> System.Collections.Immutable._Typed_ImmutableArray_CastArray[System_Collections_Immutable_ImmutableArray_CastArray_TOther]:
+        ...
+
+
+class _Typed_ImmutableArray_As(typing.Generic[System_Collections_Immutable_ImmutableArray_As_TOther]):
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Immutable.ImmutableArray[System_Collections_Immutable_ImmutableArray_As_TOther]:
+        ...
+
+
+class _ImmutableArray_As:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableArray_As_TOther]) -> System.Collections.Immutable._Typed_ImmutableArray_As[System_Collections_Immutable_ImmutableArray_As_TOther]:
+        ...
+
+
 class _Typed_ImmutableArray_AddRange(typing.Generic[System_Collections_Immutable_ImmutableArray_AddRange_TDerived]):
     """"""
 
@@ -369,8 +998,18 @@ class _ImmutableArray_OfType:
         ...
 
 
-class ImmutableArray(typing.Generic[System_Collections_Immutable_ImmutableArray_T], System.Collections.Generic.IList[System_Collections_Immutable_ImmutableArray_T], System.IEquatable[System_Collections_Immutable_ImmutableArray], System.Collections.IList, System.Collections.Immutable.IImmutableArray, System.Collections.IStructuralComparable, System.Collections.IStructuralEquatable, System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableArray_T], System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableArray_T], typing.Iterable[System_Collections_Immutable_ImmutableArray_T]):
+class ImmutableArray(typing.Generic[System_Collections_Immutable_ImmutableArray_T], System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableArray_T], System.IEquatable[System_Collections_Immutable_ImmutableArray], System.Collections.Immutable.IImmutableArray, System.Collections.Generic.IList[System_Collections_Immutable_ImmutableArray_T], System.Collections.IList, System.Collections.IStructuralComparable, System.Collections.IStructuralEquatable, System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableArray_T], typing.Iterable[System_Collections_Immutable_ImmutableArray_T]):
     """This class has no documentation."""
+
+    class Enumerator:
+        """This class has no documentation."""
+
+        @property
+        def current(self) -> System_Collections_Immutable_ImmutableArray_T:
+            ...
+
+        def move_next(self) -> bool:
+            ...
 
     class Builder(System.Object, System.Collections.Generic.IList[System_Collections_Immutable_ImmutableArray_T], System.Collections.Generic.IReadOnlyList[System_Collections_Immutable_ImmutableArray_T], typing.Iterable[System_Collections_Immutable_ImmutableArray_T]):
         """This class has no documentation."""
@@ -550,16 +1189,6 @@ class ImmutableArray(typing.Generic[System_Collections_Immutable_ImmutableArray_
         def to_immutable(self) -> System.Collections.Immutable.ImmutableArray[System_Collections_Immutable_ImmutableArray_T]:
             ...
 
-    class Enumerator:
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System_Collections_Immutable_ImmutableArray_T:
-            ...
-
-        def move_next(self) -> bool:
-            ...
-
     EMPTY: System.Collections.Immutable.ImmutableArray[System_Collections_Immutable_ImmutableArray_T] = ...
 
     @property
@@ -578,16 +1207,6 @@ class ImmutableArray(typing.Generic[System_Collections_Immutable_ImmutableArray_
     def is_default_or_empty(self) -> bool:
         ...
 
-    cast_up: System.Collections.Immutable._ImmutableArray_CastUp
-
-    @property
-    def cast_array(self) -> System.Collections.Immutable._ImmutableArray_CastArray:
-        ...
-
-    @property
-    def As(self) -> System.Collections.Immutable._ImmutableArray_As:
-        ...
-
     create: System.Collections.Immutable._ImmutableArray_Create
 
     to_immutable_array: System.Collections.Immutable._ImmutableArray_ToImmutableArray
@@ -597,6 +1216,16 @@ class ImmutableArray(typing.Generic[System_Collections_Immutable_ImmutableArray_
     create_builder: System.Collections.Immutable._ImmutableArray_CreateBuilder
 
     binary_search: System.Collections.Immutable._ImmutableArray_BinarySearch
+
+    cast_up: System.Collections.Immutable._ImmutableArray_CastUp
+
+    @property
+    def cast_array(self) -> System.Collections.Immutable._ImmutableArray_CastArray:
+        ...
+
+    @property
+    def As(self) -> System.Collections.Immutable._ImmutableArray_As:
+        ...
 
     @property
     def add_range(self) -> System.Collections.Immutable._ImmutableArray_AddRange:
@@ -818,6 +1447,336 @@ class ImmutableArray(typing.Generic[System_Collections_Immutable_ImmutableArray_
         ...
 
     def to_builder(self) -> System.Collections.Immutable.ImmutableArray.Builder:
+        ...
+
+
+class _Typed_ImmutableSortedDictionary_Create(typing.Generic[System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey]):
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey, System_Collections_Immutable_ImmutableSortedDictionary_Create_TValue]:
+        ...
+
+    @overload
+    def __call__(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey, System_Collections_Immutable_ImmutableSortedDictionary_Create_TValue]:
+        ...
+
+    @overload
+    def __call__(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey], value_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_Create_TValue]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey, System_Collections_Immutable_ImmutableSortedDictionary_Create_TValue]:
+        ...
+
+
+class _ImmutableSortedDictionary_Create:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey]) -> System.Collections.Immutable._Typed_ImmutableSortedDictionary_Create[System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey]:
+        ...
+
+
+class _Typed_ImmutableSortedDictionary_CreateRange(typing.Generic[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey]):
+    """"""
+
+    @overload
+    def __call__(self, items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey, System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue]]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey, System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue]:
+        ...
+
+    @overload
+    def __call__(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey], items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey, System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue]]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey, System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue]:
+        ...
+
+    @overload
+    def __call__(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey], value_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue], items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey, System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue]]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey, System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue]:
+        ...
+
+
+class _ImmutableSortedDictionary_CreateRange:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey]) -> System.Collections.Immutable._Typed_ImmutableSortedDictionary_CreateRange[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey]:
+        ...
+
+
+class _Typed_ImmutableSortedDictionary_CreateBuilder(typing.Generic[System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TKey]):
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Immutable.ImmutableSortedDictionary.Builder:
+        ...
+
+    @overload
+    def __call__(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TKey]) -> System.Collections.Immutable.ImmutableSortedDictionary.Builder:
+        ...
+
+    @overload
+    def __call__(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TKey], value_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TValue]) -> System.Collections.Immutable.ImmutableSortedDictionary.Builder:
+        ...
+
+
+class _ImmutableSortedDictionary_CreateBuilder:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TKey]) -> System.Collections.Immutable._Typed_ImmutableSortedDictionary_CreateBuilder[System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TKey]:
+        ...
+
+
+class _Typed_ImmutableSortedDictionary_ToImmutableSortedDictionary(typing.Generic[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource]):
+    """"""
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], key_selector: typing.Callable[[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey], element_selector: typing.Callable[[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue], key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey], value_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]:
+        ...
+
+    @overload
+    def __call__(self, builder: System.Collections.Immutable.ImmutableSortedDictionary.Builder) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], key_selector: typing.Callable[[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey], element_selector: typing.Callable[[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue], key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], key_selector: typing.Callable[[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey], element_selector: typing.Callable[[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]], key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey], value_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]], key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]:
+        ...
+
+    @overload
+    def __call__(self, source: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]:
+        ...
+
+
+class _ImmutableSortedDictionary_ToImmutableSortedDictionary:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource]) -> System.Collections.Immutable._Typed_ImmutableSortedDictionary_ToImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource]:
+        ...
+
+
+class ImmutableSortedDictionary(typing.Generic[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Object, System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Collections.Generic.IDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Collections.IDictionary, typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]):
+    """This class has no documentation."""
+
+    class Builder(System.Object, System.Collections.Generic.IDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Collections.Generic.IReadOnlyDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Collections.IDictionary, typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]):
+        """This class has no documentation."""
+
+        @property
+        def keys(self) -> typing.Iterable[System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
+            ...
+
+        @property
+        def values(self) -> typing.Iterable[System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+            ...
+
+        @property
+        def count(self) -> int:
+            ...
+
+        @property
+        def key_comparer(self) -> System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
+            ...
+
+        @key_comparer.setter
+        def key_comparer(self, value: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> None:
+            ...
+
+        @property
+        def value_comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+            ...
+
+        @value_comparer.setter
+        def value_comparer(self, value: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> None:
+            ...
+
+        def __contains__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
+            ...
+
+        def __getitem__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
+            ...
+
+        def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]:
+            ...
+
+        def __len__(self) -> int:
+            ...
+
+        def __setitem__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> None:
+            ...
+
+        @overload
+        def add(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> None:
+            ...
+
+        @overload
+        def add(self, item: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> None:
+            ...
+
+        def add_range(self, items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]) -> None:
+            ...
+
+        def clear(self) -> None:
+            ...
+
+        def contains(self, item: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> bool:
+            ...
+
+        def contains_key(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
+            ...
+
+        def contains_value(self, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> bool:
+            ...
+
+        def get_enumerator(self) -> System.Collections.Immutable.ImmutableSortedDictionary.Enumerator:
+            ...
+
+        @overload
+        def get_value_or_default(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
+            ...
+
+        @overload
+        def get_value_or_default(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, default_value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
+            ...
+
+        @overload
+        def remove(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
+            ...
+
+        @overload
+        def remove(self, item: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> bool:
+            ...
+
+        def remove_range(self, keys: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> None:
+            ...
+
+        def to_immutable(self) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+            ...
+
+        def try_get_key(self, equal_key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, actual_key: typing.Optional[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
+            ...
+
+        def try_get_value(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: typing.Optional[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+            ...
+
+        def value_ref(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> typing.Any:
+            ...
+
+    class Enumerator(System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]], System.Collections.Immutable.ISecurePooledObjectUser):
+        """This class has no documentation."""
+
+        @property
+        def current(self) -> System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+            ...
+
+        def dispose(self) -> None:
+            ...
+
+        def move_next(self) -> bool:
+            ...
+
+        def reset(self) -> None:
+            ...
+
+    EMPTY: System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue] = ...
+
+    @property
+    def value_comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        ...
+
+    @property
+    def is_empty(self) -> bool:
+        ...
+
+    @property
+    def count(self) -> int:
+        ...
+
+    @property
+    def keys(self) -> typing.Iterable[System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
+        ...
+
+    @property
+    def values(self) -> typing.Iterable[System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        ...
+
+    @property
+    def key_comparer(self) -> System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
+        ...
+
+    create: System.Collections.Immutable._ImmutableSortedDictionary_Create
+
+    create_range: System.Collections.Immutable._ImmutableSortedDictionary_CreateRange
+
+    create_builder: System.Collections.Immutable._ImmutableSortedDictionary_CreateBuilder
+
+    to_immutable_sorted_dictionary: System.Collections.Immutable._ImmutableSortedDictionary_ToImmutableSortedDictionary
+
+    def __contains__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
+        ...
+
+    def __getitem__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def add(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        ...
+
+    def add_range(self, items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        ...
+
+    def clear(self) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        ...
+
+    def contains(self, pair: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> bool:
+        ...
+
+    def contains_key(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
+        ...
+
+    def contains_value(self, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> bool:
+        ...
+
+    def get_enumerator(self) -> System.Collections.Immutable.ImmutableSortedDictionary.Enumerator:
+        ...
+
+    def remove(self, value: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        ...
+
+    def remove_range(self, keys: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        ...
+
+    def set_item(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        ...
+
+    def set_items(self, items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        ...
+
+    def to_builder(self) -> System.Collections.Immutable.ImmutableSortedDictionary.Builder:
+        ...
+
+    def try_get_key(self, equal_key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, actual_key: typing.Optional[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
+        ...
+
+    def try_get_value(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: typing.Optional[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        ...
+
+    def value_ref(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> typing.Any:
+        ...
+
+    @overload
+    def with_comparers(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey], value_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
+        ...
+
+    @overload
+    def with_comparers(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
         ...
 
 
@@ -1254,6 +2213,22 @@ class _ImmutableSortedSet_ToImmutableSortedSet:
 class ImmutableSortedSet(typing.Generic[System_Collections_Immutable_ImmutableSortedSet_T], System.Object, System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_ImmutableSortedSet_T], System.Collections.Generic.IReadOnlyList[System_Collections_Immutable_ImmutableSortedSet_T], System.Collections.Generic.IList[System_Collections_Immutable_ImmutableSortedSet_T], System.Collections.Generic.ISet[System_Collections_Immutable_ImmutableSortedSet_T], System.Collections.IList, System.Collections.Immutable.IStrongEnumerable[System_Collections_Immutable_ImmutableSortedSet_T, System_Collections_Immutable_ImmutableSortedSet_Enumerator], typing.Iterable[System_Collections_Immutable_ImmutableSortedSet_T]):
     """This class has no documentation."""
 
+    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Immutable_ImmutableSortedSet_T], System.Collections.Immutable.ISecurePooledObjectUser, System.Collections.Immutable.IStrongEnumerator[System_Collections_Immutable_ImmutableSortedSet_T]):
+        """This class has no documentation."""
+
+        @property
+        def current(self) -> System_Collections_Immutable_ImmutableSortedSet_T:
+            ...
+
+        def dispose(self) -> None:
+            ...
+
+        def move_next(self) -> bool:
+            ...
+
+        def reset(self) -> None:
+            ...
+
     class Builder(System.Object, System.Collections.Generic.IReadOnlyCollection[System_Collections_Immutable_ImmutableSortedSet_T], System.Collections.Generic.ISet[System_Collections_Immutable_ImmutableSortedSet_T], System.Collections.ICollection, typing.Iterable[System_Collections_Immutable_ImmutableSortedSet_T]):
         """This class has no documentation."""
 
@@ -1344,22 +2319,6 @@ class ImmutableSortedSet(typing.Generic[System_Collections_Immutable_ImmutableSo
             ...
 
         def union_with(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableSortedSet_T]) -> None:
-            ...
-
-    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Immutable_ImmutableSortedSet_T], System.Collections.Immutable.ISecurePooledObjectUser, System.Collections.Immutable.IStrongEnumerator[System_Collections_Immutable_ImmutableSortedSet_T]):
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System_Collections_Immutable_ImmutableSortedSet_T:
-            ...
-
-        def dispose(self) -> None:
-            ...
-
-        def move_next(self) -> bool:
-            ...
-
-        def reset(self) -> None:
             ...
 
     EMPTY: System.Collections.Immutable.ImmutableSortedSet[System_Collections_Immutable_ImmutableSortedSet_T] = ...
@@ -1465,632 +2424,252 @@ class ImmutableSortedSet(typing.Generic[System_Collections_Immutable_ImmutableSo
         ...
 
 
-class _Typed_ImmutableList_Create(typing.Generic[System_Collections_Immutable_ImmutableList_Create_T]):
-    """"""
-
-    @overload
-    def __call__(self) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_Create_T]:
-        ...
-
-    @overload
-    def __call__(self, item: System_Collections_Immutable_ImmutableList_Create_T) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_Create_T]:
-        ...
-
-    @overload
-    def __call__(self, *items: typing.Union[System_Collections_Immutable_ImmutableList_Create_T, typing.Iterable[System_Collections_Immutable_ImmutableList_Create_T]]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_Create_T]:
-        ...
-
-    @overload
-    def __call__(self, *items: typing.Union[System_Collections_Immutable_ImmutableList_Create_T, typing.Iterable[System_Collections_Immutable_ImmutableList_Create_T]]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_Create_T]:
-        ...
-
-
-class _ImmutableList_Create:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_Create_T]) -> System.Collections.Immutable._Typed_ImmutableList_Create[System_Collections_Immutable_ImmutableList_Create_T]:
-        ...
-
-
-class _Typed_ImmutableList_CreateRange(typing.Generic[System_Collections_Immutable_ImmutableList_CreateRange_T]):
-    """"""
-
-    @overload
-    def __call__(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_CreateRange_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_CreateRange_T]:
-        ...
-
-
-class _ImmutableList_CreateRange:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_CreateRange_T]) -> System.Collections.Immutable._Typed_ImmutableList_CreateRange[System_Collections_Immutable_ImmutableList_CreateRange_T]:
-        ...
-
-
-class _Typed_ImmutableList_CreateBuilder(typing.Generic[System_Collections_Immutable_ImmutableList_CreateBuilder_T]):
-    """"""
-
-    @overload
-    def __call__(self) -> System.Collections.Immutable.ImmutableList.Builder:
-        ...
-
-
-class _ImmutableList_CreateBuilder:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_CreateBuilder_T]) -> System.Collections.Immutable._Typed_ImmutableList_CreateBuilder[System_Collections_Immutable_ImmutableList_CreateBuilder_T]:
-        ...
-
-
-class _Typed_ImmutableList_ToImmutableList(typing.Generic[System_Collections_Immutable_ImmutableList_ToImmutableList_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_ToImmutableList_TSource]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_ToImmutableList_TSource]:
-        ...
-
-    @overload
-    def __call__(self, builder: System.Collections.Immutable.ImmutableList.Builder) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_ToImmutableList_TSource]:
-        ...
-
-
-class _ImmutableList_ToImmutableList:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_ToImmutableList_TSource]) -> System.Collections.Immutable._Typed_ImmutableList_ToImmutableList[System_Collections_Immutable_ImmutableList_ToImmutableList_TSource]:
-        ...
-
-
-class _Typed_ImmutableList_Replace(typing.Generic[System_Collections_Immutable_ImmutableList_Replace_T]):
-    """"""
-
-    @overload
-    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_Replace_T], old_value: System_Collections_Immutable_ImmutableList_Replace_T, new_value: System_Collections_Immutable_ImmutableList_Replace_T) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_Replace_T]:
-        ...
-
-
-class _ImmutableList_Replace:
-    """"""
-
-    @overload
-    def __call__(self, old_value: System_Collections_Immutable_ImmutableList_T, new_value: System_Collections_Immutable_ImmutableList_T) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    @overload
-    def __call__(self, old_value: System_Collections_Immutable_ImmutableList_T, new_value: System_Collections_Immutable_ImmutableList_T, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_Replace_T]) -> System.Collections.Immutable._Typed_ImmutableList_Replace[System_Collections_Immutable_ImmutableList_Replace_T]:
-        ...
-
-
-class _Typed_ImmutableList_Remove(typing.Generic[System_Collections_Immutable_ImmutableList_Remove_T]):
-    """"""
-
-    @overload
-    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_Remove_T], value: System_Collections_Immutable_ImmutableList_Remove_T) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_Remove_T]:
-        ...
-
-
-class _ImmutableList_Remove:
-    """"""
-
-    @overload
-    def __call__(self, value: System_Collections_Immutable_ImmutableList_T) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    @overload
-    def __call__(self, value: System_Collections_Immutable_ImmutableList_T, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_Remove_T]) -> System.Collections.Immutable._Typed_ImmutableList_Remove[System_Collections_Immutable_ImmutableList_Remove_T]:
-        ...
-
-
-class _Typed_ImmutableList_RemoveRange(typing.Generic[System_Collections_Immutable_ImmutableList_RemoveRange_T]):
-    """"""
-
-    @overload
-    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_RemoveRange_T], items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_RemoveRange_T]) -> System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_RemoveRange_T]:
-        ...
-
-
-class _ImmutableList_RemoveRange:
-    """"""
-
-    @overload
-    def __call__(self, index: int, count: int) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    @overload
-    def __call__(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    @overload
-    def __call__(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_T], equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_RemoveRange_T]) -> System.Collections.Immutable._Typed_ImmutableList_RemoveRange[System_Collections_Immutable_ImmutableList_RemoveRange_T]:
-        ...
-
-
-class _Typed_ImmutableList_IndexOf(typing.Generic[System_Collections_Immutable_ImmutableList_IndexOf_T]):
-    """"""
-
-    @overload
-    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_IndexOf_T], item: System_Collections_Immutable_ImmutableList_IndexOf_T) -> int:
-        ...
-
-    @overload
-    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_IndexOf_T], item: System_Collections_Immutable_ImmutableList_IndexOf_T, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_IndexOf_T]) -> int:
-        ...
-
-    @overload
-    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_IndexOf_T], item: System_Collections_Immutable_ImmutableList_IndexOf_T, start_index: int) -> int:
-        ...
-
-    @overload
-    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_IndexOf_T], item: System_Collections_Immutable_ImmutableList_IndexOf_T, start_index: int, count: int) -> int:
-        ...
-
-
-class _ImmutableList_IndexOf:
-    """"""
-
-    @overload
-    def __call__(self, item: System_Collections_Immutable_ImmutableList_T, index: int, count: int, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> int:
-        ...
-
-    @overload
-    def __call__(self, value: System_Collections_Immutable_ImmutableList_T) -> int:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_IndexOf_T]) -> System.Collections.Immutable._Typed_ImmutableList_IndexOf[System_Collections_Immutable_ImmutableList_IndexOf_T]:
-        ...
-
-
-class _Typed_ImmutableList_LastIndexOf(typing.Generic[System_Collections_Immutable_ImmutableList_LastIndexOf_T]):
-    """"""
-
-    @overload
-    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_LastIndexOf_T], item: System_Collections_Immutable_ImmutableList_LastIndexOf_T) -> int:
-        ...
-
-    @overload
-    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_LastIndexOf_T], item: System_Collections_Immutable_ImmutableList_LastIndexOf_T, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_LastIndexOf_T]) -> int:
-        ...
-
-    @overload
-    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_LastIndexOf_T], item: System_Collections_Immutable_ImmutableList_LastIndexOf_T, start_index: int) -> int:
-        ...
-
-    @overload
-    def __call__(self, list: System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_LastIndexOf_T], item: System_Collections_Immutable_ImmutableList_LastIndexOf_T, start_index: int, count: int) -> int:
-        ...
-
-
-class _ImmutableList_LastIndexOf:
-    """"""
-
-    @overload
-    def __call__(self, item: System_Collections_Immutable_ImmutableList_T, index: int, count: int, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> int:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_LastIndexOf_T]) -> System.Collections.Immutable._Typed_ImmutableList_LastIndexOf[System_Collections_Immutable_ImmutableList_LastIndexOf_T]:
-        ...
-
-
-class _Typed_ImmutableList_ConvertAll(typing.Generic[System_Collections_Immutable_ImmutableList_ConvertAll_TOutput]):
-    """"""
-
-    @overload
-    def __call__(self, converter: typing.Callable[[System_Collections_Immutable_ImmutableList_T], System_Collections_Immutable_ImmutableList_ConvertAll_TOutput]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_ConvertAll_TOutput]:
-        ...
-
-
-class _ImmutableList_ConvertAll:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableList_ConvertAll_TOutput]) -> System.Collections.Immutable._Typed_ImmutableList_ConvertAll[System_Collections_Immutable_ImmutableList_ConvertAll_TOutput]:
-        ...
-
-
-class ImmutableList(typing.Generic[System_Collections_Immutable_ImmutableList_T], System.Object, System.Collections.Immutable.IImmutableList[System_Collections_Immutable_ImmutableList_T], System.Collections.Generic.IList[System_Collections_Immutable_ImmutableList_T], System.Collections.IList, System.Collections.Immutable.IStrongEnumerable[System_Collections_Immutable_ImmutableList_T, System_Collections_Immutable_ImmutableList_Enumerator], typing.Iterable[System_Collections_Immutable_ImmutableList_T]):
+class IImmutableDictionary(typing.Generic[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue], System.Collections.Generic.IReadOnlyDictionary[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    class Enumerator(System.Collections.Generic.IEnumerator[System_Collections_Immutable_ImmutableList_T], System.Collections.Immutable.ISecurePooledObjectUser, System.Collections.Immutable.IStrongEnumerator[System_Collections_Immutable_ImmutableList_T]):
+    def add(self, key: System_Collections_Immutable_IImmutableDictionary_TKey, value: System_Collections_Immutable_IImmutableDictionary_TValue) -> System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]:
+        ...
+
+    def add_range(self, pairs: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]]) -> System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]:
+        ...
+
+    def clear(self) -> System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]:
+        ...
+
+    def contains(self, pair: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]) -> bool:
+        ...
+
+    def remove(self, key: System_Collections_Immutable_IImmutableDictionary_TKey) -> System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]:
+        ...
+
+    def remove_range(self, keys: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableDictionary_TKey]) -> System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]:
+        ...
+
+    def set_item(self, key: System_Collections_Immutable_IImmutableDictionary_TKey, value: System_Collections_Immutable_IImmutableDictionary_TValue) -> System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]:
+        ...
+
+    def set_items(self, items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]]) -> System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]:
+        ...
+
+    def try_get_key(self, equal_key: System_Collections_Immutable_IImmutableDictionary_TKey, actual_key: typing.Optional[System_Collections_Immutable_IImmutableDictionary_TKey]) -> typing.Tuple[bool, System_Collections_Immutable_IImmutableDictionary_TKey]:
+        ...
+
+
+class _Typed_ImmutableQueue_Create(typing.Generic[System_Collections_Immutable_ImmutableQueue_Create_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_Create_T]:
+        ...
+
+    @overload
+    def __call__(self, item: System_Collections_Immutable_ImmutableQueue_Create_T) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_Create_T]:
+        ...
+
+    @overload
+    def __call__(self, *items: typing.Union[System_Collections_Immutable_ImmutableQueue_Create_T, typing.Iterable[System_Collections_Immutable_ImmutableQueue_Create_T]]) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_Create_T]:
+        ...
+
+    @overload
+    def __call__(self, *items: typing.Union[System_Collections_Immutable_ImmutableQueue_Create_T, typing.Iterable[System_Collections_Immutable_ImmutableQueue_Create_T]]) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_Create_T]:
+        ...
+
+
+class _ImmutableQueue_Create:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableQueue_Create_T]) -> System.Collections.Immutable._Typed_ImmutableQueue_Create[System_Collections_Immutable_ImmutableQueue_Create_T]:
+        ...
+
+
+class _Typed_ImmutableQueue_CreateRange(typing.Generic[System_Collections_Immutable_ImmutableQueue_CreateRange_T]):
+    """"""
+
+    @overload
+    def __call__(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableQueue_CreateRange_T]) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_CreateRange_T]:
+        ...
+
+
+class _ImmutableQueue_CreateRange:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableQueue_CreateRange_T]) -> System.Collections.Immutable._Typed_ImmutableQueue_CreateRange[System_Collections_Immutable_ImmutableQueue_CreateRange_T]:
+        ...
+
+
+class _Typed_ImmutableQueue_Dequeue(typing.Generic[System_Collections_Immutable_ImmutableQueue_Dequeue_T]):
+    """"""
+
+    @overload
+    def __call__(self, queue: System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_ImmutableQueue_Dequeue_T], value: typing.Optional[System_Collections_Immutable_ImmutableQueue_Dequeue_T]) -> typing.Tuple[System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_ImmutableQueue_Dequeue_T], System_Collections_Immutable_ImmutableQueue_Dequeue_T]:
+        ...
+
+
+class _ImmutableQueue_Dequeue:
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T]:
+        ...
+
+    @overload
+    def __call__(self, value: typing.Optional[System_Collections_Immutable_ImmutableQueue_T]) -> typing.Tuple[System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T], System_Collections_Immutable_ImmutableQueue_T]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableQueue_Dequeue_T]) -> System.Collections.Immutable._Typed_ImmutableQueue_Dequeue[System_Collections_Immutable_ImmutableQueue_Dequeue_T]:
+        ...
+
+
+class ImmutableQueue(typing.Generic[System_Collections_Immutable_ImmutableQueue_T], System.Object, System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_ImmutableQueue_T], typing.Iterable[System_Collections_Immutable_ImmutableQueue_T]):
+    """This class has no documentation."""
+
+    class Enumerator:
         """This class has no documentation."""
 
         @property
-        def current(self) -> System_Collections_Immutable_ImmutableList_T:
-            ...
-
-        def dispose(self) -> None:
+        def current(self) -> System_Collections_Immutable_ImmutableQueue_T:
             ...
 
         def move_next(self) -> bool:
             ...
 
-        def reset(self) -> None:
-            ...
+    @property
+    def is_empty(self) -> bool:
+        ...
 
-    class Builder(System.Object, System.Collections.Generic.IList[System_Collections_Immutable_ImmutableList_T], System.Collections.IList, System.Collections.Generic.IReadOnlyList[System_Collections_Immutable_ImmutableList_T], typing.Iterable[System_Collections_Immutable_ImmutableList_T]):
+    EMPTY: System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T]
+
+    create: System.Collections.Immutable._ImmutableQueue_Create
+
+    create_range: System.Collections.Immutable._ImmutableQueue_CreateRange
+
+    dequeue: System.Collections.Immutable._ImmutableQueue_Dequeue
+
+    def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableQueue_T]:
+        ...
+
+    def clear(self) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T]:
+        ...
+
+    def enqueue(self, value: System_Collections_Immutable_ImmutableQueue_T) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T]:
+        ...
+
+    def get_enumerator(self) -> System.Collections.Immutable.ImmutableQueue.Enumerator:
+        ...
+
+    def peek(self) -> System_Collections_Immutable_ImmutableQueue_T:
+        ...
+
+    def peek_ref(self) -> typing.Any:
+        ...
+
+
+class _Typed_ImmutableStack_Create(typing.Generic[System_Collections_Immutable_ImmutableStack_Create_T]):
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_Create_T]:
+        ...
+
+    @overload
+    def __call__(self, item: System_Collections_Immutable_ImmutableStack_Create_T) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_Create_T]:
+        ...
+
+    @overload
+    def __call__(self, *items: typing.Union[System_Collections_Immutable_ImmutableStack_Create_T, typing.Iterable[System_Collections_Immutable_ImmutableStack_Create_T]]) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_Create_T]:
+        ...
+
+    @overload
+    def __call__(self, *items: typing.Union[System_Collections_Immutable_ImmutableStack_Create_T, typing.Iterable[System_Collections_Immutable_ImmutableStack_Create_T]]) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_Create_T]:
+        ...
+
+
+class _ImmutableStack_Create:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableStack_Create_T]) -> System.Collections.Immutable._Typed_ImmutableStack_Create[System_Collections_Immutable_ImmutableStack_Create_T]:
+        ...
+
+
+class _Typed_ImmutableStack_CreateRange(typing.Generic[System_Collections_Immutable_ImmutableStack_CreateRange_T]):
+    """"""
+
+    @overload
+    def __call__(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableStack_CreateRange_T]) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_CreateRange_T]:
+        ...
+
+
+class _ImmutableStack_CreateRange:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableStack_CreateRange_T]) -> System.Collections.Immutable._Typed_ImmutableStack_CreateRange[System_Collections_Immutable_ImmutableStack_CreateRange_T]:
+        ...
+
+
+class _Typed_ImmutableStack_Pop(typing.Generic[System_Collections_Immutable_ImmutableStack_Pop_T]):
+    """"""
+
+    @overload
+    def __call__(self, stack: System.Collections.Immutable.IImmutableStack[System_Collections_Immutable_ImmutableStack_Pop_T], value: typing.Optional[System_Collections_Immutable_ImmutableStack_Pop_T]) -> typing.Tuple[System.Collections.Immutable.IImmutableStack[System_Collections_Immutable_ImmutableStack_Pop_T], System_Collections_Immutable_ImmutableStack_Pop_T]:
+        ...
+
+
+class _ImmutableStack_Pop:
+    """"""
+
+    @overload
+    def __call__(self) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T]:
+        ...
+
+    @overload
+    def __call__(self, value: typing.Optional[System_Collections_Immutable_ImmutableStack_T]) -> typing.Tuple[System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T], System_Collections_Immutable_ImmutableStack_T]:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableStack_Pop_T]) -> System.Collections.Immutable._Typed_ImmutableStack_Pop[System_Collections_Immutable_ImmutableStack_Pop_T]:
+        ...
+
+
+class ImmutableStack(typing.Generic[System_Collections_Immutable_ImmutableStack_T], System.Object, System.Collections.Immutable.IImmutableStack[System_Collections_Immutable_ImmutableStack_T], typing.Iterable[System_Collections_Immutable_ImmutableStack_T]):
+    """This class has no documentation."""
+
+    class Enumerator:
         """This class has no documentation."""
 
         @property
-        def count(self) -> int:
+        def current(self) -> System_Collections_Immutable_ImmutableStack_T:
             ...
 
-        @property
-        def convert_all(self) -> System.Collections.Immutable._ImmutableList.Builder_ConvertAll:
+        def move_next(self) -> bool:
             ...
 
-        def __getitem__(self, index: int) -> System_Collections_Immutable_ImmutableList_T:
-            ...
-
-        def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableList_T]:
-            ...
-
-        def __len__(self) -> int:
-            ...
-
-        def __setitem__(self, index: int, value: System_Collections_Immutable_ImmutableList_T) -> None:
-            ...
-
-        def add(self, item: System_Collections_Immutable_ImmutableList_T) -> None:
-            ...
-
-        def add_range(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_T]) -> None:
-            ...
-
-        @overload
-        def binary_search(self, item: System_Collections_Immutable_ImmutableList_T) -> int:
-            ...
-
-        @overload
-        def binary_search(self, item: System_Collections_Immutable_ImmutableList_T, comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableList_T]) -> int:
-            ...
-
-        @overload
-        def binary_search(self, index: int, count: int, item: System_Collections_Immutable_ImmutableList_T, comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableList_T]) -> int:
-            ...
-
-        def clear(self) -> None:
-            ...
-
-        def contains(self, item: System_Collections_Immutable_ImmutableList_T) -> bool:
-            ...
-
-        @overload
-        def copy_to(self, array: typing.List[System_Collections_Immutable_ImmutableList_T]) -> None:
-            ...
-
-        @overload
-        def copy_to(self, array: typing.List[System_Collections_Immutable_ImmutableList_T], array_index: int) -> None:
-            ...
-
-        @overload
-        def copy_to(self, index: int, array: typing.List[System_Collections_Immutable_ImmutableList_T], array_index: int, count: int) -> None:
-            ...
-
-        def exists(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> bool:
-            ...
-
-        def find(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> System_Collections_Immutable_ImmutableList_T:
-            ...
-
-        def find_all(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-            ...
-
-        @overload
-        def find_index(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
-            ...
-
-        @overload
-        def find_index(self, start_index: int, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
-            ...
-
-        @overload
-        def find_index(self, start_index: int, count: int, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
-            ...
-
-        def find_last(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> System_Collections_Immutable_ImmutableList_T:
-            ...
-
-        @overload
-        def find_last_index(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
-            ...
-
-        @overload
-        def find_last_index(self, start_index: int, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
-            ...
-
-        @overload
-        def find_last_index(self, start_index: int, count: int, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
-            ...
-
-        def for_each(self, action: typing.Callable[[System_Collections_Immutable_ImmutableList_T], typing.Any]) -> None:
-            ...
-
-        def get_enumerator(self) -> System.Collections.Immutable.ImmutableList.Enumerator:
-            ...
-
-        def get_range(self, index: int, count: int) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-            ...
-
-        @overload
-        def index_of(self, item: System_Collections_Immutable_ImmutableList_T) -> int:
-            ...
-
-        @overload
-        def index_of(self, item: System_Collections_Immutable_ImmutableList_T, index: int) -> int:
-            ...
-
-        @overload
-        def index_of(self, item: System_Collections_Immutable_ImmutableList_T, index: int, count: int) -> int:
-            ...
-
-        @overload
-        def index_of(self, item: System_Collections_Immutable_ImmutableList_T, index: int, count: int, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> int:
-            ...
-
-        def insert(self, index: int, item: System_Collections_Immutable_ImmutableList_T) -> None:
-            ...
-
-        def insert_range(self, index: int, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_T]) -> None:
-            ...
-
-        def item_ref(self, index: int) -> typing.Any:
-            ...
-
-        @overload
-        def last_index_of(self, item: System_Collections_Immutable_ImmutableList_T) -> int:
-            ...
-
-        @overload
-        def last_index_of(self, item: System_Collections_Immutable_ImmutableList_T, start_index: int) -> int:
-            ...
-
-        @overload
-        def last_index_of(self, item: System_Collections_Immutable_ImmutableList_T, start_index: int, count: int) -> int:
-            ...
-
-        @overload
-        def last_index_of(self, item: System_Collections_Immutable_ImmutableList_T, start_index: int, count: int, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> int:
-            ...
-
-        @overload
-        def remove(self, item: System_Collections_Immutable_ImmutableList_T) -> bool:
-            ...
-
-        @overload
-        def remove(self, item: System_Collections_Immutable_ImmutableList_T, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> bool:
-            ...
-
-        def remove_all(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
-            ...
-
-        def remove_at(self, index: int) -> None:
-            ...
-
-        @overload
-        def remove_range(self, index: int, count: int) -> None:
-            ...
-
-        @overload
-        def remove_range(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_T], equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> None:
-            ...
-
-        @overload
-        def remove_range(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_T]) -> None:
-            ...
-
-        @overload
-        def replace(self, old_value: System_Collections_Immutable_ImmutableList_T, new_value: System_Collections_Immutable_ImmutableList_T) -> None:
-            ...
-
-        @overload
-        def replace(self, old_value: System_Collections_Immutable_ImmutableList_T, new_value: System_Collections_Immutable_ImmutableList_T, equality_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableList_T]) -> None:
-            ...
-
-        @overload
-        def reverse(self) -> None:
-            ...
-
-        @overload
-        def reverse(self, index: int, count: int) -> None:
-            ...
-
-        @overload
-        def sort(self) -> None:
-            ...
-
-        @overload
-        def sort(self, comparison: typing.Callable[[System_Collections_Immutable_ImmutableList_T, System_Collections_Immutable_ImmutableList_T], int]) -> None:
-            ...
-
-        @overload
-        def sort(self, comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableList_T]) -> None:
-            ...
-
-        @overload
-        def sort(self, index: int, count: int, comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableList_T]) -> None:
-            ...
-
-        def to_immutable(self) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-            ...
-
-        def true_for_all(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> bool:
-            ...
-
-    EMPTY: System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T] = ...
+    EMPTY: System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T]
 
     @property
     def is_empty(self) -> bool:
         ...
 
-    @property
-    def count(self) -> int:
+    create: System.Collections.Immutable._ImmutableStack_Create
+
+    create_range: System.Collections.Immutable._ImmutableStack_CreateRange
+
+    pop: System.Collections.Immutable._ImmutableStack_Pop
+
+    def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableStack_T]:
         ...
 
-    create: System.Collections.Immutable._ImmutableList_Create
-
-    create_range: System.Collections.Immutable._ImmutableList_CreateRange
-
-    create_builder: System.Collections.Immutable._ImmutableList_CreateBuilder
-
-    to_immutable_list: System.Collections.Immutable._ImmutableList_ToImmutableList
-
-    replace: System.Collections.Immutable._ImmutableList_Replace
-
-    remove: System.Collections.Immutable._ImmutableList_Remove
-
-    remove_range: System.Collections.Immutable._ImmutableList_RemoveRange
-
-    index_of: System.Collections.Immutable._ImmutableList_IndexOf
-
-    last_index_of: System.Collections.Immutable._ImmutableList_LastIndexOf
-
-    @property
-    def convert_all(self) -> System.Collections.Immutable._ImmutableList_ConvertAll:
+    def clear(self) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T]:
         ...
 
-    def __getitem__(self, index: int) -> System_Collections_Immutable_ImmutableList_T:
+    def get_enumerator(self) -> System.Collections.Immutable.ImmutableStack.Enumerator:
         ...
 
-    def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableList_T]:
+    def peek(self) -> System_Collections_Immutable_ImmutableStack_T:
         ...
 
-    def __len__(self) -> int:
+    def peek_ref(self) -> typing.Any:
         ...
 
-    def add(self, value: System_Collections_Immutable_ImmutableList_T) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    def add_range(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    @overload
-    def binary_search(self, item: System_Collections_Immutable_ImmutableList_T) -> int:
-        ...
-
-    @overload
-    def binary_search(self, item: System_Collections_Immutable_ImmutableList_T, comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableList_T]) -> int:
-        ...
-
-    @overload
-    def binary_search(self, index: int, count: int, item: System_Collections_Immutable_ImmutableList_T, comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableList_T]) -> int:
-        ...
-
-    def clear(self) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    def contains(self, value: System_Collections_Immutable_ImmutableList_T) -> bool:
-        ...
-
-    @overload
-    def copy_to(self, array: typing.List[System_Collections_Immutable_ImmutableList_T]) -> None:
-        ...
-
-    @overload
-    def copy_to(self, array: typing.List[System_Collections_Immutable_ImmutableList_T], array_index: int) -> None:
-        ...
-
-    @overload
-    def copy_to(self, index: int, array: typing.List[System_Collections_Immutable_ImmutableList_T], array_index: int, count: int) -> None:
-        ...
-
-    def exists(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> bool:
-        ...
-
-    def find(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> System_Collections_Immutable_ImmutableList_T:
-        ...
-
-    def find_all(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    @overload
-    def find_index(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
-        ...
-
-    @overload
-    def find_index(self, start_index: int, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
-        ...
-
-    @overload
-    def find_index(self, start_index: int, count: int, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
-        ...
-
-    def find_last(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> System_Collections_Immutable_ImmutableList_T:
-        ...
-
-    @overload
-    def find_last_index(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
-        ...
-
-    @overload
-    def find_last_index(self, start_index: int, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
-        ...
-
-    @overload
-    def find_last_index(self, start_index: int, count: int, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> int:
-        ...
-
-    def for_each(self, action: typing.Callable[[System_Collections_Immutable_ImmutableList_T], typing.Any]) -> None:
-        ...
-
-    def get_enumerator(self) -> System.Collections.Immutable.ImmutableList.Enumerator:
-        ...
-
-    def get_range(self, index: int, count: int) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    def insert(self, index: int, item: System_Collections_Immutable_ImmutableList_T) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    def insert_range(self, index: int, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableList_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    def item_ref(self, index: int) -> typing.Any:
-        ...
-
-    def remove_all(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    def remove_at(self, index: int) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    @overload
-    def reverse(self) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    @overload
-    def reverse(self, index: int, count: int) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    def set_item(self, index: int, value: System_Collections_Immutable_ImmutableList_T) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    @overload
-    def sort(self) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    @overload
-    def sort(self, comparison: typing.Callable[[System_Collections_Immutable_ImmutableList_T, System_Collections_Immutable_ImmutableList_T], int]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    @overload
-    def sort(self, comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableList_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    @overload
-    def sort(self, index: int, count: int, comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableList_T]) -> System.Collections.Immutable.ImmutableList[System_Collections_Immutable_ImmutableList_T]:
-        ...
-
-    def to_builder(self) -> System.Collections.Immutable.ImmutableList.Builder:
-        ...
-
-    def true_for_all(self, match: typing.Callable[[System_Collections_Immutable_ImmutableList_T], bool]) -> bool:
+    def push(self, value: System_Collections_Immutable_ImmutableStack_T) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T]:
         ...
 
 
@@ -2270,22 +2849,6 @@ class _ImmutableDictionary_GetValueOrDefault:
 class ImmutableDictionary(typing.Generic[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue], System.Object, System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue], System.Collections.Immutable.IImmutableDictionaryInternal[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue], System.Collections.Generic.IDictionary[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue], System.Collections.IDictionary, typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue]]):
     """This class has no documentation."""
 
-    class Enumerator(System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue]]):
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue]:
-            ...
-
-        def dispose(self) -> None:
-            ...
-
-        def move_next(self) -> bool:
-            ...
-
-        def reset(self) -> None:
-            ...
-
     class Builder(System.Object, System.Collections.Generic.IDictionary[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue], System.Collections.Generic.IReadOnlyDictionary[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue], System.Collections.IDictionary, typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue]]):
         """This class has no documentation."""
 
@@ -2384,6 +2947,22 @@ class ImmutableDictionary(typing.Generic[System_Collections_Immutable_ImmutableD
             ...
 
         def try_get_value(self, key: System_Collections_Immutable_ImmutableDictionary_TKey, value: typing.Optional[System_Collections_Immutable_ImmutableDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableDictionary_TValue]:
+            ...
+
+    class Enumerator(System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue]]):
+        """This class has no documentation."""
+
+        @property
+        def current(self) -> System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue]:
+            ...
+
+        def dispose(self) -> None:
+            ...
+
+        def move_next(self) -> bool:
+            ...
+
+        def reset(self) -> None:
             ...
 
     EMPTY: System.Collections.Immutable.ImmutableDictionary[System_Collections_Immutable_ImmutableDictionary_TKey, System_Collections_Immutable_ImmutableDictionary_TValue] = ...
@@ -2486,336 +3065,6 @@ class ImmutableDictionary(typing.Generic[System_Collections_Immutable_ImmutableD
         ...
 
 
-class _Typed_ImmutableSortedDictionary_Create(typing.Generic[System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey]):
-    """"""
-
-    @overload
-    def __call__(self) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey, System_Collections_Immutable_ImmutableSortedDictionary_Create_TValue]:
-        ...
-
-    @overload
-    def __call__(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey, System_Collections_Immutable_ImmutableSortedDictionary_Create_TValue]:
-        ...
-
-    @overload
-    def __call__(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey], value_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_Create_TValue]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey, System_Collections_Immutable_ImmutableSortedDictionary_Create_TValue]:
-        ...
-
-
-class _ImmutableSortedDictionary_Create:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey]) -> System.Collections.Immutable._Typed_ImmutableSortedDictionary_Create[System_Collections_Immutable_ImmutableSortedDictionary_Create_TKey]:
-        ...
-
-
-class _Typed_ImmutableSortedDictionary_CreateRange(typing.Generic[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey]):
-    """"""
-
-    @overload
-    def __call__(self, items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey, System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue]]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey, System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue]:
-        ...
-
-    @overload
-    def __call__(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey], items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey, System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue]]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey, System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue]:
-        ...
-
-    @overload
-    def __call__(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey], value_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue], items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey, System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue]]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey, System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TValue]:
-        ...
-
-
-class _ImmutableSortedDictionary_CreateRange:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey]) -> System.Collections.Immutable._Typed_ImmutableSortedDictionary_CreateRange[System_Collections_Immutable_ImmutableSortedDictionary_CreateRange_TKey]:
-        ...
-
-
-class _Typed_ImmutableSortedDictionary_CreateBuilder(typing.Generic[System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TKey]):
-    """"""
-
-    @overload
-    def __call__(self) -> System.Collections.Immutable.ImmutableSortedDictionary.Builder:
-        ...
-
-    @overload
-    def __call__(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TKey]) -> System.Collections.Immutable.ImmutableSortedDictionary.Builder:
-        ...
-
-    @overload
-    def __call__(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TKey], value_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TValue]) -> System.Collections.Immutable.ImmutableSortedDictionary.Builder:
-        ...
-
-
-class _ImmutableSortedDictionary_CreateBuilder:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TKey]) -> System.Collections.Immutable._Typed_ImmutableSortedDictionary_CreateBuilder[System_Collections_Immutable_ImmutableSortedDictionary_CreateBuilder_TKey]:
-        ...
-
-
-class _Typed_ImmutableSortedDictionary_ToImmutableSortedDictionary(typing.Generic[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource]):
-    """"""
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], key_selector: typing.Callable[[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey], element_selector: typing.Callable[[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue], key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey], value_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]:
-        ...
-
-    @overload
-    def __call__(self, builder: System.Collections.Immutable.ImmutableSortedDictionary.Builder) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], key_selector: typing.Callable[[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey], element_selector: typing.Callable[[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue], key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], key_selector: typing.Callable[[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey], element_selector: typing.Callable[[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource], System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]], key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey], value_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]], key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]:
-        ...
-
-    @overload
-    def __call__(self, source: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TValue]:
-        ...
-
-
-class _ImmutableSortedDictionary_ToImmutableSortedDictionary:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource]) -> System.Collections.Immutable._Typed_ImmutableSortedDictionary_ToImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_ToImmutableSortedDictionary_TSource]:
-        ...
-
-
-class ImmutableSortedDictionary(typing.Generic[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Object, System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Collections.Generic.IDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Collections.IDictionary, typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]):
-    """This class has no documentation."""
-
-    class Builder(System.Object, System.Collections.Generic.IDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Collections.Generic.IReadOnlyDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue], System.Collections.IDictionary, typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]):
-        """This class has no documentation."""
-
-        @property
-        def keys(self) -> typing.Iterable[System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
-            ...
-
-        @property
-        def values(self) -> typing.Iterable[System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-            ...
-
-        @property
-        def count(self) -> int:
-            ...
-
-        @property
-        def key_comparer(self) -> System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
-            ...
-
-        @key_comparer.setter
-        def key_comparer(self, value: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> None:
-            ...
-
-        @property
-        def value_comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-            ...
-
-        @value_comparer.setter
-        def value_comparer(self, value: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> None:
-            ...
-
-        def __contains__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
-            ...
-
-        def __getitem__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
-            ...
-
-        def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]:
-            ...
-
-        def __len__(self) -> int:
-            ...
-
-        def __setitem__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> None:
-            ...
-
-        @overload
-        def add(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> None:
-            ...
-
-        @overload
-        def add(self, item: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> None:
-            ...
-
-        def add_range(self, items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]) -> None:
-            ...
-
-        def clear(self) -> None:
-            ...
-
-        def contains(self, item: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> bool:
-            ...
-
-        def contains_key(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
-            ...
-
-        def contains_value(self, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> bool:
-            ...
-
-        def get_enumerator(self) -> System.Collections.Immutable.ImmutableSortedDictionary.Enumerator:
-            ...
-
-        @overload
-        def get_value_or_default(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
-            ...
-
-        @overload
-        def get_value_or_default(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, default_value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
-            ...
-
-        @overload
-        def remove(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
-            ...
-
-        @overload
-        def remove(self, item: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> bool:
-            ...
-
-        def remove_range(self, keys: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> None:
-            ...
-
-        def to_immutable(self) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-            ...
-
-        def try_get_key(self, equal_key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, actual_key: typing.Optional[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
-            ...
-
-        def try_get_value(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: typing.Optional[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-            ...
-
-        def value_ref(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> typing.Any:
-            ...
-
-    class Enumerator(System.Collections.Generic.IEnumerator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]], System.Collections.Immutable.ISecurePooledObjectUser):
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-            ...
-
-        def dispose(self) -> None:
-            ...
-
-        def move_next(self) -> bool:
-            ...
-
-        def reset(self) -> None:
-            ...
-
-    EMPTY: System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue] = ...
-
-    @property
-    def value_comparer(self) -> System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        ...
-
-    @property
-    def is_empty(self) -> bool:
-        ...
-
-    @property
-    def count(self) -> int:
-        ...
-
-    @property
-    def keys(self) -> typing.Iterable[System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
-        ...
-
-    @property
-    def values(self) -> typing.Iterable[System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        ...
-
-    @property
-    def key_comparer(self) -> System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
-        ...
-
-    create: System.Collections.Immutable._ImmutableSortedDictionary_Create
-
-    create_range: System.Collections.Immutable._ImmutableSortedDictionary_CreateRange
-
-    create_builder: System.Collections.Immutable._ImmutableSortedDictionary_CreateBuilder
-
-    to_immutable_sorted_dictionary: System.Collections.Immutable._ImmutableSortedDictionary_ToImmutableSortedDictionary
-
-    def __contains__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
-        ...
-
-    def __getitem__(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System_Collections_Immutable_ImmutableSortedDictionary_TValue:
-        ...
-
-    def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]:
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-    def add(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        ...
-
-    def add_range(self, items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        ...
-
-    def clear(self) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        ...
-
-    def contains(self, pair: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> bool:
-        ...
-
-    def contains_key(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> bool:
-        ...
-
-    def contains_value(self, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> bool:
-        ...
-
-    def get_enumerator(self) -> System.Collections.Immutable.ImmutableSortedDictionary.Enumerator:
-        ...
-
-    def remove(self, value: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        ...
-
-    def remove_range(self, keys: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        ...
-
-    def set_item(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: System_Collections_Immutable_ImmutableSortedDictionary_TValue) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        ...
-
-    def set_items(self, items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        ...
-
-    def to_builder(self) -> System.Collections.Immutable.ImmutableSortedDictionary.Builder:
-        ...
-
-    def try_get_key(self, equal_key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, actual_key: typing.Optional[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableSortedDictionary_TKey]:
-        ...
-
-    def try_get_value(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey, value: typing.Optional[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> typing.Tuple[bool, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        ...
-
-    def value_ref(self, key: System_Collections_Immutable_ImmutableSortedDictionary_TKey) -> typing.Any:
-        ...
-
-    @overload
-    def with_comparers(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey], value_comparer: System.Collections.Generic.IEqualityComparer[System_Collections_Immutable_ImmutableSortedDictionary_TValue]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        ...
-
-    @overload
-    def with_comparers(self, key_comparer: System.Collections.Generic.IComparer[System_Collections_Immutable_ImmutableSortedDictionary_TKey]) -> System.Collections.Immutable.ImmutableSortedDictionary[System_Collections_Immutable_ImmutableSortedDictionary_TKey, System_Collections_Immutable_ImmutableSortedDictionary_TValue]:
-        ...
-
-
 class IImmutableStack(typing.Generic[System_Collections_Immutable_IImmutableStack_T], System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableStack_T], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -2834,325 +3083,6 @@ class IImmutableStack(typing.Generic[System_Collections_Immutable_IImmutableStac
         ...
 
     def push(self, value: System_Collections_Immutable_IImmutableStack_T) -> System.Collections.Immutable.IImmutableStack[System_Collections_Immutable_IImmutableStack_T]:
-        ...
-
-
-class IImmutableQueue(typing.Generic[System_Collections_Immutable_IImmutableQueue_T], System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableQueue_T], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def is_empty(self) -> bool:
-        ...
-
-    def clear(self) -> System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_IImmutableQueue_T]:
-        ...
-
-    def dequeue(self) -> System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_IImmutableQueue_T]:
-        ...
-
-    def enqueue(self, value: System_Collections_Immutable_IImmutableQueue_T) -> System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_IImmutableQueue_T]:
-        ...
-
-    def peek(self) -> System_Collections_Immutable_IImmutableQueue_T:
-        ...
-
-
-class _Typed_ImmutableStack_Create(typing.Generic[System_Collections_Immutable_ImmutableStack_Create_T]):
-    """"""
-
-    @overload
-    def __call__(self) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_Create_T]:
-        ...
-
-    @overload
-    def __call__(self, item: System_Collections_Immutable_ImmutableStack_Create_T) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_Create_T]:
-        ...
-
-    @overload
-    def __call__(self, *items: typing.Union[System_Collections_Immutable_ImmutableStack_Create_T, typing.Iterable[System_Collections_Immutable_ImmutableStack_Create_T]]) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_Create_T]:
-        ...
-
-    @overload
-    def __call__(self, *items: typing.Union[System_Collections_Immutable_ImmutableStack_Create_T, typing.Iterable[System_Collections_Immutable_ImmutableStack_Create_T]]) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_Create_T]:
-        ...
-
-
-class _ImmutableStack_Create:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableStack_Create_T]) -> System.Collections.Immutable._Typed_ImmutableStack_Create[System_Collections_Immutable_ImmutableStack_Create_T]:
-        ...
-
-
-class _Typed_ImmutableStack_CreateRange(typing.Generic[System_Collections_Immutable_ImmutableStack_CreateRange_T]):
-    """"""
-
-    @overload
-    def __call__(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableStack_CreateRange_T]) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_CreateRange_T]:
-        ...
-
-
-class _ImmutableStack_CreateRange:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableStack_CreateRange_T]) -> System.Collections.Immutable._Typed_ImmutableStack_CreateRange[System_Collections_Immutable_ImmutableStack_CreateRange_T]:
-        ...
-
-
-class _Typed_ImmutableStack_Pop(typing.Generic[System_Collections_Immutable_ImmutableStack_Pop_T]):
-    """"""
-
-    @overload
-    def __call__(self, stack: System.Collections.Immutable.IImmutableStack[System_Collections_Immutable_ImmutableStack_Pop_T], value: typing.Optional[System_Collections_Immutable_ImmutableStack_Pop_T]) -> typing.Tuple[System.Collections.Immutable.IImmutableStack[System_Collections_Immutable_ImmutableStack_Pop_T], System_Collections_Immutable_ImmutableStack_Pop_T]:
-        ...
-
-
-class _ImmutableStack_Pop:
-    """"""
-
-    @overload
-    def __call__(self) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T]:
-        ...
-
-    @overload
-    def __call__(self, value: typing.Optional[System_Collections_Immutable_ImmutableStack_T]) -> typing.Tuple[System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T], System_Collections_Immutable_ImmutableStack_T]:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableStack_Pop_T]) -> System.Collections.Immutable._Typed_ImmutableStack_Pop[System_Collections_Immutable_ImmutableStack_Pop_T]:
-        ...
-
-
-class ImmutableStack(typing.Generic[System_Collections_Immutable_ImmutableStack_T], System.Object, System.Collections.Immutable.IImmutableStack[System_Collections_Immutable_ImmutableStack_T], typing.Iterable[System_Collections_Immutable_ImmutableStack_T]):
-    """This class has no documentation."""
-
-    class Enumerator:
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System_Collections_Immutable_ImmutableStack_T:
-            ...
-
-        def move_next(self) -> bool:
-            ...
-
-    EMPTY: System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T]
-
-    @property
-    def is_empty(self) -> bool:
-        ...
-
-    create: System.Collections.Immutable._ImmutableStack_Create
-
-    create_range: System.Collections.Immutable._ImmutableStack_CreateRange
-
-    pop: System.Collections.Immutable._ImmutableStack_Pop
-
-    def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableStack_T]:
-        ...
-
-    def clear(self) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T]:
-        ...
-
-    def get_enumerator(self) -> System.Collections.Immutable.ImmutableStack.Enumerator:
-        ...
-
-    def peek(self) -> System_Collections_Immutable_ImmutableStack_T:
-        ...
-
-    def peek_ref(self) -> typing.Any:
-        ...
-
-    def push(self, value: System_Collections_Immutable_ImmutableStack_T) -> System.Collections.Immutable.ImmutableStack[System_Collections_Immutable_ImmutableStack_T]:
-        ...
-
-
-class IImmutableDictionary(typing.Generic[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue], System.Collections.Generic.IReadOnlyDictionary[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def add(self, key: System_Collections_Immutable_IImmutableDictionary_TKey, value: System_Collections_Immutable_IImmutableDictionary_TValue) -> System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]:
-        ...
-
-    def add_range(self, pairs: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]]) -> System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]:
-        ...
-
-    def clear(self) -> System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]:
-        ...
-
-    def contains(self, pair: System.Collections.Generic.KeyValuePair[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]) -> bool:
-        ...
-
-    def remove(self, key: System_Collections_Immutable_IImmutableDictionary_TKey) -> System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]:
-        ...
-
-    def remove_range(self, keys: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableDictionary_TKey]) -> System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]:
-        ...
-
-    def set_item(self, key: System_Collections_Immutable_IImmutableDictionary_TKey, value: System_Collections_Immutable_IImmutableDictionary_TValue) -> System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]:
-        ...
-
-    def set_items(self, items: System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]]) -> System.Collections.Immutable.IImmutableDictionary[System_Collections_Immutable_IImmutableDictionary_TKey, System_Collections_Immutable_IImmutableDictionary_TValue]:
-        ...
-
-    def try_get_key(self, equal_key: System_Collections_Immutable_IImmutableDictionary_TKey, actual_key: typing.Optional[System_Collections_Immutable_IImmutableDictionary_TKey]) -> typing.Tuple[bool, System_Collections_Immutable_IImmutableDictionary_TKey]:
-        ...
-
-
-class _Typed_ImmutableQueue_Create(typing.Generic[System_Collections_Immutable_ImmutableQueue_Create_T]):
-    """"""
-
-    @overload
-    def __call__(self) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_Create_T]:
-        ...
-
-    @overload
-    def __call__(self, item: System_Collections_Immutable_ImmutableQueue_Create_T) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_Create_T]:
-        ...
-
-    @overload
-    def __call__(self, *items: typing.Union[System_Collections_Immutable_ImmutableQueue_Create_T, typing.Iterable[System_Collections_Immutable_ImmutableQueue_Create_T]]) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_Create_T]:
-        ...
-
-    @overload
-    def __call__(self, *items: typing.Union[System_Collections_Immutable_ImmutableQueue_Create_T, typing.Iterable[System_Collections_Immutable_ImmutableQueue_Create_T]]) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_Create_T]:
-        ...
-
-
-class _ImmutableQueue_Create:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableQueue_Create_T]) -> System.Collections.Immutable._Typed_ImmutableQueue_Create[System_Collections_Immutable_ImmutableQueue_Create_T]:
-        ...
-
-
-class _Typed_ImmutableQueue_CreateRange(typing.Generic[System_Collections_Immutable_ImmutableQueue_CreateRange_T]):
-    """"""
-
-    @overload
-    def __call__(self, items: System.Collections.Generic.IEnumerable[System_Collections_Immutable_ImmutableQueue_CreateRange_T]) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_CreateRange_T]:
-        ...
-
-
-class _ImmutableQueue_CreateRange:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableQueue_CreateRange_T]) -> System.Collections.Immutable._Typed_ImmutableQueue_CreateRange[System_Collections_Immutable_ImmutableQueue_CreateRange_T]:
-        ...
-
-
-class _Typed_ImmutableQueue_Dequeue(typing.Generic[System_Collections_Immutable_ImmutableQueue_Dequeue_T]):
-    """"""
-
-    @overload
-    def __call__(self, queue: System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_ImmutableQueue_Dequeue_T], value: typing.Optional[System_Collections_Immutable_ImmutableQueue_Dequeue_T]) -> typing.Tuple[System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_ImmutableQueue_Dequeue_T], System_Collections_Immutable_ImmutableQueue_Dequeue_T]:
-        ...
-
-
-class _ImmutableQueue_Dequeue:
-    """"""
-
-    @overload
-    def __call__(self) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T]:
-        ...
-
-    @overload
-    def __call__(self, value: typing.Optional[System_Collections_Immutable_ImmutableQueue_T]) -> typing.Tuple[System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T], System_Collections_Immutable_ImmutableQueue_T]:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Collections_Immutable_ImmutableQueue_Dequeue_T]) -> System.Collections.Immutable._Typed_ImmutableQueue_Dequeue[System_Collections_Immutable_ImmutableQueue_Dequeue_T]:
-        ...
-
-
-class ImmutableQueue(typing.Generic[System_Collections_Immutable_ImmutableQueue_T], System.Object, System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_ImmutableQueue_T], typing.Iterable[System_Collections_Immutable_ImmutableQueue_T]):
-    """This class has no documentation."""
-
-    class Enumerator:
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System_Collections_Immutable_ImmutableQueue_T:
-            ...
-
-        def move_next(self) -> bool:
-            ...
-
-    @property
-    def is_empty(self) -> bool:
-        ...
-
-    EMPTY: System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T]
-
-    create: System.Collections.Immutable._ImmutableQueue_Create
-
-    create_range: System.Collections.Immutable._ImmutableQueue_CreateRange
-
-    dequeue: System.Collections.Immutable._ImmutableQueue_Dequeue
-
-    def __iter__(self) -> typing.Iterator[System_Collections_Immutable_ImmutableQueue_T]:
-        ...
-
-    def clear(self) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T]:
-        ...
-
-    def enqueue(self, value: System_Collections_Immutable_ImmutableQueue_T) -> System.Collections.Immutable.ImmutableQueue[System_Collections_Immutable_ImmutableQueue_T]:
-        ...
-
-    def get_enumerator(self) -> System.Collections.Immutable.ImmutableQueue.Enumerator:
-        ...
-
-    def peek(self) -> System_Collections_Immutable_ImmutableQueue_T:
-        ...
-
-    def peek_ref(self) -> typing.Any:
-        ...
-
-
-class IImmutableSet(typing.Generic[System_Collections_Immutable_IImmutableSet_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Immutable_IImmutableSet_T], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def add(self, value: System_Collections_Immutable_IImmutableSet_T) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
-        ...
-
-    def clear(self) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
-        ...
-
-    def contains(self, value: System_Collections_Immutable_IImmutableSet_T) -> bool:
-        ...
-
-    def Except(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
-        ...
-
-    def intersect(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
-        ...
-
-    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
-        ...
-
-    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
-        ...
-
-    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
-        ...
-
-    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
-        ...
-
-    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
-        ...
-
-    def remove(self, value: System_Collections_Immutable_IImmutableSet_T) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
-        ...
-
-    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
-        ...
-
-    def symmetric_except(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
-        ...
-
-    def try_get_value(self, equal_value: System_Collections_Immutable_IImmutableSet_T, actual_value: typing.Optional[System_Collections_Immutable_IImmutableSet_T]) -> typing.Tuple[bool, System_Collections_Immutable_IImmutableSet_T]:
-        ...
-
-    def union(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
         ...
 
 
@@ -3403,6 +3333,76 @@ class ImmutableInterlocked(System.Object):
     try_dequeue: System.Collections.Immutable._ImmutableInterlocked_TryDequeue
 
     enqueue: System.Collections.Immutable._ImmutableInterlocked_Enqueue
+
+
+class IImmutableSet(typing.Generic[System_Collections_Immutable_IImmutableSet_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Immutable_IImmutableSet_T], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def add(self, value: System_Collections_Immutable_IImmutableSet_T) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
+        ...
+
+    def clear(self) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
+        ...
+
+    def contains(self, value: System_Collections_Immutable_IImmutableSet_T) -> bool:
+        ...
+
+    def Except(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
+        ...
+
+    def intersect(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
+        ...
+
+    def is_proper_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
+        ...
+
+    def is_proper_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
+        ...
+
+    def is_subset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
+        ...
+
+    def is_superset_of(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
+        ...
+
+    def overlaps(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
+        ...
+
+    def remove(self, value: System_Collections_Immutable_IImmutableSet_T) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
+        ...
+
+    def set_equals(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> bool:
+        ...
+
+    def symmetric_except(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
+        ...
+
+    def try_get_value(self, equal_value: System_Collections_Immutable_IImmutableSet_T, actual_value: typing.Optional[System_Collections_Immutable_IImmutableSet_T]) -> typing.Tuple[bool, System_Collections_Immutable_IImmutableSet_T]:
+        ...
+
+    def union(self, other: System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableSet_T]) -> System.Collections.Immutable.IImmutableSet[System_Collections_Immutable_IImmutableSet_T]:
+        ...
+
+
+class IImmutableQueue(typing.Generic[System_Collections_Immutable_IImmutableQueue_T], System.Collections.Generic.IEnumerable[System_Collections_Immutable_IImmutableQueue_T], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def is_empty(self) -> bool:
+        ...
+
+    def clear(self) -> System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_IImmutableQueue_T]:
+        ...
+
+    def dequeue(self) -> System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_IImmutableQueue_T]:
+        ...
+
+    def enqueue(self, value: System_Collections_Immutable_IImmutableQueue_T) -> System.Collections.Immutable.IImmutableQueue[System_Collections_Immutable_IImmutableQueue_T]:
+        ...
+
+    def peek(self) -> System_Collections_Immutable_IImmutableQueue_T:
+        ...
 
 
 class Builder_AddRange:

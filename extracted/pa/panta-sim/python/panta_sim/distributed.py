@@ -38,7 +38,7 @@ class Reducer(Protocol):
 
     @property
     def rank(self) -> int:
-        """이 프로세스의 rank (``0..size``)."""
+        """이 프로세스의 rank (``0..size-1``)."""
         ...
 
     def allreduce_sum(self, value: complex) -> complex:

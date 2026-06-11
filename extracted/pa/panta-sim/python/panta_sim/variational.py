@@ -18,7 +18,7 @@ Qiskit 의 변분 패턴과 동일하며 심볼릭 파라미터 인프라가 필
 from __future__ import annotations
 
 import math
-from typing import Callable, Sequence
+from typing import Callable, Optional, Sequence
 
 import numpy as np
 
@@ -345,7 +345,7 @@ def qaoa_maxcut_ansatz(
     return ansatz
 
 
-def qaoa_ansatz(cost_hamiltonian: dict, p: int = 1, n_qubits: int = None) -> Ansatz:
+def qaoa_ansatz(cost_hamiltonian: dict, p: int = 1, n_qubits: Optional[int] = None) -> Ansatz:
     """임의 cost 해밀토니안에 대한 QAOA ansatz callable 을 반환한다 (v0.7.1).
 
     ``qaoa_maxcut_ansatz`` 의 일반화 — MaxCut 뿐 아니라 가중 그래프 / Ising /

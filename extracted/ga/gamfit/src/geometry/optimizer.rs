@@ -23,6 +23,15 @@ pub trait RiemannianObjective {
     /// `None` (the default), and the trust region transparently falls back to
     /// the Cauchy point — never to plain clipped steepest descent, which has no
     /// model, no predicted/actual reduction ratio, and no accept/reject.
+    ///
+    /// The Riemannian-Hessian quadratic model the trust region builds from this
+    /// product is a valid second-order model of `f` only along a (≥)second-order
+    /// retraction (the exponential map, or any retraction with
+    /// [`RiemannianManifold::retraction_is_second_order`] `== true`). On a
+    /// manifold whose `retract` is only FIRST-order (e.g. the Stiefel/Grassmann
+    /// QR retraction) the second derivative of the pullback `f∘R_x` is not the
+    /// Riemannian Hessian, so the trust region ignores this curvature and uses
+    /// the first-order-correct Cauchy model instead (issue #956).
     fn hessian_vector_product(
         &mut self,
         point: ArrayView1<'_, f64>,
@@ -61,29 +70,29 @@ fn g_norm(
     Ok(g_inner(manifold, point, a, a)?.max(0.0).sqrt())
 }
 
-/// Dimensionless relative-gradient stationarity measure
-/// `‖grad‖_g · ‖x‖_typ / max(|f|, 1)`, where `‖x‖_typ = max(rms(x), 1)` is the
-/// iterate's characteristic magnitude. This is the scale-invariant form of the
-/// gradient stopping test: it divides out the common scale that an objective and
-/// its gradient share, so a fixed `grad_tol` reads as a *relative* tolerance.
-/// It is the same quantity the latent FFI reports as `grad_t_norm_scaled`, so
-/// the optimizer's internal stopping and the reported `converged` flag agree
-/// (issue #879). A non-finite gradient or objective maps to `+∞` so the caller
-/// never treats a blown-up iterate as stationary.
-fn relative_stationarity(grad_norm: f64, x: ArrayView1<'_, f64>, f: f64) -> f64 {
-    if !grad_norm.is_finite() || !f.is_finite() {
+/// Shift-invariant relative-gradient stationarity measure
+/// `‖grad_k‖_g / max(‖grad_0‖_g, 1)`, comparing the current Riemannian gradient
+/// norm to the gradient norm at the INITIAL iterate. The initial gradient norm
+/// carries the same *multiplicative* scale the objective and its gradient share
+/// (`f → c·f` ⇒ `grad → c·grad`), so a fixed `grad_tol` still reads as a
+/// *relative* tolerance — but, unlike dividing by `max(|f|, 1)`, `‖grad_0‖` is
+/// invariant under an additive shift `f → f + C`, which leaves the minimizers,
+/// gradient, trust-region model reduction, Armijo slope, and accepted path all
+/// unchanged. Dividing by `|f|` was non-invariant: a large additive constant
+/// inflates the denominator and can falsely certify convergence at a
+/// non-stationary iterate (e.g. `f̃(x) = C + x²` at `x = 1` with `C > 2/τ − 1`),
+/// issue #954. The `max(·, 1)` floor reduces this to the absolute test
+/// `‖grad_k‖ ≤ grad_tol` on a unit-scale objective and preserves the
+/// O(n)-gradient calibration of the profiled REML latent objective (whose
+/// `‖grad_0‖` is itself O(n), issue #879). The non-intrinsic `‖x‖_typ` factor is
+/// dropped: ambient iterate magnitude is not coordinate/chart invariant on a
+/// manifold, so it does not belong in a Riemannian stationarity test. A
+/// non-finite gradient maps to `+∞` so a blown-up iterate is never stationary.
+fn relative_stationarity(grad_norm: f64, grad0_norm: f64) -> f64 {
+    if !grad_norm.is_finite() || !grad0_norm.is_finite() {
         return f64::INFINITY;
     }
-    let n = x.len();
-    let x_scale = if n == 0 {
-        1.0
-    } else {
-        (x.iter().map(|&v| v * v).sum::<f64>() / n as f64)
-            .sqrt()
-            .max(1.0)
-    };
-    let f_scale = f.abs().max(1.0);
-    grad_norm * x_scale / f_scale
+    grad_norm / grad0_norm.max(1.0)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -125,14 +134,19 @@ impl RiemannianTrustRegion {
     ///   min_{η ∈ T_xM, ‖η‖_g ≤ Δ}  m(η).
     /// ```
     ///
-    /// When the objective supplies Hessian–vector products we solve it with the
-    /// Steihaug truncated-CG method (stopping at negative curvature or the
-    /// trust-region boundary). Otherwise we fall back to the Cauchy point: the
+    /// When the objective supplies Hessian–vector products AND the manifold's
+    /// `retract` is at least a second-order retraction
+    /// ([`RiemannianManifold::retraction_is_second_order`]) we solve the
+    /// subproblem with the Steihaug truncated-CG method (stopping at negative
+    /// curvature or the trust-region boundary). Otherwise — no curvature, or a
+    /// first-order retraction whose pullback second derivative is not the
+    /// Riemannian Hessian (issue #956) — we fall back to the Cauchy point: the
     /// exact minimizer of the model along the steepest-descent direction within
     /// the trust region (with curvature taken from the model where available,
-    /// and the boundary point of the decreasing linear model when no curvature
-    /// is known). Either way this is a real model-based step — not clipped
-    /// descent.
+    /// and the boundary point of the decreasing linear model otherwise). The
+    /// linear term `Df_x[η]` is retraction-independent, so the Cauchy model
+    /// keeps ρ and the radius control valid along any retraction. Either way
+    /// this is a real model-based step — not clipped descent.
     ///
     /// We then form the ratio of actual to predicted reduction
     ///
@@ -159,32 +173,47 @@ impl RiemannianTrustRegion {
         let d = manifold.ambient_dim();
         check_len("trust-region initial point", x.len(), d)?;
 
-        let mut delta = self.radius;
+        // Establish the trust-region invariant `0 < Δ_k ≤ Δmax` *before* the
+        // first step, not just on later expansions. The expansion rule below
+        // caps via `min(·, max_radius)` and contraction only shrinks, so once
+        // `0 < Δ₀ ≤ Δmax` holds we have `0 < Δ_k ≤ Δmax` for all `k` by
+        // induction; every subproblem then obeys `‖η_k‖_g ≤ Δ_k ≤ Δmax`,
+        // restoring `max_radius` as the documented hard cap. A configured
+        // `radius > max_radius` (or a non-finite `radius`) would otherwise let
+        // the very first Cauchy/Steihaug step overshoot the advertised maximum,
+        // so we clamp the initial radius into `(0, max_radius]` here.
+        let mut delta = self.radius.min(self.max_radius);
+
+        // Initial Riemannian gradient norm, captured on the first iteration and
+        // used as the shift-invariant scale in the relative stationarity test
+        // (see `relative_stationarity`).
+        let mut grad0_norm: Option<f64> = None;
 
         for _ in 0..self.max_iter {
             let (f_curr, grad_e) = objective.value_gradient(x.view())?;
-            let grad = manifold.project_tangent(x.view(), grad_e.view())?;
+            // Raise the ambient Euclidean differential to the *Riemannian*
+            // gradient through the manifold metric. Merely projecting onto the
+            // tangent space is the Riemannian gradient only for the embedded
+            // (identity) metric; for a genuine metric (affine-invariant SPD,
+            // canonical Stiefel) it is the wrong direction, making the model
+            // linear term `g_x(grad, η)` not the differential `Df_x[η]` and the
+            // step not first-order correct (issue #955).
+            let grad = manifold.riemannian_gradient(x.view(), grad_e.view())?;
             let grad_norm = g_norm(manifold, x.view(), grad.view())?;
-            // Scale-aware (relative) stationarity test. Comparing the bare
+            // Shift-invariant (relative) stationarity test. Comparing the bare
             // gradient norm to a fixed absolute `grad_tol` is mis-calibrated for
             // objectives whose natural scale is large — e.g. the *profiled*
             // Gaussian REML latent objective, whose `n·log σ̂²` term leaves
             // `‖grad‖` at an O(n) magnitude even at a genuine stationary point
             // near interpolation (issue #879). We instead test the dimensionless
-            // relative gradient
-            //
-            //   ‖grad‖_g · ‖x‖_typ / max(|f|, 1) ≤ grad_tol,
-            //
-            // where `‖grad‖_g` carries units of f/x, `‖x‖_typ` is the iterate's
-            // characteristic magnitude (RMS, floored at 1) and `max(|f|, 1)` the
-            // objective's. This divides out the common scale both the objective
-            // and its gradient inherit, so `grad_tol` is a true *relative*
-            // tolerance: it detects stationarity (the ratio → 0 only as the
-            // gradient vanishes relative to scale) without prematurely stopping
-            // on a non-stationary iterate (whose ratio stays O(1)). On a
-            // unit-scale objective `‖x‖_typ = 1` and `max(|f|,1)` reduces this to
-            // the absolute test, leaving those paths unchanged.
-            if relative_stationarity(grad_norm, x.view(), f_curr) <= self.grad_tol {
+            // ratio `‖grad_k‖_g / max(‖grad_0‖_g, 1)`, where `‖grad_0‖_g` is the
+            // gradient norm at the initial iterate. It carries the same
+            // *multiplicative* scale the objective and its gradient share but is
+            // invariant under an additive shift `f → f + C` (unlike `max(|f|,1)`,
+            // which a large constant inflates into a false convergence, #954),
+            // and reduces to the absolute test on a unit-scale objective.
+            let grad0 = *grad0_norm.get_or_insert(grad_norm);
+            if relative_stationarity(grad_norm, grad0) <= self.grad_tol {
                 break;
             }
 
@@ -231,7 +260,13 @@ impl RiemannianTrustRegion {
     /// Solve `min_{‖η‖_g ≤ Δ} m(η)` and return `(η, m(0) − m(η), hit_boundary)`.
     ///
     /// Uses Steihaug truncated-CG when the objective provides Hessian–vector
-    /// products, otherwise the Cauchy point.
+    /// products *and* the manifold's `retract` is at least a second-order
+    /// retraction ([`RiemannianManifold::retraction_is_second_order`]). When the
+    /// retraction is only first-order the Riemannian-Hessian quadratic term is
+    /// not the second derivative of `f∘R_x`, so scoring it would corrupt ρ
+    /// (issue #956); we then take the Cauchy point, whose linear model is
+    /// first-order correct along any retraction (as we also do when no curvature
+    /// is available).
     fn solve_subproblem(
         &self,
         manifold: &dyn RiemannianManifold,
@@ -246,7 +281,20 @@ impl RiemannianTrustRegion {
         // product we take the Cauchy point.
         let has_hessian = objective.hessian_vector_product(x, grad)?.is_some();
 
-        if !has_hessian {
+        // The Riemannian-Hessian quadratic model `½ g_x(η, Hη)` is the correct
+        // second-order model of `f` along the trial path ONLY when that path is
+        // generated by the exponential map or another second-order retraction:
+        // for a first-order retraction `R_x` the pullback `f∘R_x` has a second
+        // derivative at `0` that is NOT the Riemannian Hessian, so scoring the
+        // curved model against `manifold.retract` corrupts ρ and the radius
+        // control (issue #956). The linear term `g_x(grad, η) = Df_x[η]` is
+        // retraction-independent, so the curvature-free Cauchy model stays
+        // first-order correct along ANY retraction. We therefore use the curved
+        // Steihaug truncated-CG step only when the objective supplies curvature
+        // AND the manifold's retraction is (at least) second-order; otherwise we
+        // take the Cauchy point — never asserting a second-order model the
+        // retraction cannot honor.
+        if !has_hessian || !manifold.retraction_is_second_order() {
             return self.cauchy_point(manifold, x, grad, delta);
         }
 
@@ -430,7 +478,14 @@ impl RiemannianLBFGS {
         check_len("L-BFGS initial point", x.len(), d)?;
         let mut history: Vec<SecantPair> = Vec::new();
         let (mut f_curr, grad_e0) = objective.value_gradient(x.view())?;
-        let mut grad = manifold.project_tangent(x.view(), grad_e0.view())?;
+        // Riemannian gradient (metric-raised), not a bare tangent projection —
+        // see the trust region above and issue #955. The secant pairs, two-loop
+        // recursion, and Armijo slope are all metric inner products, so they
+        // must operate on the true Riemannian gradient.
+        let mut grad = manifold.riemannian_gradient(x.view(), grad_e0.view())?;
+        // Initial Riemannian gradient norm: the shift-invariant scale of the
+        // relative stationarity test (see `relative_stationarity`).
+        let grad0_norm = g_norm(manifold, x.view(), grad.view())?;
         let armijo_c: f64 = 1.0e-4;
         let alpha_min: f64 = 1.0e-16;
         let alpha_max: f64 = 1.0e16;
@@ -440,14 +495,15 @@ impl RiemannianLBFGS {
             1.0
         };
         for _ in 0..self.max_iter {
-            // Scale-aware (relative) stationarity test, identical in form to the
-            // trust region's (see `relative_stationarity`): a fixed `grad_tol`
-            // reads as a *relative* tolerance so a large-scale objective (e.g.
-            // the profiled REML latent objective, issue #879) is not perpetually
-            // flagged non-stationary. Reduces to the absolute test on a
-            // unit-scale objective.
+            // Shift-invariant (relative) stationarity test, identical in form to
+            // the trust region's (see `relative_stationarity`): the current
+            // gradient norm is measured against the initial one, so a fixed
+            // `grad_tol` reads as a *relative* tolerance for a large-scale
+            // objective (e.g. the profiled REML latent objective, issue #879)
+            // while staying invariant under an additive shift of `f` (#954).
+            // Reduces to the absolute test on a unit-scale objective.
             let grad_norm = g_norm(manifold, x.view(), grad.view())?;
-            if relative_stationarity(grad_norm, x.view(), f_curr) <= self.grad_tol {
+            if relative_stationarity(grad_norm, grad0_norm) <= self.grad_tol {
                 break;
             }
             let direction = two_loop(manifold, x.view(), grad.view(), &history)?;
@@ -484,7 +540,9 @@ impl RiemannianLBFGS {
                     best_alpha = alpha;
                     best_f = f_trial;
                     best_x = trial_x;
-                    best_grad = manifold.project_tangent(best_x.view(), g_trial_e.view())?;
+                    // Riemannian (metric-raised) gradient at the trial point —
+                    // the object the secant pair (s, y) is formed from (#955).
+                    best_grad = manifold.riemannian_gradient(best_x.view(), g_trial_e.view())?;
                     if alpha >= alpha_max {
                         break;
                     }
@@ -505,7 +563,9 @@ impl RiemannianLBFGS {
                         best_alpha = alpha;
                         best_f = f_trial;
                         best_x = trial_x;
-                        best_grad = manifold.project_tangent(best_x.view(), g_trial_e.view())?;
+                        // Riemannian (metric-raised) gradient at the trial point.
+                        best_grad =
+                            manifold.riemannian_gradient(best_x.view(), g_trial_e.view())?;
                         break;
                     }
                     alpha *= 0.5;

@@ -10,7 +10,10 @@ import logging
 import re
 import time
 from collections.abc import Awaitable, Callable
-from typing import Any, overload
+from typing import Any
+
+from fastmcp.exceptions import ToolError
+from pydantic import ValidationError
 
 from ..client.rest_client import (
     HomeAssistantAPIError,
@@ -76,143 +79,6 @@ def public_fields(d: dict[str, Any]) -> dict[str, Any]:
     return {
         k: v for k, v in d.items() if not (isinstance(k, str) and k.startswith("_"))
     }
-
-
-@overload
-def coerce_bool_param(
-    value: bool | str | None,
-    param_name: str = ...,
-    default: bool = ...,
-) -> bool: ...
-
-
-@overload
-def coerce_bool_param(
-    value: bool | str | None,
-    param_name: str = ...,
-    default: None = ...,
-) -> bool | None: ...
-
-
-def coerce_bool_param(
-    value: bool | str | None,
-    param_name: str = "parameter",
-    default: bool | None = None,
-) -> bool | None:
-    """
-    Coerce a value to a boolean, handling string inputs from AI tools.
-
-    AI assistants using XML-style function calls pass boolean parameters as strings
-    (e.g., "true" instead of true). This function safely converts such inputs.
-
-    Args:
-        value: The value to coerce (bool, str, or None)
-        param_name: Parameter name for error messages
-        default: Default value to return if value is None
-
-    Returns:
-        The coerced boolean value, or default if value is None
-
-    Raises:
-        ValueError: If the value cannot be converted to a boolean
-    """
-    if value is None:
-        return default
-
-    if isinstance(value, bool):
-        return value
-
-    if isinstance(value, str):
-        value = value.strip().lower()
-        if not value:
-            return default
-        if value in ("true", "1", "yes", "on"):
-            return True
-        if value in ("false", "0", "no", "off"):
-            return False
-        raise ValueError(f"{param_name} must be a boolean value, got '{value}'")
-
-    raise ValueError(f"{param_name} must be bool or string, got {type(value).__name__}")
-
-
-@overload
-def coerce_int_param(
-    value: int | str | None,
-    param_name: str = ...,
-    *,
-    default: int,
-    min_value: int | None = ...,
-    max_value: int | None = ...,
-) -> int: ...
-
-
-@overload
-def coerce_int_param(
-    value: int | str | None,
-    param_name: str = ...,
-    *,
-    default: None = ...,
-    min_value: int | None = ...,
-    max_value: int | None = ...,
-) -> int | None: ...
-
-
-def coerce_int_param(
-    value: int | str | None,
-    param_name: str = "parameter",
-    *,
-    default: int | None = None,
-    min_value: int | None = None,
-    max_value: int | None = None,
-) -> int | None:
-    """
-    Coerce a value to an integer, handling string inputs from AI tools.
-
-    AI assistants often pass numeric parameters as strings (e.g., "100" instead of 100).
-    This function safely converts such inputs to integers.
-
-    Args:
-        value: The value to coerce (int, str, or None)
-        param_name: Parameter name for error messages
-        default: Default value to return if value is None
-        min_value: Optional minimum value constraint
-        max_value: Optional maximum value constraint
-
-    Returns:
-        The coerced integer value, or default if value is None
-
-    Raises:
-        ValueError: If the value cannot be converted to an integer
-    """
-    if value is None:
-        return default
-
-    if isinstance(value, int):
-        result = value
-    elif isinstance(value, str):
-        value = value.strip()
-        if not value:
-            return default
-        try:
-            # Handle float strings like "100.0" by converting via float first
-            result = int(float(value))
-        except ValueError:
-            raise ValueError(
-                f"{param_name} must be a valid integer, got '{value}'"
-            ) from None
-    else:
-        raise ValueError(
-            f"{param_name} must be int or string, got {type(value).__name__}"
-        )
-
-    # Apply constraints — raise for below-minimum (indicates caller bug),
-    # clamp for above-maximum (soft cap for oversized requests)
-    if min_value is not None and result < min_value:
-        raise ValueError(f"{param_name} must be at least {min_value}, got {result}")
-    if max_value is not None and result > max_value:
-        result = max_value
-
-    return result
 
 
 def parse_json_param(
@@ -442,6 +308,8 @@ def compact_service_result(
 def project_fields(
     data: dict[str, Any],
     fields: str | list[str] | None,
+    *,
+    extra_always_keep: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     """Apply optional field projection to a response data dict.
 
@@ -449,23 +317,29 @@ def project_fields(
     CSV/JSON-array string for *fields*.  Apply to the inner payload before any
     outer wrapper that adds top-level keys you want to preserve.
 
+    ``extra_always_keep`` lets a caller extend the retained set with its own
+    contract / diagnostic keys (e.g. the orchestrator's pagination + partial-
+    state keys) without having to reimplement the projection logic.
+
     Typo guard: if any requested key does not exist in *data* (excluding the
-    always-retained ``success``/``warnings`` keys), a diagnostic is appended to
-    ``result["warnings"]`` listing the unknown keys and the available ones.
-    This mirrors the per-record ``result_fields_warning`` guard and ensures
-    callers get a signal rather than a mysteriously empty response.
+    always-retained keys), a diagnostic is appended to ``result["warnings"]``
+    listing the unknown keys and the available ones.  This mirrors the
+    per-record ``result_fields_warning`` guard and ensures callers get a
+    signal rather than a mysteriously empty response.
     """
     if fields is None:
         return data
     parsed = parse_string_list_param(fields, "fields", allow_csv=True) or []
-    keep = set(parsed) | {"success", "warnings"}
+    always_keep: set[str] = {"success", "warnings"}
+    if extra_always_keep is not None:
+        always_keep |= extra_always_keep
+    keep = set(parsed) | always_keep
     result = {k: v for k, v in data.items() if k in keep}
     # Typo guard — flag any requested keys that are absent from the response.
     # Exclude the always-retained sentinels so fields=["success"] never warns.
-    _force_retain = {"success", "warnings"}
-    unknown = sorted(set(parsed) - set(data.keys()) - _force_retain)
+    unknown = sorted(set(parsed) - set(data.keys()) - always_keep)
     if unknown:
-        available = sorted(k for k in data.keys() if k not in _force_retain)
+        available = sorted(k for k in data.keys() if k not in always_keep)
         result.setdefault("warnings", []).append(
             f"fields {unknown!r} not found in response — available keys: {available!r}"
         )
@@ -1950,3 +1824,270 @@ def _resolve_data_path(data: Any, path: str) -> tuple[Any, str | None]:
         current = current[seg]
         walked.append(seg)
     return current, None
+
+
+# ---------------------------------------------------------------------------
+# Skill content assembly (write-tool MandatoryBPS parameter, issue #1182)
+# ---------------------------------------------------------------------------
+
+_HA_BEST_PRACTICES_SKILL_NAME = "home-assistant-best-practices"
+
+
+def build_skill_content(
+    MandatoryBPS: bool,
+    canonical_files: tuple[str, ...],
+    referenced_files: set[str] | None,
+) -> dict[str, str]:
+    """Resolve and dedupe skill files (or sections) for a write-tool response.
+
+    Shared helper for every write tool that exposes ``MandatoryBPS``
+    (ha_config_set_automation / _script / _scene / _helper / _dashboard /
+    _yaml). Each tool owns its own ``canonical_files`` mapping and passes
+    it in; the helper unions against ``referenced_files`` from the
+    best-practice checker (where applicable) and reads the bodies via
+    :func:`ha_mcp.utils.skill_loader.resolve_skill_files`.
+
+    ``referenced_files`` may carry ``#anchor`` suffixes
+    (``"references/automation-patterns.md#native-conditions"``); those
+    resolve to just the matching markdown section. ``canonical_files``
+    entries are bare paths and resolve to whole files.
+
+    Dedup: if ``canonical_files`` already requests a bare path that some
+    anchored entry in ``referenced_files`` points at, the anchored entry
+    is dropped — the full file supersedes the section, no point shipping
+    the same content twice in different shapes.
+
+    Args:
+        MandatoryBPS: When True, attach the canonical files for this tool.
+        canonical_files: Tool-specific default mapping. Paths are relative
+            to the home-assistant-best-practices skill directory
+            (e.g. ``"references/automation-patterns.md"``).
+        referenced_files: Files (optionally with ``#anchor``) cited by
+            best-practice warnings — always attached, regardless of
+            ``MandatoryBPS``. Pass ``None`` for tools without
+            best-practice checker integration.
+
+    Returns:
+        ``{ref: body_or_section}`` for each ref that resolves. Empty dict
+        when nothing to embed or the skills-vendor submodule is absent —
+        callers should omit the ``skill_content`` field from the response
+        when the return is empty.
+    """
+    from ..config import get_global_settings
+    from ..utils.skill_loader import get_skills_dir, resolve_skill_files
+
+    # Server-side master switch (issue #1182). When the operator has set
+    # ENABLE_MANDATORY_BPS=false (env var / addon config / web UI), NO
+    # skill_content goes out for any write tool — neither the per-call
+    # canonical files nor the BP-warning auto-embed nor the opt-out hint.
+    # Sits above the per-call ``MandatoryBPS`` flag because that flag
+    # controls per-call behaviour; this controls whether the feature is
+    # active at all.
+    #
+    # Settings-load is wrapped because skill_content is opportunistic —
+    # the write has already committed by the time we're consulting
+    # settings here, and a settings-validation regression must not turn
+    # a successful write into a tool-level INTERNAL_ERROR (which would
+    # then prompt the agent to retry, double-applying the mutation).
+    # Silent degrade to "no skill_content" is the documented contract.
+    # Narrowed to ValidationError (the realistic config-load failure from
+    # Settings()) so genuine bugs (AttributeError/ImportError/etc.) still
+    # surface instead of being masked on every write — per the repo's
+    # narrow-except convention.
+    try:
+        if not get_global_settings().enable_mandatory_bps:
+            return {}
+    except ValidationError:
+        logger.warning("skill_content settings lookup failed; omitting", exc_info=True)
+        return {}
+
+    wanted: set[str] = set()
+    if MandatoryBPS:
+        wanted.update(canonical_files)
+    if referenced_files:
+        wanted.update(referenced_files)
+    if not wanted:
+        return {}
+
+    # Bare-file canonical supersedes anchored section refs for the same
+    # file (no point shipping the whole file AND a section from it).
+    bare_paths = {w for w in wanted if "#" not in w}
+    wanted = {w for w in wanted if "#" not in w or w.split("#", 1)[0] not in bare_paths}
+
+    return resolve_skill_files(
+        get_skills_dir(), _HA_BEST_PRACTICES_SKILL_NAME, sorted(wanted)
+    )
+
+
+_SKILLS_VENDOR_MISSING_WARNING = (
+    "skill_content unavailable — the home-assistant-best-practices "
+    "skills-vendor submodule is not initialised. The agent will not "
+    "receive the relevant best-practice guidance for this write. "
+    "Run `git submodule update --init` on the server install."
+)
+
+# Opt-out hint shipped alongside delivered skill_content. The param
+# name (`MandatoryBPS`), absence of a Field description, and first-key
+# response placement are all load-bearing — each was settled by BAT
+# (failing alternatives reflexively triggered minimisation, omission,
+# or invisibility on at least one model). Don't tune any of them
+# casually; re-BAT before any change.
+_SKILL_CONTENT_OPTOUT_HINT = (
+    "Pass `MandatoryBPS=false` on subsequent calls to this tool in "
+    "this session to skip this content."
+)
+
+# Suggestion appended to EVERY write-tool error response. Not every
+# error has BP-checker context, so the generic skill-guide pointer is
+# the floor — when BP fired, the checker's own warning text (with its
+# more specific 2-route hint) is appended alongside in the suggestions
+# array, and the matching section body auto-embeds inline.
+_WRITE_TOOL_BP_HINT_SUGGESTION = (
+    "For Home Assistant best-practice guidance, call "
+    "ha_get_skill_guide(skill='home-assistant-best-practices') and consult "
+    "the relevant reference file before retrying."
+)
+
+
+def attach_skill_content(
+    response: dict[str, Any],
+    MandatoryBPS: bool,
+    canonical_files: tuple[str, ...],
+    referenced_files: set[str] | None,
+) -> None:
+    """In-place attach skill_content to a response, warn on degraded vendor.
+
+    Resolves ``canonical_files`` and/or ``referenced_files`` via
+    :func:`build_skill_content` and attaches the result under
+    ``response["skill_content"]`` when non-empty.
+
+    Asymmetry vs the read-side ``ha_get_skill_guide`` tool: when the
+    bundled skills-vendor submodule is missing, the read tool returns a
+    structured ``degraded: True`` payload, but the write tools previously
+    just omitted ``skill_content`` silently — the operator never sees
+    that the LLM is missing the proactive guidance the docstring
+    promised. This helper appends a top-level ``warnings[]`` entry in
+    that case so the omission is observable rather than silent.
+
+    Args:
+        response: The dict to mutate. ``skill_content`` and/or ``warnings``
+            may be added.
+        MandatoryBPS: When True, attach the canonical files for this tool.
+        canonical_files: Tool-specific default mapping.
+        referenced_files: Files cited by best-practice warnings.
+    """
+    from ..config import get_global_settings
+    from ..utils.skill_loader import get_skills_dir
+
+    content = build_skill_content(
+        MandatoryBPS=MandatoryBPS,
+        canonical_files=canonical_files,
+        referenced_files=referenced_files,
+    )
+    if content:
+        # Reorder so the hint is the FIRST key in the response and the
+        # bulky skill_content is the LAST. LLMs (especially smaller
+        # models) process responses top-down and BAT showed the
+        # trailing-hint placement was getting buried under ~25KB of
+        # markdown — Opus needed five tries to find it, Sonnet/Haiku
+        # never found it. The mutation is in place because callers
+        # pass the dict by reference and expect their handle to keep
+        # pointing at the same response object.
+        existing_items = list(response.items())
+        response.clear()
+        response["skill_content_hint"] = _SKILL_CONTENT_OPTOUT_HINT
+        response.update(existing_items)
+        response["skill_content"] = content
+        return
+
+    # Empty content has three distinct causes:
+    # 1. Operator disabled the feature server-wide (ENABLE_MANDATORY_BPS=False).
+    #    Suppression is deliberate — no warning, no nag.
+    # 2. Nothing was requested (MandatoryBPS=False AND no referenced_files).
+    #    Benign — return silently.
+    # 3. Something was requested but the vendor submodule is missing.
+    #    Degraded — append a warning so operators notice.
+    # Narrowed to ValidationError (see build_skill_content). On a settings
+    # lookup failure we can't know the master state, so default master_on
+    # to False — that suppresses the vendor-missing warning rather than
+    # emitting a misleading one whose real cause was the settings fetch.
+    try:
+        master_on = get_global_settings().enable_mandatory_bps
+    except ValidationError:
+        master_on = False
+    requested_anything = MandatoryBPS or referenced_files
+    if master_on and requested_anything and get_skills_dir() is None:
+        response.setdefault("warnings", []).append(_SKILLS_VENDOR_MISSING_WARNING)
+
+
+def augment_error_dict_with_skill_content(
+    error_dict: dict[str, Any],
+    bp_warnings: Any = None,
+) -> None:
+    """In-place: add generic BP-skill-guide hint + auto-embed any
+    BP-referenced section bodies into a write-tool error response dict.
+
+    Appends ``_WRITE_TOOL_BP_HINT_SUGGESTION`` to ``error_dict["error"]
+    ["suggestions"]`` (idempotent — won't double-append) and keeps the
+    legacy singular ``suggestion`` field aligned with the first entry.
+
+    When ``bp_warnings`` has ``referenced_files``, auto-embeds the
+    matching markdown sections under ``skill_content`` with
+    ``skill_content_hint`` at the top of the response, matching the
+    success-path attach shape. Canonical files are NOT attached on
+    errors (targeted section bodies are 1-5 KB and carry the fix
+    material; the 25-37 KB canonical bundle would bloat errors without
+    matching benefit). The opt-out hint is still placed first so the
+    LLM knows about ``MandatoryBPS=false`` for its next successful call.
+
+    No-op when ``error_dict`` doesn't have a nested ``error`` dict
+    (defensive — preserves the contract for any caller passing a
+    non-standard error shape).
+    """
+    err = error_dict.get("error")
+    if not isinstance(err, dict):
+        return
+    suggestions = err.setdefault("suggestions", [])
+    if _WRITE_TOOL_BP_HINT_SUGGESTION not in suggestions:
+        suggestions.append(_WRITE_TOOL_BP_HINT_SUGGESTION)
+    if suggestions:
+        err["suggestion"] = suggestions[0]
+
+    referenced_files = getattr(bp_warnings, "referenced_files", None)
+    if referenced_files:
+        attach_skill_content(
+            error_dict,
+            MandatoryBPS=False,
+            canonical_files=(),
+            referenced_files=referenced_files,
+        )
+
+
+def augment_tool_error_with_skill_content(
+    te: ToolError,
+    bp_warnings: Any = None,
+) -> ToolError:
+    """Wrap :func:`augment_error_dict_with_skill_content` around a ``ToolError``.
+
+    Each write tool wraps its method body in:
+
+        try:
+            ...
+            return result
+        except ToolError as te:
+            raise augment_tool_error_with_skill_content(te, bp_warnings) from None
+
+    Decodes the error JSON, applies the dict augmentation, re-encodes,
+    and returns a NEW ``ToolError`` to be raised with ``from None`` so
+    the original exception chain isn't surfaced. Falls through to
+    returning the original ``te`` when the body isn't JSON-decodable
+    as a structured error dict.
+    """
+    try:
+        error_dict = json.loads(str(te))
+    except (json.JSONDecodeError, TypeError):
+        return te
+    if not isinstance(error_dict, dict):
+        return te
+    augment_error_dict_with_skill_content(error_dict, bp_warnings)
+    return ToolError(json.dumps(error_dict, indent=2, default=str))

@@ -304,3 +304,4 @@ def skip_test_compare_not_local():
         process.wait(30)
         # And verify that it was killed
         assert process.returncode == 0
+        

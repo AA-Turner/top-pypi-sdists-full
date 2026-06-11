@@ -179,32 +179,6 @@ pub enum SimulationResult {
 }
 
 impl SimulationResult {
-    /// f64 정밀도 결과 생성자. 기존 v0.2.0 API 호환.
-    pub fn new(counts: HashMap<String, usize>, statevector: StateVector<f64>) -> Self {
-        SimulationResult::F64 {
-            counts,
-            statevector,
-        }
-    }
-
-    /// f32 정밀도 결과 생성자.
-    pub fn new_f32(counts: HashMap<String, usize>, statevector: StateVector<f32>) -> Self {
-        SimulationResult::F32 {
-            counts,
-            statevector,
-        }
-    }
-
-    /// f64 정밀도 density matrix 결과 생성자 (v0.5.0).
-    pub fn new_density_f64(counts: HashMap<String, usize>, density: DensityMatrix<f64>) -> Self {
-        SimulationResult::DensityF64 { counts, density }
-    }
-
-    /// f32 정밀도 density matrix 결과 생성자 (v0.5.0).
-    pub fn new_density_f32(counts: HashMap<String, usize>, density: DensityMatrix<f32>) -> Self {
-        SimulationResult::DensityF32 { counts, density }
-    }
-
     /// 정밀도 enum 반환.
     pub fn precision(&self) -> Precision {
         match self {

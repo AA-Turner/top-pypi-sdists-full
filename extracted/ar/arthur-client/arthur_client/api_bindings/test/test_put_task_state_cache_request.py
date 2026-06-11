@@ -77,8 +77,9 @@ class TestPutTaskStateCacheRequest(unittest.TestCase):
                             enabled = True, )
                         ], ),
                 evals = [
-                    arthur_client.api_bindings.models.llm_eval.LLMEval(
+                    arthur_client.api_bindings.models.eval.Eval(
                         name = '', 
+                        eval_kind = 'llm_as_a_judge', 
                         model_name = '', 
                         model_provider = 'anthropic', 
                         instructions = '', 
@@ -88,27 +89,7 @@ class TestPutTaskStateCacheRequest(unittest.TestCase):
                         tags = [
                             ''
                             ], 
-                        config = arthur_client.api_bindings.models.llm_base_config_settings.LLMBaseConfigSettings(
-                            timeout = 1.337, 
-                            temperature = 1.337, 
-                            top_p = 1.337, 
-                            max_tokens = 56, 
-                            stop = '', 
-                            presence_penalty = 1.337, 
-                            frequency_penalty = 1.337, 
-                            seed = 56, 
-                            logprobs = True, 
-                            top_logprobs = 56, 
-                            logit_bias = [
-                                arthur_client.api_bindings.models.logit_bias_item.LogitBiasItem(
-                                    token_id = 56, 
-                                    bias = -100.0, )
-                                ], 
-                            max_completion_tokens = 56, 
-                            reasoning_effort = 'none', 
-                            thinking = arthur_client.api_bindings.models.anthropic_thinking_param.AnthropicThinkingParam(
-                                type = 'enabled', 
-                                budget_tokens = 56, ), ), 
+                        config = null, 
                         created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         deleted_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         version = 56, )
@@ -119,6 +100,7 @@ class TestPutTaskStateCacheRequest(unittest.TestCase):
                         name = '', 
                         description = '', 
                         task_id = '', 
+                        eval_type = 'llm_eval', 
                         llm_eval_name = '', 
                         llm_eval_version = 56, 
                         transform_id = '', 

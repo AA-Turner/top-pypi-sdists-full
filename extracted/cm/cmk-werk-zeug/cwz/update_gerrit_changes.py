@@ -84,7 +84,7 @@ async def update_gerrit_changes(
             # fixme(frans): allow for custom branches
             if change.branch == ancestor
         ]
-        assert change_id is None or len(changes) == 1
+        assert len(changes) in (0, 1), f"{change_id=}, {len(changes)=}"
         change = changes[0] if changes else None
         link = f"{gerrit_client.url}/c/{change.project}/+/{change.number}" if change else ""
 

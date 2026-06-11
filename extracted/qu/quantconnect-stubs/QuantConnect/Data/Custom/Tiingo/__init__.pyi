@@ -11,25 +11,6 @@ import QuantConnect.Securities
 import System
 
 
-class Tiingo(System.Object):
-    """Helper class for Tiingo configuration"""
-
-    auth_code: str
-    """Gets the Tiingo API token."""
-
-    is_auth_code_set: bool
-    """Returns true if the Tiingo API token has been set."""
-
-    @staticmethod
-    def set_auth_code(auth_code: str) -> None:
-        """
-        Sets the Tiingo API token.
-        
-        :param auth_code: The Tiingo API token
-        """
-        ...
-
-
 class TiingoPrice(QuantConnect.Data.Market.TradeBar):
     """
     Tiingo daily price data
@@ -224,6 +205,25 @@ class TiingoPrice(QuantConnect.Data.Market.TradeBar):
 
     def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
         """Gets the supported resolution for this data and security type"""
+        ...
+
+
+class Tiingo(System.Object):
+    """Helper class for Tiingo configuration"""
+
+    auth_code: str
+    """Gets the Tiingo API token."""
+
+    is_auth_code_set: bool
+    """Returns true if the Tiingo API token has been set."""
+
+    @staticmethod
+    def set_auth_code(auth_code: str) -> None:
+        """
+        Sets the Tiingo API token.
+        
+        :param auth_code: The Tiingo API token
+        """
         ...
 
 

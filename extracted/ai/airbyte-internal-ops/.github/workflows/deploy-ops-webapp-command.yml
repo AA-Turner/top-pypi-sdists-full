@@ -1,0 +1,28 @@
+name: Deploy Ops Webapp
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "PR number for slash-command dispatch. Ignore for manual dry runs."
+        required: false
+        type: string
+      comment-id:
+        description: "Comment ID for slash-command dispatch. Ignore for manual dry runs."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-ops-webapp:
+    name: Deploy Ops Webapp stub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm workflow placeholder
+        run: |
+          echo "Deploy Ops Webapp workflow placeholder." | tee -a $GITHUB_STEP_SUMMARY
+          echo "This workflow will be expanded from feature branches after it exists on main." | tee -a $GITHUB_STEP_SUMMARY
+          echo "PR input: ${{ github.event.inputs.pr }}" | tee -a $GITHUB_STEP_SUMMARY
+          echo "Comment ID input: ${{ github.event.inputs.comment-id }}" | tee -a $GITHUB_STEP_SUMMARY

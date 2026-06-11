@@ -35,7 +35,7 @@ class CreateMetronomeWebhookNotification(object):
     openapi_types = {
         'id': 'str',
         'type': 'str',
-        'properties': 'dict(str, str)'
+        'properties': 'object'
     }
 
     attribute_map = {
@@ -111,7 +111,7 @@ class CreateMetronomeWebhookNotification(object):
 
 
         :return: The properties of this CreateMetronomeWebhookNotification.  # noqa: E501
-        :rtype: dict(str, str)
+        :rtype: object
         """
         return self._properties
 
@@ -121,7 +121,7 @@ class CreateMetronomeWebhookNotification(object):
 
 
         :param properties: The properties of this CreateMetronomeWebhookNotification.  # noqa: E501
-        :type: dict(str, str)
+        :type: object
         """
         if self.local_vars_configuration.client_side_validation and properties is None:  # noqa: E501
             raise ValueError("Invalid value for `properties`, must not be `None`")  # noqa: E501

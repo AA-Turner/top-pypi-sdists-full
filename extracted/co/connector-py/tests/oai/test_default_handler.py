@@ -322,6 +322,42 @@ def test_handle_exception_uses_matching_handler():
     assert resp.error.error_code == ConnectorErrorCode.SERVICE_ERROR
 
 
+def test_handle_exception_maps_connect_timeout_to_connection_timeout():
+    req = httpx.Request("GET", "https://example.com/")
+    e = httpx.ConnectTimeout("connect timeout", request=req)
+    resp = handle_exception(
+        e, [(httpx.HTTPStatusError, HTTPHandler, None)], lambda _: None, "test_app"
+    )
+    assert resp.error.error_code == ConnectorErrorCode.CONNECTION_TIMEOUT
+
+
+def test_handle_exception_maps_read_timeout_to_request_timeout():
+    req = httpx.Request("GET", "https://example.com/")
+    e = httpx.ReadTimeout("read timeout", request=req)
+    resp = handle_exception(
+        e, [(httpx.HTTPStatusError, HTTPHandler, None)], lambda _: None, "test_app"
+    )
+    assert resp.error.error_code == ConnectorErrorCode.REQUEST_TIMEOUT
+
+
+def test_handle_exception_maps_read_error_to_connection_closed():
+    req = httpx.Request("GET", "https://example.com/")
+    e = httpx.ReadError("read error", request=req)
+    resp = handle_exception(
+        e, [(httpx.HTTPStatusError, HTTPHandler, None)], lambda _: None, "test_app"
+    )
+    assert resp.error.error_code == ConnectorErrorCode.CONNECTION_CLOSED
+
+
+def test_handle_exception_maps_remote_protocol_error_to_connection_closed():
+    req = httpx.Request("GET", "https://example.com/")
+    e = httpx.RemoteProtocolError("peer closed connection", request=req)
+    resp = handle_exception(
+        e, [(httpx.HTTPStatusError, HTTPHandler, None)], lambda _: None, "test_app"
+    )
+    assert resp.error.error_code == ConnectorErrorCode.CONNECTION_CLOSED
+
+
 def _render_error_log_call(mock_error: MagicMock) -> str:
     """Rebuild the formatted line from ``error_logger.error(fmt, *args, exc_info=True)``."""
     args, kwargs = mock_error.call_args

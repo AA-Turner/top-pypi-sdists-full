@@ -4,7 +4,7 @@ Calendar event management tools for Home Assistant MCP server.
 This module provides tools for managing calendar events in Home Assistant,
 including retrieving events, creating events, and deleting events.
 
-Use ha_search_entities(query='calendar', domain_filter='calendar') to find calendar entities.
+Use ha_search(query='calendar', domain_filter='calendar') to find calendar entities.
 """
 
 import logging
@@ -92,7 +92,7 @@ class CalendarTools:
         )
         ```
 
-        **Note:** To find calendar entities, use ha_search_entities(query='calendar', domain_filter='calendar')
+        **Note:** To find calendar entities, use ha_search(query='calendar', domain_filter='calendar')
 
         **Returns:**
         - List of calendar events with summary, start, end, description, location
@@ -106,7 +106,7 @@ class CalendarTools:
                         f"Invalid calendar entity ID: {entity_id}. Must start with 'calendar.'",
                         context={"entity_id": entity_id},
                         suggestions=[
-                            "Use ha_search_entities(query='calendar', domain_filter='calendar') to find calendar entities",
+                            "Use ha_search(query='calendar', domain_filter='calendar') to find calendar entities",
                             "Calendar entity IDs start with 'calendar.' prefix",
                         ],
                     )
@@ -156,7 +156,7 @@ class CalendarTools:
 
             # Provide helpful error messages
             suggestions = [
-                f"Verify calendar entity '{entity_id}' exists using ha_search_entities(query='calendar', domain_filter='calendar')",
+                f"Verify calendar entity '{entity_id}' exists using ha_search(query='calendar', domain_filter='calendar')",
                 "Check start/end datetime format (ISO 8601)",
                 "Ensure calendar integration supports event retrieval",
             ]
@@ -168,6 +168,7 @@ class CalendarTools:
             exception_to_structured_error(
                 error, context={"entity_id": entity_id}, suggestions=suggestions
             )
+            return None  # unreachable: exception_to_structured_error always raises
 
     @tool(
         name="ha_config_set_calendar_event",
@@ -250,7 +251,7 @@ class CalendarTools:
                         f"Invalid calendar entity ID: {entity_id}. Must start with 'calendar.'",
                         context={"entity_id": entity_id},
                         suggestions=[
-                            "Use ha_search_entities(query='calendar', domain_filter='calendar') to find calendar entities",
+                            "Use ha_search(query='calendar', domain_filter='calendar') to find calendar entities",
                             "Calendar entity IDs start with 'calendar.' prefix",
                         ],
                     )
@@ -309,6 +310,7 @@ class CalendarTools:
             exception_to_structured_error(
                 error, context={"entity_id": entity_id}, suggestions=suggestions
             )
+            return None  # unreachable: exception_to_structured_error always raises
 
     @tool(
         name="ha_config_remove_calendar_event",
@@ -399,7 +401,7 @@ class CalendarTools:
                         f"Invalid calendar entity ID: {entity_id}. Must start with 'calendar.'",
                         context={"entity_id": entity_id},
                         suggestions=[
-                            "Use ha_search_entities(query='calendar', domain_filter='calendar') to find calendar entities",
+                            "Use ha_search(query='calendar', domain_filter='calendar') to find calendar entities",
                             "Calendar entity IDs start with 'calendar.' prefix",
                         ],
                     )
@@ -493,6 +495,7 @@ class CalendarTools:
                 context={"entity_id": entity_id, "uid": uid},
                 suggestions=suggestions,
             )
+            return None  # unreachable: exception_to_structured_error always raises
 
 
 def register_calendar_tools(mcp: Any, client: Any, **kwargs: Any) -> None:

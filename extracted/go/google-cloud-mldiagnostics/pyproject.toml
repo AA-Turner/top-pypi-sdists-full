@@ -14,7 +14,7 @@
 
 [project]
 name = "google-cloud-mldiagnostics"
-version = "1.0.2"
+version = "1.0.3"
 description = "diagnostic packages for profiling and ML experiment management"
 authors = [
     {name = "Google Diagon++", email = "hypercompute-diagon@google.com"}
@@ -37,6 +37,7 @@ dependencies = [
   "google-cloud-logging>=2.0.0",
   "psutil>=6.0.0",
   "packaging>=24.0",
+  "pynvml>=11.5.0",
 ]
 
 [build-system]

@@ -24,7 +24,10 @@ SECURE_TOKEN_URL = "https://securetoken.googleapis.com/v1/token"
 AUTH_DIR = Path.home() / ".sage"
 AUTH_FILE = AUTH_DIR / "auth.json"
 
-SAGE_API_BASE = os.environ.get("SAGE_API_BASE", "https://sageworksai.com")
+def get_api_base() -> str:
+    return os.environ.get("SAGE_API_BASE", "https://sageworksai.com")
+
+SAGE_API_BASE = get_api_base()
 
 
 # ── Token storage ─────────────────────────────────────────────────────────────
@@ -249,7 +252,7 @@ h2{color:#4ade80;font-size:24px;margin-bottom:8px}p{color:#888}</style>
     server = HTTPServer(("127.0.0.1", port), _Handler)
     server.timeout = 1.0  # short poll so we can check stop_event
 
-    auth_url = f"{SAGE_API_BASE}/?cli_port={port}&state={state}"
+    auth_url = f"{get_api_base()}/?cli_port={port}&state={state}"
 
     print()
     print("  Opening your browser to log in to SAGE AI...")
@@ -295,7 +298,7 @@ h2{color:#4ade80;font-size:24px;margin-bottom:8px}p{color:#888}</style>
     # Verify with backend and get tier
     try:
         res = httpx.post(
-            f"{SAGE_API_BASE}/auth/verify",
+            f"{get_api_base()}/auth/verify",
             json={"token": auth["id_token"]},
             timeout=10,
         )
@@ -394,7 +397,7 @@ def track_usage(message_type: str = "cli", response_text: str = "") -> None:
         token = get_valid_token()
         tokens = max(1, len(response_text) // 4) if response_text else 500
         httpx.post(
-            f"{SAGE_API_BASE}/billing/track",
+            f"{get_api_base()}/billing/track",
             json={"type": message_type, "tokens": tokens, "text": response_text[:100]},
             headers={"Authorization": f"Bearer {token}"},
             timeout=5,
@@ -410,7 +413,7 @@ def check_token_quota() -> None:
     try:
         token = get_valid_token()
         r = httpx.get(
-            f"{SAGE_API_BASE}/billing/me",
+            f"{get_api_base()}/billing/me",
             headers={"Authorization": f"Bearer {token}"},
             timeout=8,
         )
@@ -427,7 +430,7 @@ def check_token_quota() -> None:
             raise RuntimeError(
                 f"⚠  Token limit reached: {tokens_used:,} / {token_limit:,} tokens used this month.\n"
                 f"   Overage rate: ${rate}/1K tokens — usage continues and you will be billed.\n"
-                f"   Upgrade for more tokens: {SAGE_API_BASE} (Billing tab)"
+                f"   Upgrade for more tokens: {get_api_base()} (Billing tab)"
             )
     except RuntimeError:
         raise

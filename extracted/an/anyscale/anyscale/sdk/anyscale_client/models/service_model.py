@@ -50,7 +50,8 @@ class ServiceModel(object):
         'canary_version': 'ProductionServiceV2VersionModel',
         'service_observability_urls': 'ServiceObservabilityUrls',
         'base_url': 'str',
-        'ended_at': 'datetime'
+        'ended_at': 'datetime',
+        'service_status_checklist': 'ServiceStatusChecklist'
     }
 
     attribute_map = {
@@ -71,10 +72,11 @@ class ServiceModel(object):
         'canary_version': 'canary_version',
         'service_observability_urls': 'service_observability_urls',
         'base_url': 'base_url',
-        'ended_at': 'ended_at'
+        'ended_at': 'ended_at',
+        'service_status_checklist': 'service_status_checklist'
     }
 
-    def __init__(self, id=None, name=None, description=None, project_id=None, cloud_id=None, creator_id=None, created_at=None, hostname=None, current_state=None, goal_state=None, auth_token=None, auto_rollout_enabled=None, versions=None, primary_version=None, canary_version=None, service_observability_urls=None, base_url=None, ended_at=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, description=None, project_id=None, cloud_id=None, creator_id=None, created_at=None, hostname=None, current_state=None, goal_state=None, auth_token=None, auto_rollout_enabled=None, versions=None, primary_version=None, canary_version=None, service_observability_urls=None, base_url=None, ended_at=None, service_status_checklist=None, local_vars_configuration=None):  # noqa: E501
         """ServiceModel - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -98,6 +100,7 @@ class ServiceModel(object):
         self._service_observability_urls = None
         self._base_url = None
         self._ended_at = None
+        self._service_status_checklist = None
         self.discriminator = None
 
         self.id = id
@@ -122,6 +125,8 @@ class ServiceModel(object):
         self.base_url = base_url
         if ended_at is not None:
             self.ended_at = ended_at
+        if service_status_checklist is not None:
+            self.service_status_checklist = service_status_checklist
 
     @property
     def id(self):
@@ -564,6 +569,29 @@ class ServiceModel(object):
         """
 
         self._ended_at = ended_at
+
+    @property
+    def service_status_checklist(self):
+        """Gets the service_status_checklist of this ServiceModel.  # noqa: E501
+
+        Per-component status breakdown derived from the most recent reconciler snapshot. Null for terminated services and during the brief window before the reconciler's first tick on a brand-new service.  # noqa: E501
+
+        :return: The service_status_checklist of this ServiceModel.  # noqa: E501
+        :rtype: ServiceStatusChecklist
+        """
+        return self._service_status_checklist
+
+    @service_status_checklist.setter
+    def service_status_checklist(self, service_status_checklist):
+        """Sets the service_status_checklist of this ServiceModel.
+
+        Per-component status breakdown derived from the most recent reconciler snapshot. Null for terminated services and during the brief window before the reconciler's first tick on a brand-new service.  # noqa: E501
+
+        :param service_status_checklist: The service_status_checklist of this ServiceModel.  # noqa: E501
+        :type: ServiceStatusChecklist
+        """
+
+        self._service_status_checklist = service_status_checklist
 
     def to_dict(self):
         """Returns the model properties as a dict"""

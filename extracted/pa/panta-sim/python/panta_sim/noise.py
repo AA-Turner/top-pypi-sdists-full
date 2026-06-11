@@ -95,7 +95,14 @@ class NoiseModel:
         gates: Optional[GateSpec] = None,
         qubits: QubitSpec = "all",
     ) -> "NoiseModel":
-        """Depolarizing 채널 추가 (확률 ``p`` 로 {X, Y, Z} 균등 적용)."""
+        """Depolarizing 채널 추가 — ``Λ(ρ) = (1-p)·ρ + p·I/2``.
+
+        Kraus: ``K₀=√(1-3p/4)·I``, ``K_{X,Y,Z}=√(p/4)·{X,Y,Z}`` — 각 Pauli 가
+        ``p/4`` 확률로 적용되며 (총 Pauli 오류율 ``3p/4``), Qiskit Aer 의
+        ``depolarizing_error(λ)`` 와 동일 컨벤션.  Cirq ``depolarize(p)`` /
+        PennyLane ``DepolarizingChannel(p)`` 의 p (각 Pauli p/3) 와는 다르다
+        — 어댑터가 ``λ = 4p/3`` 으로 자동 변환한다.
+        """
         return self._add(_NoiseChannel.depolarizing(p), gates, qubits)
 
     def add_amplitude_damping(
@@ -493,7 +500,12 @@ def _replay_op_to_rust(rust: _RustCircuit, op: Tuple[str, Tuple[int, ...], Tuple
         else:
             import numpy as np
             m = np.asarray(params[0], dtype=np.complex128)
-            rust.unitary(m, qubits[0], True)
+            if len(qubits) == 1:
+                rust.unitary(m, qubits[0], True)
+            else:
+                # k ≥ 2 unitary 는 행렬 직접 적용 — circuit.py 의 unitary()
+                # 가 쓰는 것과 동일한 Rust 바인딩 경로 (apply_unitary).
+                rust.apply_unitary(m, list(qubits))
     elif name == "measure":
         cbit = int(params[0]) if params else 0
         rust.measure(qubits[0], cbit)
@@ -508,5 +520,16 @@ def _replay_op_to_rust(rust: _RustCircuit, op: Tuple[str, Tuple[int, ...], Tuple
         inner_op = (inner_name, qubits, tuple(inner_params))
         _replay_op_to_rust(rust, inner_op)
         rust.c_if_last(list(cbits_tuple), int(value))
-    else:  # pragma: no cover — defensive
+    elif name in ("if_else", "while_loop", "for_loop", "switch"):
+        # 블록 제어흐름 op 은 body 가 별도의 nested Rust 회로로 기록되어 있어
+        # 현 시점의 _ops 재생으로는 노이즈 삽입 위치를 결정할 수 없다 (full
+        # replay 는 미구현).  조용한 오동작 대신 명시적으로 거부한다.
+        raise ValueError(
+            f"NoiseModel.apply_to: 블록 제어흐름 op {name!r} 가 있는 회로는 "
+            "noise_model= 와 함께 실행할 수 없습니다 (아직 미지원). "
+            "노이즈 없이 실행하거나, c_if (qc.x(0).c_if(c, 1)) 기반 classical "
+            "control 로 바꾸거나, Rust API 의 add_noise 로 노이즈 명령을 회로에 "
+            "직접 삽입하세요."
+        )
+    else:
         raise ValueError(f"NoiseModel.apply_to: 처리할 수 없는 op {name!r}")

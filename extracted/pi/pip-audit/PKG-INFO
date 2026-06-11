@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pip_audit
-Version: 2.10.0
+Version: 2.10.1
 Summary: A tool for scanning Python environments for known vulnerabilities
 Author: Alex Cameron
 Author-email: Dustin Ingram <di@python.org>, William Woodruff <william@trailofbits.com>
@@ -32,11 +32,12 @@ Requires-Dist: coverage[toml] ~= 7.0, != 7.3.3 ; extra == "cov"
 Requires-Dist: build ; extra == "dev"
 Requires-Dist: pip-audit[doc, test, lint] ; extra == "dev"
 Requires-Dist: pdoc ; extra == "doc"
-Requires-Dist: ruff >= 0.11 ; extra == "lint"
+Requires-Dist: ruff >= 0.14 ; extra == "lint"
 Requires-Dist: interrogate ~= 1.6 ; extra == "lint"
 Requires-Dist: mypy ; extra == "lint"
 Requires-Dist: types-requests ; extra == "lint"
 Requires-Dist: types-toml ; extra == "lint"
+Requires-Dist: typos ; extra == "lint"
 Requires-Dist: pretend ; extra == "test"
 Requires-Dist: pytest ; extra == "test"
 Requires-Dist: pip-audit[cov] ; extra == "test"
@@ -103,7 +104,7 @@ with support from Google. This is not an official Google or Trail of Bits produc
 
 ## Installation
 
-`pip-audit` requires Python 3.9 or newer, and can be installed directly via `pip`:
+`pip-audit` requires Python 3.10 or newer, and can be installed directly via `pip`:
 
 ```bash
 python -m pip install pip-audit
@@ -142,7 +143,7 @@ add it to your CI manually:
 jobs:
   pip-audit:
     steps:
-      - uses: pypa/gh-action-pip-audit@v1.0.0
+      - uses: pypa/gh-action-pip-audit@v1.1.0
         with:
           inputs: requirements.txt
 ```
@@ -159,7 +160,7 @@ For example, using `pip-audit` via `pre-commit` to audit a requirements file:
 
 ```yaml
   - repo: https://github.com/pypa/pip-audit
-    rev: v2.10.0
+    rev: v2.10.1
     hooks:
       -   id: pip-audit
           args: ["-r", "requirements.txt"]
@@ -284,11 +285,11 @@ instead:
 
 
 | Flag                      | Environment equivalent            | Example                               |
-| ------------------------- | --------------------------------- | ------------------------------------- |
+|---------------------------|-----------------------------------|---------------------------------------|
 | `--format`                | `PIP_AUDIT_FORMAT`                | `PIP_AUDIT_FORMAT=markdown`           |
 | `--vulnerability-service` | `PIP_AUDIT_VULNERABILITY_SERVICE` | `PIP_AUDIT_VULNERABILITY_SERVICE=osv` |
 | `--desc`                  | `PIP_AUDIT_DESC`                  | `PIP_AUDIT_DESC=off`                  |
-| `--progress-spinner`      | `PIP_AUDIT_PROGRESS_SPINNER`      |  `PIP_AUDIT_PROGRESS_SPINNER=off`     |
+| `--progress-spinner`      | `PIP_AUDIT_PROGRESS_SPINNER`      | `PIP_AUDIT_PROGRESS_SPINNER=off`      |
 | `--output`                | `PIP_AUDIT_OUTPUT`                | `PIP_AUDIT_OUTPUT=/tmp/example`       |
 
 ### Exit codes
@@ -655,7 +656,7 @@ and purposes, `pip-audit -r INPUT` is functionally equivalent to
 `pip install -r INPUT`, with a small amount of **non-security isolation** to
 avoid conflicts with any of your local environments.
 
-`pip-audit` is first and foremost a auditing tool for *Python* packages.
+`pip-audit` is first and foremost an auditing tool for *Python* packages.
 You **must not** assume that `pip-audit` will detect or flag "transitive"
 vulnerabilities that might be exposed through Python packages, but are not
 actually part of the package itself. For example, `pip-audit`'s vulnerability

@@ -538,8 +538,16 @@ def quantum_shannon_decompose(u: np.ndarray, qubits: list[int], basis: str = "na
     lower = qubits[:-1]
 
     def _demux(g1, g2):
+        from scipy.linalg import schur
+
         x = g1 @ g2.conj().T
-        lam, vmat = np.linalg.eig(x)
+        # np.linalg.eig 는 축퇴 고유값 (구조적/순열 멀티플렉서, 예: CCX 의
+        # ±1) 에서 직교 고유벡터를 보장하지 않아 vmat 이 비유니터리가 되고
+        # 분해가 조용히 틀릴 수 있다.  x 는 유니터리(=normal) 이므로 complex
+        # Schur 분해가 정확히 unitary Q + 대각 T 를 준다 (cossin 과 같은
+        # scipy.linalg 라 의존성 추가 없음).
+        t, vmat = schur(x, output="complex")
+        lam = np.diag(t)
         d = np.sqrt(lam)
         w = (np.diag(d) @ vmat.conj().T) @ g2
         return vmat, w, -2.0 * np.angle(d)

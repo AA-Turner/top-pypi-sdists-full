@@ -17,45 +17,6 @@ class ISlippageModel(metaclass=abc.ABCMeta):
         ...
 
 
-class NullSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
-    """Null slippage model, which provider no slippage"""
-
-    INSTANCE: QuantConnect.Orders.Slippage.NullSlippageModel
-    """The null slippage model instance"""
-
-    def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
-        """Will return no slippage"""
-        ...
-
-
-class MarketImpactSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
-    """
-    Slippage model that mimic the effect brought by market impact,
-    i.e. consume the volume listed in the order book
-    """
-
-    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm, non_negative: bool = True, latency: float = ..., impact_time: float = ..., alpha: float = ..., beta: float = ..., gamma: float = ..., eta: float = ..., delta: float = ..., random_seed: int = 50) -> None:
-        """
-        Instantiate a new instance of MarketImpactSlippageModel
-        
-        :param algorithm: IAlgorithm instance
-        :param non_negative: Indicator whether only non-negative slippage allowed
-        :param latency: Time between order submitted and filled, in seconds(s)
-        :param impact_time: Time between order filled and new equilibrium established, in second(s)
-        :param alpha: Exponent of the permanent impact function
-        :param beta: Exponent of the temporary impact function
-        :param gamma: Coefficient of the permanent impact function
-        :param eta: Coefficient of the temporary impact function
-        :param delta: Liquidity scaling factor for permanent impact
-        :param random_seed: Random seed for generating gaussian noise
-        """
-        ...
-
-    def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
-        """Slippage Model. Return a decimal cash slippage approximation on the order."""
-        ...
-
-
 class ConstantSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
     """Represents a slippage model that uses a constant percentage of slip"""
 
@@ -92,6 +53,34 @@ class VolumeShareSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlip
         ...
 
 
+class MarketImpactSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
+    """
+    Slippage model that mimic the effect brought by market impact,
+    i.e. consume the volume listed in the order book
+    """
+
+    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm, non_negative: bool = True, latency: float = ..., impact_time: float = ..., alpha: float = ..., beta: float = ..., gamma: float = ..., eta: float = ..., delta: float = ..., random_seed: int = 50) -> None:
+        """
+        Instantiate a new instance of MarketImpactSlippageModel
+        
+        :param algorithm: IAlgorithm instance
+        :param non_negative: Indicator whether only non-negative slippage allowed
+        :param latency: Time between order submitted and filled, in seconds(s)
+        :param impact_time: Time between order filled and new equilibrium established, in second(s)
+        :param alpha: Exponent of the permanent impact function
+        :param beta: Exponent of the temporary impact function
+        :param gamma: Coefficient of the permanent impact function
+        :param eta: Coefficient of the temporary impact function
+        :param delta: Liquidity scaling factor for permanent impact
+        :param random_seed: Random seed for generating gaussian noise
+        """
+        ...
+
+    def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
+        """Slippage Model. Return a decimal cash slippage approximation on the order."""
+        ...
+
+
 class AlphaStreamsSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
     """Represents a slippage model that uses a constant percentage of slip"""
 
@@ -101,6 +90,17 @@ class AlphaStreamsSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISli
 
     def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
         """Return a decimal cash slippage approximation on the order."""
+        ...
+
+
+class NullSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
+    """Null slippage model, which provider no slippage"""
+
+    INSTANCE: QuantConnect.Orders.Slippage.NullSlippageModel
+    """The null slippage model instance"""
+
+    def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
+        """Will return no slippage"""
         ...
 
 

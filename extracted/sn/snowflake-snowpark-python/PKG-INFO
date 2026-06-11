@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-snowpark-python
-Version: 1.51.1
+Version: 1.52.0
 Summary: Snowflake Snowpark for Python
 Home-page: https://www.snowflake.com/
 Author: Snowflake, Inc
@@ -22,7 +22,6 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: SQL
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -33,7 +32,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Requires-Python: >=3.9, <3.15
+Requires-Python: >=3.10, <3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: setuptools>=40.6.0
@@ -149,9 +148,9 @@ If you don't have a Snowflake account yet, you can [sign up for a 30-day free tr
 
 ### Create a Python virtual environment
 You can use [miniconda][miniconda], [anaconda][anaconda], or [virtualenv][virtualenv]
-to create a Python 3.9, 3.10, 3.11, 3.12 or 3.13 virtual environment.
+to create a Python 3.10, 3.11, 3.12 or 3.13 virtual environment.
 
-For Snowpark pandas, only Python 3.9, 3.10, or 3.11 is supported.
+For Snowpark pandas, only Python 3.10 or 3.11 is supported.
 
 To have the best experience when using it with UDFs, [creating a local conda environment with the Snowflake channel][use snowflake channel] is recommended.
 

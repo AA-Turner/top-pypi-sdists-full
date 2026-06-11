@@ -18,6 +18,12 @@ impl<F: Real> StateVector<F> {
     /// |000...0⟩ 상태로 초기화된 n큐비트 상태 벡터를 생성한다.
     pub fn new(n_qubits: usize) -> Self {
         assert!(n_qubits > 0, "qubit 수는 1 이상이어야 합니다");
+        // release 빌드에서 `1 << 64` 는 shift 마스킹으로 1 이 되어 (n=65 → 2)
+        // 조용히 잘못된 크기를 할당한다 — 도달 불가능한 메모리량이므로 명시 거부.
+        assert!(
+            n_qubits < usize::BITS as usize,
+            "qubit 수 {n_qubits} 는 statevector 로 표현 불가 (usize 한계)"
+        );
         let size = 1 << n_qubits;
         let mut amplitudes = vec![zero::<F>(); size];
         amplitudes[0] = one::<F>();

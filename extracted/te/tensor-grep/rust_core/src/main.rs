@@ -1221,6 +1221,29 @@ fn main_inner() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    // C3: plain `--json` combined with a render-only flag (e.g. -b/--passthru/--heading)
+    // cannot be honored by the aggregate JSON path and must be rejected by the native
+    // binary itself — NEVER delegated to the Python sidecar, which deadlocks/fork-bombs
+    // the native<->python re-exec chain when the resolved Python is a stale tensor-grep
+    // lacking the launcher guard. Fail fast and deterministically before spawning anything.
+    let json_render_conflicts = json_aggregate_render_flag_conflicts(&raw_args);
+    if !json_render_conflicts.is_empty() {
+        let detail = format!(
+            "flag(s) {} not supported with plain --json; use --format rg --json for ripgrep \
+             JSON Lines that carry render metadata, or drop the flag(s).",
+            json_render_conflicts.join(", ")
+        );
+        let payload = serde_json::json!({
+            "version": 1,
+            "schema_version": 1,
+            "ok": false,
+            "error": "unsupported_flag",
+            "detail": detail,
+        });
+        println!("{payload}");
+        std::process::exit(2);
+    }
+
     if let Some(exit_code) = try_early_ripgrep_passthrough(&raw_args)? {
         if exit_code != 0 {
             std::process::exit(exit_code.max(1));
@@ -1503,6 +1526,68 @@ fn search_format_python_passthrough_args(raw_args: &[OsString]) -> Option<Vec<St
         index += 1;
     }
     None
+}
+
+/// Render-only flags the aggregate plain-`--json` path cannot honor. Mirrors
+/// `_PLAIN_JSON_INCOMPATIBLE_RENDER_FLAGS` / `_JSON_INCOMPATIBLE_RENDER_FLAGS` in the
+/// Python CLI/launcher (canonical spelling first in each group).
+const JSON_INCOMPATIBLE_RENDER_FLAGS: &[&[&str]] = &[
+    &["--passthru", "--passthrough"],
+    &["--heading", "--no-heading"],
+    &["--trim", "--no-trim"],
+    &["-b", "--byte-offset", "--no-byte-offset"],
+    &["-M", "--max-columns"],
+    &["--max-columns-preview", "--no-max-columns-preview"],
+    &["--context-separator", "--no-context-separator"],
+    &["--field-context-separator"],
+    &["--field-match-separator"],
+    &["-p", "--pretty"],
+];
+
+/// Return the canonical spellings of render-only flags the user combined with plain
+/// `--json` (not `--format rg`). Such a combination must be rejected by the NATIVE binary
+/// directly — never delegated to the Python sidecar — because delegating to a stale/older
+/// tensor-grep Python (one lacking the launcher guard) deadlocks and can fork-bomb the
+/// native<->python re-exec chain (audit C3). Mirrors the Python guard so the native front
+/// door is self-sufficient regardless of which Python it resolves.
+fn json_aggregate_render_flag_conflicts(raw_args: &[OsString]) -> Vec<String> {
+    let Some(search_args) = normalize_top_level_search_args(raw_args) else {
+        return Vec::new();
+    };
+    let args = search_args
+        .iter()
+        .skip(2)
+        .map(|arg| arg.to_string_lossy().to_string())
+        .collect::<Vec<_>>();
+    if !args.iter().any(|arg| arg == "--json") {
+        return Vec::new();
+    }
+    // `--format rg` emits ripgrep JSON Lines, which carry render metadata — allowed.
+    let mut index = 0usize;
+    while index < args.len() {
+        if args[index] == "--format" {
+            if args.get(index + 1).map(String::as_str) == Some("rg") {
+                return Vec::new();
+            }
+        } else if args[index] == "--format=rg" {
+            return Vec::new();
+        }
+        index += 1;
+    }
+    let mut flagged: Vec<String> = Vec::new();
+    for arg in &args {
+        if arg == "--" {
+            break;
+        }
+        let base = arg.split('=').next().unwrap_or(arg);
+        for group in JSON_INCOMPATIBLE_RENDER_FLAGS {
+            let canonical = group[0].to_string();
+            if group.contains(&base) && !flagged.contains(&canonical) {
+                flagged.push(canonical);
+            }
+        }
+    }
+    flagged
 }
 
 fn normalize_top_level_search_args(raw_args: &[OsString]) -> Option<Vec<OsString>> {
@@ -2048,6 +2133,60 @@ mod tests {
             Commands::Search(args) => args,
             _ => panic!("expected search command"),
         }
+    }
+
+    fn json_conflicts(tokens: &[&str]) -> Vec<String> {
+        let raw_args = tokens.iter().map(OsString::from).collect::<Vec<_>>();
+        json_aggregate_render_flag_conflicts(&raw_args)
+    }
+
+    #[test]
+    fn json_aggregate_flags_incompatible_render_flags() {
+        // audit C3: plain --json + a render-only flag must be flagged so the native binary
+        // rejects it directly instead of delegating to (and deadlocking via) a stale Python
+        // sidecar in the native<->python re-exec chain.
+        assert_eq!(
+            json_conflicts(&["tg", "search", "--json", "-b", "foo", "f.py"]),
+            vec!["-b".to_string()]
+        );
+        assert_eq!(
+            json_conflicts(&["tg", "search", "--json", "--heading", "foo", "f.py"]),
+            vec!["--heading".to_string()]
+        );
+        // Option-first form (no explicit `search` subcommand) flags trigger flags too:
+        // `-b` is in SEARCH_PYTHON_PASSTHROUGH_FLAGS so it is recognized as a search.
+        assert_eq!(
+            json_conflicts(&["tg", "--json", "-b", "foo", "f.py"]),
+            vec!["-b".to_string()]
+        );
+        // `tg search --json --passthru` (explicit search) delegates via the --passthru gate,
+        // so the native guard must reject it directly.
+        assert_eq!(
+            json_conflicts(&["tg", "search", "--json", "--passthru", "foo", "f.py"]),
+            vec!["--passthru".to_string()]
+        );
+        // --byte-offset is an alias of -b and normalizes to the canonical spelling.
+        assert_eq!(
+            json_conflicts(&["tg", "search", "--json", "--byte-offset", "foo", "f.py"]),
+            vec!["-b".to_string()]
+        );
+        assert_eq!(
+            json_conflicts(&["tg", "search", "--json", "--passthru", "-b", "foo", "f.py"]),
+            vec!["--passthru".to_string(), "-b".to_string()]
+        );
+    }
+
+    #[test]
+    fn json_aggregate_allows_plain_json_and_rg_format() {
+        // plain --json (no render flag) is the native aggregate path — allowed.
+        assert!(json_conflicts(&["tg", "search", "--json", "foo", "f.py"]).is_empty());
+        // --format rg --json carries render metadata via ripgrep JSON Lines — allowed.
+        assert!(
+            json_conflicts(&["tg", "search", "--format", "rg", "--json", "-b", "foo", "f.py"])
+                .is_empty()
+        );
+        // a literal render-flag-looking pattern after `--` is not a flag.
+        assert!(json_conflicts(&["tg", "search", "--json", "--", "--passthru"]).is_empty());
     }
 
     #[cfg(feature = "cuda")]
@@ -5165,6 +5304,10 @@ struct RewriteAuditManifestRead {
 #[derive(Debug, Clone, Deserialize)]
 struct AuditManifestSignatureRead {
     kind: String,
+    // Retained for deserialization/forward-compatibility but intentionally NOT used for
+    // verification: the key must be supplied out-of-band via --signing-key, never read
+    // from the manifest being verified (audit S2).
+    #[allow(dead_code)]
     key_path: String,
     value: String,
 }
@@ -5557,6 +5700,43 @@ fn checkpoint_timestamp_string() -> String {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_secs().to_string())
         .unwrap_or_else(|_| "0".to_string())
+}
+
+/// Format a UNIX epoch (seconds) as an ISO-8601 / RFC-3339 UTC instant, e.g.
+/// `2026-06-10T12:34:56Z`. The audit manifest `created_at` MUST use this form so the
+/// Python verifier (`_parse_timestamp` -> `datetime.fromisoformat`) and `audit-history`
+/// time-ordering accept it; a bare epoch string parses to `None` and breaks chronological
+/// sorting (audit M5). Uses Howard Hinnant's `civil_from_days` algorithm so we depend only
+/// on `std` (no `chrono`/`time` crate, which would force a dependency bump + rebuild).
+fn epoch_seconds_to_iso8601_utc(epoch_secs: u64) -> String {
+    let days = (epoch_secs / 86_400) as i64;
+    let secs_of_day = epoch_secs % 86_400;
+    let hour = secs_of_day / 3_600;
+    let minute = (secs_of_day % 3_600) / 60;
+    let second = secs_of_day % 60;
+
+    // civil_from_days: convert days since 1970-01-01 to (year, month, day).
+    let z = days + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = z - era * 146_097; // [0, 146096]
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365; // [0, 399]
+    let year = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
+    let mp = (5 * doy + 2) / 153; // [0, 11]
+    let day = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
+    let month = if mp < 10 { mp + 3 } else { mp - 9 }; // [1, 12]
+    let year = if month <= 2 { year + 1 } else { year };
+
+    format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z")
+}
+
+/// `created_at` for the rewrite audit manifest, as an ISO-8601 UTC string (audit C1/M5).
+fn audit_manifest_timestamp_string() -> String {
+    let epoch_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0);
+    epoch_seconds_to_iso8601_utc(epoch_secs)
 }
 
 fn checkpoint_storage_dir(root: &Path) -> PathBuf {
@@ -6468,7 +6648,9 @@ fn write_audit_manifest_for_plan(
     let manifest = RewriteAuditManifest {
         version: JSON_OUTPUT_VERSION,
         kind: "rewrite-audit-manifest",
-        created_at: checkpoint_timestamp_string(),
+        // ISO-8601 UTC (audit C1/M5): matches the Python checkpoint `created_at` format and
+        // keeps `audit-history` time-ordering working (`_parse_timestamp`). NOT a bare epoch.
+        created_at: audit_manifest_timestamp_string(),
         lang: lang.to_string(),
         path: root_path.to_string(),
         plan_total_edits,
@@ -6603,10 +6785,7 @@ fn verify_audit_manifest_payload(
         if signature.kind != "hmac-sha256" {
             signature_valid = false;
             errors.push(format!("Unsupported signature kind: {}", signature.kind));
-        } else {
-            let key_path = signing_key_path
-                .as_deref()
-                .unwrap_or_else(|| Path::new(&signature.key_path));
+        } else if let Some(key_path) = signing_key_path.as_deref() {
             let key_bytes = std::fs::read(key_path).with_context(|| {
                 format!("failed to read audit signing key {}", key_path.display())
             })?;
@@ -6624,6 +6803,18 @@ fn verify_audit_manifest_payload(
                     "Manifest signature does not match the supplied signing key.".to_string(),
                 );
             }
+        } else {
+            // Never derive the verification key from inside the manifest being verified:
+            // a tampered manifest could point key_path at an attacker-controlled key and
+            // forge a matching HMAC, defeating tamper-evidence for the default (no
+            // --signing-key) invocation. Require an out-of-band key; treat
+            // signature.key_path as informational only (audit S2).
+            signature_valid = false;
+            errors.push(
+                "Manifest is hmac-sha256 signed but no --signing-key was provided; refusing to \
+                 trust the key_path embedded in the manifest."
+                    .to_string(),
+            );
         }
     } else if signing_key_path.is_some() {
         signature_valid = false;

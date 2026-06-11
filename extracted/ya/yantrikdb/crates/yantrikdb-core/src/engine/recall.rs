@@ -1879,7 +1879,56 @@ impl YantrikDB {
             }
         }
 
+        // Task 25: surface unresolved conflicts at the moment of use, so a
+        // contradicted memory arrives visibly flagged rather than asserted
+        // as current fact.
+        self.stamp_open_conflicts(&mut scored)?;
+
+        // Task 41: surface trust metadata (aged-unconfirmed, superseded) so a
+        // stale fact arrives visibly hedged rather than asserted as current.
+        self.stamp_trust_metadata(&mut scored)?;
+
         Ok(scored)
+    }
+
+    /// Task 41 — annotate recall hits with trust signals so staleness is
+    /// visible at the moment of use: a memory that is old AND rarely
+    /// re-accessed (low confirmation), or one that a newer record supersedes,
+    /// gets a `why_retrieved` hedge. Batched against the result rids.
+    fn stamp_trust_metadata(&self, results: &mut [RecallResult]) -> Result<()> {
+        if results.is_empty() {
+            return Ok(());
+        }
+        const STALE_AGE_DAYS: f64 = 90.0;
+        const LOW_CONFIRMATION: i64 = 1;
+        let now_ts = crate::time::now_secs();
+        let conn = self.conn();
+        // Read created_at + access_count from the table (the source of truth),
+        // not the RecallResult, whose created_at comes from the scoring cache.
+        let mut access_stmt =
+            conn.prepare("SELECT created_at, access_count FROM memories WHERE rid = ?1")?;
+        let mut superseded_stmt = conn.prepare(
+            "SELECT COUNT(*) FROM record_links WHERE target_rid = ?1 AND link_type = 'supersedes'",
+        )?;
+        for r in results.iter_mut() {
+            let (created_at, access_count): (f64, i64) = access_stmt
+                .query_row(params![r.rid], |row| Ok((row.get(0)?, row.get(1)?)))
+                .unwrap_or((now_ts, 0));
+            let age_days = (now_ts - created_at).max(0.0) / 86_400.0;
+            if age_days > STALE_AGE_DAYS && access_count <= LOW_CONFIRMATION {
+                r.why_retrieved.push(format!(
+                    "⚠ {age_days:.0}d old, rarely confirmed — verify it is still current"
+                ));
+            }
+            let superseded: i64 = superseded_stmt
+                .query_row(params![r.rid], |row| row.get(0))
+                .unwrap_or(0);
+            if superseded > 0 {
+                r.why_retrieved
+                    .push("⚠ superseded by a newer record — likely outdated".to_string());
+            }
+        }
+        Ok(())
     }
 
     /// **Phase 6 RYW** — `recall()` with strict read-your-writes guard.
@@ -2165,6 +2214,42 @@ impl YantrikDB {
         summary: &RetrievalSummary,
     ) -> Vec<RefinementHint> {
         let mut hints = Vec::new();
+
+        // Hint 0 (task 35): structural intent. Recency / enumeration / count
+        // questions want an EXACT answer, not similarity ranking — `recall`
+        // can never guarantee one. Detect the intent and point at the
+        // structural path so the agent stops trusting a probabilistic recall
+        // for a deterministic question.
+        if let Some(qt) = query_text {
+            let lq = qt.to_lowercase();
+            let recency = ["most recent", "latest", "last entry", "newest", "chain head"]
+                .iter()
+                .any(|k| lq.contains(k));
+            let enumeration = ["list all", "all records", "all memories", "enumerate", "every record"]
+                .iter()
+                .any(|k| lq.contains(k));
+            let counting =
+                lq.contains("how many") || lq.starts_with("count ") || lq.contains("number of");
+            if recency || enumeration || counting {
+                let suggestion = if counting {
+                    "This looks like a count. recall returns a ranked sample, not a total — \
+                     enumerate with list_records(...) and count."
+                } else if recency {
+                    "This looks like a recency question. recall ranks by similarity, not time — \
+                     for the exact latest entry use chain_head(namespace) or \
+                     list_records(order=\"desc\", limit=1)."
+                } else {
+                    "This looks like an enumeration. recall returns a ranked top-k, not the full \
+                     set — use list_records(kind/namespace/..., order, since_rid) to page all \
+                     matching records exactly."
+                };
+                hints.push(RefinementHint {
+                    hint_type: "structural".to_string(),
+                    suggestion: suggestion.to_string(),
+                    related_entities: vec![],
+                });
+            }
+        }
 
         // Hint 1: Specificity — if query is very short, suggest adding detail
         if let Some(qt) = query_text {

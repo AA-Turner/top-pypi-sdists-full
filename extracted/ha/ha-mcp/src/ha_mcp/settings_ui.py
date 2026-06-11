@@ -11,19 +11,21 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import functools
 import json
 import logging
 import os
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, NotRequired, TypedDict
 
 import httpx
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse
+from starlette.responses import HTMLResponse, JSONResponse, Response
 
-from ._version import is_running_in_addon
+from ._version import get_version, is_running_in_addon
 from .backup_manager import get_backup_manager
 from .client.supervisor_client import make_supervisor_httpx_client
 from .config import (
@@ -81,12 +83,12 @@ logger = logging.getLogger(__name__)
 # Tools that are always enabled regardless of saved config — the server
 # strips them out of any disable list before applying. Three of these
 # overlap with DEFAULT_PINNED_TOOLS in transforms/categorized_search.py
-# (ha_search_entities, ha_get_overview, ha_report_issue); ha_get_state
+# (ha_search, ha_get_overview, ha_report_issue); ha_get_state
 # is mandatory but not pinned-by-default because it is reachable via the
 # ha_call_read_tool proxy when tool search is on. Keep these lists in
 # sync where it matters and divergent where it matters — don't merge them.
 MANDATORY_TOOLS: set[str] = {
-    "ha_search_entities",
+    "ha_search",
     "ha_get_overview",
     "ha_get_state",
     "ha_report_issue",
@@ -287,6 +289,44 @@ def load_tool_config(settings: Settings | None = None) -> dict[str, Any]:
         logger.info("Seeded tool config from env vars (%d entries)", len(tools))
         return config
     return {}
+
+
+def env_pinned_tools(settings: Settings | None = None) -> dict[str, str]:
+    """Return {tool_name: "disabled" | "pinned"} for every tool named
+    in the DISABLED_TOOLS or PINNED_TOOLS env vars.
+
+    Used by the UI to render env-pinned rows as read-only and by the
+    save handler to reject flips. PINNED_TOOLS wins ties (matches the
+    existing seed semantics in load_tool_config).
+    """
+    if settings is None:
+        settings = get_global_settings()
+    pinned: dict[str, str] = {}
+    for name in (settings.disabled_tools or "").split(","):
+        name = name.strip()
+        if name:
+            pinned[name] = "disabled"
+    for name in (settings.pinned_tools or "").split(","):
+        name = name.strip()
+        if name:
+            pinned[name] = "pinned"
+    return pinned
+
+
+def effective_tool_config(settings: Settings | None = None) -> dict[str, Any]:
+    """Return the runtime tool config: file values overlaid by env-
+    pinned tools (the latter always win, never overwritten by file).
+
+    Use this for any "what is the runtime state?" computation. Keep
+    ``load_tool_config`` as the pure file reader (no env overlay) for
+    cases that need just the file's contents (e.g. for displaying
+    "user-set" status separately from "env-pinned" status).
+    """
+    if settings is None:
+        settings = get_global_settings()
+    cfg = load_tool_config(settings)
+    tools = {**cfg.get("tools", {}), **env_pinned_tools(settings)}
+    return {**cfg, "tools": tools}
 
 
 def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -556,6 +596,62 @@ def apply_tool_visibility(
     )
 
 
+# The settings-UI client script lives in settings.js (a real file for
+# editor/JS tooling). It is a template with two sentinel tokens for the
+# Python-injected constant lists; substitute them with the same values the
+# inline literal used so the rendered HTML is byte-identical. Injected
+# inline (not served) -- the serving model is unchanged.
+#
+# This is a module-import-time file read: importing settings_ui (done by
+# server.py / __main__.py / the sidecar) now depends on settings.js being
+# present. If packaging drops it, fail with a packaging-specific ImportError
+# rather than a bare FileNotFoundError so the cause is obvious.
+_SETTINGS_JS_PATH = Path(__file__).parent / "settings.js"
+try:
+    _settings_js_template = _SETTINGS_JS_PATH.read_text(encoding="utf-8")
+except FileNotFoundError as exc:  # pragma: no cover - packaging guard
+    raise ImportError(
+        f"settings.js missing at {_SETTINGS_JS_PATH}. It must ship in "
+        "package-data (wheel), MANIFEST.in (sdist), and the PyInstaller datas "
+        "(binary) -- this is a packaging bug, not a usage error."
+    ) from exc
+# str.replace() silently no-ops on an absent token, and a *renamed* sentinel
+# (e.g. PINNED_DEFAULTS) slips past both the "__HA_MCP_" not-in test and the
+# node --check parse guard -- `const DEFAULT_PINNED = PINNED_DEFAULTS;` is valid
+# JS (only a runtime ReferenceError), so a drifted settings.js would ship a
+# broken page green. Assert both sentinels are present before substituting.
+for _sentinel in ("__HA_MCP_DEFAULT_PINNED__", "__HA_MCP_MANDATORY__"):
+    if _sentinel not in _settings_js_template:
+        raise ImportError(
+            f"settings.js is out of sync: sentinel {_sentinel} not found. "
+            "The Python injection and settings.js have drifted."
+        )
+# sorted(), not list(): DEFAULT_PINNED_TOOLS / MANDATORY_TOOLS are sets, so
+# json.dumps(list(...)) is per-process-ordered -- the only reason proving the
+# original extraction byte-identical needed PYTHONHASHSEED pinned. sorted()
+# makes the two injected arrays deterministic across processes.
+_SETTINGS_JS = _settings_js_template.replace(
+    "__HA_MCP_DEFAULT_PINNED__", json.dumps(sorted(DEFAULT_PINNED_TOOLS))
+).replace("__HA_MCP_MANDATORY__", json.dumps(sorted(MANDATORY_TOOLS)))
+
+
+# The settings-UI CSS lives in settings.css, extracted the same way as
+# settings.js. Unlike the JS it has no Python injection points -- a plain
+# read, no token substitution -- and is injected inline between the same
+# <style>/</style> tags so the served page stays byte-identical. It carries
+# the same import-time packaging dependency as settings.js, so the same
+# FileNotFoundError -> ImportError packaging guard applies.
+_SETTINGS_CSS_PATH = Path(__file__).parent / "settings.css"
+try:
+    _SETTINGS_CSS = _SETTINGS_CSS_PATH.read_text(encoding="utf-8")
+except FileNotFoundError as exc:  # pragma: no cover - packaging guard
+    raise ImportError(
+        f"settings.css missing at {_SETTINGS_CSS_PATH}. It must ship in "
+        "package-data (wheel), MANIFEST.in (sdist), and the PyInstaller datas "
+        "(binary) -- this is a packaging bug, not a usage error."
+    ) from exc
+
+
 _SETTINGS_HTML = (
     """\
 <!DOCTYPE html>
@@ -564,238 +660,13 @@ _SETTINGS_HTML = (
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HA-MCP Tool Settings</title>
-<style>
-  :root {
-    --bg: #1c1c1e; --surface: #2c2c2e; --surface-hover: #3a3a3c;
-    --text: #f5f5f7; --text-secondary: #98989d; --accent: #0a84ff;
-    --accent-hover: #409cff; --danger: #ff453a; --success: #30d158;
-    --warning: #ffd60a; --border: #38383a; --disabled-bg: #1a1a1c;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: var(--bg); color: var(--text); line-height: 1.5; padding: 16px; }
-  .header { display: flex; align-items: center; justify-content: space-between;
-    padding: 16px 0; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
-  .header h1 { font-size: 1.5rem; font-weight: 600; }
-  .status { font-size: 0.85rem; padding: 4px 12px; border-radius: 12px;
-    background: var(--surface); color: var(--text-secondary); }
-  .status.saved { background: #0d3b1e; color: var(--success); }
-  .search { width: 100%; padding: 10px 16px; border-radius: 10px; border: 1px solid var(--border);
-    background: var(--surface); color: var(--text); font-size: 0.95rem; margin-bottom: 16px;
-    outline: none; }
-  .search:focus { border-color: var(--accent); }
-  .readonly-notice { background: #1a2a3a; border: 1px solid #1a4a7a; border-radius: 10px;
-    padding: 12px 16px; margin-bottom: 16px; font-size: 0.85rem; color: #6cb4ff; }
-  .group { background: var(--surface); border-radius: 12px; margin-bottom: 8px;
-    overflow: hidden; border: 1px solid var(--border); }
-  .group-header { display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 16px; cursor: pointer; user-select: none; gap: 12px; }
-  .group-header:hover { background: var(--surface-hover); }
-  .group-header-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
-  .group-name { font-weight: 600; font-size: 0.95rem; }
-  .group-count { font-size: 0.8rem; color: var(--text-secondary); }
-  .group-chevron { transition: transform 0.2s; color: var(--text-secondary);
-    display: inline-block; width: 12px; }
-  .group-chevron.open { transform: rotate(90deg); }
-  .group-master { flex-shrink: 0; }
-  .group-tools { display: none; border-top: 1px solid var(--border); }
-  .group-tools.open { display: block; }
-  .tool { display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 16px; border-bottom: 1px solid var(--border); }
-  .tool:last-child { border-bottom: none; }
-  .tool.hidden { display: none; }
-  .tool-info { flex: 1; min-width: 0; }
-  .tool-name { font-size: 0.9rem; font-weight: 500; }
-  .tool-meta { font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px; }
-  .tool-desc { font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .badge { display: inline-block; font-size: 0.7rem; padding: 1px 6px;
-    border-radius: 4px; margin-left: 6px; font-weight: 500; }
-  .badge.readonly { background: #1a2a3a; color: #6cb4ff; }
-  .badge.destructive { background: #3a1a1a; color: #ff6b6b; }
-  .badge.mandatory { background: #1a3a1a; color: #6bff6b; }
-  .tool-toggles { display: flex; gap: 16px; align-items: center; }
-  .toggle-group { display: flex; flex-direction: column; align-items: center; gap: 2px;
-    font-size: 0.7rem; color: var(--text-secondary); }
-  .toggle-group.disabled-toggle { opacity: 0.35; }
-  .switch { position: relative; display: inline-block; width: 36px; height: 20px; }
-  .switch input { opacity: 0; width: 0; height: 0; }
-  .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-    background: #555; border-radius: 10px; transition: background 0.2s; }
-  .slider::before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px;
-    top: 3px; background: var(--text); border-radius: 50%; transition: transform 0.2s; }
-  input:checked + .slider { background: var(--accent); }
-  input:checked + .slider::before { transform: translateX(16px); }
-  input:disabled + .slider { cursor: not-allowed; opacity: 0.4; }
-  .disabled-by-note { font-size: 0.7rem; color: var(--warning); margin-top: 2px;
-    font-style: italic; }
-  .summary { display: flex; gap: 16px; padding: 8px 0; margin-bottom: 16px;
-    font-size: 0.85rem; color: var(--text-secondary); flex-wrap: wrap; }
-  .summary span { background: var(--surface); padding: 4px 12px; border-radius: 8px; }
-  .pin-notice { background: #3a2e1a; border: 1px solid #7a5a1a; border-radius: 10px;
-    padding: 10px 16px; margin-bottom: 12px; font-size: 0.85rem; color: #ffd680; display: none; }
-  .pin-notice.show { display: block; }
-  .restart-notice { background: #3a1a1a; border: 1px solid #7a1a1a; border-radius: 10px;
-    padding: 12px 16px; margin-bottom: 12px; font-size: 0.9rem; color: #ff9090;
-    font-weight: 500; display: none; align-items: center; justify-content: space-between; gap: 12px; }
-  .restart-notice.show { display: flex; }
-  .restart-notice-text { flex: 1; }
-  .restart-btn { padding: 8px 16px; border-radius: 8px; border: none;
-    background: var(--accent); color: white; font-weight: 600; cursor: pointer;
-    font-size: 0.85rem; flex-shrink: 0; }
-  .restart-btn:hover { background: var(--accent-hover); }
-  .restart-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  /* Destructive variant — visually distinct from the primary accent
-     so a glance at the page makes "Disable settings server"
-     obviously not a routine click. Matches the restart-notice red
-     family so the danger semantic reads even without label text. */
-  .danger-btn { padding: 7px 14px; border-radius: 8px;
-    border: 1px solid #7a1a1a; background: transparent; color: #ff9090;
-    font-weight: 600; cursor: pointer; font-size: 0.8rem; flex-shrink: 0; }
-  .danger-btn:hover { background: #2a0e0e; }
-  .danger-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  /* Tabs — generic structure other tabs can stack onto without
-     touching existing markup. New tabs add a button to .tabs and
-     a sibling .panel below; the JS switcher dispatches via the
-     data-panel attribute. */
-  .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
-  .tab { padding: 10px 16px; border: none; background: transparent; color: var(--text-secondary);
-    font-size: 0.95rem; cursor: pointer; border-bottom: 2px solid transparent; font-weight: 500; }
-  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
-  .panel { display: none; }
-  .panel.active { display: block; }
-  /* Backups */
-  .backup-filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-  .backup-filters input { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);
-    background: var(--surface); color: var(--text); font-size: 0.85rem; }
-  .backup-filters input:focus { border-color: var(--accent); outline: none; }
-  .backup-filters button { padding: 8px 12px; border-radius: 8px; border: none;
-    background: var(--surface); color: var(--text); font-size: 0.85rem; cursor: pointer; }
-  .backup-filters button:hover { background: var(--surface-hover); }
-  .backup-filters button.danger { background: #3a1a1a; color: #ff6b6b; }
-  .backup-state { background: var(--surface); border-radius: 10px; padding: 10px 16px; margin-bottom: 12px;
-    font-size: 0.85rem; color: var(--text-secondary); display: flex; gap: 16px; flex-wrap: wrap; }
-  .backup-state span { display: inline-block; }
-  .backup-state strong { color: var(--text); }
-  .backup-row { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-    padding: 10px 14px; margin-bottom: 6px; display: flex; align-items: center; gap: 12px; }
-  .backup-row-info { flex: 1; min-width: 0; }
-  .backup-row-name { font-size: 0.9rem; font-weight: 500; word-break: break-all; }
-  .backup-row-meta { font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px; }
-  .backup-row-actions { display: flex; gap: 6px; flex-shrink: 0; }
-  .backup-row-actions button { padding: 6px 10px; border-radius: 6px; border: none;
-    background: var(--accent); color: white; font-size: 0.8rem; cursor: pointer; }
-  .backup-row-actions button:hover { background: var(--accent-hover); }
-  .backup-row-actions button.danger { background: var(--danger); }
-  .backup-row-actions button.secondary { background: var(--surface-hover); color: var(--text); }
-  .backup-empty { padding: 24px; text-align: center; color: var(--text-secondary); font-size: 0.9rem;
-    background: var(--surface); border: 1px dashed var(--border); border-radius: 10px; }
-  .backup-config { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-    padding: 14px 16px; margin-bottom: 12px; }
-  .backup-config-form { display: grid; grid-template-columns: 1fr; gap: 10px; }
-  .backup-field { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .backup-field-label { min-width: 200px; font-size: 0.9rem; font-weight: 500; }
-  .backup-field-control input[type="number"] { width: 120px; padding: 6px 10px;
-    border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
-  .backup-field-control input[type="number"]:disabled { opacity: 0.55; cursor: not-allowed; }
-  .backup-field-locked { background: #2a2520; color: #f4b860; font-size: 0.78rem;
-    padding: 2px 8px; border-radius: 999px; }
-  .backup-field-help { font-size: 0.75rem; color: var(--text-secondary); flex-basis: 100%; margin-left: 200px; }
-  .backup-config-actions { display: flex; align-items: center; gap: 12px; margin-top: 10px;
-    padding-top: 10px; border-top: 1px solid var(--border); }
-  .backup-config-actions button { padding: 8px 16px; border-radius: 6px; border: none;
-    background: var(--accent); color: white; font-size: 0.9rem; cursor: pointer; font-weight: 500; }
-  .backup-config-actions button:hover { background: var(--accent-hover); }
-  .backup-config-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
-  /* Modal */
-  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-    display: none; align-items: center; justify-content: center; z-index: 10; padding: 16px; }
-  .modal-backdrop.show { display: flex; }
-  .modal { background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
-    max-width: 900px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; }
-  .modal-header { padding: 14px 16px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .modal-title { font-size: 1.05rem; font-weight: 600; word-break: break-all; }
-  .modal-close { background: transparent; border: none; color: var(--text-secondary);
-    font-size: 1.4rem; cursor: pointer; padding: 0 8px; }
-  .modal-body { flex: 1; overflow: auto; padding: 16px; }
-  .modal-body pre { background: var(--surface); padding: 12px; border-radius: 8px;
-    font-size: 0.8rem; overflow: auto; line-height: 1.4; }
-  .diff-add { color: #6bff6b; }
-  .diff-rem { color: #ff6b6b; }
-  .diff-hdr { color: #6cb4ff; }
-  /* Server-settings rows (#863). One row per FEATURE_FLAG_FIELDS
-     entry. Locked rows (env / addon origin) get the dim treatment +
-     a small inline note pointing at the env var to adjust. */
-  .features-sub { font-size: 0.75rem; color: var(--text-secondary);
-    margin-bottom: 8px; }
-  .feature-row { display: flex; align-items: flex-start; justify-content: space-between;
-    gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
-  .feature-row:first-child { border-top: none; }
-  .feature-info { flex: 1; min-width: 0; }
-  .feature-name { font-size: 0.9rem; font-weight: 500; }
-  .feature-help { font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;
-    line-height: 1.4; }
-  .feature-help code { background: #111; padding: 1px 5px; border-radius: 4px;
-    font-size: 0.72rem; }
-  .feature-locked-note { font-size: 0.72rem; color: var(--warning); margin-top: 4px;
-    font-style: italic; }
-  .feature-control { flex-shrink: 0; display: flex; align-items: center; }
-  .feature-control input[type="number"] { width: 64px; padding: 4px 8px;
-    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
-    color: var(--text); font-size: 0.85rem; }
-  .feature-control input[type="number"]:disabled { opacity: 0.4; cursor: not-allowed; }
-  .feature-row.locked .feature-name { color: var(--text-secondary); }
-  /* Tool Security Policies — per-tool card layout.
-     Cards reuse the surface/border variables already in use elsewhere
-     so they read consistently with backup-row / group blocks. */
-  .policy-rule-card { background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; padding: 12px 14px; margin: 8px 0; }
-  .policy-rule-header { display: flex; justify-content: space-between;
-    align-items: center; margin-bottom: 8px; }
-  .policy-rule-header strong { font-size: 0.95rem; }
-  .policy-rule-remove { background: transparent; border: none;
-    color: var(--text-secondary); cursor: pointer; font-size: 1.1rem;
-    padding: 0 6px; }
-  .policy-rule-remove:hover { color: var(--danger); }
-  .policy-predicate-list { list-style: none; padding: 0; margin: 6px 0; }
-  .policy-predicate-row { padding: 4px 0; display: flex; align-items: center;
-    gap: 8px; flex-wrap: wrap; }
-  .policy-predicate-row code { background: var(--bg); padding: 3px 8px;
-    border-radius: 4px; font-size: 0.8rem; color: var(--text); }
-  .policy-predicate-row button { background: transparent; border: none;
-    color: var(--accent); cursor: pointer; font-size: 0.8rem; padding: 2px 4px; }
-  .policy-predicate-row button:hover { text-decoration: underline; }
-  .policy-add-predicate { background: transparent; border: 1px dashed var(--border);
-    color: var(--accent); padding: 6px 12px; border-radius: 6px;
-    cursor: pointer; font-size: 0.85rem; margin-top: 4px; }
-  .policy-add-predicate:hover { background: var(--surface-hover); }
-  .policy-predicate-form { background: var(--bg); padding: 10px;
-    margin: 6px 0; border: 1px dashed var(--border); border-radius: 6px;
-    display: flex; flex-direction: column; gap: 8px; }
-  .policy-predicate-form .policy-form-row { display: flex; flex-wrap: wrap;
-    gap: 6px; align-items: center; }
-  .policy-predicate-form .policy-form-label { min-width: 90px;
-    color: var(--text-secondary); font-size: 0.82rem; }
-  .policy-predicate-form select,
-  .policy-predicate-form input { padding: 5px 8px; border-radius: 4px;
-    border: 1px solid var(--border); background: var(--surface);
-    color: var(--text); font-size: 0.85rem; }
-  .policy-predicate-form input.policy-predicate-path-custom { min-width: 200px; }
-  .policy-predicate-form input.policy-predicate-value { min-width: 220px;
-    font-family: monospace; }
-  .policy-predicate-form .policy-form-hint { font-size: 0.75rem;
-    color: var(--text-secondary); padding-left: 96px; margin-top: -4px; }
-  .policy-predicate-form-error { color: var(--danger); font-size: 0.78rem;
-    width: 100%; margin-top: 4px; }
-  .policy-rule-lifetime { margin: 10px 0; font-size: 0.85rem;
-    color: var(--text-secondary); }
-  .policy-rule-lifetime input { width: 64px; padding: 4px 8px;
-    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
-    color: var(--text); font-size: 0.85rem; margin: 0 6px; }
-  .policy-save-status { margin-left: 10px; font-size: 0.8rem;
-    color: var(--text-secondary); }
-</style>
+<!-- Empty data URI: tells the browser "no favicon" so it never requests
+     /favicon.ico (which would 404 and log a console error, since the
+     settings server serves no such asset in any deployment mode). -->
+<link rel="icon" href="data:,">
+<style>"""
+    + _SETTINGS_CSS
+    + """</style>
 </head>
 <body>
 <div class="header">
@@ -824,11 +695,10 @@ _SETTINGS_HTML = (
     addon restart. Changes require an MCP-host restart to apply.
   </div>
   <div class="pin-notice show" id="pinNotice">
-    Pin toggles only take effect when Tool Search is enabled — either
-    in the Server Settings tab or, for add-on users, the add-on
-    Configuration page (same setting either way). Without Tool Search,
-    all enabled tools are always visible and pinning has no extra
-    effect.
+    Tools listed in the <code>DISABLED_TOOLS</code> or <code>PINNED_TOOLS</code>
+    env vars are locked read-only — unset the env var to edit them here.
+    Pin toggles only take effect when Tool Search is enabled (Server Settings tab
+    or add-on Configuration page).
   </div>
   <div class="summary" id="summary"></div>
   <input type="text" class="search" id="search" placeholder="Search tools...">
@@ -836,10 +706,63 @@ _SETTINGS_HTML = (
 </div>
 <div class="panel" id="panel-server">
   <div class="features-sub">
-    Tool Search, beta-flagged features. Changes require an MCP-host restart
+    Tool Search, advanced settings. Changes require an MCP-host restart
     to take effect (close + reopen Claude Desktop, restart the add-on, etc.).
   </div>
+
+  <!-- Two-step note + top Save button. The Save +
+       Restart workflow is non-obvious — users have hit the page,
+       toggled, and then wondered why nothing took effect because they
+       skipped one of the two steps. Display the note prominently and
+       duplicate the Save button at the top so a user scrolling either
+       end of the panel can hit it. -->
+  <div class="adv-save-note">
+    ⚠ Two-step save: <strong>(1) click "Save advanced settings"</strong>
+    to persist your changes, then <strong>(2) click "Restart"</strong>
+    above to apply them. Neither step alone is enough.
+  </div>
+  <div id="advSaveRowTop" class="adv-save-row" style="display:none;">
+    <button id="advSaveBtnTop" class="adv-save-btn">💾 Save advanced settings</button>
+    <span id="advSaveStatusTop" class="status"></span>
+  </div>
   <div id="featuresBody"></div>
+
+  <!-- Advanced settings sections. The "Connection
+       (display only)" section was removed per user feedback — it
+       just listed the read-only HOMEASSISTANT_URL / TOKEN /
+       SUPERVISOR_TOKEN fields, which the user can already see in the
+       addon's own logs and configuration. Registry entries for the
+       connection section remain in ADVANCED_SETTINGS_FIELDS so the
+       API still returns them (env-pin debugging, future surfaces),
+       but they are not rendered into a panel here. -->
+  <h3 class="adv-section-title">Search &amp; matching</h3>
+  <div id="advSearch" class="adv-section"></div>
+  <h3 class="adv-section-title">Operations</h3>
+  <div id="advOperations" class="adv-section"></div>
+  <h3 class="adv-section-title">Tool surface</h3>
+  <div id="advToolsSurface" class="adv-section"></div>
+  <h3 class="adv-section-title">Diagnostics</h3>
+  <div id="advDiagnostics" class="adv-section"></div>
+
+  <!-- Beta features sit at the bottom of the panel — these can damage
+       the HA system, so they come last and the user sees safer
+       settings first. -->
+  <h3 class="adv-section-title beta-section-title">Beta features (dangerous)</h3>
+  <div id="betaBody"></div>
+
+  <!-- Bottom Save row sits AFTER the beta block (and any nested
+       code-mode sub-numerics) so a user editing those doesn't have
+       to scroll back up past their own changes. -->
+  <div class="adv-save-note">
+    ⚠ Two-step save: <strong>(1) click "Save advanced settings"</strong>
+    to persist your changes, then <strong>(2) click "Restart"</strong>
+    above to apply them. Neither step alone is enough.
+  </div>
+  <div id="advSaveRow" class="adv-save-row" style="display:none;">
+    <button id="advSaveBtn" class="adv-save-btn">💾 Save advanced settings</button>
+    <span id="advSaveStatus" class="status"></span>
+  </div>
+
   <div id="sidecarStopRow" style="display:none; margin: 16px 0; text-align: right;">
     <button class="danger-btn" id="stopSidecarBtn"
             title="Permanently disables the settings UI: stops this server AND writes ~/.ha-mcp/settings_ui_disabled so it does not respawn on future ha-mcp launches. Delete that file to re-enable."
@@ -939,2035 +862,12 @@ _SETTINGS_HTML = (
     <div class="modal-body" id="modalBody"></div>
   </div>
 </div>
-<script>
-// Catch top-level / async script errors and surface them in the
-// status bar so a perpetually-"Loading" page becomes self-diagnosing
-// (no devtools required). Without this, a script-evaluation error
-// in any of the function definitions below would abort the script
-// before loadTools() is even called, leaving the status stuck at
-// the initial "Loading...".
-window.addEventListener('error', (e) => {
-  const el = document.getElementById('status');
-  if (!el) return;
-  const where = e.filename ? `${e.filename}:${e.lineno}:${e.colno}` : 'inline';
-  el.textContent = `JS error: ${e.message} @ ${where}`;
-});
-window.addEventListener('unhandledrejection', (e) => {
-  const el = document.getElementById('status');
-  if (!el) return;
-  el.textContent = `Async error: ${e.reason && e.reason.message ? e.reason.message : String(e.reason)}`;
-});
-
-let toolData = [];
-let toolStates = {};
-let saveTimer = null;
-let openGroups = new Set();
-
-// Per-tool "security gated" toggle state mirrors policy.rules from
-// /api/policy/config. A tool is gated iff there's any rule with a
-// matching tool_name (with or without conditions). The Tools tab
-// uses this set to render the third toggle alongside enabled/pinned.
-// `enabled` is tri-state: true/false from the addon-config flag, or
-// null when the features fetch failed — downstream branches need to
-// distinguish "definitively off" from "couldn't determine" so they
-// don't false-confidently tell the user the feature is off.
-const policyState = {
-  enabled: false,
-  enabledKnown: false,
-  gatedTools: new Set(),
-};
-
-async function loadPolicyState() {
-  // policyState.enabled mirrors the addon-config flag
-  // (enable_tool_security_policies) — the single source of truth for
-  // whether the middleware is active. Read it from /api/settings/features
-  // where it appears via FEATURE_FLAG_FIELDS.
-  try {
-    const fresp = await fetch('./api/settings/features');
-    if (fresp.ok) {
-      const fdata = await fresp.json();
-      const flag = (fdata.flags || {})['enable_tool_security_policies'];
-      policyState.enabled = !!(flag && flag.value);
-      policyState.enabledKnown = true;
-    } else {
-      policyState.enabled = false;
-      policyState.enabledKnown = false;
-    }
-  } catch (_e) {
-    policyState.enabled = false;
-    policyState.enabledKnown = false;
-  }
-  try {
-    const r = await fetch('./api/policy/config');
-    if (!r.ok) {
-      policyState.gatedTools = new Set();
-      return;
-    }
-    const p = await r.json();
-    policyState.gatedTools = new Set((p.rules || []).map(rule => rule.tool_name));
-  } catch (_e) {
-    // Policy endpoint unavailable (sidecar stub) — leave gatedTools empty.
-    policyState.gatedTools = new Set();
-  }
-}
-
-// Wrap PUT /api/policy/config so every caller gets identical handling of
-// the 409 (optimistic-concurrency) and other failure paths. The full
-// policy round-trips through every caller, so the version GET'd here
-// goes back out in the PUT body and the server can reject stale writes.
-async function policyPut(policy, opLabel) {
-  const w = await fetch('./api/policy/config', {
-    method: 'PUT',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(policy),
-  });
-  if (w.status === 409) {
-    throw new Error(opLabel + ' failed: policy was modified in another tab/session. Reload the page, then re-apply your changes.');
-  }
-  if (!w.ok) throw new Error(opLabel + ' failed: ' + w.status + ' ' + await w.text());
-  return await w.json();
-}
-
-async function syncPolicyRule(toolName, gated) {
-  const r = await fetch('./api/policy/config');
-  if (!r.ok) throw new Error('Could not load policy: ' + r.status);
-  const policy = await r.json();
-  policy.rules = policy.rules || [];
-  if (gated) {
-    if (!policy.rules.some(rule => rule.tool_name === toolName)) {
-      policy.rules.push({tool_name: toolName, when: [], remember_minutes: 0});
-    }
-  } else {
-    policy.rules = policy.rules.filter(rule => rule.tool_name !== toolName);
-  }
-  await policyPut(policy, 'Sync gated toggle');
-}
-
-async function loadTools() {
-  let resp;
-  try {
-    resp = await fetch('./api/settings/tools');
-  } catch (e) {
-    updateStatus('Network error reaching /api/settings/tools: ' + e.message);
-    return;
-  }
-  if (!resp.ok) {
-    updateStatus(`/api/settings/tools returned HTTP ${resp.status} ${resp.statusText}`);
-    return;
-  }
-  let data;
-  try {
-    data = await resp.json();
-  } catch (e) {
-    updateStatus('Failed to parse /api/settings/tools response as JSON: ' + e.message);
-    return;
-  }
-  toolData = data.tools || [];
-  toolStates = data.states || {};
-  // Load policy state before the first render so the "security gated"
-  // toggle reflects current policy.rules. loadPolicyState() never throws
-  // — it leaves gatedTools empty on failure.
-  await loadPolicyState();
-  if (toolData.length === 0) {
-    // Empty tool list is a sidecar misconfiguration — usually the
-    // parent stdio process couldn't dump the metadata cache. Tell
-    // the user where to look instead of leaving them on "Loading".
-    updateStatus(
-      'No tools found. The sidecar reads ~/.ha-mcp/tool_metadata.json — ' +
-      'if missing/empty, restart your MCP client. See ~/.ha-mcp/sidecar.log for details.'
-    );
-    return;
-  }
-  try {
-    render();
-  } catch (e) {
-    updateStatus('Render failed: ' + e.message + ' (open browser devtools for the stack)');
-    throw e;
-  }
-  updateStatus('Loaded');
-
-  // Show restart button if running as add-on; show Stop Sidecar
-  // button only when this page is served by the stdio sidecar
-  // (HTTP modes serve the same HTML but is_sidecar=false there, so
-  // clicking Stop wouldn't make sense — it would kill the MCP server).
-  // Also tailor the restart-notice copy to the install mode so the
-  // user is told exactly what action they need to take ("close and
-  // reopen Claude Desktop" vs "click Restart Add-on" vs "restart
-  // your Docker container") instead of a generic "restart the add-on"
-  // that only matches one of three real deployment surfaces.
-  try {
-    const infoResp = await fetch('./api/settings/info');
-    const info = await infoResp.json();
-    const noticeEl = document.getElementById('restartNoticeText');
-    if (info.is_addon) {
-      document.getElementById('restartBtn').style.display = '';
-      if (noticeEl) {
-        noticeEl.textContent =
-          '⚠ Changes saved. Click "Restart Add-on" for them to take ' +
-          'effect — disabled tools will be fully removed from the MCP ' +
-          'tool list on next startup.';
-      }
-    } else if (info.is_sidecar) {
-      if (noticeEl) {
-        noticeEl.textContent =
-          '⚠ Changes saved. Fully quit and reopen your MCP client ' +
-          '(Claude Desktop: right-click the tray icon → Quit, then ' +
-          'relaunch; Claude Code: close the terminal session) for them ' +
-          'to take effect. Disabled tools will be fully removed from the ' +
-          'MCP tool list on next startup.';
-      }
-      document.getElementById('sidecarStopRow').style.display = '';
-    } else if (noticeEl) {
-      // HTTP / Docker / standalone — no button we can wire to a restart,
-      // so describe the action in process terms.
-      noticeEl.textContent =
-        '⚠ Changes saved. Restart your ha-mcp process (Docker ' +
-        'container, systemd service, or however you launch it) for them ' +
-        'to take effect. Disabled tools will be fully removed from the ' +
-        'MCP tool list on next startup.';
-    }
-  } catch (_e) {}
-}
-
-async function stopSidecar() {
-  const btn = document.getElementById('stopSidecarBtn');
-  // Two-part confirm wording: lead with the *permanence* (this is not a
-  // routine "stop now, autostart later" — the server will refuse to
-  // restart on every future ha-mcp launch until the user manually
-  // intervenes), then spell out the exact re-enable steps. The button
-  // is right-aligned near the top of a list of toggle controls, so
-  // accidental clicks are easy; the dialog needs to read like a
-  // commitment, not a soft prompt.
-  if (!confirm(
-    '⚠ PERMANENTLY disable the settings server?\\n\\n' +
-    'This stops the running server AND writes a disable marker so it ' +
-    'will NOT respawn on future ha-mcp launches — every restart of ' +
-    'Claude Desktop / Docker / your MCP host will continue to skip it ' +
-    'until you manually re-enable.\\n\\n' +
-    'To restore access later you must:\\n' +
-    '  1. Delete  ~/.ha-mcp/settings_ui_disabled  (the marker file), AND\\n' +
-    '  2. Unset  HA_MCP_DISABLE_SETTINGS_UI  if that env var was set.\\n\\n' +
-    'You will lose the in-browser tool-configuration UI until both ' +
-    'conditions are met. Continue?'
-  )) return;
-  btn.disabled = true;
-  btn.textContent = 'Stopping...';
-  try {
-    const resp = await fetch('./api/settings/shutdown', {method: 'POST'});
-    if (resp.ok) {
-      btn.textContent = 'Stopped — this page will go offline';
-    } else {
-      let msg = 'Stop failed';
-      try {
-        const err = await resp.json();
-        if (err.error && err.error.message) msg = 'Failed: ' + err.error.message;
-      } catch (_e) {}
-      btn.textContent = msg;
-      btn.disabled = false;
-      alert(msg);
-    }
-  } catch (_e) {
-    // Connection drop is expected — the sidecar process is exiting.
-    btn.textContent = 'Stopped (connection dropped)';
-  }
-}
-
-// Restart-readiness probe tunables. The grace period gives supervisor
-// time to actually kill the addon (so a too-eager first probe doesn't
-// hit the OLD instance and reload before the new one is up). The poll
-// interval is short enough to feel responsive on a fast restart, long
-// enough to not hammer ingress. The cap is the user-visible upper
-// bound; HAOS addon restarts are typically 15-25s but cold-start +
-// image pull can stretch further, so 60s gives genuine breathing room
-// before we tell the user the auto-reload failed.
-const RESTART_PROBE_INITIAL_GRACE_MS = 3000;
-const RESTART_PROBE_INTERVAL_MS = 2000;
-const RESTART_PROBE_MAX_TOTAL_MS = 60000;
-
-// Cross-tab restart broadcast channel. When any tab saves a setting
-// that needs a restart, it posts ``restart-required`` so the other
-// tabs surface the same banner. When any tab fires the supervisor
-// restart, it posts ``restart-initiated`` so the other tabs run the
-// same poll-then-reload cycle — that way ALL tabs come back to the
-// fresh addon instead of leaving stale ones spinning.
-const restartChannel =
-  typeof BroadcastChannel === 'function'
-    ? new BroadcastChannel('ha-mcp-settings')
-    : null;
-
-// Module-level concurrency guard. The button's ``disabled`` attribute
-// blocks normal clicks, but a second invocation via DevTools / a
-// keyboard accessibility tool / a cross-tab broadcast would otherwise
-// queue a second supervisor restart + a second auto-reload. Cleared
-// only on a 4xx genuine config error (so the user can reload and try
-// again); otherwise stays true through the restart cycle until the
-// page reloads.
-let restartInProgress = false;
-
-async function _fetchSettingsInfo() {
-  // Read ``/api/settings/info`` once; return the parsed JSON or null
-  // on any failure. ``cache: 'no-store'`` so the browser can't serve
-  // a stale 200 from before the restart.
-  try {
-    const resp = await fetch('./api/settings/info', {cache: 'no-store'});
-    if (!resp.ok) return null;
-    return await resp.json();
-  } catch (_e) {
-    return null;
-  }
-}
-
-async function _probeAddonRestarted(previousInstanceId) {
-  // Resolve true when ``/api/settings/info`` returns a different
-  // ``instance_id`` than the one captured before the restart —
-  // proves a NEW process is serving, not the same OLD one (which
-  // would happen if supervisor silently failed to restart and the
-  // probe just saw the still-running upstream answer 200). When
-  // ``previousInstanceId`` is null (couldn't capture pre-restart,
-  // or server is on an older build that doesn't expose the field)
-  // fall back to "any 200 means it's back" — same behavior as
-  // before this fix landed, so we degrade gracefully.
-  const deadline = Date.now() + RESTART_PROBE_MAX_TOTAL_MS;
-  while (Date.now() < deadline) {
-    const info = await _fetchSettingsInfo();
-    if (info) {
-      if (previousInstanceId) {
-        if (info.instance_id && info.instance_id !== previousInstanceId) {
-          return true;
-        }
-        // Same instance_id (or field missing on the response) — keep
-        // polling; do NOT reload yet because the restart hasn't
-        // actually happened yet.
-      } else {
-        // No baseline to compare against — best we can do is the
-        // old "200 = up" check.
-        return true;
-      }
-    }
-    await new Promise(r => setTimeout(r, RESTART_PROBE_INTERVAL_MS));
-  }
-  return false;
-}
-
-async function _runRestartReloadCycle(previousInstanceId) {
-  const btn = document.getElementById('restartBtn');
-  // Initial grace lets supervisor actually kill the addon before we
-  // start probing — otherwise the first probe may hit the OLD
-  // instance and we reload before the new one is up.
-  btn.textContent = 'Restarting…';
-  await new Promise(r => setTimeout(r, RESTART_PROBE_INITIAL_GRACE_MS));
-  btn.textContent = 'Waiting for add-on to come back online…';
-  const restarted = await _probeAddonRestarted(previousInstanceId);
-  if (restarted) {
-    window.location.reload();
-  } else {
-    // Probe gave up after RESTART_PROBE_MAX_TOTAL_MS. Restart either
-    // never actually fired (silent supervisor failure → instance_id
-    // never flipped) OR supervisor is genuinely slower than the cap.
-    // Surface a clear next-step instead of silently doing nothing.
-    btn.textContent = 'Add-on did not come back online — reload manually';
-    btn.disabled = false;
-    restartInProgress = false;
-  }
-}
-
-async function restartAddon() {
-  if (restartInProgress) return;
-  const btn = document.getElementById('restartBtn');
-  if (!confirm('Restart the add-on now? The page will reload automatically once the add-on is back online.')) return;
-  restartInProgress = true;
-  btn.disabled = true;
-  btn.textContent = 'Restarting…';
-  // Capture the current process's ``instance_id`` BEFORE firing the
-  // restart so the poll cycle has a baseline to compare against.
-  // null is fine — the probe degrades to the old "any 200 means up"
-  // mode rather than refusing to reload.
-  const info = await _fetchSettingsInfo();
-  const previousInstanceId = info?.instance_id ?? null;
-  try {
-    const resp = await fetch('./api/settings/restart', {method: 'POST'});
-    if (!resp.ok && resp.status < 500) {
-      // 4xx is a genuine config error (e.g. SUPERVISOR_TOKEN unset).
-      // The restart was NOT initiated — surface the error and let the
-      // user fix the underlying cause. Keep button enabled so they
-      // can retry once the issue is resolved. Don't broadcast (other
-      // tabs would only see a misleading "restart in progress").
-      let msg = 'Restart failed';
-      try {
-        const err = await resp.json();
-        if (err?.error?.message) msg = 'Failed: ' + err.error.message;
-      } catch (_e) { /* leave default msg */ }
-      btn.textContent = msg;
-      btn.disabled = false;
-      restartInProgress = false;
-      alert(msg);
-      return;
-    }
-    // 200 OK → background task scheduled. 5xx → ingress upstream
-    // drop, restart IS in flight. Both fall through to the reload
-    // cycle.
-  } catch (_e) {
-    // Network error mid-request — supervisor killed our upstream.
-    // Restart in flight; fall through. Log for debug, suppress the
-    // unused-binding lint.
-    console.warn('restartAddon fetch dropped (expected during self-restart):', _e);
-  }
-  // Other tabs need to run the same cycle so they reload to the fresh
-  // addon, not stay on a stale view. Broadcast the baseline so each
-  // tab compares against the same pre-restart ``instance_id``.
-  if (restartChannel) {
-    restartChannel.postMessage({
-      type: 'restart-initiated',
-      previousInstanceId,
-    });
-  }
-  await _runRestartReloadCycle(previousInstanceId);
-}
-
-// Listener: when ANY tab broadcasts a save that needs a restart, all
-// open tabs surface the banner. When ANY tab fires the restart, all
-// open tabs run their own poll-then-reload cycle so none of them are
-// left holding a stale connection to a now-dead addon.
-if (restartChannel) {
-  restartChannel.addEventListener('message', (e) => {
-    const data = e.data || {};
-    if (data.type === 'restart-required') {
-      document.getElementById('restartNotice').classList.add('show');
-    } else if (data.type === 'restart-initiated' && !restartInProgress) {
-      restartInProgress = true;
-      const btn = document.getElementById('restartBtn');
-      if (btn) btn.disabled = true;
-      // Use the originating tab's baseline ``instance_id`` so every
-      // tab waits for the SAME ``instance_id`` flip before reloading.
-      // Falls back to null → "any 200 = ready" mode if the originator
-      // couldn't capture one.
-      _runRestartReloadCycle(data.previousInstanceId ?? null);
-    }
-  });
-}
-
-const DEFAULT_PINNED = """
-    + json.dumps(list(DEFAULT_PINNED_TOOLS))
-    + """;
-const MANDATORY = """
-    + json.dumps(list(MANDATORY_TOOLS))
-    + """;
-
-function getState(name) {
-  if (toolStates[name]) return toolStates[name];
-  return DEFAULT_PINNED.includes(name) ? 'pinned' : 'enabled';
-}
-
-// Escape HTML special characters before interpolating into innerHTML.
-// All interpolated values come from the server (tool docstrings, names,
-// FEATURE_GATED_TOOLS metadata) so this is defense-in-depth — but a
-// docstring containing literal '<' or '&' would otherwise break the
-// page silently.
-function escapeHtml(s) {
-  if (s === null || s === undefined) return '';
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function render() {
-  const groups = {};
-  toolData.forEach(t => {
-    const tag = t.primary_tag || (t.tags && t.tags[0]) || 'Other';
-    if (!groups[tag]) groups[tag] = [];
-    groups[tag].push(t);
-  });
-
-  const container = document.getElementById('groups');
-  container.innerHTML = '';
-
-  let total = 0, enabledCount = 0, pinnedCount = 0, disabledCount = 0;
-
-  Object.keys(groups).sort().forEach(tag => {
-    const tools = groups[tag];
-    const group = document.createElement('div');
-    group.className = 'group';
-
-    // Per-group toggle state: enabled if ANY non-mandatory/non-gated tool is enabled
-    const toggleable = tools.filter(t => !MANDATORY.includes(t.name) && !t.disabled_by);
-    const anyEnabled = toggleable.some(t => getState(t.name) !== 'disabled');
-    const groupEnabled = tools.filter(t => {
-      const s = getState(t.name);
-      return MANDATORY.includes(t.name) || (!t.disabled_by && s !== 'disabled');
-    }).length;
-
-    const header = document.createElement('div');
-    header.className = 'group-header';
-    header.innerHTML = `<div class="group-header-left">` +
-      `<span class="group-chevron">&#9654;</span>` +
-      `<span class="group-name">${escapeHtml(tag)}</span>` +
-      `<span class="group-count">${groupEnabled}/${tools.length} enabled</span>` +
-      `</div>` +
-      `<label class="switch group-master" title="Enable/disable all tools in this group">` +
-        `<input type="checkbox" ${anyEnabled ? 'checked' : ''} ${toggleable.length === 0 ? 'disabled' : ''}>` +
-        `<span class="slider"></span>` +
-      `</label>`;
-
-    const chevron = header.querySelector('.group-chevron');
-    const masterInput = header.querySelector('.group-master input');
-
-    header.addEventListener('click', (e) => {
-      // Ignore clicks on the master toggle itself
-      if (e.target.closest('.group-master')) return;
-      if (openGroups.has(tag)) openGroups.delete(tag);
-      else openGroups.add(tag);
-      const toolsDiv = group.querySelector('.group-tools');
-      toolsDiv.classList.toggle('open');
-      chevron.classList.toggle('open');
-    });
-
-    if (masterInput) {
-      masterInput.addEventListener('click', (e) => e.stopPropagation());
-      masterInput.addEventListener('change', (e) => {
-        const target = e.target.checked ? 'enabled' : 'disabled';
-        toggleable.forEach(t => {
-          if (target === 'enabled') {
-            // Restore to pinned if it was pinned by default, else enabled
-            toolStates[t.name] = DEFAULT_PINNED.includes(t.name) ? 'pinned' : 'enabled';
-          } else {
-            toolStates[t.name] = 'disabled';
-          }
-        });
-        scheduleSave();
-        render();
-      });
-    }
-
-    const toolsDiv = document.createElement('div');
-    toolsDiv.className = 'group-tools';
-    if (openGroups.has(tag)) {
-      toolsDiv.classList.add('open');
-      chevron.classList.add('open');
-    }
-
-    tools.forEach(t => {
-      const state = getState(t.name);
-      const isMandatory = MANDATORY.includes(t.name);
-      const disabledBy = t.disabled_by || null;
-      const isFeatureGated = disabledBy !== null;
-      const ann = t.annotations || {};
-      const isReadOnly = ann.readOnlyHint === true;
-      const isDestructive = ann.destructiveHint === true;
-
-      total++;
-      if (isFeatureGated) disabledCount++;
-      else if (state === 'disabled') disabledCount++;
-      else if (state === 'pinned') { enabledCount++; pinnedCount++; }
-      else enabledCount++;
-
-      const isEnabled = isFeatureGated ? false : (isMandatory || state !== 'disabled');
-      const isPinned = isFeatureGated ? false : (isMandatory || state === 'pinned' || DEFAULT_PINNED.includes(t.name));
-      const lockEnabled = isMandatory || isFeatureGated;
-      const lockPinned = isMandatory || isFeatureGated || !isEnabled;
-
-      const div = document.createElement('div');
-      div.className = 'tool';
-      div.dataset.name = t.name.toLowerCase();
-      div.dataset.title = (t.title || '').toLowerCase();
-
-      let badges = '';
-      if (isMandatory) badges += '<span class="badge mandatory">mandatory</span>';
-      if (isReadOnly) badges += '<span class="badge readonly">read-only</span>';
-      if (isDestructive) badges += '<span class="badge destructive">destructive</span>';
-
-      const title = t.title || t.name;
-      const desc = (t.description || '').split('\\n')[0].slice(0, 120);
-      const gatedNote = disabledBy
-        ? `<div class="disabled-by-note">Beta — set <code>${escapeHtml(disabledBy)}</code> in the dev add-on config or the matching env var (see docs/beta.md).</div>`
-        : '';
-
-      div.innerHTML = `<div class="tool-info">` +
-        `<div class="tool-name">${escapeHtml(title)}${badges}</div>` +
-        `<div class="tool-meta">${escapeHtml(t.name)}</div>` +
-        (desc ? `<div class="tool-desc">${escapeHtml(desc)}</div>` : '') +
-        gatedNote +
-        `</div>` +
-        `<div class="tool-toggles">` +
-          `<div class="toggle-group">` +
-            `<label class="switch"><input type="checkbox" data-tool="${escapeHtml(t.name)}" data-field="enabled" ` +
-              `${isEnabled ? 'checked' : ''} ${lockEnabled ? 'disabled' : ''}>` +
-              `<span class="slider"></span></label>` +
-            `<span>enabled</span>` +
-          `</div>` +
-          `<div class="toggle-group ${!isEnabled ? 'disabled-toggle' : ''}">` +
-            `<label class="switch"><input type="checkbox" data-tool="${escapeHtml(t.name)}" data-field="pinned" ` +
-              `${isPinned ? 'checked' : ''} ${lockPinned ? 'disabled' : ''}>` +
-              `<span class="slider"></span></label>` +
-            `<span>pinned</span>` +
-          `</div>` +
-          `<div class="toggle-group ${(policyState.enabled && isEnabled) ? '' : 'disabled-toggle'}" ` +
-               `title="${policyState.enabled ? '' : 'Enable Tool Security Policies in addon config first.'}">` +
-            `<label class="switch"><input type="checkbox" data-tool="${escapeHtml(t.name)}" data-field="gated" ` +
-              `${policyState.gatedTools.has(t.name) ? 'checked' : ''} ` +
-              `${(policyState.enabled && isEnabled) ? '' : 'disabled'}>` +
-              `<span class="slider"></span></label>` +
-            `<span>security gated</span>` +
-          `</div>` +
-        `</div>`;
-
-      const inputs = div.querySelectorAll('input[type="checkbox"]');
-      inputs.forEach(input => {
-        if (input.disabled) return;
-        input.addEventListener('change', async (e) => {
-          const field = e.target.dataset.field;
-          if (field === 'gated') {
-            // Optimistic UI: flip local state, sync to server, rollback on failure.
-            // Gated lives in policy.rules (not tool_config), so we skip scheduleSave().
-            const wasGated = policyState.gatedTools.has(t.name);
-            const nowGated = e.target.checked;
-            if (nowGated) policyState.gatedTools.add(t.name);
-            else policyState.gatedTools.delete(t.name);
-            try {
-              await syncPolicyRule(t.name, nowGated);
-            } catch (err) {
-              if (wasGated) policyState.gatedTools.add(t.name);
-              else policyState.gatedTools.delete(t.name);
-              e.target.checked = wasGated;
-              alert('Failed to update tool security policy: ' + err.message);
-            }
-            render();
-            return;
-          }
-          const currentState = getState(t.name);
-          let newState = currentState;
-          if (field === 'enabled') {
-            if (!e.target.checked) newState = 'disabled';
-            else newState = (currentState === 'pinned') ? 'pinned' : 'enabled';
-          } else if (field === 'pinned') {
-            newState = e.target.checked ? 'pinned' : 'enabled';
-          }
-          toolStates[t.name] = newState;
-          scheduleSave();
-          render();
-        });
-      });
-      toolsDiv.appendChild(div);
-    });
-
-    group.appendChild(header);
-    group.appendChild(toolsDiv);
-    container.appendChild(group);
-  });
-
-  document.getElementById('summary').innerHTML =
-    `<span>${total} total</span>` +
-    `<span style="color:var(--success)">${enabledCount} enabled</span>` +
-    `<span style="color:var(--accent)">${pinnedCount} pinned</span>` +
-    `<span style="color:var(--danger)">${disabledCount} disabled</span>`;
-
-  // ``render()`` rebuilds the entire ``.tool`` DOM, so any
-  // ``hidden`` class previously applied by ``applyToolSearch`` is
-  // wiped. The search ``<input>`` is a separate element and keeps
-  // its value across the rebuild — re-apply the filter so the
-  // visible list matches what the user has typed. Otherwise
-  // toggling a setting on a filtered tool snaps the full list back
-  // even though the search box still shows the query.
-  applyToolSearch();
-}
-
-function scheduleSave() {
-  clearTimeout(saveTimer);
-  updateStatus('Unsaved changes...');
-  saveTimer = setTimeout(saveConfig, 800);
-}
-
-async function saveConfig() {
-  updateStatus('Saving...');
-  const resp = await fetch('./api/settings/tools', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({states: toolStates}),
-  });
-  if (resp.ok) {
-    updateStatus('Saved — restart required', true);
-    document.getElementById('restartNotice').classList.add('show');
-    // Cross-tab sync — other open settings tabs surface the same
-    // banner so the user can click Restart from whichever tab they
-    // are on.
-    if (restartChannel) restartChannel.postMessage({type: 'restart-required'});
-  } else {
-    updateStatus('Save failed!');
-  }
-}
-
-function updateStatus(text, saved) {
-  const el = document.getElementById('status');
-  el.textContent = text;
-  el.className = saved ? 'status saved' : 'status';
-}
-
-function applyToolSearch() {
-  // Read the current search query directly from the DOM rather than
-  // taking it as a parameter — ``render()`` calls this after rebuilding
-  // the tool DOM and needs to use whatever the user currently has
-  // typed without coordinating with the input event.
-  const q = (document.getElementById('search').value || '').toLowerCase();
-  document.querySelectorAll('.tool').forEach(el => {
-    const match = !q || el.dataset.name.includes(q) || el.dataset.title.includes(q);
-    el.classList.toggle('hidden', !match);
-  });
-  document.querySelectorAll('.group').forEach(g => {
-    const tools = g.querySelector('.group-tools');
-    const visible = tools.querySelectorAll('.tool:not(.hidden)').length;
-    g.style.display = visible ? '' : 'none';
-    if (q && visible) {
-      tools.classList.add('open');
-      g.querySelector('.group-chevron').classList.add('open');
-    }
-  });
-}
-
-document.getElementById('search').addEventListener('input', applyToolSearch);
-
-document.getElementById('restartBtn').addEventListener('click', restartAddon);
-
-// ===== Backups tab =====
-let backupEntries = [];
-let backupConfigFields = [];
-
-const BACKUP_FIELD_LABELS = {
-  enable_auto_backup: {
-    label: 'Auto-backup edits',
-    help: 'Capture a snapshot before every wrapped write/destructive tool call.',
-  },
-  auto_backup_throttle_minutes: {
-    label: 'Throttle (minutes)',
-    help: 'Per-entity throttle. 0 = backup every write; N>0 = at most one per N minutes per entity. Range 0–1440.',
-  },
-  auto_backup_retain_per_entity: {
-    label: 'Retain per entity',
-    help: 'Maximum snapshots kept per entity (1–10000). Older ones rotate out.',
-  },
-};
-
-const BACKUP_ORIGIN_LABELS = {
-  addon: 'Synced to Supervisor — restart required after save.',
-  env: null,  // banner generated dynamically with the env var name
-  file: 'Persisted locally; takes effect immediately.',
-  default: 'Using default; first save creates a local override file.',
-};
-
-async function loadBackupConfig() {
-  const formEl = document.getElementById('backupConfigForm');
-  const actionsEl = document.getElementById('backupConfigActions');
-  try {
-    const resp = await fetch('./api/settings/backup-config');
-    if (!resp.ok) {
-      formEl.innerHTML = '<div class="backup-empty">Could not load backup settings.</div>';
-      actionsEl.style.display = 'none';
-      return;
-    }
-    const data = await resp.json();
-    backupConfigFields = data.fields || [];
-  } catch (_e) {
-    formEl.innerHTML = '<div class="backup-empty">Backup settings unavailable.</div>';
-    actionsEl.style.display = 'none';
-    return;
-  }
-  renderBackupConfig();
-  actionsEl.style.display = backupConfigFields.some(f => f.editable) ? '' : 'none';
-}
-
-function renderBackupConfig() {
-  const formEl = document.getElementById('backupConfigForm');
-  formEl.innerHTML = '';
-  backupConfigFields.forEach(f => {
-    const meta = BACKUP_FIELD_LABELS[f.field] || { label: f.field, help: '' };
-    const row = document.createElement('div');
-    row.className = 'backup-field';
-    let controlHtml;
-    if (typeof f.value === 'boolean') {
-      controlHtml = `<input type="checkbox" data-field="${escapeHtml(f.field)}" ${f.value ? 'checked' : ''} ${f.editable ? '' : 'disabled'}>`;
-    } else {
-      const min = f.field === 'auto_backup_throttle_minutes' ? 0 : 1;
-      const max = f.field === 'auto_backup_throttle_minutes' ? 1440 : 10000;
-      controlHtml = `<input type="number" data-field="${escapeHtml(f.field)}" value="${Number(f.value)}" min="${min}" max="${max}" ${f.editable ? '' : 'disabled'}>`;
-    }
-    let originMsg;
-    if (f.origin === 'env') {
-      originMsg = `Set via env var <code>${escapeHtml(f.env_var)}</code> — unset it to edit here.`;
-    } else {
-      originMsg = BACKUP_ORIGIN_LABELS[f.origin] || '';
-    }
-    const lockedBadge = f.editable ? '' : `<span class="backup-field-locked">env-locked</span>`;
-    row.innerHTML =
-      `<span class="backup-field-label">${escapeHtml(meta.label)}</span>` +
-      `<span class="backup-field-control">${controlHtml}</span>` +
-      lockedBadge +
-      `<span class="backup-field-help">${escapeHtml(meta.help)}${originMsg ? ' — ' + originMsg : ''}</span>`;
-    formEl.appendChild(row);
-  });
-}
-
-async function saveBackupConfig() {
-  const btn = document.getElementById('backupConfigSave');
-  const statusEl = document.getElementById('backupConfigStatus');
-  const payload = {};
-  backupConfigFields.forEach(f => {
-    if (!f.editable) return;
-    const input = document.querySelector(`#backupConfigForm input[data-field="${f.field}"]`);
-    if (!input) return;
-    if (input.type === 'checkbox') {
-      payload[f.field] = input.checked;
-    } else {
-      const n = parseInt(input.value, 10);
-      if (!isNaN(n)) payload[f.field] = n;
-    }
-  });
-  if (Object.keys(payload).length === 0) {
-    statusEl.textContent = 'Nothing editable.';
-    return;
-  }
-  btn.disabled = true;
-  statusEl.textContent = 'Saving…';
-  try {
-    const resp = await fetch('./api/settings/backup-config', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload),
-    });
-    const data = await resp.json();
-    if (!resp.ok) {
-      btn.disabled = false;
-      let msg = 'Save failed';
-      if (data && data.error) {
-        if (typeof data.error === 'string') msg = data.error;
-        else if (data.error.message) msg = data.error.message;
-      }
-      statusEl.textContent = msg;
-      return;
-    }
-    btn.disabled = false;
-    if (data.restart_required) {
-      // Unified restart flow — save persists but does NOT auto-restart.
-      // Surface the cross-tab restart-required banner; user picks the
-      // moment via the global Restart Add-on button.
-      //
-      // Don't reload the form here. In addon mode the GET reads
-      // env-derived ``get_global_settings()`` values which are still
-      // stale (Supervisor has the new options but ``start.py``
-      // doesn't re-derive env vars until the next addon boot). Reloading
-      // would snap the form back to old values, look like the save
-      // reverted, and clobber any further edits the user wanted to
-      // bundle before clicking Restart.
-      statusEl.textContent = 'Saved — restart required';
-      document.getElementById('restartNotice').classList.add('show');
-      if (restartChannel) restartChannel.postMessage({type: 'restart-required'});
-    } else {
-      statusEl.textContent = 'Saved.';
-      // Refresh display so origins update (default → file, etc.).
-      loadBackupConfig();
-      loadBackups();
-    }
-  } catch (err) {
-    btn.disabled = false;
-    statusEl.textContent = 'Network error: ' + String(err);
-  }
-}
-
-async function loadBackups() {
-  const params = new URLSearchParams();
-  const d = document.getElementById('backupDomain').value.trim();
-  const e = document.getElementById('backupEntity').value.trim();
-  if (d) params.set('domain', d);
-  if (e) params.set('entity_id', e);
-  const stateEl = document.getElementById('backupState');
-  const listEl = document.getElementById('backupList');
-  try {
-    const resp = await fetch('./api/settings/backups?' + params.toString());
-    const data = await resp.json();
-    if (!resp.ok || !data.success) {
-      stateEl.innerHTML = '<span class="diff-rem">Error loading backups</span>';
-      listEl.innerHTML = '';
-      return;
-    }
-    backupEntries = data.backups || [];
-    stateEl.innerHTML =
-      `<span>Status: <strong>${data.enabled ? 'enabled' : 'disabled'}</strong></span>` +
-      `<span>Throttle: <strong>${data.throttle_minutes} min</strong></span>` +
-      `<span>Retain per entity: <strong>${data.retain_per_entity}</strong></span>` +
-      `<span>Directory: <strong>${escapeHtml(data.backup_dir)}</strong></span>` +
-      `<span>Total: <strong>${data.count}</strong></span>`;
-    renderBackups();
-  } catch (err) {
-    stateEl.innerHTML = '<span class="diff-rem">Network error: ' + escapeHtml(String(err)) + '</span>';
-    listEl.innerHTML = '';
-  }
-}
-
-function renderBackups() {
-  const listEl = document.getElementById('backupList');
-  if (!backupEntries.length) {
-    listEl.innerHTML = '<div class="backup-empty">No backups yet. Enable auto-backup in the add-on config and edit an entity to create one.</div>';
-    return;
-  }
-  listEl.innerHTML = '';
-  backupEntries.forEach(b => {
-    const row = document.createElement('div');
-    row.className = 'backup-row';
-    const ts = b.timestamp || '';
-    const tsFmt = ts.length === 15
-      ? ts.slice(0,4)+'-'+ts.slice(4,6)+'-'+ts.slice(6,8)+' '+ts.slice(9,11)+':'+ts.slice(11,13)+':'+ts.slice(13,15)
-      : ts;
-    row.innerHTML =
-      `<div class="backup-row-info">` +
-        `<div class="backup-row-name">${escapeHtml(b.name)}</div>` +
-        `<div class="backup-row-meta">` +
-          `<strong>${escapeHtml(b.domain)}</strong> · ` +
-          `${escapeHtml(b.entity_id)} · ${tsFmt} · ${b.size} bytes` +
-        `</div>` +
-      `</div>` +
-      `<div class="backup-row-actions">` +
-        `<button data-act="view">View</button>` +
-        `<button data-act="diff" class="secondary">Diff</button>` +
-        `<button data-act="restore">Restore</button>` +
-        `<button data-act="delete" class="danger">Delete</button>` +
-      `</div>`;
-    row.querySelectorAll('button[data-act]').forEach(btn => {
-      btn.addEventListener('click', () => backupAction(btn.dataset.act, b.name));
-    });
-    listEl.appendChild(row);
-  });
-}
-
-async function backupAction(act, name) {
-  if (act === 'view') {
-    const resp = await fetch('./api/settings/backups/' + encodeURIComponent(name));
-    const data = await resp.json();
-    if (!resp.ok) { alert(JSON.stringify(data)); return; }
-    showModal('View: ' + name, '<pre>' + escapeHtml(yamlStringify(data.data)) + '</pre>');
-  } else if (act === 'diff') {
-    const resp = await fetch('./api/settings/backups/' + encodeURIComponent(name) + '/diff');
-    const data = await resp.json();
-    if (!resp.ok) { alert(JSON.stringify(data)); return; }
-    const html = (data.diff || '(identical)').split('\\n').map(line => {
-      let cls = '';
-      if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('@@')) cls = 'diff-hdr';
-      else if (line.startsWith('+')) cls = 'diff-add';
-      else if (line.startsWith('-')) cls = 'diff-rem';
-      return `<span class="${cls}">${escapeHtml(line)}</span>`;
-    }).join('\\n');
-    showModal('Diff: ' + name, '<pre>' + html + '</pre>');
-  } else if (act === 'restore') {
-    if (!confirm('Restore ' + name + '?\\n\\nThis will overwrite the current entity state. A safety backup of the current state is taken first.')) return;
-    const resp = await fetch('./api/settings/backups/' + encodeURIComponent(name) + '/restore', {method: 'POST'});
-    const data = await resp.json();
-    if (!resp.ok) { alert('Restore failed: ' + JSON.stringify(data)); return; }
-    alert('Restored. Safety backup: ' + (data.data && data.data.safety_backup ? data.data.safety_backup : '(none)'));
-    loadBackups();
-  } else if (act === 'delete') {
-    if (!confirm('Delete ' + name + '? This cannot be undone.')) return;
-    const resp = await fetch('./api/settings/backups/' + encodeURIComponent(name), {method: 'DELETE'});
-    if (!resp.ok) { const d = await resp.json(); alert('Delete failed: ' + JSON.stringify(d)); return; }
-    loadBackups();
-  }
-}
-
-async function bulkDeleteBackups() {
-  const d = document.getElementById('backupDomain').value.trim();
-  const e = document.getElementById('backupEntity').value.trim();
-  const days = prompt('Delete backups older than N days (leave blank to use current filters only):', '');
-  const params = new URLSearchParams();
-  if (d) params.set('domain', d);
-  if (e) params.set('entity_id', e);
-  if (days) params.set('older_than_days', days);
-  if (!params.toString()) { alert('Set at least one filter (Domain, Entity, or age in days).'); return; }
-  if (!confirm('Delete all backups matching: ' + params.toString() + '?')) return;
-  const resp = await fetch('./api/settings/backups?' + params.toString(), {method: 'DELETE'});
-  const data = await resp.json();
-  if (!resp.ok) { alert('Bulk delete failed: ' + JSON.stringify(data)); return; }
-  alert('Deleted ' + (data.count || 0) + ' backup(s)');
-  loadBackups();
-}
-
-function showModal(title, html) {
-  document.getElementById('modalTitle').textContent = title;
-  document.getElementById('modalBody').innerHTML = html;
-  document.getElementById('modalBackdrop').classList.add('show');
-}
-function closeModal() { document.getElementById('modalBackdrop').classList.remove('show'); }
-
-// Pretty-print the snapshot envelope for the view modal. The server
-// returns the parsed YAML as JSON; indented JSON is the simplest
-// readable form for the modal without pulling in a JS YAML library.
-function yamlStringify(obj) { return JSON.stringify(obj, null, 2); }
-
-document.getElementById('backupRefresh').addEventListener('click', loadBackups);
-document.getElementById('backupBulkDelete').addEventListener('click', bulkDeleteBackups);
-document.getElementById('backupConfigSave').addEventListener('click', saveBackupConfig);
-document.getElementById('modalClose').addEventListener('click', closeModal);
-document.getElementById('modalBackdrop').addEventListener('click', (e) => {
-  if (e.target.id === 'modalBackdrop') closeModal();
-});
-
-document.getElementById('stopSidecarBtn').addEventListener('click', stopSidecar);
-
-// Feature-flag metadata (display labels + help text). Keyed by the
-// Settings field name. The strings are intentionally copied verbatim
-// from ``homeassistant-addon-dev/translations/en.yaml`` so the web
-// UI and the add-on Configuration tab read identically — a user who
-// flips between the two surfaces never wonders if the option name
-// or warning text shifted meaning. Keep them in sync when one side
-// changes; the addon-dev translations file is the source of truth.
-const FEATURE_META = {
-  enable_tool_search: {
-    label: "Enable tool search",
-    help: "Replace the full tool catalog with search-based discovery. Reduces idle context from ~46K to ~5K tokens. ⚠️ Do NOT enable this if you use Claude in Sonnet or Opus modes — those models have their own built-in tool search / deferred tools, which conflicts with ours. To use ha-mcp's tool search with Claude, disable Claude's built-in tool search first; otherwise leave this off. Use this only with LLMs that lack native deferred tools (e.g. Claude Haiku, local OpenAI-compatible models) or with smaller context windows. Tools are found via ha_search_tools and executed via categorized proxies (read/write/delete). Requires restart to take effect.",
-  },
-  tool_search_max_results: {
-    label: "Tool search max results",
-    help: "Maximum number of tools returned by ha_search_tools when tool search is enabled. Lower values (2-3) save context tokens but may miss relevant tools. Range: 2-10. Requires restart.",
-  },
-  enable_yaml_config_editing: {
-    label: "Enable YAML config editing (beta)",
-    help: "Beta feature — disabled by default. Allows AI assistants to add, replace, or remove top-level keys in configuration.yaml and packages/*.yaml. Only whitelisted keys are allowed (e.g., template, sensor, command_line, mqtt, knx); core keys like homeassistant, http, and recorder are blocked. Each edit validates YAML syntax, runs a config check, and creates an automatic backup. Changes to most keys require a full HA restart to take effect. See docs/beta.md for known limitations. Dedicated tools (automations, scripts, scenes, helpers, template sensors) should be preferred when available.",
-  },
-  enable_lite_docstrings: {
-    label: "Enable lite tool docstrings (beta)",
-    help: "Beta feature — disabled by default. Replaces the docstrings on a handful of heavy ha-mcp tools (automations, scripts, scenes, helpers, dashboards, ha_call_service, ha_config_set_yaml) with shorter variants that defer schema and example detail to the ha_get_skill_guide tool (or its skill:// resource). WARNING: this reduces idle token usage, but may degrade LLM performance — the trimmed descriptions rely on the LLM actually calling the skill tool or reading the skill resource for detail, which is not guaranteed (some models will skip the extra tool call and end up with less guidance than they had before). Best paired with a client that supports MCP resources or with enable_tool_search. Requires restart to take effect.",
-  },
-  enable_filesystem_tools: {
-    label: "Enable filesystem tools (beta)",
-    help: "Sets HAMCP_ENABLE_FILESYSTEM_TOOLS=true. Enables direct file read/write access to your Home Assistant filesystem. WARNING: This gives the MCP server sensitive direct file access to your system. Only enable if you trust the AI assistant with file operations. Requires restart to take effect.",
-  },
-  enable_custom_component_integration: {
-    label: "Enable custom component integration (beta)",
-    help: "Sets HAMCP_ENABLE_CUSTOM_COMPONENT_INTEGRATION=true. Enables the ha_install_mcp_tools installer tool, which can help install the ha_mcp_tools custom component. This setting does not control whether the MCP server loads or interacts with the custom component, and it is not required for filesystem tools to function. Only enable if you want to allow the AI assistant to use the installer tool. Requires restart to take effect.",
-  },
-  enable_tool_security_policies: {
-    label: "Enable Tool Security Policies",
-    help: "Opt-in middleware that gates high-stakes MCP tool calls behind user approval. When enabled, tools that match a rule in the Tool Security Policies tab require you to click Approve in the web UI before they run. Off by default. Per-tool rules with optional argument conditions are configured in the Tool Security Policies tab. Requires restart to take effect.",
-  },
-};
-
-const ORIGIN_LOCKED_NOTE = {
-  env: 'Set via environment variable — unset it to edit here.',
-  // addon-origin fields are editable: save POSTs through Supervisor
-  // /addons/self/options and triggers a restart so both surfaces stay
-  // in sync. No locked note needed.
-};
-
-const ORIGIN_INFO_NOTE = {
-  addon: 'Synced to the add-on Configuration tab — restart required after save.',
-};
-
-async function loadFeatureFlags() {
-  let resp;
-  try {
-    resp = await fetch('./api/settings/features');
-  } catch (_e) {
-    // Surface as a row inside the panel rather than the page status —
-    // the panel is collapsible and the user can ignore this if they
-    // do not care about feature flags right now.
-    document.getElementById('featuresBody').innerHTML =
-      '<div class="feature-row"><div class="feature-help">' +
-      'Feature flags unavailable (network error reaching ' +
-      '/api/settings/features).</div></div>';
-    return;
-  }
-  if (!resp.ok) {
-    document.getElementById('featuresBody').innerHTML =
-      `<div class="feature-row"><div class="feature-help">` +
-      `Feature flags unavailable (HTTP ${resp.status}).</div></div>`;
-    return;
-  }
-  let data;
-  try {
-    data = await resp.json();
-  } catch (_e) {
-    document.getElementById('featuresBody').innerHTML =
-      '<div class="feature-row"><div class="feature-help">' +
-      'Feature flags response was not valid JSON.</div></div>';
-    return;
-  }
-  renderFeatureFlags(data.flags || {});
-}
-
-function renderFeatureFlags(flags) {
-  const body = document.getElementById('featuresBody');
-  body.innerHTML = '';
-  // Render in the order FEATURE_META declares — gives consistent
-  // grouping (Tool Search rows together, beta toggles together)
-  // regardless of dict iteration order returned by the server.
-  Object.keys(FEATURE_META).forEach(fieldName => {
-    const f = flags[fieldName];
-    if (!f) return;
-    const meta = FEATURE_META[fieldName];
-    const row = document.createElement('div');
-    row.className = 'feature-row' + (f.editable ? '' : ' locked');
-
-    const info = document.createElement('div');
-    info.className = 'feature-info';
-    const envVarSuffix = f.origin === 'env'
-      ? ` (<code>${escapeHtml(f.env_var)}</code>)`
-      : '';
-    const lockedNote = !f.editable
-      ? `<div class="feature-locked-note">` +
-        `${escapeHtml(ORIGIN_LOCKED_NOTE[f.origin] || '')}${envVarSuffix}` +
-        `</div>`
-      : '';
-    const infoNote = f.editable && ORIGIN_INFO_NOTE[f.origin]
-      ? `<div class="feature-locked-note">` +
-        `${escapeHtml(ORIGIN_INFO_NOTE[f.origin])}</div>`
-      : '';
-    info.innerHTML =
-      `<div class="feature-name">${escapeHtml(meta.label)}</div>` +
-      `<div class="feature-help">${escapeHtml(meta.help)}</div>` +
-      lockedNote + infoNote;
-
-    const control = document.createElement('div');
-    control.className = 'feature-control';
-    if (f.type === 'bool') {
-      const label = document.createElement('label');
-      label.className = 'switch';
-      const input = document.createElement('input');
-      input.type = 'checkbox';
-      input.checked = !!f.value;
-      input.disabled = !f.editable;
-      input.addEventListener('change', () =>
-        saveFeatureFlag(fieldName, input.checked)
-      );
-      const slider = document.createElement('span');
-      slider.className = 'slider';
-      label.appendChild(input);
-      label.appendChild(slider);
-      control.appendChild(label);
-    } else if (f.type === 'int') {
-      const input = document.createElement('input');
-      input.type = 'number';
-      input.value = f.value;
-      if (typeof f.min === 'number') input.min = f.min;
-      if (typeof f.max === 'number') input.max = f.max;
-      input.disabled = !f.editable;
-      input.addEventListener('change', () => {
-        const parsed = parseInt(input.value, 10);
-        if (Number.isFinite(parsed)) saveFeatureFlag(fieldName, parsed);
-      });
-      control.appendChild(input);
-    }
-
-    row.appendChild(info);
-    row.appendChild(control);
-    body.appendChild(row);
-  });
-}
-
-async function saveFeatureFlag(fieldName, value) {
-  updateStatus('Saving server setting...');
-  let resp;
-  try {
-    resp = await fetch('./api/settings/features', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({flags: {[fieldName]: value}}),
-    });
-  } catch (e) {
-    updateStatus('Save failed: ' + e.message);
-    return;
-  }
-  let data = null;
-  try { data = await resp.json(); } catch (_e) {
-    // On a 200 OK with truncated / non-JSON body, default to the
-    // "restart needed" state so the user gets the banner — silently
-    // skipping it would let them think the change took effect live
-    // and they'd never restart. Only do this on resp.ok; for an
-    // error response we want the HTTP status to drive the message.
-    if (resp.ok) data = {restart_required: true};
-  }
-  if (!resp.ok) {
-    let msg = `Save failed (HTTP ${resp.status})`;
-    if (data?.error?.message) msg = 'Save failed: ' + data.error.message;
-    updateStatus(msg);
-    return;
-  }
-  // Unified restart flow — save persists the change but does NOT fire
-  // the addon restart. The user picks when to restart by clicking the
-  // global Restart Add-on button in the cross-tab restart-required
-  // banner. Same UX as the Tools tab. In standalone modes the restart
-  // button is hidden (no supervisor to drive it) but the banner still
-  // surfaces "restart required" as guidance.
-  updateStatus('Saved — restart required', true);
-  if (data?.restart_required) {
-    document.getElementById('restartNotice').classList.add('show');
-    if (restartChannel) restartChannel.postMessage({type: 'restart-required'});
-  }
-}
-
-// ===== Tool Security Policies tab =====
-// Live approval routes (pending/approve/deny) are only available from
-// the main server (in-process ApprovalQueue). The sidecar serves
-// config GET/PUT but returns 503 for the live endpoints — the UI
-// degrades to "Live approvals unavailable in this mode."
-//
-// The card UI keeps an in-memory mutable copy of each rule
-// (policyRuleEdits[tool_name]) so the user can edit conditions /
-// remember_minutes locally before pressing "Save changes" on a card,
-// which then GETs current policy, replaces the rule entry, and PUTs.
-// This mirrors the syncPolicyRule() flow used by the Tools-tab toggle.
-let policyRuleEdits = {};
-
-async function syncPolicyMasterToggle() {
-  // The master toggle on this tab is just a UI mirror of the same
-  // `enable_tool_security_policies` feature flag the Server Settings
-  // tab exposes — the addon-config flag is the single source of truth.
-  // We rely on loadPolicyState() to have populated policyState.enabled
-  // (it fetches /api/settings/features) so the only work here is to
-  // reflect that bit into the checkbox.
-  await loadPolicyState();
-  const cb = document.getElementById('policy-master-toggle');
-  if (cb) cb.checked = !!policyState.enabled;
-}
-
-async function policyLoadConfig() {
-  await syncPolicyMasterToggle();
-  const errEl = document.getElementById('policy-load-error');
-  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
-  let resp;
-  try {
-    resp = await fetch('./api/policy/config');
-  } catch (e) {
-    showPolicyLoadError('Could not reach the server: ' + e.message);
-    return;
-  }
-  if (!resp.ok) {
-    // 500 with policy_file_corrupt:true is the explicit "your
-    // tool_policy.json is broken, here's how to repair" message from
-    // the handler — surface it instead of silently rendering empty.
-    let detail = 'HTTP ' + resp.status;
-    let bodyParsed = false;
-    try {
-      const body = await resp.json();
-      bodyParsed = true;
-      if (body && body.error) detail = body.error;
-      if (body && body.policy_file_corrupt) {
-        detail += ' (tool_policy.json appears corrupt; edit or delete it on the addon /data volume)';
-      }
-    } catch (_e) { /* keep the HTTP-status fallback */ }
-    if (!bodyParsed) {
-      // E.g. an HTML error page from a misrouted sidecar — give the
-      // operator a hint that the body itself was unparseable, not
-      // just the status code.
-      detail += ' (response body unparseable)';
-    }
-    showPolicyLoadError('Failed to load policy: ' + detail);
-    return;
-  }
-  const p = await resp.json();
-  document.getElementById('policy-wait-seconds').value = p.wait_seconds ?? 60;
-  document.getElementById('policy-ttl-minutes').value = p.approval_ttl_minutes ?? 5;
-  renderPolicyCards(p);
-}
-
-function showPolicyLoadError(msg) {
-  const errEl = document.getElementById('policy-load-error');
-  if (!errEl) return;
-  errEl.style.display = '';
-  errEl.textContent = msg;
-}
-
-function renderPolicyCards(policy) {
-  const listEl = document.getElementById('policy-rules-list');
-  const emptyEl = document.getElementById('policy-rules-empty');
-  listEl.innerHTML = '';
-  policyRuleEdits = {};
-  const rules = (policy && policy.rules) || [];
-  if (rules.length === 0) {
-    emptyEl.style.display = '';
-    return;
-  }
-  emptyEl.style.display = 'none';
-  // Group rules by tool_name. The Tools-tab toggle creates exactly one
-  // rule per tool; defensively handle the case where a hand-edited file
-  // has multiple entries: each becomes its own card so the user can
-  // see/edit them all.
-  const byTool = {};
-  rules.forEach((r, idx) => {
-    const key = r.tool_name + '\u0000' + idx;
-    byTool[key] = {tool_name: r.tool_name, rule: r, originalIndex: idx};
-  });
-  Object.keys(byTool).forEach(key => {
-    const entry = byTool[key];
-    // Deep clone the rule into the edit buffer so card-local changes
-    // don't mutate the server response until "Save changes".
-    const editKey = entry.tool_name;
-    policyRuleEdits[editKey] = JSON.parse(JSON.stringify(entry.rule));
-    listEl.appendChild(renderPolicyCard(entry.tool_name, policyRuleEdits[editKey]));
-  });
-}
-
-function displayPredicate(p) {
-  if (!p || !p.path) return '(invalid)';
-  if (p.op === 'exists') return p.path + ' exists';
-  const val = (p.value === undefined) ? 'null' : JSON.stringify(p.value);
-  return p.path + ' ' + p.op + ' ' + val;
-}
-
-function renderPolicyCard(toolName, rule) {
-  const card = document.createElement('div');
-  card.className = 'policy-rule-card';
-  card.dataset.tool = toolName;
-  rule.when = rule.when || [];
-  const predicateRows = rule.when.map((p, i) => (
-    '<li class="policy-predicate-row" data-idx="' + i + '">' +
-      '<code>' + escapeHtml(displayPredicate(p)) + '</code>' +
-      '<button class="policy-edit-predicate" data-idx="' + i + '">edit</button>' +
-      '<button class="policy-remove-predicate" data-idx="' + i + '">×</button>' +
-    '</li>'
-  )).join('');
-  const emptyHint = rule.when.length === 0
-    ? '<li class="policy-predicate-row"><em style="color:var(--text-secondary);font-size:0.8rem">' +
-      '(no conditions — rule matches every call to this tool)</em></li>'
-    : '';
-  card.innerHTML =
-    '<div class="policy-rule-header">' +
-      '<strong>' + escapeHtml(toolName) + '</strong>' +
-      '<button class="policy-rule-remove" title="Remove from policy">×</button>' +
-    '</div>' +
-    '<div class="policy-rule-predicates">' +
-      '<label class="features-sub" style="display:block;margin-bottom:4px">' +
-        'Require approval when ALL of these conditions match (no conditions = always require approval):' +
-      '</label>' +
-      '<ul class="policy-predicate-list">' + emptyHint + predicateRows + '</ul>' +
-      '<button class="policy-add-predicate">+ Add condition</button>' +
-      '<div class="policy-predicate-form" style="display:none;">' +
-        '<div class="policy-form-row">' +
-          '<label class="policy-form-label">Argument:</label>' +
-          '<select class="policy-predicate-path-select">' +
-            '<option value="">(loading...)</option>' +
-          '</select>' +
-          '<input type="text" class="policy-predicate-path-custom" ' +
-            'placeholder="e.g. args.color_temp" style="display:none">' +
-        '</div>' +
-        '<div class="policy-form-row">' +
-          '<label class="policy-form-label">Match when:</label>' +
-          '<select class="policy-predicate-op">' +
-            '<option value="exists">is present (any value)</option>' +
-            '<option value="eq">equals</option>' +
-            '<option value="neq">does NOT equal</option>' +
-            '<option value="in">is one of</option>' +
-            '<option value="not_in">is NOT one of</option>' +
-            '<option value="contains">contains</option>' +
-            '<option value="regex">matches regex</option>' +
-            '<option value="gt">is greater than</option>' +
-            '<option value="lt">is less than</option>' +
-          '</select>' +
-        '</div>' +
-        '<div class="policy-form-row policy-value-row">' +
-          '<label class="policy-form-label">Value:</label>' +
-          '<span class="policy-predicate-value-slot"></span>' +
-        '</div>' +
-        '<div class="policy-form-row">' +
-          '<button class="policy-predicate-form-save">Save condition</button>' +
-          '<button class="policy-predicate-form-cancel">Cancel</button>' +
-        '</div>' +
-        '<div class="policy-predicate-form-error" style="display:none;"></div>' +
-      '</div>' +
-    '</div>' +
-    '<div class="policy-rule-lifetime">' +
-      '<label>Remember approval for:' +
-        '<input type="number" min="0" max="1440" class="policy-remember-minutes" ' +
-          'value="' + (rule.remember_minutes || 0) + '">' +
-        'minutes (0 = single-shot)' +
-      '</label>' +
-    '</div>' +
-    '<span class="policy-save-status" style="font-size:0.78rem;color:var(--text-secondary)"></span>';
-
-  // Auto-save: every condition add/edit/remove and every remember-minutes
-  // change immediately PUTs the rule to disk. No manual "Save changes"
-  // button — the only signal is the small status text below the card.
-  let autoSaveSeq = 0;
-  const autoSave = async () => {
-    const status = card.querySelector('.policy-save-status');
-    const mySeq = ++autoSaveSeq;
-    status.textContent = 'Saving…';
-    try {
-      await savePolicyRule(toolName, rule);
-      // Skip the success label if a newer save started (rapid edits)
-      if (mySeq === autoSaveSeq) status.textContent = 'Saved.';
-    } catch (err) {
-      if (mySeq === autoSaveSeq) {
-        status.textContent = 'Save failed: ' + err.message;
-      }
-    }
-  };
-
-  // Re-render the card in place after a condition-list mutation so the
-  // rows reflect the new in-memory rule object.
-  const rerenderCard = () => {
-    const replacement = renderPolicyCard(toolName, rule);
-    card.replaceWith(replacement);
-  };
-
-  card.querySelector('.policy-rule-remove').addEventListener('click', async () => {
-    if (!confirm('Remove "' + toolName + '" from the security policy?')) return;
-    try {
-      await removePolicyRule(toolName);
-      delete policyRuleEdits[toolName];
-      card.remove();
-      // Refresh card list + empty state from server (also refreshes
-      // Tools-tab gated state on next visit via loadPolicyState).
-      await policyLoadConfig();
-    } catch (err) {
-      alert('Failed to remove rule: ' + err.message);
-    }
-  });
-
-  // remember-minutes is a number input; debounce so typing "30" doesn't
-  // fire three saves (3, 30 — or rapid arrow-key presses).
-  let rmDebounce = null;
-  card.querySelector('.policy-remember-minutes').addEventListener('input', (e) => {
-    rule.remember_minutes = parseInt(e.target.value, 10) || 0;
-    if (rmDebounce) clearTimeout(rmDebounce);
-    rmDebounce = setTimeout(autoSave, 500);
-  });
-
-  const formEl = card.querySelector('.policy-predicate-form');
-  const opEl = formEl.querySelector('.policy-predicate-op');
-  const pathSelectEl = formEl.querySelector('.policy-predicate-path-select');
-  const pathCustomEl = formEl.querySelector('.policy-predicate-path-custom');
-  const valueSlotEl = formEl.querySelector('.policy-predicate-value-slot');
-  const errorEl = formEl.querySelector('.policy-predicate-form-error');
-  let editingIdx = -1;
-  // Tool schema is fetched lazily on first form-open and cached on
-  // the card so reopening the form doesn't refetch.
-  let toolSchema = null;
-  // value-source choice cache: { source_key: [values] }
-  const valueChoiceCache = {};
-
-  const FREE_TEXT_OPT = '__custom__';
-
-  const currentPath = () => (
-    pathSelectEl.value === FREE_TEXT_OPT
-      ? pathCustomEl.value.trim()
-      : pathSelectEl.value
-  );
-
-  const populatePathSelect = (selectedPath) => {
-    const paths = (toolSchema && toolSchema.paths) || [];
-    let html = '';
-    // Wildcard: match the condition against EVERY argument of the call.
-    // Always first AND default, so the form has a sensible value out of
-    // the box and users never hit "argument is required" by saving an
-    // empty placeholder.
-    html += '<option value="args.*" ' +
-      'title="Match against every argument of the call. Combine with op=equals/is one of to gate on any arg having a given value.">' +
-      '(any argument)</option>';
-    for (const p of paths) {
-      const tip = p.description ? ' title="' + escapeHtml(p.description) + '"' : '';
-      html += '<option value="' + escapeHtml(p.path) + '"' + tip + '>' +
-        escapeHtml(p.label) +
-        (p.required ? ' *' : '') +
-        (p.type ? ' (' + escapeHtml(p.type) + ')' : '') +
-        '</option>';
-    }
-    html += '<option value="' + FREE_TEXT_OPT + '">(other — type a path)</option>';
-    pathSelectEl.innerHTML = html;
-
-    // If the existing condition uses a path the schema doesn't know
-    // about (read-only tool, free-text from earlier, removed arg),
-    // drop into custom mode automatically so we don't silently clobber
-    // the existing value.
-    if (selectedPath) {
-      const isWildcard = selectedPath === 'args.*';
-      const match = paths.find(p => p.path === selectedPath);
-      if (isWildcard || match) {
-        pathSelectEl.value = selectedPath;
-        pathCustomEl.style.display = 'none';
-        pathCustomEl.value = '';
-      } else {
-        pathSelectEl.value = FREE_TEXT_OPT;
-        pathCustomEl.style.display = '';
-        pathCustomEl.value = selectedPath;
-      }
-    } else {
-      // New condition: default to "(any argument)" so the form is
-      // immediately submittable once the user fills in a value.
-      pathSelectEl.value = 'args.*';
-      pathCustomEl.style.display = 'none';
-      pathCustomEl.value = '';
-    }
-  };
-
-  // Latest value-source fetch error, surfaced as a hint under the value
-  // row so the user notices when the dropdown fell back to free-text
-  // because of a real failure (vs because no source is registered).
-  let lastValueSourceError = null;
-
-  const loadValueChoices = async (sourceKey) => {
-    if (valueChoiceCache[sourceKey]) {
-      lastValueSourceError = null;
-      return valueChoiceCache[sourceKey];
-    }
-    try {
-      const r = await fetch('./api/policy/value-source?source=' +
-        encodeURIComponent(sourceKey));
-      if (!r.ok) {
-        lastValueSourceError = 'value-source fetch failed (HTTP ' + r.status + ') — falling back to free-text';
-        return null;
-      }
-      const data = await r.json();
-      const values = Array.isArray(data.values) ? data.values : [];
-      valueChoiceCache[sourceKey] = values;
-      lastValueSourceError = null;
-      return values;
-    } catch (e) {
-      lastValueSourceError = 'value-source fetch failed (' + e.message + ') — falling back to free-text';
-      return null;
-    }
-  };
-
-  // Ops where leaving the value blank is meaningful UX shorthand for
-  // "gate any call where this argument is present, regardless of
-  // value". On save, those blank-value entries are coerced to
-  // op=exists (see readValueControl + the form-save handler). Ops
-  // that genuinely require a value (regex / gt / lt) stay strict.
-  const VALUE_OPTIONAL_OPS = new Set(['exists', 'eq', 'neq', 'in', 'not_in', 'contains']);
-
-  const hintForOp = (op) => {
-    if (op === 'exists') {
-      return 'Leave blank — this op gates on the argument being present at all, regardless of value.';
-    }
-    if (op === 'in' || op === 'not_in') {
-      return 'Pick one or more values, or type a JSON list. Leave blank to gate on any value.';
-    }
-    if (op === 'regex') {
-      return 'A regular expression to match the argument against.';
-    }
-    if (op === 'contains') {
-      return 'A substring (for strings) or item (for lists). Leave blank to gate on any value.';
-    }
-    if (op === 'gt' || op === 'lt') {
-      return 'A number to compare against.';
-    }
-    return 'The value the argument must equal. Leave blank to gate on any value.';
-  };
-
-  // Sequence number for renderValueControl — rapid path/op edits can
-  // start several overlapping fetches; only the latest one is allowed
-  // to mutate the DOM. Without this, an earlier slow fetch can land
-  // after a later fast one and clobber the user's chosen control.
-  let renderSeq = 0;
-
-  // Render the value control inside valueSlotEl based on current op +
-  // path. The control is always visible (even for op=exists) so users
-  // can refine the rule later without re-discovering where the input
-  // went.
-  const renderValueControl = async (existingValue) => {
-    const mySeq = ++renderSeq;
-    const op = opEl.value;
-    const path = currentPath();
-    const pathMeta = ((toolSchema && toolSchema.paths) || [])
-      .find(p => p.path === path);
-    const sourceKey = (toolSchema && toolSchema.value_sources)
-      ? toolSchema.value_sources[path]
-      : null;
-    const isMulti = (op === 'in' || op === 'not_in');
-    const isSingleChoice = (op === 'eq' || op === 'neq');
-    const choosable = isMulti || isSingleChoice;
-
-    // 1) Live value source (e.g. ha_entities) wins — most useful.
-    if (sourceKey && choosable) {
-      if (mySeq !== renderSeq) return;
-      valueSlotEl.innerHTML = '<em style="color:var(--text-secondary);font-size:0.78rem">' +
-        'Loading choices…</em>';
-      const choices = await loadValueChoices(sourceKey);
-      if (mySeq !== renderSeq) return;  // newer render in flight; discard.
-      if (choices) {
-        renderChoiceSelect(choices, existingValue, isMulti);
-        renderHint(op);
-        return;
-      }
-      // fetch failed → fall through to free-text (renderHint will
-      // surface the error via lastValueSourceError below).
-    }
-
-    // 2) Schema-declared enum — render as choice list too.
-    if (choosable && pathMeta && Array.isArray(pathMeta.enum) && pathMeta.enum.length) {
-      if (mySeq !== renderSeq) return;
-      renderChoiceSelect(pathMeta.enum, existingValue, isMulti);
-      renderHint(op);
-      return;
-    }
-
-    // 3) Free-text JSON fallback (or op=exists, where blank is the norm).
-    if (mySeq !== renderSeq) return;
-    renderFreeTextValue(existingValue);
-    renderHint(op);
-  };
-
-  const renderChoiceSelect = (choices, existingValue, isMulti) => {
-    const existingArr = Array.isArray(existingValue)
-      ? existingValue
-      : (existingValue !== undefined && existingValue !== null ? [existingValue] : []);
-    let html = '<select class="policy-predicate-value-control"' +
-      (isMulti ? ' multiple size="6" style="min-width:220px"' : '') +
-      '>';
-    if (!isMulti) {
-      html += '<option value="">(pick a value)</option>';
-    }
-    for (const c of choices) {
-      const selected = existingArr.includes(c) ? ' selected' : '';
-      html += '<option value="' + escapeHtml(String(c)) + '"' + selected + '>' +
-        escapeHtml(String(c)) + '</option>';
-    }
-    html += '</select>';
-    valueSlotEl.innerHTML = html;
-  };
-
-  const renderFreeTextValue = (existingValue) => {
-    const op = opEl.value;
-    let placeholder;
-    if (op === 'exists') {
-      placeholder = 'usually left blank';
-    } else if (op === 'in' || op === 'not_in') {
-      placeholder = '["lock","alarm_control_panel"]';
-    } else if (op === 'regex') {
-      placeholder = '^light\\..+';
-    } else {
-      placeholder = '"lock"  or  42  or  true';
-    }
-    const initial = (existingValue === undefined || existingValue === null)
-      ? ''
-      : JSON.stringify(existingValue);
-    valueSlotEl.innerHTML = '<input type="text" ' +
-      'class="policy-predicate-value-control policy-predicate-value" ' +
-      'placeholder="' + escapeHtml(placeholder) + '" ' +
-      'value="' + escapeHtml(initial) + '">';
-  };
-
-  const renderHint = (op) => {
-    // Remove any previous hint then add a fresh one below the value row.
-    const oldHint = formEl.querySelector('.policy-form-hint');
-    if (oldHint) oldHint.remove();
-    const hint = document.createElement('div');
-    hint.className = 'policy-form-hint';
-    let text = hintForOp(op);
-    // If a value-source fetch failed (HA outage, sidecar 503, …) the
-    // dropdown silently downgraded to free-text — surface that so the
-    // user knows the typo'd rule they're about to author isn't picking
-    // from a populated list.
-    if (lastValueSourceError) {
-      text = lastValueSourceError + ' — ' + text;
-      hint.style.color = 'var(--danger)';
-    }
-    hint.textContent = text;
-    formEl.querySelector('.policy-value-row').after(hint);
-  };
-
-  const readValueControl = () => {
-    const op = opEl.value;
-    const ctrl = valueSlotEl.querySelector('.policy-predicate-value-control');
-    if (!ctrl) return {ok: true, value: undefined};
-    if (ctrl.tagName === 'SELECT') {
-      if (ctrl.multiple) {
-        const picked = Array.from(ctrl.selectedOptions).map(o => o.value);
-        if (picked.length === 0) {
-          if (VALUE_OPTIONAL_OPS.has(op)) return {ok: true, value: undefined};
-          return {ok: false, error: 'pick at least one value'};
-        }
-        return {ok: true, value: picked};
-      }
-      if (!ctrl.value) {
-        if (VALUE_OPTIONAL_OPS.has(op)) return {ok: true, value: undefined};
-        return {ok: false, error: 'pick a value'};
-      }
-      return {ok: true, value: ctrl.value};
-    }
-    const raw = ctrl.value.trim();
-    if (!raw) {
-      if (VALUE_OPTIONAL_OPS.has(op)) return {ok: true, value: undefined};
-      return {ok: false, error: 'value is required for op=' + op};
-    }
-    // First try raw JSON. If that fails, fall back to smart-coercion
-    // so users can type "lock" or "lock,alarm" without remembering the
-    // quoting rules.
-    try {
-      return {ok: true, value: JSON.parse(raw)};
-    } catch (_e) {
-      const coerced = coerceBarewords(raw, op);
-      if (coerced.ok) return coerced;
-      return {ok: false, error: coerced.error};
-    }
-  };
-
-  // Coerce common bareword inputs into the JSON the backend expects.
-  // "lock"               (op=eq)        → "lock"
-  // "lock"               (op=in)        → ["lock"]
-  // "lock,alarm_control" (op=in/not_in) → ["lock","alarm_control"]
-  // "42"                 → 42  (numeric autodetect for any op)
-  // "true" / "false"     → boolean
-  const coerceBarewords = (raw, op) => {
-    const wrap = (v) => (op === 'in' || op === 'not_in') ? [v] : v;
-    if (op === 'in' || op === 'not_in') {
-      // Try comma-split first — if any chunk is comma-separated, build list
-      if (raw.indexOf(',') !== -1) {
-        const items = raw.split(',').map(s => s.trim()).filter(Boolean);
-        if (items.length === 0) {
-          return {ok: false, error: 'empty list for op=' + op};
-        }
-        return {ok: true, value: items.map(coerceScalar)};
-      }
-    }
-    const scalar = coerceScalar(raw);
-    return {ok: true, value: wrap(scalar)};
-  };
-
-  const coerceScalar = (s) => {
-    if (s === 'true') return true;
-    if (s === 'false') return false;
-    if (s === 'null') return null;
-    if (/^-?\\d+$/.test(s)) return parseInt(s, 10);
-    if (/^-?\\d+\\.\\d+$/.test(s)) return parseFloat(s);
-    return s; // plain string
-  };
-
-  const fetchToolSchema = async () => {
-    if (toolSchema !== null) return toolSchema;
-    try {
-      const r = await fetch('./api/policy/tool-schema?name=' +
-        encodeURIComponent(toolName));
-      if (r.ok) {
-        toolSchema = await r.json();
-      } else {
-        // 503/404/etc: server can't introspect (sidecar / tool not
-        // found). Use an empty schema so the UI still works via free
-        // text. Surface the failure through lastValueSourceError so
-        // renderHint shows the user why their dropdown is gone.
-        toolSchema = {paths: [], value_sources: {}};
-        lastValueSourceError = 'tool-schema fetch failed (HTTP ' + r.status +
-          ') — falling back to free-text';
-      }
-    } catch (e) {
-      toolSchema = {paths: [], value_sources: {}};
-      lastValueSourceError = 'tool-schema fetch failed (' + e.message +
-        ') — falling back to free-text';
-    }
-    return toolSchema;
-  };
-
-  opEl.addEventListener('change', () => renderValueControl(undefined));
-  pathSelectEl.addEventListener('change', () => {
-    pathCustomEl.style.display = (pathSelectEl.value === FREE_TEXT_OPT) ? '' : 'none';
-    renderValueControl(undefined);
-  });
-  pathCustomEl.addEventListener('input', () => renderValueControl(undefined));
-
-  const openForm = async (idx) => {
-    editingIdx = idx;
-    errorEl.style.display = 'none';
-    errorEl.textContent = '';
-    formEl.style.display = '';
-    await fetchToolSchema();
-    if (idx >= 0) {
-      const p = rule.when[idx];
-      opEl.value = p.op || 'eq';
-      populatePathSelect(p.path || '');
-      await renderValueControl(p.value);
-    } else {
-      opEl.value = 'eq';
-      populatePathSelect('');
-      await renderValueControl(undefined);
-    }
-  };
-
-  card.querySelector('.policy-add-predicate').addEventListener('click', () => openForm(-1));
-
-  card.querySelectorAll('.policy-edit-predicate').forEach(btn => {
-    btn.addEventListener('click', () => openForm(parseInt(btn.dataset.idx, 10)));
-  });
-
-  card.querySelectorAll('.policy-remove-predicate').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const idx = parseInt(btn.dataset.idx, 10);
-      rule.when.splice(idx, 1);
-      await autoSave();
-      rerenderCard();
-    });
-  });
-
-  formEl.querySelector('.policy-predicate-form-cancel').addEventListener('click', () => {
-    formEl.style.display = 'none';
-    editingIdx = -1;
-  });
-
-  formEl.querySelector('.policy-predicate-form-save').addEventListener('click', async () => {
-    let op = opEl.value;
-    const path = currentPath();
-    if (!path) {
-      errorEl.textContent = 'argument is required';
-      errorEl.style.display = '';
-      return;
-    }
-    const predicate = {path: path, op: op};
-    // op=exists is presence-only — backend rejects any value field,
-    // so ignore whatever's in the value box even if the user typed
-    // something. Other ops read normally.
-    if (op !== 'exists') {
-      const parsed = readValueControl();
-      if (!parsed.ok) {
-        errorEl.textContent = parsed.error;
-        errorEl.style.display = '';
-        return;
-      }
-      if (parsed.value === undefined) {
-        // User left value blank on an op where "any value matches"
-        // is meaningful UX shorthand (eq/neq/in/not_in/contains).
-        // Silently coerce to op=exists so the row reads as
-        // "args.* exists" and the rule actually gates on presence
-        // rather than storing a useless null-match.
-        op = 'exists';
-        predicate.op = 'exists';
-      } else {
-        predicate.value = parsed.value;
-      }
-    }
-    if (editingIdx >= 0) {
-      rule.when[editingIdx] = predicate;
-    } else {
-      rule.when.push(predicate);
-    }
-    await autoSave();
-    rerenderCard();
-  });
-
-  return card;
-}
-
-async function savePolicyRule(toolName, ruleObj) {
-  const r = await fetch('./api/policy/config');
-  if (!r.ok) throw new Error('Could not load policy: ' + r.status);
-  const policy = await r.json();
-  policy.rules = policy.rules || [];
-  const idx = policy.rules.findIndex(rule => rule.tool_name === toolName);
-  if (idx >= 0) {
-    policy.rules[idx] = ruleObj;
-  } else {
-    // Defensive: a card exists for a tool with no server-side rule
-    // (e.g. the user removed the rule from another tab between load
-    // and save). Append rather than silently drop the edit.
-    policy.rules.push(ruleObj);
-  }
-  await policyPut(policy, 'Save rule');
-}
-
-async function removePolicyRule(toolName) {
-  // Mirror syncPolicyRule(toolName, false) — kept as a separate helper
-  // so the card's remove button stays self-contained, but the on-wire
-  // shape is identical.
-  await syncPolicyRule(toolName, false);
-}
-
-async function saveGlobalSettings() {
-  const statusEl = document.getElementById('policy-global-save-status');
-  statusEl.textContent = 'Saving...';
-  let resp;
-  try {
-    resp = await fetch('./api/policy/config');
-  } catch (e) {
-    statusEl.textContent = 'Network error: ' + e.message;
-    return;
-  }
-  if (!resp.ok) {
-    statusEl.textContent = 'Load failed: ' + resp.status;
-    return;
-  }
-  const policy = await resp.json();
-  policy.wait_seconds = parseInt(document.getElementById('policy-wait-seconds').value, 10);
-  policy.approval_ttl_minutes = parseInt(document.getElementById('policy-ttl-minutes').value, 10);
-  try {
-    await policyPut(policy, 'Save global settings');
-    statusEl.textContent = 'Saved.';
-  } catch (e) {
-    statusEl.textContent = e.message;
-  }
-}
-
-async function policyLoadPending() {
-  const list = document.getElementById('policy-pending-list');
-  let resp;
-  try {
-    resp = await fetch('./api/policy/pending');
-  } catch (e) {
-    // Surface the failure inline — silent return leaves the pending
-    // list visibly frozen with no signal that polling broke.
-    list.innerHTML = '<em style="color:var(--text-secondary)">Lost contact with server (' + escapeHtml(e.message) + ') — retrying.</em>';
-    return;
-  }
-  if (resp.status === 503) {
-    // 503 has three causes. Only confidently say "feature is off"
-    // when /api/settings/features actually told us so; if we couldn't
-    // determine the flag (network drop, server down), fall back to
-    // the server's 503 message rather than misleadingly claiming the
-    // user disabled the feature.
-    if (policyState.enabledKnown && !policyState.enabled) {
-      list.innerHTML = '<em>Tool Security Policies is turned off. Toggle it on (top of this tab or in Server Settings) and restart the addon to enable gating.</em>';
-    } else {
-      // Feature is on (or unknown) but the queue isn't reachable —
-      // sidecar mode, startup ImportError, or transient outage.
-      let msg = 'Live approvals unavailable. Check the addon log for ImportError / RuntimeError details.';
-      try {
-        const body = await resp.json();
-        if (body && body.error) msg = body.error;
-      } catch (_e) { /* keep default */ }
-      list.innerHTML = '<em>' + escapeHtml(msg) + '</em>';
-    }
-    return;
-  }
-  if (!resp.ok) return;
-  const data = await resp.json();
-  const pending = data.pending || [];
-  if (pending.length === 0) {
-    list.textContent = 'No pending approvals.';
-    return;
-  }
-  list.innerHTML = pending.map(p => (
-    '<div data-pending-token="' + escapeHtml(p.token) + '" style="border:1px solid var(--border); padding:10px; margin:6px 0; border-radius:8px; background:var(--surface)">' +
-    '<strong>' + escapeHtml(p.tool_name) + '</strong>' +
-    '<pre style="white-space:pre-wrap; background:var(--bg); padding:8px; margin:6px 0; border-radius:6px; font-size:0.8rem">' +
-    escapeHtml(JSON.stringify(p.args, null, 2)) + '</pre>' +
-    '<small style="color:var(--text-secondary)">Expires: ' + escapeHtml(p.expires_at) + '</small><br>' +
-    '<div style="margin-top:8px; display:flex; gap:8px">' +
-    '<button class="restart-btn" data-policy-token="' + escapeHtml(p.token) + '" data-policy-action="approve">Approve</button>' +
-    '<button class="danger-btn" data-policy-token="' + escapeHtml(p.token) + '" data-policy-action="deny">Deny</button>' +
-    '</div></div>'
-  )).join('');
-  // Re-bind decision buttons each render (no event delegation needed —
-  // pending list is small and re-rendered on every poll).
-  list.querySelectorAll('button[data-policy-token]').forEach(btn => {
-    btn.addEventListener('click', () =>
-      policyDecide(btn.dataset.policyToken, btn.dataset.policyAction)
-    );
-  });
-}
-
-async function policyDecide(token, action) {
-  let resp;
-  try {
-    resp = await fetch('./api/policy/' + action, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({token: token}),
-    });
-  } catch (e) {
-    alert('Network error: ' + e.message);
-    return;
-  }
-  if (!resp.ok) {
-    let body;
-    try { body = await resp.json(); } catch (_) { body = {error: 'HTTP ' + resp.status}; }
-    if (resp.status === 409 && body.current_decision) {
-      alert("This approval was already " + body.current_decision +
-            " — possibly by another tab or session.");
-    } else if (resp.status === 404) {
-      alert("This approval token is no longer valid (already consumed or expired).");
-    } else {
-      alert('Approval action failed: ' + (body.error || resp.statusText));
-    }
-  }
-  policyLoadPending();
-}
-
-document.getElementById('policy-save-global-btn').addEventListener('click', saveGlobalSettings);
-
-// Master toggle on this tab mirrors the Server Settings checkbox.
-// Persist via the same /api/settings/features endpoint so a save here
-// shows up in Server Settings (and the addon's config.yaml) on reload.
-document.getElementById('policy-master-toggle').addEventListener('change', async (e) => {
-  const previous = !e.target.checked;  // user just flipped; previous is the OPPOSITE.
-  await saveFeatureFlag('enable_tool_security_policies', e.target.checked);
-  // Re-read the truth from the server and sync the checkbox back to
-  // it. If saveFeatureFlag silently failed (network drop / 5xx) the
-  // server still has the old value and we need to revert the
-  // checkbox so the UI doesn't lie about persisted state.
-  await loadPolicyState();
-  if (policyState.enabledKnown) {
-    e.target.checked = !!policyState.enabled;
-  } else {
-    // Can't confirm what the server has — revert to the pre-flip
-    // value and let the status message tell the user save failed.
-    e.target.checked = previous;
-  }
-});
-
-// Poll for pending approvals every 3s when Tool Security Policies tab is visible.
-setInterval(() => {
-  const policiesTab = document.querySelector('.tab[data-panel="tool-security-policies"]');
-  if (policiesTab && policiesTab.classList.contains('active')) {
-    policyLoadPending();
-  }
-}, 3000);
-
-// ===== Tab switching =====
-// Generic dispatcher — every .tab button names its target panel via
-// data-panel, every .panel has matching id="panel-<name>". Adding a
-// new tab is one button + one panel div; no JS change needed.
-function activateTab(target) {
-  document.querySelectorAll('.tab').forEach(t =>
-    t.classList.toggle('active', t.dataset.panel === target)
-  );
-  document.querySelectorAll('.panel').forEach(p =>
-    p.classList.toggle('active', p.id === 'panel-' + target)
-  );
-  if (target === 'backups') { loadBackupConfig(); loadBackups(); }
-  if (target === 'tool-security-policies') { policyLoadConfig(); policyLoadPending(); }
-  if (target === 'tools') {
-    // Refresh gated-toggle state in case the user changed rules from
-    // the Tool Security Policies tab while it was active.
-    loadPolicyState().then(render).catch(() => {});
-  }
-}
-
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => activateTab(tab.dataset.panel));
-});
-
-// Cross-tab links — any <a data-panel-link="<name>"> switches tabs
-// in-page rather than following the href (used by the "no gated
-// tools" empty state to point users at the Tools tab).
-document.addEventListener('click', (e) => {
-  const link = e.target.closest('[data-panel-link]');
-  if (!link) return;
-  e.preventDefault();
-  activateTab(link.dataset.panelLink);
-});
-
-loadFeatureFlags();
-loadTools();
-
-// Auto-activate tab from ?tab=<name> query string (used by approval URLs
-// generated by the policy middleware: /settings?tab=tool-security-policies&token=...).
-// If a &token=X is present and the target is the policy tab, scroll to
-// the matching pending entry once policyLoadPending() resolves.
-(function activateTabFromQuery() {
-  try {
-    const params = new URLSearchParams(window.location.search);
-    const target = params.get('tab');
-    if (!target) return;
-    const tabBtn = document.querySelector('.tab[data-panel="' + target + '"]');
-    if (!tabBtn) return;
-    activateTab(target);
-    const token = params.get('token');
-    if (token && target === 'tool-security-policies') {
-      // policyLoadPending() runs inside activateTab; wait a tick then
-      // scroll to the matching pending entry if it exists.
-      setTimeout(() => {
-        const row = document.querySelector('[data-pending-token="' + token + '"]');
-        if (row && row.scrollIntoView) {
-          row.scrollIntoView({behavior: 'smooth', block: 'center'});
-        }
-      }, 500);
-    }
-  } catch (_) { /* best-effort */ }
-})();
-</script>
+<script>"""
+    + _SETTINGS_JS
+    + """</script>
+<footer id="versionFooter" class="version-footer">
+  <span id="versionFooterText"></span>
+</footer>
 </body>
 </html>
 """
@@ -3212,6 +1112,36 @@ async def _supervisor_merge_and_post_options(
 # Tasks remove themselves via ``add_done_callback`` when they finish.
 _BACKGROUND_RESTART_TASKS: set[asyncio.Task[None]] = set()
 
+# Serialises read-modify-write on the shared override file
+# (``feature_flags.json``) so two concurrent saves can't interleave
+# their reads and clobber each other's persisted state. Both
+# ``_save_feature_flags`` and ``_save_advanced_settings``
+# touch the same file; without this lock, request A reading before
+# request B's ``os.replace`` lands would write back a merged dict that
+# misses B's changes. The runtime master gate kept functionality
+# correct even when this raced, but the persisted state lied about the
+# user's intent — surfacing as "I set the flag and it came back off"
+# after a restart.
+_OVERRIDE_FILE_LOCK: asyncio.Lock | None = None
+
+
+def _get_override_file_lock() -> asyncio.Lock:
+    """Lazy lock construction. ``asyncio.Lock()`` on Python 3.10+ no
+    longer takes a ``loop=`` argument and only binds to a loop on
+    first ``acquire()`` via ``asyncio.get_event_loop()``. Either eager
+    or lazy module-level construction works for this project's
+    single-uvicorn-loop deployment; we keep the lazy pattern so a
+    future test fixture that spins up its own loop doesn't lock in
+    the import-time loop. Assumes a single asyncio event loop for the
+    process lifetime — a multi-loop deployment (e.g. threaded handler
+    dispatch) would race here.
+    """
+    global _OVERRIDE_FILE_LOCK
+    if _OVERRIDE_FILE_LOCK is None:
+        _OVERRIDE_FILE_LOCK = asyncio.Lock()
+    return _OVERRIDE_FILE_LOCK
+
+
 # Delay (seconds) before the background self-restart task fires the
 # supervisor POST. Picked to give Starlette + uvicorn time to serialize
 # the JSONResponse onto the socket and have HA ingress flush it to the
@@ -3341,12 +1271,13 @@ def build_settings_handlers(
                     "metadata cache' from ha_mcp.__main__.",
                     _get_tool_metadata_cache_path(),
                 )
-        config = load_tool_config()
+        config = effective_tool_config()
         states = config.get("tools", {})
+        pinned = env_pinned_tools()
         for name in DEFAULT_PINNED_TOOLS:
             if name not in states:
                 states[name] = "pinned"
-        return JSONResponse({"tools": tools, "states": states})
+        return JSONResponse({"tools": tools, "states": states, "env_pinned": pinned})
 
     async def _save_tools(request: Request) -> JSONResponse:
         try:
@@ -3390,6 +1321,44 @@ def build_settings_handlers(
             if state not in _VALID_STATES:
                 continue
             states[name] = state
+
+        # Reject attempts to flip env-pinned tools. DISABLED_TOOLS /
+        # PINNED_TOOLS are operator-level constraints that cannot be
+        # overridden via the UI; callers must unset the env var first.
+        # Accept no-op re-sends (state matches the env-pinned value)
+        # so the periodic save fired by ``saveConfig`` after every UI
+        # change doesn't 409 just because the GET payload echoed
+        # env-pinned rows back unchanged. Previously every save with
+        # DISABLED_TOOLS / PINNED_TOOLS non-empty failed because the JS
+        # POSTs the whole ``toolStates`` map.
+        env_pinned = env_pinned_tools()
+        rejected = [
+            name
+            for name, state in states.items()
+            if name in env_pinned and env_pinned[name] != state
+        ]
+        if rejected:
+            return JSONResponse(
+                create_error_response(
+                    ErrorCode.VALIDATION_INVALID_PARAMETER,
+                    f"Refusing to flip env-pinned tools: {', '.join(rejected)}. "
+                    "Unset DISABLED_TOOLS / PINNED_TOOLS first.",
+                    suggestions=[
+                        "Unset the DISABLED_TOOLS / PINNED_TOOLS environment "
+                        "variables (or remove them from your addon/Docker "
+                        "config), then restart to edit these tools from the UI.",
+                    ],
+                    context={"rejected": rejected},
+                ),
+                status_code=409,
+            )
+        # Drop env-pinned entries from the persisted file so the env
+        # vars stay the single source of truth — preserving them in
+        # tool_config.json would let a future env-var unset leave the
+        # old env-pinned values mis-applied as user-set state.
+        states = {
+            name: state for name, state in states.items() if name not in env_pinned
+        }
 
         config = load_tool_config()
         config["tools"] = states
@@ -3549,12 +1518,25 @@ def build_settings_handlers(
         # instance still answering and the page would reload to the
         # same state.
         addon = False if is_sidecar else is_running_in_addon()
+        # ``version`` surfaces the running ha-mcp version in the UI
+        # footer. ``get_version`` handles the env-override → package
+        # metadata → fallback chain itself, so a read per request is
+        # cheap. ``HA_MCP_BUILD_VERSION`` is set by both stable and
+        # dev addon Dockerfiles, so the version reads correctly on
+        # either channel; standalone Docker / uvx falls back to the
+        # installed package's metadata.
+        try:
+            version = get_version()
+        except Exception:  # pragma: no cover — defensive only
+            logger.warning("get_version() raised; omitting version from info")
+            version = None
         return JSONResponse(
             {
                 "is_addon": addon,
                 "is_sidecar": is_sidecar,
                 "instance_id": _PROCESS_INSTANCE_ID,
                 "started_at": _PROCESS_STARTED_AT,
+                "version": version,
             }
         )
 
@@ -3604,7 +1586,18 @@ def build_settings_handlers(
                 if bounds is not None:
                     entry["min"], entry["max"] = bounds
             flags[field_name] = entry
-        return JSONResponse({"flags": flags})
+        from .config import BETA_FEATURE_FIELDS
+
+        return JSONResponse(
+            {
+                "flags": flags,
+                "beta_sub_flags": list(BETA_FEATURE_FIELDS),
+                # Drives addon-aware locked-banner copy in the JS —
+                # "unset env var" is misleading where HA Supervisor
+                # owns the env.
+                "is_addon": is_running_in_addon(),
+            }
+        )
 
     async def _save_feature_flags(request: Request) -> JSONResponse:
         """Persist UI-edited feature-flag values.
@@ -3663,6 +1656,60 @@ def build_settings_handlers(
                     "'flags' must be an object mapping field names to values",
                 ),
                 status_code=400,
+            )
+
+        # Master beta-gate check: a sub-flag write is only valid
+        # when the master ``enable_beta_features`` is on AFTER the
+        # merge. Derive the post-merge master from the payload (if
+        # present), otherwise fall back to the live ``Settings`` value.
+        # Reject sub-flag writes that try to enable a beta when the
+        # resulting master state would still be off — the runtime gate
+        # would force them False anyway and the user should know the
+        # save was a no-op rather than learning at next startup.
+        #
+        # Applied in BOTH standalone and addon mode.
+        # The earlier "skip in addon mode" carve-out existed because
+        # start.py used to auto-write ENABLE_BETA_FEATURES=true from
+        # any beta sub-flag presence; that path is now demoted to a
+        # one-cycle legacy bridge. On dev addon, start.py writes the
+        # master env var from the schema-bound options key. On stable
+        # addon, the master is not in schema and the standalone
+        # web-UI master path remains the gate (the gate read below
+        # falls through to the override-file value). Either way the
+        # gate is sound to apply uniformly.
+        from .config import (
+            BETA_FEATURE_FIELDS as _BETA_SUB,
+        )
+
+        effective_master = bool(
+            raw_flags.get(
+                "enable_beta_features",
+                getattr(get_global_settings(), "enable_beta_features", False),
+            )
+        )
+        beta_sub_writes = [
+            k for k in raw_flags if k in _BETA_SUB and bool(raw_flags[k])
+        ]
+        if beta_sub_writes and not effective_master:
+            return JSONResponse(
+                create_error_response(
+                    ErrorCode.VALIDATION_INVALID_PARAMETER,
+                    (
+                        "Cannot enable beta sub-flag(s) "
+                        f"{', '.join(beta_sub_writes)} while the master "
+                        "'Enable beta features' toggle is off. Include "
+                        "enable_beta_features=true in the same save, or "
+                        "flip the master on first."
+                    ),
+                    suggestions=[
+                        "Include enable_beta_features=true in the same save "
+                        + "payload as the sub-flag(s).",
+                        "Or turn on the master 'Enable beta features' toggle "
+                        + "first, then enable the sub-flag(s).",
+                    ],
+                    context={"rejected": beta_sub_writes},
+                ),
+                status_code=409,
             )
 
         # Build the validated override dict. Reject unknown fields and
@@ -3752,6 +1799,24 @@ def build_settings_handlers(
                     status_code=400,
                 )
 
+        # Master-off no longer cascades into sub-flag values. The
+        # runtime master gate in ``_apply_feature_flag_overrides``
+        # continues to force every
+        # beta sub-flag to False whenever the master is off, so the
+        # tools stay disabled at runtime regardless of file state.
+        # Leaving the sub-flag values in the override file means
+        # re-enabling the master restores the user's prior sub-flag
+        # selections automatically — without it the user had to
+        # re-check each sub-flag individually after every
+        # master-off / master-on cycle, which is the wrong UX trade
+        # for an opt-in beta surface.
+        #
+        # The master-gate check above still rejects payloads that try
+        # to enable a sub-flag while the effective master is off, so
+        # users can't land a "sub=true while master=false in same
+        # payload" inconsistency. Pre-existing sub-flag truthy values
+        # in the file are kept verbatim.
+
         # Addon-mode writes go to Supervisor instead of the override file:
         # ``start.py`` reads ``config.yaml`` options on every boot and
         # writes the env vars that Settings consumes, so the override
@@ -3799,7 +1864,24 @@ def build_settings_handlers(
                 server.settings.verify_ssl, new_overrides
             )
             if not ok:
-                assert err is not None
+                if err is None:
+                    # ``ok=False`` with no error is a contract bug —
+                    # bail with INTERNAL_ERROR rather than letting an
+                    # AttributeError leak under ``python -O``.
+                    return JSONResponse(
+                        create_error_response(
+                            ErrorCode.INTERNAL_ERROR,
+                            "Supervisor helper returned ok=False with no error",
+                            suggestions=[
+                                "Check the Home Assistant Supervisor logs and "
+                                + "the add-on logs for the underlying failure.",
+                                "Report this at "
+                                + "https://github.com/homeassistant-ai/ha-mcp/issues "
+                                + "if it persists — this indicates an internal bug.",
+                            ],
+                        ),
+                        status_code=500,
+                    )
                 logger.warning(
                     "Supervisor feature-flag update failed (%s): %s",
                     err.kind,
@@ -3854,68 +1936,77 @@ def build_settings_handlers(
         #   Return a clear error so the user can inspect / delete
         #   the file manually.
         path = get_data_dir() / _FEATURE_FLAG_OVERRIDE_FILENAME
-        existing: dict[str, Any] = {}
-        try:
-            existing_raw = path.read_text()
-        except FileNotFoundError:
-            existing_raw = None
-        except OSError as exc:
-            logger.warning("Cannot read %s", path, exc_info=True)
-            return JSONResponse(
-                create_error_response(
-                    ErrorCode.INTERNAL_ERROR,
-                    (
-                        f"Could not read existing feature flags "
-                        f"({type(exc).__name__}: {exc}); refusing to "
-                        "overwrite to avoid losing prior toggles. "
-                        "Check filesystem permissions and retry."
-                    ),
-                ),
-                status_code=500,
-            )
-        if existing_raw is not None:
+        # Serialise concurrent saves on the shared override file so
+        # two overlapping requests can't interleave their RMW. Lock is
+        # held only for the read+merge+atomic-write window; pure
+        # validation above does not need it.
+        async with _get_override_file_lock():
+            existing: dict[str, Any] = {}
             try:
-                parsed = json.loads(existing_raw)
-            except json.JSONDecodeError as exc:
-                logger.warning("Existing %s is corrupt: %s", path, exc, exc_info=True)
+                existing_raw = path.read_text()
+            except FileNotFoundError:
+                existing_raw = None
+            except OSError as exc:
+                logger.warning("Cannot read %s", path, exc_info=True)
                 return JSONResponse(
                     create_error_response(
-                        ErrorCode.VALIDATION_INVALID_PARAMETER,
+                        ErrorCode.INTERNAL_ERROR,
                         (
-                            f"Existing override file at {path} is not "
-                            f"valid JSON ({exc}); refusing to overwrite "
-                            "to avoid losing prior toggles. Inspect or "
-                            "delete the file manually and retry."
+                            f"Could not read existing feature flags "
+                            f"({type(exc).__name__}: {exc}); refusing to "
+                            "overwrite to avoid losing prior toggles. "
+                            "Check filesystem permissions and retry."
                         ),
                     ),
-                    status_code=409,
+                    status_code=500,
                 )
-            if isinstance(parsed, dict):
-                existing = parsed
-            # else: non-dict JSON (list, scalar) — treat as empty;
-            # we're about to write a dict either way and there's no
-            # prior toggle state to preserve from a non-object root.
-        existing.update(new_overrides)
+            if existing_raw is not None:
+                try:
+                    parsed = json.loads(existing_raw)
+                except json.JSONDecodeError as exc:
+                    logger.warning(
+                        "Existing %s is corrupt: %s", path, exc, exc_info=True
+                    )
+                    return JSONResponse(
+                        create_error_response(
+                            ErrorCode.VALIDATION_INVALID_PARAMETER,
+                            (
+                                f"Existing override file at {path} is not "
+                                f"valid JSON ({exc}); refusing to overwrite "
+                                "to avoid losing prior toggles. Inspect or "
+                                "delete the file manually and retry."
+                            ),
+                        ),
+                        status_code=409,
+                    )
+                if isinstance(parsed, dict):
+                    existing = parsed
+                # else: non-dict JSON (list, scalar) — treat as empty;
+                # we're about to write a dict either way and there's
+                # no prior toggle state to preserve from a non-object
+                # root.
+            existing.update(new_overrides)
 
-        # Atomic write: tmp + rename. ``path.write_text`` is O_TRUNC +
-        # write — a crash mid-write leaves an empty/truncated file
-        # that the next ``_read_feature_flag_override_file`` call
-        # would refuse, losing every prior toggle.
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        try:
-            tmp.write_text(json.dumps(existing, indent=2))
-            os.replace(tmp, path)
-        except OSError as exc:
-            logger.warning("Could not write %s", path, exc_info=True)
-            with contextlib.suppress(FileNotFoundError, OSError):
-                tmp.unlink()
-            return JSONResponse(
-                create_error_response(
-                    ErrorCode.INTERNAL_ERROR,
-                    f"Could not persist feature flags: {exc}",
-                ),
-                status_code=500,
-            )
+            # Atomic write: tmp + rename. ``path.write_text`` is
+            # O_TRUNC + write — a crash mid-write leaves an empty /
+            # truncated file that the next
+            # ``_read_feature_flag_override_file`` call would refuse,
+            # losing every prior toggle.
+            tmp = path.with_suffix(path.suffix + ".tmp")
+            try:
+                tmp.write_text(json.dumps(existing, indent=2))
+                os.replace(tmp, path)
+            except OSError as exc:
+                logger.warning("Could not write %s", path, exc_info=True)
+                with contextlib.suppress(FileNotFoundError, OSError):
+                    tmp.unlink()
+                return JSONResponse(
+                    create_error_response(
+                        ErrorCode.INTERNAL_ERROR,
+                        f"Could not persist feature flags: {exc}",
+                    ),
+                    status_code=500,
+                )
 
         # Publish the change so the same process picks it up on the
         # next ``get_global_settings()`` call. The cached singleton
@@ -4124,6 +2215,477 @@ def build_settings_handlers(
             }
         )
 
+    async def _get_advanced_settings(_: Request) -> JSONResponse:
+        """Return advanced (non-feature-flag, non-backup) settings + per-field
+        origin + editable flag.
+
+        Mirrors ``_get_feature_flags`` / ``_get_backup_config`` but for
+        the ``ADVANCED_SETTINGS_FIELDS`` registry. Most advanced fields
+        write to ``feature_flags.json`` via the shared override file in
+        either deployment mode. ``ADDON_SYNCED_ADVANCED_FIELDS``
+        (currently ``backup_hint``, ``verify_ssl``) are an exception:
+        in addon mode they have ``origin="addon"`` (editable) and saves
+        route through Supervisor ``/addons/self/options`` so the addon
+        Configuration tab and the web UI share state.
+        """
+        from .config import (
+            _ADVANCED_SETTINGS_BOUNDS,
+            _ADVANCED_SETTINGS_CHOICES,
+            ADVANCED_SETTINGS_FIELDS,
+            OAUTH_MODE_TOKEN,
+            _read_feature_flag_override_file,
+            get_global_settings,
+        )
+
+        settings = get_global_settings()
+        # Read the override file ONCE for this GET — origin lookup is
+        # called per field, and re-reading the file 17+ times would
+        # produce duplicate WARNINGs on a corrupt file (one per field).
+        overrides = _read_feature_flag_override_file()
+        fields: list[dict[str, Any]] = []
+        for (
+            fname,
+            env_name,
+            ftype,
+            section,
+            registry_editable,
+        ) in ADVANCED_SETTINGS_FIELDS:
+            origin = _origin_for_advanced_field(env_name, overrides=overrides)
+            value: Any = getattr(settings, fname, None)
+            # Mask the token: never echo the actual long-lived access
+            # token to the UI. The OAuth-mode sentinel survives so
+            # operators can tell connection mode at a glance.
+            if fname == "homeassistant_token":
+                value = "*****" if value and value != OAUTH_MODE_TOKEN else value
+            row: dict[str, Any] = {
+                "field": fname,
+                "env_var": env_name,
+                "value": value,
+                "type": ftype.__name__,
+                "section": section,
+                "origin": origin,
+                # Env-pin makes the field read-only regardless of the
+                # registry's ``editable`` flag. Display-only rows from
+                # the registry (homeassistant_url / _token) stay locked
+                # forever.
+                "editable": registry_editable and origin != "env",
+            }
+            bounds = _ADVANCED_SETTINGS_BOUNDS.get(fname)
+            if bounds is not None:
+                row["min"], row["max"] = bounds
+            choices = _ADVANCED_SETTINGS_CHOICES.get(fname)
+            if choices is not None:
+                row["choices"] = list(choices)
+            fields.append(row)
+        return JSONResponse({"fields": fields, "is_addon": is_running_in_addon()})
+
+    def _origin_for_advanced_field(
+        env_name: str, overrides: dict[str, Any] | None = None
+    ) -> str:
+        """Origin for an ADVANCED_SETTINGS_FIELDS entry.
+
+        Returns ``'addon' | 'env' | 'file' | 'default'``.
+
+        ``'addon'`` is returned in addon mode for fields that live in
+        both the registry and the addon's config.yaml schema (the
+        ``ADDON_SYNCED_ADVANCED_FIELDS`` set). For those, writes route
+        through Supervisor instead of the override file so the addon
+        Configuration tab and this web UI share state. Other
+        env-pinned fields stay ``'env'`` (locked).
+
+        Callers iterating ADVANCED_SETTINGS_FIELDS should pass a
+        pre-read ``overrides`` dict so the override file isn't re-read
+        N times per page render.
+        """
+        from .config import (
+            ADDON_SYNCED_ADVANCED_FIELDS,
+            ADVANCED_SETTINGS_FIELDS,
+            _read_feature_flag_override_file,
+        )
+
+        fname = next(
+            (f for f, e, *_ in ADVANCED_SETTINGS_FIELDS if e == env_name), None
+        )
+        if (
+            is_running_in_addon()
+            and fname is not None
+            and fname in ADDON_SYNCED_ADVANCED_FIELDS
+        ):
+            return "addon"
+        if os.environ.get(env_name) is not None:
+            return "env"
+        if overrides is None:
+            overrides = _read_feature_flag_override_file()
+        if fname is not None and fname in overrides:
+            return "file"
+        return "default"
+
+    async def _save_advanced_settings(request: Request) -> JSONResponse:
+        """Persist UI-edited advanced settings.
+
+        Two persistence sinks depending on field origin:
+
+        - ``ADDON_SYNCED_ADVANCED_FIELDS`` (``backup_hint``,
+          ``verify_ssl``) in addon mode → write goes through
+          Supervisor ``/addons/self/options`` so the addon
+          Configuration tab and this web UI share state.
+        - Everything else → atomic write to ``feature_flags.json``
+          (the shared override file used by feature flags), then
+          ``_reset_global_settings()`` so the next read picks up the
+          new value.
+
+        Validation chain per field:
+        - Unknown field → 400 ``VALIDATION_INVALID_PARAMETER``.
+        - ``editable=False`` registry entry → 409 (display-only).
+        - Env-pinned (``origin=='env'`` and NOT addon-synced) → 409
+          with env var name.
+        - Type mismatch → 400.
+        - Bounds violation → 400.
+        - Choices violation → 400.
+
+        Either sink responds with ``restart_required=True`` so the UI
+        shows the banner — most advanced fields gate one-time startup
+        paths (REST client construction, logging setup, MCP handshake
+        metadata, tool-module filtering, etc.).
+        """
+        from .config import (
+            _ADVANCED_SETTINGS_BOUNDS,
+            _ADVANCED_SETTINGS_CHOICES,
+            _FEATURE_FLAG_OVERRIDE_FILENAME,
+            ADVANCED_SETTINGS_FIELDS,
+        )
+        from .utils.data_paths import get_data_dir
+
+        try:
+            body = await request.json()
+        except (ValueError, TypeError):
+            return JSONResponse(
+                create_error_response(
+                    ErrorCode.VALIDATION_INVALID_JSON,
+                    "Invalid JSON body",
+                ),
+                status_code=400,
+            )
+        if not isinstance(body, dict):
+            return JSONResponse(
+                create_error_response(
+                    ErrorCode.VALIDATION_INVALID_PARAMETER,
+                    "Request body must be a JSON object",
+                ),
+                status_code=400,
+            )
+
+        from .config import ADDON_SYNCED_ADVANCED_FIELDS
+
+        registry = {f: (e, t, s, ed) for f, e, t, s, ed in ADVANCED_SETTINGS_FIELDS}
+        new_overrides: dict[str, Any] = {}
+        addon_writes_present = False
+        addon_mode = is_running_in_addon()
+        for fname, raw in body.items():
+            if fname not in registry:
+                return JSONResponse(
+                    create_error_response(
+                        ErrorCode.VALIDATION_INVALID_PARAMETER,
+                        f"Unknown advanced field: {fname!r}",
+                    ),
+                    status_code=400,
+                )
+            env_name, ftype, _section, registry_editable = registry[fname]
+            if not registry_editable:
+                return JSONResponse(
+                    create_error_response(
+                        ErrorCode.VALIDATION_INVALID_PARAMETER,
+                        f"{fname!r} is display-only — modify via env var "
+                        "or addon configuration.",
+                    ),
+                    status_code=409,
+                )
+            # Addon-synced fields (e.g. backup_hint, verify_ssl) are
+            # editable in addon mode even though their env vars are
+            # set — start.py rewrites them from /data/options.json on
+            # every boot, so we route the user's write through
+            # Supervisor instead of the override file.
+            is_addon_synced = addon_mode and fname in ADDON_SYNCED_ADVANCED_FIELDS
+            if is_addon_synced:
+                addon_writes_present = True
+            elif os.environ.get(env_name) is not None:
+                # Add-on mode has no env-var surface for non-schema keys
+                # (e.g. CODE_MODE_SAVED_TOOLS_PATH, set by start.py), so
+                # "unset it to edit here" is unactionable there — give
+                # add-on-aware copy instead of implying a lever exists.
+                if addon_mode:
+                    message = (
+                        f"{fname!r} is fixed by the add-on runtime and "
+                        "cannot be changed from the web UI."
+                    )
+                    suggestions = [
+                        "This value is baked into the add-on and is not "
+                        "exposed as an editable setting.",
+                    ]
+                else:
+                    message = (
+                        f"{fname!r} is set via {env_name} env var — "
+                        "unset it to edit here."
+                    )
+                    suggestions = [
+                        f"Unset the {env_name} environment variable (or "
+                        "remove it from your Docker config), then restart "
+                        "to edit this setting from the UI.",
+                    ]
+                return JSONResponse(
+                    create_error_response(
+                        ErrorCode.VALIDATION_INVALID_PARAMETER,
+                        message,
+                        suggestions=suggestions,
+                        context={"env_var": env_name},
+                    ),
+                    status_code=409,
+                )
+
+            coerced: Any
+            if ftype is bool:
+                if not isinstance(raw, bool):
+                    return _bad_advanced_type(fname, ftype, raw)
+                coerced = raw
+            elif ftype is int:
+                if isinstance(raw, bool) or not isinstance(raw, int):
+                    return _bad_advanced_type(fname, ftype, raw)
+                coerced = int(raw)
+            elif ftype is float:
+                if isinstance(raw, bool) or not isinstance(raw, int | float):
+                    return _bad_advanced_type(fname, ftype, raw)
+                coerced = float(raw)
+            elif ftype is str:
+                if not isinstance(raw, str):
+                    return _bad_advanced_type(fname, ftype, raw)
+                if "\x00" in raw:
+                    return JSONResponse(
+                        create_error_response(
+                            ErrorCode.VALIDATION_INVALID_PARAMETER,
+                            f"{fname!r} contains a null byte; rejected.",
+                        ),
+                        status_code=400,
+                    )
+                coerced = raw
+            else:
+                return _bad_advanced_type(fname, ftype, raw)
+
+            bounds = _ADVANCED_SETTINGS_BOUNDS.get(fname)
+            if bounds is not None and not (bounds[0] <= coerced <= bounds[1]):
+                return JSONResponse(
+                    create_error_response(
+                        ErrorCode.VALIDATION_INVALID_PARAMETER,
+                        f"{fname!r} must be between {bounds[0]} and "
+                        f"{bounds[1]} (got {coerced}).",
+                        suggestions=[
+                            f"Provide a value for {fname} within the range "
+                            f"{bounds[0]}–{bounds[1]}.",
+                        ],
+                    ),
+                    status_code=400,
+                )
+            choices = _ADVANCED_SETTINGS_CHOICES.get(fname)
+            if choices is not None and coerced not in choices:
+                return JSONResponse(
+                    create_error_response(
+                        ErrorCode.VALIDATION_INVALID_PARAMETER,
+                        f"{fname!r} must be one of {list(choices)} (got {coerced!r}).",
+                        suggestions=[
+                            f"Set {fname} to one of: {', '.join(map(str, choices))}.",
+                        ],
+                    ),
+                    status_code=400,
+                )
+            new_overrides[fname] = coerced
+
+        if not new_overrides:
+            return JSONResponse(
+                {
+                    "success": True,
+                    "applied": {},
+                    "mode": "file",
+                    "restart_required": False,
+                }
+            )
+
+        # Addon-route: at least one field is an addon-synced advanced
+        # field (backup_hint / verify_ssl in addon mode). Batch every
+        # write in this call into a single Supervisor options POST
+        # — same merge-then-replace pattern as the feature-flag
+        # addon-route, including the "single persistence path"
+        # invariant: we don't mix override-file writes and Supervisor
+        # writes from the same call. If a future caller submits both
+        # addon-synced and non-addon fields in one batch (none today
+        # are non-addon AND non-locked in addon mode), reject loudly
+        # instead of routing them through different sinks.
+        if addon_writes_present:
+            if not addon_mode:
+                # Defensive: addon_writes_present should imply addon_mode
+                # because is_addon_synced is gated on it above.
+                return JSONResponse(
+                    create_error_response(
+                        ErrorCode.INTERNAL_ERROR,
+                        "Inconsistent addon-route classification",
+                    ),
+                    status_code=500,
+                )
+            file_only = {
+                k: v
+                for k, v in new_overrides.items()
+                if k not in ADDON_SYNCED_ADVANCED_FIELDS
+            }
+            if file_only:
+                return JSONResponse(
+                    create_error_response(
+                        ErrorCode.INTERNAL_ERROR,
+                        (
+                            "Mixed addon-synced and override-file advanced "
+                            "writes in one batch; the UI should split these "
+                            f"into separate POSTs ({sorted(file_only)})."
+                        ),
+                        suggestions=[
+                            "Submit addon-synced fields (e.g. backup_hint, "
+                            "verify_ssl) and override-file fields in separate "
+                            "save requests.",
+                        ],
+                    ),
+                    status_code=500,
+                )
+            if server is None:
+                return JSONResponse(
+                    create_error_response(
+                        ErrorCode.INTERNAL_ERROR,
+                        "Advanced settings POST requires a live MCP server",
+                    ),
+                    status_code=500,
+                )
+            ok, sup_err = await _supervisor_merge_and_post_options(
+                server.settings.verify_ssl, new_overrides
+            )
+            if not ok:
+                if sup_err is None:
+                    # ``ok=False`` with no error is a contract bug in
+                    # the helper, not a user-actionable failure. Bail
+                    # with INTERNAL_ERROR instead of letting an
+                    # AttributeError leak under ``python -O`` (where
+                    # the previous ``assert`` was stripped).
+                    return JSONResponse(
+                        create_error_response(
+                            ErrorCode.INTERNAL_ERROR,
+                            "Supervisor helper returned ok=False with no error",
+                            suggestions=[
+                                "Check the Home Assistant Supervisor logs and "
+                                + "the add-on logs for the underlying failure.",
+                                "Report this at "
+                                + "https://github.com/homeassistant-ai/ha-mcp/issues "
+                                + "if it persists — this indicates an internal bug.",
+                            ],
+                        ),
+                        status_code=500,
+                    )
+                # Mirror the sibling ``_save_feature_flags`` /
+                # ``_save_backup_config`` handlers: log loudly before
+                # returning so addon-log forensics survive the user
+                # closing the tab.
+                logger.warning(
+                    "Supervisor advanced-settings update failed (%s): %s",
+                    sup_err.kind,
+                    sup_err.message,
+                )
+                code = (
+                    ErrorCode.CONNECTION_FAILED
+                    if sup_err.kind == "transport"
+                    else ErrorCode.CONFIG_VALIDATION_FAILED
+                )
+                return JSONResponse(
+                    create_error_response(code, sup_err.message),
+                    status_code=sup_err.status_code,
+                )
+            return JSONResponse(
+                {
+                    "success": True,
+                    "applied": new_overrides,
+                    "mode": "addon",
+                    "restart_required": True,
+                }
+            )
+
+        # Merge into the existing override file via atomic write (same
+        # path used by _save_feature_flags so a single file holds both
+        # advanced + feature-flag overrides). Lock-serialised against
+        # concurrent feature-flag saves on the same file.
+        path = get_data_dir() / _FEATURE_FLAG_OVERRIDE_FILENAME
+        async with _get_override_file_lock():
+            existing: dict[str, Any] = {}
+            try:
+                existing_raw = path.read_text()
+            except FileNotFoundError:
+                existing_raw = None
+            except OSError as exc:
+                logger.warning("Cannot read %s", path, exc_info=True)
+                return JSONResponse(
+                    create_error_response(
+                        ErrorCode.INTERNAL_ERROR,
+                        f"Could not read existing override file "
+                        f"({type(exc).__name__}: {exc}); refusing to "
+                        "overwrite to avoid losing prior toggles.",
+                    ),
+                    status_code=500,
+                )
+            if existing_raw is not None:
+                try:
+                    parsed = json.loads(existing_raw)
+                except json.JSONDecodeError as exc:
+                    logger.warning(
+                        "Existing %s is corrupt: %s", path, exc, exc_info=True
+                    )
+                    return JSONResponse(
+                        create_error_response(
+                            ErrorCode.VALIDATION_INVALID_PARAMETER,
+                            f"Existing override file at {path} is not "
+                            f"valid JSON ({exc}); refusing to overwrite. "
+                            "Inspect or delete the file manually and retry.",
+                        ),
+                        status_code=409,
+                    )
+                if isinstance(parsed, dict):
+                    existing = parsed
+            existing.update(new_overrides)
+
+            try:
+                _atomic_write_json(path, existing)
+            except OSError as exc:
+                logger.warning("Could not write %s", path, exc_info=True)
+                return JSONResponse(
+                    create_error_response(
+                        ErrorCode.INTERNAL_ERROR,
+                        f"Could not persist advanced settings: {exc}",
+                    ),
+                    status_code=500,
+                )
+
+        _reset_global_settings()
+        return JSONResponse(
+            {
+                "success": True,
+                "applied": new_overrides,
+                "mode": "file",
+                "restart_required": True,
+            }
+        )
+
+    def _bad_advanced_type(fname: str, ftype: type, raw: Any) -> JSONResponse:
+        return JSONResponse(
+            create_error_response(
+                ErrorCode.VALIDATION_INVALID_PARAMETER,
+                f"{fname!r} expects {ftype.__name__}, got {type(raw).__name__}.",
+                suggestions=[
+                    f"Send {fname} as a {ftype.__name__} value.",
+                ],
+            ),
+            status_code=400,
+        )
+
     async def _get_backup_config(_: Request) -> JSONResponse:
         """Return live auto-backup config + per-field origin + editable flag.
 
@@ -4194,6 +2756,19 @@ def build_settings_handlers(
                     1 <= value <= 10_000
                 ):
                     return {}, "auto_backup_retain_per_entity must be 1..10000"
+                if field_name == "auto_backup_calendar_lookahead_days" and not (
+                    1 <= value <= 365
+                ):
+                    return (
+                        {},
+                        "auto_backup_calendar_lookahead_days must be 1..365",
+                    )
+            elif ftype is str:
+                if not isinstance(raw, str):
+                    return {}, f"Invalid string for {field_name}: {raw!r}"
+                if "\x00" in raw:
+                    return {}, f"{field_name} must not contain null bytes"
+                value = raw
             else:
                 continue
             clean[field_name] = value
@@ -4337,6 +2912,159 @@ def build_settings_handlers(
             }
         )
 
+    async def _fs_custom_paths_call(service: str, data: dict[str, Any]) -> Any:
+        """Invoke a ha_mcp_tools component service for the custom-paths editor,
+        in any deployment mode (issue #1567).
+
+        Uses the live server's HA client in HTTP/add-on modes; in the stdio
+        sidecar (``server is None``) builds a transient ``HomeAssistantClient``
+        from the HA URL/token the sidecar inherits, and closes it afterward.
+        The caller wraps this in try/except so an unreachable HA / missing
+        token (e.g. OAuth mode, where ``server.client`` has no request-scoped
+        token) degrades to an "unavailable" envelope rather than a 500.
+        """
+        from .tools.tools_filesystem import call_mcp_tools_service
+
+        own_client = None
+        try:
+            if server is not None:
+                client = server.client
+            else:
+                from .client.rest_client import HomeAssistantClient
+
+                client = own_client = HomeAssistantClient()
+            return await call_mcp_tools_service(client, service, data)
+        finally:
+            if own_client is not None and hasattr(own_client, "close"):
+                with contextlib.suppress(Exception):
+                    await own_client.close()
+
+    async def _get_fs_custom_paths(_: Request) -> JSONResponse:
+        """Return the user-configured extra filesystem directories from the
+        ha_mcp_tools component, plus the non-overridable deny floor for the UI
+        blurb (issue #1567).
+
+        Always 200s with an ``available`` flag: when filesystem tools are off,
+        the component is missing/too old, or HA is unreachable, ``available``
+        is False with a human-readable ``reason`` so the UI can show a disabled
+        section instead of an error.
+        """
+        from .tools.tools_filesystem import is_filesystem_tools_enabled
+        from .tools.util_helpers import unwrap_service_response
+
+        def _unavailable(reason: str) -> JSONResponse:
+            return JSONResponse(
+                {
+                    "success": True,
+                    "available": False,
+                    "reason": reason,
+                    "paths": [],
+                    "deny_floor": [],
+                }
+            )
+
+        if not is_filesystem_tools_enabled():
+            return _unavailable(
+                "Filesystem tools are disabled. Enable them (beta) to "
+                "configure custom directories."
+            )
+        try:
+            result = await _fs_custom_paths_call("get_allowed_paths", {})
+        except Exception as exc:
+            logger.warning("fs-custom-paths GET could not reach ha_mcp_tools: %s", exc)
+            return _unavailable(f"Could not reach the ha_mcp_tools component: {exc}")
+
+        data = unwrap_service_response(result) if isinstance(result, dict) else {}
+        if not isinstance(data, dict) or not data.get("success", False):
+            reason = (
+                data.get("error") if isinstance(data, dict) else None
+            ) or "ha_mcp_tools returned an unexpected response."
+            return _unavailable(str(reason))
+        return JSONResponse(
+            {
+                "success": True,
+                "available": True,
+                "paths": data.get("paths", []),
+                "deny_floor": data.get("deny_floor", []),
+                "builtin_read_dirs": data.get("builtin_read_dirs", []),
+                "builtin_write_dirs": data.get("builtin_write_dirs", []),
+            }
+        )
+
+    async def _save_fs_custom_paths(request: Request) -> JSONResponse:
+        """Replace the user-configured extra filesystem directories via the
+        ha_mcp_tools component (issue #1567).
+
+        The component validates each entry and drops anything that hits the
+        deny floor or escapes the config dir; the dropped entries come back in
+        ``rejected``. ``restart_required`` is False — the component applies the
+        new allowlist live.
+        """
+        from .tools.tools_filesystem import is_filesystem_tools_enabled
+        from .tools.util_helpers import unwrap_service_response
+
+        if not is_filesystem_tools_enabled():
+            return JSONResponse(
+                create_error_response(
+                    ErrorCode.VALIDATION_INVALID_PARAMETER,
+                    "Filesystem tools are disabled; enable them (beta) before "
+                    "configuring custom directories.",
+                ),
+                status_code=409,
+            )
+        try:
+            body = await request.json()
+        except (ValueError, TypeError):
+            return JSONResponse(
+                create_error_response(
+                    ErrorCode.VALIDATION_INVALID_JSON,
+                    "Request body must be valid JSON.",
+                ),
+                status_code=400,
+            )
+        paths = body.get("paths") if isinstance(body, dict) else None
+        if paths is None:
+            paths = []
+        if not isinstance(paths, list) or not all(isinstance(p, str) for p in paths):
+            return JSONResponse(
+                create_error_response(
+                    ErrorCode.VALIDATION_INVALID_PARAMETER,
+                    "'paths' must be a list of directory strings.",
+                ),
+                status_code=400,
+            )
+        try:
+            result = await _fs_custom_paths_call("set_allowed_paths", {"paths": paths})
+        except Exception as exc:
+            logger.warning("fs-custom-paths POST could not reach ha_mcp_tools: %s", exc)
+            return JSONResponse(
+                create_error_response(
+                    ErrorCode.SERVICE_CALL_FAILED,
+                    f"Could not reach the ha_mcp_tools component: {exc}",
+                ),
+                status_code=502,
+            )
+
+        data = unwrap_service_response(result) if isinstance(result, dict) else {}
+        if not isinstance(data, dict) or not data.get("success", False):
+            reason = (
+                data.get("error") if isinstance(data, dict) else None
+            ) or "ha_mcp_tools rejected the update."
+            return JSONResponse(
+                create_error_response(ErrorCode.SERVICE_CALL_FAILED, str(reason)),
+                status_code=502,
+            )
+        return JSONResponse(
+            {
+                "success": True,
+                "applied": data.get("paths", []),
+                "paths": data.get("paths", []),
+                "rejected": data.get("rejected", []),
+                "mode": "component",
+                "restart_required": False,
+            }
+        )
+
     handlers: dict[str, Any] = {
         "root_page": _root_page,
         "settings_page": _settings_page,
@@ -4346,6 +3074,8 @@ def build_settings_handlers(
         "settings_info": _settings_info,
         "get_feature_flags": _get_feature_flags,
         "save_feature_flags": _save_feature_flags,
+        "get_advanced_settings": _get_advanced_settings,
+        "save_advanced_settings": _save_advanced_settings,
         "list_backups": _list_backups,
         "view_backup": _view_backup,
         "diff_backup": _diff_backup,
@@ -4354,6 +3084,8 @@ def build_settings_handlers(
         "delete_backups_bulk": _delete_backups_bulk,
         "get_backup_config": _get_backup_config,
         "save_backup_config": _save_backup_config,
+        "get_fs_custom_paths": _get_fs_custom_paths,
+        "save_fs_custom_paths": _save_fs_custom_paths,
     }
 
     # Tool security policies. The main server attaches an
@@ -4379,6 +3111,84 @@ def build_settings_handlers(
         handlers.update(_build_stub_policy_handlers(data_dir=get_data_dir()))
 
     return handlers
+
+
+# Home Assistant proxies every ingress request ("Open Web UI") from the
+# Supervisor's fixed network address. Per the add-on ingress contract
+# (https://developers.home-assistant.io/docs/add-ons/presentation/#ingress —
+# "Only connections from 172.30.32.2 must be allowed") the app must reject
+# every other source. This holds under host_network too: ingress proxies to
+# http://{app.ip_address}:{ingress_port}/, and for a host-network add-on
+# app.ip_address is the hassio bridge gateway 172.30.32.1 — the DESTINATION the
+# Supervisor dials (supervisor/docker/app.py ip_address(): host_network ->
+# network.gateway). The Supervisor opens that connection from its own container
+# address 172.30.32.2, so the transport peer the add-on sees is 172.30.32.2 for
+# genuine ingress and some other address (a LAN host, the cloudflared tunnel at
+# 172.30.33.x, another add-on) for a direct port-9583 hit. Verified live via
+# netstat during an "Open Web UI" click.
+SUPERVISOR_INGRESS_IP = "172.30.32.2"
+
+# A settings-UI route handler: async (Request) -> Response.
+_SettingsRoute = Callable[[Request], Awaitable[Response]]
+
+
+def _ingress_only(handler: _SettingsRoute) -> _SettingsRoute:
+    """Wrap a root-mounted add-on route so only HA ingress can reach it.
+
+    Add-on root routes carry no MCP secret, so without this guard a direct
+    caller on the published port — a LAN peer, a reverse proxy / tunnel
+    forwarding the bare root, or a CSRF POST from a LAN browser — could
+    rewrite tool config, flip the tool-security-policy, or restart the
+    add-on with no authentication. We gate on the *transport* peer
+    (``request.client.host``), never ``X-Forwarded-For`` (which a caller can
+    forge). The same handlers stay reachable under ``secret_prefix``, where
+    the MCP secret path is the auth for direct/remote access.
+    """
+
+    @functools.wraps(handler)
+    async def _guarded(request: Request) -> Response:
+        peer = request.client.host if request.client else None
+        if peer != SUPERVISOR_INGRESS_IP:
+            logger.warning(
+                "Blocked non-ingress request to add-on root route %s from "
+                "peer %r (only the Supervisor at %s may reach root routes; "
+                "use the MCP secret path for direct/remote access).",
+                request.url.path,
+                peer,
+                SUPERVISOR_INGRESS_IP,
+            )
+            return JSONResponse(
+                {
+                    "error": (
+                        "This endpoint is only reachable through Home "
+                        "Assistant ingress. For direct or remote access, use "
+                        "the settings UI under your MCP secret path."
+                    )
+                },
+                status_code=403,
+            )
+        return await handler(request)
+
+    return _guarded
+
+
+# Mount prefix the settings UI is served under in long-lived HTTP transports
+# (Docker / standalone ha-mcp-web / OAuth / the add-on's secret-path mount).
+# Recorded by register_settings_routes so ha_get_overview can point users at
+# the settings page in modes that have no stdio sidecar URL file to surface
+# (issue #1458). Stays None in pure stdio mode, where the sidecar writes
+# ~/.ha-mcp/ui.url instead.
+_http_settings_prefix: str | None = None
+
+
+def get_http_settings_prefix() -> str | None:
+    """Return the settings-UI mount prefix for HTTP transports, or None.
+
+    Set by :func:`register_settings_routes` when the page is mounted on a
+    long-lived HTTP server. ``ha_get_overview`` reads it to hint at the
+    settings page when there is no stdio sidecar URL to hand the user.
+    """
+    return _http_settings_prefix
 
 
 def register_settings_routes(
@@ -4418,148 +3228,73 @@ def register_settings_routes(
         )
         return
 
-    if is_addon:
-        # Root mount lets HA ingress proxy localhost:9583/ → settings UI.
-        # Direct port 9583 LAN access also reaches these routes; in this
-        # respect they share the existing add-on networking model where
-        # port 9583 is exposed via host_network and the secret path is
-        # the auth for direct access. Document this in DOCS.md.
-        mcp.custom_route("/", methods=["GET"])(handlers["root_page"])
-        mcp.custom_route("/settings", methods=["GET"])(handlers["settings_page"])
-        mcp.custom_route("/api/settings/tools", methods=["GET"])(handlers["get_tools"])
-        mcp.custom_route("/api/settings/tools", methods=["POST"])(
-            handlers["save_tools"]
-        )
-        mcp.custom_route("/api/settings/restart", methods=["POST"])(
-            handlers["restart_addon"]
-        )
-        mcp.custom_route("/api/settings/info", methods=["GET"])(
-            handlers["settings_info"]
-        )
-        mcp.custom_route("/api/settings/features", methods=["GET"])(
-            handlers["get_feature_flags"]
-        )
-        mcp.custom_route("/api/settings/features", methods=["POST"])(
-            handlers["save_feature_flags"]
-        )
+    # Every route this function mounts except the add-on-only root mount is defined
+    # once in this table and mounted under each active prefix below: at root
+    # in add-on mode (so HA ingress can proxy localhost:9583/), and under the
+    # secret path when one is set (Docker / standalone direct access). A
+    # deployment hits either, both, or — guarded above — neither. Deriving
+    # the mounts from one table keeps them from drifting; the frontend uses
+    # relative fetches (./api/settings/...) so the handlers work at any prefix.
+    routes: list[tuple[str, list[str], str]] = [
+        ("/settings", ["GET"], "settings_page"),
+        ("/api/settings/tools", ["GET"], "get_tools"),
+        ("/api/settings/tools", ["POST"], "save_tools"),
+        ("/api/settings/restart", ["POST"], "restart_addon"),
+        ("/api/settings/info", ["GET"], "settings_info"),
+        ("/api/settings/features", ["GET"], "get_feature_flags"),
+        ("/api/settings/features", ["POST"], "save_feature_flags"),
+        # Advanced settings endpoints
+        ("/api/settings/advanced", ["GET"], "get_advanced_settings"),
+        ("/api/settings/advanced", ["POST"], "save_advanced_settings"),
         # Auto-backup endpoints (#1288)
-        mcp.custom_route("/api/settings/backups", methods=["GET"])(
-            handlers["list_backups"]
-        )
-        mcp.custom_route("/api/settings/backups", methods=["DELETE"])(
-            handlers["delete_backups_bulk"]
-        )
-        mcp.custom_route("/api/settings/backups/{name}", methods=["GET"])(
-            handlers["view_backup"]
-        )
-        mcp.custom_route("/api/settings/backups/{name}/diff", methods=["GET"])(
-            handlers["diff_backup"]
-        )
-        mcp.custom_route("/api/settings/backups/{name}/restore", methods=["POST"])(
-            handlers["restore_backup"]
-        )
-        mcp.custom_route("/api/settings/backups/{name}", methods=["DELETE"])(
-            handlers["delete_backup"]
-        )
-        mcp.custom_route("/api/settings/backup-config", methods=["GET"])(
-            handlers["get_backup_config"]
-        )
-        mcp.custom_route("/api/settings/backup-config", methods=["POST"])(
-            handlers["save_backup_config"]
-        )
+        ("/api/settings/backups", ["GET"], "list_backups"),
+        ("/api/settings/backups", ["DELETE"], "delete_backups_bulk"),
+        ("/api/settings/backups/{name}", ["GET"], "view_backup"),
+        ("/api/settings/backups/{name}/diff", ["GET"], "diff_backup"),
+        ("/api/settings/backups/{name}/restore", ["POST"], "restore_backup"),
+        ("/api/settings/backups/{name}", ["DELETE"], "delete_backup"),
+        ("/api/settings/backup-config", ["GET"], "get_backup_config"),
+        ("/api/settings/backup-config", ["POST"], "save_backup_config"),
+        # Custom filesystem directories (issue #1567) — component-owned list
+        ("/api/settings/fs-custom-paths", ["GET"], "get_fs_custom_paths"),
+        ("/api/settings/fs-custom-paths", ["POST"], "save_fs_custom_paths"),
         # Tool security policies endpoints
-        mcp.custom_route("/api/policy/config", methods=["GET"])(
-            handlers["policy_get_config"]
-        )
-        mcp.custom_route("/api/policy/config", methods=["PUT"])(
-            handlers["policy_put_config"]
-        )
-        mcp.custom_route("/api/policy/pending", methods=["GET"])(
-            handlers["policy_get_pending"]
-        )
-        mcp.custom_route("/api/policy/approve", methods=["POST"])(
-            handlers["policy_post_approve"]
-        )
-        mcp.custom_route("/api/policy/deny", methods=["POST"])(
-            handlers["policy_post_deny"]
-        )
-        mcp.custom_route("/api/policy/tool-schema", methods=["GET"])(
-            handlers["policy_get_tool_schema"]
-        )
-        mcp.custom_route("/api/policy/value-source", methods=["GET"])(
-            handlers["policy_get_value_source"]
-        )
+        ("/api/policy/config", ["GET"], "policy_get_config"),
+        ("/api/policy/config", ["PUT"], "policy_put_config"),
+        ("/api/policy/pending", ["GET"], "policy_get_pending"),
+        ("/api/policy/approve", ["POST"], "policy_post_approve"),
+        ("/api/policy/deny", ["POST"], "policy_post_deny"),
+        ("/api/policy/tool-schema", ["GET"], "policy_get_tool_schema"),
+        ("/api/policy/value-source", ["GET"], "policy_get_value_source"),
+    ]
+
+    def _mount(prefix: str, *, guard: bool = False) -> None:
+        # guard=True wraps each handler in _ingress_only so the route only
+        # answers HA ingress (the Supervisor) — used for the add-on root
+        # mount, whose port 9583 is reachable without the MCP secret.
+        for path, methods, handler_key in routes:
+            handler = handlers[handler_key]
+            if guard:
+                handler = _ingress_only(handler)
+            mcp.custom_route(f"{prefix}{path}", methods=methods)(handler)
+
+    if is_addon:
+        # Root mount lets HA ingress proxy localhost:9583/ → the settings UI
+        # ("Open Web UI" button). The published port 9583 also makes these
+        # routes reachable by direct callers that present no MCP secret, so
+        # the root mount is gated with _ingress_only: only the Supervisor
+        # (HA ingress, 172.30.32.2) may reach root; every other caller gets
+        # 403 and must use the secret-path mount below. The "Open Web UI"
+        # button is unaffected — its traffic arrives from the Supervisor.
+        mcp.custom_route("/", methods=["GET"])(_ingress_only(handlers["root_page"]))
+        _mount("", guard=True)
 
     if secret_prefix:
         # Mount under the MCP secret path so Docker / standalone clients
         # need the same secret to reach the UI as they do for the MCP
-        # endpoint. The frontend uses relative fetches (./api/settings/...)
-        # so the JS works at either prefix unchanged.
-        mcp.custom_route(f"{secret_prefix}/settings", methods=["GET"])(
-            handlers["settings_page"]
-        )
-        mcp.custom_route(f"{secret_prefix}/api/settings/tools", methods=["GET"])(
-            handlers["get_tools"]
-        )
-        mcp.custom_route(f"{secret_prefix}/api/settings/tools", methods=["POST"])(
-            handlers["save_tools"]
-        )
-        mcp.custom_route(f"{secret_prefix}/api/settings/restart", methods=["POST"])(
-            handlers["restart_addon"]
-        )
-        mcp.custom_route(f"{secret_prefix}/api/settings/info", methods=["GET"])(
-            handlers["settings_info"]
-        )
-        mcp.custom_route(f"{secret_prefix}/api/settings/features", methods=["GET"])(
-            handlers["get_feature_flags"]
-        )
-        mcp.custom_route(f"{secret_prefix}/api/settings/features", methods=["POST"])(
-            handlers["save_feature_flags"]
-        )
-        # Auto-backup endpoints (#1288)
-        mcp.custom_route(f"{secret_prefix}/api/settings/backups", methods=["GET"])(
-            handlers["list_backups"]
-        )
-        mcp.custom_route(f"{secret_prefix}/api/settings/backups", methods=["DELETE"])(
-            handlers["delete_backups_bulk"]
-        )
-        mcp.custom_route(
-            f"{secret_prefix}/api/settings/backups/{{name}}", methods=["GET"]
-        )(handlers["view_backup"])
-        mcp.custom_route(
-            f"{secret_prefix}/api/settings/backups/{{name}}/diff", methods=["GET"]
-        )(handlers["diff_backup"])
-        mcp.custom_route(
-            f"{secret_prefix}/api/settings/backups/{{name}}/restore", methods=["POST"]
-        )(handlers["restore_backup"])
-        mcp.custom_route(
-            f"{secret_prefix}/api/settings/backups/{{name}}", methods=["DELETE"]
-        )(handlers["delete_backup"])
-        mcp.custom_route(
-            f"{secret_prefix}/api/settings/backup-config", methods=["GET"]
-        )(handlers["get_backup_config"])
-        mcp.custom_route(
-            f"{secret_prefix}/api/settings/backup-config", methods=["POST"]
-        )(handlers["save_backup_config"])
-        # Tool security policies endpoints
-        mcp.custom_route(f"{secret_prefix}/api/policy/config", methods=["GET"])(
-            handlers["policy_get_config"]
-        )
-        mcp.custom_route(f"{secret_prefix}/api/policy/config", methods=["PUT"])(
-            handlers["policy_put_config"]
-        )
-        mcp.custom_route(f"{secret_prefix}/api/policy/pending", methods=["GET"])(
-            handlers["policy_get_pending"]
-        )
-        mcp.custom_route(f"{secret_prefix}/api/policy/approve", methods=["POST"])(
-            handlers["policy_post_approve"]
-        )
-        mcp.custom_route(f"{secret_prefix}/api/policy/deny", methods=["POST"])(
-            handlers["policy_post_deny"]
-        )
-        mcp.custom_route(f"{secret_prefix}/api/policy/tool-schema", methods=["GET"])(
-            handlers["policy_get_tool_schema"]
-        )
-        mcp.custom_route(f"{secret_prefix}/api/policy/value-source", methods=["GET"])(
-            handlers["policy_get_value_source"]
-        )
+        # endpoint.
+        _mount(secret_prefix)
+        # Record the mount so ha_get_overview can point users at the settings
+        # page in HTTP transports that have no stdio sidecar URL file (#1458).
+        global _http_settings_prefix
+        _http_settings_prefix = secret_prefix

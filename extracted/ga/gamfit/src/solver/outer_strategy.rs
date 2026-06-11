@@ -40,6 +40,21 @@ fn outer_strategy_contract_panic(message: impl Into<String>) -> ! {
     std::panic::panic_any(message.into())
 }
 
+/// One recorded ContinuationPath demotion: a structural defect that, for a
+/// continuation-entry objective, routes a seed to a heavier path regime instead
+/// of disqualifying it. Carried in the seed-loop ledger so the startup stats
+/// surface a heavier-regime re-entry (with its reason) rather than a vanished
+/// candidate. Never fatal.
+#[derive(Clone, Debug)]
+struct PathDemotionRecord {
+    /// 0-based seed index whose structural defect triggered the demotion.
+    seed_idx: usize,
+    /// The path regime the seed was re-entered at after the demotion.
+    regime: crate::solver::continuation_path::PathRegime,
+    /// Human-readable reason (the underlying structural diagnosis message).
+    reason: String,
+}
+
 /// Bidirectional inner-PIRLS feedback channel.
 ///
 /// The outer-loop scheduler (BFGS or ARC bridge) writes a coarsened
@@ -961,7 +976,7 @@ fn rank_seeds_with_screening(
 
     // Geometric cap cascade: each stage exits the moment any seed produces
     // a finite cost. The original two-stage protocol (initial cap → fully
-    // uncapped on every seed) has a degenerate worst case at biobank scale
+    // uncapped on every seed) has a degenerate worst case at large scale
     // — when every seed at the shallow cap collapses, we re-evaluate every
     // seed at the *full* inner budget, costing `N_seeds × full_pirls_work`
     // just to pick a starting point. The cascade replaces that all-or-
@@ -1288,7 +1303,7 @@ impl std::fmt::Display for OuterPlan {
 }
 
 impl OuterPlan {
-    /// Stable, grep-friendly routing token for biobank/log regression
+    /// Stable, grep-friendly routing token for large-scale/log regression
     /// assertions. Emits `solver=<Solver>;hessian=<Source>;matrix-free=<bool>`.
     /// Planning alone does not prove the runtime Hessian representation;
     /// matrix-free routing is decided after the seed evaluation returns an
@@ -1798,6 +1813,26 @@ pub struct EfsEval {
     /// used to evaluate the objective. The EFS barrier check uses it for the
     /// dimensionally correct comparison `max_j τ/Δ_j² > threshold · scale`.
     pub inner_hessian_scale: Option<f64>,
+    /// `Some(gap)` when the `½log|H|` term in `cost` was produced as a CERTIFIED
+    /// TWO-SIDED ENCLOSURE (the #1011 block-preconditioned border-Schur bound)
+    /// rather than an exact logdet — `gap` is the enclosure width that `cost`
+    /// inherits. The EFS engine consults the decision-margin contract against
+    /// its step tolerance: a step is only allowed to declare convergence when
+    /// the cost it converged on is resolved more tightly than that tolerance.
+    /// `None` (the default for every exact-logdet objective) preserves today's
+    /// behavior bit-for-bit.
+    pub logdet_enclosure_gap: Option<f64>,
+}
+
+impl EfsEval {
+    /// Attach a certified logdet-enclosure gap to this eval (the #1011 contract).
+    /// The EFS engine then refuses to declare convergence on a cost the
+    /// enclosure does not pin down below the step tolerance, escalating instead.
+    #[must_use]
+    pub fn with_logdet_enclosure_gap(mut self, gap: Option<f64>) -> Self {
+        self.logdet_enclosure_gap = gap;
+        self
+    }
 }
 
 /// Outcome of [`OuterObjective::seed_inner_state`].
@@ -1884,6 +1919,24 @@ pub trait OuterObjective {
     /// than random). The proxy fires *only* in screening mode; outside
     /// screening it must return the regular V_LAML cost so the optimization
     /// objective is unchanged.
+    ///
+    /// # Why the `eval_cost` default is correct for everyone else (#969)
+    ///
+    /// The partial-fit pathology is CAUSED by the screening cap: it is the
+    /// `0.5·log|H|` term evaluated at a β̂ whose inner solve was truncated
+    /// by `screening_max_inner_iterations`. An objective only suffers it if
+    /// it (a) consumes that cap atomic AND (b) ranks on a curvature-bearing
+    /// criterion at the truncated iterate — which is exactly the REML/LAML
+    /// state-objective family, all of which override this method (or are
+    /// built via `build_objective_with_screening_proxy`). Objectives that
+    /// never wire the cap pay the full inner solve during screening, so
+    /// their screened cost IS the true criterion — slower, but a correct
+    /// ranking by definition, and a proxy could only degrade it. Any future
+    /// objective that starts honoring the screening cap on a
+    /// curvature-bearing criterion must override this with its own
+    /// monotonically-descending inner quantity (the penalized-deviance
+    /// pattern above generalizes: rank on the best inner merit seen, never
+    /// on a curvature term at a truncated iterate).
     fn eval_screening_proxy(&mut self, rho: &Array1<f64>) -> Result<f64, EstimationError> {
         self.eval_cost(rho)
     }
@@ -1963,6 +2016,57 @@ pub trait OuterObjective {
     /// REML-state objectives override this to consult
     /// [`crate::solver::estimate::reml::runtime::outer_reml_device_admission`].
     fn outer_device_admission(&self) -> Option<crate::gpu::policy::RemlOuterAdmission> {
+        None
+    }
+
+    /// Whether every joint fit of this objective must ENTER through the
+    /// [`crate::solver::continuation_path::ContinuationPath`] (heavy-smoothing
+    /// entry) rather than being solved cold at the seed ρ*.
+    ///
+    /// The SAE-manifold joint objective overrides this to `true`: its joint
+    /// `(logits, t, β)` block has a combinatorial active-set component that a
+    /// cold solve can collapse, so it is entered at a heavy-smoothing regime
+    /// and annealed down. Crucially, this flips the seed cascade's structural
+    /// failure handling from REJECT to **DEMOTE-WITH-REASON**: a "cold"
+    /// structural defect (rank/alias/active-set diagnosis from the seed
+    /// pre-warm or the uniform-structural early-exit) is not a disqualification
+    /// but a signal to RE-ENTER the same seed at a *heavier* ContinuationPath
+    /// regime. The candidate set therefore never empties on a structural
+    /// diagnosis — every demotion is recorded with its reason and routed to a
+    /// heavier regime.
+    ///
+    /// The default `false` preserves the existing contract for every other
+    /// objective: pre-warm stays an optimization (never a feasibility gate),
+    /// and a uniform structural rejection still short-circuits the cascade.
+    fn requires_continuation_path_entry(&self) -> bool {
+        false
+    }
+
+    /// Run the objective's certified curvature-homotopy entry leg, if it has
+    /// one, leaving the inner state warm at the real (`η = 1`) objective.
+    ///
+    /// An objective with a *certified anchor* — a point known by construction to
+    /// be the global optimum of a relaxed problem — can replace the blind
+    /// multi-seed multistart with a single predictor-corrector walk from that
+    /// anchor to the true objective (#1007). The SAE-manifold objective
+    /// overrides this: its `η = 0` Eckart-Young linear relaxation is convex and
+    /// its optimum is certified by `linear_span_anchor`, so the walk in `η`
+    /// tracks the unique optimal branch to `η = 1`. The walk monitors the
+    /// arrow-factor min-pivot and halves the `η` step when it shrinks; a pivot
+    /// collapse below tolerance is a DETECTED bifurcation (recorded on the fit
+    /// payload, never silent), at which point the objective falls back to the
+    /// documented multi-seed cascade.
+    ///
+    /// Returns:
+    ///   * `None` — no certified anchor; use the standard seed cascade
+    ///     (the default for every other objective).
+    ///   * `Some(Ok(true))` — the walk arrived; the inner state is warm at the
+    ///     certified `η = 1` solution and the seed cascade is bypassed.
+    ///   * `Some(Ok(false))` — the anchor degenerated or the walk detected a
+    ///     bifurcation; fall back to the multi-seed cascade (the report is
+    ///     recorded on the objective for the fit payload).
+    ///   * `Some(Err(_))` — a hard failure constructing the anchor.
+    fn curvature_homotopy_entry(&mut self) -> Option<Result<bool, EstimationError>> {
         None
     }
 }
@@ -2260,6 +2364,10 @@ impl<'a> OuterObjective for CheckpointingObjective<'a> {
 
     fn allow_continuation_prewarm(&self) -> bool {
         self.inner.allow_continuation_prewarm()
+    }
+
+    fn requires_continuation_path_entry(&self) -> bool {
+        self.inner.requires_continuation_path_entry()
     }
 
     fn reset(&mut self) {
@@ -2695,7 +2803,7 @@ const INNER_CAP_CONVERGENCE_OVERRIDE_RATIO: f64 = 0.01;
 const INNER_CAP_FLOOR: usize = 3;
 
 /// Ceiling on the adaptive inner-PIRLS cap, set at the inner-Newton noise
-/// floor at biobank scale; further iterations are pure waste once the warm
+/// floor at large scale; further iterations are pure waste once the warm
 /// start is close.
 const INNER_CAP_CEILING: usize = 64;
 
@@ -2721,7 +2829,7 @@ const INNER_CAP_CEILING: usize = 64;
 /// A cap of 0 means "no cap from this source"; the inner solver still
 /// honors `pirls_max_iterations` and the screening cap. The cap is
 /// floored at 3 (anything less is below noise) and ceilinged at 64
-/// (the inner noise floor at biobank scale; further iters would be
+/// (the inner noise floor at large scale; further iters would be
 /// pure waste).
 fn first_order_inner_cap_schedule(
     iter_count: usize,
@@ -3678,7 +3786,7 @@ fn project_to_bounds(x: &Array1<f64>, bounds: Option<&(Array1<f64>, Array1<f64>)
 /// invite `opt::SecondOrderCache::finite_difference_hessian` to silently
 /// estimate the Hessian by finite-differencing the gradient, which (a)
 /// throws away the analytic structure the route was selected for, and
-/// (b) costs O(K) full outer evaluations per ARC iteration — at biobank
+/// (b) costs O(K) full outer evaluations per ARC iteration — at large-scale
 /// scale, hours of work per silently-mis-routed step. The right
 /// behavior on a planner/runtime mismatch is to surface it loudly so
 /// the seed loop can either retry, demote the plan, or fail the seed.
@@ -3839,7 +3947,7 @@ const EFS_COST_DESCENT_TOL: f64 = 1e-12;
 /// Maximum number of consecutive HybridEFS iterations whose ψ block was
 /// zeroed before the bridge bails out and triggers a solver switch.
 ///
-/// On hard problems (Matérn additive at biobank scale, Duchon60, anisotropic
+/// On hard problems (Matérn additive at large scale, Duchon60, anisotropic
 /// joint penalties) a single zeroed-ψ iteration after exhausted backtracking
 /// is already strong evidence the EFS ψ direction is not descent-correlated
 /// at the current iterate; continuing on ρ alone with Δψ = 0 cannot enforce
@@ -4350,6 +4458,7 @@ fn solution_into_outer_result(
         plan_used,
         operator_trust_radius: None,
         operator_stop_reason: None,
+        criterion_certificate: None,
     }
 }
 
@@ -4656,7 +4765,7 @@ impl OuterProblem {
     /// first step → larger first move on benign objectives. The matrix-
     /// free Newton-TR analog is `with_operator_initial_trust_radius`.
     ///
-    /// Used by Gaussian-identity REML at biobank n: the objective is
+    /// Used by Gaussian-identity REML at large-scale n: the objective is
     /// quadratic-like in log-λ near the optimum (sigma is the right
     /// scale), and log-λ moves of 2–4 units in the early iters
     /// otherwise burn 4–8 iters of trust-region expansion before the
@@ -4674,7 +4783,7 @@ impl OuterProblem {
     /// Rationale: a fixed `abs = tol` (e.g. 1e-6) is appropriate when the
     /// objective and its gradient live on a unit scale, but Gaussian-
     /// identity REML carries an O(n) likelihood constant that flows into
-    /// ∂/∂logλ. At biobank n the floor becomes binding even when the
+    /// ∂/∂logλ. At large-scale n the floor becomes binding even when the
     /// relative-from-seed component (`rel_initial_grad * ‖g0‖`) declared
     /// convergence iters earlier — chasing sub-ULP changes in log-λ at
     /// the cost of repeated k²·n·p² analytic-Hessian assemblies.
@@ -4701,7 +4810,7 @@ impl OuterProblem {
     /// than log-λ (≈ ln 2 per iter keeps kappa from oscillating). Without
     /// this split, a uniform rho-scale cap lets psi explode while a uniform
     /// psi-scale cap throttles rho — both fail the survival-marginal-slope
-    /// path at biobank scale, where rho needs |d|≈5 while psi wants |d|≤1.
+    /// path at large scale, where rho needs |d|≈5 while psi wants |d|≤1.
     pub fn with_bfgs_step_cap_psi(mut self, cap: Option<f64>) -> Self {
         self.bfgs_step_cap_psi = cap.filter(|v| v.is_finite() && *v > 0.0);
         self
@@ -4926,6 +5035,7 @@ impl OuterProblem {
                         plan_used,
                         operator_trust_radius: None,
                         operator_stop_reason: None,
+                        criterion_certificate: None,
                     });
                 }
                 CacheSeedDecision::Seed {
@@ -5125,6 +5235,13 @@ pub struct OuterResult {
     pub operator_trust_radius: Option<f64>,
     /// Why the internal operator trust-region solver stopped.
     pub operator_stop_reason: Option<OperatorTrustRegionStopReason>,
+    /// First-order optimality self-audit at the returned point (#934).
+    ///
+    /// `None` when no analytic gradient was measured at termination
+    /// (gradient-free solvers, cache-hit short-circuits, per-atom EFS) or
+    /// when an audit probe failed to evaluate. Populated once by
+    /// [`run_outer`] after the solver ladder returns, outside all hot loops.
+    pub criterion_certificate: Option<CriterionCertificate>,
 }
 
 impl OuterResult {
@@ -5136,6 +5253,325 @@ impl OuterResult {
             None => "n/a".to_string(),
         }
     }
+}
+
+// ─── First-order optimality certificate (#934) ────────────────────────
+//
+// The objective↔gradient desync bug genus (#748, #752, #808, #901, …) has a
+// universal signature: at the returned "optimum" the analytic gradient says
+// converged while a finite difference of the ACTUAL criterion value says
+// otherwise (or the optimizer stalls and rails λ). Every such bug was
+// diagnosed by a human running exactly that FD comparison by hand. The
+// certificate makes the engine run it on itself, once, at θ̂, on every fit:
+// two central-difference pairs of the VALUE path along one deterministic
+// random direction, compared against ∇F(θ̂)·v from the analytic path, plus
+// the two ancillary facts every desync postmortem asks for (is the outer
+// curvature PD here; did any λ rail to a bound). It is the runtime
+// enforcement layer for the criterion-atom architecture (#931): atoms make
+// desync structurally hard, the certificate makes any residue observable.
+//
+// Cost discipline: at most four value-path evaluations at the single final
+// point, outside every hot loop. The value path is evaluated through
+// `eval_cost` at θ̂±hv — points the gradient path never visited, so the
+// existing ρ-keyed caches naturally miss and the true value code runs.
+// Disagreement does not fail the fit: it names the broken criterion loudly
+// in the result, the log, and the report.
+
+/// Standardized-disagreement gate: the audit flags inconsistency when the
+/// analytic and FD directional derivatives differ by more than this many FD
+/// error bars (and also fail the relative gate).
+const CERTIFICATE_Z_GATE: f64 = 4.0;
+
+/// Relative agreement gate: differences below this fraction of the larger
+/// directional derivative are consistent regardless of the (possibly
+/// underestimated) FD error bar.
+const CERTIFICATE_RELATIVE_GATE: f64 = 1e-3;
+
+/// ρ margin (in log-λ units) within which an outer smoothing coordinate
+/// counts as railed against its box bound — the #752 signature (λ → ∞ when
+/// a curvature term goes missing from the criterion). Same spirit as
+/// [`OVERSMOOTH_BOUNDARY_MARGIN`], which classifies seed *starts*; this one
+/// classifies returned *optima*.
+const CERTIFICATE_RAIL_MARGIN: f64 = 0.5;
+
+/// First-order optimality certificate: gradient-vs-objective FD audit at the
+/// returned optimum (#934).
+///
+/// Answers, machine-checkably, the three questions every objective↔gradient
+/// desync postmortem asks: does the analytic gradient match the actual
+/// criterion value HERE ([`Self::first_order_consistent`]); is the outer
+/// curvature positive definite HERE (`hessian_pd`); did any smoothing
+/// coordinate rail to a box bound (`lambdas_railed`).
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct CriterionCertificate {
+    /// ‖∇F(θ̂)‖₂ from the analytic gradient path at the returned point.
+    pub grad_norm: f64,
+    /// Analytic directional derivative ∇F(θ̂)·v along the audit direction.
+    pub analytic_directional: f64,
+    /// Richardson-extrapolated central difference of the criterion VALUE
+    /// path along the same direction: (4·D_h − D_2h)/3 from the h and 2h
+    /// central-difference pairs.
+    pub fd_directional: f64,
+    /// Error bar on `fd_directional`: the Richardson residual |D_h − D_2h|
+    /// (which absorbs both truncation and inner-solve value noise) floored
+    /// by the central-difference roundoff bound ε·|F|/h.
+    pub fd_error: f64,
+    /// |analytic − fd| / fd_error — standardized disagreement.
+    pub agreement_z: f64,
+    /// Base central-difference step h along the unit direction.
+    pub fd_step: f64,
+    /// Whether the final outer Hessian is positive definite at θ̂, when the
+    /// solver tracked one (`None` when no final Hessian was available).
+    pub hessian_pd: Option<bool>,
+    /// Leading smoothing coordinates (ρ block) pinned within
+    /// [`CERTIFICATE_RAIL_MARGIN`] of either box bound at the optimum.
+    pub lambdas_railed: Vec<usize>,
+}
+
+impl CriterionCertificate {
+    /// Whether the analytic directional derivative agrees with the finite
+    /// difference of the actual criterion value at the optimum.
+    ///
+    /// Two gates, either suffices: within [`CERTIFICATE_Z_GATE`] FD error
+    /// bars (the principled test), or within [`CERTIFICATE_RELATIVE_GATE`]
+    /// of the larger derivative (guards against an underestimated error bar
+    /// flagging two derivatives that agree to 0.1%).
+    pub fn first_order_consistent(&self) -> bool {
+        let diff = (self.analytic_directional - self.fd_directional).abs();
+        let scale = self
+            .analytic_directional
+            .abs()
+            .max(self.fd_directional.abs());
+        diff <= (CERTIFICATE_Z_GATE * self.fd_error).max(CERTIFICATE_RELATIVE_GATE * scale)
+    }
+
+    /// Whether every audited fact is clean: gradient matches objective, no
+    /// definiteness failure, no railed smoothing coordinate.
+    pub fn is_clean(&self) -> bool {
+        self.first_order_consistent()
+            && self.hessian_pd != Some(false)
+            && self.lambdas_railed.is_empty()
+    }
+
+    /// One-line human-readable rendering for logs and reports.
+    pub fn summary(&self) -> String {
+        format!(
+            "grad·v={:.6e} fd·v={:.6e}±{:.1e} z={:.2} |g|={:.3e} hessian_pd={} railed={:?} → {}",
+            self.analytic_directional,
+            self.fd_directional,
+            self.fd_error,
+            self.agreement_z,
+            self.grad_norm,
+            match self.hessian_pd {
+                Some(true) => "yes",
+                Some(false) => "NO",
+                None => "n/a",
+            },
+            self.lambdas_railed,
+            if self.first_order_consistent() {
+                "consistent"
+            } else {
+                "GRADIENT-OBJECTIVE DESYNC"
+            },
+        )
+    }
+}
+
+/// Deterministic unit direction on the θ sphere for the certificate audit.
+///
+/// Seeded from the problem fingerprint (context string + θ̂ bits) via FNV-1a
+/// and expanded with SplitMix64 + Box–Muller — no clock, no global RNG, so
+/// the audit direction is reproducible across runs of the same fit.
+fn certificate_audit_direction(theta: &Array1<f64>, context: &str) -> Array1<f64> {
+    let mut seed: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut fnv = |byte: u8| {
+        seed ^= u64::from(byte);
+        seed = seed.wrapping_mul(0x0000_0100_0000_01b3);
+    };
+    for byte in context.bytes() {
+        fnv(byte);
+    }
+    for &x in theta.iter() {
+        for byte in x.to_bits().to_le_bytes() {
+            fnv(byte);
+        }
+    }
+    let mut state = seed;
+    let mut next_unit = move || {
+        state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        z ^= z >> 31;
+        // Uniform in (0, 1): 53 mantissa bits, nudged off zero for the log.
+        ((z >> 11) as f64 + 0.5) / (1u64 << 53) as f64
+    };
+    let mut direction = Array1::<f64>::zeros(theta.len());
+    let mut i = 0;
+    while i < direction.len() {
+        let (u1, u2) = (next_unit(), next_unit());
+        let radius = (-2.0 * u1.ln()).sqrt();
+        let angle = 2.0 * std::f64::consts::PI * u2;
+        direction[i] = radius * angle.cos();
+        if i + 1 < direction.len() {
+            direction[i + 1] = radius * angle.sin();
+        }
+        i += 2;
+    }
+    let norm = direction.dot(&direction).sqrt();
+    if norm.is_finite() && norm > f64::EPSILON {
+        direction.mapv_inplace(|v| v / norm);
+        direction
+    } else {
+        // Degenerate draw (probability ~0): fall back to the first axis.
+        let mut fallback = Array1::<f64>::zeros(theta.len());
+        fallback[0] = 1.0;
+        fallback
+    }
+}
+
+/// Plain Cholesky positive-definiteness probe for the (small, outer-dim)
+/// final Hessian. Returns `None` when the matrix is empty, non-square, or
+/// non-finite; `Some(false)` on any non-positive pivot.
+fn certificate_hessian_is_pd(hessian: &Array2<f64>) -> Option<bool> {
+    let n = hessian.nrows();
+    if n == 0 || hessian.ncols() != n || hessian.iter().any(|v| !v.is_finite()) {
+        return None;
+    }
+    let mut chol = hessian.clone();
+    for j in 0..n {
+        for k in 0..j {
+            let l_jk = chol[[j, k]];
+            for i in j..n {
+                chol[[i, j]] -= chol[[i, k]] * l_jk;
+            }
+        }
+        let pivot = chol[[j, j]];
+        if !(pivot > 0.0) || !pivot.is_finite() {
+            return Some(false);
+        }
+        let inv_sqrt = 1.0 / pivot.sqrt();
+        for i in j..n {
+            chol[[i, j]] *= inv_sqrt;
+        }
+    }
+    Some(true)
+}
+
+/// Smoothing coordinates (leading ρ block) railed against the outer box.
+fn certificate_railed_lambdas(
+    rho: &Array1<f64>,
+    rho_dim: usize,
+    config: &OuterConfig,
+) -> Vec<usize> {
+    (0..rho_dim.min(rho.len()))
+        .filter(|&k| {
+            let (lo, hi) = match config.bounds.as_ref() {
+                Some((lo, hi)) if k < lo.len() && k < hi.len() => (lo[k], hi[k]),
+                Some(_) => return false,
+                None => (-config.rho_bound, config.rho_bound),
+            };
+            (rho[k] - lo).abs() <= CERTIFICATE_RAIL_MARGIN
+                || (hi - rho[k]).abs() <= CERTIFICATE_RAIL_MARGIN
+        })
+        .collect()
+}
+
+/// Perform the randomized first-order self-audit at the returned optimum.
+///
+/// Requires an analytic final gradient (the thing being audited); returns
+/// `None` — never an error — when the gradient is absent/non-finite or when
+/// any of the four value probes fails to evaluate, so the audit can never
+/// fail a fit that the optimizer accepted.
+fn audit_first_order_optimality(
+    obj: &mut dyn OuterObjective,
+    config: &OuterConfig,
+    context: &str,
+    result: &OuterResult,
+) -> Option<CriterionCertificate> {
+    let gradient = result.final_gradient.as_ref()?;
+    if gradient.is_empty()
+        || gradient.len() != result.rho.len()
+        || gradient.iter().any(|g| !g.is_finite())
+        || result.rho.iter().any(|r| !r.is_finite())
+    {
+        return None;
+    }
+
+    let theta = &result.rho;
+    let direction = certificate_audit_direction(theta, context);
+    // Central-difference step on the optimal ε^(1/3) scale, sized to the
+    // iterate so saturated ρ (|ρ| up to rho_bound) keeps θ̂±2hv resolvable.
+    let theta_scale = theta.iter().fold(0.0_f64, |acc, &v| acc.max(v.abs()));
+    let step = f64::EPSILON.cbrt() * (1.0 + theta_scale);
+
+    let mut probe = |scale: f64| -> Option<f64> {
+        let point = theta + &(scale * &direction);
+        match obj.eval_cost(&point) {
+            Ok(value) if value.is_finite() => Some(value),
+            Ok(value) => {
+                log::debug!(
+                    "[CERTIFICATE] {context}: audit probe at θ̂{scale:+.3e}·v returned \
+                     non-finite criterion value {value}; certificate skipped"
+                );
+                None
+            }
+            Err(err) => {
+                log::debug!(
+                    "[CERTIFICATE] {context}: audit probe at θ̂{scale:+.3e}·v failed ({err}); \
+                     certificate skipped"
+                );
+                None
+            }
+        }
+    };
+    let f_plus_h = probe(step)?;
+    let f_minus_h = probe(-step)?;
+    let f_plus_2h = probe(2.0 * step)?;
+    let f_minus_2h = probe(-2.0 * step)?;
+
+    let d_h = (f_plus_h - f_minus_h) / (2.0 * step);
+    let d_2h = (f_plus_2h - f_minus_2h) / (4.0 * step);
+    let fd_directional = (4.0 * d_h - d_2h) / 3.0;
+    // Error bar: the Richardson residual measures truncation + value-path
+    // noise (inner-solve tolerance) empirically; the roundoff bound floors
+    // it when the residual is accidentally tiny.
+    let value_scale = f_plus_h
+        .abs()
+        .max(f_minus_h.abs())
+        .max(f_plus_2h.abs())
+        .max(f_minus_2h.abs());
+    let roundoff = f64::EPSILON * (1.0 + value_scale) / step;
+    let fd_error = (d_h - d_2h).abs().max(roundoff);
+
+    let analytic_directional = gradient.dot(&direction);
+    let grad_norm = gradient.dot(gradient).sqrt();
+    let agreement_z = (analytic_directional - fd_directional).abs() / fd_error;
+
+    let rho_dim = obj.capability().theta_layout().rho_dim();
+    let certificate = CriterionCertificate {
+        grad_norm,
+        analytic_directional,
+        fd_directional,
+        fd_error,
+        agreement_z,
+        fd_step: step,
+        hessian_pd: result
+            .final_hessian
+            .as_ref()
+            .and_then(certificate_hessian_is_pd),
+        lambdas_railed: certificate_railed_lambdas(theta, rho_dim, config),
+    };
+    if certificate.is_clean() {
+        log::info!("[CERTIFICATE] {context}: {}", certificate.summary());
+    } else {
+        log::warn!(
+            "[CERTIFICATE warning] {context}: optimality self-audit flagged the returned \
+             optimum — {}",
+            certificate.summary(),
+        );
+    }
+    Some(certificate)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -5172,6 +5608,23 @@ fn run_outer(
     config: &OuterConfig,
     context: &str,
 ) -> Result<OuterResult, EstimationError> {
+    let mut result = run_outer_uncertified(obj, config, context)?;
+    // First-order optimality self-audit (#934): once, at the returned θ̂,
+    // outside all hot loops, for every entry point of the solver ladder
+    // (dense, device, per-atom EFS, fallback plans). Probes evaluate the
+    // value path at θ̂±hv AFTER the solve, so the only state they perturb
+    // is warm-start residue O(h) from the optimum — every caller recovers
+    // its fitted state from `result.rho`, not from last-eval residue.
+    result.criterion_certificate = audit_first_order_optimality(obj, config, context, &result);
+    Ok(result)
+}
+
+/// The solver ladder behind [`run_outer`], without the #934 self-audit.
+fn run_outer_uncertified(
+    obj: &mut dyn OuterObjective,
+    config: &OuterConfig,
+    context: &str,
+) -> Result<OuterResult, EstimationError> {
     let cap = primary_capability_for_config(obj.capability(), config, context);
     cap.validate_layout(context)?;
     if let Some(initial_rho) = config.initial_rho.as_ref() {
@@ -5185,6 +5638,14 @@ fn run_outer(
             })?;
     }
     crate::solver::estimate::reml::runtime::clear_outer_ift_residual_energy_for_fit();
+
+    // Frontier ρ-scaling auto-switch (#986): at per-atom-EFS-eligible frontier
+    // rho dimension the decoupled per-atom fixed point is the primary outer
+    // iteration; everything else falls through to the dense / standard path
+    // below. Routed here so every entry point inherits it (magic by default).
+    if let Some(result) = run_per_atom_efs_if_frontier(obj, config, context)? {
+        return Ok(result);
+    }
 
     if cap.n_params == 0 {
         let cost = obj.eval_cost(&Array1::zeros(0))?;
@@ -5200,6 +5661,7 @@ fn run_outer(
             plan_used: the_plan,
             operator_trust_radius: None,
             operator_stop_reason: None,
+            criterion_certificate: None,
         });
     }
 
@@ -5386,6 +5848,108 @@ fn run_outer(
     }))
 }
 
+// ─── Frontier ρ-scaling auto-switch (issue #986) ─────────────────────────
+//
+// ARD-per-atom assigns one smoothing coordinate per dictionary atom, so the
+// ρ-vector reaches 10^4–10^5 coordinates. A dense outer quasi-Newton over that
+// materializes an O(K²) Hessian and is impossible at scale. When the ρ-dimension
+// is frontier-scale AND every coordinate is penalty-like with a working
+// fixed-point hook, route the PRIMARY outer iteration to the per-atom decoupled
+// EFS path (`crate::solver::estimate::reml::per_atom_efs`) instead of the dense
+// ARC/BFGS lane. The decision is auto-derived from the coordinate count alone —
+// there is no flag — and it is additive: the dense path is unchanged for small K
+// and for any objective that is not per-atom-EFS-eligible.
+
+/// Whether this capability is in the frontier ρ-scaling regime where the
+/// per-atom decoupled EFS primary should take over from the dense outer.
+///
+/// Delegates the eligibility decision to
+/// [`crate::solver::estimate::reml::per_atom_efs::per_atom_efs_eligible`], which
+/// requires all-penalty-like coordinates, a working `eval_efs` hook,
+/// fixed-point not disabled, and a frontier-scale ρ-dimension. This is the
+/// single auto-switch predicate; `plan`/`plan_with_class` keep selecting the
+/// dense or standard-EFS solver for everything below the frontier threshold.
+pub fn is_per_atom_efs_frontier(cap: &OuterCapability) -> bool {
+    crate::solver::estimate::reml::per_atom_efs::per_atom_efs_eligible(cap)
+}
+
+/// Auto-switch entry point: when `cap` is frontier-scale per-atom-EFS-eligible,
+/// run the per-atom decoupled EFS primary and return its [`OuterResult`];
+/// otherwise return `Ok(None)` so the caller falls through to the existing dense
+/// / standard-EFS path via [`OuterProblem::run`] / [`run_outer`].
+///
+/// Builds the same bounded seed and tolerance/budget the standard plan path
+/// uses, picks the seed (initial-ρ if supplied, else the first generated
+/// candidate — the per-atom fixed point is a contraction near the optimum and
+/// does not need the multi-seed cascade the dense path runs for its non-convex
+/// quasi-Newton surface), then drives the per-atom EFS loop. The shared-border
+/// topology defaults to disjoint (every atom owns a private penalty block — the
+/// common ARD-per-atom case); callers with a known arrow-border overlap can run
+/// the module's `run_per_atom_efs` directly with a populated
+/// `SharedBorderTopology`.
+///
+/// Additive: this function neither mutates nor bypasses the dense path; it is
+/// the pre-dispatch shortcut [`run_outer`] calls before the dense ladder.
+fn run_per_atom_efs_if_frontier(
+    obj: &mut dyn OuterObjective,
+    config: &OuterConfig,
+    context: &str,
+) -> Result<Option<OuterResult>, EstimationError> {
+    let cap = primary_capability_for_config(obj.capability(), config, context);
+    cap.validate_layout(context)?;
+    if !is_per_atom_efs_frontier(&cap) {
+        return Ok(None);
+    }
+
+    let the_plan = plan_with_class(&cap, config.solver_class);
+    let rho_dim = cap.theta_layout().rho_dim();
+
+    let (lower, upper) = config.bounds.clone().unwrap_or_else(|| {
+        (
+            Array1::<f64>::from_elem(cap.n_params, -config.rho_bound),
+            Array1::<f64>::from_elem(cap.n_params, config.rho_bound),
+        )
+    });
+
+    // Seed: cache/explicit initial ρ if present, otherwise the first generated
+    // candidate. The per-atom multiplicative fixed point is locally
+    // contractive, so a single seed suffices; the heavy multi-seed cascade
+    // exists for the dense quasi-Newton's non-convex surface, not for EFS.
+    let seed = match config.initial_rho.as_ref() {
+        Some(initial) if initial.len() == cap.n_params => initial.clone(),
+        _ => {
+            let generated = crate::seeding::generate_rho_candidates(
+                cap.n_params,
+                config.heuristic_lambdas.as_deref(),
+                &config.seed_config,
+            );
+            match generated.into_iter().next() {
+                Some(first) => first,
+                None => Array1::<f64>::zeros(cap.n_params),
+            }
+        }
+    };
+
+    log::info!(
+        "[OUTER] {context}: frontier ρ-scaling (rho_dim={rho_dim}) → per-atom decoupled EFS primary"
+    );
+
+    let pa_cfg = crate::solver::estimate::reml::per_atom_efs::PerAtomEfsConfig::new(
+        config.tolerance,
+        config.max_iter,
+        lower,
+        upper,
+    );
+    let topology =
+        crate::solver::estimate::reml::per_atom_efs::SharedBorderTopology::disjoint(rho_dim);
+
+    obj.reset();
+    let result = crate::solver::estimate::reml::per_atom_efs::run_per_atom_efs(
+        obj, &seed, &pa_cfg, &topology,
+    )?;
+    Ok(Some(result.into_outer_result(the_plan)))
+}
+
 fn outer_bounds(lo: &Array1<f64>, hi: &Array1<f64>) -> Result<Bounds, EstimationError> {
     Bounds::new(lo.clone(), hi.clone(), 1e-6).map_err(|err| {
         EstimationError::InvalidInput(format!("outer rho bounds are invalid: {err}"))
@@ -5531,6 +6095,24 @@ fn run_outer_with_plan(
     }
 
     let mut best: Option<OuterResult> = None;
+    // Object 1 — ContinuationPath. Every SAE-manifold joint fit ENTERS through
+    // the continuation path at a heavy-smoothing regime. When the objective
+    // declares this requirement the seed cascade's structural-failure handling
+    // flips from REJECT (which can empty the candidate set and fall through to
+    // the fatal `format_no_seeds_passed`) to DEMOTE-WITH-REASON: a "cold"
+    // structural diagnosis becomes a heavier-regime RE-ENTRY of the same seed,
+    // recorded on the path, never a disqualification. Objectives that do not
+    // require continuation entry keep `None` and the legacy reject/early-exit
+    // contract is unchanged.
+    let mut continuation_path: Option<crate::solver::continuation_path::ContinuationPath> = obj
+        .requires_continuation_path_entry()
+        .then(crate::solver::continuation_path::ContinuationPath::heavy_entry);
+    // Demotion ledger: every structural defect that would historically have
+    // rejected a seed (or short-circuited the cascade) is instead recorded
+    // here with its reason and the regime it was demoted to, so the
+    // `SearchLedger` / startup stats surface a heavier-regime re-entry rather
+    // than a vanished candidate. Non-fatal by construction.
+    let mut path_demotions: Vec<PathDemotionRecord> = Vec::new();
     // Accumulate every per-seed rejection with its 0-based seed index and the
     // phase that rejected it (validation vs solver run). When all seeds fail
     // systematically (bad analytic gradient, rank-deficient penalty, etc.) the
@@ -5587,20 +6169,88 @@ fn run_outer_with_plan(
             if let Some(key) =
                 uniform_structural_key(&seed_rejections, STRUCTURAL_EARLY_EXIT_MIN_COUNT)
             {
-                log::warn!(
-                    "[OUTER] {context}: structural early-exit after {} uniform structural \
-                     rejections (diagnosis={}, carrying-block={}); skipping remaining {} seed(s)",
-                    seed_rejections.len(),
-                    key.0.as_str(),
-                    key.1.as_deref().unwrap_or("<unknown>"),
-                    seeds.len().saturating_sub(seed_idx),
-                );
-                structural_early_exit_key = Some(key);
-                break;
+                if let Some(path) = continuation_path.as_mut() {
+                    // Continuation-entry objective: a uniform structural
+                    // diagnosis is NOT a reason to skip the remaining seeds
+                    // (that would empty the candidate set and fall through to
+                    // the fatal "no seeds passed"). The seed cascade is only an
+                    // *optimization* over warm-starts, never a feasibility
+                    // gate — so we DEMOTE the cascade to a heavier path regime
+                    // and keep evaluating. The heavier-smoothing entry gives
+                    // the joint solver a feasible basin the cold seed could not
+                    // reach. Record the demotion with its reason; never fatal.
+                    let reason = format!(
+                        "uniform structural diagnosis={} carrying-block={} after {} consistent \
+                         rejection(s)",
+                        key.0.as_str(),
+                        key.1.as_deref().unwrap_or("<unknown>"),
+                        seed_rejections.len(),
+                    );
+                    let regime = path.demote_with_reason(
+                        crate::solver::continuation_path::PathDemotionReason::UniformStructural,
+                    );
+                    log::warn!(
+                        "[OUTER] {context}: continuation-entry objective demoted to heavier path \
+                         regime {regime:?} instead of structural early-exit ({reason}); \
+                         re-entering remaining seed(s) at the heavier regime"
+                    );
+                    path_demotions.push(PathDemotionRecord {
+                        seed_idx,
+                        regime,
+                        reason,
+                    });
+                    // Reset the structured mirror's structural signal so the
+                    // heavier-regime re-entries are judged on their own merits
+                    // and a single later defect does not immediately re-fire
+                    // the demotion at the same level.
+                    seed_rejections.clear();
+                    last_classified_reason_idx = rejection_reasons.len();
+                } else {
+                    log::warn!(
+                        "[OUTER] {context}: structural early-exit after {} uniform structural \
+                         rejections (diagnosis={}, carrying-block={}); skipping remaining {} seed(s)",
+                        seed_rejections.len(),
+                        key.0.as_str(),
+                        key.1.as_deref().unwrap_or("<unknown>"),
+                        seeds.len().saturating_sub(seed_idx),
+                    );
+                    structural_early_exit_key = Some(key);
+                    break;
+                }
             }
         }
         crate::solver::estimate::reml::runtime::record_current_outer_iter_for_ift(0);
         obj.reset();
+        // Certified curvature-homotopy entry leg (#1007). When the objective
+        // has a certified anchor (the SAE-manifold `η = 0` Eckart-Young
+        // relaxation), run the predictor-corrector `η`-walk from it INSTEAD of
+        // relying on the blind multi-seed multistart: a single walk along the
+        // unique optimal branch reaches the real (`η = 1`) objective, leaving
+        // the inner state warm there. The min-pivot invariant + step-halving
+        // make the walk certified; a degenerate anchor or a detected
+        // bifurcation returns `false` (the term is left at the full basis) and
+        // the seed cascade below takes over — the outcome is recorded on the
+        // fit payload either way, never a silent fallback. The walk runs once
+        // per accepted seed entry right after `reset`, so cross-seed state
+        // hygiene is unchanged (#1003): `reset` restores the pristine `η = 1`
+        // baseline before each walk.
+        match obj.curvature_homotopy_entry() {
+            Some(Ok(arrived)) => {
+                log::info!(
+                    "[OUTER] {context}: curvature-homotopy entry seed {seed_idx} arrived={arrived}"
+                );
+            }
+            Some(Err(err)) => {
+                // A hard anchor-construction failure is not a feasibility gate:
+                // fall through to the cascade exactly as a refused pre-warm does.
+                log::warn!(
+                    "[OUTER] {context}: curvature-homotopy entry seed {seed_idx} errored ({err}); \
+                     deferring to seed cascade"
+                );
+                obj.reset();
+            }
+            None => {}
+        }
         // Magic-by-default continuation pre-warm. On hard fits this
         // walks ρ from an oversmoothing ρ₀ down to `seed`, leaving the
         // objective's inner state warm at `seed`. On easy fits (ρ₀
@@ -5622,7 +6272,190 @@ fn run_outer_with_plan(
         // there would route straight into that error stub and reject every
         // seed, so skip it: the direct search starts from `seed` directly,
         // exactly as its dispatch (`Solver::CompassSearch` arm below) expects.
-        if the_plan.solver != Solver::CompassSearch && obj.allow_continuation_prewarm() {
+        // A continuation-entry objective (SAE-manifold joint fit) MUST enter
+        // every seed through the heavy-smoothing ContinuationPath walk, so it
+        // opts into the priming pass even though it does not advertise the
+        // generic `allow_continuation_prewarm` warm-start. The `CompassSearch`
+        // exclusion still applies (its eval closure is unreachable by
+        // construction). For a continuation-entry objective a refused walk is
+        // DEMOTED to a heavier regime below, not treated as a feasibility gate.
+        let enter_via_continuation_path =
+            obj.allow_continuation_prewarm() || continuation_path.is_some();
+        // Continuation-entry objective (SAE-manifold joint fit): DRIVE the
+        // coupled `ContinuationPath` homotopy explicitly. This is the missing
+        // half of Object 1 — the descent walk. Rather than a single ρ-only
+        // `prime_outer_seed` pre-screen, we step the path waypoint by waypoint:
+        // each `step` runs the ρ-anneal spine for that waypoint and advances
+        // the τ / isometry legs in lockstep, so all three knobs arrive at the
+        // real objective together (the one-monotone-walk invariant). The
+        // converged inner β of each accepted descent leg warm-starts the next,
+        // and the warm iterate at `Arrived` is handed to the normal solver at
+        // ρ*. Re-entry / breach / underflow are non-fatal floor behaviors,
+        // each consumed below — never a rejection.
+        //
+        // Unlike the ρ-only `prime_outer_seed` pre-warm (which the CompassSearch
+        // exclusion below skips for the survival aux baseline whose
+        // `eval_with_order` is unreachable by construction), the walk runs for
+        // EVERY continuation-entry objective regardless of the primary solver
+        // class: the only objective that sets `requires_continuation_path_entry`
+        // is the SAE-manifold joint fit, whose `eval` / `seed_inner_state` /
+        // inner arrow-Schur ARE reachable. A small-ρ SAE fit dispatches to the
+        // derivative-free `CompassSearch` primary, and that direct search drives
+        // purely on `eval_cost` — which is exactly the cold inner solve the
+        // heavy-smoothing walk must warm first, or the cold `eval_cost` hits a
+        // non-PD inner block (the K≥2 routing-collapse failure Object 1 exists
+        // to prevent).
+        if continuation_path.is_some() {
+            {
+                // Rebuild the path per-seed against the OBJECTIVE's real ρ
+                // dimension and legal box. The seed-loop-scoped `heavy_entry`
+                // placeholder is dimension-1 (built before any seed is in hand);
+                // the spine call inside `step` requires the ρ target to match
+                // the objective's ρ dim, so we re-enter the heavy-smoothing
+                // regime coupled to this seed's ρ\* and bounds. Re-entry resets
+                // the path to a fresh `s = 1` for every seed, which is correct:
+                // each seed is its own descent from the contraction regime.
+                let path = continuation_path.insert(
+                    crate::solver::continuation_path::ContinuationPath::heavy_entry_for_rho(
+                        seed.clone(),
+                        bounds_template.1.clone(),
+                    ),
+                );
+                let walk_start = std::time::Instant::now();
+                // β carried warm across legs. Empty = cold entry (#969:
+                // warm-invariance funnels cold and warm to the same s=1
+                // contraction fixed point).
+                let mut warm_beta: Array1<f64> = Array1::zeros(0);
+                let mut legs_descended = 0usize;
+                let mut arrived = false;
+                // Bound the walk: CONTINUATION_WAYPOINTS clean descents plus a
+                // re-entry allowance (every re-entry is progress toward the
+                // contraction floor, reachable in finitely many back-offs).
+                // Each `step` runs the ρ-anneal spine, which is itself an inner
+                // homotopy, so the budget stays bounded — but it must tolerate
+                // the expected near-cliff floor bounces: at the one-waypoint
+                // `REENTRY_BACKOFF` each bounce costs ~2 legs, and the shared
+                // `CONTINUATION_WALK_BUDGET` (2× waypoints) absorbs ~half-a-
+                // walk's worth of bounces before cutoff. The spine warm-starts
+                // from the previous leg's β, so post-entry legs are cheap. The
+                // loop only ever exits on `Arrived` or this budget — there is
+                // no rejection exit.
+                let walk_budget = crate::solver::continuation_path::CONTINUATION_WALK_BUDGET;
+                for _ in 0..walk_budget {
+                    if path.arrived() {
+                        arrived = true;
+                        break;
+                    }
+                    match path.step(obj, &warm_beta) {
+                        crate::solver::continuation_path::ContinuationStep::Descended {
+                            s,
+                            state,
+                        } => {
+                            // Warm-start the next leg from this leg's converged
+                            // inner β. `NoSlot` is fine (the objective simply
+                            // starts the next spine pass cold); a genuine
+                            // dimension error resets to a clean baseline and the
+                            // walk re-enters heavier on the next iteration.
+                            warm_beta = state.last_beta.clone();
+                            if let Err(err) = obj.seed_inner_state(&warm_beta) {
+                                log::warn!(
+                                    "[OUTER] {context}: continuation descent seed {seed_idx} \
+                                     warm-start at s={s:.4} unusable ({err}); proceeding cold"
+                                );
+                                warm_beta = Array1::zeros(0);
+                                obj.reset();
+                            }
+                            legs_descended += 1;
+                        }
+                        crate::solver::continuation_path::ContinuationStep::Arrived { state } => {
+                            // The path reached ρ* / τ_min / tight isometry along
+                            // the coupled walk. Install the warm iterate so the
+                            // normal solver below starts from the contraction's
+                            // image at the real objective, not cold.
+                            warm_beta = state.last_beta.clone();
+                            if let Err(err) = obj.seed_inner_state(&warm_beta) {
+                                log::warn!(
+                                    "[OUTER] {context}: continuation arrival seed {seed_idx} \
+                                     warm-start unusable ({err}); solver starts cold at ρ*"
+                                );
+                                obj.reset();
+                            }
+                            legs_descended += 1;
+                            arrived = true;
+                            break;
+                        }
+                        crate::solver::continuation_path::ContinuationStep::Reentered {
+                            s,
+                            reason,
+                        } => {
+                            use crate::solver::continuation_path::ReentryReason;
+                            // The homotopy FLOOR: never reject. Each reason is a
+                            // re-entry into a heavier regime (the path already
+                            // raised `s`); we consume its payload for diagnostics
+                            // and continue descending from the heavier regime.
+                            match reason {
+                                ReentryReason::SpineStruggled(failure) => {
+                                    log::info!(
+                                        "[OUTER] {context}: continuation seed {seed_idx} spine \
+                                         struggled at s={s:.4} ({}); re-entered heavier regime {:?}",
+                                        failure.message(),
+                                        path.enter_regime(),
+                                    );
+                                }
+                                ReentryReason::StepUnderflow => {
+                                    // The descent step underflowed: demote with a
+                                    // recorded reason so the ledger surfaces the
+                                    // heavier-regime re-entry, then keep
+                                    // descending from the pinned floor.
+                                    let regime = path.demote_with_reason(
+                                        crate::solver::continuation_path::PathDemotionReason::PrewarmStructural,
+                                    );
+                                    path_demotions.push(PathDemotionRecord {
+                                        seed_idx,
+                                        regime,
+                                        reason: format!(
+                                            "continuation step underflow at s={s:.4}; pinned to \
+                                             the homotopy floor and re-descending"
+                                        ),
+                                    });
+                                }
+                                ReentryReason::MassFloorBreached(breach) => {
+                                    // Active-mass collapse toward the uniform
+                                    // saddle: reset to the pristine seeded
+                                    // baseline (the scaffold) so the assignment
+                                    // re-diffuses, and record the breach with its
+                                    // observed mass / floor in the demotion
+                                    // ledger. Never fatal.
+                                    obj.reset();
+                                    warm_beta = Array1::zeros(0);
+                                    let regime = path.enter_regime();
+                                    path_demotions.push(PathDemotionRecord {
+                                        seed_idx,
+                                        regime,
+                                        reason: format!(
+                                            "active-mass breach (observed mean {:.4} < floor \
+                                             {:.4}); re-seeded from scaffold, re-entered heavier \
+                                             regime",
+                                            breach.observed_mean_mass, breach.floor,
+                                        ),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+                log::info!(
+                    "[OUTER] {context}: continuation-path walk seed {seed_idx} legs={legs_descended} \
+                     arrived={arrived} reseeds={} elapsed={:.3}s",
+                    path.reseed_count(),
+                    walk_start.elapsed().as_secs_f64(),
+                );
+            }
+        }
+        if the_plan.solver != Solver::CompassSearch
+            && continuation_path.is_none()
+            && enter_via_continuation_path
+        {
             let prewarm_start = std::time::Instant::now();
             match crate::solver::estimate::reml::continuation::prime_outer_seed(
                 obj,
@@ -5633,7 +6466,7 @@ fn run_outer_with_plan(
                     // Skip the log line on collapse — that's the
                     // zero-overhead easy-fit case and a log per seed would
                     // be noise. Anything else is a real anneal worth
-                    // surfacing so biobank-scale runs are diagnosable.
+                    // surfacing so large-scale runs are diagnosable.
                     if !summary.collapsed {
                         log::info!(
                             "[OUTER] {context}: continuation pre-warm seed {seed_idx} steps={} elapsed={:.3}s",
@@ -5645,10 +6478,14 @@ fn run_outer_with_plan(
                 Err(cf) if cf.is_structural() => {
                     // The pre-warm surfaced a structural defect of the seed's
                     // joint design (rank/alias deficiency or a genuine
-                    // active-set KKT bug). A cold solve at the seed ρ* would
-                    // hit it identically, so disqualify the seed and route the
-                    // failure through the same structural accounting any other
-                    // pre-validation rejection takes.
+                    // active-set KKT bug). This block runs only for
+                    // NON-continuation-entry objectives (continuation-entry
+                    // objectives drive the explicit `ContinuationPath` walk
+                    // above, where a structural refusal is a heavier-regime
+                    // demotion, never a rejection). Legacy contract: a cold solve
+                    // at the seed ρ* would hit the same defect, so disqualify the
+                    // seed and route the failure through the same structural
+                    // accounting any other pre-validation rejection takes.
                     let msg = format!(
                         "continuation pre-warm refused before seed eval: {}",
                         cf.message()
@@ -5812,7 +6649,7 @@ fn run_outer_with_plan(
                         // standard inexact-Newton-Krylov 0.5 forcing
                         // factor wins: one extra outer-TR iter is cheap
                         // versus halving the number of inner Hv applies
-                        // per outer iter. At biobank shape (n=300 K,
+                        // per outer iter. At large-scale shape (n=300 K,
                         // ~64 outer-TR iters × ~30 trace_logdet calls per
                         // Hv) this halves the dominant per-fit work.
                         .with_cg_tolerance(0.5)
@@ -6129,6 +6966,7 @@ fn run_outer_with_plan(
                                 plan_used: *the_plan,
                                 operator_trust_radius: None,
                                 operator_stop_reason: None,
+                                criterion_certificate: None,
                             };
                             Ok::<OuterResult, EstimationError>(result)
                         }
@@ -6225,7 +7063,7 @@ fn run_outer_with_plan(
                     // `opt::Bfgs` so its first internal `eval_grad` call is
                     // served from cache instead of re-running the outer
                     // objective. Inner P-IRLS solves dominate outer cost
-                    // at biobank scale; skipping one re-eval at the seed
+                    // at large scale; skipping one re-eval at the seed
                     // is one of the cheapest wins available. (opt 0.3.0
                     // API; before that this was implemented via a
                     // gam-side cache on the bridge.)
@@ -6447,11 +7285,26 @@ fn run_outer_with_plan(
                 // gradient or Hessian. config.tolerance is the step-length
                 // floor, config.max_iter is the requested poll budget.
                 let projected_seed = project_to_bounds(seed, Some(&bounds_template));
-                let seed_cost = obj.eval_cost(&projected_seed).map_err(|err| {
-                    EstimationError::RemlOptimizationFailed(format!(
-                        "aux direct-search seed cost failed ({context}): {err}"
-                    ))
-                })?;
+                let seed_cost = match obj.eval_cost(&projected_seed) {
+                    Ok(cost) => cost,
+                    Err(err) => {
+                        // A seed whose cost cannot even be evaluated — e.g. the SAE
+                        // pre-fit identifiability audit rejecting a seed whose
+                        // assignment has already starved an atom to a rank-0
+                        // weighted design — is a property of THIS seed, not a fatal
+                        // condition for the whole cascade. Demote it with a reason
+                        // and try the next seed rather than hard-rejecting the outer
+                        // run (mirrors the non-finite-cost demotion just below, and
+                        // honors the ContinuationPath "never reject" contract for the
+                        // aux direct-search seed path).
+                        rejection_reasons.push((
+                            seed_idx,
+                            "validation",
+                            format!("aux direct-search seed cost failed ({context}): {err}"),
+                        ));
+                        continue 'seed_attempts;
+                    }
+                };
                 if !seed_cost.is_finite() {
                     rejection_reasons.push((
                         seed_idx,
@@ -6511,6 +7364,7 @@ fn run_outer_with_plan(
                         plan_used: *the_plan,
                         operator_trust_radius: None,
                         operator_stop_reason: None,
+                        criterion_certificate: None,
                     }),
                     CompassSearchOutcome::BudgetExhausted { point, cost, polls } => {
                         log::warn!(
@@ -6529,6 +7383,7 @@ fn run_outer_with_plan(
                             plan_used: *the_plan,
                             operator_trust_radius: None,
                             operator_stop_reason: None,
+                            criterion_certificate: None,
                         })
                     }
                 }
@@ -6641,7 +7496,7 @@ fn run_outer_with_plan(
         let structural = structural_early_exit_key
             .clone()
             .or_else(|| uniform_structural_key(&seed_rejections, 1));
-        let early_exit_note = if structural_early_exit_key.is_some() {
+        let mut early_exit_note = if structural_early_exit_key.is_some() {
             "early-exit triggered: every observed seed reported the same structural rejection"
                 .to_string()
         } else if stopped_early_due_to_limit {
@@ -6653,6 +7508,30 @@ fn run_outer_with_plan(
         } else {
             String::new()
         };
+        // Surface the ContinuationPath demotion ledger: for a continuation-entry
+        // objective, structural defects DEMOTED the cascade to heavier path
+        // regimes instead of rejecting seeds, so the final diagnosis must show
+        // the heavier-regime re-entries (with their reasons) rather than imply
+        // the candidate set was emptied by a structural early-exit.
+        if !path_demotions.is_empty() {
+            if !early_exit_note.is_empty() {
+                early_exit_note.push_str("; ");
+            }
+            let final_regime = continuation_path
+                .as_ref()
+                .map(|path| format!("{:?}", path.enter_regime()))
+                .unwrap_or_else(|| "<none>".to_string());
+            early_exit_note.push_str(&format!(
+                "continuation-path: {} structural defect(s) DEMOTED to heavier regime(s) \
+                 (never rejected); final regime={final_regime}; reasons: [{}]",
+                path_demotions.len(),
+                path_demotions
+                    .iter()
+                    .map(|d| format!("seed {} -> {:?}: {}", d.seed_idx, d.regime, d.reason))
+                    .collect::<Vec<_>>()
+                    .join("; "),
+            ));
+        }
         if started_seeds == 0 {
             EstimationError::RemlOptimizationFailed(format_no_seeds_passed(
                 context,
@@ -6690,6 +7569,170 @@ mod tests {
     use ndarray::array;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Arc, Mutex};
+
+    // ─── #934 first-order optimality certificate ──────────────────────
+
+    /// Quadratic ½‖ρ − c‖² with value and gradient from the SAME center:
+    /// the certificate must attest consistency at the optimum.
+    #[test]
+    fn certificate_attests_consistent_quadratic() {
+        let center = array![0.3, -0.7];
+        let cost_center = center.clone();
+        let grad_center = center.clone();
+        let problem = OuterProblem::new(2)
+            .with_gradient(Derivative::Analytic)
+            .with_hessian(DeclaredHessianForm::Unavailable)
+            .with_initial_rho(array![2.0, 2.0])
+            .with_seed_config(crate::seeding::SeedConfig {
+                max_seeds: 1,
+                seed_budget: 1,
+                ..Default::default()
+            });
+        let mut obj = problem.build_objective(
+            (),
+            move |_: &mut (), rho: &Array1<f64>| {
+                let d = rho - &cost_center;
+                Ok(0.5 * d.dot(&d))
+            },
+            move |_: &mut (), rho: &Array1<f64>| {
+                let d = rho - &grad_center;
+                Ok(OuterEval {
+                    cost: 0.5 * d.dot(&d),
+                    gradient: d,
+                    hessian: HessianResult::Unavailable,
+                    inner_beta_hint: None,
+                })
+            },
+            None::<fn(&mut ())>,
+            None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+        );
+        let result = problem
+            .run(&mut obj, "certificate consistent quadratic")
+            .expect("consistent quadratic must optimize");
+        let cert = result
+            .criterion_certificate
+            .as_ref()
+            .expect("gradient-based solve must ship a certificate");
+        assert!(
+            cert.first_order_consistent(),
+            "consistent value/gradient paths flagged as desynced: {}",
+            cert.summary(),
+        );
+        assert!(
+            cert.lambdas_railed.is_empty(),
+            "interior optimum reported railed λ: {}",
+            cert.summary(),
+        );
+        assert!(cert.fd_step > 0.0 && cert.fd_error > 0.0);
+    }
+
+    /// The desync bug genus (#748/#752/#901): the gradient path optimizes a
+    /// criterion whose center is silently shifted from the value path's.
+    /// The optimizer happily converges where the WRONG gradient vanishes;
+    /// the certificate's FD of the actual value path must expose it.
+    #[test]
+    fn certificate_flags_value_gradient_desync() {
+        let value_center = array![0.0, 0.0];
+        let wrong_center = array![3.0, -2.0];
+        let wrong_center_for_eval = wrong_center.clone();
+        let problem = OuterProblem::new(2)
+            .with_gradient(Derivative::Analytic)
+            .with_hessian(DeclaredHessianForm::Unavailable)
+            .with_initial_rho(array![1.0, 1.0])
+            .with_seed_config(crate::seeding::SeedConfig {
+                max_seeds: 1,
+                seed_budget: 1,
+                ..Default::default()
+            });
+        // eval(): a self-consistent but WRONG world (shifted center) so the
+        // line search accepts steps and BFGS converges to wrong_center.
+        // eval_cost(): the TRUE criterion value — the path the audit probes.
+        let mut obj = problem.build_objective(
+            (),
+            move |_: &mut (), rho: &Array1<f64>| {
+                let d = rho - &value_center;
+                Ok(0.5 * d.dot(&d))
+            },
+            move |_: &mut (), rho: &Array1<f64>| {
+                let d = rho - &wrong_center_for_eval;
+                Ok(OuterEval {
+                    cost: 0.5 * d.dot(&d),
+                    gradient: d,
+                    hessian: HessianResult::Unavailable,
+                    inner_beta_hint: None,
+                })
+            },
+            None::<fn(&mut ())>,
+            None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+        );
+        let result = problem
+            .run(&mut obj, "certificate desynced quadratic")
+            .expect("desynced quadratic still returns a result");
+        let cert = result
+            .criterion_certificate
+            .as_ref()
+            .expect("gradient-based solve must ship a certificate");
+        // At wrong_center the analytic slope is ~0 but the true value path
+        // slopes by v·(wrong_center − value_center) along the audit
+        // direction. Guard the assertion on that projection being visible
+        // (the deterministic direction is not axis-aligned, so it is).
+        assert!(
+            cert.fd_directional.abs() > 1e-3,
+            "audit direction nearly orthogonal to the desync displacement: {}",
+            cert.summary(),
+        );
+        assert!(
+            !cert.first_order_consistent(),
+            "value↔gradient desync NOT flagged: {}",
+            cert.summary(),
+        );
+        assert!(cert.agreement_z > CERTIFICATE_Z_GATE);
+    }
+
+    #[test]
+    fn certificate_audit_direction_is_deterministic_and_context_sensitive() {
+        let theta = array![1.5, -0.25, 7.0];
+        let a = certificate_audit_direction(&theta, "ctx-one");
+        let b = certificate_audit_direction(&theta, "ctx-one");
+        assert_eq!(a, b, "same fingerprint must give the same direction");
+        let c = certificate_audit_direction(&theta, "ctx-two");
+        assert!(
+            (&a - &c).iter().any(|d| d.abs() > 1e-12),
+            "different context must give a different direction",
+        );
+        assert!((a.dot(&a).sqrt() - 1.0).abs() < 1e-12, "unit norm");
+    }
+
+    #[test]
+    fn certificate_hessian_pd_probe_classifies_definiteness() {
+        assert_eq!(
+            certificate_hessian_is_pd(&Array2::<f64>::eye(3)),
+            Some(true)
+        );
+        let indefinite = array![[1.0, 2.0], [2.0, 1.0]];
+        assert_eq!(certificate_hessian_is_pd(&indefinite), Some(false));
+        assert_eq!(
+            certificate_hessian_is_pd(&Array2::<f64>::zeros((0, 0))),
+            None
+        );
+        let non_finite = array![[f64::NAN]];
+        assert_eq!(certificate_hessian_is_pd(&non_finite), None);
+    }
+
+    #[test]
+    fn certificate_rail_detection_uses_outer_box() {
+        let config = OuterConfig::default(); // rho_bound = 30
+        let rho = array![29.8, 0.0, -29.6];
+        assert_eq!(certificate_railed_lambdas(&rho, 3, &config), vec![0, 2]);
+        // Only the leading rho_dim coordinates are λ axes.
+        assert_eq!(certificate_railed_lambdas(&rho, 1, &config), vec![0]);
+        let bounded = OuterConfig {
+            bounds: Some((array![-5.0, -5.0, -5.0], array![5.0, 5.0, 5.0])),
+            ..OuterConfig::default()
+        };
+        let pinned = array![4.9, -4.7, 0.0];
+        assert_eq!(certificate_railed_lambdas(&pinned, 3, &bounded), vec![0, 1]);
+    }
 
     // The two `outer_scaled_tolerance_*` tests that lived here have
     // been removed: the helper is gone in favor of opt 0.5.0's
@@ -7341,6 +8384,7 @@ mod tests {
                     psi_gradient: Some(array![1.0]),
                     psi_indices: Some(vec![11]),
                     inner_hessian_scale: None,
+                    logdet_enclosure_gap: None,
                 })
             }),
             screening_proxy_fn: None::<fn(&mut (), &Array1<f64>) -> Result<f64, EstimationError>>,
@@ -7549,7 +8593,7 @@ mod tests {
     /// fatal error rather than producing `SecondOrderSample { hessian: None }`
     /// when the runtime returns `HessianResult::Unavailable`. A `None` here
     /// would let `opt::SecondOrderCache::finite_difference_hessian` silently
-    /// estimate the Hessian by finite-differencing the gradient — at biobank
+    /// estimate the Hessian by finite-differencing the gradient — at large-scale
     /// scale, hours of work per silently-mis-routed step. The seed loop
     /// should retry, demote, or fail loudly instead.
     #[test]
@@ -7691,8 +8735,8 @@ mod tests {
     //                                              by the family — BFGS is
     //                                              still the right choice)
     //
-    // `routing_log_line()` exposes a stable token that biobank log
-    // regressions in tests/bench_biobank_scale_runner_test.py pin against.
+    // `routing_log_line()` exposes a stable token that large-scale log
+    // regressions in tests/bench_large_scale_runner_test.py pin against.
     // ----------------------------------------------------------------------
 
     fn cap_for_routing(
@@ -7713,8 +8757,8 @@ mod tests {
     }
 
     #[test]
-    fn routing_analytic_analytic_stays_arc_at_biobank_scale() {
-        // Biobank-scale standard GAM (n=320K, p=65, k=6) used to trigger the
+    fn routing_analytic_analytic_stays_arc_at_large_scale() {
+        // Large-scale standard GAM (n=320K, p=65, k=6) used to trigger the
         // aggregate `k·n·p²` cost-driven downgrade. Post-#1 the planner has
         // no scale-driven downgrade, so `(Analytic, Analytic)` must stay on
         // ARC + Analytic regardless of the problem dimensions.
@@ -7759,7 +8803,7 @@ mod tests {
 
     #[test]
     fn routing_log_line_arc_analytic_does_not_advertise_matrix_free() {
-        // Token pinned by tests/bench_biobank_scale_runner_test.py. Renaming
+        // Token pinned by tests/bench_large_scale_runner_test.py. Renaming
         // any of these substrings is a log-regression and breaks downstream
         // grep patterns.
         let p = OuterPlan {
@@ -8030,7 +9074,7 @@ mod tests {
 
     #[test]
     fn disabled_fallback_hybrid_efs_capability_routes_to_bfgs_primary() {
-        // Production Matérn60 exact adaptive regularization at biobank scale:
+        // Production Matérn60 exact adaptive regularization at large scale:
         // rho_dim=3 retained quadratic penalties, psi_dim=6 adaptive λ/ε
         // coordinates, n_params=9, analytic gradient, and exact outer Hessian
         // cost-gated unavailable. Structurally this is HybridEFS-shaped, but
@@ -8058,7 +9102,7 @@ mod tests {
         let primary_cap = primary_capability_for_config(
             trapped_cap.clone(),
             &disabled_config,
-            "biobank exact adaptive",
+            "large-scale exact adaptive",
         );
         assert!(primary_cap.disable_fixed_point);
         assert_eq!(plan(&primary_cap).solver, Solver::Bfgs);
@@ -8090,7 +9134,7 @@ mod tests {
         let automatic_cap = primary_capability_for_config(
             trapped_cap.clone(),
             &automatic_config,
-            "biobank exact adaptive",
+            "large-scale exact adaptive",
         );
         assert!(!automatic_cap.disable_fixed_point);
         assert_eq!(plan(&automatic_cap).solver, Solver::HybridEfs);
@@ -8128,7 +9172,7 @@ mod tests {
                 Some(move |_: &mut (), _: &Array1<f64>| {
                     efs_calls.fetch_add(1, Ordering::Relaxed);
                     Err(EstimationError::RemlOptimizationFailed(format!(
-                        "{} synthetic biobank adaptive HybridEFS escape",
+                        "{} synthetic large-scale adaptive HybridEFS escape",
                         EFS_FIRST_ORDER_FALLBACK_MARKER,
                     )))
                 })
@@ -8516,6 +9560,7 @@ mod tests {
             },
             operator_trust_radius: None,
             operator_stop_reason: None,
+            criterion_certificate: None,
         };
         let nonconverged_lo = OuterResult {
             rho: array![1.0],
@@ -8531,6 +9576,7 @@ mod tests {
             },
             operator_trust_radius: None,
             operator_stop_reason: None,
+            criterion_certificate: None,
         };
         let converged = OuterResult {
             rho: array![2.0],
@@ -8546,6 +9592,7 @@ mod tests {
             },
             operator_trust_radius: None,
             operator_stop_reason: None,
+            criterion_certificate: None,
         };
 
         assert!(candidate_improves_best(&nonconverged_hi, None));
@@ -9033,6 +10080,7 @@ mod tests {
                     psi_gradient: None,
                     psi_indices: None,
                     inner_hessian_scale: None,
+                    logdet_enclosure_gap: None,
                 })
             }),
         );
@@ -9085,6 +10133,7 @@ mod tests {
                             psi_gradient: None,
                             psi_indices: None,
                             inner_hessian_scale: None,
+                            logdet_enclosure_gap: None,
                         })
                     } else {
                         Err(EstimationError::RemlOptimizationFailed(

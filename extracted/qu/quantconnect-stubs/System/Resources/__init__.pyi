@@ -249,30 +249,6 @@ class NeutralResourcesLanguageAttribute(System.Attribute):
         ...
 
 
-class MissingSatelliteAssemblyException(System.SystemException):
-    """This class has no documentation."""
-
-    @property
-    def culture_name(self) -> str:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, culture_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-
 class MissingManifestResourceException(System.SystemException):
     """This class has no documentation."""
 
@@ -297,6 +273,30 @@ class SatelliteContractVersionAttribute(System.Attribute):
         ...
 
     def __init__(self, version: str) -> None:
+        ...
+
+
+class MissingSatelliteAssemblyException(System.SystemException):
+    """This class has no documentation."""
+
+    @property
+    def culture_name(self) -> str:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, culture_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
         ...
 
 

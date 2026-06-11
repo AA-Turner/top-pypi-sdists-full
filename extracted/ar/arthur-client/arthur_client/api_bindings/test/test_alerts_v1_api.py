@@ -47,10 +47,24 @@ class TestAlertsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_model_alert_logs(self) -> None:
+        """Test case for get_model_alert_logs
+
+        Get Model Alert Logs
+        """
+        pass
+
     def test_get_model_alerts(self) -> None:
         """Test case for get_model_alerts
 
         Get Model Alerts
+        """
+        pass
+
+    def test_post_model_alert_logs(self) -> None:
+        """Test case for post_model_alert_logs
+
+        Create Model Alert Logs
         """
         pass
 

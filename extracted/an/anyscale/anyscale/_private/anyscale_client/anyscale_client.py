@@ -105,6 +105,12 @@ from anyscale.client.openapi_client.models import (
     WorkspaceDataplaneProxiedArtifacts,
     WriteProject,
 )
+from anyscale.client.openapi_client.models.apply_scheduler_config_request import (
+    ApplySchedulerConfigRequest,
+)
+from anyscale.client.openapi_client.models.apply_scheduler_config_response import (
+    ApplySchedulerConfigResponse,
+)
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
 from anyscale.client.openapi_client.models.databricks_connection_config_item import (
     DatabricksConnectionConfigItem,
@@ -125,6 +131,12 @@ from anyscale.client.openapi_client.models.decoratedschedule_list_response impor
 )
 from anyscale.client.openapi_client.models.production_job import ProductionJob
 from anyscale.client.openapi_client.models.resource_tag_record import ResourceTagRecord
+from anyscale.client.openapi_client.models.scheduler_config_response import (
+    SchedulerConfigResponse,
+)
+from anyscale.client.openapi_client.models.schedulerconfigversionsummary_list_response import (
+    SchedulerconfigversionsummaryListResponse,
+)
 from anyscale.client.openapi_client.models.update_job_queue_request import (
     UpdateJobQueueRequest,
 )
@@ -2522,6 +2534,37 @@ class AnyscaleClient(AnyscaleClientInterface):
         _ = self._internal_api_client.set_resource_quota_status_api_v2_resource_quotas_resource_quota_id_status_patch(
             resource_quota_id, ResourceQuotaStatus(is_enabled=is_enabled)
         ).result
+
+    # ---- Scheduler config ----
+
+    @handle_api_exceptions
+    def apply_scheduler_config(
+        self, request: ApplySchedulerConfigRequest,
+    ) -> ApplySchedulerConfigResponse:
+        return self._internal_api_client.apply_scheduler_config_api_v2_scheduler_config_post(
+            request
+        ).result
+
+    @handle_api_exceptions
+    def get_active_scheduler_config(self) -> SchedulerConfigResponse:
+        return (
+            self._internal_api_client.get_active_scheduler_config_api_v2_scheduler_config_get().result
+        )
+
+    @handle_api_exceptions
+    def get_scheduler_config_version(self, version: int,) -> SchedulerConfigResponse:
+        return self._internal_api_client.get_scheduler_config_version_api_v2_scheduler_config_versions_version_get(
+            version
+        ).result
+
+    @handle_api_exceptions
+    def list_scheduler_config_versions(
+        self, *, count: Optional[int] = None, paging_token: Optional[str] = None,
+    ) -> SchedulerconfigversionsummaryListResponse:
+        return self._internal_api_client.list_scheduler_config_versions_api_v2_scheduler_config_versions_get(
+            count=count if count is not None else self.LIST_ENDPOINT_COUNT,
+            paging_token=paging_token,
+        )
 
     @handle_api_exceptions
     def upsert_resource_tags(

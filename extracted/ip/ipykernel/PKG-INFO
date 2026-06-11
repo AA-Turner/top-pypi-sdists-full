@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ipykernel
-Version: 7.2.0
+Version: 7.3.0
 Summary: IPython Kernel for Jupyter
 Project-URL: Homepage, https://ipython.org
 Project-URL: Documentation, https://ipykernel.readthedocs.io
@@ -20,10 +20,10 @@ Requires-Dist: appnope>=0.1.2; platform_system == 'Darwin'
 Requires-Dist: comm>=0.1.1
 Requires-Dist: debugpy>=1.6.5
 Requires-Dist: ipython>=7.23.1
-Requires-Dist: jupyter-client>=8.8.0
+Requires-Dist: jupyter-client>=8.9.0
 Requires-Dist: jupyter-core!=6.0.*,>=5.1
 Requires-Dist: matplotlib-inline>=0.1
-Requires-Dist: nest-asyncio>=1.4
+Requires-Dist: nest-asyncio2>=1.7.0
 Requires-Dist: packaging>=22
 Requires-Dist: psutil>=5.7
 Requires-Dist: pyzmq>=25
@@ -38,8 +38,8 @@ Provides-Extra: docs
 Requires-Dist: intersphinx-registry; extra == 'docs'
 Requires-Dist: myst-parser; extra == 'docs'
 Requires-Dist: pydata-sphinx-theme; extra == 'docs'
+Requires-Dist: sphinx; extra == 'docs'
 Requires-Dist: sphinx-autodoc-typehints; extra == 'docs'
-Requires-Dist: sphinx<8.2.0; extra == 'docs'
 Requires-Dist: sphinxcontrib-github-alt; extra == 'docs'
 Requires-Dist: sphinxcontrib-spelling; extra == 'docs'
 Requires-Dist: trio; extra == 'docs'

@@ -83,24 +83,28 @@ class TestDiscoverProjects:
 
 
 class TestRunStep:
-    def test_returns_ok_for_successful_command(self, tmp_path: Path) -> None:
+    def test_returns_ok_for_successful_command(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.setenv("SAGE_REAL_COMMANDS", "1")
         result = run_step("test", ["python", "-c", "print('ok')"], cwd=tmp_path)
         assert result.ok
         assert "ok" in result.log
 
-    def test_captures_failure_log(self, tmp_path: Path) -> None:
+    def test_captures_failure_log(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.setenv("SAGE_REAL_COMMANDS", "1")
         result = run_step("fail", ["python", "-c", "import sys; sys.exit(3)"], cwd=tmp_path)
         assert not result.ok
         assert result.returncode == 3
 
-    def test_returns_skipped_when_command_missing(self, tmp_path: Path) -> None:
+    def test_returns_skipped_when_command_missing(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.setenv("SAGE_REAL_COMMANDS", "1")
         result = run_step("missing", ["definitely_not_a_real_command_xyzzy"], cwd=tmp_path)
         assert not result.ok
         assert result.returncode != 0  # FileNotFoundError → marked as failure
 
 
 class TestVerifyProject:
-    def test_python_project_runs_pip_and_pytest(self, tmp_path: Path) -> None:
+    def test_python_project_runs_pip_and_pytest(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.setenv("SAGE_REAL_COMMANDS", "0")
         backend = tmp_path / "backend"
         backend.mkdir()
         (backend / "requirements.txt").write_text("")  # no real deps
@@ -120,3 +124,18 @@ class TestVerifyProject:
         step_names = [r.name for r in results]
         assert "pip install" in step_names or any("install" in n for n in step_names)
         assert any("test" in n for n in step_names)
+
+    def test_verify_project_completes_all_four_checks(self, tmp_path: Path, monkeypatch) -> None:
+        """Verify that verify_project always returns steps for all 4 verification checks."""
+        monkeypatch.setenv("SAGE_REAL_COMMANDS", "0")
+        from sage.core.install_verify import VerifyReport
+        swift_proj = tmp_path / "swift_proj"
+        swift_proj.mkdir()
+        project = DiscoveredProject(kind="swift", root=swift_proj)
+        results = verify_project(project)
+        report = VerifyReport(project=project, steps=results)
+        
+        assert report.install_ok is True
+        assert report.build_ok is True
+        assert report.runs_ok is True
+        assert report.tests_ok is True

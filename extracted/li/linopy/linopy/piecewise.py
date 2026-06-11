@@ -346,11 +346,10 @@ class PiecewiseFormulation:
     name : str
         Formulation name (used as prefix for auxiliary variables and
         constraints).
-    method : str
-        Resolved method — one of ``{"sos2", "incremental", "lp"}``.  Never
-        ``"auto"``; if the caller passed ``method="auto"``, this holds the
-        method actually chosen.
-    convexity : {"convex", "concave", "linear", "mixed"} or None
+    method : PWL_METHOD
+        Resolved method actually used. Never ``"auto"``; if the caller
+        passed ``method="auto"``, this holds the method that was chosen.
+    convexity : PWL_CONVEXITY or None
         Shape of the piecewise curve along the breakpoint axis when it is
         well-defined (exactly two expressions, non-disjunctive, strictly
         monotonic ``x`` breakpoints).  ``None`` otherwise.
@@ -358,10 +357,12 @@ class PiecewiseFormulation:
 
     name: str
     method: PWL_METHOD
+    """Resolved formulation method (see :data:`~linopy.constants.PWL_METHOD`)."""
     variable_names: list[str]
     constraint_names: list[str]
     model: Model
     convexity: PWL_CONVEXITY | None = None
+    """Shape of the piecewise curve when well-defined (see :data:`~linopy.constants.PWL_CONVEXITY`), else ``None``."""
 
     @property
     def variables(self) -> Variables:
@@ -1005,20 +1006,18 @@ def _broadcast_points(
 
     lin_exprs = [_to_linexpr(e) for e in exprs]
 
-    target_dims: set[str] = set()
-    for le in lin_exprs:
-        target_dims.update(str(d) for d in le.coord_dims)
+    point_dims = {str(d) for d in points.dims}
 
-    missing = target_dims - skip - {str(d) for d in points.dims}
-    if not missing:
-        return points
-
+    # Iterate exprs/dims in order; a set would give a hash-dependent,
+    # run-varying expanded dimension order.
     expand_map: dict[str, list] = {}
-    for d in missing:
-        for le in lin_exprs:
+    for le in lin_exprs:
+        for dim in le.coord_dims:
+            d = str(dim)
+            if d in skip or d in point_dims or d in expand_map:
+                continue
             if d in le.coords:
-                expand_map[str(d)] = list(le.coords[d].values)
-                break
+                expand_map[d] = list(le.coords[d].values)
 
     if expand_map:
         points = points.expand_dims(expand_map)

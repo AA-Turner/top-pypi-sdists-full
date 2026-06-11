@@ -51,6 +51,7 @@ VOLUME_QUOTAS = {
     'backups': 'backups',
     'backup_gigabytes': 'backup-gigabytes',
     'gigabytes': 'gigabytes',
+    'groups': 'groups',
     'per_volume_gigabytes': 'per-volume-gigabytes',
     'snapshots': 'snapshots',
     'volumes': 'volumes',
@@ -70,6 +71,7 @@ NETWORK_QUOTAS = {
     'subnet': 'subnets',
     'port': 'ports',
     'router': 'routers',
+    'router_route': 'router-routes',
     'rbac_policy': 'rbac-policies',
     'subnetpool': 'subnetpools',
 }
@@ -78,6 +80,7 @@ NETWORK_KEYS = [
     'floating_ips',
     'networks',
     'rbac_policies',
+    'router_routes',
     'routers',
     'ports',
     'security_group_rules',
@@ -102,7 +105,7 @@ def _xform_get_quota(
     return res
 
 
-def get_project(app: Any, project: str | None) -> dict[str, str | None]:
+def get_project(app: Any, project: str | None) -> dict[str, str]:
     if project is not None:
         identity_client = sdk_utils.ensure_service_version(
             app.client_manager.sdk_connection.identity, '3'
@@ -112,14 +115,11 @@ def get_project(app: Any, project: str | None) -> dict[str, str | None]:
         )
         project_id = found_project.id
         project_name = found_project.name
-    elif app.client_manager.auth_ref:
+    else:
         # Get the project from the current auth
         auth_ref = app.client_manager.auth_ref
         project_id = auth_ref.project_id
         project_name = auth_ref.project_name
-    else:
-        project_id = None
-        project_name = None
 
     return {
         'id': project_id,
@@ -376,6 +376,7 @@ class ListQuota(command.Lister):
             'backups',
             'backup_gigabytes',
             'gigabytes',
+            'groups',
             'per_volume_gigabytes',
             'snapshots',
             'volumes',
@@ -385,6 +386,7 @@ class ListQuota(command.Lister):
             'Backups',
             'Backup Gigabytes',
             'Gigabytes',
+            'Groups',
             'Per Volume Gigabytes',
             'Snapshots',
             'Volumes',
@@ -439,6 +441,7 @@ class ListQuota(command.Lister):
             'networks',
             'ports',
             'rbac_policies',
+            'router_routes',
             'routers',
             'security_groups',
             'security_group_rules',
@@ -451,6 +454,7 @@ class ListQuota(command.Lister):
             'Networks',
             'Ports',
             'RBAC Policies',
+            'Router Routes',
             'Routers',
             'Security Groups',
             'Security Group Rules',

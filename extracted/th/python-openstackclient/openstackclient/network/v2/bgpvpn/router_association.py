@@ -12,10 +12,15 @@
 #   WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #   License for the specific language governing permissions and limitations
 #   under the License.
-#
 
+import argparse
+from collections.abc import Iterable, Sequence
 import logging
+from typing import Any
 
+from openstack.network.v2 import (
+    bgpvpn_router_association as _bgpvpn_router_association,
+)
 from osc_lib.cli import identity as osc_id
 from osc_lib.cli import parseractions
 from osc_lib import exceptions
@@ -41,7 +46,9 @@ _attr_map = (
 _formatters: dict[str, osc_utils.FormatterT] = {}
 
 
-def _get_columns(item):
+def _get_columns(
+    item: _bgpvpn_router_association.BgpVpnRouterAssociation,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     column_map: dict[str, str] = {}
     hidden_columns = ['location', 'name', 'tenant_id']
     return osc_utils.get_osc_show_columns_for_sdk_resource(
@@ -49,7 +56,7 @@ def _get_columns(item):
     )
 
 
-def _get_common_parser(parser, action):
+def _get_common_parser(parser: argparse.ArgumentParser, action: str) -> None:
     """Adds to parser arguments common to create, set and unset commands.
 
     :params ArgumentParser parser: argparse object contains all command's
@@ -76,7 +83,7 @@ def _get_common_parser(parser, action):
     )
 
 
-def _args2body(action, args):
+def _args2body(action: str, args: argparse.Namespace) -> dict[str, Any]:
     attrs = {'advertise_extra_routes': False}
     if args.advertise_extra_routes:
         attrs['advertise_extra_routes'] = action != 'unset'
@@ -88,7 +95,7 @@ def _args2body(action, args):
 class CreateBgpvpnRouterAssoc(command.ShowOne):
     _description = _("Create a BGP VPN router association")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         osc_id.add_project_owner_option_to_parser(parser)
         parser.add_argument(
@@ -104,7 +111,9 @@ class CreateBgpvpnRouterAssoc(command.ShowOne):
         _get_common_parser(parser, 'create')
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
         client = self.app.client_manager.network
         bgpvpn = client.find_bgpvpn(parsed_args.bgpvpn, ignore_missing=False)
         router = client.find_router(parsed_args.resource, ignore_missing=False)
@@ -131,7 +140,7 @@ class SetBgpvpnRouterAssoc(command.Command):
     _description = _("Set BGP VPN router association properties")
     _action = 'set'
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'resource_association_id',
@@ -146,7 +155,7 @@ class SetBgpvpnRouterAssoc(command.Command):
         _get_common_parser(parser, self._action)
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
         client = self.app.client_manager.network
         bgpvpn = client.find_bgpvpn(parsed_args.bgpvpn, ignore_missing=False)
         body = _args2body(self._action, parsed_args)
@@ -165,7 +174,7 @@ class DeleteBgpvpnRouterAssoc(command.Command):
         "Delete a BGP VPN router association(s) for a given BGP VPN"
     )
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'resource_association_ids',
@@ -180,7 +189,7 @@ class DeleteBgpvpnRouterAssoc(command.Command):
         )
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(self, parsed_args: argparse.Namespace) -> None:
         client = self.app.client_manager.network
         bgpvpn = client.find_bgpvpn(parsed_args.bgpvpn, ignore_missing=False)
         fails = 0
@@ -212,7 +221,7 @@ class DeleteBgpvpnRouterAssoc(command.Command):
 class ListBgpvpnRouterAssoc(command.Lister):
     _description = _("List BGP VPN router associations for a given BGP VPN")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'bgpvpn',
@@ -235,7 +244,9 @@ class ListBgpvpnRouterAssoc(command.Lister):
         )
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[tuple[Any, ...]]]:
         client = self.app.client_manager.network
         bgpvpn = client.find_bgpvpn(parsed_args.bgpvpn, ignore_missing=False)
         params = {}
@@ -261,7 +272,7 @@ class ListBgpvpnRouterAssoc(command.Lister):
 class ShowBgpvpnRouterAssoc(command.ShowOne):
     _description = _("Show information of a given BGP VPN router association")
 
-    def get_parser(self, prog_name):
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
         parser = super().get_parser(prog_name)
         parser.add_argument(
             'resource_association_id',
@@ -275,7 +286,9 @@ class ShowBgpvpnRouterAssoc(command.ShowOne):
         )
         return parser
 
-    def take_action(self, parsed_args):
+    def take_action(
+        self, parsed_args: argparse.Namespace
+    ) -> tuple[Sequence[str], Iterable[Any]]:
         client = self.app.client_manager.network
         bgpvpn = client.find_bgpvpn(parsed_args.bgpvpn, ignore_missing=False)
         obj = client.get_bgpvpn_router_association(

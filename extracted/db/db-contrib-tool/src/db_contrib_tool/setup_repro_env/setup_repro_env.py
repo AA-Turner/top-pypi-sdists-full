@@ -166,7 +166,14 @@ class SetupReproOrchestrator:
             request_type = RequestType.EVG_VERSION
 
         if bin_suffix in [LTS_RELEASE_ALIAS, CONTINUOUS_RELEASE_ALIAS, PATCH_RELEASE_ALIAS]:
-            bin_suffix = self._get_release_version(bin_suffix)
+            resolved_version = self._get_release_version(bin_suffix)
+            if bin_suffix == PATCH_RELEASE_ALIAS:
+                # last-patch resolves to a full patch version (e.g. "9.0.0-rc1010"); use
+                # only the major.minor portion for the binary suffix (e.g. "9.0").
+                match = re.match(r"\d+\.\d+", resolved_version)
+                if match:
+                    resolved_version = match.group(0)
+            bin_suffix = resolved_version
 
         request_target = RequestTarget(
             request_type=request_type,

@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 use uv_auth::CredentialsCache;
+use uv_cache::Cache;
 use uv_configuration::NoSources;
 use uv_distribution_types::{GitDirectorySourceUrl, IndexLocations, Requirement};
 use uv_normalize::{ExtraName, GroupName, PackageName};
@@ -94,14 +95,15 @@ impl Metadata {
 
     /// Lower by considering `tool.uv` in `pyproject.toml` if present, used for Git and directory
     /// dependencies.
-    pub(crate) async fn from_workspace(
+    pub async fn from_workspace(
         metadata: ResolutionMetadata,
         install_path: &Path,
         git_source: Option<&GitWorkspaceMember<'_>>,
         locations: &IndexLocations,
         sources: NoSources,
         editable: bool,
-        cache: &WorkspaceCache,
+        cache: &Cache,
+        workspace_cache: &WorkspaceCache,
         credentials_cache: &CredentialsCache,
     ) -> Result<Self, MetadataError> {
         // Lower the requirements.
@@ -125,6 +127,7 @@ impl Metadata {
             sources,
             editable,
             cache,
+            workspace_cache,
             credentials_cache,
         )
         .await?;

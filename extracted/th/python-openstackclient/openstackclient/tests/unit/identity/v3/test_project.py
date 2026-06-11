@@ -25,7 +25,7 @@ from openstackclient.identity.v3 import project
 from openstackclient.tests.unit.identity.v3 import fakes as identity_fakes
 
 
-class TestProjectCreate(identity_fakes.TestIdentityv3):
+class TestProjectCreate(identity_fakes.TestIdentity):
     domain = sdk_fakes.generate_fake_resource(_domain.Domain)
 
     columns = (
@@ -863,7 +863,7 @@ class TestProjectCreate(identity_fakes.TestIdentityv3):
         )
 
 
-class TestProjectDelete(identity_fakes.TestIdentityv3):
+class TestProjectDelete(identity_fakes.TestIdentity):
     domain = sdk_fakes.generate_fake_resource(_domain.Domain)
 
     def setUp(self):
@@ -992,7 +992,7 @@ class TestProjectDelete(identity_fakes.TestIdentityv3):
         )
 
 
-class TestProjectList(identity_fakes.TestIdentityv3):
+class TestProjectList(identity_fakes.TestIdentity):
     domain = sdk_fakes.generate_fake_resource(_domain.Domain)
     project = sdk_fakes.generate_fake_resource(
         _project.Project, domain_id=domain.id
@@ -1273,8 +1273,31 @@ class TestProjectList(identity_fakes.TestIdentityv3):
         self.assertEqual(self.columns, columns)
         self.assertEqual(self.datalist, tuple(data))
 
+    def test_project_list_with_pagination(self):
+        self.identity_sdk_client.projects.return_value = [self.project]
 
-class TestProjectSet(identity_fakes.TestIdentityv3):
+        arglist = [
+            '--limit',
+            '2',
+            '--marker',
+            'some-marker',
+        ]
+        verifylist = [
+            ('limit', 2),
+            ('marker', 'some-marker'),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        columns, data = self.cmd.take_action(parsed_args)
+
+        kwargs = {'limit': 2, 'marker': 'some-marker'}
+        self.identity_sdk_client.projects.assert_called_with(**kwargs)
+
+        self.assertEqual(self.columns, columns)
+        self.assertEqual(self.datalist, tuple(data))
+
+
+class TestProjectSet(identity_fakes.TestIdentity):
     domain = sdk_fakes.generate_fake_resource(_domain.Domain)
 
     project_kwargs_no_options = {
@@ -1549,7 +1572,7 @@ class TestProjectSet(identity_fakes.TestIdentityv3):
         self.assertIsNone(result)
 
 
-class TestProjectShow(identity_fakes.TestIdentityv3):
+class TestProjectShow(identity_fakes.TestIdentity):
     domain = sdk_fakes.generate_fake_resource(_domain.Domain)
 
     columns = (

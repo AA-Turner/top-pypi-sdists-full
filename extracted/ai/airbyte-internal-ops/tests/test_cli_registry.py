@@ -20,9 +20,12 @@ from airbyte_ops_mcp.registry.compile import (
     _apply_overrides_to_latest_entry,
     _apply_release_candidates_to_entries,
     _build_composite_registry_json,
+    _build_global_registry_json,
     _build_version_index,
     _cleanup_disabled_registry_entries,
+    _compile_global_registry,
     _compute_release_candidates,
+    _requires_pinned_override_synthesis,
 )
 from airbyte_ops_mcp.registry.generate import (
     _apply_overrides_from_registry,
@@ -662,6 +665,41 @@ class InMemoryRegistryFileSystem:
         self.files.pop(path, None)
 
 
+def quickbooks_pinned_override_files() -> tuple[dict[str, str], str, str]:
+    """Create QuickBooks-shaped registry metadata for pinned-override tests."""
+    store = RegistryStore.parse("coral:dev")
+    base = f"{store.bucket_root}/metadata/airbyte/source-quickbooks"
+    definition_id = "cf9c4355-b171-4477-8f2d-6c5cc5fc8b7e"
+    pinned_metadata_path = "metadata/airbyte/source-quickbooks/4.0.4/metadata.yaml"
+    pinned_entry = {
+        "sourceDefinitionId": definition_id,
+        "name": "QuickBooks",
+        "dockerRepository": "airbyte/source-quickbooks",
+        "dockerImageTag": "4.0.4",
+        "spec": {"connectionSpecification": {"required": ["realm_id"]}},
+        "packageInfo": {"cdk_version": "python:4.6.2"},
+        "generated": {
+            "source_file_info": {"metadata_file_path": pinned_metadata_path},
+        },
+    }
+    files = {
+        f"{base}/latest/metadata.yaml": (
+            "data:\n"
+            "  registryOverrides:\n"
+            "    cloud:\n"
+            "      enabled: true\n"
+            "      dockerImageTag: 4.0.4\n"
+            "    oss:\n"
+            "      enabled: true\n"
+            "      dockerImageTag: 4.0.4\n"
+        ),
+        f"{base}/latest/version=4.1.8": "",
+        f"{base}/4.0.4/cloud.json": json.dumps(pinned_entry),
+        f"{base}/4.0.4/oss.json": json.dumps(pinned_entry),
+    }
+    return files, base, definition_id
+
+
 class InMemoryGlobFileSystem:
     """Minimal glob-capable filesystem for registry metrics tests."""
 
@@ -947,6 +985,106 @@ def test_apply_overrides_to_latest_entry_handles_malformed_override_blocks() -> 
     )
     assert oss_entry["generated"]["source_file_info"]["metadata_file_path"] == (
         latest_metadata_path
+    )
+
+
+@pytest.mark.unit
+def test_apply_overrides_to_latest_entry_synthesizes_missing_pinned_entries() -> None:
+    """Latest sync creates missing registry entries from pinned override artifacts."""
+    store = RegistryStore.parse("coral:dev")
+    latest_metadata_path = "metadata/airbyte/source-quickbooks/latest/metadata.yaml"
+    files, base, definition_id = quickbooks_pinned_override_files()
+    fs = InMemoryRegistryFileSystem(files)
+
+    _apply_overrides_to_latest_entry(
+        fs,
+        store=store,
+        connector="source-quickbooks",
+        version="4.1.8",
+    )
+
+    for registry_type in ("cloud", "oss"):
+        entry_path = f"{base}/latest/{registry_type}.json"
+        assert entry_path in files
+        latest_entry = json.loads(files[entry_path])
+        assert latest_entry["sourceDefinitionId"] == definition_id
+        assert latest_entry["dockerImageTag"] == "4.0.4"
+        assert latest_entry["spec"] == {
+            "connectionSpecification": {"required": ["realm_id"]},
+        }
+        assert latest_entry["packageInfo"] == {"cdk_version": "python:4.6.2"}
+        assert (
+            latest_entry["generated"]["source_file_info"]["metadata_file_path"]
+            == latest_metadata_path
+        )
+
+        registry_entries = _compile_global_registry(
+            fs,
+            store=store,
+            latest_versions={"source-quickbooks": "4.1.8"},
+            registry_type=registry_type,
+        )
+        registry_json = _build_global_registry_json(registry_entries)
+        assert registry_json["sources"][0]["sourceDefinitionId"] == definition_id
+        assert registry_json["sources"][0]["dockerImageTag"] == "4.0.4"
+
+
+@pytest.mark.unit
+def test_requires_pinned_override_synthesis_detects_missing_entries() -> None:
+    """Marker-current latest dirs still resync when pinned entries are missing."""
+    store = RegistryStore.parse("coral:dev")
+    files, base, _ = quickbooks_pinned_override_files()
+    fs = InMemoryRegistryFileSystem(files)
+
+    assert _requires_pinned_override_synthesis(
+        fs,
+        store=store,
+        connector="source-quickbooks",
+        version="4.1.8",
+    )
+
+    files[f"{base}/latest/cloud.json"] = files[f"{base}/4.0.4/cloud.json"]
+    files[f"{base}/latest/oss.json"] = files[f"{base}/4.0.4/oss.json"]
+
+    assert not _requires_pinned_override_synthesis(
+        fs,
+        store=store,
+        connector="source-quickbooks",
+        version="4.1.8",
+    )
+
+
+@pytest.mark.unit
+def test_requires_pinned_override_synthesis_ignores_empty_metadata() -> None:
+    """Empty latest metadata does not trigger pinned override synthesis."""
+    store = RegistryStore.parse("coral:dev")
+    files, base, _ = quickbooks_pinned_override_files()
+    fs = InMemoryRegistryFileSystem(files)
+    files[f"{base}/latest/metadata.yaml"] = ""
+
+    assert not _requires_pinned_override_synthesis(
+        fs,
+        store=store,
+        connector="source-quickbooks",
+        version="4.1.8",
+    )
+
+
+@pytest.mark.unit
+def test_requires_pinned_override_synthesis_skips_metadata_when_entries_exist() -> None:
+    """Complete latest registry entries do not require reading latest metadata."""
+    store = RegistryStore.parse("coral:dev")
+    files, base, _ = quickbooks_pinned_override_files()
+    fs = InMemoryRegistryFileSystem(files)
+    files[f"{base}/latest/cloud.json"] = files[f"{base}/4.0.4/cloud.json"]
+    files[f"{base}/latest/oss.json"] = files[f"{base}/4.0.4/oss.json"]
+    del files[f"{base}/latest/metadata.yaml"]
+
+    assert not _requires_pinned_override_synthesis(
+        fs,
+        store=store,
+        connector="source-quickbooks",
+        version="4.1.8",
     )
 
 

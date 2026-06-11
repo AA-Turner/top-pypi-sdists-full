@@ -47,7 +47,7 @@ pub enum Stmt {
         line: usize,
         col: usize,
     },
-    /// `reset q[i];` — UnsupportedFeature (mid-circuit).
+    /// `reset q[i];` — v0.4.5 부터 `Circuit::reset` 으로 정상 lowering.
     Reset { qarg: QArg, line: usize, col: usize },
     /// `if (c == N) gate_call;` — single-statement body, v0.4.5 lowering.
     If {
@@ -75,12 +75,16 @@ pub enum Stmt {
         line: usize,
         col: usize,
     },
-    /// `for type var in [low:high] { stmts }` — v0.4.7.
-    /// loop variable 은 panta-sim 에서 사용 불가 — body 안에서 i 가 게이트 인자
-    /// 로 쓰이는 회로는 from_qiskit 에서 unroll 후 들어와야 함.
+    /// `for type var in [low:high]` 또는 `[low:step:high]` `{ stmts }` — v0.4.7
+    /// (step 보존은 v1.4).  loop variable 은 panta-sim 에서 사용 불가 — body
+    /// 안에서 i 가 게이트 인자로 쓰이는 회로는 from_qiskit 에서 unroll 후
+    /// 들어와야 함.  `step == 0` 은 lowering 에서 거부, 음수 step 은 OpenQASM
+    /// 3.0 §5 대로 내림차순 시퀀스 (low > high 일 때 비어 있지 않음).
     ForLoop {
         var: String,
         low: i64,
+        /// range step.  `[low:high]` 형식이면 1.
+        step: i64,
         high: i64,
         body: Vec<Stmt>,
         line: usize,
@@ -101,10 +105,11 @@ pub enum Stmt {
         line: usize,
         col: usize,
     },
-    /// `def name(typed-params) { gate-body }` 서브루틴 정의 (v0.6.9, v0.7.3
-    /// qubit 배열 추가).  OpenQASM 3.0 §4.  classical (int/float/angle/uint),
-    /// qubit (단일), qubit[N] (배열) 파라미터를 섞을 수 있으며, 호출 시 body 가
-    /// 인라인 확장된다.  반환값 / bit 파라미터 / body 내 measure·control-flow 는
+    /// `def name(typed-params) { body }` 서브루틴 정의 (v0.6.9, v0.7.3 qubit
+    /// 배열 + body measure/reset/control-flow, v1.3.2 bit/bit[N] 파라미터).
+    /// OpenQASM 3.0 §4.  classical (int/float/angle/uint), qubit (단일),
+    /// qubit[N] (배열), bit / bit[N] (by-reference cbit) 파라미터를 섞을 수
+    /// 있으며, 호출 시 body 가 인라인 확장된다.  반환값 (`-> bit` 등) 만 여전히
     /// 미지원 (lowering 에서 거부).
     DefDecl(DefDecl),
     /// def 서브루틴 호출 `name(arg, arg, ...)` (v0.6.9).  classical 인자는

@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: phoebusgen
-Version: 3.2.0
+Version: 3.3.0
 Summary: Screen generator for CS-Studio Phoebus displays
-Author-email: Tynan Ford <tford@lbl.gov>, Madeline Park <MadelinePark@lbl.gov>
+Author-email: Tynan Ford <tford@lbl.gov>, Madeline Park <MadelinePark@lbl.gov>, Jakub Wlodek <jwlodek@bnl.gov>
 License: 		    GNU GENERAL PUBLIC LICENSE
         		       Version 2, June 1991
         
@@ -353,11 +353,14 @@ Classifier: License :: OSI Approved :: GNU General Public License v2 (GPLv2)
 Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Software Development :: Code Generators
-Requires-Python: >=3.5
+Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: dataclasses; python_version < "3.7"
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"

@@ -296,7 +296,10 @@ impl Circuit {
 
     /// 모든 큐비트를 측정한다.
     pub fn measure_all(&mut self) {
-        self.n_cbits = self.n_qubits;
+        // 빌더 불변식: n_cbits 는 단조 증가만 한다.  이전의 `= n_qubits` 는
+        // 앞선 measure(q, c) 가 c >= n_qubits 로 넓혀 둔 레지스터를 줄여,
+        // release 빌드에서 해당 cbit 기록이 조용히 사라지는 버그였다.
+        self.n_cbits = self.n_cbits.max(self.n_qubits);
         self.instructions.push(Instruction::MeasureAll);
     }
 
@@ -461,6 +464,10 @@ impl Circuit {
         cases: Vec<(Option<u64>, SubCircuitBuilder)>,
     ) {
         assert!(!cbit_indices.is_empty(), "switch: cbit_indices empty");
+        assert!(
+            cbit_indices.len() <= 64,
+            "switch: cbit_indices > 64 (u64 packing)"
+        );
         let max_cbit = *cbit_indices.iter().max().unwrap();
         if max_cbit >= self.n_cbits {
             self.n_cbits = max_cbit + 1;
@@ -498,15 +505,6 @@ impl Circuit {
             self.n_cbits = sub.n_cbits;
         }
         sub.instructions
-    }
-
-    /// 임의 instruction 시퀀스를 sub-circuit 으로 직접 push (PyO3 / lowering 등에서 사용).
-    ///
-    /// closure 빌더와 달리 Vec<Instruction> 을 직접 받는다.  cbit 폭 자동 grow 는
-    /// 호출자가 책임 — 이 메서드는 단순히 instruction 들을 instructions Vec 끝에 push
-    /// (block control flow op 자체는 따로 만들어야 함).
-    pub fn extend_instructions(&mut self, insts: Vec<Instruction>) {
-        self.instructions.extend(insts);
     }
 
     /// Block-form IfElse 를 명시적 Vec<Instruction> body 로 추가 (PyO3 / adapter
@@ -576,6 +574,13 @@ impl Circuit {
     }
 
     fn grow_n_cbits_for_indices(&mut self, cbit_indices: &[usize]) {
+        // pack_cbits 가 u64 로 패킹하므로 조건 비트는 64개 이하여야 한다.
+        // (release 빌드에서 `1u64 << 64` 는 shift 마스킹으로 cbit 64 가
+        // cbit 0 으로 aliasing 되는 silent bug 가 됨.)
+        assert!(
+            cbit_indices.len() <= 64,
+            "control-flow condition: cbit_indices > 64 (u64 packing)"
+        );
         if let Some(max_cbit) = cbit_indices.iter().max() {
             if *max_cbit >= self.n_cbits {
                 self.n_cbits = *max_cbit + 1;

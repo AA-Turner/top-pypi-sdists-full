@@ -54,6 +54,7 @@ class UnoServer:
         user_installation=None,
         conversion_timeout=None,
         stop_after=None,
+        temp_dir=None,
     ):
         self.interface = interface
         self.uno_interface = uno_interface
@@ -62,6 +63,7 @@ class UnoServer:
         self.user_installation = user_installation
         self.conversion_timeout = conversion_timeout
         self.stop_after = stop_after
+        self.temp_dir = temp_dir
         self.libreoffice_process = None
         self.xmlrcp_thread = None
         self.xmlrcp_server = None
@@ -136,7 +138,7 @@ class UnoServer:
             while attempts > 0:
                 try:
                     self.conv = converter.UnoConverter(
-                        interface=self.uno_interface, port=self.uno_port
+                        interface=self.uno_interface, port=self.uno_port, temp_dir=self.temp_dir
                     )
                     break
                 except UnoException as e:
@@ -283,11 +285,13 @@ class UnoServer:
                     self.conv.get_available_export_filters()
                 )
 
+                libreoffice_version = self.conv.uno_info()
                 return {
                     "unoserver": __version__,
                     "api": API_VERSION,
                     "import_filters": import_filters,
                     "export_filters": export_filters,
+                    "libreoffice_version": libreoffice_version,
                 }
 
             @server.register_function
@@ -598,6 +602,11 @@ def main():
         type=int,
         help="Terminate Libreoffice and exit after the given number of requests.",
     )
+    parser.add_argument(
+        "--temp-dir",
+        default=None,
+        help="The directory to use for temporary files. If not specified, uses system default.",
+    )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
         "--verbose",
@@ -634,7 +643,10 @@ def main():
             cmd.remove("--daemon")
 
         if args.logfile:
-            cmd.remove("--logfile")
+            if "--logfile" in cmd:
+                cmd.remove("--logfile")
+            if "-f" in cmd:
+                cmd.remove("-f")
             cmd.remove(args.logfile)
 
             with open(args.logfile, "ab") as logfile:
@@ -654,7 +666,7 @@ def main():
         else:
             return proc.wait()
 
-    with tempfile.TemporaryDirectory() as tmpuserdir:
+    with tempfile.TemporaryDirectory(dir=args.temp_dir) as tmpuserdir:
         user_installation = Path(tmpuserdir).as_uri()
 
         if args.user_installation is not None:
@@ -671,6 +683,7 @@ def main():
             user_installation,
             args.conversion_timeout,
             args.stop_after,
+            args.temp_dir,
         )
 
         if args.executable is not None:

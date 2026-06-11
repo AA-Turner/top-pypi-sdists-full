@@ -778,8 +778,6 @@ def _syntax_precheck(written: list[str], cwd: Path) -> tuple[bool, str]:
     Returns (all_ok, error_details).
     This catches errors early before slower test runs.
     """
-    if os.environ.get("SAGE_TESTING") == "1":
-        return True, ""
 
     errors = []
     for filepath in written:
@@ -857,8 +855,6 @@ def _auto_validate(written: list[str], cwd: Path) -> str | None:
     2. Project-specific validation (pytest, npm test, etc.)
     3. Fallback syntax-only check if no test framework found
     """
-    if os.environ.get("SAGE_TESTING") == "1":
-        return None
     # Step 0: Garbage / Placeholder check
     for fp in written:
         target = cwd / fp
@@ -1827,9 +1823,12 @@ def _route_to_principal_pipeline(
 
     def _generate(p: str) -> str:
         messages = _build_simple_qa_messages(p, system_prompt=system_prompt)
-        return router.generate(
+        res = router.generate(
             messages, effective_model, temp, tokens, lock_provider=False
         )
+        if res and (res.strip().startswith("Error:") or "invalid argument values" in res.lower()):
+            raise ValueError(res.strip())
+        return res
 
     sub_tasks = decompose_multi_build_request(user_input)
     base_out_dir = base_out_dir.resolve()

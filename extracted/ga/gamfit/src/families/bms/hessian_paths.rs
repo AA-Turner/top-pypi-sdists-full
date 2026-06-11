@@ -259,7 +259,7 @@ impl BernoulliBlockHessianAccumulator {
     /// The large marginal/logslope blocks are already accumulated as chunked
     /// weighted Gram products.  h/w used to be the remaining per-row dense
     /// path: for every sampled row and every h/w coordinate we performed two
-    /// design-row AXPYs (column plus symmetric row).  At biobank `n` that
+    /// design-row AXPYs (column plus symmetric row).  At large-scale `n` that
     /// repeated row materialization dominates even though the h/w blocks are
     /// tiny.  This routine keeps the same exact Hessian entries, but turns the
     /// cross terms into `X_chunk^T weights` / `G_chunk^T weights` products and
@@ -380,7 +380,7 @@ impl BernoulliBlockHessianAccumulator {
     /// the psi-index rank-1 sweeps.  Without that, `axpy_row_into` on a Lazy
     /// operator re-dispatches `row_chunk_into` for every nonzero psi index
     /// (psi_dim×rank-2 = 2*psi_dim row materializations per call), which is
-    /// the dominant cost of joint-spatial Hessian builds at biobank scale.
+    /// the dominant cost of joint-spatial Hessian builds at large scale.
     pub(super) fn add_rank1_psi_cross(
         &mut self,
         family: &BernoulliMarginalSlopeFamily,
@@ -647,7 +647,7 @@ impl HyperOperator for BernoulliBlockHessianOperator {
     /// owned storage. Avoids the two intermediate `Array1` allocations that
     /// the default `mul_vec_into → mul_vec_view → to_owned + mul_vec` chain
     /// would incur. The psi-Hessian outer-eval path calls this once per
-    /// ψ-direction per trace sweep; at biobank scale (rank ≈ 32) the saving
+    /// ψ-direction per trace sweep; at large scale (rank ≈ 32) the saving
     /// is ~64 allocations per REML gradient step.
     fn mul_vec_into(&self, v: ArrayView1<'_, f64>, mut out: ArrayViewMut1<'_, f64>) {
         let v_m = v.slice(s![self.marginal.clone()]);
@@ -1027,7 +1027,21 @@ pub(super) fn new_cell_moment_lru_cache(
     policy: &crate::resource::ResourcePolicy,
 ) -> Arc<exact_kernel::CellMomentLruCache> {
     let budget = policy.max_single_materialization_bytes;
-    Arc::new(exact_kernel::CellMomentLruCache::new(budget))
+    // The cell-moment memo holds many small entries and is consulted by every
+    // row of the parallel exact-cache build (one lookup per evaluated cubic
+    // cell, many per row, across all `n` rows in `into_par_iter`). A single
+    // lock therefore serializes the whole build — observed as ~1 busy core at
+    // large-scale n. Partition the cache well past the worker count so concurrent
+    // lookups on distinct cells rarely land in the same shard; entries are
+    // small so splitting the byte budget is harmless.
+    let shard_count = std::thread::available_parallelism()
+        .map(|workers| workers.get().saturating_mul(8))
+        .unwrap_or(32)
+        .clamp(8, 256);
+    Arc::new(exact_kernel::CellMomentLruCache::new_sharded(
+        budget,
+        shard_count,
+    ))
 }
 
 pub(super) fn new_cell_moment_cache_stats() -> Arc<exact_kernel::CellMomentCacheStats> {

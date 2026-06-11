@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: panta-sim
-Version: 1.4.0
+Version: 1.4.1
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
@@ -75,7 +75,8 @@ cross-platform GPU (wgpu) 지원.  **v1.0+ 안정 API** (semver, `docs/api-stabi
   noise 결정적 Kraus 적용, Aer 와 ‖ρ‖ < 1e-10 일치
 - **GPU 가속 (wgpu Tier-1, v0.5.0~)**: `qc.run(method="wgpu")` —
   cross-platform NVIDIA / AMD / Intel / Apple Silicon, Vulkan / DX12 / Metal
-  자동 선택. statevector + density matrix 모두 지원, 27 큐비트까지 동작 (v0.5.2).
+  자동 선택. statevector + density matrix 모두 지원, buffer split 으로 32 큐비트
+  까지 동작 (v0.5.18, 아래 백엔드 표 참조).
 - **Python API**: PyO3 + maturin, NumPy 연동
 - **합성·변분·동역학 (v0.7.2~)**: 임의 unitary 분해 (KAK/QSD), 임의 상태
   초기화 (Möttönen), 심볼릭 `Parameter`, 다중 제어 게이트, 커스텀 Kraus 채널,
@@ -111,7 +112,7 @@ cross-platform GPU (wgpu) 지원.  **v1.0+ 안정 API** (semver, `docs/api-stabi
   (`pauli_propagation_expectation_mc`).  arXiv:2505.21606.
 - **RCS / Linear·Noisy XEB 벤치마크 (v0.8.1~)**: `random_circuit` / `linear_xeb` /
   `xeb_ideal` / `xeb_noisy` (Google supremacy-style cross-entropy benchmarking).
-- **검증**: **1661 pytest** + cargo test(전 크레이트), Qiskit/Aer cross-check
+- **검증**: **1700+ pytest** + cargo test(전 크레이트), Qiskit/Aer cross-check
   1e-9~1e-15 (`StabilizerState` / `Operator.equiv` / `expectation_value` /
   `Statevector` bit-exact / `QFT` 포함), wgpu vs CPU 1e-5 (f32 한계).
   fmt + clippy(`-D warnings`, toolchain 1.96 고정) clean.
@@ -284,24 +285,36 @@ vqe = VQE(ansatz, H)                      # VQE 가 파라메트릭 회로 직�
 ```
 quantum-sim/
 ├── crates/
-│   ├── core/              상태 벡터, 게이트 행렬, 복소수 연산
-│   ├── simulator/         시뮬레이션 엔진, 측정, 회로 실행기
+│   ├── core/              상태 벡터, density matrix, 게이트 행렬, 노이즈 Kraus
+│   ├── simulator/         시뮬레이션 엔진, 측정, 회로 실행기, gate fusion
+│   ├── transpiler/        ZYZ/CX/IBM-basis 분해, peephole 최적화
+│   ├── qasm/              OpenQASM 2.0/3.0 파서·익스포터
+│   ├── gpu/               wgpu Tier-1 + cuStateVec Tier-2 백엔드
+│   ├── mps/               MPS (Matrix Product State) 코어
+│   ├── tensornet/         Tensor Network Contraction 엔진
+│   ├── stabilizer/        Stabilizer tableau + near-Clifford + CH-form
 │   └── python-binding/    PyO3 바인딩
 ├── python/panta_sim/      사용자용 Python 라이브러리
 ├── tests/                 pytest 통합 테스트
-├── examples/              사용 예제
+├── examples/              사용 예제 + validation/ + benchmarks/
 └── docs/                  설계 문서 (plan.md, architecture.md, references.md)
 ```
 
 ## Backend 선택
 
-`qc.run(method=...)` 으로 4 가지 backend 선택 가능 (v0.5.2):
+`qc.run(method=...)` 으로 backend 선택 (`method="auto"` 는 회로 분석 자동 선택):
 
 ```python
 qc.run(method="statevector")           # 기본 — CPU rayon, f64 default
 qc.run(method="density_matrix")        # CPU density matrix (Aer 와 동일 의미)
 qc.run(method="wgpu")                  # GPU statevector (Vulkan / DX12 / Metal)
 qc.run(method="wgpu_density_matrix")   # GPU density matrix
+qc.run(method="mps")                   # MPS (저얽힘 대규모 N)
+qc.run(method="wgpu_mps")              # GPU-resident MPS
+qc.run(method="stabilizer")            # Clifford tableau (수천 큐비트)
+qc.run(method="tensornet")             # Tensor Network contraction
+qc.run(method="cuda")                  # cuStateVec (feature gpu-cuda)
+qc.run(method="auto")                  # 자동 선택
 ```
 
 | Backend | 메모리 | 최대 N (v0.5.20) | 특징 |
@@ -392,17 +405,9 @@ GPU 환경에 따른 성능 (대략, 25 큐비트 GHZ 기준):
 GPU 가 CPU 보다 **반드시** 빠른 것은 아니며, 환경 (특히 메모리 대역폭) 에 따라 차이.
 NVIDIA H100 같은 데이터센터 GPU 에서 가장 큰 이득.
 
-GPU 한계 초과 시 친화적 `ValueError` (v0.5.1~):
-
-```python
-try:
-    qc = QuantumCircuit(28)       # 2 GB sv → wgpu storage buffer 한계
-    qc.h(0)
-    qc.run(shots=100, method="wgpu")
-except ValueError as e:
-    print(e)                        # "Buffer binding range 2GB 초과 ... method='statevector' (CPU) 사용"
-    qc.run(shots=100)              # CPU 로 자동 fallback
-```
+GPU 한계 초과 시 친화적 `ValueError` (v0.5.1~).  N≤32 는 K-buffer split 으로
+자동 처리되고 (위 표), adapter 한계·VRAM 초과 시 CPU 사용을 안내하는 메시지와
+함께 거부한다 (v0.5.19 pre-flight 메모리 warning).
 
 ## 성능
 
@@ -410,7 +415,9 @@ except ValueError as e:
   작은 회로는 직렬 폴백으로 회귀 0건 유지.
 - **f32 / f64 정밀도 선택** (v0.2.1+): `qc.run(precision="f32")` 로 메모리
   ~50% 절감 → 같은 RAM 에서 큐비트 1개 더.
-- **GPU wgpu** (v0.5.0~): 27 큐비트까지 (buffer 한계, v0.5.x patch 또는 v0.6 에서 확장 예정).
+- **GPU wgpu** (v0.5.0~): K-buffer split 으로 32 큐비트까지 (v0.5.18, 위 백엔드 표 참조).
+- **gate fusion** (v1.1~v1.3): 연속 게이트 흡수로 dense statevector 에서 Qiskit
+  Aer 추월 (N=20 0.80×), bit-exact 유지.
 
 자세한 벤치는 [`benches/results/`](benches/results/),
 [`examples/validation/RESULTS.md`](examples/validation/RESULTS.md),
@@ -419,14 +426,15 @@ except ValueError as e:
 ## 로드맵 / 미구현
 
 - v0.2 — CPU 성능 ✅ (rayon, f32) / SIMD ❌ (postmortem)
-- v0.3 — OpenQASM 2.0/3.0, 트랜스파일러, 시각화 ✅
-- v0.3.5 — Qiskit / PennyLane / Cirq 어댑터 ✅
-- v0.4 — 노이즈 모델 ✅, mid-circuit measure / classical control ✅, block control flow ✅
-- v0.5 — Density matrix backend ✅, GPU (wgpu Tier-1) ✅, cuStateVec FFI placeholder ⚠
-- v0.5.x — wgpu N=28+ buffer 분할 / cuStateVec PyPI 배포 / GPU dynamic 회로
-- v0.6 — Tensor Network / MPS (1000+ 큐비트, shallow circuit) ✅
-- v0.7 — VQE / QAOA + 자동 미분 (parameter-shift) ✅, 네이티브 기댓값 (sv/density/MPS) ✅, quantum_info ✅
-- v0.8 — 실 QPU 연동 (IBM Runtime / Braket / Azure)
+- v0.3 — OpenQASM 2.0/3.0, 트랜스파일러, 시각화 ✅ / v0.3.5 — Qiskit / PennyLane / Cirq 어댑터 ✅
+- v0.4 — 노이즈 모델 ✅, mid-circuit measure / classical control / block control flow ✅
+- v0.5 — Density matrix ✅, GPU wgpu Tier-1 (K-split N≤32) ✅, cuStateVec Tier-2 ✅
+- v0.6 — MPS (CPU/GPU, 수천 큐비트 저얽힘) ✅
+- v0.7 — VQE / QAOA + parameter-shift ✅, 네이티브 기댓값 ✅, quantum_info ✅, 합성 (KAK/QSD) ✅
+- v0.8 — Tensor Network 엔진 ✅, stabilizer / near-Clifford ✅, 알고리즘 라이브러리 ✅, `method="auto"` ✅
+- v1.0 — 정식 안정 릴리스, 공개 API 동결 ✅
+- v1.1~v1.4 — gate fusion (Aer 추월) ✅, Pauli propagation ✅, IBM basis transpile ✅
+- 남은 항목 — 실 QPU 연동 (IBM Runtime / Azure), PyPI cuda wheel ([`docs/next-steps.md`](docs/next-steps.md))
 
 상세 로드맵은 [`docs/plan.md`](docs/plan.md) 참고.
 

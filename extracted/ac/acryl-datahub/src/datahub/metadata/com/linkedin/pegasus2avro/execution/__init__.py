@@ -7,6 +7,8 @@
 # pylint: skip-file
 # fmt: off
 # isort: skip_file
+from .....schema_classes import CliVersionAuditClass
+from .....schema_classes import CliVersionSourceClass
 from .....schema_classes import ExecutionRequestInputClass
 from .....schema_classes import ExecutionRequestResultClass
 from .....schema_classes import ExecutionRequestSignalClass
@@ -14,6 +16,8 @@ from .....schema_classes import ExecutionRequestSourceClass
 from .....schema_classes import StructuredExecutionReportClass
 
 
+CliVersionAudit = CliVersionAuditClass
+CliVersionSource = CliVersionSourceClass
 ExecutionRequestInput = ExecutionRequestInputClass
 ExecutionRequestResult = ExecutionRequestResultClass
 ExecutionRequestSignal = ExecutionRequestSignalClass

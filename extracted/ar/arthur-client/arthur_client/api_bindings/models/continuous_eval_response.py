@@ -21,6 +21,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.continuous_eval_transform_variable_mapping_response import ContinuousEvalTransformVariableMappingResponse
+from arthur_client.api_bindings.models.eval_type import EvalType
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -32,15 +33,16 @@ class ContinuousEvalResponse(BaseModel):
     name: StrictStr = Field(description="Name of the continuous eval.")
     description: Optional[StrictStr] = None
     task_id: StrictStr = Field(description="ID of the parent task.")
-    llm_eval_name: StrictStr = Field(description="Name of the llm eval.")
-    llm_eval_version: StrictInt = Field(description="Version of the llm eval.")
+    eval_type: Optional[EvalType] = Field(default=None, description="Type of evaluator: 'llm_eval' or 'ml_eval'.")
+    llm_eval_name: Optional[StrictStr] = None
+    llm_eval_version: Optional[StrictInt] = None
     transform_id: StrictStr = Field(description="ID of the transform.")
     transform_version_id: Optional[StrictStr] = None
     transform_variable_mapping: Optional[List[ContinuousEvalTransformVariableMappingResponse]] = Field(default=None, description="Mapping of transform variables to eval variables.")
     enabled: Optional[StrictBool] = Field(default=True, description="Whether the continuous eval is enabled.")
     created_at: datetime = Field(description="Timestamp representing the time the transform was added to the llm eval.")
     updated_at: datetime = Field(description="Timestamp representing the time the continuous eval was last updated.")
-    __properties: ClassVar[List[str]] = ["id", "name", "description", "task_id", "llm_eval_name", "llm_eval_version", "transform_id", "transform_version_id", "transform_variable_mapping", "enabled", "created_at", "updated_at"]
+    __properties: ClassVar[List[str]] = ["id", "name", "description", "task_id", "eval_type", "llm_eval_name", "llm_eval_version", "transform_id", "transform_version_id", "transform_variable_mapping", "enabled", "created_at", "updated_at"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -93,6 +95,16 @@ class ContinuousEvalResponse(BaseModel):
         if self.description is None and "description" in self.model_fields_set:
             _dict['description'] = None
 
+        # set to None if llm_eval_name (nullable) is None
+        # and model_fields_set contains the field
+        if self.llm_eval_name is None and "llm_eval_name" in self.model_fields_set:
+            _dict['llm_eval_name'] = None
+
+        # set to None if llm_eval_version (nullable) is None
+        # and model_fields_set contains the field
+        if self.llm_eval_version is None and "llm_eval_version" in self.model_fields_set:
+            _dict['llm_eval_version'] = None
+
         # set to None if transform_version_id (nullable) is None
         # and model_fields_set contains the field
         if self.transform_version_id is None and "transform_version_id" in self.model_fields_set:
@@ -114,6 +126,7 @@ class ContinuousEvalResponse(BaseModel):
             "name": obj.get("name"),
             "description": obj.get("description"),
             "task_id": obj.get("task_id"),
+            "eval_type": obj.get("eval_type"),
             "llm_eval_name": obj.get("llm_eval_name"),
             "llm_eval_version": obj.get("llm_eval_version"),
             "transform_id": obj.get("transform_id"),

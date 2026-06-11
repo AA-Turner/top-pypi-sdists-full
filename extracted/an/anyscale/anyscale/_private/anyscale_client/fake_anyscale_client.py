@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 import logging
 import os
 from typing import Any, DefaultDict, Dict, Generator, List, Optional, Tuple, Union
@@ -76,6 +76,12 @@ from anyscale.client.openapi_client.models import (
     WorkspaceDataplaneProxiedArtifacts,
     WriteProject,
 )
+from anyscale.client.openapi_client.models.apply_scheduler_config_request import (
+    ApplySchedulerConfigRequest,
+)
+from anyscale.client.openapi_client.models.apply_scheduler_config_response import (
+    ApplySchedulerConfigResponse,
+)
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
 from anyscale.client.openapi_client.models.decorated_application_template import (
     DecoratedApplicationTemplate,
@@ -99,6 +105,15 @@ from anyscale.client.openapi_client.models.job_queue_sort_directive import (
     JobQueueSortDirective,
 )
 from anyscale.client.openapi_client.models.mini_build import MiniBuild
+from anyscale.client.openapi_client.models.scheduler_config_response import (
+    SchedulerConfigResponse,
+)
+from anyscale.client.openapi_client.models.scheduler_config_version_summary import (
+    SchedulerConfigVersionSummary,
+)
+from anyscale.client.openapi_client.models.schedulerconfigversionsummary_list_response import (
+    SchedulerconfigversionsummaryListResponse,
+)
 from anyscale.client.openapi_client.models.session_ssh_key import SessionSshKey
 from anyscale.cluster_compute import parse_cluster_compute_name_version
 from anyscale.sdk.anyscale_client.configuration import Configuration
@@ -286,6 +301,8 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._organization_collaborators: List[OrganizationCollaborator] = []
         self._organization_invitations: Dict[str, OrganizationInvitation] = {}
         self._resource_quotas: Dict[str, ResourceQuota] = {}
+        # Scheduler config version history (newest at index 0).
+        self._scheduler_configs: List[SchedulerConfigResponse] = []
         self._system_cluster_status: Dict[str, str] = {}
         self.upsert_resource_tags_calls: List[Tuple[str, str, Dict[str, str]]] = []
         self.delete_resource_tags_calls: List[Tuple[str, str, List[str]]] = []
@@ -2360,6 +2377,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             project_id=create_resource_quota.project_id,
             quota=create_resource_quota.quota,
             is_enabled=True,
+            is_soft_quota=create_resource_quota.is_soft_quota,
             created_at=datetime.utcnow(),
             creator=MiniUser(
                 id="user_1",
@@ -2489,6 +2507,61 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self, service_id: str, read_all_versions: bool = False  # noqa: ARG002
     ) -> List[DecoratedProductionServiceV2VersionAPIModel]:
         return list(self._versions[service_id].values())
+
+    # ---- Scheduler config ----
+
+    def apply_scheduler_config(
+        self, request: ApplySchedulerConfigRequest,
+    ) -> ApplySchedulerConfigResponse:
+        history = self._scheduler_configs
+        for v in history:
+            v.is_active = False
+        next_version = (history[0].version + 1) if history else 1
+        new_response = SchedulerConfigResponse(
+            version=next_version,
+            is_active=True,
+            created_at=datetime.now(timezone.utc),
+            creator_id="usr_fake",
+            config=request.config,
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+        history.insert(0, new_response)
+        return ApplySchedulerConfigResponse(
+            version=next_version, local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+
+    def get_active_scheduler_config(self) -> SchedulerConfigResponse:
+        for v in self._scheduler_configs:
+            if v.is_active:
+                return v
+        raise RuntimeError("No active scheduler config.")
+
+    def get_scheduler_config_version(self, version: int,) -> SchedulerConfigResponse:
+        for v in self._scheduler_configs:
+            if v.version == version:
+                return v
+        raise RuntimeError(f"Scheduler config version {version} not found.")
+
+    def list_scheduler_config_versions(
+        self,
+        *,
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,  # noqa: ARG002 - fake returns a single page
+    ) -> SchedulerconfigversionsummaryListResponse:
+        # Fake ignores paging_token; a single page is enough for tests.
+        summaries = [
+            SchedulerConfigVersionSummary(
+                version=v.version,
+                created_at=v.created_at,
+                creator_id=v.creator_id,
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            )
+            for v in self._scheduler_configs[: count if count is not None else None]
+        ]
+        return SchedulerconfigversionsummaryListResponse(
+            results=summaries,
+            metadata=ListResponseMetadata(total=len(summaries), next_paging_token=None),
+        )
 
     def upsert_resource_tags(
         self,

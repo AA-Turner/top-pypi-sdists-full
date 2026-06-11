@@ -70,6 +70,7 @@ class TestCreateNetworkIdentityV3(TestNetwork):
         'provider:network_type',
         'provider:physical_network',
         'provider:segmentation_id',
+        'pvlan',
         'qos_policy_id',
         'router:external',
         'shared',
@@ -99,6 +100,7 @@ class TestCreateNetworkIdentityV3(TestNetwork):
         _network.provider_network_type,
         _network.provider_physical_network,
         _network.provider_segmentation_id,
+        _network.pvlan,
         _network.qos_policy_id,
         network.RouterExternalColumn(_network.is_router_external),
         _network.is_shared,
@@ -189,6 +191,7 @@ class TestCreateNetworkIdentityV3(TestNetwork):
             self.qos_policy.id,
             "--transparent-vlan",
             "--no-qinq-vlan",
+            "--no-pvlan",
             "--enable-port-security",
             "--dns-domain",
             "example.org.",
@@ -210,6 +213,7 @@ class TestCreateNetworkIdentityV3(TestNetwork):
             ('qos_policy', self.qos_policy.id),
             ('transparent_vlan', True),
             ('qinq_vlan', False),
+            ('pvlan', False),
             ('enable_port_security', True),
             ('name', self._network.name),
             ('dns_domain', 'example.org.'),
@@ -235,6 +239,7 @@ class TestCreateNetworkIdentityV3(TestNetwork):
                 'qos_policy_id': self.qos_policy.id,
                 'vlan_transparent': True,
                 'vlan_qinq': False,
+                'pvlan': False,
                 'port_security_enabled': True,
                 'dns_domain': 'example.org.',
             }
@@ -326,6 +331,19 @@ class TestCreateNetworkIdentityV3(TestNetwork):
             exceptions.CommandError, self.cmd.take_action, parsed_args
         )
 
+    def test_create_with_pvlan_and_port_security_disabled(self):
+        arglist = [
+            "--disable-port-security",
+            "--pvlan",
+            self._network.name,
+        ]
+        verifylist = [('disable_port_security', True), ('pvlan', True)]
+
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+        self.assertRaises(
+            exceptions.CommandError, self.cmd.take_action, parsed_args
+        )
+
     def test_create_with_provider_segment_without_provider_type(self):
         arglist = [
             "--provider-segment",
@@ -371,6 +389,7 @@ class TestCreateNetworkIdentityV2(
         'name',
         'port_security_enabled',
         'project_id',
+        'pvlan',
         'provider:network_type',
         'provider:physical_network',
         'provider:segmentation_id',
@@ -400,6 +419,7 @@ class TestCreateNetworkIdentityV2(
         _network.name,
         _network.is_port_security_enabled,
         _network.project_id,
+        _network.pvlan,
         _network.provider_network_type,
         _network.provider_physical_network,
         _network.provider_segmentation_id,
@@ -576,7 +596,7 @@ class TestDeleteNetwork(TestNetwork):
 
 class TestListNetwork(TestNetwork):
     # The networks going to be listed up.
-    _network = network_fakes.create_networks(count=3)
+    _networks = network_fakes.create_networks(count=3)
 
     columns = (
         'ID',
@@ -598,7 +618,7 @@ class TestListNetwork(TestNetwork):
     )
 
     data = []
-    for net in _network:
+    for net in _networks:
         data.append(
             (
                 net.id,
@@ -608,7 +628,7 @@ class TestListNetwork(TestNetwork):
         )
 
     data_long = []
-    for net in _network:
+    for net in _networks:
         data_long.append(
             (
                 net.id,
@@ -631,13 +651,13 @@ class TestListNetwork(TestNetwork):
         # Get the command object to test
         self.cmd = network.ListNetwork(self.app, None)
 
-        self.network_client.networks.return_value = self._network
+        self.network_client.networks.return_value = self._networks
 
         self._agent = network_fakes.create_one_network_agent()
         self.network_client.get_agent.return_value = self._agent
 
         self.network_client.dhcp_agent_hosting_networks.return_value = (
-            self._network
+            self._networks
         )
 
         # TestListTagMixin
@@ -660,7 +680,31 @@ class TestListNetwork(TestNetwork):
         self.assertEqual(self.columns, columns)
         self.assertCountEqual(self.data, list(data))
 
-    def test_list_external(self):
+    def test_network_list_pagination(self):
+        arglist = [
+            '--marker',
+            self._networks[0].id,
+            '--limit',
+            '1',
+        ]
+        verifylist = [
+            ('marker', self._networks[0].id),
+            ('limit', 1),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        columns, data = self.cmd.take_action(parsed_args)
+
+        self.network_client.networks.assert_called_once_with(
+            **{
+                'marker': self._networks[0].id,
+                'limit': 1,
+            }
+        )
+        self.assertEqual(self.columns, columns)
+        self.assertEqual(self.data, list(data))
+
+    def test_network_list_external(self):
         arglist = [
             '--external',
         ]
@@ -681,7 +725,7 @@ class TestListNetwork(TestNetwork):
         self.assertEqual(self.columns, columns)
         self.assertCountEqual(self.data, list(data))
 
-    def test_list_internal(self):
+    def test_network_list_internal(self):
         arglist = [
             '--internal',
         ]
@@ -717,7 +761,7 @@ class TestListNetwork(TestNetwork):
         self.assertEqual(self.columns_long, columns)
         self.assertCountEqual(self.data_long, list(data))
 
-    def test_list_name(self):
+    def test_network_list_name(self):
         test_name = "fakename"
         arglist = [
             '--name',
@@ -865,7 +909,7 @@ class TestListNetwork(TestNetwork):
         self.assertCountEqual(self.data, list(data))
 
     def test_network_list_provider_network_type(self):
-        network_type = self._network[0].provider_network_type
+        network_type = self._networks[0].provider_network_type
         arglist = [
             '--provider-network-type',
             network_type,
@@ -886,7 +930,7 @@ class TestListNetwork(TestNetwork):
         self.assertCountEqual(self.data, list(data))
 
     def test_network_list_provider_physical_network(self):
-        physical_network = self._network[0].provider_physical_network
+        physical_network = self._networks[0].provider_physical_network
         arglist = [
             '--provider-physical-network',
             physical_network,
@@ -907,7 +951,7 @@ class TestListNetwork(TestNetwork):
         self.assertCountEqual(self.data, list(data))
 
     def test_network_list_provider_segment(self):
-        segmentation_id = self._network[0].provider_segmentation_id
+        segmentation_id = self._networks[0].provider_segmentation_id
         arglist = [
             '--provider-segment',
             segmentation_id,
@@ -995,6 +1039,23 @@ class TestSetNetwork(TestNetwork):
 
         # Get the command object to test
         self.cmd = network.SetNetwork(self.app, None)
+
+    def test_set_with_pvlan_and_port_security_disabled(self):
+        arglist = [
+            self._network.name,
+            '--disable-port-security',
+            '--pvlan',
+        ]
+        verifylist = [
+            ('network', self._network.name),
+            ('disable_port_security', True),
+            ('pvlan', True),
+        ]
+
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+        self.assertRaises(
+            exceptions.CommandError, self.cmd.take_action, parsed_args
+        )
 
     def test_set_this(self):
         arglist = [
@@ -1189,6 +1250,7 @@ class TestShowNetwork(TestNetwork):
         'provider:network_type',
         'provider:physical_network',
         'provider:segmentation_id',
+        'pvlan',
         'qos_policy_id',
         'router:external',
         'shared',
@@ -1218,6 +1280,7 @@ class TestShowNetwork(TestNetwork):
         _network.provider_network_type,
         _network.provider_physical_network,
         _network.provider_segmentation_id,
+        _network.pvlan,
         _network.qos_policy_id,
         network.RouterExternalColumn(_network.is_router_external),
         _network.is_shared,
@@ -1265,7 +1328,6 @@ class TestShowNetwork(TestNetwork):
         self.network_client.find_network.assert_called_once_with(
             self._network.name, ignore_missing=False
         )
-
         self.assertEqual(set(self.columns), set(columns))
         self.assertCountEqual(self.data, data)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 2.15.1
+Version: 2.15.3
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Nouamane Tazi <nouamane@huggingface.co>, Nils Reimers <info@nils-reimers.de>
 Maintainer-email: Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Roman Solomatin <risolomatin@gmail.com>, Isaac Chung <chungisaac1217@gmail.com>
@@ -22,7 +22,7 @@ License-File: LICENSE
 Requires-Dist: datasets>=2.19.0
 Requires-Dist: numpy<3.0.0,>=1.23.0
 Requires-Dist: requests>=2.26.0
-Requires-Dist: scikit-learn<1.9.0,>=1.4.0
+Requires-Dist: scikit-learn>=1.4.0
 Requires-Dist: scipy>=1.14.0
 Requires-Dist: sentence_transformers>=3.0.0
 Requires-Dist: transformers<6.0.0,>=4.40.0

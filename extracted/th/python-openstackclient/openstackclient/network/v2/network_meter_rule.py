@@ -18,10 +18,12 @@ import logging
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from openstack.network.v2 import metering_label_rule as _metering_label_rule
 from osc_lib import exceptions
 from osc_lib import utils
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 from openstackclient.network import common
@@ -29,7 +31,9 @@ from openstackclient.network import common
 LOG = logging.getLogger(__name__)
 
 
-def _get_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_columns(
+    item: _metering_label_rule.MeteringLabelRule,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     hidden_columns = ['location', 'tenant_id']
     return utils.get_osc_show_columns_for_sdk_resource(
         item, {}, hidden_columns
@@ -189,6 +193,11 @@ class DeleteMeterRule(command.Command):
 class ListMeterRule(command.Lister):
     _description = _("List meter rules")
 
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
+        parser = super().get_parser(prog_name)
+        pagination.add_marker_pagination_option_to_parser(parser)
+        return parser
+
     def take_action(
         self, parsed_args: argparse.Namespace
     ) -> tuple[tuple[str, ...], Iterable[tuple[Any, ...]]]:
@@ -210,7 +219,16 @@ class ListMeterRule(command.Lister):
             'Source IP Prefix',
             'Destination IP Prefix',
         )
-        data = client.metering_label_rules()
+
+        filters = {}
+        if parsed_args.marker is not None:
+            filters['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            filters['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            filters['max_items'] = parsed_args.max_items
+
+        data = client.metering_label_rules(**filters)
         return (
             column_headers,
             (

@@ -361,7 +361,22 @@ pub(crate) fn prime_outer_seed(
 /// `initial_beta` seeds the inner solve at ρ₀ (zero vector is fine —
 /// ρ₀ is in the strongly-convex regime). `bounds_upper` clamps ρ₀ to
 /// the legal box.
-fn fit_with_continuation(
+///
+/// # Callable ρ-anneal spine primitive
+///
+/// This is the **ρ-anneal spine entry**: the single callable that walks the
+/// oversmoothing→target ρ homotopy with the full retry/ρ₀-expansion decision
+/// tree (`run_path` is the per-offset inner pass). It was historically a
+/// private helper reachable only through `prime_outer_seed` (the warm-start
+/// pre-screen fallback). It is now `pub(crate)` so the coupled
+/// [`crate::solver::continuation_path::ContinuationPath`] can drive the ρ leg
+/// of the joint K≥2 SAE homotopy through the SAME spine rather than cloning a
+/// parallel ρ-anneal — there is no second implementation of the schedule.
+///
+/// Callers that only want the warm-start pre-screen keep using
+/// [`prime_outer_seed`]; callers that own the coupled τ / isometry legs call
+/// this directly so the three schedules advance against one shared ρ walk.
+pub(crate) fn fit_with_continuation(
     obj: &mut dyn OuterObjective,
     target: &Array1<f64>,
     bounds_upper: &Array1<f64>,
@@ -451,7 +466,7 @@ fn run_path(
     let collapsed = rho_zero_is_target(&rho0, target);
     let rho_first = if collapsed { target.clone() } else { rho0 };
 
-    let mut beta_seed = initial_beta.clone();
+    let beta_seed = initial_beta.clone();
 
     let eval0 = match eval_step(obj, &rho_first, &beta_seed, order) {
         Ok(eval) => eval,
@@ -480,7 +495,7 @@ fn run_path(
         }
     };
 
-    let mut state = ContinuationState {
+    let state = ContinuationState {
         last_rho: rho_first,
         last_eval: eval0,
         last_beta: beta_seed.clone(),
@@ -491,12 +506,70 @@ fn run_path(
         return Ok(state);
     }
 
+    walk_state_toward(obj, state, target, order, PATH_BUDGET, 1)
+}
+
+/// One **warm** continuation leg (the ContinuationPath waypoint primitive):
+/// walk from an existing converged state to `target` under a small eval
+/// budget. Unlike [`fit_with_continuation`] this never re-enters from the
+/// oversmoothed ρ₀ — the caller owns the heavier-regime fallback (the coupled
+/// path re-enters a heavier waypoint on failure) — so Stuck/ExpandRhoZero
+/// outcomes surface as [`ContinuationFailure::PathStuck`] with
+/// `rho_zero_offset = 0.0` (no oversmooth expansion is involved in a warm leg;
+/// `final_rho` reports the leg's target as the diagnostic anchor).
+pub(crate) fn continue_path_from(
+    obj: &mut dyn OuterObjective,
+    start: ContinuationState,
+    target: &Array1<f64>,
+    order: OuterEvalOrder,
+    leg_budget: usize,
+) -> ContinuationResult {
+    if reached_target(&start.last_rho, target) {
+        return Ok(start);
+    }
+    match walk_state_toward(obj, start, target, order, leg_budget, 0) {
+        Ok(state) => Ok(state),
+        Err(PathOutcome::PathBudgetExhausted {
+            last,
+            steps_taken,
+            final_rho,
+        }) => Err(ContinuationFailure::PathBudgetExhausted {
+            last,
+            steps_taken,
+            final_rho,
+        }),
+        Err(PathOutcome::ExpandRhoZero(last)) | Err(PathOutcome::Stuck(last)) => {
+            Err(ContinuationFailure::PathStuck {
+                last,
+                rho_zero_offset: 0.0,
+                final_rho: target.clone(),
+            })
+        }
+        Err(PathOutcome::Propagate(last)) | Err(PathOutcome::DomainAtStart(last)) => {
+            Err(ContinuationFailure::StructuralPropagate(last))
+        }
+    }
+}
+
+/// Walk an already-seeded continuation state toward `target`, spending eval
+/// slots `steps_taken_start..budget`. Extracted from [`run_path`] so the cold
+/// ρ₀ spine and the warm per-waypoint leg ([`continue_path_from`]) share ONE
+/// descent loop — the step/shrink/expand semantics cannot fork between the two
+/// entries (the objective↔gradient-desync lesson applied to control flow).
+fn walk_state_toward(
+    obj: &mut dyn OuterObjective,
+    mut state: ContinuationState,
+    target: &Array1<f64>,
+    order: OuterEvalOrder,
+    budget: usize,
+    steps_taken_start: usize,
+) -> Result<ContinuationState, PathOutcome> {
     let mut alpha = ALPHA_INIT;
-    let mut steps_taken: usize = 1;
+    let mut steps_taken: usize = steps_taken_start;
     let mut last_failure: Option<InnerFailure> = None;
     let mut consecutive_trust_floor: usize = 0;
 
-    while steps_taken < PATH_BUDGET {
+    while steps_taken < budget {
         if reached_target(&state.last_rho, target) {
             return Ok(state);
         }
@@ -505,7 +578,7 @@ fn run_path(
         // Prefer the previous eval's published inner-β hint over our
         // own carried β. The objective itself knows its converged β at
         // ρ_k; if it surfaces it, that is the best warm-start for ρ_{k+1}.
-        beta_seed = state
+        let beta_seed = state
             .last_eval
             .inner_beta_hint
             .clone()
@@ -944,11 +1017,20 @@ mod tests {
             // Need ~log2(1/ALPHA_FLOOR) = 10 consecutive refusals to
             // underflow α from 0.5 → 2⁻¹¹. Push generously.
             for _ in 0..20 {
+                // The scripted message must mirror the diagnostician's
+                // `format_bubbled_error` shape so `classify_inner_error`
+                // routes it through `KktRefusalDiagnosis::parse_from_error`
+                // (which looks for `diagnosis: <label>`) and lands on
+                // `InnerFailure::CertRefused { Phantom… }`. Without the
+                // tag the message would fall through to `InnerFailure::Other`
+                // and surface as `StructuralPropagate` instead of cycling
+                // through the ShrinkStep / α-floor / retry path this test
+                // exists to exercise.
                 responses.push(ScriptedResponse::Fail(
-                    "coupled exact-joint inner solve exited the joint Newton path \
-                     before convergence — block 'time_surface' carries the dominant \
-                     unresolved KKT gradient (|g_block|∞ = 5.000e+05); \
-                     |∇L − Sβ|∞ = 5.000e+05",
+                    "cycle=7 cert REFUSED: residual=5.0e+05 > 4·tol=4.0e+03; \
+                     carrying-block: time_surface (idx=0, |g|=5.0e+05, |Sβ|=1.0e-03, \
+                     |∇L-Sβ|=5.0e+05, |β|=1.0e+00, width=12); \
+                     diagnosis: phantom_multiplier_with_well_conditioned_H",
                 ));
             }
         }

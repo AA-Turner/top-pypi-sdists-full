@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acryl-datahub
-Version: 1.6.0
+Version: 1.6.0.1
 Summary: A CLI to work with DataHub metadata
 Home-page: https://docs.datahub.com/
 License-Expression: Apache-2.0
@@ -43,7 +43,7 @@ Requires-Dist: ijson<4.0.0
 Requires-Dist: jsonref<2.0.0
 Requires-Dist: jsonschema<5.0.0
 Requires-Dist: mixpanel<6.0.0,>=4.9.0
-Requires-Dist: packaging<26.0.0
+Requires-Dist: packaging<27.0.0
 Requires-Dist: progressbar2<5.0.0
 Requires-Dist: psutil<8.0.0,>=5.8.0
 Requires-Dist: pydantic<3.0.0,>=2.4.0
@@ -51,10 +51,10 @@ Requires-Dist: python-dateutil<3.0.0,>=2.8.0
 Requires-Dist: python-json-logger<5.0.0,>=2.0.0
 Requires-Dist: PyYAML<7.0.0
 Requires-Dist: requests_file<4.0.0
-Requires-Dist: ruamel.yaml<0.19.0
+Requires-Dist: ruamel.yaml<0.20.0
 Requires-Dist: sentry-sdk<3.0.0,>=1.33.1
 Requires-Dist: setuptools<82.0.0
-Requires-Dist: tabulate<0.10.0
+Requires-Dist: tabulate<0.11.0
 Requires-Dist: toml<=0.10.2,>=0.10.0
 Requires-Dist: typing-inspect<0.10.0
 Requires-Dist: typing_extensions<5.0.0,>=4.8.0
@@ -500,6 +500,7 @@ Requires-Dist: sqlglot[c]==30.8.0; extra == "grafana"
 Provides-Extra: hana
 Requires-Dist: acryl-datahub-classify==0.0.11; extra == "hana"
 Requires-Dist: cachetools<6.0.0; extra == "hana"
+Requires-Dist: defusedxml<0.8.0,>=0.7.1; extra == "hana"
 Requires-Dist: greenlet<4.0.0; extra == "hana"
 Requires-Dist: hdbcli<3.0.0,>=2.11.20; (platform_machine != "aarch64" and platform_machine != "arm64") and extra == "hana"
 Requires-Dist: numpy<2; extra == "hana"
@@ -510,6 +511,10 @@ Requires-Dist: sqlalchemy-hana<5.0.0,>=0.5.0; (platform_machine != "aarch64" and
 Requires-Dist: sqlalchemy<2,>=1.4.39; extra == "hana"
 Requires-Dist: sqlglot[c]==30.8.0; extra == "hana"
 Requires-Dist: sqlparse<0.6.0; extra == "hana"
+Provides-Extra: hex
+Requires-Dist: patchy==2.8.0; extra == "hex"
+Requires-Dist: requests<3.0.0; extra == "hex"
+Requires-Dist: sqlglot[c]==30.8.0; extra == "hex"
 Provides-Extra: hive
 Requires-Dist: acryl-datahub-classify==0.0.11; extra == "hive"
 Requires-Dist: acryl-pyhive[hive-pure-sasl]==0.6.18; extra == "hive"
@@ -626,6 +631,7 @@ Requires-Dist: requests<3.0.0; extra == "mode"
 Requires-Dist: sqlglot[c]==30.8.0; extra == "mode"
 Requires-Dist: tenacity<9.0.0,>=8.0.1; extra == "mode"
 Provides-Extra: mongodb
+Requires-Dist: packaging<26.0.0; extra == "mongodb"
 Requires-Dist: pymongo[aws]<5.0.0,>=4.8.0; extra == "mongodb"
 Provides-Extra: mssql
 Requires-Dist: acryl-datahub-classify==0.0.11; extra == "mssql"
@@ -673,6 +679,7 @@ Provides-Extra: neo4j
 Requires-Dist: neo4j<7.0.0; extra == "neo4j"
 Requires-Dist: pandas<3.0.0; extra == "neo4j"
 Provides-Extra: nifi
+Requires-Dist: packaging<26.0.0; extra == "nifi"
 Requires-Dist: requests-gssapi<2.0.0; extra == "nifi"
 Requires-Dist: requests<3.0.0; extra == "nifi"
 Provides-Extra: notion
@@ -848,7 +855,6 @@ Requires-Dist: urllib3<3.0,>=1.26; extra == "s3-slim"
 Requires-Dist: wcmatch<11.0.0; extra == "s3-slim"
 Provides-Extra: sac
 Requires-Dist: Authlib<2.0.0,>=1.6.11; extra == "sac"
-Requires-Dist: pyodata<2.0.0,>=1.11.1; extra == "sac"
 Requires-Dist: requests<3.0.0; extra == "sac"
 Provides-Extra: sagemaker
 Requires-Dist: boto3<2.0.0,>=1.35.0; extra == "sagemaker"
@@ -1000,6 +1006,26 @@ Requires-Dist: sqlalchemy<2,>=1.4.39; extra == "teradata"
 Requires-Dist: sqlglot[c]==30.8.0; extra == "teradata"
 Requires-Dist: sqlparse<0.6.0; extra == "teradata"
 Requires-Dist: teradatasqlalchemy<=20.0.0.2,>=17.20.0.0; extra == "teradata"
+Provides-Extra: thoughtspot
+Requires-Dist: patchy==2.8.0; extra == "thoughtspot"
+Requires-Dist: sqlglot[c]==30.8.0; extra == "thoughtspot"
+Requires-Dist: thoughtspot_rest_api<3.0.0,>=2.0.0; extra == "thoughtspot"
+Provides-Extra: timescaledb
+Requires-Dist: acryl-datahub-classify==0.0.11; extra == "timescaledb"
+Requires-Dist: boto3<2.0.0,>=1.35.0; extra == "timescaledb"
+Requires-Dist: botocore!=1.23.0,<2.0.0; extra == "timescaledb"
+Requires-Dist: cachetools<6.0.0; extra == "timescaledb"
+Requires-Dist: GeoAlchemy2<0.19.0; extra == "timescaledb"
+Requires-Dist: greenlet<4.0.0; extra == "timescaledb"
+Requires-Dist: numpy<2; extra == "timescaledb"
+Requires-Dist: patchy==2.8.0; extra == "timescaledb"
+Requires-Dist: pip; extra == "timescaledb"
+Requires-Dist: psycopg2-binary<3.0.0; extra == "timescaledb"
+Requires-Dist: schwifty<2026.0.0; extra == "timescaledb"
+Requires-Dist: sqlalchemy<2,>=1.4.39; extra == "timescaledb"
+Requires-Dist: sqlglot[c]==30.8.0; extra == "timescaledb"
+Requires-Dist: sqlparse<0.6.0; extra == "timescaledb"
+Requires-Dist: urllib3<3.0,>=1.26; extra == "timescaledb"
 Provides-Extra: trino
 Requires-Dist: acryl-datahub-classify==0.0.11; extra == "trino"
 Requires-Dist: cachetools<6.0.0; extra == "trino"
@@ -1122,6 +1148,7 @@ Requires-Dist: numpy<2; extra == "all"
 Requires-Dist: okta<2.0.0,~=1.7.0; extra == "all"
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == "all"
 Requires-Dist: oracledb<4.0.0; extra == "all"
+Requires-Dist: packaging<26.0.0; extra == "all"
 Requires-Dist: pandas<2.2.0; extra == "all"
 Requires-Dist: parse<2.0.0,>=1.19.0; extra == "all"
 Requires-Dist: patchy==2.8.0; extra == "all"
@@ -1138,7 +1165,6 @@ Requires-Dist: pyiceberg[adlfs,dynamodb,glue,hive,pyarrow,s3fs,snappy,zstandard]
 Requires-Dist: pymetastore<1.0.0,>=0.4.2; extra == "all"
 Requires-Dist: pymongo[aws]<5.0.0,>=4.8.0; extra == "all"
 Requires-Dist: pymysql<2.0.0,>=1.0.2; extra == "all"
-Requires-Dist: pyodata<2.0.0,>=1.11.1; extra == "all"
 Requires-Dist: pyodbc<6.0.0,>=4.0; extra == "all"
 Requires-Dist: pyOpenSSL<27.0.0,>=26.0.0; extra == "all"
 Requires-Dist: pyspark<4.0.0,~=3.5.6; extra == "all"
@@ -1175,6 +1201,7 @@ Requires-Dist: tableauserverclient<=0.40,>=0.24.0; extra == "all"
 Requires-Dist: tableschema<2.0.0,>=1.20.2; extra == "all"
 Requires-Dist: tenacity!=8.4.0,<9.0.0,>=8.0.1; extra == "all"
 Requires-Dist: teradatasqlalchemy<=20.0.0.2,>=17.20.0.0; extra == "all"
+Requires-Dist: thoughtspot_rest_api<3.0.0,>=2.0.0; extra == "all"
 Requires-Dist: traitlets!=5.2.2,<6.0.0; extra == "all"
 Requires-Dist: trino[sqlalchemy]<=0.336.0,>=0.308; extra == "all"
 Requires-Dist: ujson<6.0.0,>=5.12.1; extra == "all"
@@ -1296,7 +1323,6 @@ Requires-Dist: pyiceberg[adlfs,dynamodb,glue,hive,pyarrow,s3fs,snappy,zstandard]
 Requires-Dist: pymetastore<1.0.0,>=0.4.2; extra == "dev"
 Requires-Dist: pymongo[aws]<5.0.0,>=4.8.0; extra == "dev"
 Requires-Dist: pymysql<2.0.0,>=1.0.2; extra == "dev"
-Requires-Dist: pyodata<2.0.0,>=1.11.1; extra == "dev"
 Requires-Dist: pyodbc<6.0.0; extra == "dev"
 Requires-Dist: pyOpenSSL<27.0.0,>=26.0.0; extra == "dev"
 Requires-Dist: pyspark<4.0.0,~=3.5.6; extra == "dev"
@@ -1320,7 +1346,7 @@ Requires-Dist: requests-mock<2.0.0; extra == "dev"
 Requires-Dist: requests<3.0.0,==2.32.5; extra == "dev"
 Requires-Dist: requests_file<4.0.0,==3.0.1; extra == "dev"
 Requires-Dist: requests_ntlm<2.0.0; extra == "dev"
-Requires-Dist: ruamel.yaml<0.19.0; extra == "dev"
+Requires-Dist: ruamel.yaml<0.20.0; extra == "dev"
 Requires-Dist: ruff==0.11.7; extra == "dev"
 Requires-Dist: schwifty<2026.0.0; extra == "dev"
 Requires-Dist: sentry-sdk<3.0.0,>=1.33.1; extra == "dev"
@@ -1342,9 +1368,10 @@ Requires-Dist: sqlparse<0.6.0; extra == "dev"
 Requires-Dist: stopit==1.1.2; extra == "dev"
 Requires-Dist: tableauserverclient<=0.40,>=0.24.0; extra == "dev"
 Requires-Dist: tableschema<2.0.0,>=1.20.2; extra == "dev"
-Requires-Dist: tabulate<0.10.0; extra == "dev"
+Requires-Dist: tabulate<0.11.0; extra == "dev"
 Requires-Dist: tenacity!=8.4.0,<9.0.0,>=8.0.1; extra == "dev"
 Requires-Dist: teradatasqlalchemy<=20.0.0.2,>=17.20.0.0; extra == "dev"
+Requires-Dist: thoughtspot_rest_api<3.0.0,>=2.0.0; extra == "dev"
 Requires-Dist: time-machine<4.0.0; extra == "dev"
 Requires-Dist: toml<=0.10.2,>=0.10.0; extra == "dev"
 Requires-Dist: trino[sqlalchemy]<=0.336.0,>=0.308; extra == "dev"
@@ -1362,7 +1389,7 @@ Requires-Dist: types-pytz<2026.0.0; extra == "dev"
 Requires-Dist: types-PyYAML<7.0.0; extra == "dev"
 Requires-Dist: types-requests<=2.31.0.3,>=2.28.11.6; extra == "dev"
 Requires-Dist: types-six<2.0.0; extra == "dev"
-Requires-Dist: types-tabulate<0.10.0; extra == "dev"
+Requires-Dist: types-tabulate<0.11.0; extra == "dev"
 Requires-Dist: types-toml<0.11.0; extra == "dev"
 Requires-Dist: types-ujson<6.0.0,>=5.2.0; extra == "dev"
 Requires-Dist: typing-inspect<0.10.0; extra == "dev"
@@ -1485,7 +1512,6 @@ Requires-Dist: pyiceberg[adlfs,dynamodb,glue,hive,pyarrow,s3fs,snappy,zstandard]
 Requires-Dist: pymetastore<1.0.0,>=0.4.2; extra == "docs"
 Requires-Dist: pymongo[aws]<5.0.0,>=4.8.0; extra == "docs"
 Requires-Dist: pymysql<2.0.0,>=1.0.2; extra == "docs"
-Requires-Dist: pyodata<2.0.0,>=1.11.1; extra == "docs"
 Requires-Dist: pyodbc<6.0.0; extra == "docs"
 Requires-Dist: pyOpenSSL<27.0.0,>=26.0.0; extra == "docs"
 Requires-Dist: pyspark<4.0.0,~=3.5.6; extra == "docs"
@@ -1509,7 +1535,7 @@ Requires-Dist: requests-mock<2.0.0; extra == "docs"
 Requires-Dist: requests<3.0.0,==2.32.5; extra == "docs"
 Requires-Dist: requests_file<4.0.0,==3.0.1; extra == "docs"
 Requires-Dist: requests_ntlm<2.0.0; extra == "docs"
-Requires-Dist: ruamel.yaml<0.19.0; extra == "docs"
+Requires-Dist: ruamel.yaml<0.20.0; extra == "docs"
 Requires-Dist: ruff==0.11.7; extra == "docs"
 Requires-Dist: schwifty<2026.0.0; extra == "docs"
 Requires-Dist: sentry-sdk<3.0.0,>=1.33.1; extra == "docs"
@@ -1531,9 +1557,10 @@ Requires-Dist: sqlparse<0.6.0; extra == "docs"
 Requires-Dist: stopit==1.1.2; extra == "docs"
 Requires-Dist: tableauserverclient<=0.40,>=0.24.0; extra == "docs"
 Requires-Dist: tableschema<2.0.0,>=1.20.2; extra == "docs"
-Requires-Dist: tabulate<0.10.0; extra == "docs"
+Requires-Dist: tabulate<0.11.0; extra == "docs"
 Requires-Dist: tenacity!=8.4.0,<9.0.0,>=8.0.1; extra == "docs"
 Requires-Dist: teradatasqlalchemy<=20.0.0.2,>=17.20.0.0; extra == "docs"
+Requires-Dist: thoughtspot_rest_api<3.0.0,>=2.0.0; extra == "docs"
 Requires-Dist: time-machine<4.0.0; extra == "docs"
 Requires-Dist: toml<=0.10.2,>=0.10.0; extra == "docs"
 Requires-Dist: trino[sqlalchemy]<=0.336.0,>=0.308; extra == "docs"
@@ -1551,7 +1578,7 @@ Requires-Dist: types-pytz<2026.0.0; extra == "docs"
 Requires-Dist: types-PyYAML<7.0.0; extra == "docs"
 Requires-Dist: types-requests<=2.31.0.3,>=2.28.11.6; extra == "docs"
 Requires-Dist: types-six<2.0.0; extra == "docs"
-Requires-Dist: types-tabulate<0.10.0; extra == "docs"
+Requires-Dist: types-tabulate<0.11.0; extra == "docs"
 Requires-Dist: types-toml<0.11.0; extra == "docs"
 Requires-Dist: types-ujson<6.0.0,>=5.2.0; extra == "docs"
 Requires-Dist: typing-inspect<0.10.0; extra == "docs"
@@ -1589,6 +1616,7 @@ Requires-Dist: cachetools<6.0.0; extra == "integration-tests"
 Requires-Dist: clickhouse-sqlalchemy<0.2.5,>=0.2.0; extra == "integration-tests"
 Requires-Dist: dask[dataframe]<2024.7.0; extra == "integration-tests"
 Requires-Dist: databricks-dbapi<0.7.0; extra == "integration-tests"
+Requires-Dist: defusedxml<0.8.0,>=0.7.1; extra == "integration-tests"
 Requires-Dist: deltalake!=0.18.0,!=0.6.4,<1.0.0,>=0.6.3; (platform_system == "Darwin" and platform_machine == "arm64") and extra == "integration-tests"
 Requires-Dist: deltalake!=0.6.4,<1.0.0,>=0.6.3; (platform_system != "Darwin" or platform_machine != "arm64") and extra == "integration-tests"
 Requires-Dist: feast<1,>=0.34.0; extra == "integration-tests"

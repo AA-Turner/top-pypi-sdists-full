@@ -298,6 +298,34 @@ class TestResolveLocalPath:
         assert resolved.sys_id == "br-1"
         assert set(resolved.fields) == {"script", "condition"}
 
+    def test_resolve_scripted_rest_operation_file(self, download_root):
+        # sys_ws_operation/<name>/operation_script.js — the Scripted REST resource
+        # file-based workflow now resolves (was 'Cannot resolve').
+        op_dir = download_root / "global" / "sys_ws_operation" / "get"
+        op_dir.mkdir(parents=True)
+        (op_dir / "_metadata.json").write_text(
+            json.dumps({"sys_id": "op-exact", "name": "get"}), encoding="utf-8"
+        )
+        (op_dir / "operation_script.js").write_text("(function(){})();", encoding="utf-8")
+        resolved = _resolve_local_path(op_dir / "operation_script.js")
+        assert resolved.table == "sys_ws_operation"
+        assert "operation_script" in resolved.fields
+
+    def test_metadata_sys_id_wins_over_colliding_map(self, download_root):
+        # operation names aren't globally unique; the per-folder _metadata.json
+        # sys_id must win over a name-keyed _map.json (collision-proof).
+        op_dir = download_root / "global" / "sys_ws_operation" / "get"
+        op_dir.mkdir(parents=True)
+        (op_dir / "_metadata.json").write_text(
+            json.dumps({"sys_id": "op-exact", "name": "get"}), encoding="utf-8"
+        )
+        (op_dir / "operation_script.js").write_text("x", encoding="utf-8")
+        (download_root / "global" / "sys_ws_operation" / "_map.json").write_text(
+            json.dumps({"get": "op-WRONG-from-other-webservice"}), encoding="utf-8"
+        )
+        resolved = _resolve_local_path(op_dir / "operation_script.js")
+        assert resolved.sys_id == "op-exact"  # _metadata wins, not the colliding _map
+
     def test_resolve_unknown_file_raises(self, tmp_path):
         (tmp_path / "random.txt").write_text("hello")
         with pytest.raises(ValueError, match="Cannot resolve"):
@@ -786,6 +814,29 @@ class TestUpdateRemoteFromLocal:
             mock_config, mock_auth, DiffLocalComponentParams(path=str(path))
         )
         assert result["attribution"]["attribution"] == "ownership_changed"
+
+    @patch("servicenow_mcp.tools.sync_tools.update_portal_component")
+    @patch("servicenow_mcp.tools.sync_tools._fetch_portal_component_record")
+    def test_push_blocks_protected_record_pre_flight(
+        self, mock_fetch, mock_update, mock_config, mock_auth, download_root
+    ):
+        # sys_policy='read' → ServiceNow would reject the write. Block pre-flight
+        # with the reason + remedy, and never call the writer.
+        mock_fetch.return_value = {
+            "sys_id": "si-1",
+            "name": "MyUtil",
+            "script": "// changed\nvar a = 1;\n",
+            "sys_updated_on": "2025-01-10 10:00:00",
+            "sys_policy": "read",
+            "sys_scope": "global",
+        }
+        path = download_root / "global" / "sys_script_include" / "MyUtil.script.js"
+        result = update_remote_from_local(
+            mock_config, mock_auth, PushLocalComponentParams(path=str(path))
+        )
+        assert result["error"] == "PROTECTED_RECORD"
+        assert "Studio" in result["message"]
+        mock_update.assert_not_called()
 
     @patch("servicenow_mcp.tools.sync_tools._write_sync_meta")
     @patch("servicenow_mcp.tools.sync_tools.update_portal_component")

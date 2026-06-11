@@ -22,7 +22,7 @@ from .helpers import (
     validate_identifier_not_empty,
 )
 from .tools_voice_assistant import KNOWN_ASSISTANTS
-from .util_helpers import coerce_bool_param, parse_json_param, parse_string_list_param
+from .util_helpers import parse_json_param, parse_string_list_param
 
 logger = logging.getLogger(__name__)
 
@@ -83,8 +83,8 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         area_id: str | None,
         name: str | None,
         icon: str | None,
-        enabled: bool | str | None,
-        hidden: bool | str | None,
+        enabled: bool | None,
+        hidden: bool | None,
         parsed_aliases: list[str] | None,
         parsed_categories: dict[str, str | None] | None,
         parsed_labels: list[str] | None,
@@ -151,30 +151,12 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             )
 
         if enabled is not None:
-            try:
-                enabled_bool = coerce_bool_param(enabled, "enabled")
-            except ValueError as e:
-                raise_tool_error(
-                    create_error_response(
-                        ErrorCode.VALIDATION_INVALID_PARAMETER,
-                        str(e),
-                    )
-                )
-            message["disabled_by"] = None if enabled_bool else "user"
-            updates_made.append("enabled" if enabled_bool else "disabled")
+            message["disabled_by"] = None if enabled else "user"
+            updates_made.append("enabled" if enabled else "disabled")
 
         if hidden is not None:
-            try:
-                hidden_bool = coerce_bool_param(hidden, "hidden")
-            except ValueError as e:
-                raise_tool_error(
-                    create_error_response(
-                        ErrorCode.VALIDATION_INVALID_PARAMETER,
-                        str(e),
-                    )
-                )
-            message["hidden_by"] = "user" if hidden_bool else None
-            updates_made.append("hidden" if hidden_bool else "visible")
+            message["hidden_by"] = "user" if hidden else None
+            updates_made.append("hidden" if hidden else "visible")
 
         if parsed_aliases is not None:
             message["aliases"] = parsed_aliases
@@ -266,7 +248,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             if not result.get("success"):
                 error_msg = _extract_ws_error(result)
                 suggestions = [
-                    "Verify the entity_id exists using ha_search_entities()",
+                    "Verify the entity_id exists using ha_search()",
                 ]
                 if new_entity_id is not None:
                     suggestions.extend(
@@ -508,7 +490,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                             "exposure_succeeded": exposure_result,
                         },
                         suggestions=[
-                            "Verify the entity_id exists using ha_search_entities()",
+                            "Verify the entity_id exists using ha_search()",
                             "The entity's exposure settings were likely changed, but its current state could not be confirmed.",
                         ],
                     )
@@ -613,12 +595,12 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             ),
         ] = None,
         options: Annotated[
-            str | dict[str, dict[str, Any]] | None,
+            dict[str, dict[str, Any]] | None,
             Field(
                 description=(
                     "Per-domain entity registry options (e.g. sensor 'display_precision', "
                     "weather 'forecast_type'). Pass a dict mapping domain to a sub-dict, "
-                    'e.g. {"sensor": {"display_precision": 2}}. JSON-string form also accepted. '
+                    'e.g. {"sensor": {"display_precision": 2}}. '
                     "Multiple domains are sent as separate registry updates. "
                     "For 'Show As' use the dedicated `device_class` parameter — that is "
                     "what the HA UI Show As dropdown writes. Voice-assistant exposure is "
@@ -630,7 +612,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             ),
         ] = None,
         enabled: Annotated[
-            bool | str | None,
+            bool | None,
             Field(
                 description=(
                     "True to enable the entity, False to disable it. Single entity only. "
@@ -644,7 +626,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             ),
         ] = None,
         hidden: Annotated[
-            bool | str | None,
+            bool | None,
             Field(
                 description="True to hide the entity from UI, False to show it. Single entity only.",
                 default=None,
@@ -658,7 +640,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             ),
         ] = None,
         categories: Annotated[
-            str | dict[str, str | None] | None,
+            dict[str, str | None] | None,
             Field(
                 description=(
                     "Category assignment as a dict mapping scope to category_id. "
@@ -684,7 +666,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             ),
         ] = "set",
         expose_to: Annotated[
-            str | dict[str, bool] | None,
+            dict[str, bool] | None,
             Field(
                 description=(
                     "Control voice assistant exposure. Pass a dict mapping assistant IDs to booleans. "
@@ -759,7 +741,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         Use new_device_name to rename the associated device. Can be combined with
         new_entity_id to rename both in one call. The device is looked up automatically.
 
-        Use ha_search_entities() or ha_get_device() to find entity IDs.
+        Use ha_search() or ha_get_device() to find entity IDs.
         Use ha_config_get_label() to find available label IDs.
 
         EXAMPLES:
@@ -872,12 +854,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             # script.turn_off) which simply prevent them from running while
             # keeping them visible and manageable.
             if enabled is not None:
-                try:
-                    _enabled_check = coerce_bool_param(enabled, "enabled")
-                except ValueError:
-                    _enabled_check = None  # will be caught by _update_single_entity
-
-                if _enabled_check is False:
+                if enabled is False:
                     blocked = [
                         eid
                         for eid in entity_ids
@@ -1030,25 +1007,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                         )
                     )
 
-                # Coerce values to bool
-                for asst, val in parsed_expose_to.items():
-                    try:
-                        coerced = coerce_bool_param(val, f"expose_to[{asst}]")
-                    except ValueError as e:
-                        raise_tool_error(
-                            create_error_response(
-                                ErrorCode.VALIDATION_INVALID_PARAMETER,
-                                str(e),
-                            )
-                        )
-                    if coerced is None:
-                        raise_tool_error(
-                            create_error_response(
-                                ErrorCode.VALIDATION_INVALID_PARAMETER,
-                                f"expose_to[{asst}] must be a boolean value",
-                            )
-                        )
-                    parsed_expose_to[asst] = coerced
+                # Values are already bool (enforced by the dict[str, bool] annotation)
 
             # Single entity case - use existing logic
             if not is_bulk:
@@ -1137,6 +1096,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             logger.error(f"Error updating entity: {e}")
             eid_context = entity_id if isinstance(entity_id, str) else entity_ids
             exception_to_structured_error(e, context={"entity_id": eid_context})
+            return None  # unreachable: exception_to_structured_error always raises
 
     @mcp.tool(
         tags={"Entity Registry"},
@@ -1163,7 +1123,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         RELATED TOOLS:
         - ha_set_entity(): Modify entity properties (area, name, icon, enabled, hidden, aliases)
         - ha_get_state(): Get current state/attributes (on/off, temperature, etc.)
-        - ha_search_entities(): Find entities by name, domain, or area
+        - ha_search(): Find entities by name, domain, or area
 
         EXAMPLES:
         - Single entity: ha_get_entity("sensor.temperature")
@@ -1189,6 +1149,12 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
           via the ha_set_entity(expose_to=...) parameter, not the options dict.
         - platform: Integration platform (e.g., "hue", "zwave_js")
         - device_id: Associated device ID (null if standalone)
+        - config_entry_id: Parent config entry's ID (null for YAML-only
+          entities). When non-null — e.g. for UI-created template/group/
+          utility_meter/derivative/... helpers — pass it to
+          ``ha_get_integration(entry_id=..., include_options=True)`` to read the
+          helper's current config (template body, group members, etc.) without
+          scanning a domain list.
         - unique_id: Integration's unique identifier
         """
         try:
@@ -1254,6 +1220,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                     "options": entry.get("options", {}),
                     "platform": entry.get("platform"),
                     "device_id": entry.get("device_id"),
+                    "config_entry_id": entry.get("config_entry_id"),
                     "unique_id": entry.get("unique_id"),
                 }
 
@@ -1270,7 +1237,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                             f"Entity not found: {e}",
                             context={"entity_id": eid},
                             suggestions=[
-                                "Use ha_search_entities() to find valid entity IDs",
+                                "Use ha_search() to find valid entity IDs",
                                 "Check the entity_id spelling and format (e.g., 'sensor.temperature')",
                             ],
                         )
@@ -1313,7 +1280,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
             if errors:
                 response["errors"] = errors
                 response["suggestions"] = [
-                    "Use ha_search_entities() to find valid entity IDs for failed lookups"
+                    "Use ha_search() to find valid entity IDs for failed lookups"
                 ]
 
             return response
@@ -1328,6 +1295,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                     "entity_id": entity_id if isinstance(entity_id, str) else entity_ids
                 },
             )
+            return None  # unreachable: exception_to_structured_error always raises
 
     @mcp.tool(
         tags={"Entity Registry"},
@@ -1369,7 +1337,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
         ha_set_entity(entity_id="sensor.old", enabled=False)
 
         RELATED TOOLS:
-        - ha_search_entities: Find entities to verify the entity_id before removing
+        - ha_search: Find entities to verify the entity_id before removing
         - ha_get_entity: Check entity details before removal
         """
         try:
@@ -1379,7 +1347,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                 entity_id,
                 "entity_id",
                 suggestions=[
-                    "Use ha_search_entities() to find valid entity IDs",
+                    "Use ha_search() to find valid entity IDs",
                 ],
             )
             result = await client.send_websocket_message(
@@ -1395,7 +1363,7 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                             f"Entity '{entity_id}' not found in registry",
                             context={"entity_id": entity_id},
                             suggestions=[
-                                "Use ha_search_entities() to find valid entity IDs",
+                                "Use ha_search() to find valid entity IDs",
                                 "The entity may have already been removed",
                             ],
                         )
@@ -1421,3 +1389,4 @@ def register_entity_tools(mcp: Any, client: Any, **kwargs: Any) -> None:
                 e,
                 context={"entity_id": entity_id},
             )
+            return None  # unreachable: exception_to_structured_error always raises

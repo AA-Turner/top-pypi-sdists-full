@@ -1947,3 +1947,11 @@ LUCIDE_ICON_MAPPING_OVERRIDE = {
     "grid_3x2": "Grid3x2Icon",
     "fingerprint": "FingerprintPattern",
 }
+LUCIDE_ICON_FILENAME_OVERRIDE = {
+    "fingerprint": "fingerprint-pattern",
+    "grid_2x_2": "grid-2x2",
+    "grid_2x_2_check": "grid-2x2-check",
+    "grid_2x_2_plus": "grid-2x2-plus",
+    "grid_2x_2_x": "grid-2x2-x",
+    "grid_3x_3": "grid-3x3",
+}

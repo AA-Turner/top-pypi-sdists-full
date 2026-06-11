@@ -452,7 +452,7 @@ def pre_validate_content(filepath: str, content: str) -> tuple[bool, str]:
         if not is_valid:
             return False, error
 
-        if "test_" in filepath or filepath.startswith("tests/"):
+        if ("test_" in filepath and "test_result.py" not in filepath) or filepath.startswith("tests/"):
             has_test_func = bool(re.search(r"def test_\w+", content))
             if not has_test_func:
                 if not (filepath.endswith("conftest.py") or filepath.endswith("__init__.py")):

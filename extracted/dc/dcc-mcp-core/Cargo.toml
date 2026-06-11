@@ -6,7 +6,7 @@ members = ["crates/dcc-mcp-naming", "crates/dcc-mcp-models", "crates/dcc-mcp-act
 resolver = "2"
 
 [workspace.package]
-version = "0.18.15" # x-release-please-version
+version = "0.18.17" # x-release-please-version
 edition = "2024"
 rust-version = "1.95"
 authors = ["Hal Long <hal.long@outlook.com>"]
@@ -50,6 +50,8 @@ dcc-mcp-marketplace = { path = "crates/dcc-mcp-marketplace" }
 dcc-mcp-catalog = { path = "crates/dcc-mcp-catalog" }
 dcc-mcp-db = { path = "crates/dcc-mcp-db" }
 dcc-mcp-gateway = { path = "crates/dcc-mcp-gateway" }
+dcc-mcp-updater = { path = "crates/dcc-mcp-updater" }
+dcc-mcp-gateway-ensure = { path = "crates/dcc-mcp-gateway-ensure" }
 dcc-mcp-gateway-search = { path = "crates/dcc-mcp-gateway-search" }
 dcc-mcp-semantic = { path = "crates/dcc-mcp-semantic" }
 

@@ -22,11 +22,14 @@ from typing import List, Optional
 from typing_extensions import Annotated
 from arthur_client.api_bindings.models.alert import Alert
 from arthur_client.api_bindings.models.alert_bound import AlertBound
+from arthur_client.api_bindings.models.alert_log_status import AlertLogStatus
 from arthur_client.api_bindings.models.alert_sort import AlertSort
 from arthur_client.api_bindings.models.created_alerts import CreatedAlerts
 from arthur_client.api_bindings.models.infinite_resource_list_alert import InfiniteResourceListAlert
 from arthur_client.api_bindings.models.infinite_resource_list_alert_group import InfiniteResourceListAlertGroup
+from arthur_client.api_bindings.models.post_alert_logs import PostAlertLogs
 from arthur_client.api_bindings.models.post_alerts import PostAlerts
+from arthur_client.api_bindings.models.resource_list_alert_log import ResourceListAlertLog
 from arthur_client.api_bindings.models.sort_order import SortOrder
 
 from arthur_client.api_bindings.api_client import ApiClient, RequestSerialized
@@ -1168,6 +1171,396 @@ class AlertsV1Api:
 
 
     @validate_call
+    def get_model_alert_logs(
+        self,
+        model_id: StrictStr,
+        alert_rule_id: Annotated[Optional[StrictStr], Field(description="Filter by alert rule ID.")] = None,
+        status: Annotated[Optional[AlertLogStatus], Field(description="Filter by status.")] = None,
+        start_time: Annotated[Optional[datetime], Field(description="Filter logs with bucket timestamp at or after this time.")] = None,
+        end_time: Annotated[Optional[datetime], Field(description="Filter logs with bucket timestamp at or before this time.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ResourceListAlertLog:
+        """Get Model Alert Logs
+
+        Returns alert rule evaluation logs for a model. Requires model_list_alerts permission.
+
+        :param model_id: (required)
+        :type model_id: str
+        :param alert_rule_id: Filter by alert rule ID.
+        :type alert_rule_id: str
+        :param status: Filter by status.
+        :type status: AlertLogStatus
+        :param start_time: Filter logs with bucket timestamp at or after this time.
+        :type start_time: datetime
+        :param end_time: Filter logs with bucket timestamp at or before this time.
+        :type end_time: datetime
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_model_alert_logs_serialize(
+            model_id=model_id,
+            alert_rule_id=alert_rule_id,
+            status=status,
+            start_time=start_time,
+            end_time=end_time,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListAlertLog",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_model_alert_logs_with_http_info(
+        self,
+        model_id: StrictStr,
+        alert_rule_id: Annotated[Optional[StrictStr], Field(description="Filter by alert rule ID.")] = None,
+        status: Annotated[Optional[AlertLogStatus], Field(description="Filter by status.")] = None,
+        start_time: Annotated[Optional[datetime], Field(description="Filter logs with bucket timestamp at or after this time.")] = None,
+        end_time: Annotated[Optional[datetime], Field(description="Filter logs with bucket timestamp at or before this time.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[ResourceListAlertLog]:
+        """Get Model Alert Logs
+
+        Returns alert rule evaluation logs for a model. Requires model_list_alerts permission.
+
+        :param model_id: (required)
+        :type model_id: str
+        :param alert_rule_id: Filter by alert rule ID.
+        :type alert_rule_id: str
+        :param status: Filter by status.
+        :type status: AlertLogStatus
+        :param start_time: Filter logs with bucket timestamp at or after this time.
+        :type start_time: datetime
+        :param end_time: Filter logs with bucket timestamp at or before this time.
+        :type end_time: datetime
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_model_alert_logs_serialize(
+            model_id=model_id,
+            alert_rule_id=alert_rule_id,
+            status=status,
+            start_time=start_time,
+            end_time=end_time,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListAlertLog",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_model_alert_logs_without_preload_content(
+        self,
+        model_id: StrictStr,
+        alert_rule_id: Annotated[Optional[StrictStr], Field(description="Filter by alert rule ID.")] = None,
+        status: Annotated[Optional[AlertLogStatus], Field(description="Filter by status.")] = None,
+        start_time: Annotated[Optional[datetime], Field(description="Filter logs with bucket timestamp at or after this time.")] = None,
+        end_time: Annotated[Optional[datetime], Field(description="Filter logs with bucket timestamp at or before this time.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get Model Alert Logs
+
+        Returns alert rule evaluation logs for a model. Requires model_list_alerts permission.
+
+        :param model_id: (required)
+        :type model_id: str
+        :param alert_rule_id: Filter by alert rule ID.
+        :type alert_rule_id: str
+        :param status: Filter by status.
+        :type status: AlertLogStatus
+        :param start_time: Filter logs with bucket timestamp at or after this time.
+        :type start_time: datetime
+        :param end_time: Filter logs with bucket timestamp at or before this time.
+        :type end_time: datetime
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_model_alert_logs_serialize(
+            model_id=model_id,
+            alert_rule_id=alert_rule_id,
+            status=status,
+            start_time=start_time,
+            end_time=end_time,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListAlertLog",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_model_alert_logs_serialize(
+        self,
+        model_id,
+        alert_rule_id,
+        status,
+        start_time,
+        end_time,
+        page,
+        page_size,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if model_id is not None:
+            _path_params['model_id'] = model_id
+        # process the query parameters
+        if alert_rule_id is not None:
+            
+            _query_params.append(('alert_rule_id', alert_rule_id))
+            
+        if status is not None:
+            
+            _query_params.append(('status', status.value))
+            
+        if start_time is not None:
+            if isinstance(start_time, datetime):
+                _query_params.append(
+                    (
+                        'start_time',
+                        start_time.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('start_time', start_time))
+            
+        if end_time is not None:
+            if isinstance(end_time, datetime):
+                _query_params.append(
+                    (
+                        'end_time',
+                        end_time.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('end_time', end_time))
+            
+        if page is not None:
+            
+            _query_params.append(('page', page))
+            
+        if page_size is not None:
+            
+            _query_params.append(('page_size', page_size))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v1/models/{model_id}/alert_logs',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
     def get_model_alerts(
         self,
         model_id: StrictStr,
@@ -1629,6 +2022,304 @@ class AlertsV1Api:
         return self.api_client.param_serialize(
             method='GET',
             resource_path='/api/v1/models/{model_id}/alerts',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def post_model_alert_logs(
+        self,
+        model_id: StrictStr,
+        post_alert_logs: PostAlertLogs,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ResourceListAlertLog:
+        """Create Model Alert Logs
+
+        Creates alert rule evaluation logs for a model. Requires model_create_alert permission.
+
+        :param model_id: (required)
+        :type model_id: str
+        :param post_alert_logs: (required)
+        :type post_alert_logs: PostAlertLogs
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._post_model_alert_logs_serialize(
+            model_id=model_id,
+            post_alert_logs=post_alert_logs,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListAlertLog",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def post_model_alert_logs_with_http_info(
+        self,
+        model_id: StrictStr,
+        post_alert_logs: PostAlertLogs,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[ResourceListAlertLog]:
+        """Create Model Alert Logs
+
+        Creates alert rule evaluation logs for a model. Requires model_create_alert permission.
+
+        :param model_id: (required)
+        :type model_id: str
+        :param post_alert_logs: (required)
+        :type post_alert_logs: PostAlertLogs
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._post_model_alert_logs_serialize(
+            model_id=model_id,
+            post_alert_logs=post_alert_logs,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListAlertLog",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def post_model_alert_logs_without_preload_content(
+        self,
+        model_id: StrictStr,
+        post_alert_logs: PostAlertLogs,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Create Model Alert Logs
+
+        Creates alert rule evaluation logs for a model. Requires model_create_alert permission.
+
+        :param model_id: (required)
+        :type model_id: str
+        :param post_alert_logs: (required)
+        :type post_alert_logs: PostAlertLogs
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._post_model_alert_logs_serialize(
+            model_id=model_id,
+            post_alert_logs=post_alert_logs,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceListAlertLog",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _post_model_alert_logs_serialize(
+        self,
+        model_id,
+        post_alert_logs,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if model_id is not None:
+            _path_params['model_id'] = model_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if post_alert_logs is not None:
+            _body_params = post_alert_logs
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v1/models/{model_id}/alert_logs',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

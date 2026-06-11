@@ -2154,6 +2154,12 @@ class SAGEAgent:
                 _close_task_dock()
                 return [], False
             written, _ = self.process_response(response, send_fn=send, phase_name="implementation")
+        
+        if response and response.strip().startswith(("Error:", "❌ Error:")):
+            self.renderer.error(response.strip())
+            _close_task_dock()
+            return [], False
+
 
         # Re-prompt when the task is not read-only but the model only explored (no FILE: saves).
         if (

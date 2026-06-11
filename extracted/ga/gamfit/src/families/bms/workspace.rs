@@ -1238,7 +1238,7 @@ impl BernoulliMarginalSlopeFamily {
     /// implementation. When it is `Some`, only the sampled rows contribute,
     /// with their Horvitz-Thompson inverse-inclusion weights taken from
     /// `OuterScoreSubsample::rows`. This is the row-iter swap that lets outer-only
-    /// score/gradient passes scale to biobank `n` without distorting the
+    /// score/gradient passes scale to large-scale `n` without distorting the
     /// full-data inner-PIRLS or covariance code paths.
     pub(crate) fn log_likelihood_only_with_options(
         &self,
@@ -1991,7 +1991,7 @@ impl BernoulliMarginalSlopeFamily {
     /// Returns `(f, f', 0.0)`: the third slot — `F''(a)` — is reported as
     /// zero, which makes [`monotone_root::solve_monotone_root`]'s safeguarded
     /// Halley step reduce to a Newton step. A measured degree-9 `F''(a)` path
-    /// did not reduce calibration evaluations on the biobank FLEX repro, and
+    /// did not reduce calibration evaluations on the large-scale FLEX repro, and
     /// it made each value-bearing cell evaluation slower; degree 4 is the
     /// correct cost/accuracy point for this solver.
     pub(super) fn evaluate_denested_calibration_newton(
@@ -2689,7 +2689,7 @@ impl BernoulliMarginalSlopeFamily {
         // equation becomes numerically flat and tight absolute precision is
         // not achievable. We accept any bracketed solution at this level, so
         // pass the same tolerance to the root solver — driving it tighter
-        // than `abs_tol` is wasted cell-moment work, since at biobank scale
+        // than `abs_tol` is wasted cell-moment work, since at large scale
         // (n=320k, FLEX active with linkwiggle + score-warp) the solver is
         // called once per row per Hessian build and the per-row cell-moment
         // kernel dominates wall time. With this tolerance the closed-form /
@@ -2697,7 +2697,7 @@ impl BernoulliMarginalSlopeFamily {
         // common case, instead of forcing 30+ refinement iters down to 1e-10.
 
         // Local Newton probe before paying for the safeguarded bracket.
-        // Cycle-0 is cold at biobank scale, so forcing every row through the
+        // Cycle-0 is cold at large scale, so forcing every row through the
         // bracket spends most of the wall time rebuilding identical cell
         // value integrals. The rigid/affine seed is exact when deviations vanish
         // and first-order accurate when they are small; probe that local
@@ -3276,7 +3276,7 @@ impl BernoulliMarginalSlopeFamily {
         // substrate's pub(crate) entry point and surfaces any divergence
         // from the existing LRU evaluator the moment it appears. We sample
         // a small prefix of rows so the debug-build cost stays bounded for
-        // biobank-scale fits; the production build pays nothing because the
+        // large-scale fits; the production build pays nothing because the
         // block is `cfg(debug_assertions)`-gated.
         #[cfg(debug_assertions)]
         {
@@ -3636,7 +3636,7 @@ impl BernoulliMarginalSlopeFamily {
         let mut cell_sbw = vec![0.0_f64; total_cells_us * p_w * coeff4];
         // When `build_device_moments` is set, the host `cell_moments` vec
         // is unused (the launcher consumes the device buffer); we leave
-        // it empty so it doesn't waste RAM in biobank-scale jobs.
+        // it empty so it doesn't waste RAM in large-scale jobs.
         let mut cell_moments: Vec<f64> = if build_device_moments {
             Vec::new()
         } else {
@@ -11442,6 +11442,457 @@ impl BernoulliMarginalSlopeFamily {
         }))
     }
 
+    /// Direction-contracted second-order ψ terms (#740).
+    ///
+    /// Returns, for every non-σ ψ output row `i`, the `α`-contraction of the
+    /// per-pair second-order terms against the combined ψ-direction
+    /// `ψ(α) = Σ_j alpha_psi[j] · ψ_j`:
+    ///
+    /// ```text
+    ///   objective[i] = Σ_j α_j V_{ψ_i ψ_j}
+    ///   score[i,:]   = Σ_j α_j g_{ψ_i ψ_j}
+    ///   hessian[i]   = Σ_j α_j D²_β H_L[ψ_i, ψ_j]  (as a block-Hessian operator)
+    /// ```
+    ///
+    /// This is the single-pass generalization of
+    /// [`Self::exact_newton_joint_psisecond_order_terms_from_cache_with_options`]:
+    /// instead of `K²` per-pair calls (each tracing a distinct
+    /// `D²_β H_L[ψ_i, ψ_j]` operator at O(n·r), see `compute_base_h2_traces`),
+    /// it streams the data rows ONCE and, per row, contracts the j-leg quantities
+    /// (`dir_j`, `psi_local_j`, `third_j`, the same-block cross design term
+    /// `dir_ij`, and the `f_pipi`/`f_pi` projections onto the j-leg) into their
+    /// `α`-combinations across all non-σ axes before accumulating each of the `K`
+    /// output rows. The heavy per-row third/fourth jet is the same cached tensor
+    /// the per-pair path reads (`rigid_third_full_cached`/
+    /// `rigid_fourth_full_cached` and the FLEX axis-tensor caches), so the only
+    /// change is which directions are contracted — the row math, weighting, and
+    /// `BernoulliBlockHessianAccumulator` pullbacks are identical, term for term,
+    /// to the per-pair fold above. Exactness is checked by
+    /// `profiled_theta_hvp_outer_hessian_fd`.
+    ///
+    /// Returns `Ok(None)` when any participating axis cannot resolve a primary
+    /// block (marginal/log-slope) location, so the caller keeps the exact
+    /// per-pair fallback.
+    pub(crate) fn exact_newton_joint_psisecond_order_terms_contracted_from_cache_with_options(
+        &self,
+        block_states: &[ParameterBlockState],
+        derivative_blocks: &[Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>],
+        alpha_psi: &[f64],
+        cache: &BernoulliMarginalSlopeExactEvalCache,
+        options: &BlockwiseFitOptions,
+    ) -> Result<Option<crate::custom_family::ExactNewtonJointPsiSecondOrderContracted>, String>
+    {
+        use crate::solver::estimate::reml::unified::DriftDerivResult;
+        let slices = &cache.slices;
+        let primary = &cache.primary;
+        let n = self.y.len();
+        let psi_dim: usize = derivative_blocks.iter().map(Vec::len).sum();
+        if alpha_psi.len() != psi_dim {
+            return Err(format!(
+                "bernoulli marginal-slope contracted second-order: alpha_psi length {} != psi_dim {}",
+                alpha_psi.len(),
+                psi_dim
+            ));
+        }
+
+        // Resolve every ψ axis to its (block, local) primary location and build
+        // its single-axis design map once. A σ-aux or otherwise unresolvable axis
+        // disables the contracted path (caller falls back to exact per-pair).
+        struct AxisInfo {
+            block: usize,
+            dir_idx: usize,
+            map: crate::families::custom_family::PsiDesignMap,
+            deriv_block: usize,
+            deriv_local: usize,
+        }
+        let mut axes: Vec<AxisInfo> = Vec::with_capacity(psi_dim);
+        for psi_index in 0..psi_dim {
+            let Some((block, local)) = psi_derivative_location(derivative_blocks, psi_index) else {
+                return Ok(None);
+            };
+            let (p_psi, label) = match block {
+                0 => (
+                    self.marginal_design.ncols(),
+                    "BernoulliMarginalSlopeFamily marginal",
+                ),
+                1 => (
+                    self.logslope_design.ncols(),
+                    "BernoulliMarginalSlopeFamily log-slope",
+                ),
+                _ => return Ok(None),
+            };
+            let deriv = &derivative_blocks[block][local];
+            let map = crate::families::custom_family::resolve_custom_family_x_psi_map(
+                deriv,
+                n,
+                p_psi,
+                0..n,
+                label,
+                &self.policy,
+            )?;
+            let dir_idx = if block == 0 {
+                primary.q
+            } else {
+                primary.logslope
+            };
+            axes.push(AxisInfo {
+                block,
+                dir_idx,
+                map,
+                deriv_block: block,
+                deriv_local: local,
+            });
+        }
+
+        // Same-block second design maps ∂²X/∂ψ_i∂ψ_j, built once per (i, j)
+        // same-block pair. These are the bilinear cross terms; the contracted
+        // path needs Σ_j α_j (∂²X/∂ψ_i∂ψ_j · β) per output row i.
+        let mut cross_maps: std::collections::HashMap<
+            (usize, usize),
+            crate::families::custom_family::PsiDesignMap,
+        > = std::collections::HashMap::new();
+        for i in 0..psi_dim {
+            for j in 0..psi_dim {
+                if alpha_psi[j] == 0.0 {
+                    continue;
+                }
+                if axes[i].block != axes[j].block {
+                    continue;
+                }
+                let p_psi = if axes[i].block == 0 {
+                    self.marginal_design.ncols()
+                } else {
+                    self.logslope_design.ncols()
+                };
+                let label = if axes[i].block == 0 {
+                    "BernoulliMarginalSlopeFamily marginal"
+                } else {
+                    "BernoulliMarginalSlopeFamily log-slope"
+                };
+                let deriv_i = &derivative_blocks[axes[i].deriv_block][axes[i].deriv_local];
+                let deriv_j = &derivative_blocks[axes[j].deriv_block][axes[j].deriv_local];
+                let map = crate::families::custom_family::resolve_custom_family_x_psi_psi_map(
+                    deriv_i,
+                    deriv_j,
+                    axes[j].deriv_local,
+                    n,
+                    p_psi,
+                    0..n,
+                    label,
+                    &self.policy,
+                )?;
+                cross_maps.insert((i, j), map);
+            }
+        }
+
+        self.prewarm_flex_cell_bundle(block_states, cache, 21)?;
+        if !self.effective_flex_active(block_states)? {
+            let warmed = self.rigid_fourth_full_cached(block_states, cache, 0)?;
+            ensure_finite_fourth_full_cache_row(
+                warmed,
+                "exact_newton_joint_psisecond_order_terms_contracted rigid fourth-cache warm-up",
+            )?;
+        }
+
+        // One accumulator per output row i (the K D²_β H_L[ψ_i, ψ(α)] block
+        // operators), plus the contracted objective scalar and score vector per
+        // output row. The data rows are streamed ONCE; every output row reads the
+        // same per-row primary grad/Hess and the same cached third/fourth jets.
+        let weighted_rows = outer_weighted_rows(options, n);
+        let per_row = weighted_rows
+            .into_par_iter()
+            .try_fold(
+                || {
+                    (
+                        Array1::<f64>::zeros(psi_dim),
+                        Array2::<f64>::zeros((psi_dim, slices.total)),
+                        (0..psi_dim)
+                            .map(|_| BernoulliBlockHessianAccumulator::new(slices))
+                            .collect::<Vec<_>>(),
+                    )
+                },
+                |mut acc, wr| -> Result<_, String> {
+                    let row = wr.index;
+                    let w = wr.weight;
+                    let row_ctx = Self::row_ctx(cache, row);
+                    let (f_pi, f_pipi) = self.compute_row_primary_gradient_hessian_reusing_cache(
+                        row,
+                        block_states,
+                        primary,
+                        row_ctx,
+                        cache,
+                    )?;
+
+                    // Per-axis row quantities (computed once per row, reused by
+                    // every output row through their α-combinations).
+                    let mut psi_local: Vec<Array1<f64>> = Vec::with_capacity(psi_dim);
+                    let mut dir: Vec<Array1<f64>> = Vec::with_capacity(psi_dim);
+                    for axis in &axes {
+                        let pl = axis
+                            .map
+                            .row_vector(row)
+                            .map_err(|e| format!("bernoulli psi contracted map row {row}: {e}"))?;
+                        let mut d = Array1::<f64>::zeros(primary.total);
+                        d[axis.dir_idx] = pl.dot(&block_states[axis.block].beta);
+                        psi_local.push(pl);
+                        dir.push(d);
+                    }
+
+                    // Combined second leg ψ(α) = Σ_j α_j ψ_j and its third
+                    // contraction third(dir(α)) (linear in direction).
+                    let mut dir_alpha = Array1::<f64>::zeros(primary.total);
+                    for (j, d) in dir.iter().enumerate() {
+                        if alpha_psi[j] != 0.0 {
+                            dir_alpha.scaled_add(alpha_psi[j], d);
+                        }
+                    }
+                    let third_alpha = self.row_primary_third_contracted_recompute(
+                        row,
+                        block_states,
+                        cache,
+                        row_ctx,
+                        &dir_alpha,
+                    )?;
+
+                    for i in 0..psi_dim {
+                        let block_i = axes[i].block;
+                        let idx_i = if block_i == 0 { 0 } else { 1 };
+                        let dir_i = &dir[i];
+                        // third_i = third(dir_i); reused below.
+                        let third_i = self.row_primary_third_contracted_recompute(
+                            row,
+                            block_states,
+                            cache,
+                            row_ctx,
+                            dir_i,
+                        )?;
+                        // fourth(dir_i, dir(α)) — bilinear, one cached-tensor
+                        // contraction per (output row i, data row).
+                        let mut fourth = self.row_primary_fourth_contracted_recompute(
+                            row,
+                            block_states,
+                            cache,
+                            row_ctx,
+                            dir_i,
+                            &dir_alpha,
+                        )?;
+
+                        // Combined cross design term Σ_j α_j dir_ij(i,j) and its
+                        // primary block index (same as dir_i's, by construction).
+                        let mut dir_ij_alpha = Array1::<f64>::zeros(primary.total);
+                        let mut psi_local_ij_alpha = Array1::<f64>::zeros(psi_local[i].len());
+                        let mut have_ij = false;
+                        for j in 0..psi_dim {
+                            if alpha_psi[j] == 0.0 {
+                                continue;
+                            }
+                            if let Some(map_ij) = cross_maps.get(&(i, j)) {
+                                let v = map_ij.row_vector(row).map_err(|e| {
+                                    format!("bernoulli psi contracted map_ij row {row}: {e}")
+                                })?;
+                                let scaled = v.dot(&block_states[block_i].beta) * alpha_psi[j];
+                                dir_ij_alpha[axes[i].dir_idx] += scaled;
+                                psi_local_ij_alpha.scaled_add(alpha_psi[j], &v);
+                                have_ij = true;
+                            }
+                        }
+
+                        let br_i_range = if block_i == 0 {
+                            slices.marginal.clone()
+                        } else {
+                            slices.logslope.clone()
+                        };
+
+                        // Per-row HT weighting, applied to every contribution
+                        // before accumulation (matches the per-pair fold).
+                        let mut f_pi_w = f_pi.clone();
+                        let mut f_pipi_w = f_pipi.clone();
+                        let mut third_i_w = third_i;
+                        let mut third_alpha_w = third_alpha.clone();
+                        if w != 1.0 {
+                            f_pi_w.mapv_inplace(|v| v * w);
+                            f_pipi_w.mapv_inplace(|v| v * w);
+                            third_i_w.mapv_inplace(|v| v * w);
+                            third_alpha_w.mapv_inplace(|v| v * w);
+                            fourth.mapv_inplace(|v| v * w);
+                        }
+
+                        // --- scalar (objective) accumulation:
+                        //   Σ_j α_j [ dir_i·(f_pipi·dir_j) + f_pi·dir_ij ]
+                        //   = dir_i·(f_pipi·dir(α)) + f_pi·dir_ij(α).
+                        acc.0[i] +=
+                            dir_i.dot(&f_pipi_w.dot(&dir_alpha)) + f_pi_w.dot(&dir_ij_alpha);
+
+                        // --- score accumulation (mirrors per-pair lines, j→α):
+                        // (a) bij term: f_pi[idx_ij] · psi_local_ij(α)
+                        if have_ij {
+                            acc.1
+                                .row_mut(i)
+                                .slice_mut(s![br_i_range.clone()])
+                                .scaled_add(f_pi_w[idx_i], &psi_local_ij_alpha);
+                        }
+                        // (b) br_i term: (f_pipi.row(idx_i)·dir(α)) · psi_local_i
+                        acc.1
+                            .row_mut(i)
+                            .slice_mut(s![br_i_range.clone()])
+                            .scaled_add(f_pipi_w.row(idx_i).dot(&dir_alpha), &psi_local[i]);
+                        // (c) br_j term contracted: Σ_j α_j (f_pipi.row(idx_j)·dir_i) psi_local_j
+                        for j in 0..psi_dim {
+                            if alpha_psi[j] == 0.0 {
+                                continue;
+                            }
+                            let idx_j = if axes[j].block == 0 { 0 } else { 1 };
+                            let coeff = alpha_psi[j] * f_pipi_w.row(idx_j).dot(dir_i);
+                            let range_j = if axes[j].block == 0 {
+                                slices.marginal.clone()
+                            } else {
+                                slices.logslope.clone()
+                            };
+                            acc.1
+                                .row_mut(i)
+                                .slice_mut(s![range_j])
+                                .scaled_add(coeff, &psi_local[j]);
+                        }
+                        // (d) primary pullback of f_pipi·dir_ij(α)
+                        {
+                            let pulled = self.pullback_primary_vector(
+                                row,
+                                slices,
+                                primary,
+                                &f_pipi_w.dot(&dir_ij_alpha),
+                            )?;
+                            let mut srow = acc.1.row_mut(i);
+                            srow += &pulled;
+                        }
+                        // (e) primary pullback of third_i·dir(α)
+                        {
+                            let pulled = self.pullback_primary_vector(
+                                row,
+                                slices,
+                                primary,
+                                &third_i_w.dot(&dir_alpha),
+                            )?;
+                            let mut srow = acc.1.row_mut(i);
+                            srow += &pulled;
+                        }
+
+                        // --- Hessian accumulation (mirrors per-pair, j→α): ---
+                        let block_acc = &mut acc.2[i];
+                        // bij outer pullback(f_pipi.row(idx_ij)) + transpose
+                        if have_ij {
+                            let right_primary_ij = f_pipi_w.row(idx_i).to_owned();
+                            block_acc.add_rank1_psi_cross(
+                                self,
+                                row,
+                                slices,
+                                primary,
+                                block_i,
+                                &psi_local_ij_alpha,
+                                &right_primary_ij,
+                            );
+                        }
+                        // br_i outer br_j(α) * f_pipi[[idx_i, idx_j]] (contracted over j)
+                        for j in 0..psi_dim {
+                            if alpha_psi[j] == 0.0 {
+                                continue;
+                            }
+                            let idx_j = if axes[j].block == 0 { 0 } else { 1 };
+                            let scalar_ij = alpha_psi[j] * f_pipi_w[[idx_i, idx_j]];
+                            if scalar_ij != 0.0 {
+                                block_acc.add_psi_psi_outer(
+                                    block_i,
+                                    &psi_local[i],
+                                    axes[j].block,
+                                    &psi_local[j],
+                                    scalar_ij,
+                                );
+                            }
+                        }
+                        // br_i outer pullback(third(dir(α)).row(idx_i)) + transpose
+                        {
+                            let right_primary_i = third_alpha_w.row(idx_i).to_owned();
+                            block_acc.add_rank1_psi_cross(
+                                self,
+                                row,
+                                slices,
+                                primary,
+                                block_i,
+                                &psi_local[i],
+                                &right_primary_i,
+                            );
+                        }
+                        // br_j(α) outer pullback(third_i.row(idx_j)) + transpose
+                        for j in 0..psi_dim {
+                            if alpha_psi[j] == 0.0 {
+                                continue;
+                            }
+                            let idx_j = if axes[j].block == 0 { 0 } else { 1 };
+                            let mut right_primary_j = third_i_w.row(idx_j).to_owned();
+                            right_primary_j.mapv_inplace(|v| v * alpha_psi[j]);
+                            block_acc.add_rank1_psi_cross(
+                                self,
+                                row,
+                                slices,
+                                primary,
+                                axes[j].block,
+                                &psi_local[j],
+                                &right_primary_j,
+                            );
+                        }
+                        // fourth tensor pullback (fourth already α-weighted via dir(α))
+                        block_acc.add_pullback(self, row, slices, primary, &fourth);
+                        // third_ij(α) tensor pullback
+                        if have_ij {
+                            let mut third_ij = self.row_primary_third_contracted_recompute(
+                                row,
+                                block_states,
+                                cache,
+                                row_ctx,
+                                &dir_ij_alpha,
+                            )?;
+                            if w != 1.0 {
+                                third_ij.mapv_inplace(|v| v * w);
+                            }
+                            block_acc.add_pullback(self, row, slices, primary, &third_ij);
+                        }
+                    }
+                    Ok(acc)
+                },
+            )
+            .try_reduce(
+                || {
+                    (
+                        Array1::<f64>::zeros(psi_dim),
+                        Array2::<f64>::zeros((psi_dim, slices.total)),
+                        (0..psi_dim)
+                            .map(|_| BernoulliBlockHessianAccumulator::new(slices))
+                            .collect::<Vec<_>>(),
+                    )
+                },
+                |mut left, right| -> Result<_, String> {
+                    left.0 += &right.0;
+                    left.1 += &right.1;
+                    for (l, r) in left.2.iter_mut().zip(right.2.into_iter()) {
+                        l.add(&r);
+                    }
+                    Ok(left)
+                },
+            )?;
+
+        let (objective, score, accs) = per_row;
+        let hessian: Vec<DriftDerivResult> = accs
+            .into_iter()
+            .map(|acc| DriftDerivResult::Operator(Arc::new(acc.into_operator(slices))))
+            .collect();
+        Ok(Some(
+            crate::custom_family::ExactNewtonJointPsiSecondOrderContracted {
+                objective,
+                score,
+                hessian,
+            },
+        ))
+    }
+
     pub(super) fn exact_newton_joint_psihessian_directional_derivative_from_cache(
         &self,
         block_states: &[ParameterBlockState],
@@ -12051,7 +12502,7 @@ impl BernoulliMarginalSlopeFamily {
         // already inside a rayon worker (so an outer par_iter is holding pool
         // slots and a nested `into_par_iter` here would risk pool starvation
         // on the LRU mutex inside `evaluate_cell_derivative_moments_lru`,
-        // etc.). At biobank n_rows the per-row body's design materialization
+        // etc.). At large-scale n_rows the per-row body's design materialization
         // and pullback work dominates dispatch, so the par_iter is preserved.
         const ROW_PAR_MIN_ROWS: usize = 4_096;
         let run_rows_serial = rayon::current_thread_index().is_some()
@@ -13300,7 +13751,7 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
                 // BMS uses a Polya–Gamma augmentation with a per-row
                 // pseudo-Bernoulli factorisation that is materially cheaper
                 // than the survival marginal-slope risk-set scan. Empirical
-                // cost is ~50_000 units per K-unit at biobank scale, which
+                // cost is ~50_000 units per K-unit at large scale, which
                 // with `AUTO_OUTER_WORK_BUDGET = 5×10⁸` caps
                 //   K_work ≈ 5e8 / 50_000 = 10_000,
                 // matching the existing default `min_k = 10_000` and so
@@ -13582,24 +14033,6 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
         true
     }
 
-    fn joint_line_search_log_likelihood_workspace(
-        &self,
-        block_states: &[ParameterBlockState],
-        specs: &[ParameterBlockSpec],
-        options: &BlockwiseFitOptions,
-    ) -> Result<Option<(f64, Arc<dyn ExactNewtonJointHessianWorkspace>)>, String> {
-        let Some(workspace) =
-            self.exact_newton_joint_hessian_workspace_with_options(block_states, specs, options)?
-        else {
-            return Ok(None);
-        };
-        let log_likelihood = match workspace.joint_log_likelihood_evaluation()? {
-            Some(value) => value,
-            None => Self::log_likelihood_only_with_options(self, block_states, options)?,
-        };
-        Ok(Some((log_likelihood, workspace)))
-    }
-
     fn has_explicit_joint_hessian(&self) -> bool {
         true
     }
@@ -13751,7 +14184,7 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
         parameter_block_specs_match_rows(specs, self.y.len())
     }
 
-    /// Force the matrix-free inner-Newton/PCG path for BMS flex at biobank
+    /// Force the matrix-free inner-Newton/PCG path for BMS flex at large-scale
     /// scale, on top of the generic `use_joint_matrix_free_path` heuristic.
     ///
     /// At n≈195k with `linkwiggle()` / `logslope_formula linkwiggle()`, dense
@@ -14102,7 +14535,7 @@ impl BernoulliMarginalSlopeExactNewtonJointHessianWorkspace {
     /// not be materialized (`n*r*r*8 > row_primary_cache_budget`). In that
     /// regime the dense joint-H build streams all `n` rows and pays the full
     /// flex row-kernel cost per chunk plus a BLAS-3 design-matrix gram on top;
-    /// at biobank shape (n≈195k, p≈44) that pushes one dense build past 60s
+    /// at large-scale shape (n≈195k, p≈44) that pushes one dense build past 60s
     /// while each HVP reuses the same row stream at ~gradient-pass cost (~3s).
     /// PCG with the joint penalty preconditioner typically converges in a
     /// handful of HVPs, so routing the inner solve through the operator path
@@ -15502,6 +15935,21 @@ impl crate::families::marginal_slope_shared::MarginalSlopePsiFamily
                 &self.derivative_blocks,
                 psi_i,
                 psi_j,
+                &self.cache,
+                &self.options,
+            )
+    }
+
+    fn psi_second_order_terms_contracted(
+        &self,
+        alpha_psi: &[f64],
+    ) -> Result<Option<crate::custom_family::ExactNewtonJointPsiSecondOrderContracted>, String>
+    {
+        self.family
+            .exact_newton_joint_psisecond_order_terms_contracted_from_cache_with_options(
+                &self.block_states,
+                &self.derivative_blocks,
+                alpha_psi,
                 &self.cache,
                 &self.options,
             )

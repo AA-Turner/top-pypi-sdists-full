@@ -21,6 +21,12 @@ struct MatmulParams {
     k: u32,
     n: u32,
     total: u32,
+    /// 0 = 1D dispatch, >0 = 2D chunking 의 x 차원 워크그룹 수 (셰이더가
+    /// `gid.x + gid.y * dispatches_x * 64` 로 선형 인덱스 복원).
+    dispatches_x: u32,
+    _pad0: u32,
+    _pad1: u32,
+    _pad2: u32,
 }
 
 /// Complex matmul GPU 백엔드 (device/queue + matmul pipeline).  process-wide
@@ -142,15 +148,34 @@ impl WgpuMatmulBackend {
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
+        // adapter 의 max_compute_workgroups_per_dimension (보수적으로 65535)
+        // 초과 시 2D chunking — width 23+ 중간 텐서 (m·n > 4.19e6) 에서
+        // wgpu validation error 로 죽던 문제 (statevector dispatch_2d 와 동일
+        // 패턴).
+        const MAX_WG_PER_DIM: u32 = 65535;
+        let workgroups_needed = (total as u32).div_ceil(64);
+        let (wg_x, wg_y, dispatches_x) = if workgroups_needed <= MAX_WG_PER_DIM {
+            (workgroups_needed.max(1), 1, 0)
+        } else {
+            (
+                MAX_WG_PER_DIM,
+                workgroups_needed.div_ceil(MAX_WG_PER_DIM),
+                MAX_WG_PER_DIM,
+            )
+        };
         let params = MatmulParams {
             m: m as u32,
             k: k as u32,
             n: n as u32,
             total: total as u32,
+            dispatches_x,
+            _pad0: 0,
+            _pad1: 0,
+            _pad2: 0,
         };
         let params_buf = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("matmul params"),
-            size: 16,
+            size: std::mem::size_of::<MatmulParams>() as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -179,7 +204,7 @@ impl WgpuMatmulBackend {
                 },
             ],
         });
-        let workgroups = (total as u32).div_ceil(64);
+
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -192,7 +217,7 @@ impl WgpuMatmulBackend {
             });
             pass.set_pipeline(&self.pipeline);
             pass.set_bind_group(0, Some(&bg), &[]);
-            pass.dispatch_workgroups(workgroups, 1, 1);
+            pass.dispatch_workgroups(wg_x, wg_y, 1);
         }
         // readback.
         let staging = self.device.create_buffer(&wgpu::BufferDescriptor {
@@ -261,6 +286,40 @@ mod tests {
             }
         }
         c
+    }
+
+    /// 회귀: 출력이 65535 워크그룹 (= 4,194,240 원소) 을 넘으면 1D dispatch
+    /// 가 wgpu validation error 로 죽던 문제 — 2D chunking 경로 검증.
+    /// m·n = 2^23 (8.4M 원소, k=1) 로 chunking 경로를 강제한다.
+    #[test]
+    fn gpu_matmul_2d_chunked_dispatch_matches_cpu() {
+        let backend = match cached_wgpu_matmul_backend() {
+            Ok(b) => b,
+            Err(_) => {
+                eprintln!("no GPU adapter — skipping");
+                return;
+            }
+        };
+        let (m, k, n) = (1usize << 12, 1usize, 1usize << 11); // 8.4M 출력
+        let a: Vec<Complex64> = (0..m * k)
+            .map(|i| Complex64::new((i % 17) as f64 * 0.1, (i % 5) as f64 * 0.2))
+            .collect();
+        let b: Vec<Complex64> = (0..k * n)
+            .map(|i| Complex64::new((i % 13) as f64 * 0.3, (i % 7) as f64 * 0.1))
+            .collect();
+        let gpu = backend.matmul(m, k, n, &a, &b);
+        assert_eq!(gpu.len(), m * n);
+        // k=1 이라 C[i,j] = A[i]·B[j] — 몇 지점 (chunk 경계 포함) 만 spot-check.
+        for &idx in &[0usize, 4_194_240, 4_194_304, m * n - 1] {
+            let (i, j) = (idx / n, idx % n);
+            let expect = a[i] * b[j];
+            assert!(
+                (gpu[idx] - expect).norm() < 1e-4,
+                "idx {idx}: {:?} vs {:?}",
+                gpu[idx],
+                expect
+            );
+        }
     }
 
     #[test]

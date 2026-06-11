@@ -102,7 +102,7 @@ class AttachmentsColumn(cliff_columns.FormattableColumn[list[Any]]):
         return msg
 
 
-def _format_volume(volume: _volume.Volume) -> dict[str, Any]:
+def _format_volume(volume: _volume.Volume) -> dict[str, object]:
     # Some columns returned by openstacksdk should not be shown because they're
     # either irrelevant or duplicates
     ignored_columns = {
@@ -644,7 +644,9 @@ class ListVolume(command.Lister):
             default=False,
             help=_('List additional fields in output'),
         )
-        pagination.add_marker_pagination_option_to_parser(parser)
+        pagination.add_marker_pagination_option_to_parser(
+            parser, include_max_items=False
+        )
         return parser
 
     def take_action(

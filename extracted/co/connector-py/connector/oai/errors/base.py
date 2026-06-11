@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, ClassVar
 
+import httpx
 from connector_sdk_types.errors import (
     DEPRECATED_CODE_REDIRECTS,
     ConnectorErrorCode,
@@ -11,7 +12,6 @@ from connector_sdk_types.errors import (
     build_metadata,
 )
 from connector_sdk_types.generated import Error, ErrorCode, ErrorResponse
-from httpx import ConnectError
 
 logger = logging.getLogger("integration-connectors.sdk")
 error_logger = logging.getLogger("integration-connectors.sdk.errors")
@@ -21,6 +21,8 @@ ILLEGAL_HEADER_MESSAGE = (
     "Illegal header constructed for API request. Please check the app configuration and try again."
 )
 FAILED_TO_CONNECT_MESSAGE = "Failed to connect to the API. Please verify the URL or try at a later time due to a potential temporary network issue."
+READ_TIMEOUT_MESSAGE = "The upstream API did not respond in time."
+CONNECTION_CLOSED_MESSAGE = "The upstream API closed the connection unexpectedly."
 FAILED_TO_PARSE_JSON_MESSAGE = "Failed to parse JSON response: {error_text}"
 HTML_ERROR_MESSAGE = "Upstream HTML error response."
 MAX_TEXT_ERROR_MESSAGE_LENGTH = 800
@@ -281,11 +283,26 @@ class DefaultHandler(ExceptionHandler):
             response.error.message = ILLEGAL_HEADER_MESSAGE
             response.error.error_code = ConnectorErrorCode.BAD_REQUEST
 
-        if isinstance(e, ConnectError) or any(
+        if isinstance(e, httpx.ConnectError) or any(
             token in error_text.lower() for token in DNS_ERROR_TOKENS
         ):
             response.error.message = FAILED_TO_CONNECT_MESSAGE
             response.error.error_code = ConnectorErrorCode.CONNECTION_TIMEOUT
+
+        if isinstance(e, httpx.ConnectTimeout | httpx.PoolTimeout):
+            response.error.message = FAILED_TO_CONNECT_MESSAGE
+            response.error.error_code = ConnectorErrorCode.CONNECTION_TIMEOUT
+
+        if isinstance(e, httpx.ReadTimeout | httpx.WriteTimeout):
+            response.error.message = READ_TIMEOUT_MESSAGE
+            response.error.error_code = ConnectorErrorCode.REQUEST_TIMEOUT
+
+        if isinstance(
+            e,
+            httpx.ReadError | httpx.WriteError | httpx.CloseError | httpx.RemoteProtocolError,
+        ):
+            response.error.message = CONNECTION_CLOSED_MESSAGE
+            response.error.error_code = ConnectorErrorCode.CONNECTION_CLOSED
 
         if isinstance(e, json.JSONDecodeError):
             response.error.error_code = ConnectorErrorCode.INVALID_RESPONSE

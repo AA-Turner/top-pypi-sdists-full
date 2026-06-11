@@ -26,8 +26,9 @@ use gam::gaussian_reml::{
 };
 use gam::geometry::manifold::GeometryError as EngineGeometryError;
 use gam::geometry::poincare::{
+    conformal_factor as poincare_conformal_factor_impl, exp_map as poincare_exp_map_impl,
     exp_origin as poincare_exp_origin_impl, from_lorentz as poincare_from_lorentz_impl,
-    log_origin as poincare_log_origin_impl,
+    log_map as poincare_log_map_impl, log_origin as poincare_log_origin_impl,
     lorentz_decode_backward as poincare_lorentz_decode_backward_impl,
     lorentz_decode_forward as poincare_lorentz_decode_forward_impl,
     lorentz_exp_origin as poincare_lorentz_exp_origin_impl,
@@ -157,9 +158,9 @@ use manifold_pyclasses::{
 };
 use survival_surface_io::{
     hazard_from_cumulative, interpolate_rows, interpolate_survival_surface, survival_block,
-    survival_chunk_iter_collect, survival_coerce_times, survival_collect_chunks,
-    survival_cumulative_from_survival, survival_ffi_surface, survival_parameters_matrix,
-    write_survival_csv,
+    survival_block_hazard, survival_chunk_iter_collect, survival_coerce_times,
+    survival_collect_chunks, survival_cumulative_from_survival, survival_ffi_surface,
+    survival_parameters_matrix, write_survival_csv,
 };
 
 #[derive(Default, Deserialize)]
@@ -547,7 +548,7 @@ struct PredictionPayload {
 /// matrix.  The Python side rebuilds the numpy array via
 /// `np.asarray(samples_flat).reshape(n_draws, n_coeffs)` — flat lists round
 /// trip through `serde_json` faster than nested ones at the sizes typical
-/// for biobank-scale work (millions of doubles), and they sidestep the
+/// for large-scale work (millions of doubles), and they sidestep the
 /// per-row Python list construction cost.
 #[derive(Serialize)]
 struct SamplePayload {
@@ -2067,7 +2068,9 @@ fn python_float_display(value: f64) -> String {
 /// the prediction-frame range alone, preserving the prior behavior).
 fn saved_survival_training_time_upper_bound(model_bytes: &[u8]) -> Option<f64> {
     let saved: serde_json::Value = serde_json::from_slice(model_bytes).ok()?;
-    let payload = saved.get("payload").and_then(serde_json::Value::as_object)?;
+    let payload = saved
+        .get("payload")
+        .and_then(serde_json::Value::as_object)?;
 
     if let Some(knots) = payload
         .get("survival_time_knots")
@@ -2484,13 +2487,8 @@ fn build_model_predict_payload_json(
 ) -> PyResult<String> {
     let model_class = required_saved_model_payload_string_value(&model_bytes, "model_kind")?;
     let formula = required_saved_model_payload_string_value(&model_bytes, "formula")?;
-    let time_grid = default_survival_time_grid(
-        &model_class,
-        &formula,
-        headers,
-        rows,
-        Some(model_bytes),
-    )?;
+    let time_grid =
+        default_survival_time_grid(&model_class, &formula, headers, rows, Some(model_bytes))?;
     build_predict_payload_json(interval, time_grid, covariance_mode, observation_interval)
 }
 
@@ -9067,6 +9065,54 @@ fn build_sae_basis_evaluators(
     Ok(out)
 }
 
+/// Build the per-row output-Fisher `RowMetric` from a flattened factor stack and
+/// the harvest shard's provenance tag (#980).
+///
+/// `"output_fisher"` (the default, and the only tag a same-position shard or a
+/// raw factor array carries) installs the same-position
+/// [`RowMetric::output_fisher`](gam::inference::row_metric::RowMetric::output_fisher);
+/// `"output_fisher_downstream"` (the KV-path aggregate over future positions)
+/// installs
+/// [`RowMetric::output_fisher_downstream`](gam::inference::row_metric::RowMetric::output_fisher_downstream).
+/// Both are gauge-only and consumed identically by the lens/gauge/enrichment;
+/// only the tag (and the science it certifies) differs. An unknown tag errors —
+/// a silent fall-through to the same-position metric would mislabel the
+/// certificate.
+fn row_metric_from_fisher_provenance(
+    u_flat: Array2<f64>,
+    p_out: usize,
+    rank: usize,
+    provenance: Option<&str>,
+) -> PyResult<gam::inference::row_metric::RowMetric> {
+    let u = std::sync::Arc::new(u_flat);
+    match provenance.unwrap_or("output_fisher") {
+        "output_fisher" => gam::inference::row_metric::RowMetric::output_fisher(u, p_out, rank),
+        "output_fisher_downstream" => {
+            gam::inference::row_metric::RowMetric::output_fisher_downstream(u, p_out, rank)
+        }
+        other => Err(format!(
+            "fisher_provenance must be 'output_fisher' or 'output_fisher_downstream'; \
+             got {other:?}"
+        )),
+    }
+    .map_err(py_value_error)
+}
+
+/// The Python-facing label for a [`MetricProvenance`], shared across every FFI
+/// site that surfaces `metric_provenance` (#980). Centralized so a new
+/// provenance variant is labelled in exactly one place.
+fn metric_provenance_label(
+    provenance: gam::inference::row_metric::MetricProvenance,
+) -> &'static str {
+    use gam::inference::row_metric::MetricProvenance;
+    match provenance {
+        MetricProvenance::Euclidean => "Euclidean",
+        MetricProvenance::OutputFisher { .. } => "OutputFisher",
+        MetricProvenance::OutputFisherDownstream { .. } => "OutputFisherDownstream",
+        MetricProvenance::WhitenedStructured { .. } => "WhitenedStructured",
+    }
+}
+
 /// Fit a SAE-manifold term end-to-end in Rust: up to `max_iter` Newton steps
 /// per λ_smooth candidate, refreshing `Phi` and `dPhi/dt` between steps via
 /// the per-atom [`SaeBasisEvaluator`] (analytic harmonic for `Periodic`
@@ -9102,7 +9148,11 @@ fn build_sae_basis_evaluators(
     analytic_penalties = None,
     top_k = None,
     jumprelu_threshold = 0.0,
+    fisher_factors = None,
+    fisher_mass_residual = None,
+    fisher_provenance = None,
 ))]
+#[allow(clippy::too_many_arguments)]
 fn sae_manifold_fit<'py>(
     py: Python<'py>,
     z: PyReadonlyArray2<'py, f64>,
@@ -9129,6 +9179,17 @@ fn sae_manifold_fit<'py>(
     analytic_penalties: Option<String>,
     top_k: Option<usize>,
     jumprelu_threshold: f64,
+    // WP-D output-Fisher shard (#980). `fisher_factors` is `(n, p, r)` f64 (the
+    // harvest shard's `U`); its presence activates `RowMetric::OutputFisher`. No
+    // flag — magic-by-default. `fisher_mass_residual` is the optional `(n,)`
+    // truncation diagnostic that rides into the report.
+    fisher_factors: Option<PyReadonlyArray3<'py, f64>>,
+    fisher_mass_residual: Option<PyReadonlyArray1<'py, f64>>,
+    // The harvest shard's provenance tag (#980): `"output_fisher"` (same-position,
+    // the default) or `"output_fisher_downstream"` (KV-path aggregate over future
+    // positions). Selects which output-Fisher `RowMetric` is installed; the gauge
+    // / lens / dose consume either unchanged. Ignored when no shard is supplied.
+    fisher_provenance: Option<String>,
 ) -> PyResult<Py<PyDict>> {
     // The precomputed-basis entry point carries no Duchon centers / kernel
     // metadata, so any basis kind whose refresh needs them cannot re-evaluate
@@ -9137,6 +9198,8 @@ fn sae_manifold_fit<'py>(
     // the seed snapshot). Kinds with an analytic, centers-free basis
     // (periodic, sphere, torus) refresh as usual.
     let atom_centers: Vec<Option<Array2<f64>>> = vec![None; atom_basis.len()];
+    let fisher_u = fisher_factors.as_ref().map(|f| f.as_array());
+    let fisher_mr = fisher_mass_residual.as_ref().map(|m| m.as_array());
     sae_manifold_fit_inner(
         py,
         z.as_array(),
@@ -9170,6 +9233,9 @@ fn sae_manifold_fit<'py>(
         // auto path, so do not re-seed here (random_state unused when off).
         false,
         0,
+        fisher_u,
+        fisher_mr,
+        fisher_provenance.as_deref(),
     )
 }
 
@@ -9203,6 +9269,19 @@ fn sae_manifold_fit_inner<'py>(
     native_ard_enabled: bool,
     seed_refine_routing: bool,
     seed_refine_random_state: u64,
+    // WP-D output-Fisher shard (#980). Magic-by-default: the *presence* of
+    // `fisher_u` activates `RowMetric::OutputFisher` — there is no flag. `fisher_u`
+    // is `(n_obs, p_out, rank)` row-major (`U[n, i, k]`), exactly the harvest
+    // shard's `U`; `fisher_mass_residual` is the per-row truncation diagnostic
+    // `trace(G_n) − Σ_{k≤r} λ_k` that rides into the report so a too-small rank is
+    // visible, not silent. Absent ⇒ the bit-identical Euclidean / isotropic path.
+    fisher_u: Option<ArrayView3<'_, f64>>,
+    fisher_mass_residual: Option<ArrayView1<'_, f64>>,
+    // Harvest provenance (#980): which output-Fisher `RowMetric` to install when
+    // `fisher_u` is present — same-position `"output_fisher"` (default) or
+    // forward-looking `"output_fisher_downstream"`. Gauge/lens consume either
+    // unchanged.
+    fisher_provenance: Option<&str>,
 ) -> PyResult<Py<PyDict>> {
     let analytic_penalties: Option<serde_json::Value> = match analytic_penalties {
         Some(s) => Some(serde_json::from_str(&s).map_err(|e| py_value_error(e.to_string()))?),
@@ -9457,6 +9536,63 @@ fn sae_manifold_fit_inner<'py>(
         .map_err(py_value_error)?;
     }
 
+    // WP-D → fit wiring (#980): if a per-row output-Fisher shard was supplied,
+    // build the single `RowMetric::OutputFisher` and install it on the term via
+    // `set_row_metric` *before* the objective consumes the term. This is the only
+    // way the gauge acquires a non-identity weight, and it flips the provenance to
+    // `OutputFisher` (the likelihood stays untouched — the inner product only
+    // drives the isometry gauge, per `RowMetric::whitens_likelihood` == false for
+    // `OutputFisher`). Magic-by-default: presence of `fisher_u` activates it; no
+    // flag. The factor stack is `(n_obs, p_out, rank)` row-major, reshaped to the
+    // `(n_obs, p_out * rank)` layout `RowMetric::output_fisher` expects
+    // (`u[n, i * rank + k] = U[n, i, k]`). Shapes are validated at the boundary.
+    let metric_provenance: &'static str = if let Some(u3) = fisher_u {
+        let u_shape = u3.shape();
+        if u_shape[0] != n_obs || u_shape[1] != p_out {
+            return Err(py_value_error(format!(
+                "sae_manifold_fit: fisher_factors U must be (n, p, r)=({n_obs}, {p_out}, r); \
+                 got leading dims ({}, {})",
+                u_shape[0], u_shape[1]
+            )));
+        }
+        let rank = u_shape[2];
+        if rank == 0 {
+            return Err(py_value_error(
+                "sae_manifold_fit: fisher_factors U rank (last axis) must be >= 1".to_string(),
+            ));
+        }
+        if rank > p_out {
+            return Err(py_value_error(format!(
+                "sae_manifold_fit: fisher_factors U rank {rank} exceeds output dim p={p_out}"
+            )));
+        }
+        if let Some(mr) = fisher_mass_residual.as_ref() {
+            if mr.len() != n_obs {
+                return Err(py_value_error(format!(
+                    "sae_manifold_fit: fisher_factors mass_residual must be (n,)=({n_obs},); got \
+                     length {}",
+                    mr.len()
+                )));
+            }
+        }
+        // Flatten (n, p, r) row-major -> (n, p*r) with u[n, i*r + k] = U[n, i, k].
+        let mut u_flat = Array2::<f64>::zeros((n_obs, p_out * rank));
+        for row in 0..n_obs {
+            for i in 0..p_out {
+                for k in 0..rank {
+                    u_flat[[row, i * rank + k]] = u3[[row, i, k]];
+                }
+            }
+        }
+        let metric =
+            row_metric_from_fisher_provenance(u_flat, p_out, rank, fisher_provenance.as_deref())?;
+        let label = metric_provenance_label(metric.provenance());
+        base_term.set_row_metric(metric).map_err(py_value_error)?;
+        label
+    } else {
+        "Euclidean"
+    };
+
     let log_ard: Vec<Array1<f64>> = atom_dim
         .iter()
         .map(|&d| {
@@ -9482,6 +9618,16 @@ fn sae_manifold_fit_inner<'py>(
     let init_rho = SaeManifoldRho::new(sparsity_strength.ln(), smoothness.ln(), log_ard);
     let init_rho_flat = init_rho.to_flat();
     let n_params = init_rho_flat.len();
+    // Whether an isometry gauge penalty is installed on this fit. Read here,
+    // before the registry is moved into the objective, and threaded into the
+    // residual-gauge certificate below: an inactive isometry pin escalates the
+    // certificate to the `diffeomorphism-unpinned` verdict.
+    let isometry_pin_active = registry.penalties.iter().any(|p| {
+        matches!(
+            p,
+            gam::terms::analytic_penalties::AnalyticPenaltyKind::Isometry(_)
+        )
+    });
     // Route every problem size through the full-batch objective on the owned
     // `target`: the inner Arrow-Schur fit materializes the `(N × M_total)`
     // basis, `(N × M_total × d)` jacobian, and `(N × K)` logit buffers in full,
@@ -9511,7 +9657,101 @@ fn sae_manifold_fit_inner<'py>(
     let shape_uncertainty = objective
         .decoder_shape_uncertainty()
         .map_err(py_value_error)?;
-    let (term, rho, loss) = objective.into_fitted();
+    let (mut term, mut rho, loss) = objective.into_fitted();
+
+    // #997 — evidence-guarded structure search around the production fit. Harvest
+    // death (diverged ARD ∪ terminal collapse) and fusion (co-activation)
+    // proposals from the fitted dictionary, then run the e-gated move engine over
+    // a held-out estimation/evaluation row split. Births and fissions (which GROW
+    // the atom count) are held out of the production landing so the returned
+    // dictionary shape stays stable for the python `from_payload` boundary;
+    // deaths and fusions are demote-never-reject / fold moves that keep K, so the
+    // returned `atoms`/`logits`/`assignments` stay K-shaped while the ledger
+    // certifies the proposal stream. The SearchLedger (+ the joint fit's collapse
+    // events) is serialized onto the payload as the honesty surface — never a
+    // silent restructure. Conservative by construction: the gates rarely certify,
+    // so the common case returns the fit unchanged with an all-contested ledger.
+    let structure_search_json = {
+        let mut structure_ledger = gam::inference::structure_evidence::StructureLedger::new();
+        let harvest_params = gam::solver::structure_harvest::HarvestParams {
+            max_fusions: 4,
+            max_fissions: 0,
+            max_births: 0,
+        };
+        let refit_params = gam::solver::structure_harvest::ProductionRefitParams {
+            inner_max_iter: max_iter,
+            learning_rate,
+            ridge_ext_coord,
+            ridge_beta,
+        };
+        let budget = gam::solver::structure_search::MoveBudget {
+            max_moves: term.k_atoms().max(1),
+            alpha: 0.05,
+        };
+        let config = gam::solver::structure_harvest::RoundDriverConfig {
+            n_shards: 4,
+            budget,
+            max_rounds: 3,
+            harvest_params,
+        };
+        match gam::solver::structure_harvest::run_production_structure_search(
+            term,
+            rho,
+            z_view.view(),
+            config,
+            refit_params,
+            &mut structure_ledger,
+        ) {
+            Ok(result) => {
+                term = result.term;
+                rho = result.rho;
+                gam::solver::structure_harvest::rounds_to_json(&result.rounds).ok()
+            }
+            Err(e) => {
+                // Structure search is a post-fit audit pass; a failure must not
+                // silently corrupt the fit — surface it loudly.
+                return Err(py_value_error(format!(
+                    "structure search around SAE fit failed: {e}"
+                )));
+            }
+        }
+    };
+
+    // Clear any per-row estimation mask the structure-search refit left on the
+    // adopted term so the returned `fitted` / dispersion / diagnostics are
+    // computed over ALL rows (the mask is an internal split device, not a
+    // property of the returned fit).
+    term.clear_row_loss_weights();
+
+    term.set_certificate_dispersion(shape_uncertainty.dispersion)
+        .map_err(py_value_error)?;
+
+    // Additive post-fit diagnostics (#980): the two-score per-atom lens
+    // (presence / behavioral coupling / discrepancy) and the residual-gauge
+    // certificate. Both read the fitted term + its single per-row metric; under a
+    // Euclidean / no-harvest provenance the lens coupling is `None` and the gauge
+    // is certified under Euclidean provenance — never an error, never flag-gated.
+    // Per-atom ARD variances (∝ exp(−log_precision); equality-preserving for the
+    // certificate's equal-ARD-rotation detection) are threaded in when native ARD
+    // was enabled, else `None` per atom.
+    let ard_variances: Vec<Option<Array1<f64>>> = rho
+        .log_ard
+        .iter()
+        .map(|log_prec| {
+            if log_prec.is_empty() {
+                None
+            } else {
+                Some(log_prec.mapv(|lp| (-lp).exp()))
+            }
+        })
+        .collect();
+    let fit_diagnostics = term
+        .fit_diagnostics_report(
+            Some(&ard_variances),
+            isometry_pin_active,
+            Some(shape_uncertainty.dispersion),
+        )
+        .map_err(py_value_error)?;
 
     let mut assignments = term.assignment.assignments();
     let mut fitted = term.fitted();
@@ -9595,6 +9835,9 @@ fn sae_manifold_fit_inner<'py>(
             }
         }
     }
+    let trust_diagnostics = term
+        .trust_diagnostics_report(assignments.view())
+        .map_err(py_value_error)?;
     let log_ard_py = PyList::empty(py);
     for atom_log_ard in &rho.log_ard {
         log_ard_py.append(atom_log_ard.clone().into_pyarray(py))?;
@@ -9624,10 +9867,12 @@ fn sae_manifold_fit_inner<'py>(
         // covariance Cov(β_k) and the closed-form ambient band (coords / mean /
         // per-channel sd) along the atom's on-atom coordinates.
         let unc = &shape_uncertainty.atoms[atom_idx];
-        atom_dict.set_item(
-            "decoder_covariance",
-            unc.decoder_covariance.clone().into_pyarray(py),
-        )?;
+        // Omitted (not set) above the SAE_DECODER_COV_PAYLOAD_MAX_ENTRIES
+        // budget — the python reader treats the key as optional and the band
+        // quantities below remain exact.
+        if let Some(cov) = &unc.decoder_covariance {
+            atom_dict.set_item("decoder_covariance", cov.clone().into_pyarray(py))?;
+        }
         atom_dict.set_item(
             "shape_band_coords",
             unc.band_coords.clone().into_pyarray(py),
@@ -9659,10 +9904,286 @@ fn sae_manifold_fit_inner<'py>(
     out.set_item("log_lambda_smooth", rho.log_lambda_smooth)?;
     out.set_item("log_ard", log_ard_py)?;
     out.set_item("assignment_prior", assignment_kind)?;
+    out.set_item(
+        "diagnostics",
+        sae_trust_diagnostics_dict(py, &trust_diagnostics)?,
+    )?;
     // Gaussian reconstruction scale φ̂ used to scale every per-atom decoder
     // covariance (Cov(β_k) = φ̂·S_β⁻¹[block]).
     out.set_item("dispersion", shape_uncertainty.dispersion)?;
+    // Provenance of the per-row inner product the fit installed (#980). Object 4
+    // reads this to certify which metric the gauge pulled back through:
+    // "Euclidean" (no shard, bit-identical isotropic path) or "OutputFisher"
+    // (a WP-D shard was supplied and `RowMetric::OutputFisher` was installed).
+    out.set_item("metric_provenance", metric_provenance)?;
+    // Truncation diagnostic: per-row output-Fisher mass `trace(G_n) − Σ_{k≤r} λ_k`
+    // that fell off the captured rank-r subspace. Surfaced so a too-small rank is
+    // visible, not silent. Present only when a Fisher shard with a mass_residual
+    // was supplied.
+    if let Some(mr) = fisher_mass_residual {
+        out.set_item("fisher_mass_residual", mr.to_owned().into_pyarray(py))?;
+    }
+    // Additive post-fit diagnostics (#980): the two-score per-atom lens and the
+    // residual-gauge certificate. Both are read through the same single metric;
+    // coupling is `None` (NaN array entries) under a Euclidean / no-harvest
+    // provenance, and the gauge is then certified under Euclidean provenance.
+    out.set_item(
+        "atom_two_lens",
+        sae_atom_two_lens_dict(py, &fit_diagnostics.atom_two_lens)?,
+    )?;
+    out.set_item(
+        "residual_gauge",
+        sae_residual_gauge_dict(py, &fit_diagnostics.residual_gauge)?,
+    )?;
+    if let Some(report) = &fit_diagnostics.incoherence_report {
+        out.set_item(
+            "incoherence_report",
+            sae_incoherence_report_dict(py, report)?,
+        )?;
+    }
+    // #16 — ONE coherent certificate ledger. Every certificate this fit produced
+    // implements the shared claim+evidence+conservative-verdict contract
+    // ([`gam::inference::certificates::Certificate`]); the ledger folds them into
+    // a single inspectable block keyed by claim id, with a top-level conservative
+    // `overall` roll-up (the weakest member). This consolidates the scattered
+    // per-feature reads — the bespoke `residual_gauge` / `incoherence_report`
+    // keys above are KEPT working (same values) for back-compat, and the ledger
+    // is the additive, canonical surface. Verdicts cannot read stronger than
+    // their evidence: an absent or below-margin certificate is `unavailable` /
+    // `insufficient`, never a silent pass.
+    {
+        use gam::inference::certificates::CertificateLedger;
+        let mut ledger = CertificateLedger::new();
+        ledger.record(&fit_diagnostics.residual_gauge);
+        if let Some(report) = &fit_diagnostics.incoherence_report {
+            ledger.record(report);
+        }
+        out.set_item("certificates", certificate_ledger_dict(py, &ledger)?)?;
+    }
+    // Contract keys the python `ManifoldSAE.from_payload` boundary reads
+    // unconditionally (tightened in 23db2c80a, which rejected stale payload
+    // shapes python-side without adding the producer side): the fitted atom
+    // count, and whether OOS encode projects each row onto its single
+    // top-mass atom (true exactly for `top_k == 1`, mirroring the fit-time
+    // assignment-support projection the payload's `fitted` was computed with).
+    out.set_item("chosen_k", k_atoms)?;
+    out.set_item("oos_projection_top1", top_k == Some(1))?;
+    // #997 — the evidence-guarded structure-search honesty surface: the per-round
+    // SearchLedger (every harvested move in canonical order with its e-gate
+    // verdict) plus the joint fit's collapse events, serialized as JSON. Present
+    // whenever the structure search ran (it runs on every fit); the value is the
+    // certificate of which dictionary moves the held-out data does and does not
+    // support — an all-contested ledger is the common, conservative outcome.
+    if let Some(json) = structure_search_json {
+        out.set_item("structure_search", json)?;
+    }
     Ok(out.unbind())
+}
+
+/// Build the result-dict entry for the honest SAE trust diagnostics (#1005).
+fn sae_trust_diagnostics_dict<'py>(
+    py: Python<'py>,
+    report: &gam::terms::sae_manifold::SaeTrustDiagnostics,
+) -> PyResult<Bound<'py, PyDict>> {
+    let d = PyDict::new(py);
+    let atoms = PyList::empty(py);
+    for atom in &report.atoms {
+        let atom_dict = PyDict::new(py);
+        atom_dict.set_item("trust_score", atom.trust_score)?;
+        atom_dict.set_item("sigma_min_tangent", atom.sigma_min_tangent)?;
+        atom_dict.set_item("sigma_max_tangent", atom.sigma_max_tangent)?;
+        atom_dict.set_item("tangent_condition_score", atom.tangent_condition_score)?;
+        atom_dict.set_item("coverage", atom.coverage)?;
+        atom_dict.set_item("activation_frequency", atom.activation_frequency)?;
+        atom_dict.set_item("untyped", atom.untyped)?;
+        atom_dict.set_item("active_token_count", atom.active_token_count)?;
+        atoms.append(atom_dict)?;
+    }
+    d.set_item(
+        "atom_trust",
+        Array1::from_vec(report.atom_trust.clone()).into_pyarray(py),
+    )?;
+    d.set_item("atoms", atoms)?;
+    Ok(d)
+}
+
+/// Build the result-dict entry for the two-score per-atom lens
+/// ([`gam::inference::atom_lens::AtomTwoLensReport`]). Per-atom presence /
+/// coupling / discrepancy arrays plus the coupling provenance string. Coupling /
+/// coupling_normalized / discrepancy are `NaN` for atoms whose behavioral axis is
+/// unavailable (Euclidean / no-harvest provenance), mirroring the Rust `None`.
+fn sae_atom_two_lens_dict<'py>(
+    py: Python<'py>,
+    report: &gam::inference::atom_lens::AtomTwoLensReport,
+) -> PyResult<Bound<'py, PyDict>> {
+    let d = PyDict::new(py);
+    let names = PyList::empty(py);
+    let mut presence = Vec::with_capacity(report.atoms.len());
+    let mut presence_norm = Vec::with_capacity(report.atoms.len());
+    let mut coupling = Vec::with_capacity(report.atoms.len());
+    let mut coupling_norm = Vec::with_capacity(report.atoms.len());
+    let mut discrepancy = Vec::with_capacity(report.atoms.len());
+    for atom in &report.atoms {
+        names.append(atom.name.clone())?;
+        presence.push(atom.presence);
+        presence_norm.push(atom.presence_normalized);
+        coupling.push(atom.coupling.unwrap_or(f64::NAN));
+        coupling_norm.push(atom.coupling_normalized.unwrap_or(f64::NAN));
+        discrepancy.push(atom.discrepancy.unwrap_or(f64::NAN));
+    }
+    d.set_item("names", names)?;
+    d.set_item("presence", Array1::from_vec(presence).into_pyarray(py))?;
+    d.set_item(
+        "presence_normalized",
+        Array1::from_vec(presence_norm).into_pyarray(py),
+    )?;
+    d.set_item("coupling", Array1::from_vec(coupling).into_pyarray(py))?;
+    d.set_item(
+        "coupling_normalized",
+        Array1::from_vec(coupling_norm).into_pyarray(py),
+    )?;
+    d.set_item(
+        "discrepancy",
+        Array1::from_vec(discrepancy).into_pyarray(py),
+    )?;
+    d.set_item("coupling_available", report.coupling_available())?;
+    d.set_item(
+        "coupling_provenance",
+        report.coupling_provenance.map(|p| format!("{p:?}")),
+    )?;
+    Ok(d)
+}
+
+/// Render a single [`gam::inference::certificates::EvidenceValue`] to a Python
+/// object (scalar / int / bool / str / list-of-float).
+fn certificate_evidence_value<'py>(
+    py: Python<'py>,
+    value: &gam::inference::certificates::EvidenceValue,
+) -> PyResult<pyo3::Bound<'py, pyo3::PyAny>> {
+    use gam::inference::certificates::EvidenceValue;
+    Ok(match value {
+        EvidenceValue::Scalar(v) => (*v).into_bound_py_any(py)?,
+        EvidenceValue::Integer(v) => (*v).into_bound_py_any(py)?,
+        EvidenceValue::Flag(v) => (*v).into_bound_py_any(py)?,
+        EvidenceValue::Text(v) => v.as_str().into_bound_py_any(py)?,
+        EvidenceValue::Vector(v) => v.clone().into_bound_py_any(py)?,
+    })
+}
+
+/// Render a [`gam::inference::certificates::CertificateLedger`] as ONE coherent
+/// `certificates` payload block (task #16): a dict keyed by claim id, each entry
+/// `{claim, verdict, certified, evidence{...}}`, plus a top-level `overall`
+/// conservative roll-up verdict (the weakest member). This is the program's
+/// single inspectable certificate artifact; it replaces reading the scattered
+/// per-feature keys (which are kept working alongside it for back-compat).
+fn certificate_ledger_dict<'py>(
+    py: Python<'py>,
+    ledger: &gam::inference::certificates::CertificateLedger,
+) -> PyResult<Bound<'py, PyDict>> {
+    let out = PyDict::new(py);
+    // The conservative roll-up: weakest verdict across every recorded claim
+    // (Unavailable on an empty ledger). One number answering "did everything
+    // this fit could certify, certify?" — never stronger than its weakest claim.
+    let overall = ledger.overall();
+    out.set_item("overall", overall.label())?;
+    out.set_item("overall_certified", overall.is_certified())?;
+    let claims = PyDict::new(py);
+    for entry in ledger.entries() {
+        let claim_dict = PyDict::new(py);
+        claim_dict.set_item("claim", &entry.claim.statement)?;
+        claim_dict.set_item("verdict", entry.verdict.label())?;
+        claim_dict.set_item("certified", entry.verdict.is_certified())?;
+        let evidence = PyDict::new(py);
+        for (key, value) in &entry.evidence {
+            evidence.set_item(*key, certificate_evidence_value(py, value)?)?;
+        }
+        claim_dict.set_item("evidence", evidence)?;
+        claims.set_item(entry.claim.id, claim_dict)?;
+    }
+    out.set_item("claims", claims)?;
+    Ok(out)
+}
+
+/// Build the result-dict entry for the residual-gauge certificate
+/// ([`gam::sae_identifiability::ResidualGaugeReport`]). Group signature +
+/// per-generator pinned/unpinned verdicts + the metric provenance the
+/// certificate was computed in.
+fn sae_residual_gauge_dict<'py>(
+    py: Python<'py>,
+    report: &gam::sae_identifiability::ResidualGaugeReport,
+) -> PyResult<Bound<'py, PyDict>> {
+    let d = PyDict::new(py);
+    d.set_item("group_signature", report.group_signature())?;
+    d.set_item(
+        "metric_provenance",
+        format!("{:?}", report.metric_provenance),
+    )?;
+    d.set_item("pinning_rank", report.pinning_rank)?;
+    d.set_item("residual_gauge_dim", report.residual_gauge_dim)?;
+    d.set_item("diffeomorphism_unpinned", report.diffeomorphism_unpinned)?;
+    d.set_item(
+        "sym_f_trivial_under_output_fisher",
+        report.sym_f_trivial_under_output_fisher,
+    )?;
+    d.set_item("summary", report.summary.clone())?;
+    let generators = PyList::empty(py);
+    for g in &report.generators {
+        let gd = PyDict::new(py);
+        gd.set_item("family", format!("{:?}", g.family))?;
+        gd.set_item("description", g.description.clone())?;
+        gd.set_item("unpinned", g.unpinned)?;
+        gd.set_item("generator_norm", g.generator_norm)?;
+        gd.set_item("pinned_energy_fraction", g.pinned_energy_fraction)?;
+        gd.set_item("lowering_error_scale", g.lowering_error_scale)?;
+        generators.append(gd)?;
+    }
+    d.set_item("generators", generators)?;
+    Ok(d)
+}
+
+/// Build the result-dict entry for the curved-dictionary incoherence/curvature
+/// certificate inputs (#1008). This is a measurement payload only; it deliberately
+/// does not include a certified/uncertified verdict.
+fn sae_incoherence_report_dict<'py>(
+    py: Python<'py>,
+    report: &gam::terms::sae_manifold::CertificateInputs,
+) -> PyResult<Bound<'py, PyDict>> {
+    let d = PyDict::new(py);
+    d.set_item("mu_hat", report.mu_hat)?;
+    d.set_item(
+        "per_atom_kappa_hat",
+        Array1::from_vec(report.per_atom_kappa_hat.clone()).into_pyarray(py),
+    )?;
+    d.set_item(
+        "per_atom_mean_activity",
+        Array1::from_vec(report.per_atom_mean_activity.clone()).into_pyarray(py),
+    )?;
+    d.set_item(
+        "per_atom_peak_activity",
+        Array1::from_vec(report.per_atom_peak_activity.clone()).into_pyarray(py),
+    )?;
+    d.set_item("mean_activity_floor", report.mean_activity_floor)?;
+    d.set_item("peak_activity_floor", report.peak_activity_floor)?;
+    d.set_item("snr_proxy", report.snr_proxy)?;
+    d.set_item("dispersion", report.dispersion)?;
+    // The #1008 global-optimality verdict: a string label + signed margin so a
+    // consumer can read both the decision and how far it is from the threshold.
+    let (verdict_label, margin) = match report.global_optimality {
+        gam::terms::sae_manifold::GlobalOptimalityVerdict::CertifiedGlobal { margin } => {
+            ("certified_global", margin)
+        }
+        gam::terms::sae_manifold::GlobalOptimalityVerdict::Uncertified { margin } => {
+            ("uncertified", margin)
+        }
+    };
+    d.set_item("global_optimality", verdict_label)?;
+    d.set_item(
+        "global_optimality_certified",
+        report.global_optimality.is_certified(),
+    )?;
+    d.set_item("global_optimality_margin", margin)?;
+    d.set_item("note", report.note.clone())?;
+    Ok(d)
 }
 
 #[pyfunction(signature = (
@@ -9739,6 +10260,12 @@ fn sae_manifold_fit_ibp<'py>(
         None,
         // IBP-MAP never reaches the JumpReLU dispatch; threshold is inert here.
         0.0,
+        // No output-Fisher shard on this convenience IBP entry point; the
+        // metric stays Euclidean (the precomputed-basis `sae_manifold_fit` and
+        // the auto `sae_manifold_fit_minimal` entry points carry the shard).
+        None,
+        None,
+        None,
     )
 }
 
@@ -11190,7 +11717,11 @@ fn sae_build_atom_plans(
     initial_coords = None,
     jumprelu_threshold = 0.0,
     native_ard_enabled = true,
+    fisher_factors = None,
+    fisher_mass_residual = None,
+    fisher_provenance = None,
 ))]
+#[allow(clippy::too_many_arguments)]
 fn sae_manifold_fit_minimal<'py>(
     py: Python<'py>,
     z: PyReadonlyArray2<'py, f64>,
@@ -11214,6 +11745,16 @@ fn sae_manifold_fit_minimal<'py>(
     initial_coords: Option<PyReadonlyArray3<'py, f64>>,
     jumprelu_threshold: f64,
     native_ard_enabled: bool,
+    // WP-D output-Fisher shard (#980). `(n, p, r)` f64 factors; presence activates
+    // `RowMetric::OutputFisher`. This is the entry point the high-level Python
+    // `sae_manifold_fit` facade routes through, so it carries the shard the same
+    // magic-by-default way as the precomputed-basis `sae_manifold_fit`.
+    fisher_factors: Option<PyReadonlyArray3<'py, f64>>,
+    fisher_mass_residual: Option<PyReadonlyArray1<'py, f64>>,
+    // Harvest provenance tag (#980): same-position `"output_fisher"` (default) or
+    // forward-looking `"output_fisher_downstream"`. Routed to the matching
+    // `RowMetric` constructor; gauge/lens/dose consume either unchanged.
+    fisher_provenance: Option<String>,
 ) -> PyResult<Py<PyDict>> {
     let z_view = z.as_array();
     let (n_obs, _p_out) = z_view.dim();
@@ -11425,6 +11966,8 @@ fn sae_manifold_fit_minimal<'py>(
         .iter()
         .map(|plan| plan.duchon_centers.clone())
         .collect();
+    let fisher_u = fisher_factors.as_ref().map(|f| f.as_array());
+    let fisher_mr = fisher_mass_residual.as_ref().map(|m| m.as_array());
     let result_dict = sae_manifold_fit_inner(
         py,
         z_view,
@@ -11459,6 +12002,13 @@ fn sae_manifold_fit_minimal<'py>(
         // start (amortized encoder, #357) is respected verbatim.
         logits_are_cold && initial_coords.is_none(),
         random_state,
+        // WP-D → fit wiring (#980): thread the optional output-Fisher shard
+        // through so the auto facade installs `RowMetric::OutputFisher` the same
+        // magic-by-default way as the precomputed-basis `sae_manifold_fit`.
+        // Absent ⇒ the bit-identical Euclidean path.
+        fisher_u,
+        fisher_mr,
+        fisher_provenance.as_deref(),
     )?;
     // Attach per-atom build plans so OOS predict can rebuild design without Python.
     let plans_py = PyList::empty(py);
@@ -11973,6 +12523,373 @@ fn sae_manifold_predict_oos<'py>(
     out.set_item("log_ard", log_ard_py)?;
     out.set_item("assignment_prior", assignment_kind)?;
     out.set_item("chosen_k", k_atoms)?;
+    Ok(out.unbind())
+}
+
+/// Compute a steering plan with output dosimetry for a fitted SAE-manifold atom
+/// ([`gam::inference::steering::steer_delta`]).
+///
+/// This is the FFI surface for the steering primitive: it rebuilds the fitted
+/// [`gam::terms::sae_manifold::SaeManifoldTerm`] from the trained decoder blocks
+/// + basis metadata, seeds it with the *trained* on-atom coordinates and routing
+/// logits (no re-solve — the model is fixed), optionally installs the WP-D
+/// per-row output-Fisher metric ([`gam::inference::row_metric::RowMetric::output_fisher`])
+/// from `fisher_factors` (the same shard the fit used), and calls `steer_delta`
+/// to drive atom `atom_k` from `t_from` to `t_to`. It returns the
+/// [`gam::inference::steering::SteerPlan`] fields as a dict: the activation-space
+/// `delta`, the path-integrated `predicted_nats` dose, the `validity_radius`,
+/// the `off_manifold_norm` self-check, and the `metric_provenance`.
+///
+/// The term rebuild mirrors [`sae_manifold_predict_oos`] (same plan/evaluator
+/// machinery), but where `predict_oos` runs the frozen-decoder Newton solve on a
+/// *new* `X`, this seeds the term directly from the trained latents/logits so the
+/// dose is measured through the model as fitted. `coords` is one `(N, d_k)` array
+/// per atom (the trained `on_atom_coords_t`); `logits` is `(N, K)` (the trained
+/// routing logits) so the per-atom amplitude / measured-row selection inside
+/// `steer_delta` sees the fitted assignments. `fisher_factors` is the `(n, p, r)`
+/// harvest shard `U`; its presence installs `RowMetric::OutputFisher` (and makes
+/// `predicted_nats` / `validity_radius` available), exactly as in the fit.
+#[pyfunction(signature = (
+    atom_k,
+    t_from,
+    t_to,
+    n_obs,
+    p_out,
+    atom_basis,
+    atom_dim,
+    decoder_blocks,
+    duchon_centers,
+    n_harmonics_list,
+    coords,
+    logits,
+    assignment_kind,
+    tau,
+    alpha = 1.0,
+    jumprelu_threshold = 0.0,
+    fisher_factors = None,
+    fisher_provenance = None,
+))]
+#[allow(clippy::too_many_arguments)]
+fn sae_steer_delta<'py>(
+    py: Python<'py>,
+    atom_k: usize,
+    t_from: PyReadonlyArray1<'py, f64>,
+    t_to: PyReadonlyArray1<'py, f64>,
+    n_obs: usize,
+    p_out: usize,
+    atom_basis: Vec<String>,
+    atom_dim: Vec<usize>,
+    decoder_blocks: Vec<PyReadonlyArray2<'py, f64>>,
+    duchon_centers: Vec<Option<PyReadonlyArray2<'py, f64>>>,
+    n_harmonics_list: Vec<Option<usize>>,
+    coords: Vec<PyReadonlyArray2<'py, f64>>,
+    logits: PyReadonlyArray2<'py, f64>,
+    assignment_kind: String,
+    tau: f64,
+    alpha: f64,
+    jumprelu_threshold: f64,
+    fisher_factors: Option<PyReadonlyArray3<'py, f64>>,
+    // Harvest provenance tag (#980): same-position `"output_fisher"` (default) or
+    // forward-looking `"output_fisher_downstream"`. Selects the re-installed
+    // output-Fisher `RowMetric` the dose is measured through.
+    fisher_provenance: Option<String>,
+) -> PyResult<Py<PyDict>> {
+    let k_atoms = atom_basis.len();
+    if n_obs == 0 || p_out == 0 {
+        return Err(py_value_error(format!(
+            "sae_steer_delta: n_obs and p_out must be positive; got ({n_obs}, {p_out})"
+        )));
+    }
+    if k_atoms == 0 {
+        return Err(py_value_error(
+            "sae_steer_delta: atom_basis must be non-empty".into(),
+        ));
+    }
+    if atom_k >= k_atoms {
+        return Err(py_value_error(format!(
+            "sae_steer_delta: atom_k={atom_k} out of range for K={k_atoms} atoms"
+        )));
+    }
+    if atom_dim.len() != k_atoms
+        || decoder_blocks.len() != k_atoms
+        || duchon_centers.len() != k_atoms
+        || n_harmonics_list.len() != k_atoms
+        || coords.len() != k_atoms
+    {
+        return Err(py_value_error(format!(
+            "sae_steer_delta: per-atom metadata lengths must equal K={k_atoms}"
+        )));
+    }
+    let basis_kinds: Vec<SaeAtomBasisKind> = atom_basis
+        .iter()
+        .map(|kind| sae_atom_basis_kind_from_str(kind))
+        .collect();
+
+    // Build the per-atom plans (latent dim / basis size / centers), reusing the
+    // exact rebuild path `sae_manifold_predict_oos` uses so the rebuilt design
+    // matches the trained one.
+    let mut plans: Vec<SaeAtomBuildPlan> = Vec::with_capacity(k_atoms);
+    for atom_idx in 0..k_atoms {
+        let kind = basis_kinds[atom_idx].clone();
+        let d = atom_dim[atom_idx];
+        match kind {
+            SaeAtomBasisKind::Periodic => {
+                let n_harmonics = n_harmonics_list[atom_idx].unwrap_or(d.max(1));
+                let basis_size = sae_periodic_basis_size(n_harmonics).map_err(py_value_error)?;
+                plans.push(SaeAtomBuildPlan {
+                    kind: SaeAtomBasisKind::Periodic,
+                    latent_dim: 1,
+                    n_harmonics,
+                    duchon_centers: None,
+                    basis_size,
+                });
+            }
+            SaeAtomBasisKind::Sphere => {
+                if d != 2 {
+                    return Err(py_value_error(format!(
+                        "sae_steer_delta: atom {atom_idx} basis 'sphere' requires atom_dim == 2, got {d}"
+                    )));
+                }
+                plans.push(SaeAtomBuildPlan {
+                    kind: SaeAtomBasisKind::Sphere,
+                    latent_dim: 2,
+                    n_harmonics: 0,
+                    duchon_centers: None,
+                    basis_size: SAE_SPHERE_BASIS_SIZE,
+                });
+            }
+            SaeAtomBasisKind::Torus => {
+                let h = n_harmonics_list[atom_idx].unwrap_or(SAE_DEFAULT_TORUS_HARMONICS);
+                let evaluator = TorusHarmonicEvaluator::new(d, h).map_err(py_value_error)?;
+                let basis_size = evaluator.basis_size();
+                plans.push(SaeAtomBuildPlan {
+                    kind: SaeAtomBasisKind::Torus,
+                    latent_dim: d,
+                    n_harmonics: h,
+                    duchon_centers: None,
+                    basis_size,
+                });
+            }
+            _ => {
+                let centers = duchon_centers[atom_idx]
+                    .as_ref()
+                    .ok_or_else(|| {
+                        py_value_error(format!(
+                            "sae_steer_delta: atom {atom_idx} (Duchon-like) needs duchon_centers"
+                        ))
+                    })?
+                    .as_array()
+                    .to_owned();
+                let probe_pts = Array2::<f64>::zeros((1, d.max(1)));
+                let (phi, _jet, _penalty) = match kind {
+                    SaeAtomBasisKind::EuclideanPatch => {
+                        sae_build_euclidean_atom(probe_pts.view(), centers.view())
+                            .map_err(py_value_error)?
+                    }
+                    _ => sae_build_duchon_atom(probe_pts.view(), centers.view())
+                        .map_err(py_value_error)?,
+                };
+                let basis_size = phi.ncols();
+                plans.push(SaeAtomBuildPlan {
+                    kind,
+                    latent_dim: d,
+                    n_harmonics: 0,
+                    duchon_centers: Some(centers),
+                    basis_size,
+                });
+            }
+        }
+    }
+    let effective_atom_dim: Vec<usize> = plans.iter().map(|plan| plan.latent_dim).collect();
+
+    // Pack the trained per-atom coordinates into the padded (K, N, D_max) buffer
+    // the basis-stack builder expects, validating each block against the rebuilt
+    // latent dim. These are the *trained* coords — no solve.
+    let d_max = effective_atom_dim.iter().copied().max().unwrap_or(1).max(1);
+    let mut start_coords = Array3::<f64>::zeros((k_atoms, n_obs, d_max));
+    for atom_idx in 0..k_atoms {
+        let block = coords[atom_idx].as_array();
+        let d = effective_atom_dim[atom_idx];
+        if block.nrows() != n_obs || block.ncols() != d {
+            return Err(py_value_error(format!(
+                "sae_steer_delta: coords[{atom_idx}] must be (N, d)=({n_obs}, {d}); got {:?}",
+                block.dim()
+            )));
+        }
+        if !block.iter().all(|v| v.is_finite()) {
+            return Err(py_value_error(format!(
+                "sae_steer_delta: coords[{atom_idx}] contains non-finite values"
+            )));
+        }
+        start_coords
+            .slice_mut(s![atom_idx, 0..n_obs, 0..d])
+            .assign(&block);
+    }
+
+    let (basis_values, basis_jacobian, smooth_penalties, basis_sizes, _coord_blocks) =
+        sae_build_padded_basis_stacks(&plans, start_coords.view(), n_obs)
+            .map_err(py_value_error)?;
+    let m_max = basis_sizes.iter().copied().max().unwrap_or(1).max(1);
+    let mut decoder_coefficients = Array3::<f64>::zeros((k_atoms, m_max, p_out));
+    for atom_idx in 0..k_atoms {
+        let block = decoder_blocks[atom_idx].as_array();
+        if block.ncols() != p_out {
+            return Err(py_value_error(format!(
+                "sae_steer_delta: decoder_blocks[{atom_idx}] has p={} but p_out={p_out}",
+                block.ncols()
+            )));
+        }
+        if block.nrows() != basis_sizes[atom_idx] {
+            return Err(py_value_error(format!(
+                "sae_steer_delta: decoder_blocks[{atom_idx}] has M={} but rebuilt basis has M={}; \
+                 atom_basis / atom_dim / n_harmonics_list / duchon_centers must match the trained design",
+                block.nrows(),
+                basis_sizes[atom_idx]
+            )));
+        }
+        if !block.iter().all(|v| v.is_finite()) {
+            return Err(py_value_error(format!(
+                "sae_steer_delta: decoder_blocks[{atom_idx}] contains non-finite values"
+            )));
+        }
+        let m_k = basis_sizes[atom_idx];
+        decoder_coefficients
+            .slice_mut(s![atom_idx, 0..m_k, 0..p_out])
+            .assign(&block.slice(s![0..m_k, 0..p_out]));
+    }
+
+    let logits_view = logits.as_array();
+    if logits_view.dim() != (n_obs, k_atoms) {
+        return Err(py_value_error(format!(
+            "sae_steer_delta: logits must be ({n_obs}, {k_atoms}); got {:?}",
+            logits_view.dim()
+        )));
+    }
+    if !logits_view.iter().all(|v| v.is_finite()) {
+        return Err(py_value_error(
+            "sae_steer_delta: logits contains non-finite values".into(),
+        ));
+    }
+    let initial_logits = logits_view.to_owned();
+
+    for (name, value) in [("alpha", alpha), ("tau", tau)] {
+        if !value.is_finite() || value <= 0.0 {
+            return Err(py_value_error(format!(
+                "sae_steer_delta: {name} must be finite and positive; got {value}"
+            )));
+        }
+    }
+    let mode = match assignment_kind.as_str() {
+        "softmax" => AssignmentMode::softmax(tau),
+        "ibp_map" => AssignmentMode::ibp_map(tau, alpha, false),
+        "jumprelu" => AssignmentMode::jumprelu(tau, jumprelu_threshold),
+        _ => {
+            return Err(py_value_error(format!(
+                "sae_steer_delta: assignment_kind must be one of 'softmax', 'ibp_map', or 'jumprelu'; got {assignment_kind}"
+            )));
+        }
+    };
+    let mut coord_blocks = Vec::with_capacity(k_atoms);
+    for atom_idx in 0..k_atoms {
+        let d = effective_atom_dim[atom_idx];
+        coord_blocks.push(start_coords.slice(s![atom_idx, 0..n_obs, 0..d]).to_owned());
+    }
+    let atom_centers: Vec<Option<Array2<f64>>> = plans
+        .iter()
+        .map(|plan| plan.duchon_centers.clone())
+        .collect();
+    let evaluators = build_sae_basis_evaluators(
+        &basis_kinds,
+        &basis_sizes,
+        &effective_atom_dim,
+        &coord_blocks,
+        &atom_centers,
+    )
+    .map_err(py_value_error)?;
+    let mut term = term_from_padded_blocks_with_mode(
+        n_obs,
+        p_out,
+        &basis_kinds,
+        basis_values.view(),
+        basis_jacobian.view(),
+        &basis_sizes,
+        &effective_atom_dim,
+        decoder_coefficients.view(),
+        smooth_penalties.view(),
+        initial_logits.view(),
+        &coord_blocks,
+        mode,
+        &evaluators,
+    )
+    .map_err(py_value_error)?;
+
+    // Install the WP-D per-row output-Fisher metric if a shard was supplied — the
+    // same `(n, p, r)` → `(n, p*r)` flatten the fit uses. Presence activates the
+    // OutputFisher provenance so `predicted_nats` / `validity_radius` are
+    // available; absence keeps the Euclidean geometry-only path (dose = None).
+    if let Some(u3) = fisher_factors.as_ref().map(|f| f.as_array()) {
+        let u_shape = u3.shape();
+        if u_shape[0] != n_obs || u_shape[1] != p_out {
+            return Err(py_value_error(format!(
+                "sae_steer_delta: fisher_factors U must be (n, p, r)=({n_obs}, {p_out}, r); \
+                 got leading dims ({}, {})",
+                u_shape[0], u_shape[1]
+            )));
+        }
+        let rank = u_shape[2];
+        if rank == 0 {
+            return Err(py_value_error(
+                "sae_steer_delta: fisher_factors U rank (last axis) must be >= 1".to_string(),
+            ));
+        }
+        if rank > p_out {
+            return Err(py_value_error(format!(
+                "sae_steer_delta: fisher_factors U rank {rank} exceeds output dim p={p_out}"
+            )));
+        }
+        if !u3.iter().all(|v| v.is_finite()) {
+            return Err(py_value_error(
+                "sae_steer_delta: fisher_factors U contains non-finite values".into(),
+            ));
+        }
+        let mut u_flat = Array2::<f64>::zeros((n_obs, p_out * rank));
+        for row in 0..n_obs {
+            for i in 0..p_out {
+                for k in 0..rank {
+                    u_flat[[row, i * rank + k]] = u3[[row, i, k]];
+                }
+            }
+        }
+        let metric =
+            row_metric_from_fisher_provenance(u_flat, p_out, rank, fisher_provenance.as_deref())?;
+        term.set_row_metric(metric).map_err(py_value_error)?;
+    }
+
+    // The metric the dose is measured through: the installed per-row metric, or a
+    // bit-identical Euclidean metric (geometry-only; dose degrades to None).
+    let euclidean =
+        gam::inference::row_metric::RowMetric::euclidean(n_obs, p_out).map_err(py_value_error)?;
+    let metric = term.row_metric().unwrap_or(&euclidean);
+
+    let t_from_vec = t_from.as_array().to_vec();
+    let t_to_vec = t_to.as_array().to_vec();
+    let plan = gam::inference::steering::steer_delta(&term, metric, atom_k, &t_from_vec, &t_to_vec)
+        .map_err(py_value_error)?;
+
+    let provenance_str = metric_provenance_label(plan.metric_provenance);
+
+    let out = PyDict::new(py);
+    out.set_item("atom", plan.atom)?;
+    out.set_item("atom_name", plan.atom_name)?;
+    out.set_item("t_from", plan.t_from)?;
+    out.set_item("t_to", plan.t_to)?;
+    out.set_item("amplitude", plan.amplitude)?;
+    out.set_item("measured_row", plan.measured_row)?;
+    out.set_item("delta", plan.delta.into_pyarray(py))?;
+    out.set_item("predicted_nats", plan.predicted_nats)?;
+    out.set_item("validity_radius", plan.validity_radius)?;
+    out.set_item("off_manifold_norm", plan.off_manifold_norm)?;
+    out.set_item("metric_provenance", provenance_str)?;
     Ok(out.unbind())
 }
 
@@ -12951,6 +13868,38 @@ fn wrap_to_pi(angle: f64) -> f64 {
 /// non-Euclidean `manifold`). Pass `init="caller"` to start from `t` unchanged
 /// (a pure local solve / explicit warm start), and `n_restarts > 1` to also
 /// optimize from perturbed starts and keep the lowest-score result.
+///
+/// Shift-invariant relative-gradient stationarity measure for the latent outer
+/// solve: `‖∇ₜ f(t̂)‖_g / max(‖∇ₜ f(t₀)‖_g, 1)`, comparing the projected
+/// Riemannian gradient norm at the chosen latent to the gradient norm at the
+/// INITIAL iterate `t₀`. This is the FFI analogue of `relative_stationarity` in
+/// `src/geometry/optimizer.rs` (issue #954), kept byte-for-byte identical to it
+/// so the diagnostic `converged` flag agrees with the optimizer's own stopping
+/// rule:
+///
+/// * **Shift-invariant** — the objective value `f` does not enter at all, so an
+///   additive shift `f → f + C` (which leaves the minimizer, gradient, Hessian,
+///   and model reduction unchanged) cannot move the measure. The earlier
+///   `‖∇ₜ f‖·‖t‖_typ / max(|f|, 1)` divided by the objective magnitude, so a
+///   large `C` inflated the denominator and could falsely certify a
+///   non-stationary latent as converged (#954).
+/// * **Scale-invariant** — under `f → c·f` both `‖∇ₜ f(t̂)‖` and `‖∇ₜ f(t₀)‖`
+///   scale by `c`, so the ratio is unchanged and a fixed `grad_tol` reads as a
+///   true *relative* tolerance.
+/// * **#879 O(n) calibration** — the profiled REML objective leaves `‖∇ₜ f‖` at
+///   an O(n) magnitude even at a genuine stationary point near interpolation;
+///   anchoring to `‖∇ₜ f(t₀)‖` (itself O(n)) divides that magnitude out, while
+///   the `max(·, 1)` floor reduces the test to the bare absolute
+///   `‖∇ₜ f‖ ≤ grad_tol` on a unit-scale objective.
+/// * **Non-finite** — a blown-up iterate (`‖∇ₜ f‖` or `‖∇ₜ f(t₀)‖` not finite)
+///   maps to `+∞`, so it is never reported stationary.
+fn latent_relative_stationarity(grad_norm: f64, grad0_norm: f64) -> f64 {
+    if !grad_norm.is_finite() || !grad0_norm.is_finite() {
+        return f64::INFINITY;
+    }
+    grad_norm / grad0_norm.max(1.0)
+}
+
 #[pyfunction(signature = (
     t,
     y,
@@ -13168,6 +14117,28 @@ fn gaussian_reml_optimize_latent<'py>(
         }
         None => f64::INFINITY,
     };
+    // Gradient norm at the INITIAL iterate (`base_start`: the spectral seed, or
+    // the caller's `t` under `init="caller"`), measured in the SAME projected
+    // (Riemannian) metric as `grad_t_norm`. This is the scale anchor of the
+    // shift-invariant relative-stationarity test below — the FFI analogue of the
+    // optimizer's own `grad0_norm` (`relative_stationarity` in optimizer.rs),
+    // which records the gradient norm at the first iterate of each `minimize`.
+    // The restarts all perturb `base_start` in its tangent space, so its
+    // gradient norm is the representative initial scale for the chosen latent.
+    // A non-finite (degenerate) initial gradient maps to `0`, which the `max(·,
+    // 1)` floor below turns into the bare absolute test — matching the optimizer
+    // adapter, which sanitises a degenerate point to a zero gradient.
+    let (_, init_grad) = problem.value_and_grad(base_start.view(), true);
+    let grad0_norm = match init_grad.as_ref() {
+        Some(g) => {
+            let projected = manifold_box
+                .as_ref()
+                .project_tangent(base_start.view(), g.view())
+                .unwrap_or_else(|_| g.clone());
+            projected.iter().map(|v| v * v).sum::<f64>().sqrt()
+        }
+        None => 0.0,
+    };
     // Latent spread: a genuine collapse (all rows retract to one latent
     // coordinate, the issue #876 failure mode) leaves `latent_t_std ≈ 0`, which
     // distinguishes it from a healthy fit whose latent gradient merely failed to
@@ -13182,46 +14153,38 @@ fn gaussian_reml_optimize_latent<'py>(
         }
     };
 
-    // Scale-aware stationarity measure for the profiled-scale latent objective
-    // (issue #879). The latent objective is the *profiled* Gaussian REML score
-    // `n·log σ̂²(t) + ½·log|Hλ| + …`. Near interpolation the profiled scale `σ̂²`
-    // collapses toward zero, which steepens that `n·log σ̂²` term and leaves the
-    // raw latent gradient `‖∇ₜ f‖` at an O(n) magnitude *even at a genuine
-    // stationary point* (R²≈1). So the bare absolute test `‖∇ₜ f‖ ≤ grad_tol`
-    // is mis-scaled: it measures the gradient in the wrong metric and flags an
-    // excellent, near-stationary fit as non-converged.
+    // Relative-gradient stationarity measure for the profiled-scale latent
+    // objective (issue #879). The latent objective is the *profiled* Gaussian
+    // REML score `n·log σ̂²(t) + ½·log|Hλ| + …`. Near interpolation the profiled
+    // scale `σ̂²` collapses toward zero, which steepens that `n·log σ̂²` term and
+    // leaves the raw latent gradient `‖∇ₜ f‖` at an O(n) magnitude *even at a
+    // genuine stationary point* (R²≈1). So the bare absolute test
+    // `‖∇ₜ f‖ ≤ grad_tol` is mis-calibrated: it flags an excellent,
+    // near-stationary fit as non-converged.
     //
-    // The principled fix is the canonical relative-gradient (scaled-gradient)
-    // stationarity test: stationarity means the gradient is small *relative to*
-    // the objective's natural scale and the latent variable scale, i.e. the
-    // dimensionless quantity
+    // We use the SAME shift-invariant relative-gradient test the optimizer's own
+    // stopping rule uses (`relative_stationarity` in optimizer.rs, issue #954):
     //
-    //   rel = ‖∇ₜ f‖ · ‖t‖_typ / max(|f|, 1)
+    //   rel = ‖∇ₜ f(t̂)‖_g / max(‖∇ₜ f(t₀)‖_g, 1)
     //
-    // where `‖∇ₜ f‖` carries units of f/t, `‖t‖_typ` is the characteristic
-    // latent magnitude (RMS, floored at 1 so a near-origin chart cannot inflate
-    // it) and `max(|f|, 1)` the characteristic objective magnitude. Dividing out
-    // the common profiled scale that both `f` and `∇f` inherit makes `grad_tol`
-    // a true *relative* tolerance: `rel → 0` iff the gradient vanishes relative
-    // to scale (genuine stationarity), and it stays O(1) — failing the test — for
-    // a fit that is actually far from stationary. This is a correct convergence
-    // criterion, not a tolerance loosening: a non-stationary latent still reports
-    // `converged=False` because its gradient is large relative to its own scale.
-    let t_scale = {
-        let n = best_t.len();
-        if n == 0 {
-            1.0
-        } else {
-            let rms = (best_t.iter().map(|&v| v * v).sum::<f64>() / n as f64).sqrt();
-            rms.max(1.0)
-        }
-    };
-    let objective_scale = best_value.abs().max(1.0);
-    let grad_t_norm_scaled = if grad_t_norm.is_finite() {
-        grad_t_norm * t_scale / objective_scale
-    } else {
-        f64::INFINITY
-    };
+    // where `t₀` is the initial iterate. The denominator carries the SAME
+    // multiplicative scale `f` and `∇f` share (`f → c·f ⇒ ∇f → c·∇f`), so a
+    // fixed `grad_tol` still reads as a *relative* tolerance — and, crucially,
+    // because the profiled objective's gradient is O(n) at the seed too, the
+    // O(n) magnitude divides out (#879). The `max(·, 1)` floor reduces this to
+    // the absolute test `‖∇ₜ f‖ ≤ grad_tol` on a unit-scale objective.
+    //
+    // This REPLACES the earlier `‖∇ₜ f‖ · ‖t‖_typ / max(|f|, 1)`, which was
+    // *not* shift-invariant: minimization is invariant under `f → f + C`
+    // (minimizer, gradient, Hessian, model reduction all unchanged), yet the old
+    // `max(|f|, 1)` denominator grows with an additive constant `C` and could
+    // falsely certify a non-stationary latent as converged (issue #954). The
+    // `‖t‖_typ` factor was also non-intrinsic — the ambient latent magnitude is
+    // not chart/translation invariant on a manifold (the circle/torus charts
+    // wrap to `[-π, π)`), so it does not belong in a Riemannian stationarity
+    // test. Anchoring to `‖∇ₜ f(t₀)‖` is both shift-invariant (the gradient does
+    // not depend on `C`) and scale-invariant.
+    let grad_t_norm_scaled = latent_relative_stationarity(grad_t_norm, grad0_norm);
     let converged = grad_t_norm_scaled <= grad_tol;
 
     // Rebuild the full fit dictionary at the converged latent so callers get the
@@ -13320,6 +14283,7 @@ fn gaussian_reml_optimize_latent<'py>(
     out.set_item("latent", t_matrix.into_pyarray(py))?;
     out.set_item("t_flat", best_t.into_pyarray(py))?;
     out.set_item("grad_t_norm", grad_t_norm)?;
+    out.set_item("grad_t_norm_init", grad0_norm)?;
     out.set_item("grad_t_norm_scaled", grad_t_norm_scaled)?;
     out.set_item("converged", converged)?;
     out.set_item("latent_t_std", latent_t_std)?;
@@ -13376,6 +14340,7 @@ fn latent_glm_family_from_str(
             Ok(LikelihoodSpec::new(
                 ResponseFamily::NegativeBinomial {
                     theta: negbin_theta,
+                    theta_fixed: false,
                 },
                 InverseLink::Standard(StandardLink::Log),
             ))
@@ -14351,13 +15316,17 @@ struct TangentRemlMultiResult {
     coefficients: Array2<f64>,
     /// Per-output fitted tangent values `X · β_d`, shape `(N, D)`.
     fitted: Array2<f64>,
-    /// Per-output residual variance, length `D`.
+    /// Pooled isotropic residual variance, length 1. Isotropic tangent noise
+    /// (`Cov = σ²·I_D`) is the rotation-invariant noise model; a per-coordinate
+    /// scale would itself break frame equivariance.
     sigma2: Array1<f64>,
-    /// Per-output, per-block fitted smoothing parameters, shape `(D, M)`.
-    lambdas: Array2<f64>,
-    /// Per-output, per-block effective degrees of freedom, shape `(D, M)`.
-    edf: Array2<f64>,
-    /// Joint REML score (summed over coordinates).
+    /// Shared per-smooth fitted smoothing parameters, length `M`. One λ per
+    /// formula smooth, common to every tangent output coordinate.
+    lambdas: Array1<f64>,
+    /// Shared per-smooth effective degrees of freedom, length `M` (the full
+    /// effective df of the `Sᵇ ⊗ I_D` block across all `D` outputs).
+    edf: Array1<f64>,
+    /// Joint REML score.
     reml_score: f64,
 }
 
@@ -14439,13 +15408,27 @@ fn gaussian_reml_fit_formula_table_impl(
         validate_dense_fisher_w(n, d, *w)?;
     }
 
-    // Build the joint block-diagonal multi-output system. Tangent coordinate
-    // (output) `o` owns coefficient columns `o*K .. (o+1)*K`. Each observation
-    // contributes `D` stacked rows indexed by a metric axis; the per-row
-    // whitening factor `L Lᵀ = W_row · diag(weight)` couples the coordinate
-    // blocks across outputs. Without a Fisher-Rao metric `L = sqrt(weight)·I`,
-    // which decouples the system into `D` independent per-coordinate GAMs — the
-    // documented behaviour.
+    // Build the joint multi-output system with a SHARED smoothing parameter per
+    // formula smooth, common to all `D` tangent output coordinates. This is what
+    // makes the fit frame-equivariant: the tangent vector field `f: x ↦ T_μ M` is
+    // a single vector-valued function whose smoothness is a property of the
+    // predictor `x`, NOT of the arbitrary ambient coordinate axis. One λ per
+    // smooth (shared across outputs) makes the smoother output-isotropic,
+    // `B = S(λ)·Y`, so a rotation `Y ↦ Y Rᵀ` of the response frame maps
+    // `B ↦ B Rᵀ` and the predictions `X B ↦ (X B) Rᵀ` exactly. Per-output
+    // independent λ (the old scheme) broke this: a rotation that mixes a
+    // high-curvature tangent direction with a low-curvature one is smoothed
+    // differently after the mix, so the fitted surface — and the predictions —
+    // depended on the axis labelling.
+    //
+    // Coefficients use an INTERLEAVED layout: basis column `c` (0..K) of output
+    // `o` (0..D) lives at global index `c*D + o` (the row-major flatten of the
+    // `(K, D)` coefficient matrix). Interleaving makes the `D` copies of every
+    // formula penalty block contiguous, so a single shared λ can drive the
+    // Kronecker penalty `Sᵇ ⊗ I_D` over them. Each observation still contributes
+    // `D` stacked rows indexed by a metric axis; the per-row whitening factor
+    // `L Lᵀ = W_row · metric` couples the coordinate blocks across outputs
+    // (`L = sqrt(weight)·I` without a Fisher-Rao metric).
     let p_total = k * d;
     let mut joint_x = Array2::<f64>::zeros((n * d, p_total));
     let mut joint_y = Array1::<f64>::zeros(n * d);
@@ -14488,40 +15471,51 @@ fn gaussian_reml_fit_formula_table_impl(
                     continue;
                 }
                 y_value += l_t * y[[row, output]];
-                let col_offset = output * k;
                 for col in 0..k {
-                    joint_x[[stacked_row, col_offset + col]] = l_t * x[[row, col]];
+                    joint_x[[stacked_row, col * d + output]] = l_t * x[[row, col]];
                 }
             }
             joint_y[stacked_row] = y_value;
         }
     }
 
-    // Replicate every formula penalty block once per output, shifted into that
-    // output's coefficient sub-range. Each replicated block gets its own λ, so
-    // the general REML driver estimates per-coordinate, per-smooth smoothing
-    // parameters — exactly one scalar GAM's worth of penalties per coordinate.
+    // One SHARED penalty per formula smooth: the Kronecker block `Sᵇ ⊗ I_D` over
+    // the interleaved columns `bs*D .. be*D`, driven by a single λ_b common to all
+    // `D` outputs. The general REML driver assigns one λ per `BlockwisePenalty`, so
+    // emitting `M` blocks — not `M*D` — is exactly what ties the smoothing across
+    // tangent coordinates and yields the output-isotropic, frame-equivariant fit.
     let m = design.penalties.len();
-    let mut s_list: Vec<gam::smooth::BlockwisePenalty> = Vec::with_capacity(m * d);
-    for output in 0..d {
-        let offset = output * k;
-        for penalty in &design.penalties {
-            if penalty.col_range.start > penalty.col_range.end
-                || penalty.col_range.end > k
-                || penalty.col_range.len() != penalty.local.nrows()
-                || penalty.col_range.len() != penalty.local.ncols()
-            {
-                return Err(format!(
-                    "formula penalty range {:?} is incompatible with design width {k}",
-                    penalty.col_range
-                ));
-            }
-            let shifted = (offset + penalty.col_range.start)..(offset + penalty.col_range.end);
-            s_list.push(gam::smooth::BlockwisePenalty::new(
-                shifted,
-                penalty.local.clone(),
+    let mut s_list: Vec<gam::smooth::BlockwisePenalty> = Vec::with_capacity(m);
+    for penalty in &design.penalties {
+        if penalty.col_range.start > penalty.col_range.end
+            || penalty.col_range.end > k
+            || penalty.col_range.len() != penalty.local.nrows()
+            || penalty.col_range.len() != penalty.local.ncols()
+        {
+            return Err(format!(
+                "formula penalty range {:?} is incompatible with design width {k}",
+                penalty.col_range
             ));
         }
+        let q = penalty.col_range.len();
+        // `Sᵇ ⊗ I_D` over the interleaved columns: the entry at local
+        // `(i*D + o, j*D + p)` is `Sᵇ[i, j]·δ(o, p)`, so output `o`'s copy of
+        // the block sees exactly `Sᵇ` and the single λ penalizes every output's
+        // copy identically — the shared-smoothing coupling.
+        let mut kron = Array2::<f64>::zeros((q * d, q * d));
+        for i in 0..q {
+            for j in 0..q {
+                let value = penalty.local[[i, j]];
+                if value == 0.0 {
+                    continue;
+                }
+                for o in 0..d {
+                    kron[[i * d + o, j * d + o]] = value;
+                }
+            }
+        }
+        let shifted = (penalty.col_range.start * d)..(penalty.col_range.end * d);
+        s_list.push(gam::smooth::BlockwisePenalty::new(shifted, kron));
     }
     if s_list.is_empty() {
         return Err(
@@ -14578,103 +15572,98 @@ fn gaussian_reml_fit_formula_table_impl(
     // ridge with non-positive scale): see
     // `construction::canonicalize_penalty_specs`. The surviving penalties are
     // compacted, so `fit.lambdas` / `inference.edf_by_block` are reported in
-    // canonical-compacted order — NOT in `s_list` order. A rigid
-    // `output * m + block` stride would therefore misalign per-coordinate λ/edf
-    // across tangent coordinates whenever any block canonicalizes away.
+    // canonical-compacted order — NOT in `s_list` order. A rigid `block` stride
+    // would therefore misalign the shared λ/edf whenever a block canonicalizes
+    // away.
     //
-    // Recover the canonical→`s_list` mapping by replaying the exact same
-    // per-spec canonicalization the solver ran. `s_list` was built in
-    // `for output { for block }` order, so entry `i` originates from tangent
-    // coordinate `i / m`, formula block `i % m`. We record, for each surviving
-    // canonical position, its origin `(output, block)` and its penalty rank
-    // (needed to partition the joint effective df into per-coordinate shares).
+    // Recover the canonical→`s_list` mapping by replaying the exact same per-spec
+    // canonicalization the solver ran. `s_list` entry `b` is formula smooth `b`
+    // (its shared `Sᵇ ⊗ I_D` block). We record, for each surviving canonical
+    // position, its origin block and the block's penalty rank (`rank(Sᵇ)·D` —
+    // the full rank across all `D` outputs), needed for the residual-df total.
     let specs: Vec<gam::estimate::PenaltySpec> = s_list
         .iter()
         .map(gam::estimate::PenaltySpec::from_blockwise_ref)
         .collect();
-    let mut survivor_origin: Vec<(usize, usize, f64)> = Vec::with_capacity(s_list.len());
-    for (i, spec) in specs.iter().enumerate() {
+    let mut survivor_block: Vec<(usize, f64)> = Vec::with_capacity(s_list.len());
+    for (b, spec) in specs.iter().enumerate() {
         if let Some(canonical) = gam::construction::canonicalize_penalty_spec(
             spec,
             p_total,
-            i,
+            b,
             "shared_tangent_gaussian_reml",
         )
         .map_err(|err| err.to_string())?
         {
-            survivor_origin.push((i / m, i % m, canonical.rank() as f64));
+            survivor_block.push((b, canonical.rank() as f64));
         }
     }
 
-    // Unpack per-output coefficients and recover the unwhitened fitted tangent
-    // values, residual variance, and per-coordinate smoothing diagnostics.
+    // Unpack the interleaved coefficients into the `(K, D)` grid: output `o`,
+    // basis column `c` lives at joint index `c*D + o`. Recover the unwhitened
+    // fitted tangent values and the smoothing diagnostics.
     let mut coefficients = Array2::<f64>::zeros((k, d));
-    for output in 0..d {
-        let offset = output * k;
-        for col in 0..k {
-            coefficients[[col, output]] = fit.beta[offset + col];
+    for col in 0..k {
+        for output in 0..d {
+            coefficients[[col, output]] = fit.beta[col * d + output];
         }
     }
     let fitted = x.dot(&coefficients);
-    let mut weight_sum = 0.0;
-    for row in 0..n {
-        weight_sum += weights[row];
-    }
+    let weight_sum: f64 = weights.iter().copied().sum();
     let edf_by_block = fit
         .inference
         .as_ref()
         .map(|inf| inf.edf_by_block.clone())
-        .unwrap_or_else(|| vec![0.0; survivor_origin.len()]);
-    if fit.lambdas.len() != survivor_origin.len() || edf_by_block.len() != survivor_origin.len() {
+        .unwrap_or_else(|| vec![0.0; survivor_block.len()]);
+    if fit.lambdas.len() != survivor_block.len() || edf_by_block.len() != survivor_block.len() {
         return Err(format!(
             "shared-tangent Gaussian REML smoothing-diagnostic length mismatch: solver reported \
              {} lambdas and {} edf entries but {} penalty blocks survived canonicalization",
             fit.lambdas.len(),
             edf_by_block.len(),
-            survivor_origin.len()
+            survivor_block.len()
         ));
     }
 
-    // Scatter the canonical-order λ/edf back into the `(D, M)` grid by origin.
-    // A block dropped during canonicalization (numerical rank 0) carries no
-    // smoothing parameter and contributes zero effective df, so its grid cell
-    // is left at 0 — never NaN-padded by a stride that ran off the end.
-    let mut edf = Array2::<f64>::zeros((d, m));
-    let mut lambdas = Array2::<f64>::zeros((d, m));
-    // Per-output penalized-block rank and effective df, used to partition the
-    // joint effective df into per-coordinate residual-variance denominators.
-    let mut penalized_rank = vec![0.0_f64; d];
-    let mut penalized_edf = vec![0.0_f64; d];
-    for (canonical_pos, &(output, block, rank)) in survivor_origin.iter().enumerate() {
+    // Scatter the canonical-order shared λ/edf back into the per-smooth vectors
+    // (length `M`). A block dropped during canonicalization (numerical rank 0)
+    // carries no smoothing parameter and contributes zero effective df, so its
+    // cell stays 0 — never NaN-padded by a stride that ran off the end. The
+    // `edf_by_block` value already accounts for all `D` outputs of the shared
+    // Kronecker block, and `rank = rank(Sᵇ)·D` likewise.
+    let mut edf = Array1::<f64>::zeros(m);
+    let mut lambdas = Array1::<f64>::zeros(m);
+    let mut penalized_rank_total = 0.0_f64;
+    let mut penalized_edf_total = 0.0_f64;
+    for (canonical_pos, &(block, rank)) in survivor_block.iter().enumerate() {
         let edf_value = edf_by_block[canonical_pos];
-        edf[[output, block]] = edf_value;
-        lambdas[[output, block]] = fit.lambdas[canonical_pos];
-        penalized_rank[output] += rank;
-        penalized_edf[output] += edf_value;
+        edf[block] = edf_value;
+        lambdas[block] = fit.lambdas[canonical_pos];
+        penalized_rank_total += rank;
+        penalized_edf_total += edf_value;
     }
 
-    // Per-coordinate residual scale uses the canonical Gaussian denominator
-    // `n - edf_output`, where `edf_output` is the FULL effective df owned by
-    // that coordinate's `k` columns — unpenalized columns (intercept,
-    // parametric terms) each count 1, penalized columns count their bounded
-    // edf. This mirrors `n - edf_total` in the core Gaussian scale
-    // (`smooth.rs`) and `n - k` in the sibling closed-form multi-output path:
-    //   edf_output = (k - penalized_rank_output) + penalized_edf_output
-    // i.e. the `penalized_rank` columns shrink to `penalized_edf` df while the
-    // remaining `k - penalized_rank` columns are unpenalized and count fully.
-    // Omitting the `(k - penalized_rank)` unpenalized term (as the prior code
-    // did) overstates residual df and biases sigma2 low.
-    let mut sigma2 = Array1::<f64>::zeros(d);
-    for output in 0..d {
-        let edf_output = (k as f64 - penalized_rank[output]) + penalized_edf[output];
-        let denom = (weight_sum - edf_output).max(1.0);
-        let mut ss = 0.0;
-        for row in 0..n {
+    // Pooled, isotropic residual variance. Isotropic tangent noise
+    // (`Cov = σ²·I_D`) is the rotation-invariant noise model; a per-coordinate
+    // scale would itself break frame equivariance. The joint system is a single
+    // Gaussian model with one scale over the `n·D` stacked rows, so we report one
+    // pooled σ̂² with the canonical Gaussian denominator `D·W − edf_total`, where
+    //   edf_total = (K·D − penalized_rank_total) + penalized_edf_total
+    // counts each unpenalized column (intercept, parametric terms, of which there
+    // are `K·D − penalized_rank_total`) once and shrinks the penalized columns to
+    // their bounded effective df — the multi-output analogue of `n − edf` in the
+    // scalar Gaussian scale (`smooth.rs`). Omitting the unpenalized term would
+    // overstate residual df and bias σ² low.
+    let edf_total = (k as f64 * d as f64 - penalized_rank_total) + penalized_edf_total;
+    let denom = (d as f64 * weight_sum - edf_total).max(1.0);
+    let mut ss = 0.0;
+    for row in 0..n {
+        for output in 0..d {
             let resid = y[[row, output]] - fitted[[row, output]];
             ss += weights[row] * resid * resid;
         }
-        sigma2[output] = ss / denom;
     }
+    let sigma2 = Array1::<f64>::from_elem(1, ss / denom);
 
     Ok(TangentRemlMultiResult {
         coefficients,
@@ -19184,6 +20173,48 @@ fn poincare_exp_origin<'py>(
 }
 
 #[pyfunction]
+fn poincare_conformal_factor<'py>(
+    py: Python<'py>,
+    p: PyReadonlyArray1<'py, f64>,
+    curvature: f64,
+) -> PyResult<f64> {
+    let p_owned = p.as_array().to_owned();
+    detach_geometry_result(py, "poincare_conformal_factor", move || {
+        poincare_conformal_factor_impl(p_owned.view(), curvature)
+    })
+}
+
+#[pyfunction]
+fn poincare_exp_map<'py>(
+    py: Python<'py>,
+    p: PyReadonlyArray1<'py, f64>,
+    v: PyReadonlyArray1<'py, f64>,
+    curvature: f64,
+) -> PyResult<Py<PyArray1<f64>>> {
+    let p_owned = p.as_array().to_owned();
+    let v_owned = v.as_array().to_owned();
+    let out = detach_geometry_result(py, "poincare_exp_map", move || {
+        poincare_exp_map_impl(p_owned.view(), v_owned.view(), curvature)
+    })?;
+    Ok(out.into_pyarray(py).unbind())
+}
+
+#[pyfunction]
+fn poincare_log_map<'py>(
+    py: Python<'py>,
+    p: PyReadonlyArray1<'py, f64>,
+    q: PyReadonlyArray1<'py, f64>,
+    curvature: f64,
+) -> PyResult<Py<PyArray1<f64>>> {
+    let p_owned = p.as_array().to_owned();
+    let q_owned = q.as_array().to_owned();
+    let out = detach_geometry_result(py, "poincare_log_map", move || {
+        poincare_log_map_impl(p_owned.view(), q_owned.view(), curvature)
+    })?;
+    Ok(out.into_pyarray(py).unbind())
+}
+
+#[pyfunction]
 fn poincare_to_lorentz<'py>(
     py: Python<'py>,
     y: PyReadonlyArray1<'py, f64>,
@@ -22598,163 +23629,6 @@ impl NuclearNormPenalty {
     }
 }
 
-/// SINDy STLSQ FFI bridge. Marshals NumPy arrays into the core
-/// [`gam::sindy::sindy_stlsq_solve`] / [`gam::sindy::sindy_stlsq_auto_lam`]
-/// solver and returns the resulting `(p, d)` coefficient matrix plus the
-/// rounds-used / converged / chosen-lambda diagnostics. The kind dispatch
-/// mirrors the Python descriptor strings: `"ridge"`, `"scad"`, `"mcp"`.
-#[pyfunction]
-#[pyo3(signature = (theta, dz_dt, tol, max_rounds, lam, kind, concave_a, auto_lam = false))]
-fn sindy_stlsq_solve_array<'py>(
-    py: Python<'py>,
-    theta: PyReadonlyArray2<'py, f64>,
-    dz_dt: PyReadonlyArray2<'py, f64>,
-    tol: f64,
-    max_rounds: usize,
-    lam: f64,
-    kind: &str,
-    concave_a: f64,
-    auto_lam: bool,
-) -> PyResult<(Py<PyArray2<f64>>, usize, bool, f64)> {
-    use gam::solver::sindy::{SindyPenaltyKind, sindy_stlsq_auto_lam, sindy_stlsq_solve};
-    let kind_lc = kind.to_ascii_lowercase();
-    let penalty_kind = match kind_lc.as_str() {
-        "ridge" | "l2" | "tikhonov" => SindyPenaltyKind::Ridge,
-        "scad" => SindyPenaltyKind::Scad,
-        "mcp" | "scad_mcp" => SindyPenaltyKind::Mcp,
-        other => {
-            return Err(py_value_error(format!(
-                "sindy_stlsq_solve_array: kind must be 'ridge', 'scad', or 'mcp'; got {other:?}"
-            )));
-        }
-    };
-    let theta_view = theta.as_array();
-    let dz_view = dz_dt.as_array();
-    let (lam_used, result) = if auto_lam {
-        sindy_stlsq_auto_lam(
-            theta_view,
-            dz_view,
-            tol,
-            max_rounds,
-            penalty_kind,
-            concave_a,
-        )
-        .map_err(py_value_error)?
-    } else {
-        let res = sindy_stlsq_solve(
-            theta_view,
-            dz_view,
-            tol,
-            max_rounds,
-            lam,
-            penalty_kind,
-            concave_a,
-        )
-        .map_err(py_value_error)?;
-        (lam, res)
-    };
-    Ok((
-        result.coefficients.into_pyarray(py).unbind(),
-        result.rounds_used,
-        result.converged,
-        lam_used,
-    ))
-}
-
-/// SINDy candidate-library `Θ` builder FFI bridge. Marshals the trajectory and
-/// an ordered library specification into [`gam::solver::sindy::sindy_library`]
-/// and returns the `(n, p)` design matrix plus one display name per column.
-///
-/// `spec` is an ordered list, one element per user library entry, each a tuple
-/// `(token, custom_column, custom_name)`:
-/// * built-in families pass `token ∈ {"const","id","square","cube","product",
-///   "sin","cos"}` with `custom_column = None` and `custom_name = None`;
-/// * Python callable terms (which cannot run in Rust) pass `token = "custom"`
-///   with their already-evaluated `(n,)` `custom_column` and a `custom_name`.
-///
-/// The ordering and per-family column expansion are owned by Rust, so the
-/// returned name list matches the coefficient-matrix column order exactly.
-#[pyfunction]
-fn sindy_library_array<'py>(
-    py: Python<'py>,
-    z: PyReadonlyArray2<'py, f64>,
-    state_names: Vec<String>,
-    spec: &Bound<'py, PyList>,
-) -> PyResult<(Py<PyArray2<f64>>, Vec<String>)> {
-    use gam::solver::sindy::{SindyLibraryTerm, sindy_library};
-    let mut terms: Vec<SindyLibraryTerm> = Vec::with_capacity(spec.len());
-    for entry in spec.iter() {
-        let tuple = entry.cast::<PyTuple>().map_err(|_| {
-            py_value_error(
-                "sindy_library_array: each spec entry must be a (token, column, name) tuple"
-                    .to_string(),
-            )
-        })?;
-        let token: String = tuple.get_item(0)?.extract()?;
-        let term = match token.as_str() {
-            "const" => SindyLibraryTerm::Const,
-            "id" | "linear" => SindyLibraryTerm::Identity,
-            "square" => SindyLibraryTerm::Square,
-            "cube" => SindyLibraryTerm::Cube,
-            "product" => SindyLibraryTerm::Product,
-            "sin" => SindyLibraryTerm::Sin,
-            "cos" => SindyLibraryTerm::Cos,
-            "custom" => {
-                let col_obj = tuple.get_item(1)?;
-                let column: PyReadonlyArray1<'py, f64> = col_obj.extract().map_err(|_| {
-                    py_value_error(
-                        "sindy_library_array: custom term column must be a 1-D float64 array"
-                            .to_string(),
-                    )
-                })?;
-                let name: String = tuple.get_item(2)?.extract()?;
-                SindyLibraryTerm::Custom {
-                    name,
-                    column: column.as_array().to_owned(),
-                }
-            }
-            other => {
-                return Err(py_value_error(format!(
-                    "sindy_library_array: unknown library token {other:?}"
-                )));
-            }
-        };
-        terms.push(term);
-    }
-    let (theta, names) =
-        sindy_library(z.as_array(), &state_names, &terms).map_err(py_value_error)?;
-    Ok((theta.into_pyarray(py).unbind(), names))
-}
-
-/// SINDy finite-difference derivative FFI bridge. Estimates `dz/dt` from the
-/// trajectory `z` with spacing `dt` (centered interior, one-sided endpoints) via
-/// [`gam::solver::sindy::sindy_finite_difference`].
-#[pyfunction]
-fn sindy_finite_difference_array<'py>(
-    py: Python<'py>,
-    z: PyReadonlyArray2<'py, f64>,
-    dt: f64,
-) -> PyResult<Py<PyArray2<f64>>> {
-    use gam::solver::sindy::sindy_finite_difference;
-    let dz = sindy_finite_difference(z.as_array(), dt).map_err(py_value_error)?;
-    Ok(dz.into_pyarray(py).unbind())
-}
-
-/// Render human-readable SINDy ODEs from a fitted coefficient matrix. `theta`
-/// is the public `(state_dim, n_terms)` layout; number formatting, zero-drop,
-/// and sign/term assembly live entirely in
-/// [`gam::solver::sindy::sindy_render_equations`] so Python holds no formatting
-/// logic.
-#[pyfunction]
-fn sindy_render_equations_array<'py>(
-    theta: PyReadonlyArray2<'py, f64>,
-    term_names: Vec<String>,
-    state_names: Vec<String>,
-) -> PyResult<Vec<String>> {
-    use gam::solver::sindy::sindy_render_equations;
-    sindy_render_equations(theta.as_array(), &term_names, &state_names).map_err(py_value_error)
-}
-
 /// Identifiability theorem precondition checks (Principle (f)).
 ///
 /// Caller serialises a `gam::inference::identifiability_diagnostics::FitSummary` as
@@ -23025,6 +23899,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(hazard_from_cumulative, module)?)?;
     module.add_function(wrap_pyfunction!(survival_cumulative_from_survival, module)?)?;
     module.add_function(wrap_pyfunction!(survival_block, module)?)?;
+    module.add_function(wrap_pyfunction!(survival_block_hazard, module)?)?;
     module.add_function(wrap_pyfunction!(survival_ffi_surface, module)?)?;
     module.add_function(wrap_pyfunction!(numeric_matrix_validate, module)?)?;
     module.add_function(wrap_pyfunction!(numeric_matrix_f64, module)?)?;
@@ -23202,6 +24077,9 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(poincare_project_into_ball, module)?)?;
     module.add_function(wrap_pyfunction!(poincare_log_origin, module)?)?;
     module.add_function(wrap_pyfunction!(poincare_exp_origin, module)?)?;
+    module.add_function(wrap_pyfunction!(poincare_conformal_factor, module)?)?;
+    module.add_function(wrap_pyfunction!(poincare_exp_map, module)?)?;
+    module.add_function(wrap_pyfunction!(poincare_log_map, module)?)?;
     module.add_function(wrap_pyfunction!(poincare_to_lorentz, module)?)?;
     module.add_function(wrap_pyfunction!(poincare_from_lorentz, module)?)?;
     module.add_function(wrap_pyfunction!(poincare_lorentz_log_origin, module)?)?;
@@ -23242,6 +24120,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(sae_manifold_fit_ibp, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_fit_minimal, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_predict_oos, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_steer_delta, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_reconstruction_r2, module)?)?;
     module.add_function(wrap_pyfunction!(sae_streaming_plan, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_assignment_summary, module)?)?;
@@ -23380,10 +24259,6 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<TotalVariationPenalty>()?;
     module.add_class::<NuclearNormPenalty>()?;
     module.add_class::<MechanismSparsityPenalty>()?;
-    module.add_function(wrap_pyfunction!(sindy_stlsq_solve_array, module)?)?;
-    module.add_function(wrap_pyfunction!(sindy_library_array, module)?)?;
-    module.add_function(wrap_pyfunction!(sindy_finite_difference_array, module)?)?;
-    module.add_function(wrap_pyfunction!(sindy_render_equations_array, module)?)?;
     Ok(())
 }
 
@@ -24257,6 +25132,17 @@ fn fit_dataset_impl(
                 }
             };
             build_latent_binary_ffi_payload(formula, &dataset, &fit_config, frailty, lat_result)?
+        }
+        FitRequest::DispersionLocationScale(_) => {
+            // The genuine-dispersion location-scale family (#913) is wired
+            // through the core fit engine and the CLI, but the Python FFI
+            // payload builder does not yet construct or persist it (no Python
+            // entry point routes to this variant). Reject explicitly rather
+            // than mis-serialize a half-built payload.
+            return Err(gam::WorkflowError::SchemaMismatch {
+                reason: "dispersion location-scale fits are not yet surfaced through the Python FFI payload builder"
+                    .to_string(),
+            });
         }
     };
     payload.group_metadata = fit_config.group_metadata.clone();
@@ -27417,6 +28303,10 @@ fn report_html_impl(model_bytes: &[u8]) -> Result<String, String> {
         deviance: fit.deviance,
         reml_score: fit.reml_score,
         iterations: fit.outer_iterations,
+        convergence_status: fit.pirls_status.label().to_string(),
+        converged: fit.pirls_status.is_converged(),
+        outer_gradient_norm: fit.outer_gradient_norm,
+        criterion_certificate: None,
         edf_total: fit.edf_total().unwrap_or(0.0),
         r_squared: None,
         coefficients,
@@ -28596,6 +29486,11 @@ fn request_metadata(request: &FitRequest<'_>) -> (&'static str, &'static str, bo
         FitRequest::TransformationNormal(_) => {
             ("Transformation-normal", "transformation-normal", true)
         }
+        FitRequest::DispersionLocationScale(_) => (
+            "Dispersion location-scale",
+            "dispersion location-scale",
+            true,
+        ),
     }
 }
 
@@ -29324,6 +30219,141 @@ fn smoothness_penalty_impl(
     )
     .map_err(|err| format!("failed to build penalty null basis: {err}"))?;
     Ok((penalty, null_basis))
+}
+
+#[cfg(test)]
+mod latent_stationarity_tests {
+    //! Regression tests for the latent outer-solve convergence test (issue
+    //! #954). `gaussian_reml_optimize_latent` decides `converged` from
+    //! [`latent_relative_stationarity`], which must be shift-invariant (the
+    //! objective value cannot enter), scale-invariant, preserve the #879 O(n)
+    //! calibration via the initial-iterate gradient, and never certify a
+    //! blown-up iterate.
+    use super::latent_relative_stationarity;
+
+    const GRAD_TOL: f64 = 1.0e-8;
+
+    /// #954 from the FFI angle: the convergence decision must not depend on the
+    /// objective *magnitude*. The retired formula was
+    /// `rel_old = ‖∇f‖ · ‖t‖_typ / max(|f|, 1)`; a large objective value drove
+    /// it below `grad_tol` and falsely certified a non-stationary latent. The
+    /// new measure does not take `f` at all, so for a FIXED gradient pair it is
+    /// constant across every objective value — and a genuinely non-stationary
+    /// gradient ratio never passes, no matter how large `|f|` grows.
+    #[test]
+    fn convergence_is_invariant_to_objective_shift() {
+        // A latent that is NOT stationary: its gradient is twice the initial
+        // gradient scale (the optimizer made no progress).
+        let grad_norm = 2.0;
+        let grad0_norm = 1.0;
+        let new_measure = latent_relative_stationarity(grad_norm, grad0_norm);
+
+        // The shift-invariant measure flags it as non-stationary, period.
+        assert!(
+            new_measure > GRAD_TOL,
+            "non-stationary latent (‖∇f‖={grad_norm}, ‖∇f₀‖={grad0_norm}) must never \
+             certify converged; rel={new_measure}"
+        );
+
+        // And it is bit-identical regardless of the objective value `f`, which
+        // the new formula does not reference. The OLD formula, recomputed here,
+        // WOULD flip to "converged" once |f| is large enough — the #954 bug.
+        let t_scale = 1.0_f64; // ‖t‖_typ floored at 1
+        for &f in &[0.0_f64, 1.0, 1.0e3, 1.0e9, 1.0e15] {
+            // New: objective never enters, so the decision is unchanged.
+            assert_eq!(
+                latent_relative_stationarity(grad_norm, grad0_norm),
+                new_measure,
+                "objective value {f} must not change the stationarity measure"
+            );
+            // Old (buggy) formula, for contrast.
+            let rel_old = grad_norm * t_scale / f.abs().max(1.0);
+            if f >= 1.0e9 {
+                assert!(
+                    rel_old <= GRAD_TOL,
+                    "sanity: the retired formula DID falsely converge at |f|={f} \
+                     (rel_old={rel_old}), which is exactly the #954 bug the new \
+                     measure removes"
+                );
+            }
+        }
+    }
+
+    /// Scale-invariance: `f → c·f` scales both gradient norms by `c`, leaving the
+    /// ratio fixed, so `grad_tol` is a genuine *relative* tolerance. This holds
+    /// in the floor-inactive regime `c·‖∇f₀‖ ≥ 1`; the `max(·, 1)` floor
+    /// deliberately breaks exact scale-invariance near unit scale to recover the
+    /// absolute test (see [`small_initial_gradient_floors_to_absolute_test`]).
+    #[test]
+    fn convergence_is_scale_invariant() {
+        let grad_norm = 3.0e-9;
+        let grad0_norm = 100.0;
+        let base = latent_relative_stationarity(grad_norm, grad0_norm);
+        // Every c keeps c·grad0_norm ≥ 50 ≫ 1, so the floor stays inactive.
+        for &c in &[0.5_f64, 2.0, 1.0e3, 1.0e6] {
+            assert!(c * grad0_norm >= 1.0);
+            let scaled = latent_relative_stationarity(c * grad_norm, c * grad0_norm);
+            assert!(
+                (scaled - base).abs() <= 1.0e-18 + 1.0e-12 * base.abs(),
+                "scaling the objective by {c} must not change the relative measure: \
+                 base={base}, scaled={scaled}"
+            );
+        }
+    }
+
+    /// #879 O(n) calibration: a genuinely stationary latent near interpolation
+    /// has an O(n) raw gradient AND an O(n) initial gradient. The bare absolute
+    /// test `‖∇f‖ ≤ grad_tol` would reject it, but the relative measure divides
+    /// the O(n) magnitude out and correctly reports converged.
+    #[test]
+    fn on_calibration_relative_measure_certifies_near_interpolation() {
+        let n = 5_000.0;
+        let grad0_norm = 4.0 * n; // O(n) gradient at the seed
+        // A genuinely stationary latent near interpolation: its raw gradient is
+        // still O(n) (the profiled `n·log σ̂²` term), so the bare absolute test
+        // would reject it.
+        let grad_norm = 1.0e-9 * n; // = 5e-6, far above grad_tol = 1e-8
+        assert!(
+            grad_norm > GRAD_TOL,
+            "the raw O(n) gradient {grad_norm} would fail the absolute test"
+        );
+        // The relative measure divides the O(n) magnitude out and certifies it:
+        // (1e-9·n) / (4·n) = 2.5e-10 ≤ grad_tol.
+        let rel = latent_relative_stationarity(grad_norm, grad0_norm);
+        assert!(
+            rel <= GRAD_TOL,
+            "a stationary latent (‖∇f‖/‖∇f₀‖ = {rel}) must report converged despite \
+             its O(n) raw gradient {grad_norm}"
+        );
+    }
+
+    /// The `max(·, 1)` floor reduces the test to the absolute `‖∇f‖ ≤ grad_tol`
+    /// when the initial gradient is itself small (a near-stationary or
+    /// degenerate seed), matching `relative_stationarity` in optimizer.rs.
+    #[test]
+    fn small_initial_gradient_floors_to_absolute_test() {
+        let grad0_norm = 0.0; // degenerate seed → floor to 1
+        assert_eq!(latent_relative_stationarity(1.0e-9, grad0_norm), 1.0e-9);
+        assert_eq!(latent_relative_stationarity(5.0, grad0_norm), 5.0);
+        // A tiny but nonzero seed gradient (< 1) is also floored to 1.
+        assert_eq!(latent_relative_stationarity(2.0e-9, 0.3), 2.0e-9);
+    }
+
+    /// A blown-up iterate (non-finite gradient at either point) is never
+    /// stationary.
+    #[test]
+    fn non_finite_gradient_is_never_stationary() {
+        assert_eq!(
+            latent_relative_stationarity(f64::INFINITY, 1.0),
+            f64::INFINITY
+        );
+        assert_eq!(latent_relative_stationarity(f64::NAN, 1.0), f64::INFINITY);
+        assert_eq!(
+            latent_relative_stationarity(1.0, f64::INFINITY),
+            f64::INFINITY
+        );
+        assert_eq!(latent_relative_stationarity(1.0, f64::NAN), f64::INFINITY);
+    }
 }
 
 #[cfg(test)]
@@ -30194,6 +31224,7 @@ fn build_bernoulli_marginal_slope_ffi_payload(
             },
             latent_measure: ms_result.latent_measure.clone(),
             latent_z_rank_int_calibration: ms_result.latent_z_rank_int_calibration.clone(),
+            latent_z_conditional_calibration: ms_result.latent_z_conditional_calibration.clone(),
             score_warp_runtime: ms_result.score_warp_runtime.as_ref(),
             link_dev_runtime: ms_result.link_dev_runtime.as_ref(),
             base_link,

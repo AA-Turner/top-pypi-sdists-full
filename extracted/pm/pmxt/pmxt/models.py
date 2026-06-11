@@ -18,6 +18,7 @@ SearchIn = Literal["title", "description", "both"]
 OrderSide = Literal["buy", "sell"]
 OrderType = Literal["market", "limit"]
 OutcomeType = Literal["yes", "no", "up", "down"]
+SubscriptionOption = Literal["trades", "positions", "balances"]
 
 
 @dataclass
@@ -501,7 +502,7 @@ class BuiltOrder:
     exchange: str
     """The exchange name this order was built for."""
 
-    params: Dict[str, Any]
+    params: "CreateOrderParams"
     """The original params used to build this order."""
 
     raw: Any
@@ -510,9 +511,27 @@ class BuiltOrder:
     signed_order: Optional[Dict[str, Any]] = None
     """For CLOB exchanges (Polymarket): the EIP-712 signed order."""
 
-    tx: Optional[Dict[str, Any]] = None
+    tx: Optional["TxPayload"] = None
     """For on-chain AMM exchanges: the EVM transaction payload."""
 
+
+class CreateOrderParams(TypedDict, total=False):
+    """Parameters used to build or create an order."""
+    market_id: str
+    outcome_id: str
+    side: OrderSide
+    type: OrderType
+    amount: float
+    price: float
+    fee: int
+
+
+class TxPayload(TypedDict):
+    """EVM transaction payload returned for on-chain AMM orders."""
+    to: str
+    data: str
+    value: str
+    chainId: int
 
 @dataclass
 class Position:
@@ -767,6 +786,23 @@ class TradesParams(TypedDict, total=False):
     until: int
     limit: int
     cursor: str
+    resolution: str
+
+
+class HistoryFilterParams(TypedDict, total=False):
+    """Parameters for generic history queries."""
+    from_timestamp: int
+    until_timestamp: int
+    max_size: int
+    order: Literal["asc", "desc"]
+
+
+class OHLCVParams(TypedDict, total=False):
+    """Parameters for OHLCV candle queries."""
+    since: int
+    until: int
+    limit: int
+    resolution: str
 
 
 class FetchOrderBookParams(TypedDict, total=False):
@@ -775,6 +811,25 @@ class FetchOrderBookParams(TypedDict, total=False):
     outcome: str
     since: int
     until: int
+
+
+class MyTradesParams(TypedDict, total=False):
+    """Parameters for fetching authenticated user trades."""
+    outcome_id: str
+    market_id: str
+    since: int
+    until: int
+    limit: int
+    cursor: str
+
+
+class OrderHistoryParams(TypedDict, total=False):
+    """Parameters for fetching authenticated order history."""
+    market_id: str
+    since: int
+    until: int
+    limit: int
+    cursor: str
 
 
 # -----------------------------------------------------------------------------
@@ -899,11 +954,11 @@ class MatchedMarketCluster:
     confidence: float
     """Cluster confidence score."""
 
+    volume_24h: float
+    """Total 24-hour volume across markets in the cluster."""
+
     category: Optional[str] = None
     """Canonical category selected by the hosted API."""
-
-    volume_24h: Optional[float] = None
-    """Total 24-hour volume across markets in the cluster."""
 
     raw_matches: Optional[List[Dict[str, Any]]] = None
     """Pairwise match edges used to build the cluster when requested."""
@@ -928,11 +983,11 @@ class MatchedEventCluster:
     confidence: float
     """Cluster confidence score."""
 
+    volume_24h: float
+    """Total 24-hour volume across events in the cluster."""
+
     category: Optional[str] = None
     """Canonical category selected by the hosted API."""
-
-    volume_24h: Optional[float] = None
-    """Total 24-hour volume across events in the cluster."""
 
     raw_matches: Optional[List[Dict[str, Any]]] = None
     """Pairwise match edges used to build the cluster when requested."""

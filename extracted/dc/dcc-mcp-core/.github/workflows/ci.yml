@@ -164,9 +164,27 @@ jobs:
             # always use the prebuilt artifact.
             echo "::warning::Skipping npm ci on macOS; using prebuilt admin UI artifact"
             echo "DCC_MCP_ADMIN_UI_PREBUILT=1" >> "$GITHUB_ENV"
-          elif ! vx npm --prefix admin-ui ci --ignore-scripts --include=optional; then
-            echo "::warning::npm ci failed; falling back to prebuilt admin UI artifact"
-            echo "DCC_MCP_ADMIN_UI_PREBUILT=1" >> "$GITHUB_ENV"
+          else
+            if vx npm --prefix admin-ui ci --ignore-scripts --include=optional; then
+              # npm ci may skip transitive optional deps (npm 10.x quirk).
+              # Explicitly install the platform-specific lightningcss binary.
+              LIGHTNING_PKG=$(node -p "
+                ({
+                  'linux-x64': 'lightningcss-linux-x64-gnu',
+                  'darwin-arm64': 'lightningcss-darwin-arm64',
+                  'darwin-x64': 'lightningcss-darwin-x64',
+                  'win32-x64': 'lightningcss-win32-x64-msvc',
+                  'win32-arm64': 'lightningcss-win32-arm64-msvc',
+                })[process.platform+'-'+process.arch] || ''
+              ")
+              if [ -n "$LIGHTNING_PKG" ] && ! vx npm --prefix admin-ui install "$LIGHTNING_PKG" --no-save --ignore-scripts; then
+                echo "::warning::Failed to install lightningcss native module; falling back to prebuilt admin UI artifact"
+                echo "DCC_MCP_ADMIN_UI_PREBUILT=1" >> "$GITHUB_ENV"
+              fi
+            else
+              echo "::warning::npm ci failed; falling back to prebuilt admin UI artifact"
+              echo "DCC_MCP_ADMIN_UI_PREBUILT=1" >> "$GITHUB_ENV"
+            fi
           fi
       - name: Download prebuilt admin UI bundle
         if: env.DCC_MCP_ADMIN_UI_PREBUILT == '1'
@@ -292,7 +310,7 @@ jobs:
     needs: [admin-ui-bundle]
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-2022, macos-latest]
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -319,11 +337,11 @@ jobs:
           # npm install/build in every wheel job.
           prebuild-admin-ui: "false"
 
-  # ── Python tests: trimmed OS × Python matrix (7 cells, was 18) ──
-  # Covers every supported Python version on ubuntu (cheapest) + endpoint
-  # versions (oldest 3.8, newest 3.13) on Windows/macOS. Middle versions on
+  # ── Python tests: trimmed OS × Python matrix (8 cells, was 18) ──
+  # Covers representative supported Python versions on ubuntu (cheapest) +
+  # endpoint versions (oldest 3.8, newest 3.14) on Windows/macOS. Middle versions on
   # Windows/macOS rarely surface OS-specific Python bugs and are exercised on
-  # ubuntu. The full 3×6 matrix runs weekly via python-matrix-full.yml for
+  # ubuntu. The full 3×7 matrix runs weekly via python-matrix-full.yml for
   # drift detection.
   python-test:
     name: Test (${{ matrix.os }}, py${{ matrix.python-version }})
@@ -336,16 +354,17 @@ jobs:
           - { os: ubuntu-latest,  python-version: "3.8",  wheel_os: ubuntu-latest }
           - { os: ubuntu-latest,  python-version: "3.10", wheel_os: ubuntu-latest }
           - { os: ubuntu-latest,  python-version: "3.13", wheel_os: ubuntu-latest }
+          - { os: ubuntu-latest,  python-version: "3.14", wheel_os: ubuntu-latest }
           # Windows + macOS — cover oldest + newest only. Middle versions
           # are exercised on ubuntu and rarely surface OS-specific Python
           # bugs; python-matrix-full.yml runs the full matrix weekly.
           # Python 3.8 is not available in the windows-latest hosted-tool cache.
           # Reuse the ABI3 Windows wheel, but run the oldest-version test on
           # windows-2022 where actions/setup-python still provides 3.8.
-          - { os: windows-2022,   python-version: "3.8",  wheel_os: windows-latest }
-          - { os: windows-latest, python-version: "3.13", wheel_os: windows-latest }
+          - { os: windows-2022,   python-version: "3.8",  wheel_os: windows-2022 }
+          - { os: windows-2022, python-version: "3.14", wheel_os: windows-2022 }
           - { os: macos-latest,   python-version: "3.8",  wheel_os: macos-latest }
-          - { os: macos-latest,   python-version: "3.13", wheel_os: macos-latest }
+          - { os: macos-latest,   python-version: "3.14", wheel_os: macos-latest }
     runs-on: ${{ matrix.os }}
     # id-token: write enables Codecov tokenless OIDC on the upload step below.
     permissions:
@@ -353,7 +372,7 @@ jobs:
       id-token: write
     env:
       MCP_LOG_LEVEL: warn
-      # Prevent Python 3.13's new REPL from crashing on Windows CI when
+      # Prevent Python 3.13+'s new REPL from crashing on Windows CI when
       # there's no interactive console (WinError 123 in _pyrepl).
       PYTHON_BASIC_REPL: "1"
     steps:
@@ -373,20 +392,20 @@ jobs:
       - name: Install wheel + test deps
         run: |
           pip install --no-index --find-links dist dcc-mcp-core
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.python-version }}" == "3.13" ]]; then
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.python-version }}" == "3.14" ]]; then
             pip install pytest pytest-cov
           else
             pip install pytest
           fi
         shell: bash
       - name: Test with coverage
-        if: matrix.python-version == '3.13' && matrix.os == 'ubuntu-latest'
+        if: matrix.python-version == '3.14' && matrix.os == 'ubuntu-latest'
         run: vx just test-cov
       - name: Test
-        if: matrix.python-version != '3.13' || matrix.os != 'ubuntu-latest'
+        if: matrix.python-version != '3.14' || matrix.os != 'ubuntu-latest'
         run: vx just test
       - name: Upload Python coverage to Codecov
-        if: matrix.python-version == '3.13' && matrix.os == 'ubuntu-latest'
+        if: matrix.python-version == '3.14' && matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v6
         with:
           files: coverage.xml

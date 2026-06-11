@@ -1,24 +1,19 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyramid_openapi3
-Version: 0.21.0
+Version: 0.22.0
 Summary: Pyramid addon for OpenAPI3 validation of requests and responses.
-Home-page: https://github.com/Pylons/pyramid_openapi3
-License: MIT
-Keywords: pyramid,openapi3,openapi,rest,restful
-Author: Neyts Zupan
-Requires-Python: >=3.10,<4.0
+Keywords: openapi,openapi3,pyramid,rest,restful
+Author: Neyts Zupan, Domen Kozar
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: Pyramid
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: openapi-core (>=0.19.1)
-Requires-Dist: pyramid (>=1.10.7)
+Requires-Dist: openapi-core>=0.23.0,<0.24
+Requires-Dist: pyramid>=1.10.7
+Requires-Python: >=3.11, <4
 Project-URL: Repository, https://github.com/Pylons/pyramid_openapi3
 Description-Content-Type: text/markdown
 
@@ -39,8 +34,6 @@ Description-Content-Type: text/markdown
   </a>
   <img alt="Test coverage (main branch)"
        src="https://img.shields.io/badge/tests_coverage-100%25-brightgreen.svg">
-  <img alt="Test coverage (main branch)"
-       src="https://img.shields.io/badge/types_coverage-100%25-brightgreen.svg">
   <a href="https://pypi.org/project/pyramid_openapi3/">
     <img alt="latest version of pyramid_openapi3 on PyPI"
          src="https://img.shields.io/pypi/v/pyramid_openapi3.svg">
@@ -218,15 +211,8 @@ The authors of pyramid_openapi3 believe that the approach of validating a manual
 
 ## Running tests
 
-You need to have [poetry](https://python-poetry.org/) and Python 3.10 & 3.12 installed on your machine. All `Makefile` commands assume you have the Poetry environment activated, i.e. `poetry shell`.
-
-Alternatively, if you use [nix](https://nix.dev/tutorials/declarative-and-reproducible-developer-environments), run `nix-shell` to drop into a shell that has everything prepared for development.
-
-Then you can run:
-
-```shell
-make tests
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md#running-tests) for how to set up a development
+environment and run the tests and linters.
 
 ## Related packages
 
@@ -244,10 +230,10 @@ These packages tackle the same problem-space:
 
 We do our best to follow the rules below.
 
-- Support the latest few releases of Python, currently Python 3.10 through 3.12.
-- Support the latest few releases of Pyramid, currently 1.10.7 through 2.0.2.
-- Support the latest few releases of `openapi-core`, currently just 0.19.0.
-- See `poetry.lock` for a frozen-in-time known-good-set of all dependencies.
+- Support the latest few releases of Python, currently Python 3.11 through 3.14.
+- Support the latest few releases of Pyramid, currently 1.10.7 through 2.1.
+- Support the latest few releases of `openapi-core`, currently just 0.23.x.
+- See `uv.lock` for a frozen-in-time known-good-set of all dependencies.
 
 ## Use in the wild
 
@@ -259,4 +245,3 @@ A couple of projects that use pyramid_openapi3 in production:
 - [Kafkai API](https://app.kafkai.com/api/v1) - User control panel for Kafkai text generation service.
 - [Open on-chain data API](https://tradingstrategy.ai/api/explorer/) - Decentralised exchange and blockchain trading data open API.
 - [Mayet RX](https://app.mayetrx.com/api/v1) - Vendor management system for pharma/medical clinical trials.
-

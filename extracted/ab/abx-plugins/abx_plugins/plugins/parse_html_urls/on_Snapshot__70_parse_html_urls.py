@@ -30,6 +30,7 @@ from abx_plugins.plugins.base.utils import (
     get_extra_context,
     iter_staticfile_text_inputs,
     load_config,
+    read_file_url_text,
     write_text_atomic,
 )
 
@@ -284,12 +285,6 @@ def iter_html_source_paths():
         "*_dom/output.html",
         "dom/*.html",
         "*_dom/*.html",
-        "wget/**/*.html",
-        "*_wget/**/*.html",
-        "wget/**/*.htm",
-        "*_wget/**/*.htm",
-        "wget/**/*.htm*",
-        "*_wget/**/*.htm*",
     ]
 
     seen_paths: set[Path] = set()
@@ -299,6 +294,10 @@ def iter_html_source_paths():
             seen_paths.add(resolved)
             yield resolved
 
+    # Do not parse wget mirror HTML for crawl discovery. Wget rewrites links
+    # for offline browsing, including anchors and query-bearing local filenames
+    # like index.html@query.html, so those files are archive outputs rather
+    # than canonical page inputs.
     for base in (Path.cwd(), Path.cwd().parent):
         for pattern in search_patterns:
             for match in base.glob(pattern):
@@ -390,6 +389,15 @@ def main(
                         root_url=root_url,
                         urls_found=urls_found,
                     )
+        elif (file_content := read_file_url_text(url)) is not None:
+            import io
+
+            with io.StringIO(file_content) as reader:
+                extract_urls_from_reader(
+                    reader,
+                    root_url=root_url,
+                    urls_found=urls_found,
+                )
         elif url.startswith(("http://", "https://")):
             timeout = CONFIG.TIMEOUT
             user_agent = CONFIG.USER_AGENT

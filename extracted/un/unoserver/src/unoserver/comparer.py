@@ -151,12 +151,13 @@ class UnoComparer:
             # exceptions are completely useless!
 
             # Load the document
-            logger.info(f"Opening file {newpath}")
+            logger.info(f"Opening new file {newpath}")
             newpath = uno.systemPathToFileUrl(os.path.abspath(newpath))
             # This returned None if the file was locked, I'm hoping the ReadOnly flag avoids that.
 
         elif newdata:
             # The document content is passed in as a byte string
+            logger.info("Loading new file from stream")
             new_stream = self.service.createInstanceWithContext(
                 "com.sun.star.io.SequenceInputStream", self.context
             )
@@ -176,7 +177,7 @@ class UnoComparer:
             # exceptions are completely useless!
 
             # Load the document
-            logger.info(f"Opening file {oldpath}")
+            logger.info(f"Opening original file {oldpath}")
             oldpath = uno.systemPathToFileUrl(os.path.abspath(oldpath))
             old_props += (PropertyValue(Name="URL", Value=oldpath),)
             # This returned None if the file was locked, I'm hoping the ReadOnly flag avoids that.
@@ -184,6 +185,7 @@ class UnoComparer:
 
         elif olddata:
             # The document content is passed in as a byte string
+            logger.info("Loading original file from stream")
             old_stream = self.service.createInstanceWithContext(
                 "com.sun.star.io.SequenceInputStream", self.context
             )
@@ -193,8 +195,6 @@ class UnoComparer:
             old_type = self.type_service.queryTypeByDescriptor(old_props, False)[0]
 
         old_props += (PropertyValue(Name="NoAcceptDialog", Value=True),)
-
-        logger.info(f"Opening original file {oldpath}")
 
         # Now do the comparison, then the conversion
         try:

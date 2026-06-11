@@ -22,19 +22,20 @@ import logging
 from typing import Any
 
 from openstack import exceptions as sdk_exc
+from openstack.identity.v3 import user as _user
 from openstack import utils as sdk_utils
 from osc_lib import exceptions
 from osc_lib import utils
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.identity import common
-
 
 LOG = logging.getLogger(__name__)
 
 
-def _format_user(user: Any) -> tuple[tuple[str, ...], Any]:
+def _format_user(user: _user.User) -> tuple[tuple[str, ...], tuple[Any, ...]]:
     columns = (
         'default_project_id',
         'domain_id',
@@ -448,11 +449,18 @@ class ListUser(command.Lister):
                 '--project and --group'
             ),
         )
+        pagination.add_marker_pagination_option_to_parser(parser)
         return parser
 
     def take_action(
         self, parsed_args: argparse.Namespace
     ) -> tuple[Sequence[str], Iterable[tuple[Any, ...]]]:
+        if parsed_args.project and (
+            parsed_args.limit is not None or parsed_args.marker is not None
+        ):
+            msg = _('--limit and --marker are not supported with --project')
+            raise exceptions.CommandError(msg)
+
         identity_client = sdk_utils.ensure_service_version(
             self.app.client_manager.sdk_connection.identity, '3'
         )
@@ -475,6 +483,15 @@ class ListUser(command.Lister):
         if parsed_args.is_enabled is not None:
             enabled = parsed_args.is_enabled
 
+        pagination_kwargs: dict[str, Any] = {}
+        if parsed_args.limit is not None:
+            pagination_kwargs['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            pagination_kwargs['max_items'] = parsed_args.max_items
+        if parsed_args.marker is not None:
+            pagination_kwargs['marker'] = parsed_args.marker
+
+        data: list[_user.User]
         if parsed_args.project:
             if domain is not None:
                 project = identity_client.find_project(
@@ -504,21 +521,28 @@ class ListUser(command.Lister):
             for user_id in user_ids:
                 user = identity_client.find_user(user_id, ignore_missing=False)
                 data.append(user)
-
         elif parsed_args.group:
-            data = identity_client.group_users(
-                domain_id=domain,
-                group=group,
+            assert group is not None
+            data = list(
+                identity_client.group_users(
+                    domain_id=domain, group=group, **pagination_kwargs
+                )
             )
         else:
             if parsed_args.is_enabled is not None:
-                data = identity_client.users(
-                    domain_id=domain,
-                    is_enabled=enabled,
+                data = list(
+                    identity_client.users(
+                        domain_id=domain,
+                        is_enabled=enabled,
+                        **pagination_kwargs,
+                    )
                 )
             else:
-                data = identity_client.users(
-                    domain_id=domain,
+                data = list(
+                    identity_client.users(
+                        domain_id=domain,
+                        **pagination_kwargs,
+                    )
                 )
 
         # Column handling
@@ -718,6 +742,9 @@ class SetPasswordUser(command.Command):
             raise exceptions.CommandError('invalid authentication info')
 
         user_id = auth.get_user_id(conn.session)
+        if user_id is None:
+            # this will never happen
+            raise exceptions.CommandError('invalid authentication info')
 
         # FIXME(gyee): there are two scenarios:
         #

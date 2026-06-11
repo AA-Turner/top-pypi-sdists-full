@@ -29,14 +29,14 @@ from openhands.app_server.integrations.provider import ProviderToken
 from openhands.app_server.integrations.service_types import ProviderType
 from openhands.app_server.settings.llm_profiles import LLMProfiles
 from openhands.app_server.utils.jsonpatch_compat import deep_merge
-from openhands.app_server.utils.sdk_settings_compat import (
+from openhands.sdk.settings import (
     ACPAgentSettings,
     AgentSettingsConfig,
-    LLMAgentSettings,
+    ConversationSettings,
+    OpenHandsAgentSettings,
     default_agent_settings,
     validate_agent_settings,
 )
-from openhands.sdk.settings import ConversationSettings
 
 
 def _coerce_value(value: Any) -> Any:
@@ -57,6 +57,34 @@ def _coerce_dict_secrets(d: dict[str, Any]) -> dict[str, Any]:
         else:
             out[k] = _coerce_value(v)
     return out
+
+
+def _load_persisted_agent_settings(
+    data: Any,
+) -> OpenHandsAgentSettings | ACPAgentSettings:
+    """Load persisted agent settings via the SDK loader.
+
+    Routes the raw payload through :func:`validate_agent_settings` so any
+    schema migrations registered with the SDK are applied before validation
+    against the discriminated :data:`AgentSettingsConfig` union.
+
+    The legacy ``agent_kind: 'llm'`` tag (pre-rename, field-compatible with
+    ``openhands``) is normalized to ``'openhands'`` first. The SDK migration
+    only rewrites it while advancing ``schema_version``, so an ``'llm'`` payload
+    already at the current version would otherwise validate as the deprecated
+    ``LLMAgentSettings``. Doing it here keeps every read on the canonical
+    ``{openhands, acp}`` variants, without the cross-variant coercion that 500'd
+    ACP settings (``agent_kind: 'acp'`` is left untouched).
+    """
+    payload = data or {}
+    if isinstance(payload, dict) and payload.get('agent_kind') == 'llm':
+        payload = {**payload, 'agent_kind': 'openhands'}
+    return validate_agent_settings(payload)
+
+
+def _load_persisted_conversation_settings(data: Any) -> ConversationSettings:
+    """Load persisted conversation settings via the SDK loader."""
+    return ConversationSettings.from_persisted(data or {})
 
 
 class SandboxGroupingStrategy(str, Enum):
@@ -191,12 +219,24 @@ class Settings(BaseModel):
             replace_mcp_config = 'mcp_config' in agent_update
             mcp_config = coerced.pop('mcp_config', None) if replace_mcp_config else None
 
-            merged = deep_merge(
-                self.agent_settings.model_dump(
+            new_kind = coerced.get('agent_kind')
+            current_kind = self.agent_settings.agent_kind
+
+            if new_kind and new_kind != current_kind:
+                # ``agent_settings`` is a discriminated union over
+                # ``OpenHandsAgentSettings | ACPAgentSettings``. Deep-merging
+                # the incoming kind's fields onto the outgoing kind's dump
+                # produces a mongrel (``llm`` plus ``acp_command``) that
+                # fails validation. Start from a fresh base for the new
+                # kind. Cross-kind config preservation tracked in
+                # OpenHands/OpenHands#14370.
+                base: dict[str, Any] = {'agent_kind': new_kind}
+            else:
+                base = self.agent_settings.model_dump(
                     mode='json', context={'expose_secrets': True}
-                ),
-                coerced,
-            )
+                )
+
+            merged = deep_merge(base, coerced)
             if replace_mcp_config:
                 merged['mcp_config'] = mcp_config
 
@@ -253,7 +293,7 @@ class Settings(BaseModel):
     @field_serializer('agent_settings')
     def agent_settings_serializer(
         self,
-        agent_settings: LLMAgentSettings | ACPAgentSettings,
+        agent_settings: OpenHandsAgentSettings | ACPAgentSettings,
         info: SerializationInfo,
     ) -> dict[str, Any]:
         context = info.context or {}
@@ -274,9 +314,31 @@ class Settings(BaseModel):
 
         Raises :class:`ProfileNotFoundError` if ``name`` isn't a saved profile.
         """
+        # Copy the LLM so post-activation fixups (e.g. resolving ``base_url``
+        # against the provider default) don't bleed back into the saved
+        # profile. ``model_copy(update={'llm': llm})`` is shallow, so the
+        # update value is shared with ``llm_profiles.profiles[name]``.
         llm = self.llm_profiles.require(name)
-        self.agent_settings = self.agent_settings.model_copy(update={'llm': llm})
+        self.agent_settings = self.agent_settings.model_copy(
+            update={'llm': llm.model_copy()}
+        )
         self.llm_profiles.active = name
+
+    def delete_profile(self, name: str) -> bool:
+        """Delete a saved profile, promoting a fallback when it was active.
+
+        Returns False if the profile didn't exist; True otherwise. When the
+        deleted profile was active and other profiles remain, switches to
+        the first remaining one (insertion order — same ordering ``rename``
+        relies on) so the user isn't left without an active LLM.
+        """
+        was_active = self.llm_profiles.active == name
+        if not self.llm_profiles.delete(name):
+            return False
+        if was_active and self.llm_profiles.profiles:
+            fallback = next(iter(self.llm_profiles.profiles))
+            self.switch_to_profile(fallback)
+        return True
 
     @model_validator(mode='before')
     @classmethod
@@ -291,15 +353,21 @@ class Settings(BaseModel):
         # --- Agent settings: coerce SecretStr leaves to plain strings ---
         agent_settings = data.get('agent_settings')
         if isinstance(agent_settings, dict):
-            data['agent_settings'] = _coerce_dict_secrets(agent_settings)
-        elif isinstance(agent_settings, (LLMAgentSettings, ACPAgentSettings)):
+            data['agent_settings'] = _load_persisted_agent_settings(
+                _coerce_dict_secrets(agent_settings)
+            ).model_dump(mode='json', context={'expose_secrets': True})
+        elif isinstance(agent_settings, (OpenHandsAgentSettings, ACPAgentSettings)):
             data['agent_settings'] = agent_settings.model_dump(
                 mode='json', context={'expose_secrets': True}
             )
 
         # --- Conversation settings: normalize ---
         conversation_settings = data.get('conversation_settings')
-        if isinstance(conversation_settings, ConversationSettings):
+        if isinstance(conversation_settings, dict):
+            data['conversation_settings'] = _load_persisted_conversation_settings(
+                conversation_settings
+            ).model_dump(mode='json')
+        elif isinstance(conversation_settings, ConversationSettings):
             data['conversation_settings'] = conversation_settings.model_dump(
                 mode='json'
             )
@@ -332,7 +400,7 @@ class Settings(BaseModel):
     def secrets_store_serializer(self, secrets: Any, info: SerializationInfo):
         return {'provider_tokens': {}}
 
-    def to_agent_settings(self) -> LLMAgentSettings | ACPAgentSettings:
+    def to_agent_settings(self) -> OpenHandsAgentSettings | ACPAgentSettings:
         return self.agent_settings
 
     def get_agent_settings_display(self) -> dict[str, Any]:

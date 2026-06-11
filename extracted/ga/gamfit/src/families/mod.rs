@@ -11,6 +11,7 @@ pub(crate) mod identifiability_gpu;
 pub(crate) mod identifiability_gpu_kernel;
 pub mod inverse_link;
 pub(crate) mod jet_partitions;
+pub mod jet_tower;
 pub mod joint_penalty;
 pub(crate) mod latent_interval;
 pub mod latent_survival;
@@ -43,8 +44,8 @@ pub mod vector_response;
 pub mod wiggle;
 
 pub use identifiability_compiler::{
-    AnchorRowEvaluator, BlockOrder, CompiledBlock, CompiledBlocks, CompilerError, RowHessian,
-    RowJacobianOperator, compile,
+    BlockOrder, CompiledBlock, CompiledBlocks, CompilerError, RowHessian, RowJacobianOperator,
+    compile,
 };
 pub use vector_response::{
     GaussianVectorLikelihood, MultinomialLogitLikelihood, VectorLikelihood, VectorNoise,

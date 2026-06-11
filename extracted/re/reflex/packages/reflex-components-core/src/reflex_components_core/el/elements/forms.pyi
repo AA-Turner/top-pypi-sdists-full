@@ -6,7 +6,12 @@
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
-from reflex_base.event import EventType, KeyInputInfo, PointerEventInfo
+from reflex_base.event import (
+    FORM_SUBMIT_MAPPING,
+    EventType,
+    KeyInputInfo,
+    PointerEventInfo,
+)
 from reflex_base.utils.imports import ImportDict
 from reflex_base.vars.base import Var
 
@@ -14,6 +19,12 @@ from reflex_components_core.core.breakpoints import Breakpoints
 from reflex_components_core.el.element import Element
 
 from .base import BaseHTML, RawTextBaseHTML, VoidBaseHTML
+
+_DYNAMIC_FORM_FIELD = object()
+
+def on_submit_mapping_event(
+    form_data: Var[FORM_SUBMIT_MAPPING],
+) -> tuple[Var[FORM_SUBMIT_MAPPING]]: ...
 
 ButtonType = Literal["submit", "reset", "button"]
 
@@ -852,7 +863,7 @@ class Form(BaseHTML):
         on_mouse_up: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
         on_scroll_end: EventType[()] | None = None,
-        on_submit: EventType[()] | EventType[dict[str, Any]] | (EventType[()] | EventType[dict[str, str]]) | None = None,
+        on_submit: EventType[()] | EventType[dict[str, Any]] | (EventType[()] | EventType[FORM_SUBMIT_MAPPING]) | (EventType[()] | EventType[dict[str, str]]) | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
     ) -> Form:

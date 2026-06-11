@@ -36,8 +36,11 @@ class PermissionType(object):
     LIST = "list"
     UPDATE = "update"
     IMAGE_CREATE = "image_create"
+    WORKSPACE_CREATE = "workspace_create"
+    JOB_CREATE = "job_create"
+    SERVICE_CREATE = "service_create"
 
-    allowable_values = [ARCHIVE, CREATE, DELETE, GET, DEPLOY, LIST, UPDATE, IMAGE_CREATE]  # noqa: E501
+    allowable_values = [ARCHIVE, CREATE, DELETE, GET, DEPLOY, LIST, UPDATE, IMAGE_CREATE, WORKSPACE_CREATE, JOB_CREATE, SERVICE_CREATE]  # noqa: E501
 
     """
     Attributes:

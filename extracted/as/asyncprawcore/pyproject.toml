@@ -1,30 +1,33 @@
 [build-system]
-build-backend = "flit_core.buildapi"
-requires = ["flit_core >=3.4,<4"]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
 
 [dependency-groups]
 dev = [
   "tox-uv>=1.22.1"
+]
+docs = [
+  "furo",
+  "sphinx",
+  "sphinx-autodoc-typehints"
 ]
 lint = [
   "pre-commit",
   "ruff>=0.9.5"
 ]
 test = [
-  "aiohttp <4",
+  "aiohttp <3.14", # vcrpy's aiohttp stubs break on 3.14+ (AsyncStreamReaderMixin removed); fixed by kevin1024/vcrpy#996, unreleased as of 8.1.1
   "coverage>=7.6.10",
-  "pyright",
-  "pytest>=8.3.4",
-  "pytest-asyncio ==0.18.*",
-  "pytest-vcr ==1.*",
-  "urllib3 ==1.*",
-  "vcrpy ==4.2.1"
+  "pytest>=9.0.3",
+  "pytest-asyncio==1.4.*",
+  "pytest-vcr==1.*",
+  "vcrpy>=8.1.1"
 ]
 type = [
-  "aiohttp <4",
+  "aiohttp<4",
   "pyright>=1.1.393",
-  "pytest>=8.3.4",
-  "pytest-asyncio ==0.18.*"
+  "pytest>=9.0.3",
+  "pytest-asyncio==1.4.*"
 ]
 
 [project]
@@ -37,11 +40,12 @@ classifiers = [
   "Natural Language :: English",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13"
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Typing :: Typed"
 ]
 dependencies = [
   "aiohttp <4",
@@ -55,11 +59,23 @@ maintainers = [
 ]
 name = "asyncprawcore"
 readme = "README.rst"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 [project.urls]
+"Documentation" = "https://asyncprawcore.readthedocs.io/"
 "Issue Tracker" = "https://github.com/praw-dev/asyncprawcore/issues"
 "Source Code" = "https://github.com/praw-dev/asyncprawcore"
+
+[tool.hatch.version]
+path = "asyncprawcore/__init__.py"
+
+[tool.hatch.version.raw-options]
+fallback_version = "0.0.0"
+
+[tool.pyright]
+include = ["asyncprawcore"]
+pythonVersion = "3.10"
+typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -68,8 +84,8 @@ testpaths = "tests"
 
 [tool.ruff]
 include = [
-  "examples/*.py",
   "asyncprawcore/*.py",
+  "examples/*.py",
   "tests/*.py"
 ]
 line-length = 120
@@ -136,8 +152,20 @@ suppress-dummy-args = true
 "tests/**.py" = ["ANN", "D", "PLR2004", "S101", "S105", "S106", "S301"]
 
 [tool.tox]
-envlist = ["py39", "py310", "py311", "py312", "py313", "pre-commit", "style", "type"]
+envlist = ["py310", "py311", "py312", "py313", "py314", "docs", "pre-commit", "style", "type"]
 minversion = "4.22"
+
+[tool.tox.env.docs]
+# Pin to 3.14: on 3.10 the lock resolves sphinx-autodoc-typehints 3.0.1, whose
+# renderer emits the canonical ``aiohttp.client_reqrep.ClientResponse`` (absent
+# from aiohttp's inventory) rather than the public ``aiohttp.ClientResponse``.
+base_python = ["py314"]
+commands = [
+  ["sphinx-build", "-W", "--keep-going", "-n", "-b", "html", "docs", "docs/_build/html"]
+]
+description = "build documentation"
+dependency_groups = ["docs"]
+runner = "uv-venv-lock-runner"
 
 [tool.tox.env.pre-commit]
 commands = [
@@ -150,7 +178,7 @@ runner = "uv-venv-lock-runner"
 [tool.tox.env.style]
 commands = [
   ["ruff", "check"],
-  ["ruff", "format", "--diff", "--target-version", "py39"]
+  ["ruff", "format", "--diff", "--target-version", "py310"]
 ]
 description = "run lint check on code base"
 dependency_groups = ["lint"]
@@ -159,14 +187,14 @@ runner = "uv-venv-lock-runner"
 [tool.tox.env.stylefix]
 commands = [
   ["ruff", "check", "--fix"],
-  ["ruff", "format", "--target-version", "py39"]
+  ["ruff", "format", "--target-version", "py310"]
 ]
 description = "run lint check on code base"
 dependency_groups = ["lint"]
 runner = "uv-venv-lock-runner"
 
 [tool.tox.env.type]
-commands = [["pyright", "asyncprawcore"]]
+commands = [["pyright"]]
 dependency_groups = ["type"]
 description = "run type check on code base"
 runner = "uv-venv-lock-runner"
@@ -179,9 +207,3 @@ commands = [
 description = "Run test under {base_python}"
 dependency_groups = ["test"]
 runner = "uv-venv-lock-runner"
-
-[tool.tox.env_run_py39]
-base_python = "py39"
-dependencies = [
-  "setuptools"
-]

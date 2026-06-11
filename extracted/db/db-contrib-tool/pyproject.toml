@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "db-contrib-tool"
-version = "2.3.0"
+version = "2.3.1"
 description = "The `db-contrib-tool` - MongoDB's tool for contributors."
 authors = ["DevProd Test Infrastructure <devprod-test-infrastructure-team@mongodb.com>"]
 readme = "README.md"

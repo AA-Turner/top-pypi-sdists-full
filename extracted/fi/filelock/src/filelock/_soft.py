@@ -9,7 +9,7 @@ from errno import EACCES, EEXIST, EPERM, ESRCH
 from pathlib import Path
 
 from ._api import BaseFileLock
-from ._util import ensure_directory_exists, raise_on_not_writable_file
+from ._util import break_lock_file, ensure_directory_exists, raise_on_not_writable_file
 
 _WIN_SYNCHRONIZE = 0x100000
 _WIN_ERROR_INVALID_PARAMETER = 87
@@ -58,38 +58,29 @@ class SoftFileLock(BaseFileLock):
     def _try_break_stale_lock(self) -> None:
         with suppress(OSError, ValueError):
             content, mtime = _read_lock_file(self.lock_file)
-            lines = content.strip().splitlines() if content else []
+            holder = _parse_lock_holder(content)
 
-            if len(lines) not in {2, 3}:
+            if holder is None:
+                # Unparsable: wrong line count, a non-integer PID or creation time, empty, oversized or not UTF-8.
+                # Self-heal only once the file is clearly not a half-written fresh lock (a peer between O_EXCL and
+                # _write_lock_info), so the brief create-then-write window is never mistaken for a stale lock.
                 if time.time() - mtime >= _MALFORMED_LOCK_AGE_THRESHOLD:
-                    self._evict_lock_file()
+                    break_lock_file(self.lock_file, mtime)
                 return
 
-            pid_str, hostname = lines[0], lines[1]
-            creation_time_str = lines[2] if len(lines) == 3 else None  # noqa: PLR2004
-
+            pid, hostname, creation_time = holder
             if hostname != socket.gethostname():
                 return
 
-            pid = int(pid_str)
-
             if self._is_process_alive(pid):
-                if sys.platform == "win32" and creation_time_str is not None:  # pragma: win32 cover
-                    stored = int(creation_time_str)
-                    actual = self._get_process_creation_time(pid)
-                    if actual is not None and actual != stored:
-                        pass  # PID recycled, fall through to evict
-                    else:
-                        return  # same process or can't verify — don't evict
-                else:
-                    return
+                if sys.platform != "win32" or creation_time is None:  # pragma: win32 no cover
+                    return  # same process, or no creation time to disambiguate a recycled PID — don't evict
+                actual = self._get_process_creation_time(pid)  # pragma: win32 cover
+                if actual is None or actual == creation_time:  # pragma: win32 cover
+                    return  # same process or can't verify — don't evict
+                # else: PID alive but creation time differs — the PID was recycled, so the lock is stale.
 
-            self._evict_lock_file()
-
-    def _evict_lock_file(self) -> None:
-        break_path = f"{self.lock_file}.break.{os.getpid()}"
-        Path(self.lock_file).rename(break_path)
-        Path(break_path).unlink()
+            break_lock_file(self.lock_file, mtime)
 
     @staticmethod
     def _is_process_alive(pid: int) -> bool:
@@ -158,9 +149,9 @@ class SoftFileLock(BaseFileLock):
 
         """
         with suppress(OSError, ValueError):
-            content, _ = _read_lock_file(self.lock_file)
-            if content and (lines := content.strip().splitlines()):
-                return int(lines[0])
+            holder = _parse_lock_holder(_read_lock_file(self.lock_file)[0])
+            if holder is not None:
+                return holder[0]
         return None
 
     @property
@@ -168,10 +159,15 @@ class SoftFileLock(BaseFileLock):
         """
         Whether this lock is held by the current process.
 
-        :returns: ``True`` if the lock file exists and contains the current process's PID
+        :returns: ``True`` if the lock file exists and names the current process's PID and hostname
 
         """
-        return self.pid == os.getpid()
+        with suppress(OSError, ValueError):
+            holder = _parse_lock_holder(_read_lock_file(self.lock_file)[0])
+            if holder is not None:
+                pid, hostname, _ = holder
+                return pid == os.getpid() and hostname == socket.gethostname()
+        return False
 
     def break_lock(self) -> None:
         """Forcibly break the lock by removing the lock file, regardless of who holds it."""
@@ -220,6 +216,26 @@ def _read_lock_file(path: str) -> tuple[str | None, float]:
         with suppress(UnicodeDecodeError):
             return data.decode("utf-8"), mtime
     return None, mtime
+
+
+def _parse_lock_holder(content: str | None) -> tuple[int, str, int | None] | None:
+    # A well-formed lock file is "<pid>\n<hostname>\n" with an optional "<creation_time>\n" third line on Windows.
+    # Anything else — wrong line count, a non-integer PID or creation time, empty or unreadable content — is
+    # unparsable; returning None lets the caller treat it as a malformed lock to self-heal rather than a holder.
+    if not content or len(lines := content.strip().splitlines()) not in {2, 3}:
+        return None
+    try:
+        pid = int(lines[0])
+        creation_time = int(lines[2]) if len(lines) == 3 else None  # noqa: PLR2004
+    except ValueError:
+        return None
+    # A pid outside the valid range is a malformed lock, not a holder. Without this, a non-positive pid
+    # reaches os.kill() where 0 / -1 mean "the caller's own process group / every process" so a dead
+    # holder reads as alive and the lock is never reclaimed, while an oversized pid raises OverflowError
+    # (not OSError/ValueError) out of the self-heal path. _parse_marker_bytes already enforces this range.
+    if not 1 <= pid <= 2**31 - 1:
+        return None
+    return pid, lines[1], creation_time
 
 
 __all__ = [

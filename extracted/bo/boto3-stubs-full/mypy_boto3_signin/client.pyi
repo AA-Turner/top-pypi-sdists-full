@@ -26,19 +26,38 @@ from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .type_defs import CreateOAuth2TokenRequestTypeDef, CreateOAuth2TokenResponseTypeDef
+from .paginator import ListResourcePermissionStatementsPaginator
+from .type_defs import (
+    CreateOAuth2TokenRequestTypeDef,
+    CreateOAuth2TokenResponseTypeDef,
+    DeleteConsoleAuthorizationConfigurationInputTypeDef,
+    DeleteConsoleAuthorizationConfigurationOutputTypeDef,
+    DeleteResourcePermissionStatementInputTypeDef,
+    GetConsoleAuthorizationConfigurationInputTypeDef,
+    GetConsoleAuthorizationConfigurationOutputTypeDef,
+    GetResourcePolicyOutputTypeDef,
+    ListResourcePermissionStatementsInputTypeDef,
+    ListResourcePermissionStatementsOutputTypeDef,
+    PutConsoleAuthorizationConfigurationInputTypeDef,
+    PutConsoleAuthorizationConfigurationOutputTypeDef,
+    PutResourcePermissionStatementInputTypeDef,
+    PutResourcePermissionStatementOutputTypeDef,
+)
 
 if sys.version_info >= (3, 12):
-    from typing import Unpack
+    from typing import Literal, Unpack
 else:
-    from typing_extensions import Unpack
+    from typing_extensions import Literal, Unpack
 
 __all__ = ("SignInServiceClient",)
 
 class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
     TooManyRequestsError: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
 
@@ -85,4 +104,83 @@ class SignInServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/create_o_auth2_token.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#create_o_auth2_token)
+        """
+
+    def delete_console_authorization_configuration(
+        self, **kwargs: Unpack[DeleteConsoleAuthorizationConfigurationInputTypeDef]
+    ) -> DeleteConsoleAuthorizationConfigurationOutputTypeDef:
+        """
+        Delete console authorization configuration with automatic scope detection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/delete_console_authorization_configuration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#delete_console_authorization_configuration)
+        """
+
+    def delete_resource_permission_statement(
+        self, **kwargs: Unpack[DeleteResourcePermissionStatementInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Remove a permission statement from the account's SignIn resource-based policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/delete_resource_permission_statement.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#delete_resource_permission_statement)
+        """
+
+    def get_console_authorization_configuration(
+        self, **kwargs: Unpack[GetConsoleAuthorizationConfigurationInputTypeDef]
+    ) -> GetConsoleAuthorizationConfigurationOutputTypeDef:
+        """
+        Get console authorization configuration with automatic scope detection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/get_console_authorization_configuration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#get_console_authorization_configuration)
+        """
+
+    def get_resource_policy(self) -> GetResourcePolicyOutputTypeDef:
+        """
+        Retrieve the account's consolidated SignIn resource-based policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/get_resource_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#get_resource_policy)
+        """
+
+    def list_resource_permission_statements(
+        self, **kwargs: Unpack[ListResourcePermissionStatementsInputTypeDef]
+    ) -> ListResourcePermissionStatementsOutputTypeDef:
+        """
+        Retrieve all permission statements in the account's SignIn resource-based
+        policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/list_resource_permission_statements.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#list_resource_permission_statements)
+        """
+
+    def put_console_authorization_configuration(
+        self, **kwargs: Unpack[PutConsoleAuthorizationConfigurationInputTypeDef]
+    ) -> PutConsoleAuthorizationConfigurationOutputTypeDef:
+        """
+        Enable console authorization configuration with automatic scope detection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/put_console_authorization_configuration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#put_console_authorization_configuration)
+        """
+
+    def put_resource_permission_statement(
+        self, **kwargs: Unpack[PutResourcePermissionStatementInputTypeDef]
+    ) -> PutResourcePermissionStatementOutputTypeDef:
+        """
+        Create a permission statement in the account's SignIn resource-based policy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/put_resource_permission_statement.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#put_resource_permission_statement)
+        """
+
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_resource_permission_statements"]
+    ) -> ListResourcePermissionStatementsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#get_paginator)
         """

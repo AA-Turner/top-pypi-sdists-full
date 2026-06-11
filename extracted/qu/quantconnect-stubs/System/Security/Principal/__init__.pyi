@@ -25,18 +25,6 @@ class IIdentity(metaclass=abc.ABCMeta):
         ...
 
 
-class IPrincipal(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def identity(self) -> System.Security.Principal.IIdentity:
-        ...
-
-    def is_in_role(self, role: str) -> bool:
-        ...
-
-
 class TokenImpersonationLevel(IntEnum):
     """This class has no documentation."""
 
@@ -49,6 +37,18 @@ class TokenImpersonationLevel(IntEnum):
     IMPERSONATION = 3
 
     DELEGATION = 4
+
+
+class IPrincipal(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def identity(self) -> System.Security.Principal.IIdentity:
+        ...
+
+    def is_in_role(self, role: str) -> bool:
+        ...
 
 
 class PrincipalPolicy(IntEnum):

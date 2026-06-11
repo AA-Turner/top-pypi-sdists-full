@@ -1349,13 +1349,7 @@ pub fn clifford_t_expectation(
     let (xg, zg, pg) = extract_generators(tab);
     let t = nc.corr.len();
 
-    // 관측 Pauli (Hermitian): P = i^{#Y} X^x Z^z.
-    let mut n_y = 0u8;
-    for q in 0..n {
-        if pauli_x[q] && pauli_z[q] {
-            n_y ^= 1; // mod 2 충분 (phase 2·) — 실제로는 #Y mod 4 필요
-        }
-    }
+    // 관측 Pauli (Hermitian): P = i^{#Y} X^x Z^z — phase 는 #Y mod 4.
     let p_obs = {
         let mut c = 0u32;
         for q in 0..n {
@@ -1365,7 +1359,6 @@ pub fn clifford_t_expectation(
         }
         (c % 4) as u8
     };
-    let _ = n_y;
     let p_obs_op = PauliOp {
         x: pauli_x.to_vec(),
         z: pauli_z.to_vec(),

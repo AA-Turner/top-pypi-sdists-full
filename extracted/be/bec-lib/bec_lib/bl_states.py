@@ -6,7 +6,7 @@ import traceback
 from abc import ABC, abstractmethod
 from typing import Callable, ClassVar, Generic, Type, TypeVar, cast
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from bec_lib import messages
 from bec_lib.alarm_handler import Alarms
@@ -14,6 +14,7 @@ from bec_lib.device import DeviceBase, Signal
 from bec_lib.devicemanager import DeviceManagerBase
 from bec_lib.endpoints import MessageEndpoints
 from bec_lib.redis_connector import MessageObject, RedisConnector
+from bec_lib.scan_args import ScanArgument
 
 
 def with_state_error_handling(func: Callable) -> Callable:
@@ -56,9 +57,14 @@ class BeamlineStateConfig(BaseModel):
 
     state_type: ClassVar[str] = "BeamlineState"
 
-    name: str
-    title: str | None = None
-
+    name: str = Field(
+        **ScanArgument(
+            display_name="State name",
+            description=(
+                "Unique name for the beamline state. Must be a valid Python identifier and cannot be a reserved keyword. This name is used to identify the state in the system and should be descriptive of the state being monitored."
+            ),
+        ).model_dump()
+    )
     model_config = {"extra": "forbid", "arbitrary_types_allowed": True}
 
     @field_validator("name")
@@ -83,28 +89,59 @@ class DeviceStateConfig(BeamlineStateConfig):
 
     state_type: ClassVar[str] = "DeviceBeamlineState"
 
-    device: DeviceBase | str
-    signal: DeviceBase | str | None = None
+    device: DeviceBase | str = Field(
+        ...,
+        **ScanArgument(
+            display_name="Device",
+            description=(
+                "The device this state depends on. Can be specified as the device's dotted name or as the Device object itself. If the device has hints configured, the state will use the first hinted signal of the device by default. Otherwise, a signal must be specified explicitly for the state to function."
+            ),
+        ).model_dump(),
+    )
+    signal: Signal | str | None = Field(
+        default=None,
+        **ScanArgument(
+            display_name="Signal",
+            description=(
+                "The signal of the device to monitor for this state. Can be specified as the signal's dotted name, the signal object itself, or the obj_name of the signal as defined in the device's read dictionary. If not specified, the state will attempt to use the first hinted signal of the device. If the device has no hints and no signal is specified, the state will raise an error."
+            ),
+        ).model_dump(),
+    )
 
     @model_validator(mode="after")
     def validate_signal(self) -> DeviceStateConfig:
         """
-        Validate that the signal is either None, a string, or a DeviceBase instance. If it's a DeviceBase instance, return its name.
+        Validate that the signal is either None, a string, or a Signal instance. If it's a Signal instance, return its name.
         """
-        if self.signal is None:
+        if isinstance(self.device, Signal):
+            # Signals don't have sub-signals, so if the device
+            # itself is a signal, we ignore the signal field and use
+            # the device name as the signal.
+            # However, validator has to also count in scenario when gui provides both device/signal field for just signal.
+            signal_name = self.device.dotted_name
+            if isinstance(self.signal, Signal) and self.signal != self.device:
+                raise ValueError(
+                    f"Signal '{self.signal.dotted_name}' does not match signal device '{signal_name}'"
+                )
+            if isinstance(self.signal, str) and self.signal not in {self.device.name, signal_name}:
+                raise ValueError(
+                    f"Signal '{self.signal}' does not match signal device '{signal_name}'"
+                )
+            self.device = signal_name
+            self.signal = signal_name
             return self
-        if isinstance(self.signal, DeviceBase) and not isinstance(self.signal, Signal):
-            raise ValueError(
-                f"Signal must be a string or a Signal instance, got {type(self.signal)}"
-            )
-        if isinstance(self.device, DeviceBase) and isinstance(self.signal, DeviceBase):
+        if self.signal is None:
+            if isinstance(self.device, DeviceBase):
+                self.device = self.device.dotted_name
+            return self
+        if isinstance(self.device, DeviceBase) and isinstance(self.signal, Signal):
             if self.signal.parent != self.device:
                 raise ValueError(
                     f"Signal '{self.signal.dotted_name}' does not belong to device '{self.device.dotted_name}'"
                 )
         if isinstance(self.device, DeviceBase):
             self.device = self.device.dotted_name
-        if isinstance(self.signal, DeviceBase):
+        if isinstance(self.signal, Signal):
             self.signal = self.signal.dotted_name
         return self
 
@@ -116,9 +153,41 @@ class DeviceWithinLimitsStateConfig(DeviceStateConfig):
 
     state_type: ClassVar[str] = "DeviceWithinLimitsState"
 
-    low_limit: float | None = None
-    high_limit: float | None = None
-    tolerance: float = 0.1
+    low_limit: float | None = Field(
+        default=None,
+        **ScanArgument(
+            display_name="Low limit",
+            description="Optional lower allowed value. Leave disabled for no lower limit.",
+            reference_units="device",
+        ).model_dump(),
+    )
+    high_limit: float | None = Field(
+        default=None,
+        **ScanArgument(
+            display_name="High limit",
+            description="Optional upper allowed value. Leave disabled for no upper limit.",
+            reference_units="device",
+        ).model_dump(),
+    )
+    tolerance: float = Field(
+        default=0.1,
+        **ScanArgument(
+            display_name="Tolerance",
+            description="Warning margin applied inside the configured limits.",
+            reference_units="device",
+        ).model_dump(),
+    )
+
+    @model_validator(mode="after")
+    def validate_limits(self) -> DeviceWithinLimitsStateConfig:
+        """Ensure configured limits are logically ordered when both are provided."""
+        if (
+            self.low_limit is not None
+            and self.high_limit is not None
+            and self.low_limit >= self.high_limit
+        ):
+            raise ValueError("low_limit must be smaller than high_limit.")
+        return self
 
 
 C = TypeVar("C", bound=BeamlineStateConfig)
@@ -229,6 +298,18 @@ class DeviceBeamlineState(BeamlineState[D], Generic[D]):
         except KeyError:
             # pylint: disable=raise-missing-from
             raise ValueError(f"{self._error_prefix} Device '{self.config.device}' not found.")
+
+        if isinstance(self.device_obj, Signal):
+            if self.config.signal is None:
+                self.signal_name = self.device_obj.name
+                return
+            signal = cast(str, self.config.signal)
+            if signal in {self.device_obj.name, self.device_obj.dotted_name}:
+                self.signal_name = self.device_obj.name
+                return
+            raise ValueError(
+                f"{self._error_prefix} Signal '{signal}' does not match signal device '{self.config.device}'."
+            )
 
         if self.config.signal is not None:
             signal = cast(str, self.config.signal)
@@ -352,12 +433,11 @@ class ShutterState(DeviceBeamlineState[DeviceStateConfig]):
 
 class DeviceWithinLimitsState(DeviceBeamlineState[DeviceWithinLimitsStateConfig]):
     """
-    A state that checks if a positioner is within limits.
+    A state that checks if a device signal is within limits.
 
     Example:
         device_state = DeviceWithinLimitsStateConfig(
             name="samx_within_limits",
-            title="samx within 0-10",
             device="samx",
             signal="samx",
             low_limit=0.0,
@@ -373,8 +453,8 @@ class DeviceWithinLimitsState(DeviceBeamlineState[DeviceWithinLimitsStateConfig]
         self, msg: messages.DeviceMessage, *args, **kwargs
     ) -> messages.BeamlineStateMessage:
         """
-        Evaluate if the positioner is within the defined limits. If it is outside the limits,
-        return an invalid state. Otherwise, return a valid state. If it is within 10% of the limits,
+        Evaluate if the device signal is within the defined limits. If it is outside the limits,
+        return an invalid state. Otherwise, return a valid state. If it is close to the limits,
         return a warning state.
         """
 
@@ -388,14 +468,14 @@ class DeviceWithinLimitsState(DeviceBeamlineState[DeviceWithinLimitsStateConfig]
             return messages.BeamlineStateMessage(
                 name=self.config.name,
                 status="invalid",
-                label=f"Positioner {self.device_obj.name}: Value {self.signal_name} not found.",
+                label=f"Device {self.device_obj.name}: Value {self.signal_name} not found.",
             )
 
         if val < self.config.low_limit or val > self.config.high_limit:
             return messages.BeamlineStateMessage(
                 name=self.config.name,
                 status="invalid",
-                label=f"Positioner {self.device_obj.dotted_name} out of limits",
+                label=f"Device {self.device_obj.dotted_name} out of limits",
             )
 
         min_warning_threshold = self.config.low_limit + self.config.tolerance
@@ -405,11 +485,11 @@ class DeviceWithinLimitsState(DeviceBeamlineState[DeviceWithinLimitsStateConfig]
             return messages.BeamlineStateMessage(
                 name=self.config.name,
                 status="warning",
-                label=f"Positioner {self.device_obj.dotted_name} near limits",
+                label=f"Device {self.device_obj.dotted_name} near limits",
             )
 
         return messages.BeamlineStateMessage(
             name=self.config.name,
             status="valid",
-            label=f"Positioner {self.device_obj.dotted_name} within limits",
+            label=f"Device {self.device_obj.dotted_name} within limits",
         )

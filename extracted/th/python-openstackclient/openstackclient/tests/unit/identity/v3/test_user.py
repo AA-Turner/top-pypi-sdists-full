@@ -31,7 +31,7 @@ from openstackclient.identity.v3 import user
 from openstackclient.tests.unit.identity.v3 import fakes as identity_fakes
 
 
-class TestUserCreate(identity_fakes.TestIdentityv3):
+class TestUserCreate(identity_fakes.TestIdentity):
     domain = sdk_fakes.generate_fake_resource(_domain.Domain)
     project = sdk_fakes.generate_fake_resource(_project.Project)
 
@@ -777,7 +777,7 @@ class TestUserCreate(identity_fakes.TestIdentityv3):
         self.assertEqual(self.datalist, data)
 
 
-class TestUserDelete(identity_fakes.TestIdentityv3):
+class TestUserDelete(identity_fakes.TestIdentity):
     user = sdk_fakes.generate_fake_resource(_user.User)
 
     def setUp(self):
@@ -840,7 +840,7 @@ class TestUserDelete(identity_fakes.TestIdentityv3):
         )
 
 
-class TestUserList(identity_fakes.TestIdentityv3):
+class TestUserList(identity_fakes.TestIdentity):
     domain = sdk_fakes.generate_fake_resource(_domain.Domain)
     project = sdk_fakes.generate_fake_resource(_project.Project)
     user = sdk_fakes.generate_fake_resource(
@@ -1034,8 +1034,75 @@ class TestUserList(identity_fakes.TestIdentityv3):
         self.assertEqual(self.columns, columns)
         self.assertEqual(self.datalist, tuple(data))
 
+    def test_user_list_with_pagination(self):
+        arglist = [
+            '--limit',
+            '2',
+            '--marker',
+            'some-marker',
+        ]
+        verifylist = [
+            ('limit', 2),
+            ('marker', 'some-marker'),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
 
-class TestUserSet(identity_fakes.TestIdentityv3):
+        columns, data = self.cmd.take_action(parsed_args)
+
+        kwargs = {
+            'domain_id': None,
+            'limit': 2,
+            'marker': 'some-marker',
+        }
+        self.identity_sdk_client.users.assert_called_with(**kwargs)
+
+        self.assertEqual(self.columns, columns)
+        self.assertEqual(self.datalist, tuple(data))
+
+    def test_user_list_with_pagination_and_group(self):
+        arglist = [
+            '--group',
+            self.group.name,
+            '--limit',
+            '5',
+        ]
+        verifylist = [
+            ('group', self.group.name),
+            ('limit', 5),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        columns, data = self.cmd.take_action(parsed_args)
+
+        kwargs = {
+            'domain_id': None,
+            'group': self.group.id,
+            'limit': 5,
+        }
+        self.identity_sdk_client.group_users.assert_called_with(**kwargs)
+
+        self.assertEqual(self.columns, columns)
+        self.assertEqual(self.datalist, tuple(data))
+
+    def test_user_list_pagination_with_project_fails(self):
+        arglist = [
+            '--project',
+            self.project.name,
+            '--limit',
+            '2',
+        ]
+        verifylist = [
+            ('project', self.project.name),
+            ('limit', 2),
+        ]
+        parsed_args = self.check_parser(self.cmd, arglist, verifylist)
+
+        self.assertRaises(
+            exceptions.CommandError, self.cmd.take_action, parsed_args
+        )
+
+
+class TestUserSet(identity_fakes.TestIdentity):
     project = sdk_fakes.generate_fake_resource(_project.Project)
     domain = sdk_fakes.generate_fake_resource(_domain.Domain)
     user = sdk_fakes.generate_fake_resource(
@@ -1684,7 +1751,7 @@ class TestUserSet(identity_fakes.TestIdentityv3):
         self.assertIsNone(result)
 
 
-class TestUserSetPassword(identity_fakes.TestIdentityv3):
+class TestUserSetPassword(identity_fakes.TestIdentity):
     def setUp(self):
         super().setUp()
         self.cmd = user.SetPasswordUser(self.app, None)
@@ -1763,7 +1830,7 @@ class TestUserSetPassword(identity_fakes.TestIdentityv3):
         )
 
 
-class TestUserShow(identity_fakes.TestIdentityv3):
+class TestUserShow(identity_fakes.TestIdentity):
     user = sdk_fakes.generate_fake_resource(_user.User)
 
     def setUp(self):

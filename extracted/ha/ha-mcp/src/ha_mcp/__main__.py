@@ -3,14 +3,15 @@
 import sys
 
 if sys.version_info < (3, 13):  # noqa: UP036 — uvx can bypass requires-python and run on 3.12
-    print(
+    # Write directly to stderr (not print) so this import-time version gate
+    # fires before any 3.13-only syntax in the rest of the module is parsed.
+    sys.stderr.write(
         f"ERROR: ha-mcp requires Python 3.13+, but you are running Python "
         f"{sys.version_info.major}.{sys.version_info.minor}.\n"
         "If using uvx, add '--python 3.13' to your config args:\n"
         '  "args": ["--python", "3.13", "--refresh", "ha-mcp@latest"]\n'
         "Or install Python 3.13: brew install python@3.13 (macOS) / "
-        "sudo apt install python3.13 (Linux)",
-        file=sys.stderr,
+        "sudo apt install python3.13 (Linux)\n"
     )
     sys.exit(1)
 
@@ -21,6 +22,7 @@ truststore.inject_into_ssl()
 import asyncio  # noqa: E402
 import copy  # noqa: E402
 import hashlib  # noqa: E402
+import ipaddress  # noqa: E402
 import logging  # noqa: E402
 import os  # noqa: E402
 import signal  # noqa: E402
@@ -496,6 +498,8 @@ async def _cancel_tasks(*tasks: asyncio.Task) -> None:
             try:
                 await task
             except asyncio.CancelledError:
+                # Expected: we just cancelled this task, swallow its
+                # CancelledError so remaining tasks still get awaited.
                 pass
 
 
@@ -525,6 +529,8 @@ async def _run_with_shutdown(server_coro: Coroutine[Any, Any, Any]) -> None:
             except TimeoutError:
                 logger.warning("Server did not stop within timeout")
             except asyncio.CancelledError:
+                # Expected: we just cancelled server_task above; swallow its
+                # CancelledError so shutdown can proceed to cleanup.
                 pass
 
     except asyncio.CancelledError:
@@ -750,8 +756,91 @@ def _get_http_runtime(default_port: int = 8086) -> tuple[str, int, str]:
     except ValueError:
         logger.error(f"Invalid MCP_PORT value: {port_str!r}. Must be an integer.")
         sys.exit(1)
-    path = os.getenv("MCP_SECRET_PATH", "/mcp")
+    path = os.getenv("MCP_SECRET_PATH", DEFAULT_MCP_PATH)
     return host, port, path
+
+
+# Default ``MCP_SECRET_PATH`` value, shared by ``_get_http_runtime`` (the
+# read-from-env fallback) and ``_warn_if_default_path_exposed`` (the
+# hardening-nudge predicate). Single source of truth so the two sites
+# can't drift.
+DEFAULT_MCP_PATH = "/mcp"
+
+# Hostname literals (not IP addresses) treated as loopback by
+# ``_is_loopback_host``. IP literals — the whole ``127.0.0.0/8`` block,
+# ``::1``, bracketed forms, zone-suffixed forms, and IPv4-mapped IPv6 — are
+# handled by the ``ipaddress`` parse before this set is consulted.
+_LOOPBACK_HOSTNAMES = frozenset({"localhost", "ip6-localhost", "ip6-loopback"})
+
+
+def _is_loopback_host(host: str) -> bool:
+    """Return True when ``host`` names the local machine only.
+
+    Accepts IPv6 hosts in bracketed (``[::1]``) or zone-suffixed
+    (``::1%eth0``) form, the full ``127.0.0.0/8`` range, IPv4-mapped IPv6
+    loopback (``::ffff:127.0.0.1``, which ``is_loopback`` resolves on its
+    own), and the names in ``_LOOPBACK_HOSTNAMES``. A value that is neither
+    an IP literal nor a known loopback name (a real hostname, or a malformed
+    string) is treated as non-loopback.
+    """
+    try:
+        candidate = host.strip("[]").split("%", 1)[0]
+        return ipaddress.ip_address(candidate).is_loopback
+    except ValueError:
+        # Not an IP literal — fall back to the known loopback hostnames.
+        return host.lower() in _LOOPBACK_HOSTNAMES
+
+
+def _is_running_in_container() -> bool:
+    """Best-effort detection of containerized execution.
+
+    Inside a container the server binds ``0.0.0.0`` regardless of how the
+    operator restricted host-side exposure (``docker run -p 127.0.0.1:...``),
+    so the bind host alone can't tell a loopback-only deployment from a
+    LAN-reachable one — the default-path warning would be a false positive
+    for every container. Container deployments are hardened through the
+    published guidance instead (AGENTS.md -> Docker; the add-on
+    auto-generates a secret path).
+    """
+    # Docker writes /.dockerenv; Podman writes /run/.containerenv.
+    if os.path.exists("/.dockerenv") or os.path.exists("/run/.containerenv"):
+        return True
+    # The Home Assistant add-on runs under the Supervisor.
+    return bool(os.getenv("SUPERVISOR_TOKEN"))
+
+
+def _warn_if_default_path_exposed(host: str, port: int, path: str) -> None:
+    """Warn on a direct run that leaves the default path on a LAN bind.
+
+    Standard-mode HTTP/SSE authenticates by URL-path secrecy (see
+    SECURITY.md → Threat Model). The default ``/mcp`` is not the
+    high-entropy secret that model assumes once the bind leaves loopback.
+
+    Fires only for a direct ``ha-mcp-web`` / ``ha-mcp-sse`` start (uvx, pip,
+    source) that uses the default path on a non-loopback host. Operators
+    silence it the same way they harden — bind ``MCP_HOST=127.0.0.1`` or set
+    a high-entropy ``MCP_SECRET_PATH``. Containers are skipped: an
+    in-container ``0.0.0.0`` bind says nothing about real exposure, which is
+    set by the ``docker -p`` mapping the process can't observe (see
+    ``_is_running_in_container``).
+    """
+    if path != DEFAULT_MCP_PATH:
+        return
+    if _is_running_in_container():
+        return
+    if _is_loopback_host(host):
+        return
+    logger.warning(
+        "ha-mcp listening on %s:%s%s with default MCP_SECRET_PATH. "
+        "Standard-mode HTTP/SSE authenticates by URL-path secrecy and assumes "
+        "a high-entropy MCP_SECRET_PATH for non-loopback binds "
+        "(see SECURITY.md → Threat Model). "
+        "Either bind loopback (MCP_HOST=127.0.0.1) or set MCP_SECRET_PATH "
+        "to a high-entropy value (e.g. /private_<token_urlsafe(16)>).",
+        host,
+        port,
+        path,
+    )
 
 
 async def _run_http_with_graceful_shutdown(
@@ -825,6 +914,27 @@ def register_browser_landing(mcp_instance: "FastMCP | _DeferredMCP", path: str) 
         )
 
 
+def _log_settings_url(host: str, port: int, path: str) -> None:
+    """Log the web settings-UI URL at HTTP startup.
+
+    Non-add-on operators (Docker / standalone) otherwise have no easy way to
+    discover the settings page or its secret-path URL (issue #1458). When the
+    bind host is the wildcard (``0.0.0.0`` / ``::``) the process can't know its
+    externally reachable address, so we log a ``<host>`` placeholder.
+    """
+    is_wildcard = host in ("0.0.0.0", "::")
+    if is_wildcard:
+        display_host = "<host>"
+    elif ":" in host:
+        # IPv6 literal (e.g. ::1, 2001:db8::1) needs brackets in a URL.
+        display_host = f"[{host}]"
+    else:
+        display_host = host
+    url = f"http://{display_host}:{port}{path.rstrip('/')}/settings"
+    note = "  (substitute this server's address for <host>)" if is_wildcard else ""
+    logger.info(f"Settings UI available at: {url}{note}")
+
+
 def _run_http_server(transport: str, default_port: int = 8086) -> None:
     """Common runner for HTTP-based transports.
 
@@ -835,8 +945,10 @@ def _run_http_server(transport: str, default_port: int = 8086) -> None:
     from ha_mcp.settings_ui import register_settings_routes
 
     host, port, path = _get_http_runtime(default_port)
+    _warn_if_default_path_exposed(host, port, path)
     register_browser_landing(_get_mcp(), path)
     register_settings_routes(_get_mcp(), _get_server(), secret_path=path)
+    _log_settings_url(host, port, path)
 
     _run_entrypoint(
         _run_http_with_graceful_shutdown(transport, host, port, path),
@@ -984,6 +1096,7 @@ async def _run_oauth_server(
     from ha_mcp.settings_ui import register_settings_routes
 
     register_settings_routes(mcp, _server, secret_path=path)
+    _log_settings_url(host, port, path)
 
     tools = await mcp.list_tools()
     logger.info(

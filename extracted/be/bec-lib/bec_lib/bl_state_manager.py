@@ -111,10 +111,15 @@ class BeamlineStateManager:
         self._client = client
         self._connector = client.connector
         self._states: dict[str, BeamlineStateConfig] = {}
-        self._connector.register(
-            MessageEndpoints.available_beamline_states(), cb=self._on_state_update, from_start=True
-        )
         self._ready = False
+        if msg := self._connector.get_last(MessageEndpoints.available_beamline_states()):
+            self._on_state_update(msg)
+        else:
+            # No beamline-state stream exists yet: treat that as "ready with zero states".
+            self._ready = True
+        self._connector.register(
+            MessageEndpoints.available_beamline_states(), cb=self._on_state_update
+        )
 
     @property
     def ready(self) -> bool:
@@ -168,10 +173,7 @@ class BeamlineStateManager:
     def _publish_states(self) -> None:
         bl_states_container = [
             messages.BeamlineStateConfig(
-                name=state.name,
-                title=state.title if state.title else state.name,
-                state_type=state.state_type,
-                parameters=state.model_dump(),
+                name=state.name, state_type=state.state_type, parameters=state.model_dump()
             )
             for state in self._states.values()
         ]
@@ -223,7 +225,7 @@ class BeamlineStateManager:
         """
 
         def _format_parameters(state_config: bl_states.BeamlineStateConfig) -> str:
-            parameter_dict = state_config.model_dump(exclude={"name", "title"}, exclude_none=True)
+            parameter_dict = state_config.model_dump(exclude={"name"}, exclude_none=True)
             if not parameter_dict:
                 return "-"
             return "\n".join(f"{key}={value}" for key, value in parameter_dict.items())

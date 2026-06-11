@@ -14,8 +14,83 @@ import QuantConnect.Securities.Positions
 import System
 import System.Collections.Generic
 
-QuantConnect_Securities_Positions_PositionGroupKey = typing.Any
 QuantConnect_Securities_Positions_IPositionGroupBuyingPowerModel = typing.Any
+QuantConnect_Securities_Positions_PositionGroupKey = typing.Any
+
+
+class PositionGroupMaintenanceMarginParameters(System.Object):
+    """Defines parameters for IPositionGroupBuyingPowerModel.get_maintenance_margin"""
+
+    @property
+    def portfolio(self) -> QuantConnect.Securities.SecurityPortfolioManager:
+        """Gets the algorithm's portfolio manager"""
+        ...
+
+    @property
+    def position_group(self) -> QuantConnect.Securities.Positions.IPositionGroup:
+        """Gets the position group"""
+        ...
+
+    def __init__(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, position_group: QuantConnect.Securities.Positions.IPositionGroup) -> None:
+        """
+        Initializes a new instance of the PositionGroupMaintenanceMarginParameters class
+        
+        :param portfolio: The algorithm's portfolio manager
+        :param position_group: The position group
+        """
+        ...
+
+
+class PositionGroupInitialMarginParameters(System.Object):
+    """Defines parameters for IPositionGroupBuyingPowerModel.get_initial_margin_requirement"""
+
+    @property
+    def portfolio(self) -> QuantConnect.Securities.SecurityPortfolioManager:
+        """Gets the algorithm's portfolio manager"""
+        ...
+
+    @property
+    def position_group(self) -> QuantConnect.Securities.Positions.IPositionGroup:
+        """Gets the position group"""
+        ...
+
+    def __init__(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, position_group: QuantConnect.Securities.Positions.IPositionGroup) -> None:
+        """
+        Initializes a new instance of the PositionGroupInitialMarginParameters class
+        
+        :param portfolio: The algorithm's portfolio manager
+        :param position_group: The position group
+        """
+        ...
+
+
+class PositionGroupInitialMarginForOrderParameters(System.Object):
+    """Defines parameters for IPositionGroupBuyingPowerModel.get_initial_margin_required_for_order"""
+
+    @property
+    def portfolio(self) -> QuantConnect.Securities.SecurityPortfolioManager:
+        """Gets the algorithm's portfolio manager"""
+        ...
+
+    @property
+    def position_group(self) -> QuantConnect.Securities.Positions.IPositionGroup:
+        """Gets the position group"""
+        ...
+
+    @property
+    def order(self) -> QuantConnect.Orders.Order:
+        """Gets the order"""
+        ...
+
+    def __init__(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, position_group: QuantConnect.Securities.Positions.IPositionGroup, order: QuantConnect.Orders.Order) -> None:
+        """
+        Initializes a new instance of the PositionGroupInitialMarginForOrderParameters class
+        
+        :param portfolio: The algorithm's portfolio manager
+        :param position_group: The position group
+        :param order: The order
+        """
+        ...
 
 
 class IPosition(metaclass=abc.ABCMeta):
@@ -39,29 +114,6 @@ class IPosition(metaclass=abc.ABCMeta):
         """
         The unit quantity. The unit quantities of a group define the group. For example, a covered
         call has 100 units of stock and -1 units of call contracts.
-        """
-        ...
-
-
-class PositionGroupMaintenanceMarginParameters(System.Object):
-    """Defines parameters for IPositionGroupBuyingPowerModel.get_maintenance_margin"""
-
-    @property
-    def portfolio(self) -> QuantConnect.Securities.SecurityPortfolioManager:
-        """Gets the algorithm's portfolio manager"""
-        ...
-
-    @property
-    def position_group(self) -> QuantConnect.Securities.Positions.IPositionGroup:
-        """Gets the position group"""
-        ...
-
-    def __init__(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, position_group: QuantConnect.Securities.Positions.IPositionGroup) -> None:
-        """
-        Initializes a new instance of the PositionGroupMaintenanceMarginParameters class
-        
-        :param portfolio: The algorithm's portfolio manager
-        :param position_group: The position group
         """
         ...
 
@@ -617,109 +669,6 @@ class PositionGroupKey(System.Object, System.IEquatable[QuantConnect_Securities_
         ...
 
 
-class PositionGroupState(System.Object):
-    """Snapshot of a position group state"""
-
-    @property
-    def name(self) -> str:
-        """Name of this position group"""
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def margin_used(self) -> float:
-        """Currently margin used"""
-        ...
-
-    @margin_used.setter
-    def margin_used(self, value: float) -> None:
-        ...
-
-    @property
-    def portfolio_value_percentage(self) -> float:
-        """The margin used by this position in relation to the total portfolio value"""
-        ...
-
-    @portfolio_value_percentage.setter
-    def portfolio_value_percentage(self, value: float) -> None:
-        ...
-
-    @property
-    def positions(self) -> typing.List[QuantConnect.Securities.Positions.IPosition]:
-        """The positions which compose this group"""
-        ...
-
-    @positions.setter
-    def positions(self, value: typing.List[QuantConnect.Securities.Positions.IPosition]) -> None:
-        ...
-
-
-class PortfolioState(System.Object):
-    """Snapshot of an algorithms portfolio state"""
-
-    @property
-    def time(self) -> datetime.datetime:
-        """Utc time this portfolio snapshot was taken"""
-        ...
-
-    @time.setter
-    def time(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def total_portfolio_value(self) -> float:
-        """The current total portfolio value"""
-        ...
-
-    @total_portfolio_value.setter
-    def total_portfolio_value(self, value: float) -> None:
-        ...
-
-    @property
-    def total_margin_used(self) -> float:
-        """The margin used"""
-        ...
-
-    @total_margin_used.setter
-    def total_margin_used(self, value: float) -> None:
-        ...
-
-    @property
-    def position_groups(self) -> typing.List[QuantConnect.Securities.Positions.PositionGroupState]:
-        """The different positions groups"""
-        ...
-
-    @position_groups.setter
-    def position_groups(self, value: typing.List[QuantConnect.Securities.Positions.PositionGroupState]) -> None:
-        ...
-
-    @property
-    def cash_book(self) -> System.Collections.Generic.Dictionary[str, QuantConnect.Securities.Cash]:
-        """Gets the cash book that keeps track of all currency holdings (only settled cash)"""
-        ...
-
-    @cash_book.setter
-    def cash_book(self, value: System.Collections.Generic.Dictionary[str, QuantConnect.Securities.Cash]) -> None:
-        ...
-
-    @property
-    def unsettled_cash_book(self) -> System.Collections.Generic.Dictionary[str, QuantConnect.Securities.Cash]:
-        """Gets the cash book that keeps track of all currency holdings (only unsettled cash)"""
-        ...
-
-    @unsettled_cash_book.setter
-    def unsettled_cash_book(self, value: System.Collections.Generic.Dictionary[str, QuantConnect.Securities.Cash]) -> None:
-        ...
-
-    @staticmethod
-    def create(portfolio_manager: QuantConnect.Securities.SecurityPortfolioManager, utc_now: typing.Union[datetime.datetime, datetime.date], current_portfolio_value: float) -> QuantConnect.Securities.Positions.PortfolioState:
-        """Helper method to create the portfolio state snapshot"""
-        ...
-
-
 class IPositionGroup(typing.Sequence[QuantConnect.Securities.Positions.IPosition], metaclass=abc.ABCMeta):
     """Defines a group of positions allowing for more efficient use of portfolio margin"""
 
@@ -754,6 +703,63 @@ class IPositionGroup(typing.Sequence[QuantConnect.Securities.Positions.IPosition
         :param symbol: The symbol
         :param position: The position, if found
         :returns: True if the position was found, otherwise false.
+        """
+        ...
+
+
+class PositionExtensions(System.Object):
+    """Provides extension methods for IPosition"""
+
+    @staticmethod
+    def combine(position: QuantConnect.Securities.Positions.IPosition, other: QuantConnect.Securities.Positions.IPosition) -> QuantConnect.Securities.Positions.IPosition:
+        """
+        Combines the provided positions into a single position with the quantities added and the minimum unit quantity.
+        
+        :param position: The position
+        :param other: The other position to add
+        :returns: The combined position.
+        """
+        ...
+
+    @staticmethod
+    def consolidate(positions: typing.List[QuantConnect.Securities.Positions.IPosition]) -> System.Collections.Generic.Dictionary[QuantConnect.Symbol, QuantConnect.Securities.Positions.IPosition]:
+        """
+        Consolidates the provided positions into a dictionary
+        
+        :param positions: The positions to be consolidated
+        :returns: A dictionary containing the consolidated positions.
+        """
+        ...
+
+    @staticmethod
+    def deduct(position: QuantConnect.Securities.Positions.IPosition, quantity_to_deduct: float) -> QuantConnect.Securities.Positions.IPosition:
+        """
+        Deducts the specified quantity_to_deduct from the specified position
+        
+        :param position: The source position
+        :param quantity_to_deduct: The quantity to deduct
+        :returns: A new position with the same properties but quantity reduced by the specified amount.
+        """
+        ...
+
+    @staticmethod
+    def get_group_quantity(position: QuantConnect.Securities.Positions.IPosition) -> float:
+        """
+        Gets the quantity a group would have if the given position were part of it.
+        
+        :param position: The position
+        :returns: The group quantity.
+        """
+        ...
+
+    @staticmethod
+    def with_lots(position: QuantConnect.Securities.Positions.IPosition, number_of_lots: float) -> QuantConnect.Securities.Positions.IPosition:
+        """
+        Creates a new IPosition with quantity equal to number_of_lots times its unit quantity
+        
+        :param position: The position
+        :param number_of_lots: The number of lots for the new position
+        :returns: A new position with the specified number of lots.
         """
         ...
 
@@ -940,58 +946,6 @@ class PositionCollection(System.Object, typing.Iterable[QuantConnect.Securities.
 
 class IPositionGroupResolver(metaclass=abc.ABCMeta):
     """Resolves position groups from a collection of positions."""
-
-    def get_impacted_groups(self, groups: QuantConnect.Securities.Positions.PositionGroupCollection, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Sequence[QuantConnect.Securities.Positions.IPositionGroup]:
-        """
-        Determines the position groups that would be evaluated for grouping of the specified
-        positions were passed into the resolve method.
-        
-        :param groups: The existing position groups
-        :param positions: The positions being changed
-        :returns: An enumerable containing the position groups that could be impacted by the specified position changes.
-        """
-        ...
-
-    def resolve(self, positions: QuantConnect.Securities.Positions.PositionCollection) -> QuantConnect.Securities.Positions.PositionGroupCollection:
-        """
-        Resolves the position groups that exist within the specified collection of positions.
-        
-        :param positions: The collection of positions
-        :returns: An enumerable of position groups.
-        """
-        ...
-
-    def try_group(self, new_positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition], current_positions: QuantConnect.Securities.Positions.PositionGroupCollection, group: typing.Optional[QuantConnect.Securities.Positions.IPositionGroup]) -> typing.Tuple[bool, QuantConnect.Securities.Positions.IPositionGroup]:
-        """
-        Attempts to group the specified positions into a new IPositionGroup using an
-        appropriate IPositionGroupBuyingPowerModel for position groups created via this
-        resolver.
-        
-        :param new_positions: The positions to be grouped
-        :param current_positions: The currently grouped positions
-        :param group: The grouped positions when this resolver is able to, otherwise null
-        :returns: True if this resolver can group the specified positions, otherwise false.
-        """
-        ...
-
-
-class OptionStrategyPositionGroupResolver(System.Object, QuantConnect.Securities.Positions.IPositionGroupResolver):
-    """Class in charge of resolving option strategy groups which will use the OptionStrategyPositionGroupBuyingPowerModel"""
-
-    @overload
-    def __init__(self, securities: QuantConnect.Securities.SecurityManager) -> None:
-        """Creates the default option strategy group resolver for OptionStrategyDefinitions.ALL_DEFINITIONS"""
-        ...
-
-    @overload
-    def __init__(self, securities: QuantConnect.Securities.SecurityManager, strategy_matcher_options: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatcherOptions) -> None:
-        """
-        Creates a custom option strategy group resolver
-        
-        :param strategy_matcher_options: The option strategy matcher options instance to use
-        :param securities: The algorithms securities
-        """
-        ...
 
     def get_impacted_groups(self, groups: QuantConnect.Securities.Positions.PositionGroupCollection, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Sequence[QuantConnect.Securities.Positions.IPositionGroup]:
         """
@@ -1239,109 +1193,6 @@ class PositionGroupExtensions(System.Object):
         ...
 
 
-class PositionGroup(System.Object, QuantConnect.Securities.Positions.IPositionGroup, typing.Iterable[QuantConnect.Securities.Positions.IPosition]):
-    """Provides a default implementation of IPositionGroup"""
-
-    @property
-    def count(self) -> int:
-        """Gets the number of positions in the group"""
-        ...
-
-    @property
-    def key(self) -> QuantConnect.Securities.Positions.PositionGroupKey:
-        """Gets the key identifying this group"""
-        ...
-
-    @property
-    def quantity(self) -> float:
-        """Gets the whole number of units in this position group"""
-        ...
-
-    @property
-    def positions(self) -> typing.Iterable[QuantConnect.Securities.Positions.IPosition]:
-        """Gets the positions in this group"""
-        ...
-
-    @property
-    def buying_power_model(self) -> QuantConnect.Securities.Positions.IPositionGroupBuyingPowerModel:
-        """Gets the buying power model defining how margin works in this group"""
-        ...
-
-    @overload
-    def __init__(self, buying_power_model: QuantConnect.Securities.Positions.IPositionGroupBuyingPowerModel, quantity: float, *positions: typing.Union[QuantConnect.Securities.Positions.IPosition, typing.Iterable[QuantConnect.Securities.Positions.IPosition]]) -> None:
-        """
-        Initializes a new instance of the PositionGroup class
-        
-        :param buying_power_model: The buying power model to use for this group
-        :param quantity: The group quantity, which must be the ratio of quantity to unit quantity of each position
-        :param positions: The positions comprising this group
-        """
-        ...
-
-    @overload
-    def __init__(self, key: QuantConnect.Securities.Positions.PositionGroupKey, quantity: float, *positions: typing.Union[QuantConnect.Securities.Positions.IPosition, typing.Iterable[QuantConnect.Securities.Positions.IPosition]]) -> None:
-        """
-        Initializes a new instance of the PositionGroup class
-        
-        :param key: The deterministic key for this group
-        :param quantity: The group quantity, which must be the ratio of quantity to unit quantity of each position
-        :param positions: The positions comprising this group
-        """
-        ...
-
-    @overload
-    def __init__(self, key: QuantConnect.Securities.Positions.PositionGroupKey, quantity: float, positions: System.Collections.Generic.Dictionary[QuantConnect.Symbol, QuantConnect.Securities.Positions.IPosition]) -> None:
-        """
-        Initializes a new instance of the PositionGroup class
-        
-        :param key: The deterministic key for this group
-        :param quantity: The group quantity, which must be the ratio of quantity to unit quantity of each position
-        :param positions: The positions comprising this group
-        """
-        ...
-
-    def __iter__(self) -> typing.Iterator[QuantConnect.Securities.Positions.IPosition]:
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-    @staticmethod
-    def empty(buying_power_model: QuantConnect.Securities.Positions.IPositionGroupBuyingPowerModel) -> QuantConnect.Securities.Positions.PositionGroup:
-        """
-        Instantiates a default empty position group instance
-        
-        :param buying_power_model: The buying power model to use for this group
-        """
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect.Securities.Positions.IPosition]:
-        """
-        Returns an enumerator that iterates through the collection.
-        
-        :returns: An enumerator that can be used to iterate through the collection.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-    def try_get_position(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], position: typing.Optional[QuantConnect.Securities.Positions.IPosition]) -> typing.Tuple[bool, QuantConnect.Securities.Positions.IPosition]:
-        """
-        Attempts to retrieve the position with the specified symbol
-        
-        :param symbol: The symbol
-        :param position: The position, if found
-        :returns: True if the position was found, otherwise false.
-        """
-        ...
-
-
 class PositionGroupBuyingPowerModelExtensions(System.Object):
     """
     Provides methods aimed at reducing the noise introduced from having result/parameter types for each method.
@@ -1379,111 +1230,209 @@ class PositionGroupBuyingPowerModelExtensions(System.Object):
         ...
 
 
-class PositionGroupInitialMarginForOrderParameters(System.Object):
-    """Defines parameters for IPositionGroupBuyingPowerModel.get_initial_margin_required_for_order"""
+class NullSecurityPositionGroupModel(QuantConnect.Securities.Positions.SecurityPositionGroupModel):
+    """
+    Responsible for managing the resolution of position groups for an algorithm.
+    Will only resolve single position groups
+    """
+
+    def get_position_group_resolver(self) -> QuantConnect.Securities.Positions.IPositionGroupResolver:
+        """
+        Get the position group resolver instance to use
+        
+        
+        This Class is protected.
+        
+        :returns: The position group resolver instance.
+        """
+        ...
+
+
+class SecurityPositionGroupResolver(System.Object, QuantConnect.Securities.Positions.IPositionGroupResolver):
+    """Provides an implementation of IPositionGroupResolver that places all positions into a default group of one security."""
+
+    def __init__(self, buying_power_model: QuantConnect.Securities.Positions.IPositionGroupBuyingPowerModel) -> None:
+        """
+        Initializes a new instance of the SecurityPositionGroupResolver class
+        
+        :param buying_power_model: The buying power model to use for created groups
+        """
+        ...
+
+    def get_impacted_groups(self, groups: QuantConnect.Securities.Positions.PositionGroupCollection, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Sequence[QuantConnect.Securities.Positions.IPositionGroup]:
+        """
+        Determines the position groups that would be evaluated for grouping of the specified
+        positions were passed into the IPositionGroupresolver.resolve method.
+        
+        :param groups: The existing position groups
+        :param positions: The positions being changed
+        :returns: An enumerable containing the position groups that could be impacted by the specified position changes.
+        """
+        ...
+
+    def resolve(self, positions: QuantConnect.Securities.Positions.PositionCollection) -> QuantConnect.Securities.Positions.PositionGroupCollection:
+        """
+        Resolves the position groups that exist within the specified collection of positions.
+        
+        :param positions: The collection of positions
+        :returns: An enumerable of position groups.
+        """
+        ...
+
+    def try_group(self, new_positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition], current_positions: QuantConnect.Securities.Positions.PositionGroupCollection, group: typing.Optional[QuantConnect.Securities.Positions.IPositionGroup]) -> typing.Tuple[bool, QuantConnect.Securities.Positions.IPositionGroup]:
+        """
+        Attempts to group the specified positions into a new IPositionGroup using an
+        appropriate IPositionGroupBuyingPowerModel for position groups created via this
+        resolver.
+        
+        :param new_positions: The positions to be grouped
+        :param current_positions: The currently grouped positions
+        :param group: The grouped positions when this resolver is able to, otherwise null
+        :returns: True if this resolver can group the specified positions, otherwise false.
+        """
+        ...
+
+
+class OptionStrategyPositionGroupResolver(System.Object, QuantConnect.Securities.Positions.IPositionGroupResolver):
+    """Class in charge of resolving option strategy groups which will use the OptionStrategyPositionGroupBuyingPowerModel"""
+
+    @overload
+    def __init__(self, securities: QuantConnect.Securities.SecurityManager) -> None:
+        """Creates the default option strategy group resolver for OptionStrategyDefinitions.ALL_DEFINITIONS"""
+        ...
+
+    @overload
+    def __init__(self, securities: QuantConnect.Securities.SecurityManager, strategy_matcher_options: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatcherOptions) -> None:
+        """
+        Creates a custom option strategy group resolver
+        
+        :param strategy_matcher_options: The option strategy matcher options instance to use
+        :param securities: The algorithms securities
+        """
+        ...
+
+    def get_impacted_groups(self, groups: QuantConnect.Securities.Positions.PositionGroupCollection, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Sequence[QuantConnect.Securities.Positions.IPositionGroup]:
+        """
+        Determines the position groups that would be evaluated for grouping of the specified
+        positions were passed into the resolve method.
+        
+        :param groups: The existing position groups
+        :param positions: The positions being changed
+        :returns: An enumerable containing the position groups that could be impacted by the specified position changes.
+        """
+        ...
+
+    def resolve(self, positions: QuantConnect.Securities.Positions.PositionCollection) -> QuantConnect.Securities.Positions.PositionGroupCollection:
+        """
+        Resolves the position groups that exist within the specified collection of positions.
+        
+        :param positions: The collection of positions
+        :returns: An enumerable of position groups.
+        """
+        ...
+
+    def try_group(self, new_positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition], current_positions: QuantConnect.Securities.Positions.PositionGroupCollection, group: typing.Optional[QuantConnect.Securities.Positions.IPositionGroup]) -> typing.Tuple[bool, QuantConnect.Securities.Positions.IPositionGroup]:
+        """
+        Attempts to group the specified positions into a new IPositionGroup using an
+        appropriate IPositionGroupBuyingPowerModel for position groups created via this
+        resolver.
+        
+        :param new_positions: The positions to be grouped
+        :param current_positions: The currently grouped positions
+        :param group: The grouped positions when this resolver is able to, otherwise null
+        :returns: True if this resolver can group the specified positions, otherwise false.
+        """
+        ...
+
+
+class CompositePositionGroupResolver(System.Object, QuantConnect.Securities.Positions.IPositionGroupResolver):
+    """
+    Provides an implementation of IPositionGroupResolver that invokes multiple wrapped implementations
+    in succession. Each successive call to IPositionGroupresolver.resolve will receive
+    the remaining positions that have yet to be grouped. Any non-grouped positions are placed into identity groups.
+    """
 
     @property
-    def portfolio(self) -> QuantConnect.Securities.SecurityPortfolioManager:
-        """Gets the algorithm's portfolio manager"""
+    def count(self) -> int:
+        """Gets the count of registered resolvers"""
         ...
 
-    @property
-    def position_group(self) -> QuantConnect.Securities.Positions.IPositionGroup:
-        """Gets the position group"""
-        ...
-
-    @property
-    def order(self) -> QuantConnect.Orders.Order:
-        """Gets the order"""
-        ...
-
-    def __init__(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, position_group: QuantConnect.Securities.Positions.IPositionGroup, order: QuantConnect.Orders.Order) -> None:
+    @overload
+    def __init__(self, *resolvers: typing.Union[QuantConnect.Securities.Positions.IPositionGroupResolver, typing.Iterable[QuantConnect.Securities.Positions.IPositionGroupResolver]]) -> None:
         """
-        Initializes a new instance of the PositionGroupInitialMarginForOrderParameters class
+        Initializes a new instance of the CompositePositionGroupResolver class
         
-        :param portfolio: The algorithm's portfolio manager
-        :param position_group: The position group
-        :param order: The order
+        :param resolvers: The position group resolvers to be invoked in order
         """
         ...
 
-
-class PositionGroupInitialMarginParameters(System.Object):
-    """Defines parameters for IPositionGroupBuyingPowerModel.get_initial_margin_requirement"""
-
-    @property
-    def portfolio(self) -> QuantConnect.Securities.SecurityPortfolioManager:
-        """Gets the algorithm's portfolio manager"""
-        ...
-
-    @property
-    def position_group(self) -> QuantConnect.Securities.Positions.IPositionGroup:
-        """Gets the position group"""
-        ...
-
-    def __init__(self, portfolio: QuantConnect.Securities.SecurityPortfolioManager, position_group: QuantConnect.Securities.Positions.IPositionGroup) -> None:
+    @overload
+    def __init__(self, resolvers: typing.List[QuantConnect.Securities.Positions.IPositionGroupResolver]) -> None:
         """
-        Initializes a new instance of the PositionGroupInitialMarginParameters class
+        Initializes a new instance of the CompositePositionGroupResolver class
         
-        :param portfolio: The algorithm's portfolio manager
-        :param position_group: The position group
+        :param resolvers: The position group resolvers to be invoked in order
         """
         ...
 
-
-class PositionExtensions(System.Object):
-    """Provides extension methods for IPosition"""
-
-    @staticmethod
-    def combine(position: QuantConnect.Securities.Positions.IPosition, other: QuantConnect.Securities.Positions.IPosition) -> QuantConnect.Securities.Positions.IPosition:
+    @overload
+    def add(self, resolver: QuantConnect.Securities.Positions.IPositionGroupResolver) -> None:
         """
-        Combines the provided positions into a single position with the quantities added and the minimum unit quantity.
+        Adds the specified resolver to the end of the list of resolvers. This resolver will run last.
         
-        :param position: The position
-        :param other: The other position to add
-        :returns: The combined position.
+        :param resolver: The resolver to be added
         """
         ...
 
-    @staticmethod
-    def consolidate(positions: typing.List[QuantConnect.Securities.Positions.IPosition]) -> System.Collections.Generic.Dictionary[QuantConnect.Symbol, QuantConnect.Securities.Positions.IPosition]:
+    @overload
+    def add(self, resolver: QuantConnect.Securities.Positions.IPositionGroupResolver, index: int) -> None:
         """
-        Consolidates the provided positions into a dictionary
+        Inserts the specified resolver into the list of resolvers at the specified index.
         
-        :param positions: The positions to be consolidated
-        :returns: A dictionary containing the consolidated positions.
+        :param resolver: The resolver to be inserted
+        :param index: The zero based index indicating where to insert the resolver, zero inserts to the beginning
+        of the list making this resolver un first and count inserts the resolver to the end of the list
+        making this resolver run last
         """
         ...
 
-    @staticmethod
-    def deduct(position: QuantConnect.Securities.Positions.IPosition, quantity_to_deduct: float) -> QuantConnect.Securities.Positions.IPosition:
+    def get_impacted_groups(self, groups: QuantConnect.Securities.Positions.PositionGroupCollection, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Sequence[QuantConnect.Securities.Positions.IPositionGroup]:
         """
-        Deducts the specified quantity_to_deduct from the specified position
+        Determines the position groups that would be evaluated for grouping of the specified
+        positions were passed into the resolve method.
         
-        :param position: The source position
-        :param quantity_to_deduct: The quantity to deduct
-        :returns: A new position with the same properties but quantity reduced by the specified amount.
+        :param groups: The existing position groups
+        :param positions: The positions being changed
+        :returns: An enumerable containing the position groups that could be impacted by the specified position changes.
         """
         ...
 
-    @staticmethod
-    def get_group_quantity(position: QuantConnect.Securities.Positions.IPosition) -> float:
+    def remove(self, resolver: QuantConnect.Securities.Positions.IPositionGroupResolver) -> bool:
         """
-        Gets the quantity a group would have if the given position were part of it.
+        Removes the specified resolver from the list of resolvers
         
-        :param position: The position
-        :returns: The group quantity.
+        :param resolver: The resolver to be removed
+        :returns: True if the resolver was removed, false if it wasn't found in the list.
         """
         ...
 
-    @staticmethod
-    def with_lots(position: QuantConnect.Securities.Positions.IPosition, number_of_lots: float) -> QuantConnect.Securities.Positions.IPosition:
+    def resolve(self, positions: QuantConnect.Securities.Positions.PositionCollection) -> QuantConnect.Securities.Positions.PositionGroupCollection:
         """
-        Creates a new IPosition with quantity equal to number_of_lots times its unit quantity
+        Resolves the optimal set of IPositionGroup from the provided positions.
+        Implementations are required to deduct grouped positions from the positions collection.
+        """
+        ...
+
+    def try_group(self, new_positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition], current_positions: QuantConnect.Securities.Positions.PositionGroupCollection, group: typing.Optional[QuantConnect.Securities.Positions.IPositionGroup]) -> typing.Tuple[bool, QuantConnect.Securities.Positions.IPositionGroup]:
+        """
+        Attempts to group the specified positions into a new IPositionGroup using an
+        appropriate IPositionGroupBuyingPowerModel for position groups created via this
+        resolver.
         
-        :param position: The position
-        :param number_of_lots: The number of lots for the new position
-        :returns: A new position with the specified number of lots.
+        :param new_positions: The positions to be grouped
+        :param current_positions: The currently grouped positions
+        :param group: The grouped positions when this resolver is able to, otherwise null
+        :returns: True if this resolver can group the specified positions, otherwise false.
         """
         ...
 
@@ -1767,157 +1716,105 @@ class SecurityPositionGroupBuyingPowerModel(QuantConnect.Securities.Positions.Po
         ...
 
 
-class CompositePositionGroupResolver(System.Object, QuantConnect.Securities.Positions.IPositionGroupResolver):
-    """
-    Provides an implementation of IPositionGroupResolver that invokes multiple wrapped implementations
-    in succession. Each successive call to IPositionGroupresolver.resolve will receive
-    the remaining positions that have yet to be grouped. Any non-grouped positions are placed into identity groups.
-    """
+class PositionGroup(System.Object, QuantConnect.Securities.Positions.IPositionGroup, typing.Iterable[QuantConnect.Securities.Positions.IPosition]):
+    """Provides a default implementation of IPositionGroup"""
 
     @property
     def count(self) -> int:
-        """Gets the count of registered resolvers"""
+        """Gets the number of positions in the group"""
+        ...
+
+    @property
+    def key(self) -> QuantConnect.Securities.Positions.PositionGroupKey:
+        """Gets the key identifying this group"""
+        ...
+
+    @property
+    def quantity(self) -> float:
+        """Gets the whole number of units in this position group"""
+        ...
+
+    @property
+    def positions(self) -> typing.Iterable[QuantConnect.Securities.Positions.IPosition]:
+        """Gets the positions in this group"""
+        ...
+
+    @property
+    def buying_power_model(self) -> QuantConnect.Securities.Positions.IPositionGroupBuyingPowerModel:
+        """Gets the buying power model defining how margin works in this group"""
         ...
 
     @overload
-    def __init__(self, *resolvers: typing.Union[QuantConnect.Securities.Positions.IPositionGroupResolver, typing.Iterable[QuantConnect.Securities.Positions.IPositionGroupResolver]]) -> None:
+    def __init__(self, buying_power_model: QuantConnect.Securities.Positions.IPositionGroupBuyingPowerModel, quantity: float, *positions: typing.Union[QuantConnect.Securities.Positions.IPosition, typing.Iterable[QuantConnect.Securities.Positions.IPosition]]) -> None:
         """
-        Initializes a new instance of the CompositePositionGroupResolver class
+        Initializes a new instance of the PositionGroup class
         
-        :param resolvers: The position group resolvers to be invoked in order
+        :param buying_power_model: The buying power model to use for this group
+        :param quantity: The group quantity, which must be the ratio of quantity to unit quantity of each position
+        :param positions: The positions comprising this group
         """
         ...
 
     @overload
-    def __init__(self, resolvers: typing.List[QuantConnect.Securities.Positions.IPositionGroupResolver]) -> None:
+    def __init__(self, key: QuantConnect.Securities.Positions.PositionGroupKey, quantity: float, *positions: typing.Union[QuantConnect.Securities.Positions.IPosition, typing.Iterable[QuantConnect.Securities.Positions.IPosition]]) -> None:
         """
-        Initializes a new instance of the CompositePositionGroupResolver class
+        Initializes a new instance of the PositionGroup class
         
-        :param resolvers: The position group resolvers to be invoked in order
+        :param key: The deterministic key for this group
+        :param quantity: The group quantity, which must be the ratio of quantity to unit quantity of each position
+        :param positions: The positions comprising this group
         """
         ...
 
     @overload
-    def add(self, resolver: QuantConnect.Securities.Positions.IPositionGroupResolver) -> None:
+    def __init__(self, key: QuantConnect.Securities.Positions.PositionGroupKey, quantity: float, positions: System.Collections.Generic.Dictionary[QuantConnect.Symbol, QuantConnect.Securities.Positions.IPosition]) -> None:
         """
-        Adds the specified resolver to the end of the list of resolvers. This resolver will run last.
+        Initializes a new instance of the PositionGroup class
         
-        :param resolver: The resolver to be added
+        :param key: The deterministic key for this group
+        :param quantity: The group quantity, which must be the ratio of quantity to unit quantity of each position
+        :param positions: The positions comprising this group
         """
         ...
 
-    @overload
-    def add(self, resolver: QuantConnect.Securities.Positions.IPositionGroupResolver, index: int) -> None:
+    def __iter__(self) -> typing.Iterator[QuantConnect.Securities.Positions.IPosition]:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    @staticmethod
+    def empty(buying_power_model: QuantConnect.Securities.Positions.IPositionGroupBuyingPowerModel) -> QuantConnect.Securities.Positions.PositionGroup:
         """
-        Inserts the specified resolver into the list of resolvers at the specified index.
+        Instantiates a default empty position group instance
         
-        :param resolver: The resolver to be inserted
-        :param index: The zero based index indicating where to insert the resolver, zero inserts to the beginning
-        of the list making this resolver un first and count inserts the resolver to the end of the list
-        making this resolver run last
+        :param buying_power_model: The buying power model to use for this group
         """
         ...
 
-    def get_impacted_groups(self, groups: QuantConnect.Securities.Positions.PositionGroupCollection, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Sequence[QuantConnect.Securities.Positions.IPositionGroup]:
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect.Securities.Positions.IPosition]:
         """
-        Determines the position groups that would be evaluated for grouping of the specified
-        positions were passed into the resolve method.
+        Returns an enumerator that iterates through the collection.
         
-        :param groups: The existing position groups
-        :param positions: The positions being changed
-        :returns: An enumerable containing the position groups that could be impacted by the specified position changes.
+        :returns: An enumerator that can be used to iterate through the collection.
         """
         ...
 
-    def remove(self, resolver: QuantConnect.Securities.Positions.IPositionGroupResolver) -> bool:
+    def to_string(self) -> str:
         """
-        Removes the specified resolver from the list of resolvers
+        Returns a string that represents the current object.
         
-        :param resolver: The resolver to be removed
-        :returns: True if the resolver was removed, false if it wasn't found in the list.
+        :returns: A string that represents the current object.
         """
         ...
 
-    def resolve(self, positions: QuantConnect.Securities.Positions.PositionCollection) -> QuantConnect.Securities.Positions.PositionGroupCollection:
+    def try_get_position(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], position: typing.Optional[QuantConnect.Securities.Positions.IPosition]) -> typing.Tuple[bool, QuantConnect.Securities.Positions.IPosition]:
         """
-        Resolves the optimal set of IPositionGroup from the provided positions.
-        Implementations are required to deduct grouped positions from the positions collection.
-        """
-        ...
-
-    def try_group(self, new_positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition], current_positions: QuantConnect.Securities.Positions.PositionGroupCollection, group: typing.Optional[QuantConnect.Securities.Positions.IPositionGroup]) -> typing.Tuple[bool, QuantConnect.Securities.Positions.IPositionGroup]:
-        """
-        Attempts to group the specified positions into a new IPositionGroup using an
-        appropriate IPositionGroupBuyingPowerModel for position groups created via this
-        resolver.
+        Attempts to retrieve the position with the specified symbol
         
-        :param new_positions: The positions to be grouped
-        :param current_positions: The currently grouped positions
-        :param group: The grouped positions when this resolver is able to, otherwise null
-        :returns: True if this resolver can group the specified positions, otherwise false.
-        """
-        ...
-
-
-class SecurityPositionGroupResolver(System.Object, QuantConnect.Securities.Positions.IPositionGroupResolver):
-    """Provides an implementation of IPositionGroupResolver that places all positions into a default group of one security."""
-
-    def __init__(self, buying_power_model: QuantConnect.Securities.Positions.IPositionGroupBuyingPowerModel) -> None:
-        """
-        Initializes a new instance of the SecurityPositionGroupResolver class
-        
-        :param buying_power_model: The buying power model to use for created groups
-        """
-        ...
-
-    def get_impacted_groups(self, groups: QuantConnect.Securities.Positions.PositionGroupCollection, positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition]) -> typing.Sequence[QuantConnect.Securities.Positions.IPositionGroup]:
-        """
-        Determines the position groups that would be evaluated for grouping of the specified
-        positions were passed into the IPositionGroupresolver.resolve method.
-        
-        :param groups: The existing position groups
-        :param positions: The positions being changed
-        :returns: An enumerable containing the position groups that could be impacted by the specified position changes.
-        """
-        ...
-
-    def resolve(self, positions: QuantConnect.Securities.Positions.PositionCollection) -> QuantConnect.Securities.Positions.PositionGroupCollection:
-        """
-        Resolves the position groups that exist within the specified collection of positions.
-        
-        :param positions: The collection of positions
-        :returns: An enumerable of position groups.
-        """
-        ...
-
-    def try_group(self, new_positions: typing.Sequence[QuantConnect.Securities.Positions.IPosition], current_positions: QuantConnect.Securities.Positions.PositionGroupCollection, group: typing.Optional[QuantConnect.Securities.Positions.IPositionGroup]) -> typing.Tuple[bool, QuantConnect.Securities.Positions.IPositionGroup]:
-        """
-        Attempts to group the specified positions into a new IPositionGroup using an
-        appropriate IPositionGroupBuyingPowerModel for position groups created via this
-        resolver.
-        
-        :param new_positions: The positions to be grouped
-        :param current_positions: The currently grouped positions
-        :param group: The grouped positions when this resolver is able to, otherwise null
-        :returns: True if this resolver can group the specified positions, otherwise false.
-        """
-        ...
-
-
-class NullSecurityPositionGroupModel(QuantConnect.Securities.Positions.SecurityPositionGroupModel):
-    """
-    Responsible for managing the resolution of position groups for an algorithm.
-    Will only resolve single position groups
-    """
-
-    def get_position_group_resolver(self) -> QuantConnect.Securities.Positions.IPositionGroupResolver:
-        """
-        Get the position group resolver instance to use
-        
-        
-        This Class is protected.
-        
-        :returns: The position group resolver instance.
+        :param symbol: The symbol
+        :param position: The position, if found
+        :returns: True if the position was found, otherwise false.
         """
         ...
 
@@ -1971,6 +1868,109 @@ class Position(System.Object, QuantConnect.Securities.Positions.IPosition):
         
         :returns: A string that represents the current object.
         """
+        ...
+
+
+class PositionGroupState(System.Object):
+    """Snapshot of a position group state"""
+
+    @property
+    def name(self) -> str:
+        """Name of this position group"""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def margin_used(self) -> float:
+        """Currently margin used"""
+        ...
+
+    @margin_used.setter
+    def margin_used(self, value: float) -> None:
+        ...
+
+    @property
+    def portfolio_value_percentage(self) -> float:
+        """The margin used by this position in relation to the total portfolio value"""
+        ...
+
+    @portfolio_value_percentage.setter
+    def portfolio_value_percentage(self, value: float) -> None:
+        ...
+
+    @property
+    def positions(self) -> typing.List[QuantConnect.Securities.Positions.IPosition]:
+        """The positions which compose this group"""
+        ...
+
+    @positions.setter
+    def positions(self, value: typing.List[QuantConnect.Securities.Positions.IPosition]) -> None:
+        ...
+
+
+class PortfolioState(System.Object):
+    """Snapshot of an algorithms portfolio state"""
+
+    @property
+    def time(self) -> datetime.datetime:
+        """Utc time this portfolio snapshot was taken"""
+        ...
+
+    @time.setter
+    def time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def total_portfolio_value(self) -> float:
+        """The current total portfolio value"""
+        ...
+
+    @total_portfolio_value.setter
+    def total_portfolio_value(self, value: float) -> None:
+        ...
+
+    @property
+    def total_margin_used(self) -> float:
+        """The margin used"""
+        ...
+
+    @total_margin_used.setter
+    def total_margin_used(self, value: float) -> None:
+        ...
+
+    @property
+    def position_groups(self) -> typing.List[QuantConnect.Securities.Positions.PositionGroupState]:
+        """The different positions groups"""
+        ...
+
+    @position_groups.setter
+    def position_groups(self, value: typing.List[QuantConnect.Securities.Positions.PositionGroupState]) -> None:
+        ...
+
+    @property
+    def cash_book(self) -> System.Collections.Generic.Dictionary[str, QuantConnect.Securities.Cash]:
+        """Gets the cash book that keeps track of all currency holdings (only settled cash)"""
+        ...
+
+    @cash_book.setter
+    def cash_book(self, value: System.Collections.Generic.Dictionary[str, QuantConnect.Securities.Cash]) -> None:
+        ...
+
+    @property
+    def unsettled_cash_book(self) -> System.Collections.Generic.Dictionary[str, QuantConnect.Securities.Cash]:
+        """Gets the cash book that keeps track of all currency holdings (only unsettled cash)"""
+        ...
+
+    @unsettled_cash_book.setter
+    def unsettled_cash_book(self, value: System.Collections.Generic.Dictionary[str, QuantConnect.Securities.Cash]) -> None:
+        ...
+
+    @staticmethod
+    def create(portfolio_manager: QuantConnect.Securities.SecurityPortfolioManager, utc_now: typing.Union[datetime.datetime, datetime.date], current_portfolio_value: float) -> QuantConnect.Securities.Positions.PortfolioState:
+        """Helper method to create the portfolio state snapshot"""
         ...
 
 

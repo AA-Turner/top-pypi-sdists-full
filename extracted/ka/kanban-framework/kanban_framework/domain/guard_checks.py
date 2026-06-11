@@ -556,8 +556,8 @@ class GuardChecks:
         command = command_tmpl.replace("${files}", shlex.join(files))
         # Resolve ${python_bin} from config so venv tools work
         try:
-            from kanban_framework.infra.config import Config as _Cfg
-            _py_bin = _Cfg(self._fs).python_bin or "python"
+            from kanban_framework.infra.filesystem import Filesystem
+            _py_bin, _ = Filesystem.resolve_python()
         except Exception:
             _py_bin = "python"
         command = command.replace("${python_bin}", _py_bin)

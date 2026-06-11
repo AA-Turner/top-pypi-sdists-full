@@ -35,13 +35,15 @@ use crate::{
 };
 
 use utils::{
-    bytes_to_uuid_like_string, extract_attributes, generate_span_id, parse_span_id, parse_trace_id,
+    bytes_to_uuid_like_string, decompress_if_gzip, extract_attributes, generate_span_id,
+    parse_span_id, parse_trace_id,
 };
 
 #[derive(Debug)]
 pub struct ResponseFailure {
     pub status_code: hyper::StatusCode,
     pub body: Vec<u8>,
+    pub is_gzip_encoded: bool,
 }
 
 #[derive(Debug)]
@@ -95,7 +97,11 @@ pub fn create_span_request(
     };
 
     if let ResponseInfo::Failure(status_and_body) = &response_info {
-        let body = String::from_utf8(status_and_body.body.clone()).ok();
+        let body = decompress_if_gzip(
+            status_and_body.body.as_slice(),
+            status_and_body.is_gzip_encoded,
+        )
+        .ok();
         if let Some(body) = &body {
             status_message = body.clone();
         }

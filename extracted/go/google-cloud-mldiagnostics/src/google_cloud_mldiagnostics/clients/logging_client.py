@@ -24,6 +24,7 @@ from google.auth import credentials
 from google.cloud import logging as cloud_logging
 from google.cloud.logging_v2 import resource
 from google_cloud_mldiagnostics.custom_types import exceptions
+from google_cloud_mldiagnostics.utils import gcp
 
 
 logger = logging.getLogger(__name__)
@@ -68,8 +69,10 @@ class LoggingClient:
       self.logger = self.client.logger(log_name)
 
     except Exception as e:
+      logger.exception("Failed to initialize logging client: %s", e)
       raise exceptions.MLDiagnosticError(
-          f"Failed to initialize logging client: {e}"
+          "Failed to initialize Cloud Logging client. Please check your"
+          " credentials and configuration."
       ) from e
 
   def write_metric(
@@ -85,8 +88,8 @@ class LoggingClient:
 
     Args:
         metric_name: Name of the metric
-        value: Metric value. Can be a single int or float, a list of ints
-            and floats, or a dictionary.
+        value: Metric value. Can be a single int or float, a list of ints and
+          floats, or a dictionary.
         run_id: ML run identifier
         location: ML run region
         step: Optional step number
@@ -116,13 +119,14 @@ class LoggingClient:
 
     Args:
         metrics: A list of dicts, where each dict contains 'metric_name',
-            'value', 'step', and 'labels'.
+          'value', 'step', and 'labels'.
         run_id: ML run identifier
         location: ML run region
 
     Raises:
         MLDiagnosticError: If writing to Cloud Logging fails.
     """
+    gcp.validate_region(location)
     try:
       current_time = datetime.datetime.now(datetime.timezone.utc)
       with self.logger.batch() as batch:
@@ -181,8 +185,10 @@ class LoggingClient:
           )
       logger.info("Successfully written %d metrics in batch.", len(metrics))
     except Exception as e:
+      logger.exception("Failed to write metrics batch to Cloud Logging: %s", e)
       raise exceptions.MLDiagnosticError(
-          f"Failed to write metrics batch to Cloud Logging: {e}"
+          "Failed to write metrics to Cloud Logging. Please verify network"
+          " connectivity and permissions."
       ) from e
 
 
@@ -202,8 +208,20 @@ class NoOpLoggingClient(LoggingClient):
       step: Optional[int] = None,
       labels: Optional[Mapping[str, str]] = None,
   ):
-    """This is a no-op and does not write any metrics."""
-    pass
+    """Validates the location and performs no other operations.
+
+    Does not write any metrics.
+
+    Args:
+        metric_name: Name of the metric
+        value: Metric value. Can be a single int or float, a list of ints and
+          floats, or a dictionary.
+        run_id: ML run identifier
+        location: ML run region. This value is validated.
+        step: Optional step number
+        labels: Optional additional labels
+    """
+    gcp.validate_region(location)
 
   def write_metrics(
       self,
@@ -211,5 +229,14 @@ class NoOpLoggingClient(LoggingClient):
       run_id: str,
       location: str,
   ):
-    """This is a no-op and does not write any metrics."""
-    pass
+    """Validates the location and performs no other operations.
+
+    Does not write any metrics.
+
+    Args:
+        metrics: A list of dicts, where each dict contains 'metric_name',
+          'value', 'step', and 'labels'.
+        run_id: ML run identifier
+        location: ML run region. This value is validated.
+    """
+    gcp.validate_region(location)

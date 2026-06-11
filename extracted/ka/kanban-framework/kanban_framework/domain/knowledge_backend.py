@@ -94,7 +94,7 @@ class MemoryBackend:
     def __init__(self):
         self._entries: dict[str, dict] = {}
 
-    def search(self, keyword: str, limit: int = 20, *, biz_context: str | None = None) -> list[dict]:
+    def search(self, keyword: str, limit: int = 20, *, biz_context: str | None = None, status: str = "active") -> list[dict]:
         kw = keyword.lower()
         results = []
         for e in self._entries.values():

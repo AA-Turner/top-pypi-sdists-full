@@ -6,7 +6,7 @@ import inspect
 import time
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from aiohttp import ClientRequest
 from aiohttp.helpers import BasicAuth
@@ -17,7 +17,7 @@ from .codes import codes
 from .exceptions import InvalidInvocation, OAuthException, ResponseException
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Awaitable
+    from collections.abc import AsyncGenerator, Awaitable, Callable
 
     from aiohttp import ClientResponse
 
@@ -30,6 +30,11 @@ class BaseAuthenticator(ABC):
     @abstractmethod
     def _auth(self) -> BasicAuth:
         pass
+
+    @property
+    def requestor(self) -> Requestor:
+        """Return the :class:`.Requestor` used to issue HTTP requests."""
+        return self._requestor
 
     def __init__(
         self,
@@ -124,14 +129,19 @@ class BaseAuthenticator(ABC):
         if token_type is not None:
             data["token_type_hint"] = token_type
         url = self._requestor.reddit_url + const.REVOKE_TOKEN_PATH
-        async with self._post(url=url, **data) as _:
-            pass  # The response is not used.
+        async with self._post(url=url, **data):
+            pass
 
 
 class BaseAuthorizer:
     """Superclass for OAuth2 authorization tokens and scopes."""
 
-    AUTHENTICATOR_CLASS: tuple | type = BaseAuthenticator
+    AUTHENTICATOR_CLASS: type[BaseAuthenticator] | tuple[type[BaseAuthenticator], ...] = BaseAuthenticator
+
+    @property
+    def authenticator(self) -> BaseAuthenticator:
+        """Return the :class:`.BaseAuthenticator` used to authenticate requests."""
+        return self._authenticator
 
     def __init__(self, authenticator: BaseAuthenticator) -> None:
         """Represent a single authorization to Reddit's API.
@@ -149,9 +159,10 @@ class BaseAuthorizer:
         self.scopes: set[str] | None = None
 
     async def _request_token(self, **data: Any):
-        url = self._authenticator._requestor.reddit_url + const.ACCESS_TOKEN_PATH
+        url = self._authenticator.requestor.reddit_url + const.ACCESS_TOKEN_PATH
         pre_request_timestamp_ns = time.monotonic_ns()
-        async with self._authenticator._post(url=url, **data) as response:
+        # _post is an internal helper shared between the authenticator and authorizer.
+        async with self._authenticator._post(url=url, **data) as response:  # pyright: ignore[reportPrivateUsage]
             payload = await response.json()
         if "error" in payload:  # Why are these OKAY responses?
             raise OAuthException(response, payload["error"], payload.get("error_description"))
@@ -390,7 +401,7 @@ class ScriptAuthorizer(Authorizer):
         authenticator: BaseAuthenticator,
         username: str | None,
         password: str | None,
-        two_factor_callback: Callable | None = None,
+        two_factor_callback: Callable[[], str | Awaitable[str]] | None = None,
         scopes: list[str] | None = None,
     ) -> None:
         """Represent a single personal-use authorization to Reddit's API.
@@ -417,10 +428,9 @@ class ScriptAuthorizer(Authorizer):
         if self._scopes:
             additional_kwargs["scope"] = " ".join(self._scopes)
         if self._two_factor_callback:
-            if inspect.iscoroutinefunction(self._two_factor_callback):
-                two_factor_code = await self._two_factor_callback()
-            else:
-                two_factor_code = self._two_factor_callback()
+            two_factor_code = self._two_factor_callback()
+            if inspect.isawaitable(two_factor_code):
+                two_factor_code = await two_factor_code
             if two_factor_code:
                 additional_kwargs["otp"] = two_factor_code
         await self._request_token(

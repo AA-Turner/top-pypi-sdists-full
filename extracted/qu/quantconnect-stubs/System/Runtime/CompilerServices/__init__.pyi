@@ -12,7 +12,10 @@ import System.Runtime.Serialization
 import System.Threading
 import System.Threading.Tasks
 
-System_Runtime_CompilerServices_AsyncTaskMethodBuilder_TResult = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_TResult")
+System_Runtime_CompilerServices_TaskAwaiter_TResult = typing.TypeVar("System_Runtime_CompilerServices_TaskAwaiter_TResult")
+System_Runtime_CompilerServices_ConfiguredTaskAwaitable_TResult = typing.TypeVar("System_Runtime_CompilerServices_ConfiguredTaskAwaitable_TResult")
+System_Runtime_CompilerServices_ConditionalWeakTable_TKey = typing.TypeVar("System_Runtime_CompilerServices_ConditionalWeakTable_TKey")
+System_Runtime_CompilerServices_ConditionalWeakTable_TValue = typing.TypeVar("System_Runtime_CompilerServices_ConditionalWeakTable_TValue")
 System_Runtime_CompilerServices_InlineArray2_T = typing.TypeVar("System_Runtime_CompilerServices_InlineArray2_T")
 System_Runtime_CompilerServices_InlineArray3_T = typing.TypeVar("System_Runtime_CompilerServices_InlineArray3_T")
 System_Runtime_CompilerServices_InlineArray4_T = typing.TypeVar("System_Runtime_CompilerServices_InlineArray4_T")
@@ -29,25 +32,23 @@ System_Runtime_CompilerServices_InlineArray14_T = typing.TypeVar("System_Runtime
 System_Runtime_CompilerServices_InlineArray15_T = typing.TypeVar("System_Runtime_CompilerServices_InlineArray15_T")
 System_Runtime_CompilerServices_InlineArray16_T = typing.TypeVar("System_Runtime_CompilerServices_InlineArray16_T")
 System_Runtime_CompilerServices_ConfiguredValueTaskAwaitable_TResult = typing.TypeVar("System_Runtime_CompilerServices_ConfiguredValueTaskAwaitable_TResult")
-System_Runtime_CompilerServices_TaskAwaiter_TResult = typing.TypeVar("System_Runtime_CompilerServices_TaskAwaiter_TResult")
-System_Runtime_CompilerServices_ConfiguredTaskAwaitable_TResult = typing.TypeVar("System_Runtime_CompilerServices_ConfiguredTaskAwaitable_TResult")
-System_Runtime_CompilerServices_ValueTaskAwaiter_TResult = typing.TypeVar("System_Runtime_CompilerServices_ValueTaskAwaiter_TResult")
-System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_TResult = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_TResult")
 System_Runtime_CompilerServices_StrongBox_T = typing.TypeVar("System_Runtime_CompilerServices_StrongBox_T")
-System_Runtime_CompilerServices_ConfiguredCancelableAsyncEnumerable_T = typing.TypeVar("System_Runtime_CompilerServices_ConfiguredCancelableAsyncEnumerable_T")
+System_Runtime_CompilerServices_ValueTaskAwaiter_TResult = typing.TypeVar("System_Runtime_CompilerServices_ValueTaskAwaiter_TResult")
 System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_TResult = typing.TypeVar("System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_TResult")
-System_Runtime_CompilerServices_ConditionalWeakTable_TKey = typing.TypeVar("System_Runtime_CompilerServices_ConditionalWeakTable_TKey")
-System_Runtime_CompilerServices_ConditionalWeakTable_TValue = typing.TypeVar("System_Runtime_CompilerServices_ConditionalWeakTable_TValue")
+System_Runtime_CompilerServices_AsyncTaskMethodBuilder_TResult = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_TResult")
+System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_TResult = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_TResult")
+System_Runtime_CompilerServices_ConfiguredCancelableAsyncEnumerable_T = typing.TypeVar("System_Runtime_CompilerServices_ConfiguredCancelableAsyncEnumerable_T")
 System_Runtime_CompilerServices__EventContainer_Callable = typing.TypeVar("System_Runtime_CompilerServices__EventContainer_Callable")
 System_Runtime_CompilerServices__EventContainer_ReturnType = typing.TypeVar("System_Runtime_CompilerServices__EventContainer_ReturnType")
-System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine")
-System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter")
-System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TStateMachine")
-System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter")
-System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine")
 System_Runtime_CompilerServices_AsyncHelpers_UnsafeAwaitAwaiter_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncHelpers_UnsafeAwaitAwaiter_TAwaiter")
 System_Runtime_CompilerServices_AsyncHelpers_AwaitAwaiter_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncHelpers_AwaitAwaiter_TAwaiter")
 System_Runtime_CompilerServices_AsyncHelpers_Await_T = typing.TypeVar("System_Runtime_CompilerServices_AsyncHelpers_Await_T")
+System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg = typing.TypeVar("System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg")
+System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine")
+System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TStateMachine")
+System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine")
 System_Runtime_CompilerServices_Unsafe_AsPointer_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_AsPointer_T")
 System_Runtime_CompilerServices_Unsafe_SizeOf_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_SizeOf_T")
 System_Runtime_CompilerServices_Unsafe_As_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_As_T")
@@ -74,230 +75,89 @@ System_Runtime_CompilerServices_Unsafe_SkipInit_T = typing.TypeVar("System_Runti
 System_Runtime_CompilerServices_Unsafe_Subtract_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_Subtract_T")
 System_Runtime_CompilerServices_Unsafe_SubtractByteOffset_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_SubtractByteOffset_T")
 System_Runtime_CompilerServices_Unsafe_Unbox_T = typing.TypeVar("System_Runtime_CompilerServices_Unsafe_Unbox_T")
-System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine")
-System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter")
-System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine")
-System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter")
-System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine")
 System_Runtime_CompilerServices_DefaultInterpolatedStringHandler_AppendFormatted_T = typing.TypeVar("System_Runtime_CompilerServices_DefaultInterpolatedStringHandler_AppendFormatted_T")
-System_Runtime_CompilerServices_RuntimeHelpers_GetSubArray_T = typing.TypeVar("System_Runtime_CompilerServices_RuntimeHelpers_GetSubArray_T")
-System_Runtime_CompilerServices_RuntimeHelpers_CreateSpan_T = typing.TypeVar("System_Runtime_CompilerServices_RuntimeHelpers_CreateSpan_T")
-System_Runtime_CompilerServices_RuntimeHelpers_IsReferenceOrContainsReferences_T = typing.TypeVar("System_Runtime_CompilerServices_RuntimeHelpers_IsReferenceOrContainsReferences_T")
-System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine")
-System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter")
-System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TStateMachine")
-System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter")
-System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine")
-System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine")
-System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter")
-System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine")
-System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter")
-System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine")
-System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg = typing.TypeVar("System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg")
 System_Runtime_CompilerServices_AsyncVoidMethodBuilder_Start_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncVoidMethodBuilder_Start_TStateMachine")
 System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TAwaiter")
 System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TStateMachine")
 System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter")
 System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine")
+System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine")
+System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine")
+System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine")
+System_Runtime_CompilerServices_RuntimeHelpers_GetSubArray_T = typing.TypeVar("System_Runtime_CompilerServices_RuntimeHelpers_GetSubArray_T")
+System_Runtime_CompilerServices_RuntimeHelpers_CreateSpan_T = typing.TypeVar("System_Runtime_CompilerServices_RuntimeHelpers_CreateSpan_T")
+System_Runtime_CompilerServices_RuntimeHelpers_IsReferenceOrContainsReferences_T = typing.TypeVar("System_Runtime_CompilerServices_RuntimeHelpers_IsReferenceOrContainsReferences_T")
+System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine")
+System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TStateMachine")
+System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine")
+System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine")
+System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine")
+System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter")
+System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine = typing.TypeVar("System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine")
 
 
-class LoadHint(IntEnum):
-    """This class has no documentation."""
-
-    DEFAULT = ...
-
-    ALWAYS = ...
-
-    SOMETIMES = ...
-
-
-class DefaultDependencyAttribute(System.Attribute):
+class TypeForwardedFromAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def load_hint(self) -> System.Runtime.CompilerServices.LoadHint:
+    def assembly_full_name(self) -> str:
         ...
 
-    def __init__(self, load_hint_argument: System.Runtime.CompilerServices.LoadHint) -> None:
+    def __init__(self, assembly_full_name: str) -> None:
         ...
 
 
-class StringFreezingAttribute(System.Attribute):
+class InlineArrayAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def length(self) -> int:
+        ...
+
+    def __init__(self, length: int) -> None:
+        ...
+
+
+class SuppressIldasmAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
         ...
 
 
-class FixedAddressValueTypeAttribute(System.Attribute):
+class ConfiguredAsyncDisposable:
+    """This class has no documentation."""
+
+    def dispose_async(self) -> System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable:
+        ...
+
+
+class DisablePrivateReflectionAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
         ...
 
 
-class CompilerFeatureRequiredAttribute(System.Attribute):
+class InterpolatedStringHandlerArgumentAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def feature_name(self) -> str:
-        ...
-
-    @property
-    def is_optional(self) -> bool:
-        ...
-
-    REF_STRUCTS: str = ...
-
-    REQUIRED_MEMBERS: str = ...
-
-    def __init__(self, feature_name: str) -> None:
-        ...
-
-
-class ModuleInitializerAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class CompilerGlobalScopeAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class IsConst(System.Object):
-    """This class has no documentation."""
-
-
-class StateMachineAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def state_machine_type(self) -> typing.Type:
-        ...
-
-    def __init__(self, state_machine_type: typing.Type) -> None:
-        ...
-
-
-class IteratorStateMachineAttribute(System.Runtime.CompilerServices.StateMachineAttribute):
-    """This class has no documentation."""
-
-    def __init__(self, state_machine_type: typing.Type) -> None:
-        ...
-
-
-class _Typed_AsyncTaskMethodBuilder_Start(typing.Generic[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine]):
-    """"""
-
-    @overload
-    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine) -> None:
+    def arguments(self) -> typing.List[str]:
         ...
 
     @overload
-    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine) -> None:
-        ...
-
-
-class _AsyncTaskMethodBuilder_Start:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine]) -> System.Runtime.CompilerServices._Typed_AsyncTaskMethodBuilder_Start[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine]:
-        ...
-
-
-class _Typed_AsyncTaskMethodBuilder_AwaitOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter]):
-    """"""
-
-    @overload
-    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+    def __init__(self, argument: str) -> None:
         ...
 
     @overload
-    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+    def __init__(self, *arguments: typing.Union[str, typing.Iterable[str]]) -> None:
         ...
-
-
-class _AsyncTaskMethodBuilder_AwaitOnCompleted:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncTaskMethodBuilder_AwaitOnCompleted[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter]:
-        ...
-
-
-class _Typed_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]):
-    """"""
-
-    @overload
-    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
-        ...
-
-    @overload
-    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
-        ...
-
-
-class _AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]:
-        ...
-
-
-class IAsyncStateMachine(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def move_next(self) -> None:
-        ...
-
-    def set_state_machine(self, state_machine: System.Runtime.CompilerServices.IAsyncStateMachine) -> None:
-        ...
-
-
-class AsyncTaskMethodBuilder(typing.Generic[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_TResult]):
-    """This class has no documentation."""
-
-    @property
-    def task(self) -> System.Threading.Tasks.Task:
-        ...
-
-    @property
-    def start(self) -> System.Runtime.CompilerServices._AsyncTaskMethodBuilder_Start:
-        ...
-
-    @property
-    def await_on_completed(self) -> System.Runtime.CompilerServices._AsyncTaskMethodBuilder_AwaitOnCompleted:
-        ...
-
-    @property
-    def await_unsafe_on_completed(self) -> System.Runtime.CompilerServices._AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted:
-        ...
-
-    @staticmethod
-    def create() -> System.Runtime.CompilerServices.AsyncTaskMethodBuilder:
-        ...
-
-    def set_exception(self, exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def set_result(self) -> None:
-        ...
-
-    @overload
-    def set_result(self, result: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_TResult) -> None:
-        ...
-
-    def set_state_machine(self, state_machine: System.Runtime.CompilerServices.IAsyncStateMachine) -> None:
-        ...
-
-
-class ParamCollectionAttribute(System.Attribute):
-    """This class has no documentation."""
 
 
 class INotifyCompletion(metaclass=abc.ABCMeta):
@@ -314,139 +174,27 @@ class ICriticalNotifyCompletion(System.Runtime.CompilerServices.INotifyCompletio
         ...
 
 
-class YieldAwaitable:
-    """This class has no documentation."""
-
-    class YieldAwaiter(System.Runtime.CompilerServices.ICriticalNotifyCompletion, System.Runtime.CompilerServices.IStateMachineBoxAwareAwaiter):
-        """This class has no documentation."""
-
-        @property
-        def is_completed(self) -> bool:
-            ...
-
-        def get_result(self) -> None:
-            ...
-
-        def on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
-            ...
-
-        def unsafe_on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
-            ...
-
-    def get_awaiter(self) -> System.Runtime.CompilerServices.YieldAwaitable.YieldAwaiter:
-        ...
-
-
-class MethodCodeType(IntEnum):
-    """This class has no documentation."""
-
-    IL = ...
-
-    NATIVE = ...
-
-    OPTIL = ...
-
-    RUNTIME = ...
-
-
-class InlineArray2(typing.Generic[System_Runtime_CompilerServices_InlineArray2_T]):
-    """This class has no documentation."""
-
-
-class InlineArray3(typing.Generic[System_Runtime_CompilerServices_InlineArray3_T]):
-    """This class has no documentation."""
-
-
-class InlineArray4(typing.Generic[System_Runtime_CompilerServices_InlineArray4_T]):
-    """This class has no documentation."""
-
-
-class InlineArray5(typing.Generic[System_Runtime_CompilerServices_InlineArray5_T]):
-    """This class has no documentation."""
-
-
-class InlineArray6(typing.Generic[System_Runtime_CompilerServices_InlineArray6_T]):
-    """This class has no documentation."""
-
-
-class InlineArray7(typing.Generic[System_Runtime_CompilerServices_InlineArray7_T]):
-    """This class has no documentation."""
-
-
-class InlineArray8(typing.Generic[System_Runtime_CompilerServices_InlineArray8_T]):
-    """This class has no documentation."""
-
-
-class InlineArray9(typing.Generic[System_Runtime_CompilerServices_InlineArray9_T]):
-    """This class has no documentation."""
-
-
-class InlineArray10(typing.Generic[System_Runtime_CompilerServices_InlineArray10_T]):
-    """This class has no documentation."""
-
-
-class InlineArray11(typing.Generic[System_Runtime_CompilerServices_InlineArray11_T]):
-    """This class has no documentation."""
-
-
-class InlineArray12(typing.Generic[System_Runtime_CompilerServices_InlineArray12_T]):
-    """This class has no documentation."""
-
-
-class InlineArray13(typing.Generic[System_Runtime_CompilerServices_InlineArray13_T]):
-    """This class has no documentation."""
-
-
-class InlineArray14(typing.Generic[System_Runtime_CompilerServices_InlineArray14_T]):
-    """This class has no documentation."""
-
-
-class InlineArray15(typing.Generic[System_Runtime_CompilerServices_InlineArray15_T]):
-    """This class has no documentation."""
-
-
-class InlineArray16(typing.Generic[System_Runtime_CompilerServices_InlineArray16_T]):
-    """This class has no documentation."""
-
-
-class IsVolatile(System.Object):
-    """This class has no documentation."""
-
-
-class ContractHelper(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def raise_contract_failed_event(failure_kind: System.Diagnostics.Contracts.ContractFailureKind, user_message: str, condition_text: str, inner_exception: System.Exception) -> str:
-        ...
-
-    @staticmethod
-    def trigger_failure(kind: System.Diagnostics.Contracts.ContractFailureKind, display_message: str, user_message: str, condition_text: str, inner_exception: System.Exception) -> None:
-        ...
-
-
-class InterpolatedStringHandlerAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class ConfiguredValueTaskAwaitable(typing.Generic[System_Runtime_CompilerServices_ConfiguredValueTaskAwaitable_TResult]):
-    """This class has no documentation."""
-
-    def get_awaiter(self) -> System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable.ConfiguredValueTaskAwaiter:
-        ...
-
-
-class AsyncMethodBuilderAttribute(System.Attribute):
+class TaskAwaiter(typing.Generic[System_Runtime_CompilerServices_TaskAwaiter_TResult], System.Runtime.CompilerServices.ICriticalNotifyCompletion, System.Runtime.CompilerServices.ITaskAwaiter):
     """This class has no documentation."""
 
     @property
-    def builder_type(self) -> typing.Type:
+    def is_completed(self) -> bool:
         ...
 
-    def __init__(self, builder_type: typing.Type) -> None:
+    def get_result(self) -> None:
+        ...
+
+    def on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
+        ...
+
+    def unsafe_on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
+        ...
+
+
+class ConfiguredTaskAwaitable(typing.Generic[System_Runtime_CompilerServices_ConfiguredTaskAwaitable_TResult]):
+    """This class has no documentation."""
+
+    def get_awaiter(self) -> System.Runtime.CompilerServices.ConfiguredTaskAwaitable.ConfiguredTaskAwaiter:
         ...
 
 
@@ -543,45 +291,414 @@ class AsyncHelpers(System.Object):
         ...
 
 
-class MemorySafetyRulesAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def version(self) -> int:
-        ...
-
-    def __init__(self, version: int) -> None:
-        ...
-
-
-class MethodImplOptions(IntEnum):
-    """This class has no documentation."""
-
-    UNMANAGED = ...
-
-    NO_INLINING = ...
-
-    FORWARD_REF = ...
-
-    SYNCHRONIZED = ...
-
-    NO_OPTIMIZATION = ...
-
-    PRESERVE_SIG = ...
-
-    AGGRESSIVE_INLINING = ...
-
-    AGGRESSIVE_OPTIMIZATION = ...
-
-    ASYNC = ...
-
-    INTERNAL_CALL = ...
-
-
-class DiscardableAttribute(System.Attribute):
+class ModuleInitializerAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
+        ...
+
+
+class NullablePublicOnlyAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def includes_internals(self) -> bool:
+        ...
+
+    @includes_internals.setter
+    def includes_internals(self, value: bool) -> None:
+        ...
+
+    def __init__(self, value: bool) -> None:
+        ...
+
+
+class _Typed_ConditionalWeakTable_GetOrAdd(typing.Generic[System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg]):
+    """"""
+
+    @overload
+    def __call__(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value_factory: typing.Callable[[System_Runtime_CompilerServices_ConditionalWeakTable_TKey, System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg], System_Runtime_CompilerServices_ConditionalWeakTable_TValue], factory_argument: System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
+        ...
+
+
+class _ConditionalWeakTable_GetOrAdd:
+    """"""
+
+    @overload
+    def __call__(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value: System_Runtime_CompilerServices_ConditionalWeakTable_TValue) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
+        ...
+
+    @overload
+    def __call__(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value_factory: typing.Callable[[System_Runtime_CompilerServices_ConditionalWeakTable_TKey], System_Runtime_CompilerServices_ConditionalWeakTable_TValue]) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
+        ...
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg]) -> System.Runtime.CompilerServices._Typed_ConditionalWeakTable_GetOrAdd[System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg]:
+        ...
+
+
+class ConditionalWeakTable(typing.Generic[System_Runtime_CompilerServices_ConditionalWeakTable_TKey, System_Runtime_CompilerServices_ConditionalWeakTable_TValue], System.Object, System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Runtime_CompilerServices_ConditionalWeakTable_TKey, System_Runtime_CompilerServices_ConditionalWeakTable_TValue]], typing.Iterable[System.Collections.Generic.KeyValuePair[System_Runtime_CompilerServices_ConditionalWeakTable_TKey, System_Runtime_CompilerServices_ConditionalWeakTable_TValue]]):
+    """This class has no documentation."""
+
+    @property
+    def get_or_add(self) -> System.Runtime.CompilerServices._ConditionalWeakTable_GetOrAdd:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Runtime_CompilerServices_ConditionalWeakTable_TKey, System_Runtime_CompilerServices_ConditionalWeakTable_TValue]]:
+        ...
+
+    def add(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value: System_Runtime_CompilerServices_ConditionalWeakTable_TValue) -> None:
+        ...
+
+    def add_or_update(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value: System_Runtime_CompilerServices_ConditionalWeakTable_TValue) -> None:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def create_value_callback(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
+        ...
+
+    def get_or_create_value(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
+        ...
+
+    def get_value(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, create_value_callback: typing.Callable[[System_Runtime_CompilerServices_ConditionalWeakTable_TKey], System_Runtime_CompilerServices_ConditionalWeakTable_TValue]) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
+        ...
+
+    @overload
+    def remove(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey) -> bool:
+        ...
+
+    @overload
+    def remove(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value: typing.Optional[System_Runtime_CompilerServices_ConditionalWeakTable_TValue]) -> typing.Tuple[bool, System_Runtime_CompilerServices_ConditionalWeakTable_TValue]:
+        ...
+
+    def try_add(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value: System_Runtime_CompilerServices_ConditionalWeakTable_TValue) -> bool:
+        ...
+
+    def try_get_value(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value: typing.Optional[System_Runtime_CompilerServices_ConditionalWeakTable_TValue]) -> typing.Tuple[bool, System_Runtime_CompilerServices_ConditionalWeakTable_TValue]:
+        ...
+
+
+class InlineArray2(typing.Generic[System_Runtime_CompilerServices_InlineArray2_T]):
+    """This class has no documentation."""
+
+
+class InlineArray3(typing.Generic[System_Runtime_CompilerServices_InlineArray3_T]):
+    """This class has no documentation."""
+
+
+class InlineArray4(typing.Generic[System_Runtime_CompilerServices_InlineArray4_T]):
+    """This class has no documentation."""
+
+
+class InlineArray5(typing.Generic[System_Runtime_CompilerServices_InlineArray5_T]):
+    """This class has no documentation."""
+
+
+class InlineArray6(typing.Generic[System_Runtime_CompilerServices_InlineArray6_T]):
+    """This class has no documentation."""
+
+
+class InlineArray7(typing.Generic[System_Runtime_CompilerServices_InlineArray7_T]):
+    """This class has no documentation."""
+
+
+class InlineArray8(typing.Generic[System_Runtime_CompilerServices_InlineArray8_T]):
+    """This class has no documentation."""
+
+
+class InlineArray9(typing.Generic[System_Runtime_CompilerServices_InlineArray9_T]):
+    """This class has no documentation."""
+
+
+class InlineArray10(typing.Generic[System_Runtime_CompilerServices_InlineArray10_T]):
+    """This class has no documentation."""
+
+
+class InlineArray11(typing.Generic[System_Runtime_CompilerServices_InlineArray11_T]):
+    """This class has no documentation."""
+
+
+class InlineArray12(typing.Generic[System_Runtime_CompilerServices_InlineArray12_T]):
+    """This class has no documentation."""
+
+
+class InlineArray13(typing.Generic[System_Runtime_CompilerServices_InlineArray13_T]):
+    """This class has no documentation."""
+
+
+class InlineArray14(typing.Generic[System_Runtime_CompilerServices_InlineArray14_T]):
+    """This class has no documentation."""
+
+
+class InlineArray15(typing.Generic[System_Runtime_CompilerServices_InlineArray15_T]):
+    """This class has no documentation."""
+
+
+class InlineArray16(typing.Generic[System_Runtime_CompilerServices_InlineArray16_T]):
+    """This class has no documentation."""
+
+
+class IsByRefLikeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class TupleElementNamesAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def transform_names(self) -> typing.List[str]:
+        ...
+
+    def __init__(self, transform_names: typing.List[str]) -> None:
+        ...
+
+
+class ConfiguredValueTaskAwaitable(typing.Generic[System_Runtime_CompilerServices_ConfiguredValueTaskAwaitable_TResult]):
+    """This class has no documentation."""
+
+    def get_awaiter(self) -> System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable.ConfiguredValueTaskAwaiter:
+        ...
+
+
+class IndexerNameAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self, indexer_name: str) -> None:
+        ...
+
+
+class _Typed_AsyncIteratorMethodBuilder_MoveNext(typing.Generic[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine]):
+    """"""
+
+    @overload
+    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine) -> None:
+        ...
+
+
+class _AsyncIteratorMethodBuilder_MoveNext:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine]) -> System.Runtime.CompilerServices._Typed_AsyncIteratorMethodBuilder_MoveNext[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine]:
+        ...
+
+
+class _Typed_AsyncIteratorMethodBuilder_AwaitOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _AsyncIteratorMethodBuilder_AwaitOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncIteratorMethodBuilder_AwaitOnCompleted[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter]:
+        ...
+
+
+class _Typed_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]:
+        ...
+
+
+class AsyncIteratorMethodBuilder:
+    """This class has no documentation."""
+
+    @property
+    def move_next(self) -> System.Runtime.CompilerServices._AsyncIteratorMethodBuilder_MoveNext:
+        ...
+
+    @property
+    def await_on_completed(self) -> System.Runtime.CompilerServices._AsyncIteratorMethodBuilder_AwaitOnCompleted:
+        ...
+
+    @property
+    def await_unsafe_on_completed(self) -> System.Runtime.CompilerServices._AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted:
+        ...
+
+    def complete(self) -> None:
+        ...
+
+    @staticmethod
+    def create() -> System.Runtime.CompilerServices.AsyncIteratorMethodBuilder:
+        ...
+
+
+class CallConvCdecl(System.Object):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class CallConvFastcall(System.Object):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class CallConvStdcall(System.Object):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class CallConvSwift(System.Object):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class CallConvSuppressGCTransition(System.Object):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class CallConvThiscall(System.Object):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class CallConvMemberFunction(System.Object):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class SkipLocalsInitAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class IAsyncStateMachine(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def move_next(self) -> None:
+        ...
+
+    def set_state_machine(self, state_machine: System.Runtime.CompilerServices.IAsyncStateMachine) -> None:
+        ...
+
+
+class LoadHint(IntEnum):
+    """This class has no documentation."""
+
+    DEFAULT = ...
+
+    ALWAYS = ...
+
+    SOMETIMES = ...
+
+
+class CallerLineNumberAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class FixedBufferAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def element_type(self) -> typing.Type:
+        ...
+
+    @property
+    def length(self) -> int:
+        ...
+
+    def __init__(self, element_type: typing.Type, length: int) -> None:
+        ...
+
+
+class InterpolatedStringHandlerAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class YieldAwaitable:
+    """This class has no documentation."""
+
+    class YieldAwaiter(System.Runtime.CompilerServices.ICriticalNotifyCompletion, System.Runtime.CompilerServices.IStateMachineBoxAwareAwaiter):
+        """This class has no documentation."""
+
+        @property
+        def is_completed(self) -> bool:
+            ...
+
+        def get_result(self) -> None:
+            ...
+
+        def on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
+            ...
+
+        def unsafe_on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
+            ...
+
+    def get_awaiter(self) -> System.Runtime.CompilerServices.YieldAwaitable.YieldAwaiter:
+        ...
+
+
+class ITuple(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def length(self) -> int:
+        ...
+
+    def __getitem__(self, index: int) -> typing.Any:
+        ...
+
+
+class TypeForwardedToAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def destination(self) -> typing.Type:
+        ...
+
+    def __init__(self, destination: typing.Type) -> None:
+        ...
+
+
+class CustomConstantAttribute(System.Attribute, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def value(self) -> System.Object:
         ...
 
 
@@ -1089,356 +1206,51 @@ class Unsafe(System.Object):
         ...
 
 
-class TaskAwaiter(typing.Generic[System_Runtime_CompilerServices_TaskAwaiter_TResult], System.Runtime.CompilerServices.ICriticalNotifyCompletion, System.Runtime.CompilerServices.ITaskAwaiter):
+class StateMachineAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def is_completed(self) -> bool:
+    def state_machine_type(self) -> typing.Type:
         ...
 
-    def get_result(self) -> None:
-        ...
-
-    def on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
-        ...
-
-    def unsafe_on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
+    def __init__(self, state_machine_type: typing.Type) -> None:
         ...
 
 
-class ConfiguredTaskAwaitable(typing.Generic[System_Runtime_CompilerServices_ConfiguredTaskAwaitable_TResult]):
-    """This class has no documentation."""
-
-    def get_awaiter(self) -> System.Runtime.CompilerServices.ConfiguredTaskAwaitable.ConfiguredTaskAwaiter:
-        ...
-
-
-class CallerFilePathAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class CompilationRelaxations(IntEnum):
-    """This class has no documentation."""
-
-    NO_STRING_INTERNING = ...
-
-
-class CompilationRelaxationsAttribute(System.Attribute):
+class AsyncMethodBuilderAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def compilation_relaxations(self) -> int:
+    def builder_type(self) -> typing.Type:
         ...
 
-    @overload
-    def __init__(self, relaxations: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, relaxations: System.Runtime.CompilerServices.CompilationRelaxations) -> None:
+    def __init__(self, builder_type: typing.Type) -> None:
         ...
 
 
-class MethodImplAttribute(System.Attribute):
+class RefSafetyRulesAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def method_code_type(self) -> System.Runtime.CompilerServices.MethodCodeType:
+    def version(self) -> int:
         ...
 
-    @method_code_type.setter
-    def method_code_type(self, value: System.Runtime.CompilerServices.MethodCodeType) -> None:
+    def __init__(self, version: int) -> None:
         ...
+
+
+class NullableContextAttribute(System.Attribute):
+    """This class has no documentation."""
 
     @property
-    def value(self) -> System.Runtime.CompilerServices.MethodImplOptions:
+    def flag(self) -> int:
         ...
 
-    @overload
-    def __init__(self, method_impl_options: System.Runtime.CompilerServices.MethodImplOptions) -> None:
+    @flag.setter
+    def flag(self, value: int) -> None:
         ...
 
-    @overload
     def __init__(self, value: int) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-
-class TypeForwardedFromAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def assembly_full_name(self) -> str:
-        ...
-
-    def __init__(self, assembly_full_name: str) -> None:
-        ...
-
-
-class ValueTaskAwaiter(typing.Generic[System_Runtime_CompilerServices_ValueTaskAwaiter_TResult], System.Runtime.CompilerServices.ICriticalNotifyCompletion, System.Runtime.CompilerServices.IStateMachineBoxAwareAwaiter):
-    """This class has no documentation."""
-
-    @property
-    def is_completed(self) -> bool:
-        ...
-
-    def get_result(self) -> None:
-        ...
-
-    def on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
-        ...
-
-    def unsafe_on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
-        ...
-
-
-class FixedBufferAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def element_type(self) -> typing.Type:
-        ...
-
-    @property
-    def length(self) -> int:
-        ...
-
-    def __init__(self, element_type: typing.Type, length: int) -> None:
-        ...
-
-
-class UnsafeAccessorKind(IntEnum):
-    """This class has no documentation."""
-
-    CONSTRUCTOR = 0
-
-    METHOD = 1
-
-    STATIC_METHOD = 2
-
-    FIELD = 3
-
-    STATIC_FIELD = 4
-
-
-class UnsafeAccessorAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def kind(self) -> System.Runtime.CompilerServices.UnsafeAccessorKind:
-        ...
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    def __init__(self, kind: System.Runtime.CompilerServices.UnsafeAccessorKind) -> None:
-        ...
-
-
-class RuntimeFeature(System.Object):
-    """This class has no documentation."""
-
-    IS_DYNAMIC_CODE_SUPPORTED: bool
-
-    IS_DYNAMIC_CODE_COMPILED: bool
-
-    PORTABLE_PDB: str = ...
-
-    DEFAULT_IMPLEMENTATIONS_OF_INTERFACES: str = ...
-
-    UNMANAGED_SIGNATURE_CALLING_CONVENTION: str = ...
-
-    COVARIANT_RETURNS_OF_CLASSES: str = ...
-
-    BY_REF_FIELDS: str = ...
-
-    BY_REF_LIKE_GENERICS: str = ...
-
-    VIRTUAL_STATICS_IN_INTERFACES: str = ...
-
-    NUMERIC_INT_PTR: str = ...
-
-    IS_MULTITHREADING_SUPPORTED: bool
-
-    @staticmethod
-    def is_supported(feature: str) -> bool:
-        ...
-
-
-class AccessedThroughPropertyAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def property_name(self) -> str:
-        ...
-
-    def __init__(self, property_name: str) -> None:
-        ...
-
-
-class DependencyAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def dependent_assembly(self) -> str:
-        ...
-
-    @property
-    def load_hint(self) -> System.Runtime.CompilerServices.LoadHint:
-        ...
-
-    def __init__(self, dependent_assembly_argument: str, load_hint_argument: System.Runtime.CompilerServices.LoadHint) -> None:
-        ...
-
-
-class CreateNewOnMetadataUpdateAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class ExtensionMarkerAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def name(self) -> str:
-        ...
-
-    def __init__(self, name: str) -> None:
-        ...
-
-
-class InterpolatedStringHandlerArgumentAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def arguments(self) -> typing.List[str]:
-        ...
-
-    @overload
-    def __init__(self, argument: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, *arguments: typing.Union[str, typing.Iterable[str]]) -> None:
-        ...
-
-
-class _Typed_AsyncValueTaskMethodBuilder_Start(typing.Generic[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine]):
-    """"""
-
-    @overload
-    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine) -> None:
-        ...
-
-    @overload
-    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine) -> None:
-        ...
-
-
-class _AsyncValueTaskMethodBuilder_Start:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine]) -> System.Runtime.CompilerServices._Typed_AsyncValueTaskMethodBuilder_Start[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine]:
-        ...
-
-
-class _Typed_AsyncValueTaskMethodBuilder_AwaitOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]):
-    """"""
-
-    @overload
-    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
-        ...
-
-    @overload
-    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
-        ...
-
-
-class _AsyncValueTaskMethodBuilder_AwaitOnCompleted:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncValueTaskMethodBuilder_AwaitOnCompleted[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]:
-        ...
-
-
-class _Typed_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]):
-    """"""
-
-    @overload
-    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
-        ...
-
-    @overload
-    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
-        ...
-
-
-class _AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]:
-        ...
-
-
-class AsyncValueTaskMethodBuilder(typing.Generic[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_TResult]):
-    """This class has no documentation."""
-
-    @property
-    def task(self) -> System.Threading.Tasks.ValueTask[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_TResult]:
-        ...
-
-    @property
-    def start(self) -> System.Runtime.CompilerServices._AsyncValueTaskMethodBuilder_Start:
-        ...
-
-    @property
-    def await_on_completed(self) -> System.Runtime.CompilerServices._AsyncValueTaskMethodBuilder_AwaitOnCompleted:
-        ...
-
-    @property
-    def await_unsafe_on_completed(self) -> System.Runtime.CompilerServices._AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted:
-        ...
-
-    @staticmethod
-    def create() -> System.Runtime.CompilerServices.AsyncValueTaskMethodBuilder[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_TResult]:
-        ...
-
-    def set_exception(self, exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def set_result(self, result: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_TResult) -> None:
-        ...
-
-    @overload
-    def set_result(self) -> None:
-        ...
-
-    def set_state_machine(self, state_machine: System.Runtime.CompilerServices.IAsyncStateMachine) -> None:
-        ...
-
-
-class SkipLocalsInitAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class IsReadOnlyAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
         ...
 
 
@@ -1446,6 +1258,46 @@ class CallerMemberNameAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
+        ...
+
+
+class AsyncStateMachineAttribute(System.Runtime.CompilerServices.StateMachineAttribute):
+    """This class has no documentation."""
+
+    def __init__(self, state_machine_type: typing.Type) -> None:
+        ...
+
+
+class IStrongBox(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def value(self) -> System.Object:
+        ...
+
+    @value.setter
+    def value(self, value: System.Object) -> None:
+        ...
+
+
+class StrongBox(typing.Generic[System_Runtime_CompilerServices_StrongBox_T], System.Object, System.Runtime.CompilerServices.IStrongBox):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> System_Runtime_CompilerServices_StrongBox_T:
+        ...
+
+    @value.setter
+    def value(self, value: System_Runtime_CompilerServices_StrongBox_T) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: System_Runtime_CompilerServices_StrongBox_T) -> None:
         ...
 
 
@@ -1532,15 +1384,413 @@ class DefaultInterpolatedStringHandler:
         ...
 
 
-class DecimalConstantAttribute(System.Attribute):
+class CompilerFeatureRequiredAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def value(self) -> float:
+    def feature_name(self) -> str:
         ...
 
-    def __init__(self, scale: int, sign: int, hi: int, mid: int, low: int) -> None:
+    @property
+    def is_optional(self) -> bool:
         ...
+
+    REF_STRUCTS: str = ...
+
+    REQUIRED_MEMBERS: str = ...
+
+    def __init__(self, feature_name: str) -> None:
+        ...
+
+
+class IteratorStateMachineAttribute(System.Runtime.CompilerServices.StateMachineAttribute):
+    """This class has no documentation."""
+
+    def __init__(self, state_machine_type: typing.Type) -> None:
+        ...
+
+
+class ValueTaskAwaiter(typing.Generic[System_Runtime_CompilerServices_ValueTaskAwaiter_TResult], System.Runtime.CompilerServices.ICriticalNotifyCompletion, System.Runtime.CompilerServices.IStateMachineBoxAwareAwaiter):
+    """This class has no documentation."""
+
+    @property
+    def is_completed(self) -> bool:
+        ...
+
+    def get_result(self) -> None:
+        ...
+
+    def on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
+        ...
+
+    def unsafe_on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
+        ...
+
+
+class RuntimeCompatibilityAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def wrap_non_exception_throws(self) -> bool:
+        ...
+
+    @wrap_non_exception_throws.setter
+    def wrap_non_exception_throws(self, value: bool) -> None:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+
+class UnsafeAccessorTypeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def type_name(self) -> str:
+        ...
+
+    def __init__(self, type_name: str) -> None:
+        ...
+
+
+class CallerFilePathAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class MetadataUpdateDeletedAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class MethodImplOptions(IntEnum):
+    """This class has no documentation."""
+
+    UNMANAGED = ...
+
+    NO_INLINING = ...
+
+    FORWARD_REF = ...
+
+    SYNCHRONIZED = ...
+
+    NO_OPTIMIZATION = ...
+
+    PRESERVE_SIG = ...
+
+    AGGRESSIVE_INLINING = ...
+
+    AGGRESSIVE_OPTIMIZATION = ...
+
+    ASYNC = ...
+
+    INTERNAL_CALL = ...
+
+
+class ParamCollectionAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class _Typed_AsyncVoidMethodBuilder_Start(typing.Generic[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_Start_TStateMachine]):
+    """"""
+
+    @overload
+    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncVoidMethodBuilder_Start_TStateMachine) -> None:
+        ...
+
+
+class _AsyncVoidMethodBuilder_Start:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_Start_TStateMachine]) -> System.Runtime.CompilerServices._Typed_AsyncVoidMethodBuilder_Start[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_Start_TStateMachine]:
+        ...
+
+
+class _Typed_AsyncVoidMethodBuilder_AwaitOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _AsyncVoidMethodBuilder_AwaitOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncVoidMethodBuilder_AwaitOnCompleted[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TAwaiter]:
+        ...
+
+
+class _Typed_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]:
+        ...
+
+
+class AsyncVoidMethodBuilder:
+    """This class has no documentation."""
+
+    @property
+    def start(self) -> System.Runtime.CompilerServices._AsyncVoidMethodBuilder_Start:
+        ...
+
+    @property
+    def await_on_completed(self) -> System.Runtime.CompilerServices._AsyncVoidMethodBuilder_AwaitOnCompleted:
+        ...
+
+    @property
+    def await_unsafe_on_completed(self) -> System.Runtime.CompilerServices._AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted:
+        ...
+
+    @staticmethod
+    def create() -> System.Runtime.CompilerServices.AsyncVoidMethodBuilder:
+        ...
+
+    def set_exception(self, exception: System.Exception) -> None:
+        ...
+
+    def set_result(self) -> None:
+        ...
+
+    def set_state_machine(self, state_machine: System.Runtime.CompilerServices.IAsyncStateMachine) -> None:
+        ...
+
+
+class IsUnmanagedAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class AsyncIteratorStateMachineAttribute(System.Runtime.CompilerServices.StateMachineAttribute):
+    """This class has no documentation."""
+
+    def __init__(self, state_machine_type: typing.Type) -> None:
+        ...
+
+
+class SpecialNameAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class IsClosedTypeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class _Typed_PoolingAsyncValueTaskMethodBuilder_Start(typing.Generic[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine]):
+    """"""
+
+    @overload
+    def __call__(self, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine) -> None:
+        ...
+
+
+class _PoolingAsyncValueTaskMethodBuilder_Start:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine]) -> System.Runtime.CompilerServices._Typed_PoolingAsyncValueTaskMethodBuilder_Start[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine]:
+        ...
+
+
+class _Typed_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted(typing.Generic[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]:
+        ...
+
+
+class _Typed_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted(typing.Generic[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]:
+        ...
+
+
+class PoolingAsyncValueTaskMethodBuilder(typing.Generic[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_TResult]):
+    """This class has no documentation."""
+
+    @property
+    def task(self) -> System.Threading.Tasks.ValueTask:
+        ...
+
+    @property
+    def start(self) -> System.Runtime.CompilerServices._PoolingAsyncValueTaskMethodBuilder_Start:
+        ...
+
+    @property
+    def await_on_completed(self) -> System.Runtime.CompilerServices._PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted:
+        ...
+
+    @property
+    def await_unsafe_on_completed(self) -> System.Runtime.CompilerServices._PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted:
+        ...
+
+    @staticmethod
+    def create() -> System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder:
+        ...
+
+    def set_exception(self, exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def set_result(self) -> None:
+        ...
+
+    @overload
+    def set_result(self, result: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_TResult) -> None:
+        ...
+
+    def set_state_machine(self, state_machine: System.Runtime.CompilerServices.IAsyncStateMachine) -> None:
+        ...
+
+
+class CompilationRelaxations(IntEnum):
+    """This class has no documentation."""
+
+    NO_STRING_INTERNING = ...
+
+
+class DateTimeConstantAttribute(System.Runtime.CompilerServices.CustomConstantAttribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> System.Object:
+        ...
+
+    def __init__(self, ticks: int) -> None:
+        ...
+
+
+class CompilationRelaxationsAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def compilation_relaxations(self) -> int:
+        ...
+
+    @overload
+    def __init__(self, relaxations: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, relaxations: System.Runtime.CompilerServices.CompilationRelaxations) -> None:
+        ...
+
+
+class CreateNewOnMetadataUpdateAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class UnsafeAccessorKind(IntEnum):
+    """This class has no documentation."""
+
+    CONSTRUCTOR = 0
+
+    METHOD = 1
+
+    STATIC_METHOD = 2
+
+    FIELD = 3
+
+    STATIC_FIELD = 4
+
+
+class UnsafeAccessorAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def kind(self) -> System.Runtime.CompilerServices.UnsafeAccessorKind:
+        ...
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    def __init__(self, kind: System.Runtime.CompilerServices.UnsafeAccessorKind) -> None:
+        ...
+
+
+class EnumeratorCancellationAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class DependencyAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def dependent_assembly(self) -> str:
+        ...
+
+    @property
+    def load_hint(self) -> System.Runtime.CompilerServices.LoadHint:
+        ...
+
+    def __init__(self, dependent_assembly_argument: str, load_hint_argument: System.Runtime.CompilerServices.LoadHint) -> None:
+        ...
+
+
+class MethodCodeType(IntEnum):
+    """This class has no documentation."""
+
+    IL = ...
+
+    NATIVE = ...
+
+    OPTIL = ...
+
+    RUNTIME = ...
 
 
 class MetadataUpdateOriginalTypeAttribute(System.Attribute):
@@ -1554,17 +1804,117 @@ class MetadataUpdateOriginalTypeAttribute(System.Attribute):
         ...
 
 
-class CallerLineNumberAttribute(System.Attribute):
+class MethodImplAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def method_code_type(self) -> System.Runtime.CompilerServices.MethodCodeType:
+        ...
+
+    @method_code_type.setter
+    def method_code_type(self, value: System.Runtime.CompilerServices.MethodCodeType) -> None:
+        ...
+
+    @property
+    def value(self) -> System.Runtime.CompilerServices.MethodImplOptions:
+        ...
+
+    @overload
+    def __init__(self, method_impl_options: System.Runtime.CompilerServices.MethodImplOptions) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: int) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+
+class MemorySafetyRulesAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def version(self) -> int:
+        ...
+
+    def __init__(self, version: int) -> None:
+        ...
+
+
+class ScopedRefAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
         ...
 
 
-class AsyncIteratorStateMachineAttribute(System.Runtime.CompilerServices.StateMachineAttribute):
+class IsReadOnlyAttribute(System.Attribute):
     """This class has no documentation."""
 
-    def __init__(self, state_machine_type: typing.Type) -> None:
+    def __init__(self) -> None:
+        ...
+
+
+class IsConst(System.Object):
+    """This class has no documentation."""
+
+
+class DecimalConstantAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> float:
+        ...
+
+    def __init__(self, scale: int, sign: int, hi: int, mid: int, low: int) -> None:
+        ...
+
+
+class UnionAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class ContractHelper(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def raise_contract_failed_event(failure_kind: System.Diagnostics.Contracts.ContractFailureKind, user_message: str, condition_text: str, inner_exception: System.Exception) -> str:
+        ...
+
+    @staticmethod
+    def trigger_failure(kind: System.Diagnostics.Contracts.ContractFailureKind, display_message: str, user_message: str, condition_text: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class RuntimeFeature(System.Object):
+    """This class has no documentation."""
+
+    PORTABLE_PDB: str = ...
+
+    DEFAULT_IMPLEMENTATIONS_OF_INTERFACES: str = ...
+
+    UNMANAGED_SIGNATURE_CALLING_CONVENTION: str = ...
+
+    COVARIANT_RETURNS_OF_CLASSES: str = ...
+
+    BY_REF_FIELDS: str = ...
+
+    BY_REF_LIKE_GENERICS: str = ...
+
+    VIRTUAL_STATICS_IN_INTERFACES: str = ...
+
+    NUMERIC_INT_PTR: str = ...
+
+    IS_MULTITHREADING_SUPPORTED: bool
+
+    IS_DYNAMIC_CODE_SUPPORTED: bool
+
+    IS_DYNAMIC_CODE_COMPILED: bool
+
+    @staticmethod
+    def is_supported(feature: str) -> bool:
         ...
 
 
@@ -1719,110 +2069,213 @@ class RuntimeHelpers(System.Object):
         ...
 
 
-class NullableContextAttribute(System.Attribute):
+class InternalsVisibleToAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def flag(self) -> int:
+    def assembly_name(self) -> str:
         ...
 
-    @flag.setter
-    def flag(self, value: int) -> None:
+    @property
+    def all_internals_visible(self) -> bool:
         ...
 
+    @all_internals_visible.setter
+    def all_internals_visible(self, value: bool) -> None:
+        ...
+
+    def __init__(self, assembly_name: str) -> None:
+        ...
+
+
+class UnsafeValueTypeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class _Typed_AsyncTaskMethodBuilder_Start(typing.Generic[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine]):
+    """"""
+
+    @overload
+    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine) -> None:
+        ...
+
+
+class _AsyncTaskMethodBuilder_Start:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine]) -> System.Runtime.CompilerServices._Typed_AsyncTaskMethodBuilder_Start[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_Start_TStateMachine]:
+        ...
+
+
+class _Typed_AsyncTaskMethodBuilder_AwaitOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _AsyncTaskMethodBuilder_AwaitOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncTaskMethodBuilder_AwaitOnCompleted[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitOnCompleted_TAwaiter]:
+        ...
+
+
+class _Typed_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]):
+    """"""
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
+        ...
+
+
+class _AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted:
+    """"""
+
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]:
+        ...
+
+
+class AsyncTaskMethodBuilder(typing.Generic[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_TResult]):
+    """This class has no documentation."""
+
+    @property
+    def task(self) -> System.Threading.Tasks.Task[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_TResult]:
+        ...
+
+    @property
+    def start(self) -> System.Runtime.CompilerServices._AsyncTaskMethodBuilder_Start:
+        ...
+
+    @property
+    def await_on_completed(self) -> System.Runtime.CompilerServices._AsyncTaskMethodBuilder_AwaitOnCompleted:
+        ...
+
+    @property
+    def await_unsafe_on_completed(self) -> System.Runtime.CompilerServices._AsyncTaskMethodBuilder_AwaitUnsafeOnCompleted:
+        ...
+
+    @staticmethod
+    def create() -> System.Runtime.CompilerServices.AsyncTaskMethodBuilder[System_Runtime_CompilerServices_AsyncTaskMethodBuilder_TResult]:
+        ...
+
+    def set_exception(self, exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def set_result(self, result: System_Runtime_CompilerServices_AsyncTaskMethodBuilder_TResult) -> None:
+        ...
+
+    @overload
+    def set_result(self) -> None:
+        ...
+
+    def set_state_machine(self, state_machine: System.Runtime.CompilerServices.IAsyncStateMachine) -> None:
+        ...
+
+
+class StringFreezingAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class AccessedThroughPropertyAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def property_name(self) -> str:
+        ...
+
+    def __init__(self, property_name: str) -> None:
+        ...
+
+
+class CompilerGlobalScopeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class IsVolatile(System.Object):
+    """This class has no documentation."""
+
+
+class NullableAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def nullable_flags(self) -> typing.List[int]:
+        ...
+
+    @nullable_flags.setter
+    def nullable_flags(self, value: typing.List[int]) -> None:
+        ...
+
+    @overload
     def __init__(self, value: int) -> None:
         ...
 
-
-class IStrongBox(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def value(self) -> System.Object:
-        ...
-
-    @value.setter
-    def value(self, value: System.Object) -> None:
-        ...
-
-
-class StrongBox(typing.Generic[System_Runtime_CompilerServices_StrongBox_T], System.Object, System.Runtime.CompilerServices.IStrongBox):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> System_Runtime_CompilerServices_StrongBox_T:
-        ...
-
-    @value.setter
-    def value(self, value: System_Runtime_CompilerServices_StrongBox_T) -> None:
-        ...
-
     @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: System_Runtime_CompilerServices_StrongBox_T) -> None:
+    def __init__(self, value: typing.List[int]) -> None:
         ...
 
 
-class CustomConstantAttribute(System.Attribute, metaclass=abc.ABCMeta):
+class DisableRuntimeMarshallingAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class RuntimeWrappedException(System.Exception):
     """This class has no documentation."""
 
     @property
-    @abc.abstractmethod
-    def value(self) -> System.Object:
+    def wrapped_exception(self) -> System.Object:
         ...
 
+    def __init__(self, thrown_object: typing.Any) -> None:
+        ...
 
-class FormattableStringFactory(System.Object):
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+
+class RequiresLocationAttribute(System.Attribute):
     """This class has no documentation."""
-
-    @staticmethod
-    def create(format: str, *arguments: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.FormattableString:
-        ...
-
-
-class IndexerNameAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self, indexer_name: str) -> None:
-        ...
-
-
-class RuntimeCompatibilityAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def wrap_non_exception_throws(self) -> bool:
-        ...
-
-    @wrap_non_exception_throws.setter
-    def wrap_non_exception_throws(self, value: bool) -> None:
-        ...
 
     def __init__(self) -> None:
         ...
 
 
-class IUnion(metaclass=abc.ABCMeta):
+class CompilerGeneratedAttribute(System.Attribute):
     """This class has no documentation."""
 
-    @property
-    @abc.abstractmethod
-    def value(self) -> System.Object:
+    def __init__(self) -> None:
         ...
 
 
-class TypeForwardedToAttribute(System.Attribute):
+class PreserveBaseOverridesAttribute(System.Attribute):
     """This class has no documentation."""
 
-    @property
-    def destination(self) -> typing.Type:
-        ...
 
-    def __init__(self, destination: typing.Type) -> None:
+class DiscardableAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
         ...
 
 
@@ -1842,109 +2295,117 @@ class ReferenceAssemblyAttribute(System.Attribute):
         ...
 
 
-class UnsafeValueTypeAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class SpecialNameAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class NullablePublicOnlyAttribute(System.Attribute):
+class DefaultDependencyAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def includes_internals(self) -> bool:
+    def load_hint(self) -> System.Runtime.CompilerServices.LoadHint:
         ...
 
-    @includes_internals.setter
-    def includes_internals(self, value: bool) -> None:
-        ...
-
-    def __init__(self, value: bool) -> None:
+    def __init__(self, load_hint_argument: System.Runtime.CompilerServices.LoadHint) -> None:
         ...
 
 
-class ITuple(metaclass=abc.ABCMeta):
+class FormattableStringFactory(System.Object):
     """This class has no documentation."""
 
-    @property
-    @abc.abstractmethod
-    def length(self) -> int:
-        ...
-
-    def __getitem__(self, index: int) -> typing.Any:
+    @staticmethod
+    def create(format: str, *arguments: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.FormattableString:
         ...
 
 
-class _Typed_AsyncIteratorMethodBuilder_MoveNext(typing.Generic[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine]):
+class _Typed_AsyncValueTaskMethodBuilder_Start(typing.Generic[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine]):
     """"""
 
     @overload
-    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine) -> None:
+    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine) -> None:
         ...
 
 
-class _AsyncIteratorMethodBuilder_MoveNext:
+class _AsyncValueTaskMethodBuilder_Start:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine]) -> System.Runtime.CompilerServices._Typed_AsyncIteratorMethodBuilder_MoveNext[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_MoveNext_TStateMachine]:
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine]) -> System.Runtime.CompilerServices._Typed_AsyncValueTaskMethodBuilder_Start[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_Start_TStateMachine]:
         ...
 
 
-class _Typed_AsyncIteratorMethodBuilder_AwaitOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter]):
+class _Typed_AsyncValueTaskMethodBuilder_AwaitOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]):
     """"""
 
     @overload
-    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
         ...
 
 
-class _AsyncIteratorMethodBuilder_AwaitOnCompleted:
+class _AsyncValueTaskMethodBuilder_AwaitOnCompleted:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncIteratorMethodBuilder_AwaitOnCompleted[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitOnCompleted_TAwaiter]:
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncValueTaskMethodBuilder_AwaitOnCompleted[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]:
         ...
 
 
-class _Typed_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]):
+class _Typed_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]):
     """"""
 
     @overload
-    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
+        ...
+
+    @overload
+    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
         ...
 
 
-class _AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted:
+class _AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted:
     """"""
 
-    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted[System_Runtime_CompilerServices_AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]:
+    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]:
         ...
 
 
-class AsyncIteratorMethodBuilder:
+class AsyncValueTaskMethodBuilder(typing.Generic[System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_TResult]):
     """This class has no documentation."""
 
     @property
-    def move_next(self) -> System.Runtime.CompilerServices._AsyncIteratorMethodBuilder_MoveNext:
+    def task(self) -> System.Threading.Tasks.ValueTask:
         ...
 
     @property
-    def await_on_completed(self) -> System.Runtime.CompilerServices._AsyncIteratorMethodBuilder_AwaitOnCompleted:
+    def start(self) -> System.Runtime.CompilerServices._AsyncValueTaskMethodBuilder_Start:
         ...
 
     @property
-    def await_unsafe_on_completed(self) -> System.Runtime.CompilerServices._AsyncIteratorMethodBuilder_AwaitUnsafeOnCompleted:
+    def await_on_completed(self) -> System.Runtime.CompilerServices._AsyncValueTaskMethodBuilder_AwaitOnCompleted:
         ...
 
-    def complete(self) -> None:
+    @property
+    def await_unsafe_on_completed(self) -> System.Runtime.CompilerServices._AsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted:
         ...
 
     @staticmethod
-    def create() -> System.Runtime.CompilerServices.AsyncIteratorMethodBuilder:
+    def create() -> System.Runtime.CompilerServices.AsyncValueTaskMethodBuilder:
+        ...
+
+    def set_exception(self, exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def set_result(self) -> None:
+        ...
+
+    @overload
+    def set_result(self, result: System_Runtime_CompilerServices_AsyncValueTaskMethodBuilder_TResult) -> None:
+        ...
+
+    def set_state_machine(self, state_machine: System.Runtime.CompilerServices.IAsyncStateMachine) -> None:
         ...
 
 
@@ -1974,166 +2435,25 @@ class ConfiguredCancelableAsyncEnumerable(typing.Generic[System_Runtime_Compiler
         ...
 
 
-class DateTimeConstantAttribute(System.Runtime.CompilerServices.CustomConstantAttribute):
+class ExtensionAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class ExtensionMarkerAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def value(self) -> System.Object:
+    def name(self) -> str:
         ...
 
-    def __init__(self, ticks: int) -> None:
+    def __init__(self, name: str) -> None:
         ...
 
 
-class DisablePrivateReflectionAttribute(System.Attribute):
+class FixedAddressValueTypeAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
-        ...
-
-
-class _Typed_PoolingAsyncValueTaskMethodBuilder_Start(typing.Generic[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine]):
-    """"""
-
-    @overload
-    def __call__(self, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine) -> None:
-        ...
-
-    @overload
-    def __call__(self, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine) -> None:
-        ...
-
-
-class _PoolingAsyncValueTaskMethodBuilder_Start:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine]) -> System.Runtime.CompilerServices._Typed_PoolingAsyncValueTaskMethodBuilder_Start[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_Start_TStateMachine]:
-        ...
-
-
-class _Typed_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted(typing.Generic[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]):
-    """"""
-
-    @overload
-    def __call__(self, awaiter: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
-        ...
-
-    @overload
-    def __call__(self, awaiter: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
-        ...
-
-
-class _PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted_TAwaiter]:
-        ...
-
-
-class _Typed_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted(typing.Generic[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]):
-    """"""
-
-    @overload
-    def __call__(self, awaiter: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
-        ...
-
-    @overload
-    def __call__(self, awaiter: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
-        ...
-
-
-class _PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]:
-        ...
-
-
-class PoolingAsyncValueTaskMethodBuilder(typing.Generic[System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_TResult]):
-    """This class has no documentation."""
-
-    @property
-    def task(self) -> System.Threading.Tasks.ValueTask:
-        ...
-
-    @property
-    def start(self) -> System.Runtime.CompilerServices._PoolingAsyncValueTaskMethodBuilder_Start:
-        ...
-
-    @property
-    def await_on_completed(self) -> System.Runtime.CompilerServices._PoolingAsyncValueTaskMethodBuilder_AwaitOnCompleted:
-        ...
-
-    @property
-    def await_unsafe_on_completed(self) -> System.Runtime.CompilerServices._PoolingAsyncValueTaskMethodBuilder_AwaitUnsafeOnCompleted:
-        ...
-
-    @staticmethod
-    def create() -> System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder:
-        ...
-
-    def set_exception(self, exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def set_result(self) -> None:
-        ...
-
-    @overload
-    def set_result(self, result: System_Runtime_CompilerServices_PoolingAsyncValueTaskMethodBuilder_TResult) -> None:
-        ...
-
-    def set_state_machine(self, state_machine: System.Runtime.CompilerServices.IAsyncStateMachine) -> None:
-        ...
-
-
-class ConfiguredAsyncDisposable:
-    """This class has no documentation."""
-
-    def dispose_async(self) -> System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable:
-        ...
-
-
-class DisableRuntimeMarshallingAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class NullableAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def nullable_flags(self) -> typing.List[int]:
-        ...
-
-    @nullable_flags.setter
-    def nullable_flags(self, value: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: typing.List[int]) -> None:
-        ...
-
-
-class InternalsVisibleToAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def assembly_name(self) -> str:
-        ...
-
-    @property
-    def all_internals_visible(self) -> bool:
-        ...
-
-    @all_internals_visible.setter
-    def all_internals_visible(self, value: bool) -> None:
-        ...
-
-    def __init__(self, assembly_name: str) -> None:
         ...
 
 
@@ -2172,325 +2492,12 @@ class SwitchExpressionException(System.InvalidOperationException):
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
 
-class IsByRefLikeAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class EnumeratorCancellationAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class ExtensionAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class RefSafetyRulesAttribute(System.Attribute):
+class IUnion(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property
-    def version(self) -> int:
-        ...
-
-    def __init__(self, version: int) -> None:
-        ...
-
-
-class AsyncStateMachineAttribute(System.Runtime.CompilerServices.StateMachineAttribute):
-    """This class has no documentation."""
-
-    def __init__(self, state_machine_type: typing.Type) -> None:
-        ...
-
-
-class ScopedRefAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class UnionAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class IsUnmanagedAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class CompilerGeneratedAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class CallConvCdecl(System.Object):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class CallConvFastcall(System.Object):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class CallConvStdcall(System.Object):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class CallConvSwift(System.Object):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class CallConvSuppressGCTransition(System.Object):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class CallConvThiscall(System.Object):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class CallConvMemberFunction(System.Object):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class InlineArrayAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def length(self) -> int:
-        ...
-
-    def __init__(self, length: int) -> None:
-        ...
-
-
-class RequiresLocationAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class RuntimeWrappedException(System.Exception):
-    """This class has no documentation."""
-
-    @property
-    def wrapped_exception(self) -> System.Object:
-        ...
-
-    def __init__(self, thrown_object: typing.Any) -> None:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-
-class MetadataUpdateDeletedAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class PreserveBaseOverridesAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class _Typed_ConditionalWeakTable_GetOrAdd(typing.Generic[System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg]):
-    """"""
-
-    @overload
-    def __call__(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value_factory: typing.Callable[[System_Runtime_CompilerServices_ConditionalWeakTable_TKey, System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg], System_Runtime_CompilerServices_ConditionalWeakTable_TValue], factory_argument: System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
-        ...
-
-
-class _ConditionalWeakTable_GetOrAdd:
-    """"""
-
-    @overload
-    def __call__(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value: System_Runtime_CompilerServices_ConditionalWeakTable_TValue) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
-        ...
-
-    @overload
-    def __call__(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value_factory: typing.Callable[[System_Runtime_CompilerServices_ConditionalWeakTable_TKey], System_Runtime_CompilerServices_ConditionalWeakTable_TValue]) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
-        ...
-
-    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg]) -> System.Runtime.CompilerServices._Typed_ConditionalWeakTable_GetOrAdd[System_Runtime_CompilerServices_ConditionalWeakTable_GetOrAdd_TArg]:
-        ...
-
-
-class ConditionalWeakTable(typing.Generic[System_Runtime_CompilerServices_ConditionalWeakTable_TKey, System_Runtime_CompilerServices_ConditionalWeakTable_TValue], System.Object, System.Collections.Generic.IEnumerable[System.Collections.Generic.KeyValuePair[System_Runtime_CompilerServices_ConditionalWeakTable_TKey, System_Runtime_CompilerServices_ConditionalWeakTable_TValue]], typing.Iterable[System.Collections.Generic.KeyValuePair[System_Runtime_CompilerServices_ConditionalWeakTable_TKey, System_Runtime_CompilerServices_ConditionalWeakTable_TValue]]):
-    """This class has no documentation."""
-
-    @property
-    def get_or_add(self) -> System.Runtime.CompilerServices._ConditionalWeakTable_GetOrAdd:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[System_Runtime_CompilerServices_ConditionalWeakTable_TKey, System_Runtime_CompilerServices_ConditionalWeakTable_TValue]]:
-        ...
-
-    def add(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value: System_Runtime_CompilerServices_ConditionalWeakTable_TValue) -> None:
-        ...
-
-    def add_or_update(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value: System_Runtime_CompilerServices_ConditionalWeakTable_TValue) -> None:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def create_value_callback(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
-        ...
-
-    def get_or_create_value(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
-        ...
-
-    def get_value(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, create_value_callback: typing.Callable[[System_Runtime_CompilerServices_ConditionalWeakTable_TKey], System_Runtime_CompilerServices_ConditionalWeakTable_TValue]) -> System_Runtime_CompilerServices_ConditionalWeakTable_TValue:
-        ...
-
-    @overload
-    def remove(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey) -> bool:
-        ...
-
-    @overload
-    def remove(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value: typing.Optional[System_Runtime_CompilerServices_ConditionalWeakTable_TValue]) -> typing.Tuple[bool, System_Runtime_CompilerServices_ConditionalWeakTable_TValue]:
-        ...
-
-    def try_add(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value: System_Runtime_CompilerServices_ConditionalWeakTable_TValue) -> bool:
-        ...
-
-    def try_get_value(self, key: System_Runtime_CompilerServices_ConditionalWeakTable_TKey, value: typing.Optional[System_Runtime_CompilerServices_ConditionalWeakTable_TValue]) -> typing.Tuple[bool, System_Runtime_CompilerServices_ConditionalWeakTable_TValue]:
-        ...
-
-
-class SuppressIldasmAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class TupleElementNamesAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def transform_names(self) -> typing.List[str]:
-        ...
-
-    def __init__(self, transform_names: typing.List[str]) -> None:
-        ...
-
-
-class _Typed_AsyncVoidMethodBuilder_Start(typing.Generic[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_Start_TStateMachine]):
-    """"""
-
-    @overload
-    def __call__(self, state_machine: System_Runtime_CompilerServices_AsyncVoidMethodBuilder_Start_TStateMachine) -> None:
-        ...
-
-
-class _AsyncVoidMethodBuilder_Start:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_Start_TStateMachine]) -> System.Runtime.CompilerServices._Typed_AsyncVoidMethodBuilder_Start[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_Start_TStateMachine]:
-        ...
-
-
-class _Typed_AsyncVoidMethodBuilder_AwaitOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TAwaiter]):
-    """"""
-
-    @overload
-    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TStateMachine) -> None:
-        ...
-
-
-class _AsyncVoidMethodBuilder_AwaitOnCompleted:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncVoidMethodBuilder_AwaitOnCompleted[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitOnCompleted_TAwaiter]:
-        ...
-
-
-class _Typed_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted(typing.Generic[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]):
-    """"""
-
-    @overload
-    def __call__(self, awaiter: System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter, state_machine: System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TStateMachine) -> None:
-        ...
-
-
-class _AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted:
-    """"""
-
-    def __getitem__(self, type: typing.Type[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]) -> System.Runtime.CompilerServices._Typed_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted[System_Runtime_CompilerServices_AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted_TAwaiter]:
-        ...
-
-
-class AsyncVoidMethodBuilder:
-    """This class has no documentation."""
-
-    @property
-    def start(self) -> System.Runtime.CompilerServices._AsyncVoidMethodBuilder_Start:
-        ...
-
-    @property
-    def await_on_completed(self) -> System.Runtime.CompilerServices._AsyncVoidMethodBuilder_AwaitOnCompleted:
-        ...
-
-    @property
-    def await_unsafe_on_completed(self) -> System.Runtime.CompilerServices._AsyncVoidMethodBuilder_AwaitUnsafeOnCompleted:
-        ...
-
-    @staticmethod
-    def create() -> System.Runtime.CompilerServices.AsyncVoidMethodBuilder:
-        ...
-
-    def set_exception(self, exception: System.Exception) -> None:
-        ...
-
-    def set_result(self) -> None:
-        ...
-
-    def set_state_machine(self, state_machine: System.Runtime.CompilerServices.IAsyncStateMachine) -> None:
-        ...
-
-
-class UnsafeAccessorTypeAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def type_name(self) -> str:
-        ...
-
-    def __init__(self, type_name: str) -> None:
+    @abc.abstractmethod
+    def value(self) -> System.Object:
         ...
 
 

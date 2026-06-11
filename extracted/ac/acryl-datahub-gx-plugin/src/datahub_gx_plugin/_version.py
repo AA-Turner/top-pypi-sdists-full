@@ -1,3 +1,3 @@
 # Published at https://pypi.org/project/acryl-datahub-gx-plugin/.
 __package_name__ = "acryl-datahub-gx-plugin"
-__version__ = "1.6.0"
+__version__ = "1.6.0.1"

@@ -234,9 +234,24 @@ def _format_cloud_output_data(cloud: Any) -> Dict[str, str]:
 @click.option(
     "--yes", "-y", is_flag=True, default=False, help="Don't ask for confirmation."
 )
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help=(
+        "Force-delete the cloud even if it has active clusters (bypasses the "
+        "active-cluster check). You are responsible for cleaning up any "
+        "cloud-provider resources, and for any costs incurred by clusters that "
+        "are left in an active state, yourself."
+    ),
+)
 @disabled_on_azure("cloud delete")
 def cloud_delete(
-    cloud_name: Optional[str], name: Optional[str], cloud_id: Optional[str], yes: bool
+    cloud_name: Optional[str],
+    name: Optional[str],
+    cloud_id: Optional[str],
+    yes: bool,
+    force: bool,
 ) -> None:
     if cloud_name and name and cloud_name != name:
         raise click.ClickException(
@@ -244,7 +259,10 @@ def cloud_delete(
             "were both provided. Please only provide one of these two arguments."
         )
     CloudController().delete_cloud(
-        cloud_name=cloud_name or name, cloud_id=cloud_id, skip_confirmation=yes
+        cloud_name=cloud_name or name,
+        cloud_id=cloud_id,
+        skip_confirmation=yes,
+        force=force,
     )
 
 
@@ -651,7 +669,11 @@ def cloud_config_group() -> None:
     "--skip-verification",
     is_flag=True,
     default=False,
-    help="Skip cloud resource verification.",
+    help=(
+        "Skip cloud resource verification. This also skips local AWS/GCP "
+        "credential checks and resource preprocessing, sending the provided "
+        "resource to Anyscale as-is."
+    ),
 )
 @click.option(
     "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
@@ -910,7 +932,11 @@ def cloud_resource_delete(cloud: str, resource: str, yes: bool,) -> None:
     "--skip-verification",
     is_flag=True,
     default=False,
-    help="Skip cloud resource verification.",
+    help=(
+        "Skip cloud resource verification. This also skips local AWS/GCP "
+        "credential checks and resource preprocessing, sending the provided "
+        "resources to Anyscale as-is."
+    ),
 )
 @click.option(
     "--migrate-dm-to-im",
@@ -1444,6 +1470,12 @@ def cloud_config_update(  # noqa: PLR0913
     type=str,
 )
 @click.option(
+    "--kubernetes-redis-endpoint",
+    help="On the Kubernetes compute stack, the Redis endpoint reachable from the data plane (e.g. 'redis.ray-system.svc.cluster.local:6379'). Used for Ray GCS fault tolerance.",
+    required=False,
+    type=str,
+)
+@click.option(
     "--anyscale-operator-iam-identity",
     help="On the Kubernetes compute stack, the cloud provider IAM identity federated with the Anyscale Operator's kubernetes service account, which will be used by Anyscale control plane for validation during Anyscale Operator bootstrap in the dataplane. IN AWS EKS, this is the ARN of the IAM role. For GCP GKE, this is the service account email.",
     required=False,
@@ -1528,6 +1560,7 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
     memorystore_instance_name: str,
     host_project_id: Optional[str],
     kubernetes_zones: Optional[str],
+    kubernetes_redis_endpoint: Optional[str],
     anyscale_operator_iam_identity: Optional[str],
     azure_tenant_id: Optional[str],
     functional_verify: Optional[str],
@@ -1667,6 +1700,7 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
                 kubernetes_config=KubernetesConfig(
                     anyscale_operator_iam_identity=anyscale_operator_iam_identity,
                     zones=kubernetes_zones.split(",") if kubernetes_zones else [],
+                    redis_endpoint=kubernetes_redis_endpoint,
                 )
                 if compute_stack == ComputeStack.K8S
                 else None,
@@ -1759,6 +1793,7 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
                 kubernetes_config=KubernetesConfig(
                     anyscale_operator_iam_identity=anyscale_operator_iam_identity,
                     zones=kubernetes_zones.split(",") if kubernetes_zones else [],
+                    redis_endpoint=kubernetes_redis_endpoint,
                 )
                 if compute_stack == ComputeStack.K8S
                 else None,
@@ -1822,6 +1857,7 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
                     if provider == "azure"
                     else None,
                     zones=kubernetes_zones.split(",") if kubernetes_zones else [],
+                    redis_endpoint=kubernetes_redis_endpoint,
                 ),
             )
 

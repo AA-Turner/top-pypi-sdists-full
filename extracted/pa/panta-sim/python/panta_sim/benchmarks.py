@@ -50,6 +50,12 @@ def random_circuit(
     if topology == "grid":
         if rows is None or cols is None:
             side = int(round(n_qubits**0.5))
+            if side * side != n_qubits:
+                raise ValueError(
+                    f"topology='grid' 에서 rows/cols 를 생략하면 n_qubits 가 "
+                    f"완전제곱수여야 합니다 (입력: {n_qubits}). rows=, cols= 를 "
+                    f"명시하세요."
+                )
             rows, cols = side, side
         n_qubits = rows * cols
 

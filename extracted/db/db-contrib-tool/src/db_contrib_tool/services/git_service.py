@@ -67,10 +67,10 @@ class GitService:
         if result.return_code != 0:
             LOGGER.warning(
                 "Git command failed.",
-                cmd="rev-parse",
+                cmd="rev-list",
                 error=result.error,
             )
-            raise
+            raise ValueError(f"Could not resolve git tag '{tag}' to a commit.")
 
         commit_hash = result.output
         LOGGER.info("Found commit.", commit=commit_hash)

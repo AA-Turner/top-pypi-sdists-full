@@ -19,11 +19,13 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 
 from cliff import columns as cliff_columns
+from openstack.network.v2 import agent as _agent
 from osc_lib.cli import format_columns
 from osc_lib import exceptions
 from osc_lib import utils
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 
 LOG = logging.getLogger(__name__)
@@ -48,7 +50,9 @@ _formatters = {
 }
 
 
-def _get_network_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_network_columns(
+    item: _agent.Agent,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     column_data_mapping = {
         'admin_state_up': 'is_admin_state_up',
         'agent_type': 'agent_type',
@@ -119,6 +123,15 @@ class AddRouterToAgent(command.Command):
             '--l3', action='store_true', help=_('Add router to an L3 agent')
         )
         parser.add_argument(
+            '--ha-chassis-priority',
+            metavar='<ha-chassis-priority>',
+            type=int,
+            help=_(
+                "HA Chassis priority, ranging from [0, 32767]. "
+                "Only used with --l3 and for ML2/OVN L3 agents"
+            ),
+        )
+        parser.add_argument(
             'agent_id',
             metavar='<agent-id>',
             help=_("Agent to which a router is added (ID only)"),
@@ -136,7 +149,11 @@ class AddRouterToAgent(command.Command):
         agent = client.get_agent(parsed_args.agent_id)
         router = client.find_router(parsed_args.router, ignore_missing=False)
         if parsed_args.l3:
-            client.add_router_to_agent(agent, router)
+            client.add_router_to_agent(
+                agent,
+                router,
+                ha_chassis_priority=parsed_args.ha_chassis_priority,
+            )
 
 
 class DeleteNetworkAgent(command.Command):
@@ -177,8 +194,6 @@ class DeleteNetworkAgent(command.Command):
             raise exceptions.CommandError(msg)
 
 
-# TODO(huanxuan): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class ListNetworkAgent(command.Lister):
     _description = _("List network agents")
     _supported_agents = {
@@ -235,6 +250,7 @@ class ListNetworkAgent(command.Lister):
             default=False,
             help=_("List additional fields in output"),
         )
+        pagination.add_marker_pagination_option_to_parser(parser)
 
         return parser
 
@@ -262,12 +278,19 @@ class ListNetworkAgent(command.Lister):
         )
 
         filters = {}
+        if parsed_args.marker is not None:
+            filters['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            filters['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            filters['max_items'] = parsed_args.max_items
 
+        data: list[_agent.Agent]
         if parsed_args.network is not None:
             network = client.find_network(
                 parsed_args.network, ignore_missing=False
             )
-            data = client.network_hosting_dhcp_agents(network)
+            data = list(client.network_hosting_dhcp_agents(network))
         elif parsed_args.router is not None:
             if parsed_args.long:
                 columns += ('ha_state',)
@@ -275,7 +298,7 @@ class ListNetworkAgent(command.Lister):
             router = client.find_router(
                 parsed_args.router, ignore_missing=False
             )
-            data = client.routers_hosting_l3_agents(router)
+            data = list(client.routers_hosting_l3_agents(router))
         else:
             if parsed_args.agent_type is not None:
                 filters['agent_type'] = self._supported_agents[
@@ -284,7 +307,8 @@ class ListNetworkAgent(command.Lister):
             if parsed_args.host is not None:
                 filters['host'] = parsed_args.host
 
-            data = client.agents(**filters)
+            data = list(client.agents(**filters))
+
         return (
             column_headers,
             (
@@ -365,8 +389,6 @@ class RemoveRouterFromAgent(command.Command):
             client.remove_router_from_agent(agent, router)
 
 
-# TODO(huanxuan): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class SetNetworkAgent(command.Command):
     _description = _("Set network agent properties")
 

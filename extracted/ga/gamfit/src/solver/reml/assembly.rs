@@ -9,10 +9,10 @@
 
 use super::FirthDenseOperator;
 use super::unified::{
-    BarrierConfig, DispersionHandling, EvalMode, FixedDriftDerivFn, HessianDerivativeProvider,
-    HessianOperator, HyperCoord, HyperCoordPair, InnerSolution, InnerSolutionBuilder,
-    PenaltyCoordinate, PenaltyLogdetDerivs, PenaltySubspaceTrace, ProjectedKktResidual,
-    RemlLamlResult, penalty_matrix_root, reml_laml_evaluate,
+    BarrierConfig, ContractedPsiSecondOrderFn, DispersionHandling, EvalMode, FixedDriftDerivFn,
+    HessianDerivativeProvider, HessianOperator, HyperCoord, HyperCoordPair, InnerSolution,
+    InnerSolutionBuilder, PenaltyCoordinate, PenaltyLogdetDerivs, PenaltySubspaceTrace,
+    ProjectedKktResidual, RemlLamlResult, penalty_matrix_root, reml_laml_evaluate,
 };
 use crate::faer_ndarray::fast_xt_diag_y;
 use ndarray::{Array1, Array2};
@@ -29,7 +29,7 @@ use std::sync::Arc;
 /// Dense weighted-product work below this approximate flop count stays on the
 /// caller thread and uses the existing faer GEMM path. Above the threshold we
 /// stream rows through rayon-local accumulation buffers to avoid materializing
-/// weighted n×p design copies at biobank scale.
+/// weighted n×p design copies at large scale.
 const DENSE_WEIGHTED_PRODUCT_PAR_FLOPS: usize = 8_000_000;
 const DENSE_ROW_SCALE_PAR_CELLS: usize = 64 * 1024;
 
@@ -334,6 +334,10 @@ pub struct InnerAssembly<'dp> {
     pub ext_coord_pair_fn: Option<Box<dyn Fn(usize, usize) -> HyperCoordPair + Send + Sync>>,
     pub rho_ext_pair_fn: Option<Box<dyn Fn(usize, usize) -> HyperCoordPair + Send + Sync>>,
     pub fixed_drift_deriv: Option<FixedDriftDerivFn>,
+    /// Direction-contracted ψψ second-order hook (#740). When set, the
+    /// outer-Hessian operator builder skips the `K²` per-pair ψψ assembly and
+    /// applies this once per matvec.
+    pub contracted_psi_second_order: Option<ContractedPsiSecondOrderFn>,
 }
 
 impl<'dp> InnerAssembly<'dp> {
@@ -378,6 +382,7 @@ impl<'dp> InnerAssembly<'dp> {
         if let Some(f) = self.fixed_drift_deriv {
             builder = builder.fixed_drift_deriv(f);
         }
+        builder = builder.contracted_psi_second_order(self.contracted_psi_second_order);
 
         builder.build()
     }
@@ -559,7 +564,7 @@ mod tests {
     }
 
     #[test]
-    fn weighted_cross_dense_matches_rowwise_reference_at_biobank_block_size() {
+    fn weighted_cross_dense_matches_rowwise_reference_at_large_scale_block_size() {
         assert!(file!().ends_with(".rs"));
         let left = deterministic_matrix(2048, 96, 0.1);
         let right = deterministic_matrix(2048, 64, 0.7);
@@ -570,7 +575,7 @@ mod tests {
     }
 
     #[test]
-    fn xt_diag_x_dense_into_matches_symmetric_reference_at_biobank_block_size() {
+    fn xt_diag_x_dense_into_matches_symmetric_reference_at_large_scale_block_size() {
         assert!(file!().ends_with(".rs"));
         let x = deterministic_matrix(1024, 96, 1.1);
         let weights = deterministic_weights(x.nrows());

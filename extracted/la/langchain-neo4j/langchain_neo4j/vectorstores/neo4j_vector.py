@@ -111,6 +111,13 @@ def dict_to_yaml_str(input_dict: Dict, indent: int = 0) -> str:
     return yaml_str
 
 
+class DataIngestionNotSupported(ValueError):
+    """Data ingestion is not supported with relationship vector index."""
+
+    def __init__(self) -> None:
+        super().__init__(self.__doc__)
+
+
 class Neo4jVector(VectorStore):
     """Neo4j vector index.
 
@@ -500,10 +507,8 @@ class Neo4jVector(VectorStore):
             index_type = None
 
         # Raise error if relationship index type
-        if index_type == "RELATIONSHIP":
-            raise ValueError(
-                "Data ingestion is not supported with relationship vector index."
-            )
+        if index_type == IndexType.RELATIONSHIP:
+            raise DataIngestionNotSupported
 
         # If the vector index doesn't exist yet
         if not index_type:
@@ -560,6 +565,10 @@ class Neo4jVector(VectorStore):
             metadatas: List of metadatas associated with the texts.
             kwargs: `VectorStore` specific parameters
         """
+
+        if self._index_type == IndexType.RELATIONSHIP:
+            raise DataIngestionNotSupported
+
         if ids is None:
             ids = [md5(text.encode("utf-8")).hexdigest() for text in texts]
 
@@ -624,6 +633,10 @@ class Neo4jVector(VectorStore):
         Returns:
             List of IDs from adding the texts into the `VectorStore`.
         """
+
+        if self._index_type == IndexType.RELATIONSHIP:
+            raise DataIngestionNotSupported
+
         embeddings = self.embedding.embed_documents(list(texts))
         return self.add_embeddings(
             texts=texts, embeddings=embeddings, metadatas=metadatas, ids=ids, **kwargs
@@ -740,7 +753,7 @@ class Neo4jVector(VectorStore):
             f"{entity_prefix} "
             "{.*, "
             f"`{self.text_node_property}`: Null, "
-            f"`{self.embedding_node_property}`: Null, id: Null "
+            f"`{self.embedding_node_property}`: Null "
         )
         if kwargs.get("return_embeddings"):
             default_retrieval += (
@@ -1403,7 +1416,7 @@ def _text_node_props_retrieval_query(
         " str + '\\n' + k + ': ' + coalesce(node[k], '')) AS text, "
         "node {.*, `"
         + embedding_node_property
-        + "`: Null, id: Null, "
+        + "`: Null, "
         + ", ".join([f"`{prop}`: Null" for prop in text_node_properties])
         + "} AS metadata, score"
     )

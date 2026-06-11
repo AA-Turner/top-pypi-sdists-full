@@ -31,7 +31,7 @@ from typing import Optional
 
 import httpx
 
-from ..core.cli_auth import SAGE_API_BASE, get_valid_token, load_auth
+from ..core.cli_auth import get_api_base, get_valid_token, load_auth
 from .anonymizer import anonymize_payload
 from .base import Message, ModelInfo, ProviderBase
 
@@ -183,7 +183,7 @@ class SageHostedProvider(ProviderBase):
     def __init__(self, *, api_base: str | None = None, timeout_seconds: int = 180):
         # Allow override for local dev (point at localhost:8000) without
         # changing the user's `sage login` state.
-        self._api_base = (api_base or SAGE_API_BASE).rstrip("/")
+        self._api_base = (api_base or get_api_base()).rstrip("/")
         # 180s default covers worst-case cold start (60s) + a few seconds of
         # actual inference. Streaming has no read timeout, see below.
         self._timeout = timeout_seconds

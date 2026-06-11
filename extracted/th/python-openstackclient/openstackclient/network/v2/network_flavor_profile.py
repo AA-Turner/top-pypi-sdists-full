@@ -16,17 +16,21 @@ import logging
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+from openstack.network.v2 import service_profile as _service_profile
 from osc_lib import exceptions
 from osc_lib import utils
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.network import common
 
 LOG = logging.getLogger(__name__)
 
 
-def _get_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_columns(
+    item: _service_profile.ServiceProfile,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     column_map = {
         'is_enabled': 'enabled',
     }
@@ -55,8 +59,6 @@ def _get_attrs(
     return attrs
 
 
-# TODO(ndahiwade): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class CreateNetworkFlavorProfile(
     command.ShowOne, common.NeutronCommandWithExtraArgs
 ):
@@ -161,6 +163,11 @@ class DeleteNetworkFlavorProfile(command.Command):
 class ListNetworkFlavorProfile(command.Lister):
     _description = _("List network flavor profile(s)")
 
+    def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
+        parser = super().get_parser(prog_name)
+        pagination.add_marker_pagination_option_to_parser(parser)
+        return parser
+
     def take_action(
         self, parsed_args: argparse.Namespace
     ) -> tuple[tuple[str, ...], Iterable[tuple[Any, ...]]]:
@@ -181,7 +188,16 @@ class ListNetworkFlavorProfile(command.Lister):
             'Description',
         )
 
-        data = client.service_profiles()
+        filters = {}
+        if parsed_args.marker is not None:
+            filters['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            filters['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            filters['max_items'] = parsed_args.max_items
+
+        data = client.service_profiles(**filters)
+
         return (
             column_headers,
             (
@@ -194,8 +210,6 @@ class ListNetworkFlavorProfile(command.Lister):
         )
 
 
-# TODO(ndahiwade): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class SetNetworkFlavorProfile(common.NeutronCommandWithExtraArgs):
     _description = _("Set network flavor profile properties")
 

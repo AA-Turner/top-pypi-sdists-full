@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fathom-python
-Version: 0.0.39
+Version: 0.0.40
 Summary: Fathom's official Python SDK.
 Author: Speakeasy
 Requires-Python: >=3.9.2

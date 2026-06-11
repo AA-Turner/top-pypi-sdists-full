@@ -2,7 +2,6 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 
-import sys
 import uuid
 import re
 from abc import ABC, abstractmethod
@@ -90,13 +89,7 @@ from snowflake.snowpark._internal.utils import (
 )
 import snowflake.snowpark.context as context
 
-# Python 3.8 needs to use typing.Iterable because collections.abc.Iterable is not subscriptable
-# Python 3.9 can use both
-# Python 3.10 needs to use collections.abc.Iterable because typing.Iterable is removed
-if sys.version_info <= (3, 9):
-    from typing import Iterable
-else:
-    from collections.abc import Iterable
+from collections.abc import Iterable
 
 SET_UNION = analyzer_utils.UNION
 SET_UNION_ALL = analyzer_utils.UNION_ALL
@@ -963,7 +956,7 @@ class SelectStatement(Selectable):
         new._snowflake_plan = None
         new.flatten_disabled = False  # by default a SelectStatement can be flattened.
         new._api_calls = self._api_calls.copy() if self._api_calls is not None else None
-        new.df_aliased_col_name_to_real_col_name = (
+        new.df_aliased_col_name_to_real_col_name = deepcopy(
             self.df_aliased_col_name_to_real_col_name
         )
         new._merge_projection_complexity_with_subquery = (

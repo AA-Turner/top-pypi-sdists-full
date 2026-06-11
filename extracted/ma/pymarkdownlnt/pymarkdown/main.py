@@ -391,10 +391,14 @@ class PyMarkdownLint:
             self.__handle_error,
             self.__properties,
         )
-        did_fix_any_files, did_fail_any_file = fsh.process_files_to_scan(
-            args, use_standard_in, files_to_scan, self.__string_to_scan
+        did_fix_any_files, did_fail_any_file, no_plugins_active_for_fix = (
+            fsh.process_files_to_scan(
+                args, use_standard_in, files_to_scan, self.__string_to_scan
+            )
         )
-        if did_fail_any_file:
+        if no_plugins_active_for_fix:
+            scan_result = ApplicationResult.FIXED_NO_PLUGINS
+        elif did_fail_any_file:
             scan_result = ApplicationResult.SYSTEM_ERROR
         elif did_fix_any_files:
             scan_result = ApplicationResult.FIXED_AT_LEAST_ONE_FILE
@@ -415,8 +419,13 @@ class PyMarkdownLint:
 
         POGGER.info("Determining files to scan.")
         paths_to_exclude: List[str] = args.path_exclusions or []
-        if config_paths := self.__properties.get_string_property("system.exclude_path"):
-            paths_to_exclude.extend(config_paths.split(","))
+        if config_paths := (
+            self.__properties.get_string_list_property(
+                "system.exclude_path", delimiter=","
+            )
+            or []
+        ):
+            paths_to_exclude.extend(config_paths)
 
         files_to_scan, did_error_scanning_files, did_only_list_files = (
             ApplicationFileScanner.determine_files_to_scan_with_args(

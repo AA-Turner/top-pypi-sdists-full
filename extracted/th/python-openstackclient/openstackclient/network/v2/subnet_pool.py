@@ -18,6 +18,7 @@ from collections.abc import Iterable, Sequence
 import logging
 from typing import Any
 
+from openstack.network.v2 import subnet_pool as _subnet_pool
 from osc_lib.cli import format_columns
 from osc_lib.cli import parseractions
 from osc_lib import exceptions
@@ -25,15 +26,17 @@ from osc_lib import utils
 from osc_lib.utils import tags as _tag
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 from openstackclient.network import common
 
-
 LOG = logging.getLogger(__name__)
 
 
-def _get_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_columns(
+    item: _subnet_pool.SubnetPool,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     column_map = {
         'default_prefix_length': 'default_prefixlen',
         'is_shared': 'shared',
@@ -156,8 +159,6 @@ def _add_default_options(parser: argparse.ArgumentParser) -> None:
     )
 
 
-# TODO(rtheis): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class CreateSubnetPool(command.ShowOne, common.NeutronCommandWithExtraArgs):
     _description = _("Create subnet pool")
 
@@ -270,8 +271,6 @@ class DeleteSubnetPool(command.Command):
             raise exceptions.CommandError(msg)
 
 
-# TODO(rtheis): Use only the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class ListSubnetPool(command.Lister):
     _description = _("List subnet pools")
 
@@ -334,6 +333,7 @@ class ListSubnetPool(command.Lister):
             ),
         )
         _tag.add_tag_filtering_option_to_parser(parser, _('subnet pools'))
+        pagination.add_marker_pagination_option_to_parser(parser)
         return parser
 
     def take_action(
@@ -366,7 +366,14 @@ class ListSubnetPool(command.Lister):
                 parsed_args.address_scope, ignore_missing=False
             )
             filters['address_scope_id'] = address_scope.id
+        if parsed_args.marker is not None:
+            filters['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            filters['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            filters['max_items'] = parsed_args.max_items
         _tag.get_tag_filtering_args(parsed_args, filters)
+
         data = network_client.subnet_pools(**filters)
 
         headers: tuple[str, ...] = ('ID', 'Name', 'Prefixes')
@@ -400,8 +407,6 @@ class ListSubnetPool(command.Lister):
         )
 
 
-# TODO(rtheis): Use the SDK resource mapped attribute names once the
-# OSC minimum requirements include SDK 1.0.
 class SetSubnetPool(common.NeutronCommandWithExtraArgs):
     _description = _("Set subnet pool properties")
 

@@ -114,12 +114,13 @@ use gam::types::{
     WigglePenaltyConfig,
 };
 use gam::{
-    BernoulliMarginalSlopeFitRequest, BinomialLocationScaleFitRequest, FitRequest, FitResult,
-    GaussianLocationScaleFitRequest, LatentBinaryFitRequest, LatentSurvivalFitRequest,
-    LinkWiggleConfig, PreparedSurvivalTimeStack, StandardBinomialWiggleConfig, StandardFitRequest,
-    SurvivalLocationScaleFitRequest, SurvivalMarginalSlopeFitRequest,
-    SurvivalTransformationFitRequest, TransformationNormalFitRequest, fit_model,
-    prepare_survival_time_stack, resolve_offset_column, resolve_weight_column,
+    BernoulliMarginalSlopeFitRequest, BinomialLocationScaleFitRequest,
+    DispersionLocationScaleFitRequest, FitRequest, FitResult, GaussianLocationScaleFitRequest,
+    LatentBinaryFitRequest, LatentSurvivalFitRequest, LinkWiggleConfig, PreparedSurvivalTimeStack,
+    StandardBinomialWiggleConfig, StandardFitRequest, SurvivalLocationScaleFitRequest,
+    SurvivalMarginalSlopeFitRequest, SurvivalTransformationFitRequest,
+    TransformationNormalFitRequest, fit_model, prepare_survival_time_stack, resolve_offset_column,
+    resolve_weight_column,
 };
 use ndarray::{Array1, Array2, ArrayView1, Axis, array, s};
 use rand::{SeedableRng, rngs::StdRng};
@@ -378,7 +379,7 @@ struct FitArgs {
     /// want a non-default binomial link.
     #[arg(long = "predict-noise")]
     predict_noise: Option<String>,
-    /// Secondary RHS-only formula for ancestry-varying log-slope surface(s)
+    /// Secondary RHS-only formula for grouping-varying log-slope surface(s)
     /// in the Bernoulli marginal-slope family. Pass terms only, not `y ~ ...`.
     /// Use additive `logslope(z_col, terms...)` declarations for vector-z
     /// marginal-slope models.
@@ -1293,7 +1294,7 @@ fn run_fit(args: FitArgs) -> Result<(), String> {
     }
 
     progress.set_stage("fit", "building term specification");
-    // Shape-derived resource policy: at biobank-scale n we auto-select strict
+    // Shape-derived resource policy: at large-scale n we auto-select strict
     // (analytic-operator-required) so any silent dense fallback in the
     // term-construction layer fails fast.
     let bare_fit_policy = gam::resource::ResourcePolicy::for_problem(
@@ -1920,10 +1921,10 @@ fn run_fit_bernoulli_marginal_slope(
             .map_err(|e| e.to_string())?;
     progress.advance_workflow(4);
     cli_out!(
-        "model fit complete | family={} | outer_iter={} | converged={}",
+        "model fit complete | family={} | outer_iter={} | status={}",
         FAMILY_BERNOULLI_MARGINAL_SLOPE,
         solved.fit.outer_iterations,
-        solved.fit.outer_converged
+        solved.fit.pirls_status.label()
     );
     print_spatial_aniso_scales(&solved.marginalspec_resolved);
     print_spatial_aniso_scales(&solved.logslopespec_resolved);
@@ -1958,6 +1959,7 @@ fn run_fit_bernoulli_marginal_slope(
             },
             solved.latent_measure.clone(),
             solved.latent_z_rank_int_calibration.clone(),
+            solved.latent_z_conditional_calibration.clone(),
             solved.score_warp_runtime.as_ref(),
             solved.link_dev_runtime.as_ref(),
             base_link,
@@ -2074,10 +2076,10 @@ fn run_fit_transformation_normal(
     let frozen_covariate = solved.covariate_spec_resolved.clone();
     progress.advance_workflow(4);
     cli_out!(
-        "model fit complete | family={} | outer_iter={} | converged={}",
+        "model fit complete | family={} | outer_iter={} | status={}",
         FAMILY_TRANSFORMATION_NORMAL,
         solved.fit.outer_iterations,
-        solved.fit.outer_converged
+        solved.fit.pirls_status.label()
     );
     print_spatial_aniso_scales(&solved.covariate_spec_resolved);
 
@@ -2244,10 +2246,10 @@ fn run_fitwith_predict_noise(
                 .map_err(|e| e.to_string())?;
         progress.advance_workflow(4);
         cli_out!(
-            "model fit complete | family={} | outer_iter={} | converged={}",
+            "model fit complete | family={} | outer_iter={} | status={}",
             FAMILY_GAUSSIAN_LOCATION_SCALE,
             fit.outer_iterations,
-            fit.outer_converged
+            fit.pirls_status.label()
         );
         print_spatial_aniso_scales(&meanspec_resolved);
         print_spatial_aniso_scales(&noisespec_resolved);
@@ -2315,9 +2317,133 @@ fn run_fitwith_predict_noise(
         return Ok(());
     }
 
+    // Genuine-dispersion mean families (NegativeBinomial / Gamma / Beta /
+    // Tweedie): `noise_formula` models the overdispersion channel (#913).
+    if let Some(kind) = dispersion_location_scale_kind_for_cli(&family.response) {
+        if formula_linkwiggle.is_some() {
+            return Err(format!(
+                "link-wiggle is not supported for {} location-scale models",
+                kind.family_tag()
+            ));
+        }
+        let options = blockwise_options_from_fit_args()?;
+        progress.set_stage("fit", "optimizing dispersion location-scale model");
+        let phase_start = std::time::Instant::now();
+        log::info!(
+            "[PHASE] dispersion-location-scale ({}) fit start n={}",
+            kind.family_tag(),
+            ds.values.nrows()
+        );
+        let solved = match fit_model(FitRequest::DispersionLocationScale(
+            DispersionLocationScaleFitRequest {
+                data: ds.values.view(),
+                spec: gam::gamlss::DispersionGlmLocationScaleTermSpec {
+                    kind,
+                    y: y.clone(),
+                    weights: weights.clone(),
+                    meanspec: meanspec.clone(),
+                    log_dispspec: noisespec.clone(),
+                    mean_offset,
+                    log_disp_offset: noise_offset,
+                },
+                options,
+                kappa_options: kappa_options.clone(),
+            },
+        )) {
+            Ok(FitResult::DispersionLocationScale(result)) => {
+                log::info!(
+                    "[PHASE] dispersion-location-scale fit end elapsed={:.3}s",
+                    phase_start.elapsed().as_secs_f64()
+                );
+                result
+            }
+            Ok(_) => {
+                emit_smooth_structure_warnings("fit-end", &spatial_usagewarnings);
+                return Err(
+                    "internal dispersion location-scale workflow returned the wrong result variant"
+                        .to_string(),
+                );
+            }
+            Err(e) => {
+                emit_smooth_structure_warnings("fit-end", &spatial_usagewarnings);
+                return Err(format!("dispersion location-scale fit failed: {e}"));
+            }
+        };
+        progress.advance_workflow(3);
+        let fit = solved.fit.fit;
+        let frozen_meanspec = freeze_term_collection_from_design(
+            &solved.fit.meanspec_resolved,
+            &solved.fit.mean_design,
+        )
+        .map_err(|e| e.to_string())?;
+        let frozen_noisespec = freeze_term_collection_from_design(
+            &solved.fit.noisespec_resolved,
+            &solved.fit.noise_design,
+        )
+        .map_err(|e| e.to_string())?;
+        progress.advance_workflow(4);
+        cli_out!(
+            "model fit complete | family={} | outer_iter={} | status={}",
+            kind.family_tag(),
+            fit.outer_iterations,
+            fit.pirls_status.label()
+        );
+        print_spatial_aniso_scales(&solved.fit.meanspec_resolved);
+        print_spatial_aniso_scales(&solved.fit.noisespec_resolved);
+        if let Some(out) = args.out.as_ref() {
+            progress.set_stage("fit", "writing dispersion location-scale model");
+            let fit_result = compact_saved_multiblock_fit_result(
+                fit.blocks.clone(),
+                fit.lambdas.clone(),
+                1.0,
+                fit.covariance_conditional.clone(),
+                fit.covariance_corrected.clone(),
+                fit.geometry.clone(),
+                SavedFitSummary::from_blockwise_fit(&fit)?,
+            );
+            let base_link = if matches!(kind, gam::gamlss::DispersionFamilyKind::Beta) {
+                InverseLink::Standard(StandardLink::Logit)
+            } else {
+                InverseLink::Standard(StandardLink::Log)
+            };
+            let payload = assemble_location_scale_payload(
+                LocationScaleInputs {
+                    formula: formula_text.to_string(),
+                    data_schema: ds.schema.clone(),
+                    noise_formula: noise_formula.clone(),
+                    resolved_termspec: frozen_meanspec,
+                    resolved_termspec_noise: frozen_noisespec,
+                    fit_result,
+                    beta_noise: fit
+                        .block_by_role(BlockRole::Scale)
+                        .map(|block| block.beta.to_vec()),
+                    wiggle: None,
+                },
+                LocationScaleResponse::Dispersion {
+                    likelihood: family.clone(),
+                    base_link,
+                    family_tag: kind.family_tag(),
+                },
+                SavedModelSourceMetadata {
+                    training_headers: ds.headers.clone(),
+                    training_feature_ranges: Some(ds.feature_ranges()),
+                    offset_column: args.offset_column.clone(),
+                    noise_offset_column: args.noise_offset_column.clone(),
+                },
+            )?;
+            write_payload_json(out, payload)?;
+            progress.advance_workflow(fit_total_steps);
+        }
+        emit_smooth_structure_warnings("fit-end", &spatial_usagewarnings);
+        progress.finish_progress("dispersion location-scale fit complete");
+        return Ok(());
+    }
+
     if !family.is_binomial() {
         return Err(
-            "--predict-noise currently supports Gaussian and binomial families".to_string(),
+            "--predict-noise currently supports Gaussian, dispersion (negbin/gamma/beta/tweedie), \
+             and binomial families"
+                .to_string(),
         );
     }
     // family is already gated as binomial by is_binomial() above, so we
@@ -2435,10 +2561,10 @@ fn run_fitwith_predict_noise(
     .map_err(|e| e.to_string())?;
     progress.advance_workflow(4);
     cli_out!(
-        "model fit complete | family={} | outer_iter={} | converged={}",
+        "model fit complete | family={} | outer_iter={} | status={}",
         FAMILY_BINOMIAL_LOCATION_SCALE,
         fit.outer_iterations,
-        fit.outer_converged
+        fit.pirls_status.label()
     );
     print_spatial_aniso_scales(&solved.fit.meanspec_resolved);
     print_spatial_aniso_scales(&solved.fit.noisespec_resolved);
@@ -2500,6 +2626,22 @@ fn run_fitwith_predict_noise(
     emit_smooth_structure_warnings("fit-end", &spatial_usagewarnings);
     progress.finish_progress("binomial location-scale fit complete");
     Ok(())
+}
+
+/// Map a [`ResponseFamily`] to the dispersion-GAM kind whose log-precision
+/// channel can carry a `noise_formula` in the CLI `--predict-noise` path
+/// (#913). Mirrors `workflow::dispersion_location_scale_kind`.
+fn dispersion_location_scale_kind_for_cli(
+    response: &ResponseFamily,
+) -> Option<gam::gamlss::DispersionFamilyKind> {
+    use gam::gamlss::DispersionFamilyKind;
+    match response {
+        ResponseFamily::NegativeBinomial { .. } => Some(DispersionFamilyKind::NegativeBinomial),
+        ResponseFamily::Gamma => Some(DispersionFamilyKind::Gamma),
+        ResponseFamily::Beta { .. } => Some(DispersionFamilyKind::Beta),
+        ResponseFamily::Tweedie { p } => Some(DispersionFamilyKind::Tweedie { p: *p }),
+        _ => None,
+    }
 }
 
 fn pretty_predict_model_class(class: PredictModelClass) -> &'static str {
@@ -4115,6 +4257,61 @@ fn run_diagnose(args: DiagnoseArgs) -> Result<(), String> {
 
     cli_out!("ALO diagnostics (top leverage rows):");
     cli_out!("{table}");
+
+    // Model-comparison corroboration channels (#946): exact smoothing-corrected
+    // conditional AIC and zero-refit PSIS-LOO, computed from the fit-retained
+    // exact pieces (smoothing-parameter covariance Σ_ρ, ALO leave-one-out
+    // predictions) and reported alongside the diagnostics. The ALO solves
+    // already reused the fit's factored Hessian, so the LOO channel is free here.
+    if let Some(unified) = model.unified() {
+        let fit_saved = fit_result_from_saved_model_for_prediction(&model)?;
+        let eta_hat = &design.design.dot(&fit_saved.beta) + &offset;
+        let comparison = gam::model_comparison::model_comparison_from_unified(
+            unified,
+            y.view(),
+            eta_hat.view(),
+            weights.view(),
+            Some(&alo),
+        );
+        let mut summary = Table::new();
+        summary
+            .load_preset(UTF8_FULL)
+            .set_content_arrangement(ContentArrangement::Dynamic)
+            .set_header(vec!["criterion", "value"]);
+        summary.add_row(Row::from(vec![
+            Cell::new("edf (conditional)"),
+            Cell::new(format!("{:.4}", comparison.edf.conditional)),
+        ]));
+        summary.add_row(Row::from(vec![
+            Cell::new("edf (corrected, WPS)"),
+            Cell::new(format!("{:.4}", comparison.edf.corrected)),
+        ]));
+        summary.add_row(Row::from(vec![
+            Cell::new("rho-uncertainty df"),
+            Cell::new(format!("{:.4}", comparison.edf.rho_uncertainty_df())),
+        ]));
+        summary.add_row(Row::from(vec![
+            Cell::new("AIC (conditional)"),
+            Cell::new(format!("{:.4}", comparison.aic_conditional)),
+        ]));
+        summary.add_row(Row::from(vec![
+            Cell::new("AIC (corrected)"),
+            Cell::new(format!("{:.4}", comparison.aic_corrected)),
+        ]));
+        if let Some(loo) = comparison.loo.as_ref() {
+            summary.add_row(Row::from(vec![
+                Cell::new("PSIS-LOO elpd"),
+                Cell::new(format!("{:.4} (se {:.4})", loo.elpd, loo.se)),
+            ]));
+            summary.add_row(Row::from(vec![
+                Cell::new("PSIS k_hat (max)"),
+                Cell::new(format!("{:.3} ({} unreliable)", loo.k_hat_max, loo.n_k_bad)),
+            ]));
+        }
+        cli_out!("Model comparison (corrected AIC + PSIS-LOO):");
+        cli_out!("{summary}");
+    }
+
     progress.advance_workflow(5);
     progress.finish_progress("diagnostics complete");
     Ok(())
@@ -4882,8 +5079,8 @@ fn run_survival(args: SurvivalArgs) -> Result<(), String> {
         };
         let fitted_inverse_link = fit.inverse_link.clone();
         cli_out!(
-            "survival location-scale fit | converged={} | iterations={} | loglik={:.6e} | objective={:.6e}",
-            fit.fit.fit.outer_converged,
+            "survival location-scale fit | status={} | iterations={} | loglik={:.6e} | objective={:.6e}",
+            fit.fit.fit.pirls_status.label(),
             fit.fit.fit.outer_iterations,
             fit.fit.fit.log_likelihood,
             fit.fit.fit.reml_score
@@ -5231,8 +5428,8 @@ fn run_survival(args: SurvivalArgs) -> Result<(), String> {
             }
         };
         cli_out!(
-            "survival marginal-slope fit | converged={} | iterations={} | loglik={:.6e} | objective={:.6e} | baseline_slope={:.4}",
-            fit.fit.outer_converged,
+            "survival marginal-slope fit | status={} | iterations={} | loglik={:.6e} | objective={:.6e} | baseline_slope={:.4}",
+            fit.fit.pirls_status.label(),
             fit.fit.outer_iterations,
             fit.fit.log_likelihood,
             fit.fit.reml_score,
@@ -5503,13 +5700,13 @@ fn run_survival(args: SurvivalArgs) -> Result<(), String> {
             }
         };
         cli_out!(
-            "{} fit | converged={} | iterations={} | loglik={:.6e} | objective={:.6e}",
+            "{} fit | status={} | iterations={} | loglik={:.6e} | objective={:.6e}",
             if likelihood_mode == SurvivalLikelihoodMode::Latent {
                 "latent survival"
             } else {
                 "latent binary"
             },
-            fit.outer_converged,
+            fit.pirls_status.label(),
             fit.outer_iterations,
             fit.log_likelihood,
             fit.reml_score,
@@ -5665,9 +5862,9 @@ fn run_survival(args: SurvivalArgs) -> Result<(), String> {
         };
         cli_out!();
         cli_out!(
-            "cause-specific survival fit | causes={} | converged={} | iterations={} | loglik={:.6e} | objective={:.6e}",
+            "cause-specific survival fit | causes={} | status={} | iterations={} | loglik={:.6e} | objective={:.6e}",
             cause_count,
-            fit.fit.outer_converged,
+            fit.fit.pirls_status.label(),
             fit.fit.outer_iterations,
             fit.fit.log_likelihood,
             fit.fit.reml_score
@@ -6027,24 +6224,25 @@ fn run_survival(args: SurvivalArgs) -> Result<(), String> {
         }
     }
 
-    let fitted_baseline_cfg =
-        if likelihood_mode == SurvivalLikelihoodMode::Weibull && !learn_timewiggle {
-            let time_beta = beta.slice(s![..p_time_total]).to_owned();
-            let (scale, shape) = fitted_weibull_baseline_from_linear_time_beta(&time_beta, time_anchor)
-                .ok_or_else(|| {
-                    "failed to recover fitted Weibull scale/shape from the linear time coefficients"
-                        .to_string()
-                })?;
-            SurvivalBaselineConfig {
-                target: SurvivalBaselineTarget::Weibull,
-                scale: Some(scale),
-                shape: Some(shape),
-                rate: None,
-                makeham: None,
-            }
-        } else {
-            baseline_cfg.clone()
-        };
+    let fitted_baseline_cfg = if likelihood_mode == SurvivalLikelihoodMode::Weibull
+        && !learn_timewiggle
+    {
+        let time_beta = beta.slice(s![..p_time_total]).to_owned();
+        let (scale, shape) = fitted_weibull_baseline_from_linear_time_beta(&time_beta, time_anchor)
+            .ok_or_else(|| {
+                "failed to recover fitted Weibull scale/shape from the linear time coefficients"
+                    .to_string()
+            })?;
+        SurvivalBaselineConfig {
+            target: SurvivalBaselineTarget::Weibull,
+            scale: Some(scale),
+            shape: Some(shape),
+            rate: None,
+            makeham: None,
+        }
+    } else {
+        baseline_cfg.clone()
+    };
 
     cli_out!();
     cli_out!(
@@ -6495,8 +6693,9 @@ fn run_report(args: ReportArgs) -> Result<(), String> {
             notes.push(format!("Block roles: {}", role_labels.join(", ")));
         }
         notes.push(format!(
-            "Outer iterations: {} (converged: {})",
-            unified.outer_iterations, unified.outer_converged
+            "Outer iterations: {} (status: {})",
+            unified.outer_iterations,
+            unified.pirls_status.label()
         ));
         notes.push(format!(
             "Log-likelihood: {:.4}, penalized objective: {:.4}",
@@ -6794,6 +6993,22 @@ fn run_report(args: ReportArgs) -> Result<(), String> {
         deviance: fit.deviance,
         reml_score: fit.reml_score,
         iterations: fit.outer_iterations,
+        convergence_status: fit.pirls_status.label().to_string(),
+        converged: fit.pirls_status.is_converged(),
+        outer_gradient_norm: fit.outer_gradient_norm,
+        criterion_certificate: fit.artifacts.criterion_certificate.as_ref().map(|cert| {
+            report::CriterionCertificateRow {
+                analytic_directional: cert.analytic_directional,
+                fd_directional: cert.fd_directional,
+                fd_error: cert.fd_error,
+                agreement_z: cert.agreement_z,
+                grad_norm: cert.grad_norm,
+                hessian_pd: cert.hessian_pd,
+                lambdas_railed: cert.lambdas_railed.clone(),
+                consistent: cert.first_order_consistent(),
+                clean: cert.is_clean(),
+            }
+        }),
         edf_total: model
             .unified()
             .and_then(|u| u.edf_total())
@@ -7458,6 +7673,7 @@ fn build_bernoulli_marginal_slope_saved_model(
     latent_z_normalization: SavedLatentZNormalization,
     latent_measure: LatentMeasureKind,
     latent_z_rank_int_calibration: Option<gam::families::bms::LatentZRankIntCalibration>,
+    latent_z_conditional_calibration: Option<gam::families::bms::LatentZConditionalCalibration>,
     score_warp_runtime: Option<&DeviationRuntime>,
     link_dev_runtime: Option<&DeviationRuntime>,
     base_link: InverseLink,
@@ -7486,6 +7702,7 @@ fn build_bernoulli_marginal_slope_saved_model(
             latent_z_normalization,
             latent_measure,
             latent_z_rank_int_calibration,
+            latent_z_conditional_calibration,
             score_warp_runtime,
             link_dev_runtime,
             base_link,
@@ -7659,7 +7876,7 @@ fn family_noise_parameter(fit: &UnifiedFitResult, family: LikelihoodSpec) -> Opt
         // metadata, falling back to a unit dispersion only if the fit recorded
         // none.
         ResponseFamily::Tweedie { .. } => fit.likelihood_scale.fixed_phi().or(Some(1.0)),
-        ResponseFamily::NegativeBinomial { theta } => Some(theta),
+        ResponseFamily::NegativeBinomial { theta, .. } => Some(theta),
         // Beta precision φ is estimated jointly with the mean (issue #567), so
         // the authoritative value is the fit's scale metadata, not the seed φ on
         // the original family spec. Fall back to the spec φ only if the fit did
@@ -7717,11 +7934,16 @@ impl SavedFitSummary {
             // gradient measurement (cache hit / gradient-free), persist 0.0
             // and rely on `pirls_status` for convergence quality.
             finalgrad_norm: fit.outer_gradient_norm.unwrap_or(0.0),
-            pirls_status: if fit.outer_converged {
-                gam::pirls::PirlsStatus::Converged
-            } else {
-                gam::pirls::PirlsStatus::StalledAtValidMinimum
-            },
+            // Persist the *real* status the fit carries (set at construction,
+            // see `UnifiedFitResultParts::pirls_status`). Deriving it from the
+            // `outer_converged` bool here would collapse the five-way taxonomy
+            // (MaxIterationsReached / LmStepSearchExhausted / Unstable / …) into
+            // a single "StalledAtValidMinimum" bucket, silently relabeling
+            // genuinely broken fits as healthy for any downstream consumer that
+            // gates on status. The bool is itself just a projection of this
+            // field (`outer_converged == matches!(status, Converged)`), so the
+            // status is strictly more informative.
+            pirls_status: fit.pirls_status,
             deviance: fit.deviance,
             stable_penalty_term,
             max_abs_eta,

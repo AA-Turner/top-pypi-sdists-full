@@ -102,6 +102,15 @@ impl Parser {
         }
     }
 
+    /// 부호 있는 정수 — 선행 `-` 허용 (for-loop range 의 음수 low/step/high).
+    fn parse_signed_int(&mut self, what: &str) -> QasmResult<i64> {
+        if self.check(&Tok::Minus) {
+            self.bump();
+            return Ok(-self.parse_int(what)?);
+        }
+        self.parse_int(what)
+    }
+
     fn parse_size(&mut self, what: &str) -> QasmResult<usize> {
         let tok = self.cur().clone();
         let n = self.parse_int(what)?;
@@ -685,7 +694,8 @@ impl Parser {
     }
 
     /// v0.4.7: `for [int] var in [low:high] { stmts }` (high 포함).
-    /// - panta-sim 호환: low, high 는 ascending integer 시퀀스만.
+    /// v1.4: `[low:step:high]` 의 step 도 보존 — 반복 횟수는 lowering 에서
+    /// `floor((high-low)/step) + 1` 로 계산 (OpenQASM 3.0 §5 range).
     /// - loop variable 은 panta 회로에서 unused — type annotation 도 무시.
     fn parse_for_loop(&mut self, version: QasmVersion) -> QasmResult<Stmt> {
         let kw = self.bump(); // 'for'
@@ -695,25 +705,25 @@ impl Parser {
         }
         let var = self.parse_ident("for-loop variable name")?;
         self.expect_ident_kw("in")?;
-        // index set: `[low:high]` 또는 `[low:step:high]` (현재는 단순 [low:high] 만).
+        // index set: `[low:high]` 또는 `[low:step:high]`.  각 항은 음수 허용
+        // (OpenQASM 3.0 은 음수 step 의 내림차순 range 도 정의).
         self.expect(Tok::LBracket, "'[' after 'in'")?;
-        let low = self.parse_int("for-loop range low")?;
+        let low = self.parse_signed_int("for-loop range low")?;
         self.expect(Tok::Colon, "':' between low and high")?;
-        let next_int = self.parse_int("for-loop range high")?;
-        // [low:step:high] 형식: 다음 ':' 이 있으면 step:high, 아니면 [low:high].
-        let high = if self.check(&Tok::Colon) {
+        let next_int = self.parse_signed_int("for-loop range step or high")?;
+        // [low:step:high] 형식: 다음 ':' 이 있으면 next_int 가 step, 아니면 high.
+        let (step, high) = if self.check(&Tok::Colon) {
             self.bump();
-            // step 무시 (panta 의 ForLoop 는 ascending integer 시퀀스만 — step 1 가정).
-            // 한 단계 더 parse 해서 high 로 사용.
-            self.parse_int("for-loop range high")?
+            (next_int, self.parse_signed_int("for-loop range high")?)
         } else {
-            next_int
+            (1, next_int)
         };
         self.expect(Tok::RBracket, "']'")?;
         let body = self.parse_block(version)?;
         Ok(Stmt::ForLoop {
             var,
             low,
+            step,
             high,
             body,
             line: kw.line,

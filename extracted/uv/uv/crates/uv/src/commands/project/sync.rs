@@ -108,6 +108,7 @@ pub(crate) async fn sync(
                     members: MemberDiscovery::Existing,
                     ..DiscoveryOptions::default()
                 },
+                cache,
                 workspace_cache,
             )
             .await?
@@ -115,6 +116,7 @@ pub(crate) async fn sync(
             VirtualProject::discover_with_package(
                 project_dir,
                 &DiscoveryOptions::default(),
+                cache,
                 workspace_cache,
                 name.clone(),
             )
@@ -123,6 +125,7 @@ pub(crate) async fn sync(
             let project = VirtualProject::discover(
                 project_dir,
                 &DiscoveryOptions::default(),
+                cache,
                 workspace_cache,
             )
             .await?;
@@ -706,6 +709,8 @@ pub(crate) async fn do_sync(
                 resolution: ResolutionMode::default(),
                 sources: sources.clone(),
                 torch_backend: None,
+                cuda_driver_version: None,
+                amd_gpu_architecture: None,
                 upgrade: Upgrade::default(),
             };
             script_extra_build_requires(

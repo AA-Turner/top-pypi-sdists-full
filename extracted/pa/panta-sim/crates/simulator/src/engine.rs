@@ -1789,18 +1789,11 @@ impl ExecutionEngine {
                 Instruction::ApplyNoise { .. } | Instruction::ApplyNoise2 { .. }
             )
         });
-        let has_dynamic = circuit.instructions().iter().any(|inst| {
-            matches!(
-                inst,
-                Instruction::Reset { .. }
-                    | Instruction::IfEq { .. }
-                    | Instruction::IfElse { .. }
-                    | Instruction::WhileLoop { .. }
-                    | Instruction::ForLoop { .. }
-                    | Instruction::Switch { .. }
-            )
-        });
-        if has_noise || has_dynamic {
+        // mid-circuit Measure (뒤에 게이트가 더 있는 측정) 도 위치별 collapse 가
+        // 필요하므로 `Circuit::has_dynamic` (다른 백엔드와 동일 기준) 으로 판별
+        // 한다 — 로컬 검사가 Measure 를 빠뜨려 collapse 없이 최종 상태에서
+        // 샘플하던 버그 수정.
+        if has_noise || circuit.has_dynamic() {
             // trajectory 결과는 mixed state → observable 기댓값이 정의되지 않음.
             // mps = None (expectation 미지원).
             let (counts, sv, fnorm, terr, obs) =
@@ -1983,18 +1976,9 @@ impl ExecutionEngine {
                 Instruction::ApplyNoise { .. } | Instruction::ApplyNoise2 { .. }
             )
         });
-        let has_dynamic = circuit.instructions().iter().any(|inst| {
-            matches!(
-                inst,
-                Instruction::Reset { .. }
-                    | Instruction::IfEq { .. }
-                    | Instruction::IfElse { .. }
-                    | Instruction::WhileLoop { .. }
-                    | Instruction::ForLoop { .. }
-                    | Instruction::Switch { .. }
-            )
-        });
-        if has_noise || has_dynamic {
+        // mid-circuit Measure 포함 여부도 `Circuit::has_dynamic` 기준으로 판별
+        // (run_mps_typed_with_provider 와 동일한 수정 — collapse 누락 버그).
+        if has_noise || circuit.has_dynamic() {
             // v0.6.7: trajectory on GPU MPS is Cut 8c.  For now, fall
             // back to CPU MPS trajectory with host SVD.
             return self.run_mps_trajectory_with_provider::<f32>(circuit, shots, None);
@@ -2180,10 +2164,9 @@ impl ExecutionEngine {
             .instructions()
             .iter()
             .any(|i| matches!(i, Instruction::MeasureAll));
-        let has_explicit_measure = circuit
-            .instructions()
-            .iter()
-            .any(|i| matches!(i, Instruction::Measure { .. }));
+        // v0.6.2 의 statevector/density trajectory 수정과 동일: control-flow
+        // body 안의 Measure 도 재귀 검출해야 counts 가 비지 않는다.
+        let has_explicit_measure = body_has_measure(circuit.instructions());
 
         let mut rng = match self.seed {
             Some(seed) => StdRng::seed_from_u64(seed),
@@ -2299,7 +2282,7 @@ impl ExecutionEngine {
                 // every Measure — the cost is O(N · χ³) but
                 // mid-circuit measurements are typically rare.
                 mps.right_canonicalize();
-                let p1 = mps.single_qubit_probability(*qubit).to_f64().unwrap_or(0.0);
+                let p1 = mps_p_one_normalized::<F>(mps, *qubit);
                 let r: f64 = rng.gen();
                 let outcome = r < p1;
                 mps.collapse_qubit(*qubit, outcome);
@@ -2311,7 +2294,7 @@ impl ExecutionEngine {
                 let n = mps.num_qubits();
                 mps.right_canonicalize();
                 for q in 0..n {
-                    let p1 = mps.single_qubit_probability(q).to_f64().unwrap_or(0.0);
+                    let p1 = mps_p_one_normalized::<F>(mps, q);
                     let r: f64 = rng.gen();
                     let outcome = r < p1;
                     mps.collapse_qubit(q, outcome);
@@ -2322,7 +2305,7 @@ impl ExecutionEngine {
             }
             Instruction::Reset { qubit } => {
                 mps.right_canonicalize();
-                let p1 = mps.single_qubit_probability(*qubit).to_f64().unwrap_or(0.0);
+                let p1 = mps_p_one_normalized::<F>(mps, *qubit);
                 let r: f64 = rng.gen();
                 let outcome = r < p1;
                 mps.collapse_qubit(*qubit, outcome);
@@ -2408,6 +2391,23 @@ impl ExecutionEngine {
     }
 }
 
+/// 우측 정준형 MPS 에서 **정규화된** `p(|1⟩_target)` 를 구한다.
+///
+/// [`qsim_mps::Mps::single_qubit_probability`] 는 raw trace (= norm² ×
+/// p₁_normalized) 를 반환하므로, SVD truncation 으로 norm² < 1 인 상태에서
+/// 그대로 uniform `r ∈ [0,1)` 과 비교하면 잃어버린 norm 만큼 outcome 0 으로
+/// 편향된다.  trajectory 의 Measure / Reset / 비유니터리 노이즈 분기 확률은
+/// 모두 이 함수를 거쳐야 한다.
+fn mps_p_one_normalized<F: qsim_mps::MpsScalar>(mps: &qsim_mps::Mps<F>, target: usize) -> f64 {
+    let raw = mps.single_qubit_probability(target).to_f64().unwrap_or(0.0);
+    let norm_sq = mps.norm_squared();
+    if norm_sq > 0.0 {
+        (raw / norm_sq).clamp(0.0, 1.0)
+    } else {
+        0.0
+    }
+}
+
 /// Apply a single-qubit noise channel to an MPS in trajectory mode (v0.6.5).
 ///
 /// Strategy:
@@ -2459,7 +2459,7 @@ fn apply_noise_to_mps<F: qsim_mps::MpsScalar, R: Rng>(
         NoiseChannel::AmplitudeDamping { gamma } => {
             // Need right-canonical for single_qubit_probability.
             mps.right_canonicalize();
-            let p_one = mps.single_qubit_probability(target).to_f64().unwrap_or(0.0);
+            let p_one = mps_p_one_normalized::<F>(mps, target);
             let p_k1 = gamma * p_one;
             let r: f64 = rng.gen();
             use num_complex::Complex;
@@ -2485,7 +2485,7 @@ fn apply_noise_to_mps<F: qsim_mps::MpsScalar, R: Rng>(
         NoiseChannel::PhaseDamping { gamma } => {
             // K_0 = diag(1, √(1-γ)), K_1 = diag(0, √γ).  p(K_1) = γ·p_one.
             mps.right_canonicalize();
-            let p_one = mps.single_qubit_probability(target).to_f64().unwrap_or(0.0);
+            let p_one = mps_p_one_normalized::<F>(mps, target);
             let p_k1 = gamma * p_one;
             let r: f64 = rng.gen();
             use num_complex::Complex;
@@ -2511,7 +2511,7 @@ fn apply_noise_to_mps<F: qsim_mps::MpsScalar, R: Rng>(
         NoiseChannel::GeneralizedAmplitudeDamping { gamma, p } => {
             // 4 Kraus.  trajectory: ‖K_iψ‖² from single-qubit marginal (p0,p1).
             mps.right_canonicalize();
-            let p1 = mps.single_qubit_probability(target).to_f64().unwrap_or(0.0);
+            let p1 = mps_p_one_normalized::<F>(mps, target);
             let p0 = 1.0 - p1;
             let n0 = p * (p0 + (1.0 - gamma) * p1);
             let n1 = p * gamma * p1;
@@ -4570,6 +4570,90 @@ mod tests {
     use super::*;
     use qsim_core::complex::approx_eq;
     use qsim_core::C64;
+
+    /// 회귀: MPS 백엔드가 mid-circuit Measure 를 위치별 collapse 없이
+    /// 최종 상태에서 샘플하던 버그.  h-measure-h-measure 는 4가지 결과가
+    /// 모두 ~25% 로 나와야 한다 (수정 전: 한 결과 100%).
+    #[test]
+    fn mps_mid_circuit_measure_collapses() {
+        let mut c = Circuit::new(1);
+        c.h(0);
+        c.measure(0, 0);
+        c.h(0);
+        c.measure(0, 1);
+        let engine = ExecutionEngine::with_seed(7).with_backend(Backend::CpuMps);
+        let result = engine.run(&c, 4000);
+        let counts = result.counts();
+        assert!(
+            counts.len() >= 3,
+            "mid-circuit measure 가 collapse 되지 않음: {counts:?}"
+        );
+        for v in counts.values() {
+            let frac = *v as f64 / 4000.0;
+            assert!(
+                (0.15..0.35).contains(&frac),
+                "분포 왜곡 (기대 ~0.25): {counts:?}"
+            );
+        }
+    }
+
+    /// 회귀: control-flow body 안에만 Measure 가 있으면 MPS trajectory 가
+    /// counts 를 emit 하지 않던 버그 (v0.6.2 의 sv/density 수정 누락분).
+    #[test]
+    fn mps_trajectory_measure_in_for_loop_emits_counts() {
+        let mut c = Circuit::new(1);
+        c.h(0);
+        c.for_loop(1, |body| {
+            body.measure(0, 0);
+        });
+        let engine = ExecutionEngine::with_seed(11).with_backend(Backend::CpuMps);
+        let result = engine.run(&c, 500);
+        let counts = result.counts();
+        let total: usize = counts.values().sum();
+        assert_eq!(total, 500, "for_loop 안 measure 의 counts 소실: {counts:?}");
+    }
+
+    /// 회귀: measure_all 이 n_cbits 를 n_qubits 로 *축소* 해 앞선
+    /// measure(q, c>=n_qubits) 의 결과가 사라지던 버그.
+    #[test]
+    fn measure_all_does_not_shrink_cbit_register() {
+        let mut c = Circuit::new(2);
+        c.x(0);
+        c.measure(0, 5);
+        c.measure_all();
+        assert_eq!(c.num_cbits(), 6);
+        let engine = ExecutionEngine::with_seed(3);
+        let result = engine.run(&c, 10);
+        for key in result.counts().keys() {
+            assert_eq!(key.len(), 6, "counts 폭이 6 cbit 이어야 함: {key:?}");
+            // cbit 5 (MSB) 에 measure(0,5) 의 결과 1 이 기록되어야 한다.
+            assert!(key.starts_with('1'), "cbit 5 의 측정 결과 소실: {key:?}");
+        }
+    }
+
+    /// 회귀: SVD truncation 으로 norm² < 1 인 MPS 에서 trajectory Measure 가
+    /// 정규화되지 않은 확률로 샘플해 분포가 잃은 norm 만큼 왜곡되던 버그.
+    /// Bell + χ=1 truncation 후 x(0) — 살아남은 Schmidt 항이 |00⟩/|11⟩ 어느
+    /// 쪽이든 q0 측정은 단일 결과여야 한다 (수정 전: ~50/50 혼합).
+    #[test]
+    fn mps_truncated_norm_measure_unbiased() {
+        let mut c = Circuit::new(2);
+        c.h(0);
+        c.cx(0, 1);
+        c.x(0);
+        c.measure(0, 0);
+        c.x(1); // measure 뒤 게이트 → trajectory 경로 강제.
+        let engine = ExecutionEngine::with_seed(5)
+            .with_backend(Backend::CpuMps)
+            .with_mps_bond_dim(1);
+        let result = engine.run(&c, 400);
+        let counts = result.counts();
+        assert_eq!(
+            counts.len(),
+            1,
+            "truncation 후 결정적이어야 할 측정이 혼합 분포: {counts:?}"
+        );
+    }
 
     #[test]
     fn apply_unitary_2q_matches_general() {

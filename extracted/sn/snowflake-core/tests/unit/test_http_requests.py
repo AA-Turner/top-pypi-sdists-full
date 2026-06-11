@@ -44,24 +44,12 @@ def _reset_connection_pool():
         http.CONNECTION_POOL = original
 
 
-@mock.patch.dict(os.environ, {"HTTPS_PROXY": ""}, clear=False)
 @mock.patch.object(http.urllib3, "ProxyManager")
 @mock.patch.object(http.urllib3, "PoolManager")
 def test_create_connection_pool_uses_proxy_from_configuration(pool_mock, proxy_mock):
-    configuration = types.SimpleNamespace(
-        verify_ssl=True,
-        ssl_ca_cert=None,
-        cert_file=None,
-        key_file=None,
-        assert_hostname=None,
-        retries=None,
-        socket_options=None,
-        connection_pool_maxsize=None,
-        proxy="https://proxy.local:8443",
-        proxy_headers={"X-Proxy": "1"},
+    pool = http.create_connection_pool(
+        _make_configuration(proxy="https://proxy.local:8443", proxy_headers={"X-Proxy": "1"})
     )
-
-    pool = http.create_connection_pool(configuration)
     assert isinstance(pool, http.SFPoolManager)
     proxy_mock.assert_called_once_with(
         num_pools=4,
@@ -80,20 +68,7 @@ def test_create_connection_pool_uses_proxy_from_configuration(pool_mock, proxy_m
 @mock.patch.object(http.urllib3, "ProxyManager")
 @mock.patch.object(http.urllib3, "PoolManager")
 def test_create_connection_pool_uses_proxy_from_env(pool_mock, proxy_mock):
-    configuration = types.SimpleNamespace(
-        verify_ssl=True,
-        ssl_ca_cert=None,
-        cert_file=None,
-        key_file=None,
-        assert_hostname=None,
-        retries=None,
-        socket_options=None,
-        connection_pool_maxsize=None,
-        proxy=None,
-        proxy_headers=None,
-    )
-
-    pool = http.create_connection_pool(configuration)
+    pool = http.create_connection_pool(_make_configuration())
     assert isinstance(pool, http.SFPoolManager)
     proxy_mock.assert_called_once_with(
         num_pools=4,
@@ -108,11 +83,66 @@ def test_create_connection_pool_uses_proxy_from_env(pool_mock, proxy_mock):
     pool_mock.assert_not_called()
 
 
-@mock.patch.dict(os.environ, {"HTTPS_PROXY": ""}, clear=False)
 @mock.patch.object(http.urllib3, "ProxyManager")
 @mock.patch.object(http.urllib3, "PoolManager")
 def test_create_connection_pool_without_proxy(pool_mock, proxy_mock):
-    configuration = types.SimpleNamespace(
+    pool = http.create_connection_pool(_make_configuration())
+    assert isinstance(pool, http.SFPoolManager)
+    proxy_mock.assert_not_called()
+    pool_mock.assert_called_once_with(
+        num_pools=4, maxsize=4, cert_reqs=CERT_REQUIRED, ca_certs=None, cert_file=None, key_file=None
+    )
+
+
+@mock.patch.dict(os.environ, {"https_proxy": "https://lower-proxy:3128"}, clear=False)
+@mock.patch.object(http.urllib3, "ProxyManager")
+@mock.patch.object(http.urllib3, "PoolManager")
+def test_create_connection_pool_uses_proxy_from_lowercase_env(pool_mock, proxy_mock):
+    http.create_connection_pool(_make_configuration())
+    proxy_mock.assert_called()
+    _, kwargs = proxy_mock.call_args
+    assert kwargs["proxy_url"] == "https://lower-proxy:3128"
+    pool_mock.assert_not_called()
+
+
+@mock.patch.dict(os.environ, {"SSL_CERT_FILE": "/etc/ssl/cert_file.pem"}, clear=False)
+@mock.patch.object(http.urllib3, "ProxyManager")
+@mock.patch.object(http.urllib3, "PoolManager")
+def test_create_connection_pool_uses_ssl_cert_file_from_env(pool_mock, proxy_mock):
+    http.create_connection_pool(_make_configuration())
+    pool_mock.assert_called()
+    _, kwargs = pool_mock.call_args
+    assert kwargs["ca_certs"] == "/etc/ssl/cert_file.pem"
+    proxy_mock.assert_not_called()
+
+
+@mock.patch.dict(os.environ, {"ssl_cert_file": "/etc/ssl/lower_cert_file.pem"}, clear=False)
+@mock.patch.object(http.urllib3, "ProxyManager")
+@mock.patch.object(http.urllib3, "PoolManager")
+def test_create_connection_pool_uses_ssl_cert_file_from_lowercase_env(pool_mock, proxy_mock):
+    http.create_connection_pool(_make_configuration())
+    pool_mock.assert_called()
+    _, kwargs = pool_mock.call_args
+    assert kwargs["ca_certs"] == "/etc/ssl/lower_cert_file.pem"
+    proxy_mock.assert_not_called()
+
+
+@mock.patch.object(http.urllib3, "ProxyManager")
+@mock.patch.object(http.urllib3, "PoolManager")
+def test_create_connection_pool_uses_ssl_ca_cert_from_configuration(pool_mock, proxy_mock):
+    http.create_connection_pool(_make_configuration(ssl_ca_cert="/custom/ca.pem"))
+    pool_mock.assert_called()
+    _, kwargs = pool_mock.call_args
+    assert kwargs["ca_certs"] == "/custom/ca.pem"
+    proxy_mock.assert_not_called()
+
+
+def test_sanitize_for_serialization():
+    assert http.sanitize_for_serialization(Decimal("1.23")) == "1.23"
+
+
+def _make_configuration(**overrides):
+    base = dict(
         verify_ssl=True,
         ssl_ca_cert=None,
         cert_file=None,
@@ -124,14 +154,5 @@ def test_create_connection_pool_without_proxy(pool_mock, proxy_mock):
         proxy=None,
         proxy_headers=None,
     )
-
-    pool = http.create_connection_pool(configuration)
-    assert isinstance(pool, http.SFPoolManager)
-    proxy_mock.assert_not_called()
-    pool_mock.assert_called_once_with(
-        num_pools=4, maxsize=4, cert_reqs=CERT_REQUIRED, ca_certs=None, cert_file=None, key_file=None
-    )
-
-
-def test_sanitize_for_serialization():
-    assert http.sanitize_for_serialization(Decimal("1.23")) == "1.23"
+    base.update(overrides)
+    return types.SimpleNamespace(**base)

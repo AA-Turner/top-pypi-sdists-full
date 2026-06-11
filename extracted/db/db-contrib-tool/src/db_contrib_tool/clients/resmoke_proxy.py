@@ -63,7 +63,7 @@ class ResmokeProxy:
     def _lazy_load(self) -> None:
         """Import multiversionconstants from resmoke."""
         if self.multiversion_constants is None:
-            cmd = self.resmoke_cmd
+            cmd = list(self.resmoke_cmd)
             file_name = "multiversion-config.yml"
             subcmd = f"multiversion-config --config-file-output={file_name}"
             if self.include_last_patch:

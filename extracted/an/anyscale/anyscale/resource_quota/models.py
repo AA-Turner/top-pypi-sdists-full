@@ -118,6 +118,17 @@ create_resource_quota = CreateResourceQuota(
                 if not isinstance(value, int):
                     raise TypeError("num_accelerators values must be integers.")
 
+    is_soft_quota: bool = field(
+        default=False,
+        metadata={
+            "docstring": "Whether this is a soft quota. When True, workloads can exceed the quota limit without being blocked."
+        },
+    )
+
+    def _validate_is_soft_quota(self, is_soft_quota: bool):
+        if not isinstance(is_soft_quota, bool):
+            raise TypeError("is_soft_quota must be a boolean.")
+
 
 @dataclass(frozen=True)
 class Quota(ModelBase):
@@ -292,6 +303,17 @@ resource_quota: ResourceQuota = anyscale.resource_quota.create(create_resource_q
     def _validate_is_enabled(self, is_enabled: bool):
         if not isinstance(is_enabled, bool):
             raise TypeError("is_enabled must be a boolean.")
+
+    is_soft_quota: bool = field(
+        default=False,
+        metadata={
+            "docstring": "Whether this is a soft quota. When True, workloads can exceed the quota limit without being blocked."
+        },
+    )
+
+    def _validate_is_soft_quota(self, is_soft_quota: bool):
+        if not isinstance(is_soft_quota, bool):
+            raise TypeError("is_soft_quota must be a boolean.")
 
     deleted_at: Optional[datetime] = field(
         default=None,

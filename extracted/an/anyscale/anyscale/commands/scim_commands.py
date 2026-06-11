@@ -44,6 +44,8 @@ def _format_permission_diff(result: Dict) -> str:
                 old_role = change.get("old_role") or "(none)"
                 new_role = change.get("new_role") or "(removed)"
                 lines.append(f"      - {name}: {old_role} -> {new_role}")
+                if change.get("new_role") is None:
+                    lines.append("        (default project access revoked)")
 
         # Project changes
         project_changes = user.get("project_changes", [])
@@ -134,6 +136,8 @@ def enforce_group_permissions(dry_run: bool) -> None:
             "│                                                                 │\n"
             "│ All role bindings on users will be removed.                     │\n"
             "│ Role bindings on user groups and service accounts are unchanged.│\n"
+            "│                                                                 │\n"
+            "│ Cloud membership edges also removed (default-project access).   │\n"
             "╰─────────────────────────────────────────────────────────────────╯\n"
         )
         click.confirm(

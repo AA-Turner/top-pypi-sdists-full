@@ -15,7 +15,7 @@ import importlib
 import signal
 import sys
 import time
-from typing import Optional
+from typing import Final, Optional, Union
 
 import click
 from rich.console import Console
@@ -27,56 +27,16 @@ from rucio import version
 from rucio.cli.bin_legacy.rucio import ping, test_server, whoami_account
 from rucio.cli.utils import Arguments, exception_handler, get_client, setup_gfal2_logger, signal_handler
 from rucio.client.richclient import MAX_TRACEBACK_WIDTH, MIN_CONSOLE_WIDTH, CLITheme, get_cli_config, get_pager, setup_rich_logger
+from rucio.common.config import config_get_list
+from rucio.common.exception import ConfigurationError
 from rucio.common.utils import setup_logger
 
 
 # Taken directly from https://click.palletsprojects.com/en/stable/complex/#defining-the-lazy-group
 class LazyGroup(click.Group):
-    def __init__(self, *args, lazy_subcommands=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        # lazy_subcommands is a map of the form:
-        #
-        #   {command-name} -> {module-name}.{command-object-name}
-        #
-        self.lazy_subcommands = lazy_subcommands or {}
 
-    def list_commands(self, ctx):
-        base = super().list_commands(ctx)
-        lazy = sorted(self.lazy_subcommands.keys())
-        return base + lazy
-
-    def get_command(self, ctx, cmd_name):
-        if cmd_name in self.lazy_subcommands:
-            return self._lazy_load(cmd_name)
-        return super().get_command(ctx, cmd_name)
-
-    def _lazy_load(self, cmd_name):
-        # lazily loading a command, first get the module name and attribute name
-        import_path = self.lazy_subcommands[cmd_name]
-        modname, cmd_object_name = import_path.rsplit(".", 1)
-        # do the import
-        mod = importlib.import_module(modname)
-        # get the Command object from that module
-        cmd_object = getattr(mod, cmd_object_name)
-        # check the result to make debugging easier
-        if not isinstance(cmd_object, click.BaseCommand):
-            raise ValueError(f"Lazy loading of {import_path} failed by returning " "a non-command object")
-        return cmd_object
-
-    @exception_handler
-    def _invoke_with_handler(self, ctx: click.Context):
-        return super().invoke(ctx)
-
-    def invoke(self, ctx: click.Context):
-        result = self._invoke_with_handler(ctx)
-        if result not in (None, 0):
-            sys.exit(1 if result != 2 else 2)
-        return result
-
-
-@click.group(
-    cls=LazyGroup,
-    lazy_subcommands={
+    DEFAULT_COMMANDS: Final = {"account", "config", "did", "download", "replica", "rse", "rule", "scope", "subscription", "upload", "opendata"}
+    COMMAND_MAP: Final = {
         "account": "rucio.cli.account.account",
         "config": "rucio.cli.config.config",
         "did": "rucio.cli.did.did",
@@ -89,7 +49,70 @@ class LazyGroup(click.Group):
         "subscription": "rucio.cli.subscription.subscription",
         "upload": "rucio.cli.upload.upload_command",
         "opendata": "rucio.cli.opendata.opendata",
-    },
+    }
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+        self.lazy_subcommands = self.pick_commands()
+
+    def pick_commands(self) -> set[str]:
+        commands = set(config_get_list('cli', 'endpoints', raise_exception=False, default=[]))
+        commands_add = set(config_get_list('cli', 'endpoints_add', raise_exception=False, default=[]))
+        commands_remove = set(config_get_list('cli', 'endpoints_remove', raise_exception=False, default=[]))
+
+        if commands and (commands_add or commands_remove):
+            raise ConfigurationError("Endpoints cannot be set in both 'endpoints' and 'endpoints_add'/'endpoints_remove'")
+
+        if commands_add.intersection(commands_remove):
+            raise ConfigurationError("Endpoints cannot be in both 'endpoints_add' and 'endpoints_remove'")
+
+        for config_setting, name in zip([commands, commands_add, commands_remove], ["endpoints", "endpoints_add", "endpoints_remove"]):
+            if config_setting and not config_setting.issubset(set(self.COMMAND_MAP.keys())):
+                msg = f"Endpoints in '{name}', {config_setting} must be a subset of {list(self.COMMAND_MAP.keys())}"
+                raise ConfigurationError(msg)
+
+        if not commands:
+            commands = self.DEFAULT_COMMANDS - commands_remove | commands_add
+
+        return commands
+
+    def list_commands(self, ctx: click.Context) -> list[str]:
+        base = super().list_commands(ctx)
+        lazy = sorted(self.lazy_subcommands)
+        return base + lazy
+
+    def get_command(self, ctx: click.Context, cmd_name: str) -> Union[Optional[click.Command], click.BaseCommand]:
+        if cmd_name in self.lazy_subcommands:
+            return self._lazy_load(cmd_name)
+        return super().get_command(ctx, cmd_name)
+
+    def _lazy_load(self, cmd_name: str) -> click.BaseCommand:
+        # lazily loading a command, first get the module name and attribute name
+        import_path = self.COMMAND_MAP[cmd_name]
+        modname, cmd_object_name = import_path.rsplit(".", 1)
+        # do the import
+        mod = importlib.import_module(modname)
+        # get the Command object from that module
+        cmd_object = getattr(mod, cmd_object_name)
+        # check the result to make debugging easier
+        if not isinstance(cmd_object, click.BaseCommand):
+            raise ValueError(f"Lazy loading of {import_path} failed by returning " "a non-command object")
+        return cmd_object
+
+    @exception_handler
+    def _invoke_with_handler(self, ctx: click.Context) -> Optional[int]:
+        return super().invoke(ctx)
+
+    def invoke(self, ctx: click.Context) -> Optional[int]:
+        result = self._invoke_with_handler(ctx)
+        if result not in (None, 0):
+            sys.exit(1 if result != 2 else 2)
+        return result
+
+
+@click.group(
+    cls=LazyGroup,
     context_settings={"help_option_names": ["-h", "--help"]}
 )  # TODO: Implement https://click.palletsprojects.com/en/stable/options/#dynamic-defaults-for-prompts for args from config or os
 @click.option("--account", "--issuer", "issuer", help="Rucio account to use.")

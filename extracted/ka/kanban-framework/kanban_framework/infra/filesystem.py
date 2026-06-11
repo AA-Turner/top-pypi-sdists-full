@@ -22,18 +22,29 @@ class Filesystem:
     def find_skill_dir() -> Path:
         """Find the kanban skill directory (SKILL.md, agents, rules, etc).
 
-        Uses importlib.resources — the single reliable cross-platform mechanism.
-        Raises FileNotFoundError with a clear message if the skill files
-        are missing from the installed package.
+        Resolution order:
+        1. importlib.resources (pip/wheel install on all platforms)
+        2. kanban_framework/_skill/ (bundled via __file__, works for editable installs)
         """
-        from importlib import resources
-        skill_path = Path(str(resources.files("kanban_framework") / "_skill"))
-        if not (skill_path / "SKILL.md").is_file():
-            raise FileNotFoundError(
-                f"Kanban skill 文件未找到: {skill_path}\n"
-                "请重新安装: pip install --force-reinstall kanban-framework"
-            )
-        return skill_path
+        # 1. importlib.resources
+        try:
+            from importlib import resources
+            skill_path = Path(str(resources.files("kanban_framework") / "_skill"))
+            if (skill_path / "SKILL.md").is_file():
+                return skill_path
+        except Exception:
+            pass
+
+        # 2. Bundled via __file__ — works for editable installs
+        bundled = Path(__file__).resolve().parent.parent / "_skill"
+        if (bundled / "SKILL.md").is_file():
+            return bundled
+
+        raise FileNotFoundError(
+            f"Kanban skill 文件未找到。\n"
+            f"  bundled path: {bundled}\n"
+            "请重新安装: pip install --force-reinstall kanban-framework"
+        )
 
     @staticmethod
     def find_project_root() -> Path:
@@ -156,6 +167,8 @@ class Filesystem:
     def resolve_python(config_path: Path | None = None) -> tuple[str, str]:
         """Resolve a working Python interpreter and the PYTHONPATH for kanban_framework module.
 
+        Priority: user-configured python_bin > sys.executable > system candidates.
+
         Returns:
             (python_bin, pythonpath) where pythonpath is the dir containing kanban_framework/
         """
@@ -167,7 +180,17 @@ class Filesystem:
         pkg_parent = Path(__file__).parent.parent.parent  # .claude/skills/kanban/
         pythonpath = str(pkg_parent)
 
-        # 1. Check config.json python_bin
+        # Auto-discover config_path if not provided
+        if not config_path or not config_path.is_file():
+            try:
+                root = Filesystem.find_project_root()
+                candidate = root / ".kanban" / "config.json"
+                if candidate.is_file():
+                    config_path = candidate
+            except Exception:
+                pass
+
+        # 1. User-configured python_bin — highest priority
         if config_path and config_path.is_file():
             try:
                 cfg = json.loads(config_path.read_text(encoding="utf-8"))
@@ -185,11 +208,11 @@ class Filesystem:
             except Exception:
                 pass
 
-        # 2. Use current interpreter (most reliable)
+        # 2. Current interpreter — secondary
         if sys.executable and Path(sys.executable).exists():
             return sys.executable, pythonpath
 
-        # 3. Try platform-appropriate candidates
+        # 3. System candidates — last resort
         candidates = ["python", "python3"]
         for candidate in candidates:
             try:

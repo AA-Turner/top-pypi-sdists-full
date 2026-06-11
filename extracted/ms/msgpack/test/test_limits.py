@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import sysconfig
+
 import pytest
 
 from msgpack import (
@@ -151,6 +153,35 @@ def test_auto_max_array_len():
     unpacker.feed(packed)
     with pytest.raises(UnpackValueError):
         unpacker.unpack()
+
+
+# Skip on free-threaded CPython builds because this test depends on recursion behavior.
+IS_FREE_THREADED_BUILD = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
+
+
+@pytest.mark.skipif(IS_FREE_THREADED_BUILD, reason="Skipped on free-threaded build")
+def test_nest_limit_1024():
+    import sys
+
+    # Build a list nested 1024 levels deep
+    d = None
+    for _ in range(1024):
+        d = [d]
+
+    # Temporarily raise Python's recursion limit so packing 1024 levels succeeds
+    old_limit = sys.getrecursionlimit()
+    sys.setrecursionlimit(max(old_limit, 30000))
+    try:
+        packed = packb(d)
+        result = unpackb(packed)
+    finally:
+        sys.setrecursionlimit(old_limit)
+
+    # Verify structure iteratively to avoid hitting C-level recursion limit in ==
+    for _ in range(1024):
+        assert isinstance(result, list) and len(result) == 1
+        result = result[0]
+    assert result is None
 
 
 def test_auto_max_map_len():

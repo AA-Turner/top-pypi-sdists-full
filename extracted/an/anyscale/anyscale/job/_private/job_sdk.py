@@ -612,13 +612,44 @@ class PrivateJobSDK(WorkloadSDK):
         project: Optional[str] = None,
         include_archived: bool = False,
     ) -> str:
-        job_model = self._resolve_to_job_model(
-            name=name,
-            job_id=job_id,
-            cloud=cloud,
-            project=project,
-            include_archived=include_archived,
-        )
+        # Name-based lookup prefers the active job over an archived sibling with
+        # the same name: when both exist, the user almost certainly means
+        # "archive the active one." Fall back to include_archived=True only
+        # when the active-only lookup returns no match, so re-archive by name
+        # still resolves the already-archived job and the backend DAO's
+        # idempotency makes the second call a no-op instead of "not found".
+        # ID-based lookup is unique, so we include archived to keep the
+        # idempotent path.
+        if job_id is not None:
+            job_model = self._resolve_to_job_model(
+                name=None,
+                job_id=job_id,
+                cloud=cloud,
+                project=project,
+                include_archived=True,
+            )
+        else:
+            # Call get_job directly so API errors propagate naturally; the
+            # fallback gates on a genuine miss (None) rather than catching any
+            # RuntimeError, which would mask transient network/auth/5xx
+            # failures and silently retry with include_archived=True.
+            job_model = self.client.get_job(
+                name=name,
+                job_id=None,
+                cloud=cloud,
+                project=project,
+                include_archived=include_archived,
+            )
+            if job_model is None and not include_archived:
+                job_model = self.client.get_job(
+                    name=name,
+                    job_id=None,
+                    cloud=cloud,
+                    project=project,
+                    include_archived=True,
+                )
+            if job_model is None:
+                raise RuntimeError(f"Job with name '{name}' was not found.")
 
         ha_state = job_model.state.current_state if job_model.state else None
         if ha_state not in TERMINAL_HA_JOB_STATES:
@@ -627,7 +658,7 @@ class PrivateJobSDK(WorkloadSDK):
             )
 
         self.client.archive_job(job_model.id)
-        self.logger.info(f"Job {job_model.id} is successfully archived.")
+        self.logger.info(f"Job {job_model.id} is archived.")
         return job_model.id
 
     def delete(

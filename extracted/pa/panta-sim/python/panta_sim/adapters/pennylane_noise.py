@@ -111,7 +111,16 @@ def _decode_pennylane_op(op: Any, qml: Any) -> Tuple[str, float]:
     if isinstance(op, qml.PhaseFlip):
         return ("phase_flip", float(op.parameters[0]))
     if isinstance(op, qml.DepolarizingChannel):
-        return ("depolarizing", float(op.parameters[0]))
+        # 컨벤션 변환: PennyLane DepolarizingChannel(p) 는 각 Pauli p/3
+        # (총 오류율 p).  panta/Aer 의 Depolarizing(λ) 는 각 Pauli λ/4 —
+        # 동일 채널은 λ = 4p/3 (그대로 넘기면 25% 약한 노이즈).
+        p = float(op.parameters[0])
+        if p > 0.75:
+            raise ValueError(
+                f"DepolarizingChannel(p={p}) 는 panta 의 λ = 4p/3 = {4 * p / 3:.4f} > 1 — "
+                "panta-sim Depolarizing 표현 범위 (λ ≤ 1, p ≤ 0.75) 를 벗어납니다."
+            )
+        return ("depolarizing", 4.0 * p / 3.0)
     if isinstance(op, qml.AmplitudeDamping):
         return ("amplitude_damping", float(op.parameters[0]))
 

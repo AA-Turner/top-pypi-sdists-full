@@ -99,7 +99,7 @@ def test_create_and_fetch_git(api_integrations):
         api_hook=GitHook(allow_any_secret=True),
         api_allowed_prefixes=["https://github.com"],
         enabled=False,
-        api_blocked_prefixes=["https://github.com/snowflakedb/snowpy"],
+        api_blocked_prefixes=["https://github.com/snowflake-eng/snowpy"],
         comment="created by test_create_and_fetch_git",
     )
     ai = api_integrations.create(ai_def)

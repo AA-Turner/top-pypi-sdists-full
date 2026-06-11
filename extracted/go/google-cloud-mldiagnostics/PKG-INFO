@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-mldiagnostics
-Version: 1.0.2
+Version: 1.0.3
 Summary: diagnostic packages for profiling and ML experiment management
 Author-email: Google Diagon++ <hypercompute-diagon@google.com>
 License: Apache-2.0
@@ -17,6 +17,7 @@ Requires-Dist: google-auth>=2.0.0
 Requires-Dist: google-cloud-logging>=2.0.0
 Requires-Dist: psutil>=6.0.0
 Requires-Dist: packaging>=24.0
+Requires-Dist: pynvml>=11.5.0
 Dynamic: license-file
 
 <!--

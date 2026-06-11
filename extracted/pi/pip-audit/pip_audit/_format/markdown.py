@@ -12,7 +12,12 @@ from packaging.version import Version
 import pip_audit._fix as fix
 import pip_audit._service as service
 
-from .interface import VulnerabilityFormat
+from .interface import VulnerabilityFormat, pypi_url, vuln_id_url
+
+
+def _md_link(text: str, url: str) -> str:
+    """Return a Markdown link."""
+    return f"[{text}]({url})"
 
 
 class MarkdownFormat(VulnerabilityFormat):
@@ -77,14 +82,16 @@ class MarkdownFormat(VulnerabilityFormat):
             header += " | Description"
             border += " | ---"
 
-        vuln_rows: list[str] = []
-        for dep, vulns in result.items():
-            if dep.is_skipped():
-                continue
-            dep = cast(service.ResolvedDependency, dep)
-            applied_fix = next((f for f in fixes if f.dep == dep), None)
-            for vuln in vulns:
-                vuln_rows.append(self._format_vuln(dep, vuln, applied_fix))
+        vuln_rows = [
+            self._format_vuln(
+                cast(service.ResolvedDependency, dep),
+                vuln,
+                next((f for f in fixes if f.dep == dep), None),
+            )
+            for dep, vulns in result.items()
+            if not dep.is_skipped()
+            for vuln in vulns
+        ]
 
         if not vuln_rows:
             return ""
@@ -102,14 +109,17 @@ class MarkdownFormat(VulnerabilityFormat):
         vuln: service.VulnerabilityResult,
         applied_fix: fix.FixVersion | None,
     ) -> str:
+        name_link = _md_link(dep.canonical_name, pypi_url(dep.canonical_name))
+        id_link = _md_link(vuln.id, vuln_id_url(vuln.id))
         vuln_text = (
-            f"{dep.canonical_name} | {dep.version} | {vuln.id} | "
+            f"{name_link} | {dep.version} | {id_link} | "
             f"{self._format_fix_versions(vuln.fix_versions)}"
         )
         if applied_fix is not None:
             vuln_text += f" | {self._format_applied_fix(applied_fix)}"
         if self.output_aliases:
-            vuln_text += f" | {', '.join(vuln.aliases)}"
+            linked_aliases = ", ".join(_md_link(a, vuln_id_url(a)) for a in vuln.aliases)
+            vuln_text += f" | {linked_aliases}"
         if self.output_desc:
             vuln_text += f" | {vuln.description}"
         return vuln_text
@@ -137,7 +147,7 @@ class MarkdownFormat(VulnerabilityFormat):
         border = "--- | ---"
 
         skipped_dep_rows: list[str] = []
-        for dep, _ in result.items():
+        for dep in result.keys():
             if dep.is_skipped():
                 dep = cast(service.SkippedDependency, dep)
                 skipped_dep_rows.append(self._format_skipped_dep(dep))

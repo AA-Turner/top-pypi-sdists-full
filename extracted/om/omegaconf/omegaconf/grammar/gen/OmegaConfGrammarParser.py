@@ -1,4 +1,4 @@
-# Generated from /home/homestar/dev/omegaconf/omegaconf/grammar/OmegaConfGrammarParser.g4 by ANTLR 4.9.3
+# Generated from /home/omry/dev/omegaconf/omegaconf/grammar/OmegaConfGrammarParser.g4 by ANTLR 4.9.3
 # encoding: utf-8
 from antlr4 import *
 from io import StringIO

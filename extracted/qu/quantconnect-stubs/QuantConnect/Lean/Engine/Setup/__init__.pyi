@@ -399,6 +399,29 @@ class BrokerageSetupHandler(System.Object, QuantConnect.Lean.Engine.Setup.ISetup
         ...
 
 
+class AlgorithmSetupException(System.Exception):
+    """Defines an exception generated in the course of invoking IsetupHandler.setup"""
+
+    @overload
+    def __init__(self, message: str) -> None:
+        """
+        Initializes a new instance of the AlgorithmSetupException class
+        
+        :param message: The error message
+        """
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        """
+        Initializes a new instance of the AlgorithmSetupException class
+        
+        :param message: The error message
+        :param inner: The inner exception being wrapped
+        """
+        ...
+
+
 class BaseSetupHandler(System.Object):
     """
     Base class that provides shared code for
@@ -468,29 +491,6 @@ class BaseSetupHandler(System.Object):
         :param currencies_to_update_white_list: If passed, the currencies in the CashBook that are contained in this list will be updated.
         By default, if not passed (null), all currencies in the cashbook without a properly set up currency conversion will be updated.
         This is not intended for actual algorithms but for tests or for this method to be used as a helper.
-        """
-        ...
-
-
-class AlgorithmSetupException(System.Exception):
-    """Defines an exception generated in the course of invoking IsetupHandler.setup"""
-
-    @overload
-    def __init__(self, message: str) -> None:
-        """
-        Initializes a new instance of the AlgorithmSetupException class
-        
-        :param message: The error message
-        """
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        """
-        Initializes a new instance of the AlgorithmSetupException class
-        
-        :param message: The error message
-        :param inner: The inner exception being wrapped
         """
         ...
 

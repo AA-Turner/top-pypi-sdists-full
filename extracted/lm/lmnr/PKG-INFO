@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lmnr
-Version: 0.7.52
+Version: 0.7.53
 Summary: Python SDK for Laminar
 Author: lmnr.ai
 Author-email: lmnr.ai <founders@lmnr.ai>
@@ -12,9 +12,10 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: blake3>=1.0.0,<2.0.0
 Requires-Dist: grpcio>=1
 Requires-Dist: httpx>=0.24.0,<1.0.0
-Requires-Dist: lmnr-claude-code-proxy>=0.1.17
+Requires-Dist: lmnr-claude-code-proxy>=0.1.22
 Requires-Dist: opentelemetry-api>=1.39.0,<2.0.0
 Requires-Dist: opentelemetry-sdk>=1.39.0,<2.0.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.39.0,<2.0.0

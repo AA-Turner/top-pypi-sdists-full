@@ -46,8 +46,22 @@ class RiskManagementModel(System.Object, QuantConnect.Algorithm.Framework.Risk.I
         ...
 
 
-class NullRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
-    """Provides an implementation of IRiskManagementModel that does nothing"""
+class MaximumDrawdownPercentPortfolio(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
+    """
+    Provides an implementation of IRiskManagementModel that limits the drawdown of the portfolio
+    to the specified percentage. Once this is triggered the algorithm will need to be manually restarted.
+    """
+
+    def __init__(self, maximum_drawdown_percent: float = 0.05, is_trailing: bool = False) -> None:
+        """
+        Initializes a new instance of the MaximumDrawdownPercentPortfolio class
+        
+        :param maximum_drawdown_percent: The maximum percentage drawdown allowed for algorithm portfolio
+        compared with starting value, defaults to 5% drawdown
+        :param is_trailing: If "false", the drawdown will be relative to the starting value of the portfolio.
+        If "true", the drawdown will be relative the last maximum portfolio value
+        """
+        ...
 
     def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
@@ -59,14 +73,41 @@ class NullRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.RiskManageme
         ...
 
 
-class RiskManagementModelPythonWrapper(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
-    """Provides an implementation of IRiskManagementModel that wraps a PyObject object"""
+class TrailingStopRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
+    """
+    Provides an implementation of IRiskManagementModel that limits the maximum possible loss
+    measured from the highest unrealized profit
+    """
 
-    def __init__(self, model: typing.Any) -> None:
+    def __init__(self, maximum_drawdown_percent: float = 0.05) -> None:
         """
-        Constructor for initialising the IRiskManagementModel class with wrapped PyObject object
+        Initializes a new instance of the TrailingStopRiskManagementModel class
         
-        :param model: Model defining how risk is managed
+        :param maximum_drawdown_percent: The maximum percentage relative drawdown allowed for algorithm portfolio compared with the highest unrealized profit, defaults to 5% drawdown per security
+        """
+        ...
+
+    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+        """
+        Manages the algorithm's risk at each time step
+        
+        :param algorithm: The algorithm instance
+        :param targets: The current portfolio targets to be assessed for risk
+        """
+        ...
+
+
+class MaximumSectorExposureRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
+    """
+    Provides an implementation of IRiskManagementModel that limits
+    the sector exposure to the specified percentage
+    """
+
+    def __init__(self, maximum_sector_exposure: float = 0.20) -> None:
+        """
+        Initializes a new instance of the MaximumSectorExposureRiskManagementModel class
+        
+        :param maximum_sector_exposure: The maximum exposure for any sector, defaults to 20% sector exposure.
         """
         ...
 
@@ -85,6 +126,56 @@ class RiskManagementModelPythonWrapper(QuantConnect.Algorithm.Framework.Risk.Ris
         
         :param algorithm: The algorithm instance that experienced the change in securities
         :param changes: The security additions and removals from the algorithm
+        """
+        ...
+
+
+class MaximumDrawdownPercentPerSecurity(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
+    """
+    Provides an implementation of IRiskManagementModel that limits the drawdown
+    per holding to the specified percentage
+    """
+
+    def __init__(self, maximum_drawdown_percent: float = 0.05) -> None:
+        """
+        Initializes a new instance of the MaximumDrawdownPercentPerSecurity class
+        
+        :param maximum_drawdown_percent: The maximum percentage drawdown allowed for any single security holding,
+        defaults to 5% drawdown per security
+        """
+        ...
+
+    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+        """
+        Manages the algorithm's risk at each time step
+        
+        :param algorithm: The algorithm instance
+        :param targets: The current portfolio targets to be assessed for risk
+        """
+        ...
+
+
+class MaximumUnrealizedProfitPercentPerSecurity(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
+    """
+    Provides an implementation of IRiskManagementModel that limits the unrealized profit
+    per holding to the specified percentage
+    """
+
+    def __init__(self, maximum_unrealized_profit_percent: float = 0.05) -> None:
+        """
+        Initializes a new instance of the MaximumUnrealizedProfitPercentPerSecurity class
+        
+        :param maximum_unrealized_profit_percent: The maximum percentage unrealized profit allowed for any single security holding,
+        defaults to 5% drawdown per security
+        """
+        ...
+
+    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+        """
+        Manages the algorithm's risk at each time step
+        
+        :param algorithm: The algorithm instance
+        :param targets: The current portfolio targets to be assessed for risk
         """
         ...
 
@@ -162,17 +253,27 @@ class CompositeRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.RiskMan
         ...
 
 
-class MaximumSectorExposureRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
-    """
-    Provides an implementation of IRiskManagementModel that limits
-    the sector exposure to the specified percentage
-    """
+class NullRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
+    """Provides an implementation of IRiskManagementModel that does nothing"""
 
-    def __init__(self, maximum_sector_exposure: float = 0.20) -> None:
+    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
         """
-        Initializes a new instance of the MaximumSectorExposureRiskManagementModel class
+        Manages the algorithm's risk at each time step
         
-        :param maximum_sector_exposure: The maximum exposure for any sector, defaults to 20% sector exposure.
+        :param algorithm: The algorithm instance
+        :param targets: The current portfolio targets to be assessed for risk
+        """
+        ...
+
+
+class RiskManagementModelPythonWrapper(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
+    """Provides an implementation of IRiskManagementModel that wraps a PyObject object"""
+
+    def __init__(self, model: typing.Any) -> None:
+        """
+        Constructor for initialising the IRiskManagementModel class with wrapped PyObject object
+        
+        :param model: Model defining how risk is managed
         """
         ...
 
@@ -191,107 +292,6 @@ class MaximumSectorExposureRiskManagementModel(QuantConnect.Algorithm.Framework.
         
         :param algorithm: The algorithm instance that experienced the change in securities
         :param changes: The security additions and removals from the algorithm
-        """
-        ...
-
-
-class MaximumDrawdownPercentPerSecurity(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
-    """
-    Provides an implementation of IRiskManagementModel that limits the drawdown
-    per holding to the specified percentage
-    """
-
-    def __init__(self, maximum_drawdown_percent: float = 0.05) -> None:
-        """
-        Initializes a new instance of the MaximumDrawdownPercentPerSecurity class
-        
-        :param maximum_drawdown_percent: The maximum percentage drawdown allowed for any single security holding,
-        defaults to 5% drawdown per security
-        """
-        ...
-
-    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
-        """
-        Manages the algorithm's risk at each time step
-        
-        :param algorithm: The algorithm instance
-        :param targets: The current portfolio targets to be assessed for risk
-        """
-        ...
-
-
-class MaximumDrawdownPercentPortfolio(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
-    """
-    Provides an implementation of IRiskManagementModel that limits the drawdown of the portfolio
-    to the specified percentage. Once this is triggered the algorithm will need to be manually restarted.
-    """
-
-    def __init__(self, maximum_drawdown_percent: float = 0.05, is_trailing: bool = False) -> None:
-        """
-        Initializes a new instance of the MaximumDrawdownPercentPortfolio class
-        
-        :param maximum_drawdown_percent: The maximum percentage drawdown allowed for algorithm portfolio
-        compared with starting value, defaults to 5% drawdown
-        :param is_trailing: If "false", the drawdown will be relative to the starting value of the portfolio.
-        If "true", the drawdown will be relative the last maximum portfolio value
-        """
-        ...
-
-    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
-        """
-        Manages the algorithm's risk at each time step
-        
-        :param algorithm: The algorithm instance
-        :param targets: The current portfolio targets to be assessed for risk
-        """
-        ...
-
-
-class TrailingStopRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
-    """
-    Provides an implementation of IRiskManagementModel that limits the maximum possible loss
-    measured from the highest unrealized profit
-    """
-
-    def __init__(self, maximum_drawdown_percent: float = 0.05) -> None:
-        """
-        Initializes a new instance of the TrailingStopRiskManagementModel class
-        
-        :param maximum_drawdown_percent: The maximum percentage relative drawdown allowed for algorithm portfolio compared with the highest unrealized profit, defaults to 5% drawdown per security
-        """
-        ...
-
-    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
-        """
-        Manages the algorithm's risk at each time step
-        
-        :param algorithm: The algorithm instance
-        :param targets: The current portfolio targets to be assessed for risk
-        """
-        ...
-
-
-class MaximumUnrealizedProfitPercentPerSecurity(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
-    """
-    Provides an implementation of IRiskManagementModel that limits the unrealized profit
-    per holding to the specified percentage
-    """
-
-    def __init__(self, maximum_unrealized_profit_percent: float = 0.05) -> None:
-        """
-        Initializes a new instance of the MaximumUnrealizedProfitPercentPerSecurity class
-        
-        :param maximum_unrealized_profit_percent: The maximum percentage unrealized profit allowed for any single security holding,
-        defaults to 5% drawdown per security
-        """
-        ...
-
-    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Sequence[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
-        """
-        Manages the algorithm's risk at each time step
-        
-        :param algorithm: The algorithm instance
-        :param targets: The current portfolio targets to be assessed for risk
         """
         ...
 

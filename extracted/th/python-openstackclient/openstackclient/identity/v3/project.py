@@ -21,12 +21,14 @@ import logging
 from typing import Any
 
 from openstack import exceptions as sdk_exc
+from openstack.identity.v3 import project as _project
 from openstack import utils as sdk_utils
 from osc_lib.cli import parseractions
 from osc_lib import exceptions
 from osc_lib import utils
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.identity import common
 from openstackclient.identity.v3 import tag
@@ -34,10 +36,12 @@ from openstackclient.identity.v3 import tag
 LOG = logging.getLogger(__name__)
 
 
-def _format_project(project: Any) -> tuple[tuple[str, ...], Any]:
+def _format_project(
+    project: _project.Project,
+) -> tuple[tuple[str, ...], tuple[Any, ...]]:
     # NOTE(0weng): Projects allow unknown attributes in the body, so extract
     # the column names separately.
-    (column_headers, columns) = utils.get_osc_show_columns_for_sdk_resource(
+    column_headers, columns = utils.get_osc_show_columns_for_sdk_resource(
         project,
         {'is_enabled': 'enabled'},
         ['links', 'location', 'parents_as_ids', 'subtree_as_ids'],
@@ -297,6 +301,7 @@ class ListProject(command.Lister):
             help=_('List only disabled projects'),
         )
         tag.add_tag_filtering_option_to_parser(parser, _('projects'))
+        pagination.add_marker_pagination_option_to_parser(parser)
         return parser
 
     def take_action(
@@ -348,6 +353,13 @@ class ListProject(command.Lister):
         if parsed_args.is_enabled is not None:
             kwargs['is_enabled'] = parsed_args.is_enabled
 
+        if parsed_args.limit is not None:
+            kwargs['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            kwargs['max_items'] = parsed_args.max_items
+        if parsed_args.marker is not None:
+            kwargs['marker'] = parsed_args.marker
+
         tag.get_tag_filtering_args(parsed_args, kwargs)
 
         if parsed_args.my_projects:
@@ -355,9 +367,7 @@ class ListProject(command.Lister):
             kwargs = {}
             user = self.app.client_manager.auth_ref.user_id
 
-        if user:
-            data = list(identity_client.user_projects(user, **kwargs))
-        else:
+        if not user:
             try:
                 data = list(identity_client.projects(**kwargs))
             except sdk_exc.ForbiddenException:
@@ -365,9 +375,12 @@ class ListProject(command.Lister):
                 # wanting their own project list.
                 if not kwargs:
                     user = self.app.client_manager.auth_ref.user_id
+                    assert user is not None, 'this should not happen'
                     data = list(identity_client.user_projects(user))
                 else:
                     raise
+        else:
+            data = list(identity_client.user_projects(user, **kwargs))
 
         if parsed_args.sort:
             data = list(utils.sort_items(data, parsed_args.sort))

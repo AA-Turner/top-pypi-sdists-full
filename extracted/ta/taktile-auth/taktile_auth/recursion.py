@@ -5,9 +5,9 @@ from uuid6 import uuid7 as _uuid7
 
 from taktile_auth._logging import get_logger
 from taktile_auth._metrics import emit_metric
+from taktile_auth.counter import SharedCounter
 from taktile_auth.exceptions import LoopDetectedException
 from taktile_auth.settings import settings
-from taktile_auth.utils.cache import Cache
 
 logger = get_logger()
 
@@ -63,36 +63,26 @@ class RecursionGate:
       - ``error``: as ``warn`` plus raise ``LoopDetectedException`` once the
         post-increment weight reaches ``abort_weight``.
 
-    Timeout contract: the underlying cache (typically DDB-backed) should be
-    configured with aggressive timeouts (~50ms recommended) so a slow write
-    never stalls the auth path. The counter is best-effort — ``record_hop``
-    swallows any cache exception (including timeouts) and returns
-    ``RecursionDecision.OK`` so auth proceeds.
-
-    Use ``cache.create_recursion_cache`` for the default wiring with strict
-    timeout defaults.
+    Timeout contract: the boto client behind the counter should be
+    configured with aggressive timeouts (~50ms recommended) so a slow
+    write never stalls the auth path. The counter is best-effort —
+    ``record_hop`` swallows any counter exception (including timeouts)
+    and returns ``RecursionDecision.OK`` so auth proceeds.
     """
 
     def __init__(
         self,
         *,
-        cache: Cache,
+        counter: SharedCounter,
         mode: RecursionMode,
         emit_metric: EmitMetric = emit_metric,
     ) -> None:
-        self._cache = cache
+        self._counter = counter
         self._mode: RecursionMode = mode
         self._warn_weight = settings.RECURSION_WARN_WEIGHT
         self._abort_weight = settings.RECURSION_ABORT_WEIGHT
         self._ttl_seconds = settings.RECURSION_TTL_SECONDS
         self._emit_metric = emit_metric
-        # Defensive against version-mismatched cache package
-        self._increment_supported: bool = hasattr(cache, "increment")
-        if not self._increment_supported:
-            logger.warning(
-                "Cache implementation lacks ``increment``; "
-                "PEP-295 recursion accounting disabled"
-            )
 
     def start_session(self) -> str:
         """Mint a fresh session prefix. Does not touch the cache — first-hop
@@ -105,17 +95,15 @@ class RecursionGate:
         """Account for one hop of ``weight``. Returns the decision."""
         if weight <= 0:
             return RecursionDecision.OK
-        if not self._increment_supported:
-            # Cache version predates ``increment`` — already warned at
-            # init; stay silent on the hot path.
-            return RecursionDecision.OK
 
         key = recursion_counter_key(session_prefix)
         try:
-            new_weight = self._cache.increment(key, weight, self._ttl_seconds)
+            new_weight = self._counter.increment(
+                key, weight, self._ttl_seconds
+            )
         except Exception as exc:
             # Fail open: counter accuracy is best-effort, but
-            # auth availability is not. A transient cache outage
+            # auth availability is not. A transient counter outage
             # (DDB throttling, network blip) must not cascade
             # into auth failures.
             logger.warning(

@@ -184,8 +184,8 @@ class ResourceTools:
         - List all resources: ha_config_list_dashboard_resources()
         - List with full content: ha_config_list_dashboard_resources(include_content=True)
 
-        Note: Requires advanced mode to be enabled in Home Assistant for resource
-        management through the UI, but API access works regardless.
+        Note: Home Assistant 2026.6+ exposes resource management in the UI by
+        default, and API access works regardless of UI availability.
         """
         try:
             result = await self._client.send_websocket_message(
@@ -237,6 +237,10 @@ class ResourceTools:
                     "Check that you have admin permissions",
                 ],
             )
+            # ``exception_to_structured_error`` always raises (NoReturn); this
+            # explicit raise makes the function's exit unambiguous (no implicit
+            # ``return None`` fall-through) and is never reached at runtime.
+            raise
 
     @tool(
         name="ha_config_set_dashboard_resource",
@@ -330,7 +334,7 @@ class ResourceTools:
             resource_type="module"
         )
 
-        Add HACS card (after installing via ha_hacs_download):
+        Add HACS card (after installing via ha_manage_hacs(action='download')):
         ha_config_set_dashboard_resource(
             url="/hacsfiles/lovelace-mushroom/mushroom.js",
             resource_type="module"
@@ -519,6 +523,10 @@ class ResourceTools:
                     "Check that you have admin permissions",
                 ],
             )
+            # ``exception_to_structured_error`` always raises (NoReturn); this
+            # explicit raise makes the function's exit unambiguous (no implicit
+            # ``return None`` fall-through) and is never reached at runtime.
+            raise
 
     async def _set_url_resource(
         self,
@@ -587,6 +595,10 @@ class ResourceTools:
                     "Verify the URL is correctly formatted",
                 ],
             )
+            # ``exception_to_structured_error`` always raises (NoReturn); this
+            # explicit raise makes the function's exit unambiguous (no implicit
+            # ``return None`` fall-through) and is never reached at runtime.
+            raise
 
     async def _upsert_resource(
         self,
@@ -729,6 +741,10 @@ class ResourceTools:
                     "Check that you have admin permissions",
                 ],
             )
+            # ``exception_to_structured_error`` always raises (NoReturn); this
+            # explicit raise makes the function's exit unambiguous (no implicit
+            # ``return None`` fall-through) and is never reached at runtime.
+            raise
 
 
 def register_resources_tools(mcp: Any, client: Any, **kwargs: Any) -> None:

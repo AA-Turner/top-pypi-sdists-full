@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-techdocs-core
-Version: 1.6.2
+Version: 1.7.0
 Summary: The core MkDocs plugin used by Backstage's TechDocs as a wrapper around multiple MkDocs plugins and Python Markdown extensions
 Author-email: TechDocs Core <protean@spotify.com>
 License-Expression: Apache-2.0
@@ -22,13 +22,14 @@ Requires-Dist: mkdocs>=1.6
 Requires-Dist: Markdown<3.11,>=3.2
 Requires-Dist: mkdocs-material==9.7.6
 Requires-Dist: markdown-graphviz-inline==1.1.3
+Requires-Dist: mkdocs-github-admonitions-plugin==0.1.1
 Requires-Dist: mkdocs-monorepo-plugin==1.1.2
-Requires-Dist: plantuml-markdown==3.11.1
+Requires-Dist: plantuml-markdown==3.11.2
 Requires-Dist: mdx_truly_sane_lists==1.3
-Requires-Dist: pymdown-extensions==10.21.2
+Requires-Dist: pymdown-extensions==10.21.3
 Requires-Dist: pygments==2.20.0
 Requires-Dist: mkdocs-redirects==1.2.3
-Requires-Dist: click<=8.3.2
+Requires-Dist: click<=8.4.1
 Dynamic: license-file
 
 # mkdocs-techdocs-core
@@ -144,6 +145,7 @@ TechDocs Core plugin:
 
 - [search](https://www.mkdocs.org/user-guide/configuration/#search): A search plugin is provided by default with MkDocs which uses [lunr.js](https://lunrjs.com/) as a search engine.
 - [mkdocs-monorepo-plugin](https://github.com/backstage/mkdocs-monorepo-plugin): This plugin enables you to build multiple sets of documentation in a single MkDocs project. It is designed to address writing documentation in Spotify's largest and most business-critical codebases (typically monoliths or monorepos).
+- [gh-admonitions](https://github.com/PGijsbers/admonitions): This plugin converts GitHub alert syntax, such as `> [!NOTE]`, `> [!TIP]`, `> [!IMPORTANT]`, `> [!WARNING]`, and `> [!CAUTION]`, to MkDocs Material admonitions.
 
 **Extensions**:
 
@@ -166,8 +168,8 @@ TechDocs Core plugin:
   - tabbed: Tabbed allows for tabbed Markdown content.
   - tasklist: Tasklist allows inserting lists with check boxes.
   - tilde: Tilde is syntactically built around the ~ character. It adds support for inserting subscripts and adds an easy way to place text in a <_del_> tag.
-- [markdown_inline_graphviz](https://pypi.org/project/markdown-inline-graphviz/): A Python Markdown extension replaces inline Graphviz definitions with inline SVGs or PNGs.
-  Activate the inline_graphviz extension using the [usage instructions](https://github.com/sprin/markdown-inline-graphviz#usage).
+- [markdown_inline_graphviz](https://pypi.org/project/markdown-graphviz-inline/): A Python Markdown extension replaces inline Graphviz definitions with inline SVGs or PNGs.
+  Activate the markdown_inline_graphviz extension using the [usage instructions](https://github.com/backstage/markdown-inline-graphviz#usage).
 
 - [plantuml_markdown](https://pypi.org/project/plantuml-markdown/): This plugin implements a block extension which can be used to specify a PlantUML diagram which will be converted into an image and inserted in the document.
 

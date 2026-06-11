@@ -238,7 +238,7 @@ class SnapshotService(BaseService):
                 handler_slow_timeout: float | None = None
                 started_wait_timeout = 60.0
             else:
-                handler_timeout = timeout + 30.0
+                handler_timeout = float(timeout or 0) + 30.0
                 handler_slow_timeout = slow_warning_timeout(handler_timeout)
                 started_wait_timeout = handler_timeout
             process_event = ProcessEvent(

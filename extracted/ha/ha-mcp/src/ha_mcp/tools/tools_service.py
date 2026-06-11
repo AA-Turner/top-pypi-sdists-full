@@ -24,7 +24,6 @@ from .helpers import (
     register_tool_methods,
 )
 from .util_helpers import (
-    coerce_bool_param,
     compact_service_result,
     parse_json_param,
     parse_string_list_param,
@@ -82,7 +81,10 @@ _STATE_CHANGING_SERVICES = {
     "set_temperature",
     "set_hvac_mode",
     "set_fan_mode",
-    "set_speed",
+    # fan.set_speed was removed in the HA percentage migration (gone in 2026.6);
+    # its state-changing successors are set_percentage / set_preset_mode.
+    "set_percentage",
+    "set_preset_mode",
     "select_option",
     "set_value",
     "set_datetime",
@@ -94,10 +96,16 @@ _STATE_CHANGING_SERVICES = {
     "media_stop",
 }
 
-# Domains where service calls don't produce entity state changes
+# Domains where a service call does not move the TARGET entity's own primary
+# state to a value the verifier can wait for. ``scene`` belongs here with
+# ``automation``/``script``: activating a scene changes the member entities,
+# but the scene entity's own state is a last-activated timestamp that never
+# becomes "on"/"off" — so waiting for ``turn_on`` -> "on" always times out and
+# only appends a spurious "could not be verified" warning (~10s wasted).
 _NON_STATE_CHANGING_DOMAINS = {
     "automation",
     "script",
+    "scene",
     "homeassistant",
     "notify",
     "tts",
@@ -126,7 +134,7 @@ def _build_service_suggestions(
         if entity_id
         else "Specify an entity_id for targeted service calls",
         f"Check available services for {domain} domain using ha_get_skill_guide",
-        "Use ha_search_entities() to find correct entity IDs",
+        "Use ha_search() to find correct entity IDs",
     ]
 
 
@@ -289,11 +297,11 @@ class ServiceTools:
         domain: str,
         service: str,
         entity_id: str | None = None,
-        data: str | dict[str, Any] | None = None,
-        return_response: bool | str = False,
-        wait: bool | str = True,
+        data: dict[str, Any] | None = None,
+        return_response: bool = False,
+        wait: bool = True,
         verbose: Annotated[
-            bool | str,
+            bool,
             Field(
                 description=(
                     "Return HA's raw service response unchanged (default: False). "
@@ -355,7 +363,7 @@ class ServiceTools:
         **Key behavior:**
         - **wait** (default True): wait for the entity state to change before
           returning. Only applies to state-changing services on a single entity.
-        - **Result compaction (issue #1446, default ON)**: ``result`` is trimmed
+        - **Result compaction (default ON)**: ``result`` is trimmed
           to the targeted entity's record (drops parent-group propagation) and
           stripped of ``context`` / ``last_*`` metadata and heavy attribute
           lists (``effect_list``, ``hue_scenes``). Escape hatches: ``verbose=True``
@@ -365,20 +373,34 @@ class ServiceTools:
         **For detailed service documentation, use ha_get_skill_guide.**
 
         Common patterns: Use ha_get_state() to check current values before making changes.
-        Use ha_search_entities() to find correct entity IDs.
+        Use ha_search() to find correct entity IDs.
         """
+        # ha_mcp_tools.* services are restricted to the ha-mcp server's
+        # dedicated wrappers (which inject the required caller token). Block
+        # ha_call_service from forwarding to that domain — it would otherwise
+        # be a bypass path around the dedicated tools.
+        # HA core's service registry lowercases the domain on fallback lookup
+        # (homeassistant/core.py ServiceRegistry.async_call), so normalise
+        # here to make sure a mixed-case `HA_MCP_TOOLS` can't slip past this
+        # exact-string check and still resolve downstream.
+        if isinstance(domain, str) and domain.strip().lower() == "ha_mcp_tools":
+            raise_tool_error(
+                create_validation_error(
+                    (
+                        "ha_call_service cannot invoke services in the "
+                        "'ha_mcp_tools' domain. Use the dedicated MCP tool "
+                        "instead: ha_list_files, ha_read_file, ha_write_file, "
+                        "ha_delete_file, or ha_config_set_yaml."
+                    ),
+                    parameter="domain",
+                )
+            )
         try:
             service_data = self._parse_service_data(data, entity_id)
 
-            # Coerce return_response boolean parameter
-            return_response_bool = coerce_bool_param(
-                return_response, "return_response", default=False
-            )
-            wait_bool = coerce_bool_param(wait, "wait", default=True)
-            try:
-                verbose_bool = coerce_bool_param(verbose, "verbose", default=False)
-            except ValueError as e:
-                raise_tool_error(create_validation_error(str(e), parameter="verbose"))
+            return_response_bool = return_response
+            wait_bool = wait
+            verbose_bool = verbose
             try:
                 parsed_result_fields = parse_string_list_param(
                     result_fields, "result_fields", allow_csv=True
@@ -486,6 +508,8 @@ class ServiceTools:
                 },
                 suggestions=suggestions,
             )
+            return None  # unreachable: exception_to_structured_error always raises
+        return None  # py/mixed-returns: explicit terminal; error handlers above always raise (NoReturn), unreachable
 
     @tool(
         name="ha_get_operation_status",
@@ -550,6 +574,7 @@ class ServiceTools:
                     "Use ha_get_state() to check current entity states instead",
                 ],
             )
+            return None  # unreachable: exception_to_structured_error always raises
 
     @tool(
         name="ha_bulk_control",
@@ -559,16 +584,15 @@ class ServiceTools:
     @log_tool_usage
     async def ha_bulk_control(
         self,
-        operations: str | list[dict[str, Any]],
-        parallel: bool | str = True,
+        operations: list[dict[str, Any]],
+        parallel: bool = True,
         ctx: Context | None = None,
     ) -> dict[str, Any]:
         """Control multiple devices with bulk operation support and WebSocket tracking."""
-        # Coerce boolean parameter that may come as string from XML-style calls
-        parallel_bool = coerce_bool_param(parallel, "parallel", default=True)
-        assert parallel_bool is not None  # default=True guarantees non-None
+        parallel_bool = parallel
 
-        # Parse JSON operations if provided as string
+        # FastMCP validates operations as list[dict] before this runs.
+        # parse_json_param is kept as a defensive passthrough for the list case.
         try:
             parsed_operations = parse_json_param(operations, "operations")
         except ValueError as e:
@@ -580,8 +604,7 @@ class ServiceTools:
                 )
             )
 
-        # Ensure operations is a list of dicts
-        if parsed_operations is None or not isinstance(parsed_operations, list):
+        if not isinstance(parsed_operations, list):
             raise_tool_error(
                 create_validation_error(
                     "Operations parameter must be a list",
@@ -609,7 +632,7 @@ class ServiceTools:
     async def ha_call_event(
         self,
         event_type: str,
-        data: str | dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Execute a custom event on the Home Assistant event bus.
 

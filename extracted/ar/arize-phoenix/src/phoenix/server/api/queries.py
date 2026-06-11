@@ -2,7 +2,7 @@ import json
 import re
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Iterable, Iterator, Literal, Optional
+from typing import Annotated, Any, Iterable, Iterator, Literal, Optional
 from typing import cast as type_cast
 
 import strawberry
@@ -55,6 +55,7 @@ from phoenix.server.api.helpers.playground_clients import (
 )
 from phoenix.server.api.helpers.playground_registry import PLAYGROUND_CLIENT_REGISTRY
 from phoenix.server.api.helpers.prompts.template_helpers import get_template_formatter
+from phoenix.server.api.input_types.AvailableAgentSkillsInput import AvailableAgentSkillsInput
 from phoenix.server.api.input_types.DatasetFilter import DatasetFilter
 from phoenix.server.api.input_types.DatasetSort import DatasetSort
 from phoenix.server.api.input_types.EvaluatorFilter import EvaluatorFilter
@@ -67,6 +68,7 @@ from phoenix.server.api.input_types.PromptFilter import PromptFilter
 from phoenix.server.api.input_types.PromptTemplateOptions import PromptTemplateOptions
 from phoenix.server.api.input_types.PromptVersionInput import PromptChatTemplateInput
 from phoenix.server.api.types.AgentsConfig import AgentsConfig
+from phoenix.server.api.types.AgentSkill import AgentSkill
 from phoenix.server.api.types.AnnotationConfig import AnnotationConfig, to_gql_annotation_config
 from phoenix.server.api.types.ClassificationEvaluatorConfig import ClassificationEvaluatorConfig
 from phoenix.server.api.types.Dataset import Dataset
@@ -1175,6 +1177,14 @@ class Query:
         last: Optional[int] = UNSET,
         after: Optional[CursorString] = UNSET,
         before: Optional[CursorString] = UNSET,
+        names: Annotated[
+            Optional[list[str]],
+            strawberry.argument(
+                description="When provided, return only labels whose name exactly "
+                "matches one of the given names — a lookup that avoids paging "
+                "through the entire instance-wide vocabulary."
+            ),
+        ] = UNSET,
     ) -> Connection[DatasetLabel]:
         args = ConnectionArgs(
             first=first,
@@ -1182,10 +1192,13 @@ class Query:
             last=last,
             before=before if isinstance(before, CursorString) else None,
         )
+        stmt = select(models.DatasetLabel).order_by(models.DatasetLabel.name.asc())
+        if names:
+            # Exact-match lookup so callers can resolve names to ids without
+            # paging through the entire instance-wide vocabulary.
+            stmt = stmt.where(models.DatasetLabel.name.in_(names))
         async with info.context.db.read() as session:
-            dataset_labels = await session.scalars(
-                select(models.DatasetLabel).order_by(models.DatasetLabel.name.asc())
-            )
+            dataset_labels = await session.scalars(stmt)
         data = [
             DatasetLabel(id=dataset_label.id, db_record=dataset_label)
             for dataset_label in dataset_labels
@@ -1200,6 +1213,14 @@ class Query:
         last: Optional[int] = UNSET,
         after: Optional[CursorString] = UNSET,
         before: Optional[CursorString] = UNSET,
+        names: Annotated[
+            Optional[list[str]],
+            strawberry.argument(
+                description="When provided, return only splits whose name exactly "
+                "matches one of the given names — a lookup that avoids paging "
+                "through the entire instance-wide vocabulary."
+            ),
+        ] = UNSET,
     ) -> Connection[DatasetSplit]:
         args = ConnectionArgs(
             first=first,
@@ -1207,8 +1228,13 @@ class Query:
             last=last,
             before=before if isinstance(before, CursorString) else None,
         )
+        stmt = select(models.DatasetSplit)
+        if names:
+            # Exact-match lookup so callers can resolve names to ids without
+            # paging through the entire instance-wide vocabulary.
+            stmt = stmt.where(models.DatasetSplit.name.in_(names))
         async with info.context.db.read() as session:
-            splits = await session.stream_scalars(select(models.DatasetSplit))
+            splits = await session.stream_scalars(stmt)
             data = [DatasetSplit(id=split.id, db_record=split) async for split in splits]
             return connection_from_list(
                 data=data,
@@ -1493,6 +1519,31 @@ class Query:
             allow_local_traces=trace_recording.allow_local_traces,
             allow_remote_export=trace_recording.allow_remote_export,
         )
+
+    @strawberry.field(description="The assistant skills available given the supplied UI context.")  # type: ignore
+    def available_agent_skills(
+        self,
+        info: Info[Context, None],
+        input: Optional[AvailableAgentSkillsInput] = UNSET,
+    ) -> list[AgentSkill]:
+        from phoenix.server.agents.skills import get_skills
+
+        resolved_input = input if input is not UNSET and input is not None else None
+        skills = get_skills(
+            has_playground_context=bool(resolved_input and resolved_input.has_playground_context),
+            has_dataset_context=bool(resolved_input and resolved_input.has_dataset_context),
+            has_llm_evaluator_context=bool(
+                resolved_input and resolved_input.has_llm_evaluator_context
+            ),
+        )
+        return [
+            AgentSkill(
+                name=skill.name,
+                description=skill.description,
+                summary=skill.summary,
+            )
+            for skill in skills
+        ]
 
     @strawberry.field
     def validate_regular_expression(self, regex: str) -> ValidationResult:

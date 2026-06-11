@@ -56,6 +56,8 @@ from .models import (
     PaginatedEventsResult,
     Order,
     BuiltOrder,
+    CreateOrderParams,
+    TxPayload,
     Position,
     Balance,
     MarketFilterCriteria,
@@ -65,6 +67,10 @@ from .models import (
     SeriesFetchParams,
     TradesParams,
     FetchOrderBookParams,
+    HistoryFilterParams,
+    OHLCVParams,
+    MyTradesParams,
+    OrderHistoryParams,
     ExchangeOptions,
     PolymarketOptions,
     RouterOptions,
@@ -78,6 +84,7 @@ from .models import (
     PriceComparison,
     ArbitrageOpportunity,
     SubscribedAddressSnapshot,
+    SubscriptionOption,
     ExecutionPriceResult,
     MatchRelation,
     ClusterSortOption,
@@ -158,7 +165,7 @@ def restart_server() -> None:
     )
     _default_manager.restart()
 
-__version__ = "2.49.7"
+__version__ = "2.49.8"
 __all__ = [
     # Exchanges
     "Polymarket",
@@ -225,6 +232,8 @@ __all__ = [
     "PaginatedEventsResult",
     "Order",
     "BuiltOrder",
+    "CreateOrderParams",
+    "TxPayload",
     "ExecutionPriceResult",
     "Position",
     "Balance",
@@ -237,6 +246,7 @@ __all__ = [
     "PriceComparison",
     "ArbitrageOpportunity",
     "SubscribedAddressSnapshot",
+    "SubscriptionOption",
     "MatchRelation",
     "ClusterSortOption",
     "MatchedClusterSort",
@@ -249,6 +259,10 @@ __all__ = [
     "SeriesFetchParams",
     "TradesParams",
     "FetchOrderBookParams",
+    "HistoryFilterParams",
+    "OHLCVParams",
+    "MyTradesParams",
+    "OrderHistoryParams",
     "SortOption",
     "SearchIn",
     "OrderSide",

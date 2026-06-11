@@ -482,11 +482,37 @@ class SimulationResult:
         return c
 
     def _observable_n(self) -> int:
-        """관측량 헬퍼용 큐비트 수."""
+        """관측량 헬퍼용 큐비트 수 (dense 상태를 만들지 않고도 결정).
+
+        MPS ``N > 20`` 결과는 ``statevector()`` / ``density_matrix()`` 가 모두
+        실패하지만 ``raw.expectation`` (MPS-direct) 은 동작한다 — 그 경우에도
+        ``local_expectations()`` / ``correlation_matrix()`` 가 쓰일 수 있도록
+        counts 비트열 폭, 마지막으로 항등 Pauli string 프로브로 폴백한다.
+        """
         try:
             return int(round(np.log2(len(self.statevector()))))
-        except ValueError:
+        except (ValueError, NotImplementedError):
+            pass
+        try:
             return int(round(np.log2(self.density_matrix().shape[0])))
+        except (ValueError, NotImplementedError):
+            pass
+        # shots > 0 결과: counts 비트열 폭 = 큐비트 수.
+        counts = self.counts()
+        if counts:
+            return len(next(iter(counts)))
+        # MPS shots=0 N>20: dense 접근 없이 raw.expectation 의 길이 검증을
+        # 프로브 — 항등 Pauli string 길이가 큐비트 수와 일치할 때만 성공한다.
+        for n in range(1, 8193):
+            try:
+                self._raw.expectation([([0] * n, 1.0, 0.0)])
+                return n
+            except ValueError:
+                continue
+        raise ValueError(
+            "큐비트 수를 결정할 수 없습니다 — statevector/density_matrix/counts "
+            "가 모두 없는 결과입니다."
+        )
 
     def density_matrix(self) -> npt.NDArray[np.complexfloating]:
         """Density matrix `ρ ∈ ℂ^(2ⁿ × 2ⁿ)` 를 numpy 2D ndarray 로 반환한다 (v0.5.0).

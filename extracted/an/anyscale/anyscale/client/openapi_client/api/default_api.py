@@ -8817,6 +8817,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cloud_id: (required)
+        :param bool force:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -8842,6 +8843,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cloud_id: (required)
+        :param bool force:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -8859,7 +8861,8 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'cloud_id'
+            'cloud_id',
+            'force'
         ]
         all_params.extend(
             [
@@ -8890,6 +8893,8 @@ class DefaultApi(object):
             path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
 
         query_params = []
+        if 'force' in local_var_params and local_var_params['force'] is not None:  # noqa: E501
+            query_params.append(('force', local_var_params['force']))  # noqa: E501
 
         header_params = {}
 
@@ -37324,8 +37329,8 @@ class DefaultApi(object):
         :param async_req bool: execute request asynchronously
         :param str cloud_id: Filter by cloud_id
         :param str cluster_id: Filter by cluster_id
-        :param str queue_name: Filter by queue_name
-        :param str flavor_name: Filter by flavor_name
+        :param list[str] queue_name: Return events matching any of the specified queue_names
+        :param list[str] flavor_name: Return events matching any of the specified flavor_names
         :param str project_id: Filter by project_id
         :param str cloud_resource_id: Filter by cloud_resource_id
         :param str text_search: Case-insensitive substring filter on scheduler_request_id
@@ -37362,8 +37367,8 @@ class DefaultApi(object):
         :param async_req bool: execute request asynchronously
         :param str cloud_id: Filter by cloud_id
         :param str cluster_id: Filter by cluster_id
-        :param str queue_name: Filter by queue_name
-        :param str flavor_name: Filter by flavor_name
+        :param list[str] queue_name: Return events matching any of the specified queue_names
+        :param list[str] flavor_name: Return events matching any of the specified flavor_names
         :param str project_id: Filter by project_id
         :param str cloud_resource_id: Filter by cloud_resource_id
         :param str text_search: Case-insensitive substring filter on scheduler_request_id
@@ -37439,8 +37444,10 @@ class DefaultApi(object):
             query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
         if 'queue_name' in local_var_params and local_var_params['queue_name'] is not None:  # noqa: E501
             query_params.append(('queue_name', local_var_params['queue_name']))  # noqa: E501
+            collection_formats['queue_name'] = 'multi'  # noqa: E501
         if 'flavor_name' in local_var_params and local_var_params['flavor_name'] is not None:  # noqa: E501
             query_params.append(('flavor_name', local_var_params['flavor_name']))  # noqa: E501
+            collection_formats['flavor_name'] = 'multi'  # noqa: E501
         if 'project_id' in local_var_params and local_var_params['project_id'] is not None:  # noqa: E501
             query_params.append(('project_id', local_var_params['project_id']))  # noqa: E501
         if 'cloud_resource_id' in local_var_params and local_var_params['cloud_resource_id'] is not None:  # noqa: E501

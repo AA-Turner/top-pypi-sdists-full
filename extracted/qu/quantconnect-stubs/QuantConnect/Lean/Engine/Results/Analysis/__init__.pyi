@@ -10,6 +10,32 @@ import System
 import System.Collections.Generic
 
 
+class ResultsAnalyzer(System.Object):
+    """Runs the full suite of backtest diagnostic tests against a single backtest."""
+
+    def __init__(self, result: QuantConnect.Result, algorithm: QuantConnect.Algorithm.QCAlgorithm, language: QuantConnect.Language, logs: typing.Sequence[str]) -> None:
+        """
+        Initializes a new instance of the ResultsAnalyzer class.
+        
+        :param result: The backtest result to analyze.
+        :param algorithm: The algorithm instance used for history requests and settings.
+        :param language: The programming language the algorithm is written in.
+        :param logs: The full list of log lines produced by the backtest.
+        """
+        ...
+
+    def run(self, time_limit_seconds: int = 5, max_failed_analyses: int = 10) -> typing.Sequence[QuantConnect.Analysis]:
+        """
+        Runs all registered diagnostic checks against the backtest in weight order,
+        stopping early when the time limit or maximum failure count is reached.
+        
+        :param time_limit_seconds: Wall-clock seconds allowed for the full chain before early exit.
+        :param max_failed_analyses: Maximum number of failing analyses to collect before stopping; also the max returned.
+        :returns: Up to max_failed_analysesQuantConnect.Analysis entries with solutions, ranked by weight.
+        """
+        ...
+
+
 class ResultsAnalysisRunParameters(System.Object):
     """
     Bundles all dependencies that a Analyses.BaseResultsAnalysis may need,
@@ -48,32 +74,6 @@ class ResultsAnalysisRunParameters(System.Object):
 
     def __init__(self, result: QuantConnect.Result, algorithm: QuantConnect.Algorithm.QCAlgorithm, language: QuantConnect.Language, logs: typing.Sequence[str], equity_curve: System.Collections.Generic.SortedList[datetime.datetime, float], benchmark_equity_curve: System.Collections.Generic.SortedList[datetime.datetime, float]) -> None:
         """Initializes a new instance of the ResultsAnalysisRunParameters class with the specified dependencies."""
-        ...
-
-
-class ResultsAnalyzer(System.Object):
-    """Runs the full suite of backtest diagnostic tests against a single backtest."""
-
-    def __init__(self, result: QuantConnect.Result, algorithm: QuantConnect.Algorithm.QCAlgorithm, language: QuantConnect.Language, logs: typing.Sequence[str]) -> None:
-        """
-        Initializes a new instance of the ResultsAnalyzer class.
-        
-        :param result: The backtest result to analyze.
-        :param algorithm: The algorithm instance used for history requests and settings.
-        :param language: The programming language the algorithm is written in.
-        :param logs: The full list of log lines produced by the backtest.
-        """
-        ...
-
-    def run(self, time_limit_seconds: int = 5, max_failed_analyses: int = 10) -> typing.Sequence[QuantConnect.Analysis]:
-        """
-        Runs all registered diagnostic checks against the backtest in weight order,
-        stopping early when the time limit or maximum failure count is reached.
-        
-        :param time_limit_seconds: Wall-clock seconds allowed for the full chain before early exit.
-        :param max_failed_analyses: Maximum number of failing analyses to collect before stopping; also the max returned.
-        :returns: Up to max_failed_analysesQuantConnect.Analysis entries with solutions, ranked by weight.
-        """
         ...
 
 

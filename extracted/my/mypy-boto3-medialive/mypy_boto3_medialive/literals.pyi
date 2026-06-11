@@ -44,6 +44,7 @@ __all__ = (
     "AudioLanguageSelectionPolicyType",
     "AudioNormalizationAlgorithmControlType",
     "AudioNormalizationAlgorithmType",
+    "AudioNormalizationPeakCalculationType",
     "AudioOnlyHlsSegmentTypeType",
     "AudioOnlyHlsTrackTypeType",
     "AudioTypeType",
@@ -452,7 +453,8 @@ AudioDescriptionAudioTypeControlType = Literal["FOLLOW_INPUT", "USE_CONFIGURED"]
 AudioDescriptionLanguageCodeControlType = Literal["FOLLOW_INPUT", "USE_CONFIGURED"]
 AudioLanguageSelectionPolicyType = Literal["LOOSE", "STRICT"]
 AudioNormalizationAlgorithmControlType = Literal["CORRECT_AUDIO"]
-AudioNormalizationAlgorithmType = Literal["ITU_1770_1", "ITU_1770_2"]
+AudioNormalizationAlgorithmType = Literal["ITU_1770_1", "ITU_1770_2", "ITU_1770_3", "ITU_1770_4"]
+AudioNormalizationPeakCalculationType = Literal["NONE", "TRUE_PEAK"]
 AudioOnlyHlsSegmentTypeType = Literal["AAC", "FMP4"]
 AudioOnlyHlsTrackTypeType = Literal[
     "ALTERNATE_AUDIO_AUTO_SELECT",
@@ -1459,6 +1461,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -1486,6 +1489,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

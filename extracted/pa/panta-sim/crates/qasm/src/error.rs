@@ -74,6 +74,9 @@ pub enum QasmError {
         gate: String,
         qubits: Vec<usize>,
     },
+    /// Circuit → QASM export 불가 (v1.4) — 예: 대상 dialect 에 표현이 없는
+    /// 구조 (V2 의 block control flow), non-contiguous cbit 조건 등.
+    Export { message: String },
 }
 
 impl fmt::Display for QasmError {
@@ -133,6 +136,7 @@ impl fmt::Display for QasmError {
                 f,
                 "qasm gate '{gate}' at line {line}:{col}: duplicate qubit operand(s) {qubits:?} — multi-qubit gate operands must be distinct"
             ),
+            QasmError::Export { message } => write!(f, "qasm export error: {message}"),
         }
     }
 }

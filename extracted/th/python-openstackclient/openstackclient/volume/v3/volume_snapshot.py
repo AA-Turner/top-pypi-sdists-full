@@ -65,7 +65,7 @@ class VolumeIdColumn(cliff_columns.FormattableColumn[str]):
         return volume
 
 
-def _format_snapshot(snapshot: _snapshot.Snapshot) -> dict[str, Any]:
+def _format_snapshot(snapshot: _snapshot.Snapshot) -> dict[str, object]:
     # Some columns returned by openstacksdk should not be shown because they're
     # either irrelevant or duplicates
     ignored_columns = {
@@ -405,6 +405,7 @@ class ListVolumeSnapshot(command.Lister):
         data = volume_client.snapshots(
             marker=parsed_args.marker,
             limit=parsed_args.limit,
+            max_items=parsed_args.max_items,
             all_projects=all_projects,
             project_id=project_id,
             name=parsed_args.name,

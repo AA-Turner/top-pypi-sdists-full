@@ -4,12 +4,22 @@
 //!
 //! 부동소수 포맷: Rust `f64::to_string()` (= shortest round-trip representation).
 //! `0.5_f64.to_string()` → `"0.5"`, `π.to_string()` → `"3.141592653589793"`. Qiskit 의
-//! `qasm2.loads()` 가 그대로 reparse 가능.
+//! `qasm2.loads()` 가 그대로 reparse 가능 — qelib1.inc 에 없는 게이트
+//! (iswap / dcx / ecr / ryy / rzx / xx_plus_yy / xx_minus_yy) 는 회로가 실제로
+//! 사용할 때만 V2 헤더에 qelib1 스타일 `gate` 정의를 함께 emit 한다 (v1.4).
+//!
+//! v1.4: export 불가 케이스 (V2 target 의 block control flow, non-contiguous
+//! cbit 조건) 는 panic 대신 [`QasmError::Export`] — fallible 진입점은
+//! [`try_circuit_to_qasm`] 계열.  기존 [`circuit_to_qasm`] 계열은 하위 호환
+//! wrapper 로 유지되며 Err 시 panic 한다 (python-binding 이 try 계열로 이전할
+//! 때까지).
 //!
 //! [`Circuit`]: qsim_simulator::Circuit
 
 use qsim_core::Gate;
 use qsim_simulator::{Circuit, Instruction};
+
+use crate::error::{QasmError, QasmResult};
 
 /// 출력할 QASM 버전.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,6 +32,9 @@ pub enum QasmDialect {
 
 /// [`Circuit`] 을 OpenQASM 2.0 문자열로 export 한다.
 ///
+/// export 불가 회로 (non-contiguous cbit 조건, V2 에 없는 block control flow)
+/// 는 panic — fallible 처리가 필요하면 [`try_circuit_to_qasm2`] 사용.
+///
 /// [`Circuit`]: qsim_simulator::Circuit
 pub fn circuit_to_qasm2(circuit: &Circuit) -> String {
     circuit_to_qasm(circuit, QasmDialect::V2)
@@ -29,19 +42,57 @@ pub fn circuit_to_qasm2(circuit: &Circuit) -> String {
 
 /// [`Circuit`] 을 OpenQASM 3.0 문자열로 export 한다.
 ///
+/// export 불가 회로는 panic — fallible 처리가 필요하면
+/// [`try_circuit_to_qasm3`] 사용.
+///
 /// [`Circuit`]: qsim_simulator::Circuit
 pub fn circuit_to_qasm3(circuit: &Circuit) -> String {
     circuit_to_qasm(circuit, QasmDialect::V3)
 }
 
-/// 버전 분기 없는 export 진입점.
+/// 버전 분기 없는 export 진입점 (하위 호환 wrapper).
+///
+/// [`try_circuit_to_qasm`] 의 panic 변형 — Err 를 그대로 panic 메시지로 올린다.
+/// 새 코드는 [`try_circuit_to_qasm`] 사용 권장.
 pub fn circuit_to_qasm(circuit: &Circuit, dialect: QasmDialect) -> String {
+    match try_circuit_to_qasm(circuit, dialect) {
+        Ok(s) => s,
+        Err(e) => panic!("{e}"),
+    }
+}
+
+/// [`Circuit`] 을 OpenQASM 2.0 문자열로 export 한다 (fallible, v1.4).
+///
+/// [`Circuit`]: qsim_simulator::Circuit
+pub fn try_circuit_to_qasm2(circuit: &Circuit) -> QasmResult<String> {
+    try_circuit_to_qasm(circuit, QasmDialect::V2)
+}
+
+/// [`Circuit`] 을 OpenQASM 3.0 문자열로 export 한다 (fallible, v1.4).
+///
+/// [`Circuit`]: qsim_simulator::Circuit
+pub fn try_circuit_to_qasm3(circuit: &Circuit) -> QasmResult<String> {
+    try_circuit_to_qasm(circuit, QasmDialect::V3)
+}
+
+/// 버전 분기 없는 fallible export 진입점 (v1.4).
+///
+/// export 불가 케이스는 [`QasmError::Export`]:
+/// - V2 target 의 block control flow (`if/else` / `while` / `for` / `switch`)
+///   — OpenQASM 2.0 에 표현이 없음.  `to_qasm("3.0")` 사용.
+/// - control-flow 조건의 cbit_indices 가 `[0, 1, ..., k-1]` (contiguous from
+///   zero) 가 아닌 경우 — OpenQASM 의 `if (c == N)` 은 creg 단위 비교만 표현
+///   가능.
+pub fn try_circuit_to_qasm(circuit: &Circuit, dialect: QasmDialect) -> QasmResult<String> {
     let mut out = String::new();
     write_header(&mut out, dialect);
+    if matches!(dialect, QasmDialect::V2) {
+        write_v2_ext_gate_defs(&mut out, circuit);
+    }
     write_declarations(&mut out, circuit, dialect);
     write_global_phase(&mut out, circuit, dialect);
-    write_body(&mut out, circuit, dialect);
-    out
+    write_body(&mut out, circuit, dialect)?;
+    Ok(out)
 }
 
 /// 글로벌 phase 를 emit 한다.
@@ -76,6 +127,104 @@ fn write_header(out: &mut String, dialect: QasmDialect) {
     }
 }
 
+// =====================================================================
+// v1.4: qelib1.inc 에 없는 native 게이트의 V2 로컬 `gate` 정의.
+// =====================================================================
+
+/// qelib1.inc 에 없는 panta-sim native 게이트 (V2 export 시 정의 필요).
+/// 배열 인덱스 = 의존성 순서 (ecr 은 rzx 를, xx_±yy 는 ryy 를 호출).
+const EXT_RYY: usize = 0;
+const EXT_RZX: usize = 1;
+const EXT_ISWAP: usize = 2;
+const EXT_DCX: usize = 3;
+const EXT_ECR: usize = 4;
+const EXT_XX_PLUS_YY: usize = 5;
+const EXT_XX_MINUS_YY: usize = 6;
+const N_EXT_GATES: usize = 7;
+
+/// 각 extension 게이트의 qelib1 스타일 정의.  본문은 qelib1.inc 게이트
+/// (h/s/x/cx/rx/rz/rxx) 만 사용 — Qiskit `qasm2.loads()` 가 그대로 reparse
+/// 가능하고, panta 자체 parser 의 라운드트립 + statevector 검증으로 분해
+/// 정확성을 보증한다 (exporter tests).
+///
+/// 분해 출처 (Qiskit standard gate `_define` 과 동일 컨벤션, targets[0] = LSB):
+/// - ryy(θ) = (Rx(π/2)⊗Rx(π/2)) · CX · Rz(θ) · CX · (Rx(-π/2)⊗Rx(-π/2))
+/// - rzx(θ) = H_b · CX · Rz(θ)_b · CX · H_b  (= exp(-iθ/2 Z⊗X))
+/// - iswap = (S⊗S) · (H⊗I) · CX_ab · CX_ba · (I⊗H)
+/// - dcx = CX_ab · CX_ba
+/// - ecr = rzx(π/4) · X_a · rzx(-π/4)
+/// - xx_plus_yy(θ) = rxx(θ/2) · ryy(θ/2)   (XX, YY 가환 → exp(-iθ/4(XX+YY)))
+/// - xx_minus_yy(θ) = rxx(θ/2) · ryy(-θ/2) (exp(-iθ/4(XX−YY)))
+const EXT_GATE_DEFS: [&str; N_EXT_GATES] = [
+    "gate ryy(theta) a,b { rx(pi/2) a; rx(pi/2) b; cx a,b; rz(theta) b; cx a,b; rx(-pi/2) a; rx(-pi/2) b; }\n",
+    "gate rzx(theta) a,b { h b; cx a,b; rz(theta) b; cx a,b; h b; }\n",
+    "gate iswap a,b { s a; s b; h a; cx a,b; cx b,a; h b; }\n",
+    "gate dcx a,b { cx a,b; cx b,a; }\n",
+    "gate ecr a,b { rzx(pi/4) a,b; x a; rzx(-pi/4) a,b; }\n",
+    "gate xx_plus_yy(theta) a,b { rxx(theta/2) a,b; ryy(theta/2) a,b; }\n",
+    "gate xx_minus_yy(theta) a,b { rxx(theta/2) a,b; ryy(-theta/2) a,b; }\n",
+];
+
+/// 회로가 실제 사용하는 extension 게이트의 `gate` 정의를 V2 헤더에 emit.
+/// 사용하지 않으면 아무것도 emit 하지 않는다 (의존성 정의 포함).
+fn write_v2_ext_gate_defs(out: &mut String, circuit: &Circuit) {
+    let mut used = [false; N_EXT_GATES];
+    collect_ext_gates(circuit.instructions(), &mut used);
+    // 의존성: ecr 본문이 rzx 를, xx_plus_yy / xx_minus_yy 본문이 ryy 를 호출.
+    if used[EXT_ECR] {
+        used[EXT_RZX] = true;
+    }
+    if used[EXT_XX_PLUS_YY] || used[EXT_XX_MINUS_YY] {
+        used[EXT_RYY] = true;
+    }
+    for (i, def) in EXT_GATE_DEFS.iter().enumerate() {
+        if used[i] {
+            out.push_str(def);
+        }
+    }
+}
+
+/// instruction 시퀀스 (control-flow body 포함, 재귀) 에서 extension 게이트
+/// 사용 여부를 수집.
+fn collect_ext_gates(instructions: &[Instruction], used: &mut [bool; N_EXT_GATES]) {
+    for inst in instructions {
+        match inst {
+            Instruction::ApplyGate { gate, .. } => match gate {
+                Gate::Ryy(_) => used[EXT_RYY] = true,
+                Gate::Rzx(_) => used[EXT_RZX] = true,
+                Gate::ISwap => used[EXT_ISWAP] = true,
+                Gate::Dcx => used[EXT_DCX] = true,
+                Gate::Ecr => used[EXT_ECR] = true,
+                Gate::XxPlusYy(_) => used[EXT_XX_PLUS_YY] = true,
+                Gate::XxMinusYy(_) => used[EXT_XX_MINUS_YY] = true,
+                _ => {}
+            },
+            Instruction::IfEq { body, .. } => {
+                collect_ext_gates(std::slice::from_ref(body), used);
+            }
+            Instruction::IfElse {
+                then_body,
+                else_body,
+                ..
+            } => {
+                collect_ext_gates(then_body, used);
+                if let Some(eb) = else_body {
+                    collect_ext_gates(eb, used);
+                }
+            }
+            Instruction::WhileLoop { body, .. } | Instruction::ForLoop { body, .. } => {
+                collect_ext_gates(body, used);
+            }
+            Instruction::Switch { cases, .. } => {
+                for (_, body) in cases {
+                    collect_ext_gates(body, used);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 fn write_declarations(out: &mut String, circuit: &Circuit, dialect: QasmDialect) {
     let nq = circuit.num_qubits();
     let nc = circuit.num_cbits();
@@ -95,8 +244,8 @@ fn write_declarations(out: &mut String, circuit: &Circuit, dialect: QasmDialect)
     }
 }
 
-fn write_body(out: &mut String, circuit: &Circuit, dialect: QasmDialect) {
-    write_body_slice(out, circuit.instructions(), circuit.num_qubits(), dialect);
+fn write_body(out: &mut String, circuit: &Circuit, dialect: QasmDialect) -> QasmResult<()> {
+    write_body_slice(out, circuit.instructions(), circuit.num_qubits(), dialect)
 }
 
 fn write_body_slice(
@@ -104,7 +253,7 @@ fn write_body_slice(
     instructions: &[Instruction],
     n_qubits: usize,
     dialect: QasmDialect,
-) {
+) -> QasmResult<()> {
     for inst in instructions {
         match inst {
             Instruction::ApplyGate { gate, targets } => {
@@ -143,7 +292,7 @@ fn write_body_slice(
                 value,
                 body,
             } => {
-                write_if_eq(out, cbit_indices, *value, body, dialect);
+                write_if_eq(out, cbit_indices, *value, body, dialect)?;
             }
             Instruction::IfElse {
                 cbit_indices,
@@ -159,7 +308,7 @@ fn write_body_slice(
                     else_body.as_deref(),
                     n_qubits,
                     dialect,
-                );
+                )?;
             }
             Instruction::WhileLoop {
                 cbit_indices,
@@ -167,52 +316,52 @@ fn write_body_slice(
                 body,
                 max_iters: _,
             } => {
-                write_while_loop(out, cbit_indices, *value, body, n_qubits, dialect);
+                write_while_loop(out, cbit_indices, *value, body, n_qubits, dialect)?;
             }
             Instruction::ForLoop { iterations, body } => {
-                write_for_loop(out, *iterations, body, n_qubits, dialect);
+                write_for_loop(out, *iterations, body, n_qubits, dialect)?;
             }
             Instruction::Switch {
                 cbit_indices,
                 cases,
             } => {
-                write_switch(out, cbit_indices, cases, n_qubits, dialect);
+                write_switch(out, cbit_indices, cases, n_qubits, dialect)?;
             }
         }
     }
+    Ok(())
 }
 
 /// `if (c == N) gate q[i];` (V2/V3 공통, body 는 단일 게이트만).
 ///
-/// 현재 구현은 cbit_indices 가 (a) `[0, 1, ..., k-1]` contiguous from 0 일 때만
-/// `if (c == value) ...` 로 emit. 그 외엔 명시적 multi-bit 표현이 OpenQASM 2.0
-/// 에 없어 panic — panta-sim 자체 회로는 항상 contiguous 라 도달하지 않음.
+/// cbit_indices 가 `[0, 1, ..., k-1]` (contiguous from zero) 일 때만
+/// `if (c == value) ...` 로 emit 가능 — 그 외엔 명시적 multi-bit 표현이
+/// OpenQASM 2.0/3.0 의 creg 단위 비교에 없어 [`QasmError::Export`] (v1.4,
+/// 이전에는 panic).  Python 의 `qc.measure(0, 1); qc.x(0).c_if(1, 1)` 처럼
+/// 사용자 입력으로 도달 가능.
 fn write_if_eq(
     out: &mut String,
     cbit_indices: &[usize],
     value: u64,
     body: &Instruction,
     dialect: QasmDialect,
-) {
-    let contiguous_from_zero = cbit_indices.iter().enumerate().all(|(i, &c)| c == i);
-    if !contiguous_from_zero {
-        panic!(
-            "QASM export: IfEq cbit_indices {cbit_indices:?} 가 contiguous-from-zero 가 아님 (V2/V3 표현 한계)"
-        );
-    }
-    out.push_str(&format!("if (c == {value}) "));
+) -> QasmResult<()> {
+    require_contiguous(cbit_indices, "IfEq")?;
     // body 는 단일 ApplyGate (빌더/lowering invariant).
-    match body {
-        Instruction::ApplyGate { gate, targets } => {
-            // write_gate_call 이 마지막에 \n 을 push 하므로 그대로 사용 가능.
-            // "if (c == 1) x q[0];\n" 형태가 됨.
-            write_gate_call(out, gate, targets, dialect);
-        }
-        other => panic!("QASM export: IfEq.body 는 단일 ApplyGate 이어야 합니다 (got {other:?})"),
-    }
+    let Instruction::ApplyGate { gate, targets } = body else {
+        return Err(QasmError::Export {
+            message: format!("IfEq body must be a single gate (got {body:?})"),
+        });
+    };
+    out.push_str(&format!("if (c == {value}) "));
+    // write_gate_call 이 마지막에 \n 을 push 하므로 그대로 사용 가능.
+    // "if (c == 1) x q[0];\n" 형태가 됨.
+    write_gate_call(out, gate, targets, dialect);
+    Ok(())
 }
 
-/// V3 block-form `if (c == N) { ... } else { ... }` (v0.4.7).  V2 는 deferred.
+/// V3 block-form `if (c == N) { ... } else { ... }` (v0.4.7).  V2 는 Export error.
+#[allow(clippy::too_many_arguments)]
 fn write_if_else(
     out: &mut String,
     cbit_indices: &[usize],
@@ -221,17 +370,18 @@ fn write_if_else(
     else_body: Option<&[Instruction]>,
     n_qubits: usize,
     dialect: QasmDialect,
-) {
-    require_v3(dialect, "block-form if/else");
-    require_contiguous(cbit_indices, "IfElse");
+) -> QasmResult<()> {
+    require_v3(dialect, "block-form if/else")?;
+    require_contiguous(cbit_indices, "IfElse")?;
     out.push_str(&format!("if (c == {value}) {{\n"));
-    write_body_slice(out, then_body, n_qubits, dialect);
+    write_body_slice(out, then_body, n_qubits, dialect)?;
     out.push_str("}\n");
     if let Some(eb) = else_body {
         out.push_str("else {\n");
-        write_body_slice(out, eb, n_qubits, dialect);
+        write_body_slice(out, eb, n_qubits, dialect)?;
         out.push_str("}\n");
     }
+    Ok(())
 }
 
 /// V3 block-form `while (c == N) { ... }` (v0.4.7).
@@ -242,12 +392,13 @@ fn write_while_loop(
     body: &[Instruction],
     n_qubits: usize,
     dialect: QasmDialect,
-) {
-    require_v3(dialect, "while loop");
-    require_contiguous(cbit_indices, "WhileLoop");
+) -> QasmResult<()> {
+    require_v3(dialect, "while loop")?;
+    require_contiguous(cbit_indices, "WhileLoop")?;
     out.push_str(&format!("while (c == {value}) {{\n"));
-    write_body_slice(out, body, n_qubits, dialect);
+    write_body_slice(out, body, n_qubits, dialect)?;
     out.push_str("}\n");
+    Ok(())
 }
 
 /// V3 block-form `for i in [0:N-1] { ... }` (v0.4.7).
@@ -258,14 +409,15 @@ fn write_for_loop(
     body: &[Instruction],
     n_qubits: usize,
     dialect: QasmDialect,
-) {
-    require_v3(dialect, "for loop");
+) -> QasmResult<()> {
+    require_v3(dialect, "for loop")?;
     if iterations == 0 {
-        return;
+        return Ok(());
     }
     out.push_str(&format!("for int _ in [0:{}] {{\n", iterations - 1));
-    write_body_slice(out, body, n_qubits, dialect);
+    write_body_slice(out, body, n_qubits, dialect)?;
     out.push_str("}\n");
+    Ok(())
 }
 
 /// V3 block-form `switch (c) { case N { ... } ... default { ... } }` (v0.4.7).
@@ -275,32 +427,47 @@ fn write_switch(
     cases: &[(Option<u64>, Vec<Instruction>)],
     n_qubits: usize,
     dialect: QasmDialect,
-) {
-    require_v3(dialect, "switch");
-    require_contiguous(cbit_indices, "Switch");
+) -> QasmResult<()> {
+    require_v3(dialect, "switch")?;
+    require_contiguous(cbit_indices, "Switch")?;
     out.push_str("switch (c) {\n");
     for (label, body) in cases {
         match label {
             Some(v) => out.push_str(&format!("case {v} {{\n")),
             None => out.push_str("default {\n"),
         }
-        write_body_slice(out, body, n_qubits, dialect);
+        write_body_slice(out, body, n_qubits, dialect)?;
         out.push_str("}\n");
     }
     out.push_str("}\n");
+    Ok(())
 }
 
-fn require_v3(dialect: QasmDialect, feature: &str) {
+/// V3 전용 구조가 V2 target 으로 export 되면 [`QasmError::Export`] (v1.4,
+/// 이전에는 panic).
+fn require_v3(dialect: QasmDialect, feature: &str) -> QasmResult<()> {
     if matches!(dialect, QasmDialect::V2) {
-        panic!("QASM 2.0 doesn't support {feature}; use to_qasm(\"3.0\")");
+        return Err(QasmError::Export {
+            message: format!("OpenQASM 2.0 doesn't support {feature}; use to_qasm(\"3.0\")"),
+        });
     }
+    Ok(())
 }
 
-fn require_contiguous(cbit_indices: &[usize], op: &str) {
+/// control-flow 조건의 cbit_indices 가 contiguous-from-zero 인지 검증 (v1.4,
+/// 이전에는 panic).
+fn require_contiguous(cbit_indices: &[usize], op: &str) -> QasmResult<()> {
     let contiguous_from_zero = cbit_indices.iter().enumerate().all(|(i, &c)| c == i);
     if !contiguous_from_zero {
-        panic!("QASM export: {op} cbit_indices {cbit_indices:?} not contiguous-from-zero");
+        return Err(QasmError::Export {
+            message: format!(
+                "{op} condition on cbits {cbit_indices:?} cannot be expressed in OpenQASM — \
+                 `if (c == N)` compares the whole creg, so the condition cbits must be \
+                 [0, 1, ..., k-1] (contiguous from zero)"
+            ),
+        });
     }
+    Ok(())
 }
 
 fn write_measure(out: &mut String, qubit: usize, cbit: usize, dialect: QasmDialect) {
@@ -466,6 +633,8 @@ fn fmt_param(x: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use num_complex::Complex;
+    use qsim_simulator::ExecutionEngine;
 
     fn make_bell() -> Circuit {
         let mut c = Circuit::new(2);
@@ -587,5 +756,206 @@ mod tests {
         let qasm = circuit_to_qasm3(&c);
         let reparsed = crate::parse_qasm(&qasm).unwrap();
         assert_eq!(reparsed.num_qubits(), c.num_qubits());
+    }
+
+    // =====================================================================
+    // v1.4: panic → Err 전환 (try_circuit_to_qasm 계열).
+    // =====================================================================
+
+    #[test]
+    fn test_non_contiguous_c_if_exports_as_error_not_panic() {
+        // Python 재현 경로: qc.measure(0, 1); qc.x(0).c_if(1, 1); qc.to_qasm().
+        // 조건 cbit 이 [1] (contiguous-from-zero 아님) → Export error.
+        let mut c = Circuit::new(2);
+        c.measure(0, 1);
+        c.x(0);
+        c.c_if_last(vec![1], 1);
+        for dialect in [QasmDialect::V2, QasmDialect::V3] {
+            let r = try_circuit_to_qasm(&c, dialect);
+            match r {
+                Err(QasmError::Export { message }) => {
+                    assert!(message.contains("contiguous"), "{message}");
+                }
+                other => panic!("expected Export error, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_v3_construct_with_v2_target_errors_cleanly() {
+        // block-form for-loop 는 OpenQASM 2.0 에 표현 없음 → Export error.
+        let mut c = Circuit::new(1);
+        c.add_for_loop(
+            3,
+            vec![Instruction::ApplyGate {
+                gate: Gate::X,
+                targets: vec![0],
+            }],
+        );
+        match try_circuit_to_qasm2(&c) {
+            Err(QasmError::Export { message }) => {
+                assert!(message.contains("3.0"), "{message}");
+            }
+            other => panic!("expected Export error, got {other:?}"),
+        }
+        // 같은 회로의 V3 export 는 성공해야.
+        let v3 = try_circuit_to_qasm3(&c).unwrap();
+        assert!(v3.contains("for int _ in [0:2]"));
+    }
+
+    #[test]
+    fn test_v3_if_else_with_v2_target_errors_cleanly() {
+        let mut c = Circuit::new(1);
+        c.measure(0, 0);
+        c.add_if_else(
+            vec![0],
+            1,
+            vec![Instruction::ApplyGate {
+                gate: Gate::X,
+                targets: vec![0],
+            }],
+            None,
+        );
+        match try_circuit_to_qasm2(&c) {
+            Err(QasmError::Export { message }) => {
+                assert!(message.contains("3.0"), "{message}");
+            }
+            other => panic!("expected Export error, got {other:?}"),
+        }
+        assert!(try_circuit_to_qasm3(&c).is_ok());
+    }
+
+    // =====================================================================
+    // v1.4: qelib1.inc 에 없는 게이트의 V2 로컬 `gate` 정의.
+    // =====================================================================
+
+    /// shots=0 statevector 실행.
+    fn run_statevector(c: &Circuit) -> Vec<Complex<f64>> {
+        ExecutionEngine::new()
+            .run(c, 0)
+            .statevector()
+            .amplitudes()
+            .to_vec()
+    }
+
+    fn assert_states_close(a: &[Complex<f64>], b: &[Complex<f64>], context: &str) {
+        assert_eq!(a.len(), b.len(), "{context}: dim mismatch");
+        for (i, (x, y)) in a.iter().zip(b.iter()).enumerate() {
+            assert!(
+                (x - y).norm() < 1e-9,
+                "{context}: amplitude {i} differs: {x} vs {y}"
+            );
+        }
+    }
+
+    /// extension 게이트 1 개를 쓰는 회로를 V2 export 한 뒤:
+    /// 1. emit 된 `gate` 정의가 존재하는지,
+    /// 2. 자체 parser 라운드트립 statevector 가 native 와 일치하는지,
+    /// 3. 게이트 이름들을 rename 해 native fast-path 를 우회 — emit 된 정의
+    ///    본문이 실제로 inline 전개될 때도 statevector 가 일치하는지 (분해
+    ///    정확성 검증) 를 확인한다.
+    fn assert_ext_gate_def_round_trip(build: impl Fn(&mut Circuit), names: &[&str]) {
+        let mut c = Circuit::new(2);
+        // 비자명 (얽힘 + 복소 진폭) 입력 상태 준비.
+        c.h(0);
+        c.rx(0.3, 1);
+        c.t(0);
+        c.cx(0, 1);
+        build(&mut c);
+        let expected = run_statevector(&c);
+
+        let qasm = try_circuit_to_qasm2(&c).unwrap();
+        for name in names {
+            assert!(
+                qasm.contains(&format!("gate {name}")),
+                "missing `gate {name}` definition in:\n{qasm}"
+            );
+        }
+        // (2) 라운드트립 (native fast-path).
+        let reparsed = crate::parse_qasm(&qasm).unwrap();
+        assert_states_close(&run_statevector(&reparsed), &expected, "native round-trip");
+
+        // (3) rename → 정의 본문 inline 전개 경로.
+        let mut renamed = qasm.clone();
+        for name in names {
+            renamed = renamed.replace(name, &format!("{name}__udef"));
+        }
+        let reparsed2 = crate::parse_qasm(&renamed).unwrap();
+        assert_states_close(
+            &run_statevector(&reparsed2),
+            &expected,
+            "renamed-def round-trip",
+        );
+    }
+
+    #[test]
+    fn test_v2_iswap_def_round_trip() {
+        assert_ext_gate_def_round_trip(|c| c.iswap(0, 1), &["iswap"]);
+    }
+
+    #[test]
+    fn test_v2_dcx_def_round_trip() {
+        assert_ext_gate_def_round_trip(|c| c.dcx(0, 1), &["dcx"]);
+    }
+
+    #[test]
+    fn test_v2_ryy_def_round_trip() {
+        assert_ext_gate_def_round_trip(|c| c.ryy(0.7, 0, 1), &["ryy"]);
+    }
+
+    #[test]
+    fn test_v2_rzx_def_round_trip() {
+        assert_ext_gate_def_round_trip(|c| c.rzx(0.7, 0, 1), &["rzx"]);
+        // 비대칭 게이트 — qubit 순서 반전도 검증.
+        assert_ext_gate_def_round_trip(|c| c.rzx(-1.1, 1, 0), &["rzx"]);
+    }
+
+    #[test]
+    fn test_v2_ecr_def_round_trip() {
+        // ecr 정의 본문이 rzx 를 호출 → 둘 다 rename 해 전체 체인 검증.
+        assert_ext_gate_def_round_trip(|c| c.ecr(0, 1), &["ecr", "rzx"]);
+        assert_ext_gate_def_round_trip(|c| c.ecr(1, 0), &["ecr", "rzx"]);
+    }
+
+    #[test]
+    fn test_v2_xx_plus_yy_def_round_trip() {
+        assert_ext_gate_def_round_trip(|c| c.xx_plus_yy(0.9, 0, 1), &["xx_plus_yy", "ryy"]);
+    }
+
+    #[test]
+    fn test_v2_xx_minus_yy_def_round_trip() {
+        assert_ext_gate_def_round_trip(|c| c.xx_minus_yy(-0.4, 0, 1), &["xx_minus_yy", "ryy"]);
+    }
+
+    #[test]
+    fn test_v2_ext_gate_defs_only_when_used() {
+        // extension 게이트 미사용 회로 헤더에 `gate` 정의가 없어야.
+        let s = circuit_to_qasm2(&make_bell());
+        assert!(!s.contains("gate "), "unexpected gate defs in:\n{s}");
+        // iswap 사용 시 iswap 정의만 (의존성 없는 게이트라 1 개).
+        let mut c = Circuit::new(2);
+        c.iswap(0, 1);
+        let s = circuit_to_qasm2(&c);
+        assert!(s.contains("gate iswap"));
+        for name in ["ryy", "rzx", "dcx", "ecr", "xx_plus_yy", "xx_minus_yy"] {
+            assert!(!s.contains(&format!("gate {name}")), "{s}");
+        }
+    }
+
+    #[test]
+    fn test_v2_ext_gate_defs_collected_from_control_flow_bodies() {
+        // for-loop body 안에서만 쓰여도 정의가 emit 돼야 (V3 는 def 없이 그대로
+        // 라 V2 전용 — 여기선 수집 로직만 확인).
+        let mut c = Circuit::new(2);
+        c.add_for_loop(
+            2,
+            vec![Instruction::ApplyGate {
+                gate: Gate::ISwap,
+                targets: vec![0, 1],
+            }],
+        );
+        let mut used = [false; super::N_EXT_GATES];
+        super::collect_ext_gates(c.instructions(), &mut used);
+        assert!(used[super::EXT_ISWAP]);
     }
 }

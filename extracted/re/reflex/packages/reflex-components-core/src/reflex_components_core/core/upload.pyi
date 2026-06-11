@@ -30,8 +30,8 @@ from reflex_components_core.core._upload import UploadChunkIterator, UploadFile
 from reflex_components_core.core.breakpoints import Breakpoints
 
 DEFAULT_UPLOAD_ID: str
-upload_files_context_var_data: VarData
 
+def get_upload_files_context_var_data() -> VarData: ...
 def upload_file(id_: str | Var[str] = DEFAULT_UPLOAD_ID) -> Var: ...
 def selected_files(id_: str | Var[str] = DEFAULT_UPLOAD_ID) -> Var: ...
 @CallableEventSpec

@@ -2176,7 +2176,7 @@ def _build_followup_context_from_recent_analysis(
 
 def _get_global_memory() -> str:
     """Fetch user's cross-thread Global Memory from SAGE backend."""
-    from sage.core.cli_auth import load_auth, SAGE_API_BASE
+    from sage.core.cli_auth import load_auth, get_api_base
     import httpx as _httpx
     
     auth = load_auth()
@@ -2184,7 +2184,7 @@ def _get_global_memory() -> str:
         try:
             with _httpx.Client(timeout=5) as client:
                 r = client.get(
-                    f"{SAGE_API_BASE}/memory",
+                    f"{get_api_base()}/memory",
                     headers={"Authorization": f"Bearer {auth['id_token']}"},
                 )
                 if r.is_success:
@@ -2204,7 +2204,7 @@ def _get_global_memory() -> str:
 
 def _update_global_memory(content: str) -> None:
     """Update user's cross-thread Global Memory on SAGE backend and local fallback."""
-    from sage.core.cli_auth import load_auth, SAGE_API_BASE
+    from sage.core.cli_auth import load_auth, get_api_base
     import httpx as _httpx
     
     auth = load_auth()
@@ -2212,7 +2212,7 @@ def _update_global_memory(content: str) -> None:
         try:
             with _httpx.Client(timeout=5) as client:
                 client.post(
-                    f"{SAGE_API_BASE}/memory",
+                    f"{get_api_base()}/memory",
                     json={"memory": content},
                     headers={"Authorization": f"Bearer {auth['id_token']}"},
                 )

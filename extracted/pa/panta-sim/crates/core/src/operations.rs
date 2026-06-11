@@ -7,7 +7,8 @@ use crate::statevector::StateVector;
 
 /// 병렬 처리 진입 임계치 (amplitude 개수 기준).
 /// 이보다 작은 상태 벡터는 직렬 경로가 더 빠르다 (rayon 진입 비용 회수가 안 됨).
-const PARALLEL_THRESHOLD: usize = 1 << 13;
+/// pauli.rs 등 다른 커널도 같은 값을 쓴다 — 단일 출처.
+pub(crate) const PARALLEL_THRESHOLD: usize = 1 << 13;
 
 // ============================================================================
 // 단일 큐비트 게이트
@@ -21,6 +22,11 @@ pub fn apply_single_qubit_gate<F: Real>(
     matrix: &Matrix2x2<F>,
     target: usize,
 ) {
+    assert!(
+        target < state.num_qubits(),
+        "apply_single_qubit_gate: target {target} out of range (n_qubits={})",
+        state.num_qubits()
+    );
     let n = state.dim();
     let amps = state.amplitudes_mut();
 

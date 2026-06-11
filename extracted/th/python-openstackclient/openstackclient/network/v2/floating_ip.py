@@ -18,12 +18,14 @@ import logging
 from typing import Any
 
 from openstack import exceptions as sdk_exceptions
+from openstack.network.v2 import floating_ip as _floating_ip
 from osc_lib.cli import format_columns
 from osc_lib import exceptions
 from osc_lib import utils
 from osc_lib.utils import tags as _tag
 
 from openstackclient import command
+from openstackclient.common import pagination
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 from openstackclient.network import common
@@ -35,7 +37,9 @@ _formatters = {
 }
 
 
-def _get_network_columns(item: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _get_network_columns(
+    item: _floating_ip.FloatingIP,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
     hidden_columns = ['location', 'tenant_id']
     return utils.get_osc_show_columns_for_sdk_resource(
         item, {}, hidden_columns
@@ -231,9 +235,6 @@ class DeleteFloatingIP(command.Command):
 
 
 class ListFloatingIP(command.Lister):
-    # TODO(songminglong): Use SDK resource mapped attribute names once
-    # the OSC minimum requirements include SDK 1.0
-
     _description = _("List floating IP(s)")
 
     def get_parser(self, prog_name: str) -> argparse.ArgumentParser:
@@ -311,6 +312,7 @@ class ListFloatingIP(command.Lister):
             default=False,
             help=_("List additional fields in output"),
         )
+        pagination.add_marker_pagination_option_to_parser(parser)
         return parser
 
     def take_action(
@@ -398,6 +400,12 @@ class ListFloatingIP(command.Lister):
                 ).id
                 router_ids.append(router_id)
             query['router_id'] = router_ids
+        if parsed_args.marker is not None:
+            query['marker'] = parsed_args.marker
+        if parsed_args.limit is not None:
+            query['limit'] = parsed_args.limit
+        if parsed_args.max_items is not None:
+            query['max_items'] = parsed_args.max_items
 
         _tag.get_tag_filtering_args(parsed_args, query)
 

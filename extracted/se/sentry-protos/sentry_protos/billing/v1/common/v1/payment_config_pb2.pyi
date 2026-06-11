@@ -18,20 +18,25 @@ class StripePaymentData(google.protobuf.message.Message):
 
     CUSTOMER_STRIPE_ID_FIELD_NUMBER: builtins.int
     DEFAULT_PAYMENT_METHOD_ID_FIELD_NUMBER: builtins.int
+    HAS_CARD_ON_FILE_FIELD_NUMBER: builtins.int
     customer_stripe_id: builtins.str
     default_payment_method_id: builtins.str
+    has_card_on_file: builtins.bool
     def __init__(
         self,
         *,
         customer_stripe_id: builtins.str | None = ...,
         default_payment_method_id: builtins.str | None = ...,
+        has_card_on_file: builtins.bool | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_customer_stripe_id", b"_customer_stripe_id", "_default_payment_method_id", b"_default_payment_method_id", "customer_stripe_id", b"customer_stripe_id", "default_payment_method_id", b"default_payment_method_id"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_customer_stripe_id", b"_customer_stripe_id", "_default_payment_method_id", b"_default_payment_method_id", "customer_stripe_id", b"customer_stripe_id", "default_payment_method_id", b"default_payment_method_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_customer_stripe_id", b"_customer_stripe_id", "_default_payment_method_id", b"_default_payment_method_id", "_has_card_on_file", b"_has_card_on_file", "customer_stripe_id", b"customer_stripe_id", "default_payment_method_id", b"default_payment_method_id", "has_card_on_file", b"has_card_on_file"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_customer_stripe_id", b"_customer_stripe_id", "_default_payment_method_id", b"_default_payment_method_id", "_has_card_on_file", b"_has_card_on_file", "customer_stripe_id", b"customer_stripe_id", "default_payment_method_id", b"default_payment_method_id", "has_card_on_file", b"has_card_on_file"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_customer_stripe_id", b"_customer_stripe_id"]) -> typing.Literal["customer_stripe_id"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_default_payment_method_id", b"_default_payment_method_id"]) -> typing.Literal["default_payment_method_id"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_has_card_on_file", b"_has_card_on_file"]) -> typing.Literal["has_card_on_file"] | None: ...
 
 global___StripePaymentData = StripePaymentData
 

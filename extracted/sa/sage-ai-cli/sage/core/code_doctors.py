@@ -53,6 +53,8 @@ class DoctorReport:
     files_touched: int = 0
     init_stubs_written: int = 0
     indent_fixes_applied: int = 0
+    sqlmodel_json_fields_fixed: int = 0
+    yaml_env_style_fixed: int = 0
 
 
 # ──────────────────────── add_missing_imports ──────────────────────────
@@ -80,6 +82,7 @@ _COMMON_IMPORTS: dict[str, str] = {
     "Field":               "from sqlmodel import Field",
     "SQLModel":            "from sqlmodel import SQLModel",
     "Relationship":        "from sqlmodel import Relationship",
+    "JSON":                "from sqlmodel import JSON",
 
     # FastAPI
     "FastAPI":             "from fastapi import FastAPI",
@@ -738,7 +741,196 @@ def _frontend_files(root: Path) -> list[Path]:
     return out
 
 
+def _yaml_files(root: Path) -> list[Path]:
+    out: list[Path] = []
+    for ext in ("yaml", "yml"):
+        for p in root.rglob(f"*.{ext}"):
+            out.append(p)
+    return out
+
+
 import json as _json
+
+
+def fix_yaml_env_style(path: Path) -> int:
+    """Repair YAML files where the LLM wrote env-style key=value pairs instead of key: value."""
+    if path.suffix not in (".yaml", ".yml"):
+        return 0
+    try:
+        content = path.read_text("utf-8", errors="replace")
+    except OSError:
+        return 0
+
+    lines = content.splitlines()
+    fixed = 0
+    new_lines = []
+    for line in lines:
+        stripped = line.strip()
+        # Detect lines like KEY=VALUE (ignoring comments, and ensuring it looks like an env var assignment)
+        if not stripped.startswith('#') and '=' in stripped:
+            parts = stripped.split('=', 1)
+            key = parts[0].strip()
+            val = parts[1].strip()
+            if re.match(r"^[A-Za-z0-9_.-]+$", key) and ':' not in key:
+                indent = line[:len(line) - len(line.lstrip())]
+                new_lines.append(f"{indent}{key}: {val}")
+                fixed += 1
+                continue
+        new_lines.append(line)
+
+    if fixed > 0:
+        path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    return fixed
+
+
+def fix_sqlmodel_json_fields(path: Path) -> int:
+    """Detect fields in SQLModel classes (table=True) annotated with dict/list/Dict/List
+    and ensure they use sa_type=JSON.
+    """
+    try:
+        content = path.read_text("utf-8", errors="replace")
+    except OSError:
+        return 0
+
+    if "SQLModel" not in content:
+        return 0
+
+    try:
+        tree = ast.parse(content)
+    except SyntaxError:
+        return 0
+
+    class SQLModelTableVisitor(ast.NodeVisitor):
+        def __init__(self):
+            self.fields_to_fix = []
+            self.current_class = None
+            self.is_table = False
+
+        def visit_ClassDef(self, node):
+            is_table = False
+            for kw in node.keywords:
+                if kw.arg == "table":
+                    if isinstance(kw.value, ast.Constant) and kw.value.value is True:
+                        is_table = True
+                    elif isinstance(kw.value, ast.Name) and kw.value.id == "True":
+                        is_table = True
+            
+            old_class = self.current_class
+            old_is_table = self.is_table
+            
+            self.current_class = node.name
+            self.is_table = is_table
+            
+            self.generic_visit(node)
+            
+            self.current_class = old_class
+            self.is_table = old_is_table
+
+        def visit_AnnAssign(self, node):
+            if not self.is_table or self.current_class is None:
+                return
+            
+            if not isinstance(node.target, ast.Name):
+                return
+            
+            ann_str = self._get_annotation_type_name(node.annotation)
+            if ann_str in ("dict", "Dict", "list", "List"):
+                has_sa = False
+                field_call = None
+                if isinstance(node.value, ast.Call):
+                    if isinstance(node.value.func, ast.Name) and node.value.func.id == "Field":
+                        field_call = node.value
+                        for kw in node.value.keywords:
+                            if kw.arg in ("sa_type", "sa_column"):
+                                has_sa = True
+                
+                if not has_sa:
+                    self.fields_to_fix.append((node, field_call))
+
+        def _get_annotation_type_name(self, node):
+            if isinstance(node, ast.Name):
+                return node.id
+            elif isinstance(node, ast.Subscript):
+                return self._get_annotation_type_name(node.value)
+            elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+                left = self._get_annotation_type_name(node.left)
+                right = self._get_annotation_type_name(node.right)
+                if left in ("dict", "Dict", "list", "List"):
+                    return left
+                if right in ("dict", "Dict", "list", "List"):
+                    return right
+            elif isinstance(node, ast.Attribute):
+                return node.attr
+            return ""
+
+    visitor = SQLModelTableVisitor()
+    visitor.visit(tree)
+
+    if not visitor.fields_to_fix:
+        return 0
+
+    lines = content.splitlines()
+
+    def get_node_source(node):
+        start_line, start_col = node.lineno - 1, node.col_offset
+        end_line, end_col = node.end_lineno - 1, node.end_col_offset
+        if start_line == end_line:
+            return lines[start_line][start_col:end_col]
+        else:
+            res = [lines[start_line][start_col:]]
+            for l in range(start_line + 1, end_line):
+                res.append(lines[l])
+            res.append(lines[end_line][:end_col])
+            return "\n".join(res)
+
+    modifications = []
+    for node, field_call in visitor.fields_to_fix:
+        if field_call is not None:
+            field_src = get_node_source(field_call)
+            if field_src.strip().startswith("Field"):
+                first_paren = field_src.find('(')
+                last_paren = field_src.rfind(')')
+                if first_paren != -1 and last_paren != -1:
+                    inner = field_src[first_paren+1:last_paren].strip()
+                    if inner:
+                        if inner.endswith(','):
+                            new_src = f"Field({inner} sa_type=JSON)"
+                        else:
+                            new_src = f"Field({inner}, sa_type=JSON)"
+                    else:
+                        new_src = "Field(sa_type=JSON)"
+                else:
+                    new_src = "Field(sa_type=JSON)"
+            else:
+                new_src = "Field(sa_type=JSON)"
+            modifications.append((field_call.lineno, field_call.col_offset, field_call.end_lineno, field_call.end_col_offset, new_src))
+        elif node.value is not None:
+            val_src = get_node_source(node.value)
+            new_src = f"Field(default={val_src}, sa_type=JSON)"
+            modifications.append((node.value.lineno, node.value.col_offset, node.value.end_lineno, node.value.end_col_offset, new_src))
+        else:
+            modifications.append((node.end_lineno, node.end_col_offset, node.end_lineno, node.end_col_offset, " = Field(default=None, sa_type=JSON)"))
+
+    # Sort modifications from bottom to top so offsets remain valid
+    modifications.sort(key=lambda x: (x[0], x[1]), reverse=True)
+
+    line_starts = [0]
+    for line in lines:
+        line_starts.append(line_starts[-1] + len(line) + 1)
+
+    char_mods = []
+    for start_line, start_col, end_line, end_col, new_src in modifications:
+        start_char = line_starts[start_line - 1] + start_col
+        end_char = line_starts[end_line - 1] + end_col
+        char_mods.append((start_char, end_char, new_src))
+
+    char_mods.sort(key=lambda x: x[0], reverse=True)
+    new_content = content
+    for start_char, end_char, new_src in char_mods:
+        new_content = new_content[:start_char] + new_src + new_content[end_char:]
+
+    path.write_text(new_content, encoding="utf-8")
+    return len(visitor.fields_to_fix)
 
 
 def fix_misplaced_imports_in_test_files(root: Path) -> int:
@@ -1086,6 +1278,15 @@ def run_code_doctors(
 
     log("[doctor] starting deterministic code repair pass...")
 
+    # Repair YAML files (e.g. env-style assignments)
+    n_yaml = 0
+    for p in _yaml_files(out_dir):
+        n_yaml += fix_yaml_env_style(p)
+    if n_yaml:
+        log(f"  [doctor] repaired {n_yaml} env-style YAML files")
+        report.yaml_env_style_fixed += n_yaml
+        report.files_touched += n_yaml
+
     # ── 0. Deterministic repairs run FIRST, so later detectors don't
     #       waste a row reporting things we're about to fix anyway.
     if backend.is_dir():
@@ -1151,6 +1352,13 @@ def run_code_doctors(
         if n_pkg_imports:
             log(f"  [doctor] resolved {n_pkg_imports} package-level imports to direct modules")
             report.files_touched += n_pkg_imports
+        n_json_fields = 0
+        for p in _python_files(backend):
+            n_json_fields += fix_sqlmodel_json_fields(p)
+        if n_json_fields:
+            log(f"  [doctor] added sa_type=JSON to {n_json_fields} SQLModel dict/list fields")
+            report.sqlmodel_json_fields_fixed += n_json_fields
+            report.files_touched += n_json_fields
 
     # ── 1. Python: add missing imports ──
     if fix_imports and backend.is_dir():
@@ -1235,6 +1443,7 @@ __all__ = [
     "detect_truncated_python",
     "detect_truncated_tsx",
     "fix_framework_collision_rn",
+    "fix_sqlmodel_json_fields",
     "run_code_doctors",
     "run_eslint_fix",
     "stub_truncated_init",

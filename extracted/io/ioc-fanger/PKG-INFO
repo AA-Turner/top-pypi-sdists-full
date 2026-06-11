@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ioc_fanger
-Version: 5.0.0
+Version: 5.1.0
 Summary: Python package to defang and fang indicators of compromise from text.
 Project-URL: Documentation, https://github.com/ioc-fang/ioc-fanger
 Project-URL: Source, https://github.com/ioc-fang/ioc-fanger

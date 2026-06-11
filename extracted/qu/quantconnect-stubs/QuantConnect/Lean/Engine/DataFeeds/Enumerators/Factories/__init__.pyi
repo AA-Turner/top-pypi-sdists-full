@@ -16,29 +16,28 @@ import System
 import System.Collections.Generic
 
 
-class CorporateEventEnumeratorFactory(System.Object):
+class BaseDataCollectionSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
     """
-    Helper class used to create the corporate event providers
-    MappingEventProvider, SplitEventProvider,
-    DividendEventProvider, DelistingEventProvider
+    Provides an implementation of ISubscriptionEnumeratorFactory that reads
+    an entire SubscriptionDataSource into a single BaseDataCollection
+    to be emitted on the tradable date at midnight
     """
 
-    @staticmethod
-    def create_enumerators(raw_data_enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], config: QuantConnect.Data.SubscriptionDataConfig, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, tradable_day_notifier: QuantConnect.Lean.Engine.DataFeeds.Enumerators.ITradableDatesNotifier, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, start_time: typing.Union[datetime.datetime, datetime.date], end_time: typing.Union[datetime.datetime, datetime.date], enable_price_scaling: bool = True) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+    def __init__(self, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
         """
-        Creates a new AuxiliaryDataEnumerator that will hold the
-        corporate event providers
+        Instanciates a new BaseDataCollectionSubscriptionEnumeratorFactory
         
-        :param raw_data_enumerator: The underlying raw data enumerator
-        :param config: The SubscriptionDataConfig
-        :param factor_file_provider: Used for getting factor files
-        :param tradable_day_notifier: Tradable dates provider
-        :param map_file_provider: The MapFile provider to use
-        :param start_time: Start date for the data request
-        :param end_time: End date for the data request.
-        This will be used for DataNormalizationMode.SCALED_RAW data normalization mode to adjust prices to the given end date
-        :param enable_price_scaling: Applies price factor
-        :returns: The new auxiliary data enumerator.
+        :param object_store: The object store to use
+        """
+        ...
+
+    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+        """
+        Creates an enumerator to read the specified request
+        
+        :param request: The subscription request to be read
+        :param data_provider: Provider used to get data when it is not present on disk
+        :returns: An enumerator reading the subscription request.
         """
         ...
 
@@ -74,28 +73,36 @@ class SubscriptionDataReaderSubscriptionEnumeratorFactory(System.Object, QuantCo
         ...
 
 
-class BaseDataCollectionSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
-    """
-    Provides an implementation of ISubscriptionEnumeratorFactory that reads
-    an entire SubscriptionDataSource into a single BaseDataCollection
-    to be emitted on the tradable date at midnight
-    """
+class LiveCustomDataSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
+    """Provides an implementation of ISubscriptionEnumeratorFactory to handle live custom data."""
 
-    def __init__(self, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, object_store: QuantConnect.Interfaces.IObjectStore, date_adjustment: typing.Callable[[datetime.datetime], datetime.datetime] = None, minimum_interval_check: typing.Optional[datetime.timedelta] = None) -> None:
         """
-        Instanciates a new BaseDataCollectionSubscriptionEnumeratorFactory
+        Initializes a new instance of the LiveCustomDataSubscriptionEnumeratorFactory class
         
+        :param time_provider: Time provider from data feed
         :param object_store: The object store to use
+        :param date_adjustment: Func that allows adjusting the datetime to use
+        :param minimum_interval_check: Allows specifying the minimum interval between each enumerator refresh and data check, default is 30 minutes
         """
         ...
 
     def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
         """
-        Creates an enumerator to read the specified request
+        Creates an enumerator to read the specified request.
         
         :param request: The subscription request to be read
         :param data_provider: Provider used to get data when it is not present on disk
         :returns: An enumerator reading the subscription request.
+        """
+        ...
+
+    def get_subscription_data_source_reader(self, source: QuantConnect.Data.SubscriptionDataSource, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, config: QuantConnect.Data.SubscriptionDataConfig, date: typing.Union[datetime.datetime, datetime.date], base_data_instance: QuantConnect.Data.BaseData, data_provider: QuantConnect.Interfaces.IDataProvider) -> QuantConnect.Lean.Engine.DataFeeds.ISubscriptionDataSourceReader:
+        """
+        Gets the ISubscriptionDataSourceReader for the specified source
+        
+        
+        This Class is protected.
         """
         ...
 
@@ -127,36 +134,29 @@ class TimeTriggeredUniverseSubscriptionEnumeratorFactory(System.Object, QuantCon
         ...
 
 
-class LiveCustomDataSubscriptionEnumeratorFactory(System.Object, QuantConnect.Data.ISubscriptionEnumeratorFactory):
-    """Provides an implementation of ISubscriptionEnumeratorFactory to handle live custom data."""
+class CorporateEventEnumeratorFactory(System.Object):
+    """
+    Helper class used to create the corporate event providers
+    MappingEventProvider, SplitEventProvider,
+    DividendEventProvider, DelistingEventProvider
+    """
 
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, object_store: QuantConnect.Interfaces.IObjectStore, date_adjustment: typing.Callable[[datetime.datetime], datetime.datetime] = None, minimum_interval_check: typing.Optional[datetime.timedelta] = None) -> None:
+    @staticmethod
+    def create_enumerators(raw_data_enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], config: QuantConnect.Data.SubscriptionDataConfig, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, tradable_day_notifier: QuantConnect.Lean.Engine.DataFeeds.Enumerators.ITradableDatesNotifier, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, start_time: typing.Union[datetime.datetime, datetime.date], end_time: typing.Union[datetime.datetime, datetime.date], enable_price_scaling: bool = True) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
         """
-        Initializes a new instance of the LiveCustomDataSubscriptionEnumeratorFactory class
+        Creates a new AuxiliaryDataEnumerator that will hold the
+        corporate event providers
         
-        :param time_provider: Time provider from data feed
-        :param object_store: The object store to use
-        :param date_adjustment: Func that allows adjusting the datetime to use
-        :param minimum_interval_check: Allows specifying the minimum interval between each enumerator refresh and data check, default is 30 minutes
-        """
-        ...
-
-    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
-        """
-        Creates an enumerator to read the specified request.
-        
-        :param request: The subscription request to be read
-        :param data_provider: Provider used to get data when it is not present on disk
-        :returns: An enumerator reading the subscription request.
-        """
-        ...
-
-    def get_subscription_data_source_reader(self, source: QuantConnect.Data.SubscriptionDataSource, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, config: QuantConnect.Data.SubscriptionDataConfig, date: typing.Union[datetime.datetime, datetime.date], base_data_instance: QuantConnect.Data.BaseData, data_provider: QuantConnect.Interfaces.IDataProvider) -> QuantConnect.Lean.Engine.DataFeeds.ISubscriptionDataSourceReader:
-        """
-        Gets the ISubscriptionDataSourceReader for the specified source
-        
-        
-        This Class is protected.
+        :param raw_data_enumerator: The underlying raw data enumerator
+        :param config: The SubscriptionDataConfig
+        :param factor_file_provider: Used for getting factor files
+        :param tradable_day_notifier: Tradable dates provider
+        :param map_file_provider: The MapFile provider to use
+        :param start_time: Start date for the data request
+        :param end_time: End date for the data request.
+        This will be used for DataNormalizationMode.SCALED_RAW data normalization mode to adjust prices to the given end date
+        :param enable_price_scaling: Applies price factor
+        :returns: The new auxiliary data enumerator.
         """
         ...
 

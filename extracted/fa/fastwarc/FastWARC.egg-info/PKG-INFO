@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: FastWARC
-Version: 1.0.5
+Version: 1.0.6
 Summary: The world's fastest WARC parsing library written in Rust with bindings for Python.
 Author: Janek Bevendorff
 License-Expression: Apache-2.0

@@ -34,8 +34,6 @@ from .tools_config_helpers import (
 )
 from .util_helpers import (
     build_pagination_metadata,
-    coerce_bool_param,
-    coerce_int_param,
     fetch_integration_diagnostics,
     get_logger_levels,
     parse_diagnostics_fields,
@@ -99,6 +97,127 @@ assert set(get_args(HelperTypeLiteral)) == (
     "| {'config_subentry'} — "
     "update the inline list to match."
 )
+
+
+def options_from_form_flow(flow: dict[str, Any]) -> dict[str, Any]:
+    """Extract ``{field_name: current_value}`` from a form-type OptionsFlow.
+
+    Reads each ``data_schema`` entry's ``default`` key, falling back to
+    ``value`` (constant-type fields ship ``value`` instead of ``default``)
+    and then ``description.suggested_value`` (UI-created template, group,
+    utility_meter, and other flow-based helpers stash the current value
+    there — voluptuous renders ``suggested_value=...`` into the
+    ``description`` sub-object, not as a top-level field key). Fields with
+    a missing or ``None`` value are skipped.
+    """
+    out: dict[str, Any] = {}
+    # Defensive: HA should always return a list of dict fields, but guard
+    # against malformed shapes so a bad response degrades to {} instead of
+    # raising AttributeError (e.g. a string data_schema would iterate chars).
+    data_schema = flow.get("data_schema")
+    if not isinstance(data_schema, list):
+        return out
+    for field in data_schema:
+        if not isinstance(field, dict):
+            continue
+        name = field.get("name")
+        if name is None:
+            continue
+        value = field.get("default", field.get("value"))
+        if value is None:
+            description = field.get("description")
+            if isinstance(description, dict):
+                value = description.get("suggested_value")
+        if value is not None:
+            out[name] = value
+    return out
+
+
+async def fetch_entry_options_with_status(
+    client: Any, entry_id: str, *, quiet: bool = False
+) -> tuple[dict[str, Any], bool]:
+    """Read a config entry's ``options`` and report whether the probe succeeded.
+
+    Identical mechanics to :func:`fetch_entry_options` but returns
+    ``(options, ok)`` so callers can tell a probe *failure* apart from a
+    genuinely-empty options form — both yield ``{}`` for ``options``, but
+    ``ok`` is:
+
+    - ``True`` only when a form first-step was read (even if it harvested no
+      fields: a genuinely-empty options form is a successful read).
+    - ``False`` when the OptionsFlow could not be read into options: the flow
+      raised, or its first step was not a form (a menu / abort / create_entry),
+      so no defaults could be harvested.
+
+    The flag lets bulk fan-out callers (``smart_search``) surface ``partial``
+    when an options-flow probe fails mid-search instead of silently scoring the
+    helper on title/domain only — the per-entry analog of the per-type/per-
+    dashboard backend-failure signals. The abort in ``finally`` is cleanup; a
+    failed abort does not flip ``ok`` (the options were already harvested).
+
+    Home Assistant does not expose ``ConfigEntry.options`` through any
+    read-only REST or WebSocket endpoint — ``/api/config/config_entries/entry``
+    deliberately omits the field. The closest approximation that the HA UI
+    itself uses is the ``default`` values populated into the OptionsFlow's
+    first-step ``data_schema``: integrations build that schema from the
+    existing options dict, so the defaults match the persisted state.
+
+    Probe failures log at ``warning`` (so breakage of a deliberate
+    single-entry probe is discoverable) unless ``quiet=True``, which demotes
+    them to ``debug`` for bulk fan-out callers (e.g. ``smart_search`` probes
+    one entry per flow-helper on every ``ha_search``; a per-entry
+    warning there would spam the log on routine searches).
+
+    Exposed at module level (not as a method) so non-class callers such as
+    ``smart_search._search_flow_helpers`` can probe flow-helper config
+    without instantiating ``IntegrationTools``.
+    """
+    log_probe_failure = logger.debug if quiet else logger.warning
+    flow_id: str | None = None
+    try:
+        flow = await client.start_options_flow(entry_id)
+        flow_id = flow.get("flow_id")
+        flow_type = flow.get("type")
+        if flow_type != "form":
+            log_probe_failure(
+                f"OptionsFlow for {entry_id} returned type={flow_type!r}, "
+                f"not a form — cannot extract option defaults"
+            )
+            return {}, False
+        return options_from_form_flow(flow), True
+    except Exception as exc:
+        log_probe_failure(
+            f"Failed to fetch options for {entry_id}: {type(exc).__name__}: {exc}"
+        )
+        return {}, False
+    finally:
+        if flow_id:
+            try:
+                await client.abort_options_flow(flow_id)
+            except Exception as abort_err:
+                log_probe_failure(
+                    f"Failed to abort options flow {flow_id}: "
+                    f"{type(abort_err).__name__}: {abort_err}"
+                )
+
+
+async def fetch_entry_options(
+    client: Any, entry_id: str, *, quiet: bool = False
+) -> dict[str, Any]:
+    """Read the current ``options`` for a config entry via its OptionsFlow.
+
+    Starts the flow, harvests ``{name: default}`` from the first step, and
+    aborts the flow so it doesn't sit half-open. Returns ``{}`` on any failure
+    (unsupported entry, non-form first step such as a menu, init/abort errors)
+    so callers can treat the return as the canonical "options" field without
+    further checks.
+
+    Thin wrapper over :func:`fetch_entry_options_with_status` for callers that
+    only need the options dict and not the success flag (e.g. the
+    ``ha_remove_helpers_integrations`` / ``ha_get_integration`` config readout).
+    """
+    options, _ok = await fetch_entry_options_with_status(client, entry_id, quiet=quiet)
+    return options
 
 
 async def _get_entry_id_for_flow_helper(
@@ -209,16 +328,22 @@ class IntegrationTools:
             ),
         ] = None,
         include_options: Annotated[
-            bool | str,
+            bool,
             Field(
                 description="Include the options object for each entry. "
                 "Automatically enabled when domain filter is set. "
-                "Useful for auditing template definitions and helper configurations.",
+                "For UI-created flow-based helpers (template, group, "
+                "utility_meter, derivative, ...), the current config — "
+                "template body, group members, source entity, etc. — is "
+                "surfaced here by probing the options flow. Prefer this over "
+                "include_schema when you only need to read the current values; "
+                "use include_schema when you also need the field types or "
+                "selector metadata.",
                 default=False,
             ),
         ] = False,
         include_schema: Annotated[
-            bool | str,
+            bool,
             Field(
                 description="When entry_id is set, also return the options flow schema "
                 "(available fields and their types). Use before ha_config_set_helper "
@@ -227,7 +352,7 @@ class IntegrationTools:
             ),
         ] = False,
         include_subentries: Annotated[
-            bool | str,
+            bool,
             Field(
                 description=(
                     "When entry_id is set, include config subentries for the "
@@ -239,7 +364,7 @@ class IntegrationTools:
             ),
         ] = False,
         include_subentry_schema: Annotated[
-            bool | str,
+            bool,
             Field(
                 description=(
                     "When entry_id is set, return introspection-only config "
@@ -271,17 +396,18 @@ class IntegrationTools:
             ),
         ] = None,
         show_advanced_options: Annotated[
-            bool | str,
+            bool,
             Field(
                 description=(
-                    "When include_subentry_schema=True, ask Home Assistant to "
-                    "expose advanced flow options."
+                    "When include_subentry_schema=True, ask older Home Assistant "
+                    "versions to expose advanced flow options. No-op on HA "
+                    "2026.6+; pending removal before HA 2027.6."
                 ),
                 default=False,
             ),
         ] = False,
         exact_match: Annotated[
-            bool | str,
+            bool,
             Field(
                 description=(
                     "Use exact substring matching for query filter (default: True). "
@@ -291,21 +417,24 @@ class IntegrationTools:
             ),
         ] = True,
         limit: Annotated[
-            int | str,
+            int,
             Field(
                 default=50,
+                ge=1,
+                le=200,
                 description="Max entries to return per page in list mode (default: 50)",
             ),
         ] = 50,
         offset: Annotated[
-            int | str,
+            int,
             Field(
                 default=0,
+                ge=0,
                 description="Number of entries to skip for pagination (default: 0)",
             ),
         ] = 0,
         include_diagnostics: Annotated[
-            bool | str,
+            bool,
             Field(
                 description=(
                     "When entry_id is set, also fetch the integration's diagnostics "
@@ -351,7 +480,7 @@ class IntegrationTools:
             ),
         ] = None,
         diagnostics_truncate_at_bytes: Annotated[
-            int | str | None,
+            int | None,
             Field(
                 description=(
                     "Optional byte cap on the serialized diagnostics payload "
@@ -362,6 +491,7 @@ class IntegrationTools:
                     "20000 bytes. Only applies when include_diagnostics=True."
                 ),
                 default=None,
+                ge=1,
             ),
         ] = None,
         diagnostics_data_path: Annotated[
@@ -383,7 +513,7 @@ class IntegrationTools:
             ),
         ] = None,
         diagnostics_data_offset: Annotated[
-            int | str | None,
+            int | None,
             Field(
                 description=(
                     "Pagination start index (default 0) for list-valued "
@@ -393,10 +523,11 @@ class IntegrationTools:
                     "when include_diagnostics=True."
                 ),
                 default=0,
+                ge=0,
             ),
         ] = 0,
         diagnostics_data_limit: Annotated[
-            int | str | None,
+            int | None,
             Field(
                 description=(
                     "Pagination window size for list-valued "
@@ -410,6 +541,7 @@ class IntegrationTools:
                     "Only applies when include_diagnostics=True."
                 ),
                 default=None,
+                ge=1,
             ),
         ] = None,
     ) -> dict[str, Any]:
@@ -450,58 +582,25 @@ class IntegrationTools:
         Supervisor's lowercase ``"default"`` literal — do not cross-compare.
         """
         try:
-            include_opts = coerce_bool_param(
-                include_options, "include_options", default=False
-            )
-            include_schema_bool = coerce_bool_param(
-                include_schema, "include_schema", default=False
-            )
-            include_diagnostics_bool = coerce_bool_param(
-                include_diagnostics, "include_diagnostics", default=False
-            )
-            include_subentries_bool = coerce_bool_param(
-                include_subentries, "include_subentries", default=False
-            )
-            include_subentry_schema_bool = coerce_bool_param(
-                include_subentry_schema,
-                "include_subentry_schema",
-                default=False,
-            )
-            show_advanced_options_bool = coerce_bool_param(
-                show_advanced_options,
-                "show_advanced_options",
-                default=False,
-            )
-            exact_match_bool = coerce_bool_param(
-                exact_match, "exact_match", default=True
-            )
-            limit_int = coerce_int_param(
-                limit, "limit", default=50, min_value=1, max_value=200
-            )
-            offset_int = coerce_int_param(offset, "offset", default=0, min_value=0)
+            include_opts = include_options
+            include_schema_bool = include_schema
+            include_diagnostics_bool = include_diagnostics
+            include_subentries_bool = include_subentries
+            include_subentry_schema_bool = include_subentry_schema
+            show_advanced_options_bool = show_advanced_options
+            exact_match_bool = exact_match
+            limit_int = limit
+            offset_int = offset
             fields_list = parse_diagnostics_fields(diagnostics_fields)
-            truncate_bytes = coerce_int_param(
-                diagnostics_truncate_at_bytes,
-                "diagnostics_truncate_at_bytes",
-                default=None,
-                min_value=1,
+            truncate_bytes = diagnostics_truncate_at_bytes
+            data_offset_int = (
+                diagnostics_data_offset if diagnostics_data_offset is not None else 0
             )
-            data_offset_int = coerce_int_param(
-                diagnostics_data_offset,
-                "diagnostics_data_offset",
-                default=0,
-                min_value=0,
-            )
-            data_limit_int = coerce_int_param(
-                diagnostics_data_limit,
-                "diagnostics_data_limit",
-                default=None,
-                min_value=1,
-            )
+            data_limit_int = diagnostics_data_limit
             # Type-guard ``diagnostics_data_path`` here so a bad caller (dict /
             # list) surfaces as ``VALIDATION_INVALID_PARAMETER`` instead of
             # leaking as ``INTERNAL_ERROR`` from the resolver's ``.strip()``
-            # downstream. Mirrors the coerce_int_param guards above.
+            # downstream.
             if diagnostics_data_path is not None and not isinstance(
                 diagnostics_data_path, str
             ):
@@ -595,6 +694,7 @@ class IntegrationTools:
                     "Ensure your token has sufficient permissions",
                 ],
             )
+            return None  # unreachable: exception_to_structured_error raises
 
     async def _get_single_entry(
         self,
@@ -614,7 +714,7 @@ class IntegrationTools:
 
             # Surface `options` on every per-entry response (HA's REST endpoint
             # omits the field). For entries with supports_options=True we probe
-            # via OptionsFlow — see `_fetch_entry_options`. When include_schema
+            # via OptionsFlow — see `fetch_entry_options`. When include_schema
             # is also requested, `_fetch_options_schema` below populates options
             # from the same flow init so we don't pay for two round-trips.
             if isinstance(result, dict):
@@ -666,6 +766,7 @@ class IntegrationTools:
                     "config entries",
                 ],
             )
+            return None  # unreachable: exception_to_structured_error raises
 
     async def _fetch_config_subentries(self, entry_id: str) -> list[dict[str, Any]]:
         """Fetch config subentries for a detailed entry response."""
@@ -758,68 +859,17 @@ class IntegrationTools:
 
     @staticmethod
     def _options_from_form_flow(flow: dict[str, Any]) -> dict[str, Any]:
-        """Extract ``{field_name: current_value}`` from a form-type OptionsFlow.
-
-        Reads each ``data_schema`` entry's ``default`` key, falling back to
-        ``value`` only when the ``default`` key is absent (constant-type
-        fields ship ``value`` instead of ``default``). Fields with a missing
-        or ``None`` value are skipped.
-        """
-        out: dict[str, Any] = {}
-        for field in flow.get("data_schema") or []:
-            name = field.get("name")
-            if name is None:
-                continue
-            value = field.get("default", field.get("value"))
-            if value is not None:
-                out[name] = value
-        return out
+        """Class-method alias for :func:`options_from_form_flow`."""
+        return options_from_form_flow(flow)
 
     async def _fetch_entry_options(self, entry_id: str) -> dict[str, Any]:
-        """Read the current ``options`` for a config entry via its OptionsFlow.
+        """Instance wrapper around :func:`fetch_entry_options`.
 
-        Home Assistant does not expose ``ConfigEntry.options`` through any
-        read-only REST or WebSocket endpoint — ``/api/config/config_entries/entry``
-        deliberately omits the field. The closest approximation that the HA UI
-        itself uses is the ``default`` values populated into the OptionsFlow's
-        first-step ``data_schema``: integrations build that schema from the
-        existing options dict, so the defaults match the persisted state.
-
-        Starts the flow, harvests ``{name: default}`` from the first step,
-        and aborts the flow in ``finally`` so it doesn't sit half-open.
-
-        Returns ``{}`` on any failure (unsupported entry, non-form first step
-        such as a menu, init/abort errors) so callers can treat the return as
-        the canonical "options" field without further checks. Unexpected
-        exception types are logged at ``warning`` so probe breakage is
-        discoverable.
+        Kept so existing call sites (and the ``include_schema`` path) read
+        naturally as ``self._fetch_entry_options(...)``; the probe logic and
+        full rationale live on the module-level function.
         """
-        flow_id: str | None = None
-        try:
-            flow = await self._client.start_options_flow(entry_id)
-            flow_id = flow.get("flow_id")
-            flow_type = flow.get("type")
-            if flow_type != "form":
-                logger.debug(
-                    f"OptionsFlow for {entry_id} returned type={flow_type!r}, "
-                    f"not a form — cannot extract option defaults"
-                )
-                return {}
-            return self._options_from_form_flow(flow)
-        except Exception as exc:
-            logger.warning(
-                f"Failed to fetch options for {entry_id}: {type(exc).__name__}: {exc}"
-            )
-            return {}
-        finally:
-            if flow_id:
-                try:
-                    await self._client.abort_options_flow(flow_id)
-                except Exception as abort_err:
-                    logger.warning(
-                        f"Failed to abort options flow {flow_id}: "
-                        f"{type(abort_err).__name__}: {abort_err}"
-                    )
+        return await fetch_entry_options(self._client, entry_id)
 
     async def _fetch_options_schema(self, entry_id: str, resp: dict[str, Any]) -> None:
         """Start an options flow to read the schema, then abort it.
@@ -899,7 +949,7 @@ class IntegrationTools:
 
         # `_format_entry` is sync and cannot probe the OptionsFlow; options
         # are filled in by a second async pass below for entries that
-        # advertise supports_options=True. See `_fetch_entry_options`.
+        # advertise supports_options=True. See `fetch_entry_options`.
         formatted_entries = [
             self._format_entry(entry, include_opts, logger_levels) for entry in entries
         ]
@@ -1032,9 +1082,7 @@ class IntegrationTools:
     async def ha_set_integration_enabled(
         self,
         entry_id: Annotated[str, Field(description="Config entry ID")],
-        enabled: Annotated[
-            bool | str, Field(description="True to enable, False to disable")
-        ],
+        enabled: Annotated[bool, Field(description="True to enable, False to disable")],
     ) -> dict[str, Any]:
         """Enable/disable integration (config entry).
 
@@ -1050,12 +1098,11 @@ class IntegrationTools:
                     "Use ha_get_integration() to find valid config entry IDs",
                 ],
             )
-            enabled_bool = coerce_bool_param(enabled, "enabled")
 
             message = {
                 "type": "config_entries/disable",
                 "entry_id": entry_id,
-                "disabled_by": None if enabled_bool else "user",
+                "disabled_by": None if enabled else "user",
             }
 
             result = await self._client.send_websocket_message(message)
@@ -1067,7 +1114,7 @@ class IntegrationTools:
                 raise_tool_error(
                     create_error_response(
                         ErrorCode.SERVICE_CALL_FAILED,
-                        f"Failed to {'enable' if enabled_bool else 'disable'} integration: {error_msg}",
+                        f"Failed to {'enable' if enabled else 'disable'} integration: {error_msg}",
                         context={"entry_id": entry_id},
                     )
                 )
@@ -1080,13 +1127,13 @@ class IntegrationTools:
             else:
                 note = (
                     "Integration has been loaded."
-                    if enabled_bool
+                    if enabled
                     else "Integration has been unloaded."
                 )
 
             return {
                 "success": True,
-                "message": f"Integration {'enabled' if enabled_bool else 'disabled'} successfully",
+                "message": f"Integration {'enabled' if enabled else 'disabled'} successfully",
                 "entry_id": entry_id,
                 "require_restart": require_restart,
                 "note": note,
@@ -1097,6 +1144,7 @@ class IntegrationTools:
         except Exception as e:
             logger.error(f"Failed to set integration enabled: {e}")
             exception_to_structured_error(e, context={"entry_id": entry_id})
+            return None  # unreachable: exception_to_structured_error raises
 
     @tool(
         name="ha_remove_helpers_integrations",
@@ -1162,26 +1210,20 @@ class IntegrationTools:
             ),
         ] = None,
         confirm: Annotated[
-            bool | str,
+            bool,
             Field(
-                description=(
-                    "Must be True to confirm removal. Accepts bool or "
-                    "string ('true'/'false'/'1'/'0'/'yes'/'no'/'on'/'off', "
-                    "case-insensitive) for transport ergonomics."
-                ),
+                description="Must be True to confirm removal.",
                 default=False,
             ),
         ] = False,
         wait: Annotated[
-            bool | str,
+            bool,
             Field(
                 description=(
                     "Wait for entity removal. Default: True. "
                     "Ignored when helper_type=None or "
                     "helper_type='config_subentry' (no entity poll, "
-                    "require_restart returned). Accepts bool or string "
-                    "('true'/'false'/'1'/'0'/'yes'/'no'/'on'/'off', "
-                    "case-insensitive)."
+                    "require_restart returned)."
                 ),
                 default=True,
             ),
@@ -1266,12 +1308,11 @@ class IntegrationTools:
 
         **WARNING:** Removing a helper or integration that is referenced by
         automations, scripts, or other integrations may cause those to fail.
-        Use ha_search_entities() / ha_get_integration() to verify before
+        Use ha_search() / ha_get_integration() to verify before
         removal. Cannot be undone.
         """
         # === Confirm gate (uniform for all four paths) ===
-        confirm_bool = coerce_bool_param(confirm, "confirm", default=False)
-        if not confirm_bool:
+        if not confirm:
             raise_tool_error(
                 create_error_response(
                     ErrorCode.VALIDATION_INVALID_PARAMETER,
@@ -1301,13 +1342,13 @@ class IntegrationTools:
             "target",
             suggestions=[
                 "Use ha_get_integration() to find valid entry_ids",
-                "For simple helpers, use ha_search_entities() to find the helper_id",
-                "For flow helpers, use ha_search_entities() to find an entity_id",
+                "For simple helpers, use ha_search() to find the helper_id",
+                "For flow helpers, use ha_search() to find an entity_id",
             ],
             context={"helper_type": helper_type},
         )
 
-        wait_bool = coerce_bool_param(wait, "wait", default=True)
+        wait_bool = wait
         warnings: list[str] = []
 
         # === Routing dispatch ===
@@ -1421,6 +1462,8 @@ class IntegrationTools:
                     "see all config entries",
                 ],
             )
+            return None  # unreachable: exception_to_structured_error raises
+        return None  # py/mixed-returns: explicit terminal; error handlers above always raise (NoReturn), unreachable
 
     # === Path 2: FLOW helper delete via entity_id → entry_id lookup ===
     async def _delete_flow_helper(
@@ -1505,7 +1548,7 @@ class IntegrationTools:
                                 f"registry (looked up as {entity_id}). "
                                 "May indicate it was already removed, "
                                 "never existed, or the identifier is a "
-                                "typo. Verify with ha_search_entities() "
+                                "typo. Verify with ha_search() "
                                 "before retrying."
                             ),
                             context={
@@ -1514,7 +1557,7 @@ class IntegrationTools:
                                 "entity_id": entity_id,
                             },
                             suggestions=[
-                                "Use ha_search_entities() — flow helper "
+                                "Use ha_search() — flow helper "
                                 "types often expose entities under a "
                                 "different domain than the helper_type "
                                 "itself (e.g. utility_meter → sensor.*, "
@@ -1540,7 +1583,7 @@ class IntegrationTools:
                         },
                         suggestions=[
                             "If unsure about the correct entity_id, use "
-                            "ha_search_entities() — flow helper types often "
+                            "ha_search() — flow helper types often "
                             "expose entities under a different domain than "
                             "the helper_type itself (e.g. utility_meter → "
                             "sensor.*, switch_as_x → switch.* / light.*).",
@@ -1659,10 +1702,11 @@ class IntegrationTools:
                 },
                 suggestions=[
                     "Check Home Assistant connection",
-                    "Verify the target exists using ha_search_entities() "
-                    "or ha_get_integration()",
+                    "Verify the target exists using ha_search() "
+                    + "or ha_get_integration()",
                 ],
             )
+            return None  # unreachable: exception_to_structured_error raises
 
     async def _delete_config_subentry(
         self, entry_id: str, subentry_id: str
@@ -1916,7 +1960,7 @@ class IntegrationTools:
                                     "it was already removed, never "
                                     "existed, or the identifier is a "
                                     "typo. Verify with "
-                                    "ha_search_entities() before "
+                                    "ha_search() before "
                                     "retrying."
                                 ),
                                 context={
@@ -1942,10 +1986,10 @@ class IntegrationTools:
                             ),
                             suggestions=[
                                 "Re-enable the entity via "
-                                "ha_set_entity(enabled=True), then retry "
-                                "deletion.",
+                                + "ha_set_entity(enabled=True), then retry "
+                                + "deletion.",
                                 "Or inspect the entity registry entry "
-                                "directly to confirm unique_id presence.",
+                                + "directly to confirm unique_id presence.",
                             ],
                             context={
                                 "target": target,
@@ -1969,7 +2013,7 @@ class IntegrationTools:
                         ),
                         suggestions=[
                             "Helper may not be properly registered or was "
-                            "already deleted. Use ha_search_entities() to "
+                            "already deleted. Use ha_search() to "
                             "verify.",
                         ],
                         context={"target": target, "entity_id": entity_id},
@@ -2038,10 +2082,12 @@ class IntegrationTools:
                 context={"helper_type": helper_type, "target": target},
                 suggestions=[
                     "Check Home Assistant connection",
-                    "Verify target exists using ha_search_entities()",
+                    "Verify target exists using ha_search()",
                     "Ensure helper is not used by automations or scripts",
                 ],
             )
+            return None  # unreachable: exception_to_structured_error raises
+        return None  # py/mixed-returns: explicit terminal; error handlers above always raise (NoReturn), unreachable
 
 
 def register_integration_tools(mcp: Any, client: Any, **kwargs: Any) -> None:

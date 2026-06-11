@@ -155,7 +155,7 @@ def fake_auth_ref(fake_token, fake_service=None):
     return auth_ref
 
 
-class FakeIdentityv2Client:
+class FakeIdentityClient:
     def __init__(self, **kwargs):
         self.roles = mock.Mock()
         self.roles.resource_class = fakes.FakeResource(None, {})
@@ -167,14 +167,10 @@ class FakeIdentityv2Client:
         self.tokens.resource_class = fakes.FakeResource(None, {})
         self.users = mock.Mock()
         self.users.resource_class = fakes.FakeResource(None, {})
-        self.ec2 = mock.Mock()
-        self.ec2.resource_class = fakes.FakeResource(None, {})
         self.endpoints = mock.Mock()
         self.endpoints.resource_class = fakes.FakeResource(None, {})
         self.extensions = mock.Mock()
         self.extensions.resource_class = fakes.FakeResource(None, {})
-        self.auth_token = kwargs['token']
-        self.management_url = kwargs['endpoint']
 
     def __getattr__(self, name):
         # Map v3 'projects' back to v2 'tenants'
@@ -188,7 +184,7 @@ class FakeClientMixin:
     def setUp(self):
         super().setUp()
 
-        self.app.client_manager.identity = FakeIdentityv2Client(
+        self.app.client_manager.identity = FakeIdentityClient(
             endpoint=fakes.AUTH_URL,
             token=fakes.AUTH_TOKEN,
         )
@@ -204,7 +200,7 @@ class FakeClientMixin:
         )
 
 
-class TestIdentityv2(
+class TestIdentity(
     FakeClientMixin,
     utils.TestCommand,
 ): ...

@@ -51,7 +51,7 @@ def get_doc_type(doc):
 
 
 @contextlib.contextmanager
-def TempFileIfNeeded(path, suffix=None, data=None):
+def TempFileIfNeeded(path, suffix=None, data=None, temp_dir=None):
     """Takes an path and data
 
     If path is None or empty, then it creates a temporary file,
@@ -64,16 +64,29 @@ def TempFileIfNeeded(path, suffix=None, data=None):
     if path:
         yield path
     else:
+        # Normalize suffix to include leading dot if present
         if suffix:
-            suffix = "." + suffix
+            suffix = "." + suffix.lstrip(".")
         else:
             suffix = ""
-        with tempfile.NamedTemporaryFile(suffix=suffix) as file:
+        # Ensure temp directory exists and is accessible
+        if temp_dir:
+            os.makedirs(temp_dir, exist_ok=True)
+        with tempfile.NamedTemporaryFile(suffix=suffix, dir=temp_dir, delete=False) as file:
             if data:
                 file.file.write(data)
-            file.file.close()
-
-            yield file.name
+            file.file.flush()  # Ensure data is written to disk
+            temp_path = file.name
+        
+        try:
+            yield temp_path
+        finally:
+            # Clean up the temporary file after conversion
+            try:
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+            except Exception as e:
+                logger.warning(f"Failed to clean up temporary file {temp_path}: {e}")
 
 
 class UnoConverter:
@@ -82,7 +95,7 @@ class UnoConverter:
     Don't use this directly, instead use the client.UnoConverter.
     """
 
-    def __init__(self, interface="127.0.0.1", port="2002"):
+    def __init__(self, interface="127.0.0.1", port="2002", temp_dir=None):
         self.local_context = uno.getComponentContext()
         self.resolver = self.local_context.ServiceManager.createInstanceWithContext(
             "com.sun.star.bridge.UnoUrlResolver", self.local_context
@@ -100,9 +113,27 @@ class UnoConverter:
         self.type_service = self.service.createInstanceWithContext(
             "com.sun.star.document.TypeDetection", self.context
         )
+        self.temp_dir = temp_dir
         self._export_filters = None
         self._import_filters = None
 
+    def uno_info(self):
+        config_provider = self.service.createInstanceWithContext(
+            "com.sun.star.configuration.ConfigurationProvider", self.context
+        )
+    
+        # Set up arguments to target the specific node path
+        prop = PropertyValue(Name="nodepath", Value="/org.openoffice.Setup/Product")
+    
+        # Access the configuration node
+        config_access = config_provider.createInstanceWithArguments(
+            "com.sun.star.configuration.ConfigurationAccess", (prop,)
+        )
+        
+        # Extract the full version string
+        version = config_access.getByName("ooSetupVersionAboutBox")
+        return version
+    
     def find_filter(self, import_type, export_type):
         for export_filter in self.get_available_export_filters():
             if export_filter["DocumentService"] != import_type:
@@ -217,7 +248,23 @@ class UnoConverter:
                     f"There is no '{infiltername}' import filter. Available filters: {sorted(infilters.keys())}"
                 )
 
-        with TempFileIfNeeded(inpath, data=indata) as input_path:
+        if outpath:
+            output_path = Path(outpath)
+            existed_before = output_path.exists()
+            try:
+                # Verify output path is writable before opening the input document.
+                with output_path.open("ab"):
+                    pass
+            except OSError as e:
+                raise RuntimeError(f"Path {outpath} is not writable: {e}") from e
+            finally:
+                if not existed_before:
+                    try:
+                        output_path.unlink()
+                    except OSError:
+                        pass
+
+        with TempFileIfNeeded(inpath, data=indata, temp_dir=self.temp_dir) as input_path:
             # TODO: Verify that inpath exists and is openable, and that outdir exists, because uno's
             # exceptions are completely useless!
             if not Path(input_path).exists():
@@ -266,7 +313,7 @@ class UnoConverter:
                 # Figure out document type:
                 import_type = get_doc_type(document)
 
-                with TempFileIfNeeded(outpath, convert_to) as output_path:
+                with TempFileIfNeeded(outpath, convert_to, temp_dir=self.temp_dir) as output_path:
 
                     # Make a URL
                     export_url = uno.systemPathToFileUrl(os.path.abspath(output_path))

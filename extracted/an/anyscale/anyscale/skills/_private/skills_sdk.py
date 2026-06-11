@@ -8,7 +8,7 @@ import os
 import shutil
 import tarfile
 import tempfile
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 import requests
 
@@ -34,9 +34,10 @@ from anyscale.skills.models import (
 
 METADATA_DIR = os.path.join("~", ".anyscale", "skills")
 INSTALLED_METADATA_FILE = "installed.json"
-METADATA_SCHEMA_VERSION = 1
 
 _MANAGED_BY_TAG = "anyscale-skills"
+
+_SKILLS_PREFIX = "skills" + os.sep
 
 
 def _normalize_version(version: Optional[str]) -> Optional[str]:
@@ -151,6 +152,48 @@ def _merge_hooks_config(existing_path: str, bundle_path: str) -> None:
 
     existing["hooks"] = merged_hooks
     _save_json(existing_path, existing)
+
+
+def _migrate_v1_to_v2(data: dict) -> dict:
+    """Split v1 per-platform {target_dir, installed_files} into v2 fields."""
+    new_platforms = {}
+    for platform_key, info in data.get("platforms", {}).items():
+        target_dir = info.get("target_dir", "")
+        installed_files = info.get("installed_files", []) or []
+        skills_files: List[str] = []
+        hooks_files: List[str] = []
+        for rel_path in installed_files:
+            if rel_path.startswith(_SKILLS_PREFIX):
+                skills_files.append(rel_path[len(_SKILLS_PREFIX) :])
+            else:
+                hooks_files.append(rel_path)
+        new_platforms[platform_key] = {
+            "skills_dir": (os.path.join(target_dir, "skills") if target_dir else ""),
+            "hooks_dir": target_dir,
+            "skills_files": skills_files,
+            "hooks_files": hooks_files,
+        }
+    return {**data, "schema_version": 2, "platforms": new_platforms}
+
+
+_MIGRATIONS: List[Tuple[int, int, Callable[[dict], dict]]] = [
+    (1, 2, _migrate_v1_to_v2),
+]
+
+
+def _migrate_to_current(data: dict) -> dict:
+    """Walk _MIGRATIONS until data is at InstalledMetadata.CURRENT_SCHEMA_VERSION."""
+    current = data.get("schema_version", 1)
+    for src, dst, fn in _MIGRATIONS:
+        if current == src:
+            data = fn(data)
+            current = dst
+    if current != InstalledMetadata.CURRENT_SCHEMA_VERSION:
+        raise ValueError(
+            f"No migration path from schema_version {current} to "
+            f"{InstalledMetadata.CURRENT_SCHEMA_VERSION}."
+        )
+    return data
 
 
 @dataclass(frozen=True)
@@ -491,6 +534,14 @@ class PrivateSkillsSDK(BaseSDK):
             bundle, plan, target_platforms, existing_metadata=existing_metadata,
         )
         self._warn_about_unsupported_skills(plan.catalog)
+        if Platform.CODEX in target_platforms:
+            self._logger.info("")
+            self._logger.info(
+                "  To enable Anyscale hooks for Codex, add the following to "
+                "~/.codex/config.toml:"
+            )
+            self._logger.info("    [features]")
+            self._logger.info("    codex_hooks = true")
 
     def _warn_about_unsupported_skills(self, catalog: List[CatalogEntry]) -> None:
         """Log a warning for catalog entries whose platforms the CLI doesn't know."""
@@ -569,14 +620,15 @@ class PrivateSkillsSDK(BaseSDK):
 
         for platform in platforms:
             platform_config = self._platform_configs[platform]
-            previous_files = None
-            if platform in platforms_info:
-                previous_files = platforms_info[platform].installed_files
-            installed_files = self._install_for_platform(
-                bundle, platform, previous_files,
+            previous = platforms_info.get(platform)
+            skills_files, hooks_files = self._install_for_platform(
+                bundle, platform, previous,
             )
             platforms_info[platform] = PlatformInstallInfo(
-                target_dir=platform_config.dir, installed_files=installed_files,
+                skills_dir=platform_config.skills_dir,
+                hooks_dir=platform_config.hooks_dir,
+                skills_files=skills_files,
+                hooks_files=hooks_files,
             )
             self._save_metadata(
                 InstalledMetadata(
@@ -585,24 +637,20 @@ class PrivateSkillsSDK(BaseSDK):
                     platforms=platforms_info,
                     checksum=plan.bundle_checksum or "",
                     catalog=plan.catalog,
-                    schema_version=METADATA_SCHEMA_VERSION,
+                    schema_version=InstalledMetadata.CURRENT_SCHEMA_VERSION,
                     installed_at=datetime.now(timezone.utc).isoformat(),
                 )
             )
-            self._logger.info(
-                f"  [{platform}] {len(installed_files)} file(s) installed"
-            )
+            total = len(skills_files) + len(hooks_files)
+            self._logger.info(f"  [{platform}] {total} file(s) installed")
 
     def _install_for_platform(
         self,
         bundle: bytes,
         platform: Platform,
-        previous_files: Optional[List[str]] = None,
-    ) -> List[str]:
-        """Extract and install skill files for a given platform.
-
-        Returns list of installed file paths (relative to platform target dir).
-        """
+        previous: Optional[PlatformInstallInfo] = None,
+    ) -> Tuple[List[str], List[str]]:
+        """Extract and install skill + hooks files for a given platform."""
         if platform not in self._platform_configs:
             raise ValueError(
                 f"Unsupported platform: {platform}. "
@@ -610,11 +658,13 @@ class PrivateSkillsSDK(BaseSDK):
             )
 
         platform_config = self._platform_configs[platform]
-        target_dir = os.path.expanduser(platform_config.dir)
+        skills_dir = os.path.expanduser(platform_config.skills_dir)
+        hooks_dir = os.path.expanduser(platform_config.hooks_dir)
         hooks_config_name = platform_config.hooks_config
-        hooks_config_path = os.path.join(target_dir, hooks_config_name)
+        hooks_config_path = os.path.join(hooks_dir, hooks_config_name)
 
-        installed: List[str] = []
+        skills_files: List[str] = []
+        hooks_files: List[str] = []
         written_files: List[str] = []
         hooks_backup: Optional[bytes] = None
         hooks_existed_before = False
@@ -628,7 +678,7 @@ class PrivateSkillsSDK(BaseSDK):
                     f"Skills bundle does not contain files for platform '{platform}'."
                 )
 
-            self._pre_write_validate(target_dir, hooks_config_path)
+            self._pre_write_validate(skills_dir, hooks_dir, hooks_config_path)
 
             if os.path.exists(hooks_config_path):
                 hooks_existed_before = True
@@ -640,16 +690,23 @@ class PrivateSkillsSDK(BaseSDK):
                     for filename in files:
                         source_path = os.path.join(root, filename)
                         rel_path = os.path.relpath(source_path, platform_source_dir)
-                        dest_path = os.path.join(target_dir, rel_path)
 
                         if rel_path == hooks_config_name:
-                            _merge_hooks_config(dest_path, source_path)
-                        else:
+                            _merge_hooks_config(hooks_config_path, source_path)
+                            hooks_files.append(rel_path)
+                        elif rel_path.startswith(_SKILLS_PREFIX):
+                            skills_rel = rel_path[len(_SKILLS_PREFIX) :]
+                            dest_path = os.path.join(skills_dir, skills_rel)
                             os.makedirs(os.path.dirname(dest_path), exist_ok=True)
                             shutil.copy2(source_path, dest_path)
                             written_files.append(dest_path)
-
-                        installed.append(rel_path)
+                            skills_files.append(skills_rel)
+                        else:
+                            dest_path = os.path.join(hooks_dir, rel_path)
+                            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                            shutil.copy2(source_path, dest_path)
+                            written_files.append(dest_path)
+                            hooks_files.append(rel_path)
             except Exception as e:
                 self._rollback_platform_install(
                     written_files,
@@ -661,30 +718,35 @@ class PrivateSkillsSDK(BaseSDK):
                     raise ValueError(
                         f"Permission denied while installing skills for '{platform}': {e}.\n"
                         "  No changes were applied. Check write access to "
-                        f"'{target_dir}' and retry."
+                        f"'{skills_dir}' and '{hooks_dir}' and retry."
                     ) from e
                 raise
 
-        if previous_files:
-            self._cleanup_orphaned_files(platform, previous_files, installed)
+        if previous is not None:
+            self._cleanup_orphaned_files(
+                platform, previous, skills_files, hooks_files,
+            )
 
-        return installed
+        return skills_files, hooks_files
 
-    def _pre_write_validate(self, target_dir: str, hooks_config_path: str) -> None:
-        """Check target dir writability and that existing hooks config is valid JSON."""
-        if os.path.exists(target_dir):
-            if not os.access(target_dir, os.W_OK):
-                raise ValueError(
-                    f"Target directory '{target_dir}' is not writable.\n"
-                    "  Check permissions and retry."
-                )
-        else:
-            try:
-                os.makedirs(target_dir, exist_ok=True)
-            except OSError as e:
-                raise ValueError(
-                    f"Cannot create target directory '{target_dir}': {e}"
-                ) from e
+    def _pre_write_validate(
+        self, skills_dir: str, hooks_dir: str, hooks_config_path: str,
+    ) -> None:
+        """Check both target dirs are writable and any existing hooks config is valid JSON."""
+        for target_dir in (skills_dir, hooks_dir):
+            if os.path.exists(target_dir):
+                if not os.access(target_dir, os.W_OK):
+                    raise ValueError(
+                        f"Target directory '{target_dir}' is not writable.\n"
+                        "  Check permissions and retry."
+                    )
+            else:
+                try:
+                    os.makedirs(target_dir, exist_ok=True)
+                except OSError as e:
+                    raise ValueError(
+                        f"Cannot create target directory '{target_dir}': {e}"
+                    ) from e
 
         if os.path.exists(hooks_config_path):
             try:
@@ -732,16 +794,36 @@ class PrivateSkillsSDK(BaseSDK):
             ) from e
 
     def _cleanup_orphaned_files(
-        self, platform: Platform, previous_files: List[str], installed: List[str],
+        self,
+        platform: Platform,
+        previous: PlatformInstallInfo,
+        skills_files: List[str],
+        hooks_files: List[str],
     ) -> None:
         """Remove files from the previous version that are no longer in the bundle."""
         platform_config = self._platform_configs[platform]
-        target_dir = os.path.expanduser(platform_config.dir)
+        skills_dir = os.path.expanduser(platform_config.skills_dir)
+        hooks_dir = os.path.expanduser(platform_config.hooks_dir)
         hooks_config_name = platform_config.hooks_config
-        orphaned = set(previous_files) - set(installed) - {hooks_config_name}
 
-        for rel_path in orphaned:
-            abs_path = os.path.join(target_dir, rel_path)
+        skills_orphans = set(previous.skills_files) - set(skills_files)
+        hooks_orphans = (
+            set(previous.hooks_files) - set(hooks_files) - {hooks_config_name}
+        )
+
+        cleaned_any_skills = self._remove_orphans(platform, skills_dir, skills_orphans,)
+        cleaned_any_hooks = self._remove_orphans(platform, hooks_dir, hooks_orphans,)
+
+        if cleaned_any_skills:
+            self._cleanup_empty_dirs(skills_dir)
+        if cleaned_any_hooks:
+            self._cleanup_empty_dirs(hooks_dir)
+
+    def _remove_orphans(self, platform: Platform, base_dir: str, orphans: set,) -> bool:
+        """Remove orphan files under base_dir. Returns True if any were removed."""
+        removed_any = False
+        for rel_path in orphans:
+            abs_path = os.path.join(base_dir, rel_path)
             if os.path.exists(abs_path):
                 try:
                     os.remove(abs_path)
@@ -751,9 +833,8 @@ class PrivateSkillsSDK(BaseSDK):
                     )
                     continue
                 self._logger.info(f"  [{platform}] removed: {rel_path}")
-
-        if orphaned:
-            self._cleanup_empty_dirs(target_dir)
+                removed_any = True
+        return removed_any
 
     def _load_metadata(self) -> Optional[InstalledMetadata]:
         """Load installation metadata, or None if not installed."""
@@ -779,6 +860,7 @@ class PrivateSkillsSDK(BaseSDK):
             raise corrupted("'platforms' must be a dict")
 
         try:
+            data = _migrate_to_current(data)
             return InstalledMetadata.from_dict(
                 {
                     **data,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: snaptrade-python-sdk
-Version: 11.0.203
+Version: 11.0.205
 Summary: Client for SnapTrade
 License: MIT
 Author: SnapTrade
@@ -30,7 +30,7 @@ Description-Content-Type: text/markdown
 Connect brokerage accounts to your app for live positions and trading
 
 
-[![PyPI](https://img.shields.io/badge/PyPI-v11.0.203-blue)](https://pypi.org/project/snaptrade-python-sdk/11.0.203)
+[![PyPI](https://img.shields.io/badge/PyPI-v11.0.205-blue)](https://pypi.org/project/snaptrade-python-sdk/11.0.205)
 [![README.md](https://img.shields.io/badge/README-Click%20Here-green)](https://github.com/passiv/snaptrade-sdks/tree/master/sdks/python#readme)
 [![More Info](https://img.shields.io/badge/More%20Info-Click%20Here-orange)](https://snaptrade.com/)
 
@@ -122,7 +122,7 @@ Python >=3.8
 ## Installation<a id="installation"></a>
 
 ```sh
-pip install snaptrade-python-sdk==11.0.203
+pip install snaptrade-python-sdk==11.0.205
 ```
 
 ## Getting Started<a id="getting-started"></a>
@@ -1287,7 +1287,7 @@ Trigger a holdings update for all accounts under this connection. Updates will b
 This endpoint will also trigger a transaction sync for the past day if one has not yet occurred.
 
 **Because of the cost of refreshing a connection, each call to this endpoint incurs an additional charge. You can find the exact cost for your API key on the [Customer Dashboard billing page](https://dashboard.snaptrade.com/settings/billing)**
-**Please note this endpoint is disabled for Personal and Pay as you Go Real-time plans. Real-time plans do not benefit from this feature since data is refreshed when calls are made**
+**Please note this endpoint is disabled for Real-time plans (Personal and Pay as you go) unless the connection is delayed. Real-time connections do not benefit from this feature since data is refreshed when calls are made. Refer to the `data_freshness_mode` field on a connection to determine this.**
 
 
 #### 🛠️ Usage<a id="🛠️-usage"></a>
@@ -2546,7 +2546,7 @@ Number of shares for the order. This can be a decimal for fractional orders. Mus
 
 ### `snaptrade.trading.place_complex_order`<a id="snaptradetradingplace_complex_order"></a>
 
-Places a complex conditional order (OCO, OTO, or OTOCO). Disabled by default — contact support to enable.
+Places a complex conditional order (OCO, OTO, or OTOCO).
 Only supported on certain brokerages.
 Please refer to the [brokerage trading support page](https://support.snaptrade.com/brokerages) for details on which brokerages support complex orders and which types they support.
 

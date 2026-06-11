@@ -7,6 +7,7 @@ import tempfile
 from typing import Callable, Iterable, Optional
 from unittest import mock
 
+import pydantic
 import pytest
 from google.protobuf import timestamp_pb2
 from opentelemetry.trace import SpanKind
@@ -16,9 +17,10 @@ from xai_sdk.files import (
     _chunk_file_data,
     _chunk_file_from_path,
     _order_to_pb,
+    _resolve_storage_options_pb,
     _sort_by_to_pb,
 )
-from xai_sdk.proto import files_pb2
+from xai_sdk.proto import files_pb2, image_pb2
 
 
 def _extract_file_index_from_chunks(chunks: Iterable[files_pb2.UploadFileChunk]) -> int:
@@ -314,6 +316,27 @@ def test_list_files_with_sort_by(client_with_mock_stub: Client, mock_stub):
     assert call_args.order == files_pb2.Ordering.ASCENDING
 
 
+def test_list_files_with_filter(client_with_mock_stub: Client, mock_stub):
+    """Test listing files with an filter expression."""
+    mock_stub.ListFiles.return_value = files_pb2.ListFilesResponse(data=[])
+
+    client_with_mock_stub.files.list(filter='content_type = "application/pdf"')
+
+    call_args = mock_stub.ListFiles.call_args[0][0]
+    assert call_args.HasField("filter")
+    assert call_args.filter == 'content_type = "application/pdf"'
+
+
+def test_list_files_omits_empty_filter(client_with_mock_stub: Client, mock_stub):
+    """Test that an empty filter string is treated as unset."""
+    mock_stub.ListFiles.return_value = files_pb2.ListFilesResponse(data=[])
+
+    client_with_mock_stub.files.list(filter="")
+
+    call_args = mock_stub.ListFiles.call_args[0][0]
+    assert not call_args.HasField("filter")
+
+
 def test_get_file(client_with_mock_stub: Client, mock_stub):
     """Test getting file metadata."""
     # Mock the response
@@ -393,6 +416,64 @@ def test_sort_by_conversion():
     assert _sort_by_to_pb("filename") == files_pb2.FilesSortBy.FILES_SORT_BY_FILENAME
     assert _sort_by_to_pb("size") == files_pb2.FilesSortBy.FILES_SORT_BY_SIZE
     assert _sort_by_to_pb(None) == files_pb2.FilesSortBy.FILES_SORT_BY_CREATED_AT
+
+
+def test_resolve_storage_options_pb_proto_passthrough():
+    """A StorageOptions proto is returned unchanged."""
+    proto = image_pb2.StorageOptions(filename="a.png", expires_after=10)
+    assert _resolve_storage_options_pb(proto) is proto
+
+
+def test_resolve_storage_options_pb_filename_only():
+    """Only filename set; no expiry, no public URL."""
+    pb = _resolve_storage_options_pb({"filename": "a.png"})
+    assert pb.filename == "a.png"
+    assert pb.expires_after == 0
+    assert not pb.HasField("public_url")
+
+
+def test_resolve_storage_options_pb_expires_after_int_and_timedelta():
+    """expires_after accepts both int seconds and timedelta."""
+    assert _resolve_storage_options_pb({"filename": "a.png", "expires_after": 3600}).expires_after == 3600
+    pb = _resolve_storage_options_pb({"filename": "a.png", "expires_after": datetime.timedelta(hours=1)})
+    assert pb.expires_after == 3600
+
+
+def test_resolve_storage_options_pb_public_url_true():
+    """public_url=True creates a public URL with no independent expiry."""
+    pb = _resolve_storage_options_pb({"filename": "a.png", "public_url": True})
+    assert pb.HasField("public_url")
+    assert not pb.public_url.HasField("expires_after")
+
+
+def test_resolve_storage_options_pb_public_url_false():
+    """public_url=False stores privately (no public URL)."""
+    pb = _resolve_storage_options_pb({"filename": "a.png", "public_url": False})
+    assert not pb.HasField("public_url")
+
+
+def test_resolve_storage_options_pb_public_url_dict():
+    """public_url as a dict sets an independent expiry (int or timedelta)."""
+    pb = _resolve_storage_options_pb({"filename": "a.png", "public_url": {"expires_after": 86400}})
+    assert pb.public_url.expires_after == 86400
+    pb = _resolve_storage_options_pb(
+        {"filename": "a.png", "public_url": {"expires_after": datetime.timedelta(hours=2)}}
+    )
+    assert pb.public_url.expires_after == 7200
+
+
+def test_resolve_storage_options_pb_missing_filename_raises():
+    """A missing required filename raises a clear ValidationError, not KeyError."""
+    with pytest.raises(pydantic.ValidationError):
+        _resolve_storage_options_pb({"expires_after": 3600})  # type: ignore[typeddict-item]
+
+
+def test_resolve_storage_options_pb_invalid_types_raise():
+    """Wrong field types are rejected at runtime."""
+    with pytest.raises(pydantic.ValidationError):
+        _resolve_storage_options_pb({"filename": 123})  # type: ignore[typeddict-item]
+    with pytest.raises(pydantic.ValidationError):
+        _resolve_storage_options_pb({"filename": "a.png", "public_url": ["nope"]})  # type: ignore[typeddict-item]
 
 
 def test_chunk_file_data():
@@ -759,3 +840,54 @@ def test_upload_with_expires_after_timedelta(client_with_mock_stub: Client, mock
 
     result = client_with_mock_stub.files.upload(data, filename=filename, expires_after=datetime.timedelta(days=1))
     assert result.id == "file-123"
+
+
+@pytest.mark.parametrize(
+    "expires_after, expected_seconds",
+    [
+        (None, None),
+        (86400, 86400),
+        (datetime.timedelta(hours=12), 43200),
+    ],
+    ids=["no-expiry", "int-seconds", "timedelta"],
+)
+def test_create_public_url(client_with_mock_stub: Client, mock_stub, expires_after, expected_seconds):
+    """Test creating a public URL with various expires_after values."""
+    mock_expires_at = timestamp_pb2.Timestamp(seconds=1720000000)
+    mock_response = files_pb2.CreatePublicUrlResponse(
+        public_url="https://example.com/files/file-123.png",
+        expires_at=mock_expires_at,
+    )
+    mock_stub.CreatePublicUrl.return_value = mock_response
+
+    kwargs = {"expires_after": expires_after} if expires_after is not None else {}
+    result = client_with_mock_stub.files.create_public_url("file-123", **kwargs)
+
+    call_args = mock_stub.CreatePublicUrl.call_args[0][0]
+    assert call_args.file_id == "file-123"
+    if expected_seconds is None:
+        assert not call_args.HasField("expires_after")
+    else:
+        assert call_args.expires_after == expected_seconds
+
+    assert result.public_url == "https://example.com/files/file-123.png"
+    assert result.expires_at == mock_expires_at
+
+
+def test_revoke_public_url(client_with_mock_stub: Client, mock_stub):
+    """Test revoking a public URL for a file."""
+    mock_response = files_pb2.RevokePublicUrlResponse(
+        file_id="file-123",
+        revoked=True,
+        public_url="https://example.com/files/file-123.png",
+    )
+    mock_stub.RevokePublicUrl.return_value = mock_response
+
+    result = client_with_mock_stub.files.revoke_public_url("file-123")
+
+    call_args = mock_stub.RevokePublicUrl.call_args[0][0]
+    assert call_args.file_id == "file-123"
+    assert isinstance(result, files_pb2.RevokePublicUrlResponse)
+    assert result.file_id == "file-123"
+    assert result.revoked is True
+    assert result.public_url == "https://example.com/files/file-123.png"

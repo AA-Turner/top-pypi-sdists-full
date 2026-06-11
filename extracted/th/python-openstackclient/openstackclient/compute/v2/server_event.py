@@ -23,6 +23,7 @@ import uuid
 
 from cliff import columns
 import iso8601
+from openstack.compute.v2 import server_action as _server_action
 from openstack import exceptions as sdk_exceptions
 from openstack import utils as sdk_utils
 from osc_lib import exceptions
@@ -67,7 +68,8 @@ class ServerActionEventColumn(columns.FormattableColumn[Any]):
     objects as we'd like.
     """
 
-    def _format_event(self, event: Any) -> dict[str, Any]:
+    @staticmethod
+    def _format_event(event: _server_action.ServerAction) -> dict[str, Any]:
         hidden_columns = ['id', 'name', 'location']
         _, columns = utils.get_osc_show_columns_for_sdk_resource(
             event, {}, hidden_columns
@@ -170,6 +172,9 @@ class ListServerEvent(command.Lister):
 
             kwargs['limit'] = parsed_args.limit
             kwargs['paginated'] = False
+
+        if parsed_args.max_items is not None:
+            kwargs['max_items'] = parsed_args.max_items
 
         if parsed_args.changes_since:
             if not sdk_utils.supports_microversion(compute_client, '2.58'):
@@ -295,6 +300,8 @@ class ShowServerEvent(command.ShowOne):
             parsed_args.request_id,
             server_id,
         )
+        # this is a bug is SDK
+        assert server_action is not None
 
         column_headers, columns = _get_server_event_columns(
             server_action,

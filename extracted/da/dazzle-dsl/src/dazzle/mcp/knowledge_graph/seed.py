@@ -21,7 +21,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Bump this when the mapping logic changes to trigger a re-seed
-SEED_SCHEMA_VERSION = 23  # v23: pattern `capability` opt-in gate round-trips through the KG (#1342)
+SEED_SCHEMA_VERSION = (
+    26  # v26: dashboard pattern regains the derived completion_rate ratio (#1359 slice 2)
+)
 
 
 def compute_seed_version() -> str:

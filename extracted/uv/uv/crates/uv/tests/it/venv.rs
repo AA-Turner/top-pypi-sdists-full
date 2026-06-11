@@ -915,6 +915,40 @@ fn create_venv_with_invalid_concurrent_installs() {
 }
 
 #[test]
+fn create_venv_with_invalid_cuda_driver_version() {
+    let context = uv_test::test_context_with_versions!(&["3.12"]);
+    uv_snapshot!(context.filters(), context.venv()
+        .arg(context.venv.as_os_str())
+        .arg("--python")
+        .arg("3.12")
+        .env(EnvVars::UV_CUDA_DRIVER_VERSION, "invalid"), @"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Failed to parse environment variable `UV_CUDA_DRIVER_VERSION` with invalid value `invalid`: expected version to start with a number, but no leading ASCII digits were found
+    ");
+}
+
+#[test]
+fn create_venv_with_invalid_amd_gpu_architecture() {
+    let context = uv_test::test_context_with_versions!(&["3.12"]);
+    uv_snapshot!(context.filters(), context.venv()
+        .arg(context.venv.as_os_str())
+        .arg("--python")
+        .arg("3.12")
+        .env(EnvVars::UV_AMD_GPU_ARCHITECTURE, "invalid"), @"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Failed to parse environment variable `UV_AMD_GPU_ARCHITECTURE` with invalid value `invalid`: Unknown AMD GPU architecture: invalid
+    ");
+}
+
+#[test]
 fn create_venv_unknown_python_minor() {
     let context = uv_test::test_context_with_versions!(&["3.12"]).with_filtered_python_sources();
 
@@ -1358,6 +1392,12 @@ fn verify_pyvenv_cfg_relocatable() {
     let activate_fish = scripts.child("activate.fish");
     activate_fish.assert(predicates::path::is_file());
     activate_fish.assert(predicates::str::contains(r#"set -gx VIRTUAL_ENV ''"$(dirname -- "$(cd "$(dirname -- "$(status -f)")"; and pwd)")"''"#));
+    activate_fish.assert(predicates::str::contains(
+        "if string match -qr 'CYGWIN|MSYS|MINGW' (uname); and command -s cygpath >/dev/null",
+    ));
+    activate_fish.assert(predicates::str::contains(
+        r#"set -gx VIRTUAL_ENV (cygpath -u "$VIRTUAL_ENV")"#,
+    ));
 
     let activate_nu = scripts.child("activate.nu");
     activate_nu.assert(predicates::path::is_file());

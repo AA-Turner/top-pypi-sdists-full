@@ -10,11 +10,12 @@ use crate::families::bms::{
 };
 use crate::families::gamlss::{
     BinomialLocationScaleFitResult, BinomialLocationScaleTermSpec, BlockwiseTermFitResult,
-    BlockwiseTermFitResultParts, BlockwiseTermWiggleFitResult, GaussianLocationScaleFitResult,
+    BlockwiseTermFitResultParts, BlockwiseTermWiggleFitResult, DispersionFamilyKind,
+    DispersionGlmLocationScaleTermSpec, GaussianLocationScaleFitResult,
     GaussianLocationScaleTermSpec, fit_binomial_location_scale_terms,
     fit_binomial_location_scale_terms_with_selected_wiggle,
-    fit_binomial_mean_wiggle_terms_with_selected_basis, fit_gaussian_location_scale_terms,
-    fit_gaussian_location_scale_terms_with_selected_wiggle,
+    fit_binomial_mean_wiggle_terms_with_selected_basis, fit_dispersion_glm_location_scale_terms,
+    fit_gaussian_location_scale_terms, fit_gaussian_location_scale_terms_with_selected_wiggle,
     select_binomial_location_scale_link_wiggle_basis_from_pilot,
     select_binomial_mean_link_wiggle_basis_from_pilot,
     select_gaussian_location_scale_link_wiggle_basis_from_pilot,
@@ -363,6 +364,13 @@ pub struct BinomialLocationScaleFitRequest<'a> {
     pub kappa_options: SpatialLengthScaleOptimizationOptions,
 }
 
+pub struct DispersionLocationScaleFitRequest<'a> {
+    pub data: ArrayView2<'a, f64>,
+    pub spec: DispersionGlmLocationScaleTermSpec,
+    pub options: BlockwiseFitOptions,
+    pub kappa_options: SpatialLengthScaleOptimizationOptions,
+}
+
 pub struct SurvivalLocationScaleFitRequest<'a> {
     pub data: ArrayView2<'a, f64>,
     pub spec: SurvivalLocationScaleTermSpec,
@@ -498,6 +506,7 @@ pub enum FitRequest<'a> {
     Standard(StandardFitRequest<'a>),
     GaussianLocationScale(GaussianLocationScaleFitRequest<'a>),
     BinomialLocationScale(BinomialLocationScaleFitRequest<'a>),
+    DispersionLocationScale(DispersionLocationScaleFitRequest<'a>),
     SurvivalLocationScale(SurvivalLocationScaleFitRequest<'a>),
     SurvivalTransformation(SurvivalTransformationFitRequest<'a>),
     BernoulliMarginalSlope(BernoulliMarginalSlopeFitRequest<'a>),
@@ -567,6 +576,7 @@ macro_rules! family_dispatch {
             FitRequest::Standard($req) => $body,
             FitRequest::GaussianLocationScale($req) => $body,
             FitRequest::BinomialLocationScale($req) => $body,
+            FitRequest::DispersionLocationScale($req) => $body,
             FitRequest::SurvivalLocationScale($req) => $body,
             FitRequest::SurvivalTransformation($req) => $body,
             FitRequest::BernoulliMarginalSlope($req) => $body,
@@ -681,6 +691,38 @@ impl<'a> FamilyFitRequest for BinomialLocationScaleFitRequest<'a> {
         h.write_str(&format!("{:?}", self.spec.link_kind));
         self.spec.thresholdspec.write_structural_shape_hash(h);
         self.spec.log_sigmaspec.write_structural_shape_hash(h);
+    }
+    fn attach_cache_session(&mut self, session: std::sync::Arc<crate::cache::Session>) {
+        self.options.cache_session.get_or_insert(session);
+    }
+    fn attach_cache_mirror(&mut self, mirror: std::sync::Arc<crate::cache::Session>) {
+        self.options.cache_mirror_sessions.push(mirror);
+    }
+}
+
+impl<'a> FamilyFitRequest for DispersionLocationScaleFitRequest<'a> {
+    const TAG: &'static str = "dispersion-location-scale";
+    fn n_obs(&self) -> usize {
+        self.spec.y.len()
+    }
+    fn n_cols(&self) -> usize {
+        self.data.ncols()
+    }
+    fn write_shape_hash(&self, h: &mut crate::cache::Fingerprinter) {
+        h.write_str("disp-ls");
+        h.write_str(self.spec.kind.family_tag());
+        h.write_usize(self.spec.y.len());
+        h.write_usize(self.data.ncols());
+        // Topology identity (#869, extended): see GaussianLocationScale.
+        self.spec.meanspec.write_structural_shape_hash(h);
+        self.spec.log_dispspec.write_structural_shape_hash(h);
+    }
+    fn write_seed_hash(&self, h: &mut crate::cache::Fingerprinter) {
+        h.write_str("disp-ls-seed");
+        h.write_str(self.spec.kind.family_tag());
+        h.write_usize(self.data.ncols());
+        self.spec.meanspec.write_structural_shape_hash(h);
+        self.spec.log_dispspec.write_structural_shape_hash(h);
     }
     fn attach_cache_session(&mut self, session: std::sync::Arc<crate::cache::Session>) {
         self.options.cache_session.get_or_insert(session);
@@ -1086,6 +1128,7 @@ pub enum FitResult {
     Standard(StandardFitResult),
     GaussianLocationScale(GaussianLocationScaleFitResult),
     BinomialLocationScale(BinomialLocationScaleFitResult),
+    DispersionLocationScale(DispersionLocationScaleFitResult),
     SurvivalLocationScale(SurvivalLocationScaleFitResult),
     SurvivalTransformation(SurvivalTransformationFitResult),
     BernoulliMarginalSlope(BernoulliMarginalSlopeFitResult),
@@ -1093,6 +1136,16 @@ pub enum FitResult {
     LatentSurvival(LatentSurvivalTermFitResult),
     LatentBinary(LatentBinaryTermFitResult),
     TransformationNormal(TransformationNormalFitResult),
+}
+
+/// Result of a dispersion-channel GAMLSS location-scale fit (#913). Wraps the
+/// shared two-block [`BlockwiseTermFitResult`] (mean + log-precision designs
+/// and coefficients) plus the family kind so the save path can stamp the right
+/// likelihood. These families have no link-wiggle and no response
+/// standardization, so the result is a thin wrapper.
+pub struct DispersionLocationScaleFitResult {
+    pub fit: BlockwiseTermFitResult,
+    pub kind: DispersionFamilyKind,
 }
 
 fn resolved_wiggle_inverse_link(
@@ -1851,6 +1904,19 @@ fn fit_gaussian_location_scale_model(
 
     rescale_gaussian_location_scale_to_raw(&mut result, response_scale);
     Ok(result)
+}
+
+fn fit_dispersion_location_scale_model(
+    request: DispersionLocationScaleFitRequest<'_>,
+) -> Result<DispersionLocationScaleFitResult, String> {
+    let kind = request.spec.kind;
+    let fit = fit_dispersion_glm_location_scale_terms(
+        request.data,
+        request.spec,
+        &request.options,
+        &request.kappa_options,
+    )?;
+    Ok(DispersionLocationScaleFitResult { fit, kind })
 }
 
 fn fit_binomial_location_scale_model(
@@ -3054,10 +3120,12 @@ fn fit_survival_transformation_model(
             let time_beta = beta
                 .slice(s![..spec.time_build.x_exit_time.ncols()])
                 .to_owned();
-            fitted_weibull_baseline_from_linear_time_beta(&time_beta, spec.time_anchor).ok_or_else(|| {
-                "failed to recover fitted Weibull scale/shape from the linear time coefficients"
-                    .to_string()
-            })?
+            fitted_weibull_baseline_from_linear_time_beta(&time_beta, spec.time_anchor).ok_or_else(
+                || {
+                    "failed to recover fitted Weibull scale/shape from the linear time coefficients"
+                        .to_string()
+                },
+            )?
         } else {
             baseline_cfg
         };
@@ -3532,7 +3600,7 @@ impl CtnStage1Recipe {
 /// Number of cross-fit folds for a problem of `n` rows.
 ///
 /// Cross-fitting refits the CTN once per fold, so the cost is `K` full Stage-1
-/// fits. The standard DML default is `K = 5` for moderate `n`. At biobank scale
+/// fits. The standard DML default is `K = 5` for moderate `n`. At large scale
 /// each CTN refit is expensive while the out-of-fold bias from a single split is
 /// already negligible (θ̂₁ is precisely estimated on a complement of ≈ `n·(K−1)/K`
 /// rows), so `K` is reduced toward 2 as `n` grows — keeping the refit budget
@@ -3544,8 +3612,8 @@ impl CtnStage1Recipe {
 /// The schedule (no flag, no env — derived purely from `n`):
 ///   - `n < 250`               : `K = min(n, 3)` (tiny data; keep ≥ 2 folds)
 ///   - `250 ≤ n < 200_000`      : `K = 5` (DML moderate-n default)
-///   - `200_000 ≤ n < 2_000_000` : `K = 3` (biobank: bound refit cost, ≈ ⅔ train)
-///   - `n ≥ 2_000_000`          : `K = 2` (mega-biobank: ½ train still ample)
+///   - `200_000 ≤ n < 2_000_000` : `K = 3` (large-scale: bound refit cost, ≈ ⅔ train)
+///   - `n ≥ 2_000_000`          : `K = 2` (mega-large-scale: ½ train still ample)
 fn crossfit_fold_count(n: usize) -> usize {
     if n < 250 {
         n.min(3).max(2)
@@ -3830,6 +3898,11 @@ pub fn fit_model(request: FitRequest<'_>) -> Result<FitResult, WorkflowError> {
         FitRequest::BinomialLocationScale(request) => fit_binomial_location_scale_model(request)
             .map(FitResult::BinomialLocationScale)
             .map_err(wrap_solver_err),
+        FitRequest::DispersionLocationScale(request) => {
+            fit_dispersion_location_scale_model(request)
+                .map(FitResult::DispersionLocationScale)
+                .map_err(wrap_solver_err)
+        }
         FitRequest::SurvivalLocationScale(request) => {
             // Outermost defensive catch: any path that surfaces empty
             // `block_states` to a family method (multiple possible —
@@ -4118,8 +4191,8 @@ impl Default for FitConfig {
 ///
 /// If the caller hasn't supplied an explicit policy override, derive one from
 /// the shape of the problem via
-/// [`crate::resource::ResourcePolicy::for_problem`]. At biobank scale (n_rows
-/// >= 100k or the marginal-slope biobank path active) this returns
+/// [`crate::resource::ResourcePolicy::for_problem`]. At large scale (n_rows
+/// >= 100k or the marginal-slope large-scale path active) this returns
 /// > `analytic_operator_required` so that any silent dense materialization in
 /// > the term-construction layer fails fast rather than allocating tens of GiB;
 /// > at small scale it falls through to the permissive default-library policy
@@ -4141,7 +4214,7 @@ pub(crate) fn resolved_resource_policy(
 
 fn marginal_slope_hints(config: &FitConfig) -> crate::resource::ProblemHints {
     crate::resource::ProblemHints {
-        marginal_slope_biobank_active: config.logslope_formula.is_some()
+        marginal_slope_large_scale_active: config.logslope_formula.is_some()
             || config.z_column.is_some(),
     }
 }
@@ -4391,6 +4464,43 @@ pub(crate) fn response_column_kind(data: &Dataset, y_col: usize) -> ResponseColu
     }
 }
 
+/// Legality of a `(response family, link)` pairing.
+///
+/// This is the single source of truth for which links a given response family
+/// accepts. It is consulted only when the caller supplied an *explicit* family
+/// together with a link (`family=..., link(type=...)`): the link must be
+/// validated against that family rather than the family re-inferred from the
+/// link. The legal pairings are:
+///
+/// * `Gaussian` + `Identity`
+/// * `{Poisson, Gamma, Tweedie, NegativeBinomial}` + `Log`
+/// * `Beta` + `Logit`
+/// * `Binomial` + `{Logit, Probit, CLogLog, Sas, BetaLogistic}` (and the
+///   Logit-shaped `Mixture`, handled by the caller via `mixture_components`)
+///
+/// `RoystonParmar` is a flexible-parametric survival family whose link is fixed
+/// at construction and is never reached through the scalar link-choice path, so
+/// it accepts no link override here.
+fn link_legal_for_family(response: &ResponseFamily, link: LinkFunction) -> bool {
+    match response {
+        ResponseFamily::Gaussian => matches!(link, LinkFunction::Identity),
+        ResponseFamily::Poisson
+        | ResponseFamily::Gamma
+        | ResponseFamily::Tweedie { .. }
+        | ResponseFamily::NegativeBinomial { .. } => matches!(link, LinkFunction::Log),
+        ResponseFamily::Beta { .. } => matches!(link, LinkFunction::Logit),
+        ResponseFamily::Binomial => matches!(
+            link,
+            LinkFunction::Logit
+                | LinkFunction::Probit
+                | LinkFunction::CLogLog
+                | LinkFunction::Sas
+                | LinkFunction::BetaLogistic
+        ),
+        ResponseFamily::RoystonParmar => false,
+    }
+}
+
 /// Resolve a family from an optional name, optional link choice, and response data.
 ///
 /// `y_kind` describes the *source* representation of the response column
@@ -4478,16 +4588,27 @@ pub fn resolve_family(
                     ),
                     false,
                 ),
+                // #983: a user-supplied `--negative-binomial-theta` holds θ
+                // fixed at exactly that value (`theta_fixed = true` →
+                // `FixedNegBinTheta` scale → the PIRLS refresh gate
+                // `negbin_theta_is_estimated()` stays closed). With no flag,
+                // θ is the running ML estimate (the #802 default seed 1.0).
                 "nb" | "negbin" | "negative-binomial" => (
                     LikelihoodSpec::new(
-                        ResponseFamily::NegativeBinomial { theta: nb_theta },
+                        ResponseFamily::NegativeBinomial {
+                            theta: nb_theta,
+                            theta_fixed: negative_binomial_theta.is_some(),
+                        },
                         InverseLink::Standard(StandardLink::Log),
                     ),
                     false,
                 ),
                 "negative-binomial-log" => (
                     LikelihoodSpec::new(
-                        ResponseFamily::NegativeBinomial { theta: nb_theta },
+                        ResponseFamily::NegativeBinomial {
+                            theta: nb_theta,
+                            theta_fixed: negative_binomial_theta.is_some(),
+                        },
                         InverseLink::Standard(StandardLink::Log),
                     ),
                     true,
@@ -4670,40 +4791,50 @@ pub fn resolve_family(
             }
         };
         if let Some((explicit_spec, link_pinned)) = explicit.as_ref() {
-            let compatible_log_nb = matches!(
-                (
-                    &explicit_spec.response,
-                    choice.link,
-                    choice.mixture_components.as_ref(),
-                ),
-                (
-                    ResponseFamily::NegativeBinomial { .. },
-                    LinkFunction::Log,
-                    None,
-                )
-            );
-            // When the user only declared a bare family name (e.g. "binomial")
-            // the link suffix is unpinned, so a user-supplied link is allowed
-            // to refine it as long as the response family agrees with what the
-            // link implies (Binomial vs Gaussian/Poisson/etc.).
-            let response_compatible = std::mem::discriminant(&explicit_spec.response)
-                == std::mem::discriminant(&from_link.response);
-            if !*link_pinned && response_compatible {
-                // Preserve user-chosen link (e.g. SAS state) but keep the
-                // explicit family's response variant (e.g. NB theta).
-                return Ok(LikelihoodSpec::new(
-                    explicit_spec.response.clone(),
-                    from_link.link,
-                ));
-            }
-            if explicit_spec.name() != from_link.name() && !compatible_log_nb {
+            // An explicit response family was supplied: never re-infer the
+            // family from the link. Validate that the requested link is legal
+            // for *this* family, then apply the link (carrying any embedded
+            // Sas/BetaLogistic/Mixture state, which `from_link.link` already
+            // holds) to the explicit family's response variant (preserving e.g.
+            // NB theta, Tweedie p, Beta phi).
+            let mixture_requested = choice.mixture_components.is_some();
+            let legal = if mixture_requested {
+                // The mixture link is a Binomial latent construct; it has no
+                // legal pairing with any other response family.
+                matches!(explicit_spec.response, ResponseFamily::Binomial)
+            } else {
+                link_legal_for_family(&explicit_spec.response, choice.link)
+            };
+            if !legal {
                 return Err(WorkflowError::InvalidConfig {
-                    reason: format!("family '{}' conflicts with link", explicit_spec.name()),
+                    reason: format!(
+                        "link '{}' is not supported for family '{}'",
+                        choice.link.name(),
+                        explicit_spec.response.name()
+                    ),
                 }
                 .into());
             }
+            // A family name that pinned its own link (e.g. "binomial-probit")
+            // may not be re-pointed at a different link by `link(type=...)`.
+            if *link_pinned && explicit_spec.link.link_function() != from_link.link.link_function()
+            {
+                return Err(WorkflowError::InvalidConfig {
+                    reason: format!(
+                        "family '{}' pins link '{}', which conflicts with requested link '{}'",
+                        explicit_spec.name(),
+                        explicit_spec.link.link_function().name(),
+                        choice.link.name(),
+                    ),
+                }
+                .into());
+            }
+            return Ok(LikelihoodSpec::new(
+                explicit_spec.response.clone(),
+                from_link.link,
+            ));
         }
-        return Ok(explicit.map(|(spec, _)| spec).unwrap_or(from_link));
+        return Ok(from_link);
     }
 
     if let Some((spec, _)) = explicit {
@@ -5261,6 +5392,19 @@ struct LatentDimSelectionSpec {
 }
 
 #[derive(Clone)]
+struct LatentAuxOutcomeSpec {
+    family: crate::terms::behavioral_head::AuxOutcomeFamily,
+    /// Behavioral labels, length `n`. Binomial: 0/1; Multinomial: class index.
+    y: Array1<f64>,
+    /// Optional per-row head weight (semi-supervised); `None` ⇒ all rows
+    /// labeled with unit weight. `0.0` on a row excludes it from the head
+    /// channel — the missing-label seam.
+    row_weights: Option<Array1<f64>>,
+    /// ARD log-precision seed composed with the head (length `d`).
+    init_log_precision: Option<Array1<f64>>,
+}
+
+#[derive(Clone)]
 struct LatentManifoldSpec {
     manifold: LatentManifold,
     auto: bool,
@@ -5276,6 +5420,7 @@ struct LatentSpec {
     retraction_registry: LatentRetractionRegistry,
     aux_prior: Option<LatentAuxPriorSpec>,
     dim_selection: Option<LatentDimSelectionSpec>,
+    aux_outcome: Option<LatentAuxOutcomeSpec>,
     explicit_none_mode: bool,
 }
 
@@ -5686,9 +5831,89 @@ fn parse_latent_specs(payload: Option<&JsonValue>) -> Result<Vec<LatentSpec>, St
                 Some(LatentDimSelectionSpec { init_log_precision })
             }
         };
-        if dim_selection.is_some() && aux_prior.is_none() {
+        let aux_outcome = match obj.get("aux_outcome").filter(|value| !value.is_null()) {
+            None => None,
+            Some(value) => {
+                use crate::terms::behavioral_head::AuxOutcomeFamily;
+                let ao = value
+                    .as_object()
+                    .ok_or_else(|| format!("latents['{key}'].aux_outcome must be an object"))?;
+                let family = match ao
+                    .get("family")
+                    .and_then(JsonValue::as_str)
+                    .unwrap_or("binomial")
+                    .to_ascii_lowercase()
+                    .as_str()
+                {
+                    "binomial" => AuxOutcomeFamily::Binomial,
+                    "multinomial" => {
+                        let n_classes = ao
+                            .get("n_classes")
+                            .and_then(JsonValue::as_u64)
+                            .ok_or_else(|| {
+                                format!(
+                                    "latents['{key}'].aux_outcome.n_classes is required for multinomial"
+                                )
+                            })? as usize;
+                        AuxOutcomeFamily::Multinomial { n_classes }
+                    }
+                    other => {
+                        return Err(format!(
+                            "latents['{key}'].aux_outcome.family must be 'binomial' or 'multinomial', got '{other}'"
+                        ));
+                    }
+                };
+                let y = json_array1(
+                    ao.get("y")
+                        .ok_or_else(|| format!("latents['{key}'].aux_outcome.y is required"))?,
+                    &format!("latents['{key}'].aux_outcome.y"),
+                )?;
+                if y.len() != n {
+                    return Err(format!(
+                        "latents['{key}'].aux_outcome.y has length {}, expected n = {n}",
+                        y.len()
+                    ));
+                }
+                let row_weights = ao
+                    .get("row_weights")
+                    .filter(|value| !value.is_null())
+                    .map(|value| {
+                        json_array1(value, &format!("latents['{key}'].aux_outcome.row_weights"))
+                    })
+                    .transpose()?;
+                if let Some(w) = row_weights.as_ref()
+                    && w.len() != n
+                {
+                    return Err(format!(
+                        "latents['{key}'].aux_outcome.row_weights has length {}, expected n = {n}",
+                        w.len()
+                    ));
+                }
+                let init_log_precision = ao
+                    .get("init_log_precision")
+                    .map(|value| {
+                        json_array1(
+                            value,
+                            &format!("latents['{key}'].aux_outcome.init_log_precision"),
+                        )
+                    })
+                    .transpose()?;
+                Some(LatentAuxOutcomeSpec {
+                    family,
+                    y,
+                    row_weights,
+                    init_log_precision,
+                })
+            }
+        };
+        if dim_selection.is_some() && aux_prior.is_none() && aux_outcome.is_none() {
             return Err(format!(
-                "latents['{key}'] uses dim_selection without aux_prior; ARD alone is not an identifiable latent-coordinate gauge"
+                "latents['{key}'] uses dim_selection without aux_prior or aux_outcome; ARD alone is not an identifiable latent-coordinate gauge"
+            ));
+        }
+        if aux_outcome.is_some() && aux_prior.is_some() {
+            return Err(format!(
+                "latents['{key}'] specifies both aux_prior and aux_outcome; the auxiliary signal is either a prior (gauge-pin covariate) or a modeled outcome (behavioral head), not both"
             ));
         }
         let explicit_none_mode = obj
@@ -5696,9 +5921,13 @@ fn parse_latent_specs(payload: Option<&JsonValue>) -> Result<Vec<LatentSpec>, St
             .or_else(|| obj.get("mode"))
             .and_then(JsonValue::as_str)
             .is_some_and(|s| s.eq_ignore_ascii_case("none"));
-        if aux_prior.is_none() && dim_selection.is_none() && !explicit_none_mode {
+        if aux_prior.is_none()
+            && dim_selection.is_none()
+            && aux_outcome.is_none()
+            && !explicit_none_mode
+        {
             return Err(format!(
-                "latents['{key}'] requires aux_prior for identifiable joint REML; pass id_mode='none' only when a separate gauge fix is supplied"
+                "latents['{key}'] requires aux_prior or aux_outcome for identifiable joint REML; pass id_mode='none' only when a separate gauge fix is supplied"
             ));
         }
         specs.push(LatentSpec {
@@ -5710,6 +5939,7 @@ fn parse_latent_specs(payload: Option<&JsonValue>) -> Result<Vec<LatentSpec>, St
             retraction_registry,
             aux_prior,
             dim_selection,
+            aux_outcome,
             explicit_none_mode,
         });
     }
@@ -5775,6 +6005,28 @@ fn initial_latent_matrix(spec: &LatentSpec, y: ArrayView1<'_, f64>) -> Result<Ar
 }
 
 fn latent_id_mode(spec: &LatentSpec) -> Result<LatentIdMode, String> {
+    if let Some(ao) = spec.aux_outcome.as_ref() {
+        use crate::terms::behavioral_head::BehavioralHead;
+        if let Some(init) = ao.init_log_precision.as_ref()
+            && init.len() != spec.d
+        {
+            return Err(format!(
+                "latent '{}' aux_outcome.init_log_precision has length {}, expected {}",
+                spec.target,
+                init.len(),
+                spec.d
+            ));
+        }
+        let head = match ao.row_weights.as_ref() {
+            Some(w) => BehavioralHead::new(ao.family, ao.y.clone(), w.clone()),
+            None => BehavioralHead::fully_supervised(ao.family, ao.y.clone()),
+        }
+        .map_err(|e| format!("latent '{}' aux_outcome head: {e}", spec.target))?;
+        return Ok(LatentIdMode::AuxOutcome {
+            head,
+            init_log_precision: ao.init_log_precision.clone(),
+        });
+    }
     match (&spec.aux_prior, &spec.dim_selection) {
         (Some(aux), Some(dim)) => {
             if let Some(init) = dim.init_log_precision.as_ref()
@@ -6351,13 +6603,13 @@ fn materialize_bernoulli_marginal_slope<'a>(
     }
 
     let mut inference_notes = Vec::new();
-    // Bernoulli marginal-slope: structurally operator-only at biobank scale, so
+    // Bernoulli marginal-slope: structurally operator-only at large scale, so
     // flip the hint regardless of n to keep dense fallbacks blocked.
     let policy = resolved_resource_policy(
         config,
         data,
         crate::resource::ProblemHints {
-            marginal_slope_biobank_active: true,
+            marginal_slope_large_scale_active: true,
         },
     );
     // Alias `z` to the dose column only when a raw z_column is supplied; with a
@@ -6698,7 +6950,8 @@ fn materialize_survival<'a>(
             // Survival marginal-slope shares the operator-only invariant with
             // the Bernoulli path; flag it as such so strict mode is selected
             // even at small n.
-            marginal_slope_biobank_active: survival_mode == SurvivalLikelihoodMode::MarginalSlope,
+            marginal_slope_large_scale_active: survival_mode
+                == SurvivalLikelihoodMode::MarginalSlope,
         },
     );
     // Alias `z` to the dose column for the marginal termspec only when a raw
@@ -7880,6 +8133,36 @@ fn materialize_location_scale<'a>(
             }),
             inference_notes,
         })
+    } else if let Some(kind) = dispersion_location_scale_kind(&family.response) {
+        // Genuine-dispersion mean families (NegativeBinomial / Gamma / Beta /
+        // Tweedie): `noise_formula` models the overdispersion channel (#913).
+        // A link-wiggle is mean-only and not defined here.
+        if wiggle_cfg.is_some() {
+            return Err(WorkflowError::InvalidConfig {
+                reason: format!(
+                    "link-wiggle is not supported for {} location-scale models",
+                    kind.family_tag()
+                ),
+            }
+            .into());
+        }
+        Ok(MaterializedModel {
+            request: FitRequest::DispersionLocationScale(DispersionLocationScaleFitRequest {
+                data: data.values.view(),
+                spec: DispersionGlmLocationScaleTermSpec {
+                    kind,
+                    y,
+                    weights,
+                    meanspec,
+                    log_dispspec: log_sigmaspec,
+                    mean_offset,
+                    log_disp_offset: noise_offset,
+                },
+                options,
+                kappa_options,
+            }),
+            inference_notes,
+        })
     } else {
         Ok(MaterializedModel {
             request: FitRequest::GaussianLocationScale(GaussianLocationScaleFitRequest {
@@ -7898,6 +8181,19 @@ fn materialize_location_scale<'a>(
             }),
             inference_notes,
         })
+    }
+}
+
+/// Map a [`ResponseFamily`] to the dispersion-GAM kind whose overdispersion
+/// channel can carry a `noise_formula` (#913), or `None` for families handled
+/// by the Gaussian/Binomial location-scale paths.
+fn dispersion_location_scale_kind(response: &ResponseFamily) -> Option<DispersionFamilyKind> {
+    match response {
+        ResponseFamily::NegativeBinomial { .. } => Some(DispersionFamilyKind::NegativeBinomial),
+        ResponseFamily::Gamma => Some(DispersionFamilyKind::Gamma),
+        ResponseFamily::Beta { .. } => Some(DispersionFamilyKind::Beta),
+        ResponseFamily::Tweedie { p } => Some(DispersionFamilyKind::Tweedie { p: *p }),
+        _ => None,
     }
 }
 
@@ -8287,6 +8583,7 @@ mod tests {
             },
             operator_trust_radius: None,
             operator_stop_reason: None,
+            criterion_certificate: None,
         }
     }
 
@@ -8596,7 +8893,7 @@ mod tests {
     }
 
     #[test]
-    fn materialize_bernoulli_marginal_slope_prunes_hypertension_style_scalar_alias() {
+    fn materialize_bernoulli_marginal_slope_prunes_binary_outcome_style_scalar_alias() {
         let data = Dataset {
             headers: vec![
                 "event".to_string(),
@@ -8623,7 +8920,7 @@ mod tests {
                     -1.1, 0.6,
                 ],
             )
-            .expect("hypertension-style BMS scalar-alias test data shape"),
+            .expect("binary-outcome-style BMS scalar-alias test data shape"),
             schema: DataSchema {
                 columns: vec![
                     SchemaColumn {
@@ -8735,7 +9032,7 @@ mod tests {
                 .inference_notes
                 .iter()
                 .any(|note| note.contains("current_age_ns_1")),
-            "materialization should report the removed hypertension-style scalar alias; notes={:?}",
+            "materialization should report the removed binary-outcome-style scalar alias; notes={:?}",
             materialized.inference_notes
         );
     }

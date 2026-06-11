@@ -10,6 +10,7 @@ import os
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -28,6 +29,7 @@ from openhands.app_server.sandbox.sandbox_models import (
     ExposedUrl,
     SandboxInfo,
     SandboxPage,
+    SandboxRecord,
     SandboxStatus,
 )
 from openhands.app_server.sandbox.sandbox_service import (
@@ -286,6 +288,18 @@ class ProcessSandboxService(SandboxService):
 
         return None
 
+    async def get_sandbox_record_by_session_api_key(
+        self, session_api_key: str
+    ) -> SandboxRecord | None:
+        """Get persisted sandbox identity by session API key."""
+        for sandbox_id, process_info in _processes.items():
+            if process_info.session_api_key == session_api_key:
+                return SandboxRecord(
+                    id=sandbox_id,
+                    created_by_user_id=process_info.user_id,
+                )
+        return None
+
     async def start_sandbox(
         self, sandbox_spec_id: str | None = None, sandbox_id: str | None = None
     ) -> SandboxInfo:
@@ -412,7 +426,9 @@ class ProcessSandboxServiceInjector(SandboxServiceInjector):
     """Dependency injector for process sandbox services."""
 
     base_working_dir: str = Field(
-        default='/tmp/openhands-sandboxes',
+        default_factory=lambda: os.path.join(
+            tempfile.gettempdir(), 'openhands-sandboxes'
+        ),
         description='Base directory for sandbox working directories',
     )
     base_port: int = Field(

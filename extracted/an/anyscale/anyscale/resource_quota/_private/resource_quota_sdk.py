@@ -44,6 +44,7 @@ class PrivateResourceQuotaSDK(BaseSDK):
             cloud_id=cloud_id,
             project_id=project_id,
             user_id=user_id,
+            is_soft_quota=create_resource_quota.is_soft_quota,
             quota=QuotaModel(
                 num_cpus=create_resource_quota.num_cpus,
                 num_instances=create_resource_quota.num_instances,
@@ -63,6 +64,7 @@ class PrivateResourceQuotaSDK(BaseSDK):
             project_id=resource_quota.project_id,
             user_id=resource_quota.user_id,
             is_enabled=resource_quota.is_enabled,
+            is_soft_quota=resource_quota.is_soft_quota,
             created_at=resource_quota.created_at,
             deleted_at=resource_quota.deleted_at,
             quota=Quota(
@@ -99,6 +101,7 @@ class PrivateResourceQuotaSDK(BaseSDK):
                 project_id=resource_quota.project_id,
                 user_id=resource_quota.user_id,
                 is_enabled=resource_quota.is_enabled,
+                is_soft_quota=resource_quota.is_soft_quota,
                 created_at=resource_quota.created_at,
                 deleted_at=resource_quota.deleted_at,
                 quota=Quota(

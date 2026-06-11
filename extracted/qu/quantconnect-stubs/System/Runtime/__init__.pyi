@@ -20,15 +20,19 @@ class MemoryFailPoint(System.Runtime.ConstrainedExecution.CriticalFinalizerObjec
         ...
 
 
-class ProfileOptimization(System.Object):
+class JitInfo(System.Object):
     """This class has no documentation."""
 
     @staticmethod
-    def set_profile_root(directory_path: str) -> None:
+    def get_compilation_time(current_thread: bool = False) -> datetime.timedelta:
         ...
 
     @staticmethod
-    def start_profile(profile: str) -> None:
+    def get_compiled_il_bytes(current_thread: bool = False) -> int:
+        ...
+
+    @staticmethod
+    def get_compiled_method_count(current_thread: bool = False) -> int:
         ...
 
 
@@ -54,19 +58,31 @@ class TargetedPatchingOptOutAttribute(System.Attribute):
         ...
 
 
-class JitInfo(System.Object):
+class AmbiguousImplementationException(System.Exception):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class ProfileOptimization(System.Object):
     """This class has no documentation."""
 
     @staticmethod
-    def get_compilation_time(current_thread: bool = False) -> datetime.timedelta:
+    def set_profile_root(directory_path: str) -> None:
         ...
 
     @staticmethod
-    def get_compiled_il_bytes(current_thread: bool = False) -> int:
-        ...
-
-    @staticmethod
-    def get_compiled_method_count(current_thread: bool = False) -> int:
+    def start_profile(profile: str) -> None:
         ...
 
 
@@ -100,22 +116,6 @@ class GCSettings(System.Object):
     large_object_heap_compaction_mode: System.Runtime.GCLargeObjectHeapCompactionMode
 
     IS_SERVER_GC: bool
-
-
-class AmbiguousImplementationException(System.Exception):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
 
 
 class ControlledExecution(System.Object):

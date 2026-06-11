@@ -19330,6 +19330,135 @@ DocStylesApplyResult = TypedDict(
     total=False,
 )
 
+DocTemplatesApplyResultSource = TypedDict(
+    "DocTemplatesApplyResultSource",
+    {
+        "kind": Literal["path"] | Literal["base64"],
+        "fingerprint": str,
+        "partCount": int | float,
+    },
+    total=False,
+)
+
+DocTemplatesApplyResultDetectedScopesItem = TypedDict(
+    "DocTemplatesApplyResultDetectedScopesItem",
+    {
+        "scope": Literal["styles"] | Literal["numbering"] | Literal["settings"] | Literal["theme"] | Literal["fontTable"] | Literal["webSettings"] | Literal["headersFooters"] | Literal["sectionDefaults"],
+        "part": str,
+        "detail": str,
+    },
+    total=False,
+)
+
+DocTemplatesApplyResultAppliedScopesItem = TypedDict(
+    "DocTemplatesApplyResultAppliedScopesItem",
+    {
+        "scope": Literal["styles"] | Literal["numbering"] | Literal["settings"] | Literal["theme"] | Literal["fontTable"] | Literal["webSettings"] | Literal["headersFooters"] | Literal["sectionDefaults"],
+        "part": str,
+        "detail": str,
+    },
+    total=False,
+)
+
+DocTemplatesApplyResultSkippedScopesItem = TypedDict(
+    "DocTemplatesApplyResultSkippedScopesItem",
+    {
+        "scope": str,
+        "part": str,
+        "reason": Literal["NOT_PRESENT_IN_SOURCE"] | Literal["OUT_OF_SCOPE"] | Literal["NO_CHANGE"] | Literal["CAPABILITY_UNAVAILABLE"],
+        "message": str,
+    },
+    total=False,
+)
+
+DocTemplatesApplyResultUnsupportedItemsItem = TypedDict(
+    "DocTemplatesApplyResultUnsupportedItemsItem",
+    {
+        "part": str,
+        "category": str,
+        "reason": str,
+    },
+    total=False,
+)
+
+DocTemplatesApplyResultChangedPartsItem = TypedDict(
+    "DocTemplatesApplyResultChangedPartsItem",
+    {
+        "part": str,
+        "scope": Literal["styles"] | Literal["numbering"] | Literal["settings"] | Literal["theme"] | Literal["fontTable"] | Literal["webSettings"] | Literal["headersFooters"] | Literal["sectionDefaults"] | Literal["package"],
+        "change": Literal["created"] | Literal["replaced"] | Literal["merged"] | Literal["imported"],
+    },
+    total=False,
+)
+
+DocTemplatesApplyResultIdMappingsStylesItem = TypedDict(
+    "DocTemplatesApplyResultIdMappingsStylesItem",
+    {
+        "kind": Literal["style"] | Literal["numbering"] | Literal["relationship"],
+        "from": str,
+        "to": str,
+    },
+    total=False,
+)
+
+DocTemplatesApplyResultIdMappingsNumberingItem = TypedDict(
+    "DocTemplatesApplyResultIdMappingsNumberingItem",
+    {
+        "kind": Literal["style"] | Literal["numbering"] | Literal["relationship"],
+        "from": str,
+        "to": str,
+    },
+    total=False,
+)
+
+DocTemplatesApplyResultIdMappingsRelationshipsItem = TypedDict(
+    "DocTemplatesApplyResultIdMappingsRelationshipsItem",
+    {
+        "kind": Literal["style"] | Literal["numbering"] | Literal["relationship"],
+        "from": str,
+        "to": str,
+    },
+    total=False,
+)
+
+DocTemplatesApplyResultIdMappings = TypedDict(
+    "DocTemplatesApplyResultIdMappings",
+    {
+        "styles": list[DocTemplatesApplyResultIdMappingsStylesItem],
+        "numbering": list[DocTemplatesApplyResultIdMappingsNumberingItem],
+        "relationships": list[DocTemplatesApplyResultIdMappingsRelationshipsItem],
+    },
+    total=False,
+)
+
+DocTemplatesApplyResultWarningsItem = TypedDict(
+    "DocTemplatesApplyResultWarningsItem",
+    {
+        "code": str,
+        "message": str,
+    },
+    total=False,
+)
+
+DocTemplatesApplyResult = TypedDict(
+    "DocTemplatesApplyResult",
+    {
+        "success": Literal[True],
+        "changed": bool,
+        "dryRun": bool,
+        "bodyPolicy": Literal["preserve"],
+        "source": DocTemplatesApplyResultSource,
+        "detectedScopes": list[DocTemplatesApplyResultDetectedScopesItem],
+        "appliedScopes": list[DocTemplatesApplyResultAppliedScopesItem],
+        "skippedScopes": list[DocTemplatesApplyResultSkippedScopesItem],
+        "unsupportedItems": list[DocTemplatesApplyResultUnsupportedItemsItem],
+        "changedParts": list[DocTemplatesApplyResultChangedPartsItem],
+        "idMappings": DocTemplatesApplyResultIdMappings,
+        "warnings": list[DocTemplatesApplyResultWarningsItem],
+    },
+    total=False,
+)
+
 DocCreateParagraphResultParagraph = TypedDict(
     "DocCreateParagraphResultParagraph",
     {
@@ -19674,6 +19803,8 @@ DocSectionsListResultItemsItemPageNumbering = TypedDict(
     {
         "start": int | float,
         "format": Literal["decimal"] | Literal["lowerLetter"] | Literal["upperLetter"] | Literal["lowerRoman"] | Literal["upperRoman"] | Literal["numberInDash"],
+        "chapterStyle": int | float,
+        "chapterSeparator": Literal["hyphen"] | Literal["period"] | Literal["colon"] | Literal["emDash"] | Literal["enDash"],
     },
     total=False,
 )
@@ -19822,6 +19953,8 @@ DocSectionsGetResultPageNumbering = TypedDict(
     {
         "start": int | float,
         "format": Literal["decimal"] | Literal["lowerLetter"] | Literal["upperLetter"] | Literal["lowerRoman"] | Literal["upperRoman"] | Literal["numberInDash"],
+        "chapterStyle": int | float,
+        "chapterSeparator": Literal["hyphen"] | Literal["period"] | Literal["colon"] | Literal["emDash"] | Literal["enDash"],
     },
     total=False,
 )
@@ -26442,6 +26575,17 @@ DocCapabilitiesGetResultOperationsStylesApply = TypedDict(
     total=False,
 )
 
+DocCapabilitiesGetResultOperationsTemplatesApply = TypedDict(
+    "DocCapabilitiesGetResultOperationsTemplatesApply",
+    {
+        "available": bool,
+        "tracked": bool,
+        "dryRun": bool,
+        "reasons": list[Literal["COMMAND_UNAVAILABLE"] | Literal["HELPER_UNAVAILABLE"] | Literal["OPERATION_UNAVAILABLE"] | Literal["TRACKED_MODE_UNAVAILABLE"] | Literal["DRY_RUN_UNAVAILABLE"] | Literal["NAMESPACE_UNAVAILABLE"] | Literal["STYLES_PART_MISSING"] | Literal["COLLABORATION_ACTIVE"]],
+    },
+    total=False,
+)
+
 DocCapabilitiesGetResultOperationsCreateParagraph = TypedDict(
     "DocCapabilitiesGetResultOperationsCreateParagraph",
     {
@@ -30259,6 +30403,7 @@ DocCapabilitiesGetResultOperations = TypedDict(
         "format.stylisticSets": DocCapabilitiesGetResultOperationsFormatStylisticSets,
         "format.contextualAlternates": DocCapabilitiesGetResultOperationsFormatContextualAlternates,
         "styles.apply": DocCapabilitiesGetResultOperationsStylesApply,
+        "templates.apply": DocCapabilitiesGetResultOperationsTemplatesApply,
         "create.paragraph": DocCapabilitiesGetResultOperationsCreateParagraph,
         "create.heading": DocCapabilitiesGetResultOperationsCreateHeading,
         "create.sectionBreak": DocCapabilitiesGetResultOperationsCreateSectionBreak,
@@ -46333,6 +46478,41 @@ DocStylesApplyParams = TypedDict(
     total=False,
 )
 
+DocTemplatesApplyParamsSourceVariant1 = TypedDict(
+    "DocTemplatesApplyParamsSourceVariant1",
+    {
+        "kind": Literal["path"],
+        "path": str,
+    },
+    total=False,
+)
+
+DocTemplatesApplyParamsSourceVariant2 = TypedDict(
+    "DocTemplatesApplyParamsSourceVariant2",
+    {
+        "kind": Literal["base64"],
+        "data": str,
+        "filename": str,
+    },
+    total=False,
+)
+
+DocTemplatesApplyParams = TypedDict(
+    "DocTemplatesApplyParams",
+    {
+        "doc": str,
+        "sessionId": str,
+        "out": str,
+        "force": bool,
+        "expectedRevision": int | float,
+        "changeMode": str,
+        "dryRun": bool,
+        "source": DocTemplatesApplyParamsSourceVariant1 | DocTemplatesApplyParamsSourceVariant2,
+        "bodyPolicy": Literal["preserve"],
+    },
+    total=False,
+)
+
 DocCreateParagraphParamsInVariant1 = TypedDict(
     "DocCreateParagraphParamsInVariant1",
     {
@@ -46911,6 +47091,8 @@ DocSectionsSetPageNumberingParams = TypedDict(
         "target": DocSectionsSetPageNumberingParamsTarget,
         "start": int | float,
         "format": str,
+        "chapterStyle": int | float,
+        "chapterSeparator": str,
     },
     total=False,
 )
@@ -50217,11 +50399,19 @@ DocTrackChangesDecideParamsTargetVariant1StoryVariant5 = TypedDict(
     total=False,
 )
 
+DocTrackChangesDecideParamsTargetVariant1Range = TypedDict(
+    "DocTrackChangesDecideParamsTargetVariant1Range",
+    {
+    },
+    total=False,
+)
+
 DocTrackChangesDecideParamsTargetVariant1 = TypedDict(
     "DocTrackChangesDecideParamsTargetVariant1",
     {
         "id": str,
         "story": DocTrackChangesDecideParamsTargetVariant1StoryVariant1 | DocTrackChangesDecideParamsTargetVariant1StoryVariant2 | DocTrackChangesDecideParamsTargetVariant1StoryVariant3 | DocTrackChangesDecideParamsTargetVariant1StoryVariant4 | DocTrackChangesDecideParamsTargetVariant1StoryVariant5,
+        "range": DocTrackChangesDecideParamsTargetVariant1Range,
     },
     total=False,
 )
@@ -67516,6 +67706,39 @@ DocStylesApplyBoundParams = TypedDict(
     total=False,
 )
 
+DocTemplatesApplyBoundParamsSourceVariant1 = TypedDict(
+    "DocTemplatesApplyBoundParamsSourceVariant1",
+    {
+        "kind": Literal["path"],
+        "path": str,
+    },
+    total=False,
+)
+
+DocTemplatesApplyBoundParamsSourceVariant2 = TypedDict(
+    "DocTemplatesApplyBoundParamsSourceVariant2",
+    {
+        "kind": Literal["base64"],
+        "data": str,
+        "filename": str,
+    },
+    total=False,
+)
+
+DocTemplatesApplyBoundParams = TypedDict(
+    "DocTemplatesApplyBoundParams",
+    {
+        "out": str,
+        "force": bool,
+        "expectedRevision": int | float,
+        "changeMode": str,
+        "dryRun": bool,
+        "source": DocTemplatesApplyBoundParamsSourceVariant1 | DocTemplatesApplyBoundParamsSourceVariant2,
+        "bodyPolicy": Literal["preserve"],
+    },
+    total=False,
+)
+
 DocCreateParagraphBoundParamsInVariant1 = TypedDict(
     "DocCreateParagraphBoundParamsInVariant1",
     {
@@ -68070,6 +68293,8 @@ DocSectionsSetPageNumberingBoundParams = TypedDict(
         "target": DocSectionsSetPageNumberingBoundParamsTarget,
         "start": int | float,
         "format": str,
+        "chapterStyle": int | float,
+        "chapterSeparator": str,
     },
     total=False,
 )
@@ -71224,11 +71449,19 @@ DocTrackChangesDecideBoundParamsTargetVariant1StoryVariant5 = TypedDict(
     total=False,
 )
 
+DocTrackChangesDecideBoundParamsTargetVariant1Range = TypedDict(
+    "DocTrackChangesDecideBoundParamsTargetVariant1Range",
+    {
+    },
+    total=False,
+)
+
 DocTrackChangesDecideBoundParamsTargetVariant1 = TypedDict(
     "DocTrackChangesDecideBoundParamsTargetVariant1",
     {
         "id": str,
         "story": DocTrackChangesDecideBoundParamsTargetVariant1StoryVariant1 | DocTrackChangesDecideBoundParamsTargetVariant1StoryVariant2 | DocTrackChangesDecideBoundParamsTargetVariant1StoryVariant3 | DocTrackChangesDecideBoundParamsTargetVariant1StoryVariant4 | DocTrackChangesDecideBoundParamsTargetVariant1StoryVariant5,
+        "range": DocTrackChangesDecideBoundParamsTargetVariant1Range,
     },
     total=False,
 )
@@ -82006,6 +82239,10 @@ class _SyncDocApi:
         return _SyncDocStylesApi(self._runtime)
 
     @property
+    def templates(self):
+        return _SyncDocTemplatesApi(self._runtime)
+
+    @property
     def create(self):
         return _SyncDocCreateApi(self._runtime)
 
@@ -82574,6 +82811,14 @@ class _SyncDocStylesParagraphApi:
 
     def clearStyle(self, params: DocStylesParagraphClearStyleParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocStylesParagraphClearStyleResult:
         return self.clear_style(params, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
+
+class _SyncDocTemplatesApi:
+    def __init__(self, runtime):
+        self._runtime = runtime
+
+    def apply(self, params: DocTemplatesApplyParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocTemplatesApplyResult:
+        raw = self._runtime.invoke("doc.templates.apply", params or {}, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
+        return _unwrap_envelope(raw, "receipt")
 
 class _SyncDocCreateApi:
     def __init__(self, runtime):
@@ -84675,6 +84920,10 @@ class _AsyncDocApi:
         return _AsyncDocStylesApi(self._runtime)
 
     @property
+    def templates(self):
+        return _AsyncDocTemplatesApi(self._runtime)
+
+    @property
     def create(self):
         return _AsyncDocCreateApi(self._runtime)
 
@@ -85243,6 +85492,14 @@ class _AsyncDocStylesParagraphApi:
 
     async def clearStyle(self, params: DocStylesParagraphClearStyleParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocStylesParagraphClearStyleResult:
         return await self.clear_style(params, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
+
+class _AsyncDocTemplatesApi:
+    def __init__(self, runtime):
+        self._runtime = runtime
+
+    async def apply(self, params: DocTemplatesApplyParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocTemplatesApplyResult:
+        raw = await self._runtime.invoke("doc.templates.apply", params or {}, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
+        return _unwrap_envelope(raw, "receipt")
 
 class _AsyncDocCreateApi:
     def __init__(self, runtime):
@@ -87348,6 +87605,10 @@ class _SyncBoundDocApi:
         return _SyncBoundDocStylesApi(self._runtime)
 
     @property
+    def templates(self):
+        return _SyncBoundDocTemplatesApi(self._runtime)
+
+    @property
     def create(self):
         return _SyncBoundDocCreateApi(self._runtime)
 
@@ -87897,6 +88158,14 @@ class _SyncBoundDocStylesParagraphApi:
 
     def clearStyle(self, params: DocStylesParagraphClearStyleBoundParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocStylesParagraphClearStyleResult:
         return self.clear_style(params, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
+
+class _SyncBoundDocTemplatesApi:
+    def __init__(self, runtime):
+        self._runtime = runtime
+
+    def apply(self, params: DocTemplatesApplyBoundParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocTemplatesApplyResult:
+        raw = self._runtime.invoke("doc.templates.apply", params or {}, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
+        return _unwrap_envelope(raw, "receipt")
 
 class _SyncBoundDocCreateApi:
     def __init__(self, runtime):
@@ -89979,6 +90248,10 @@ class _AsyncBoundDocApi:
         return _AsyncBoundDocStylesApi(self._runtime)
 
     @property
+    def templates(self):
+        return _AsyncBoundDocTemplatesApi(self._runtime)
+
+    @property
     def create(self):
         return _AsyncBoundDocCreateApi(self._runtime)
 
@@ -90528,6 +90801,14 @@ class _AsyncBoundDocStylesParagraphApi:
 
     async def clearStyle(self, params: DocStylesParagraphClearStyleBoundParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocStylesParagraphClearStyleResult:
         return await self.clear_style(params, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
+
+class _AsyncBoundDocTemplatesApi:
+    def __init__(self, runtime):
+        self._runtime = runtime
+
+    async def apply(self, params: DocTemplatesApplyBoundParams | None = None, *, timeout_ms=None, stdin_bytes=None) -> DocTemplatesApplyResult:
+        raw = await self._runtime.invoke("doc.templates.apply", params or {}, timeout_ms=timeout_ms, stdin_bytes=stdin_bytes)
+        return _unwrap_envelope(raw, "receipt")
 
 class _AsyncBoundDocCreateApi:
     def __init__(self, runtime):

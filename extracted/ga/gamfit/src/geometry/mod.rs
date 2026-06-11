@@ -1,4 +1,6 @@
 pub mod circle;
+pub mod closure_family;
+pub mod constant_curvature;
 pub mod euclidean;
 pub mod grassmann;
 pub mod integrator;
@@ -15,6 +17,13 @@ pub mod stiefel;
 pub mod torus;
 
 pub use circle::CircleManifold;
+pub use closure_family::{
+    ClosureFamily, ClosureProfileCi, boundary_conductance, conductance_penalty_jet,
+    profile_ci_from_grid,
+};
+pub use constant_curvature::{
+    ConstantCurvature, distance_kappa_jet, exp_map_kappa_jet, log_map_kappa_jet,
+};
 pub use euclidean::EuclideanManifold;
 pub use grassmann::GrassmannManifold;
 pub use integrator::GeodesicIntegrator;

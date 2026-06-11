@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacube
-Version: 1.9.20
+Version: 1.9.21
 Summary: An analysis environment for satellite and other earth observation data
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://opendatacube.org/
@@ -19,13 +19,12 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: GIS
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Requires-Python: >=3.10
+Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: affine
@@ -68,8 +67,7 @@ Requires-Dist: psycopg2; extra == "postgres"
 Provides-Extra: psycopg3
 Requires-Dist: psycopg; extra == "psycopg3"
 Provides-Extra: scikit-image
-Requires-Dist: scikit-image<0.26; extra == "scikit-image"
-Requires-Dist: tifffile<2026; extra == "scikit-image"
+Requires-Dist: scikit-image; extra == "scikit-image"
 Dynamic: license-file
 
 Open Data Cube Core

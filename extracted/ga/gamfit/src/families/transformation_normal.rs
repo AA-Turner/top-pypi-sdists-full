@@ -47,7 +47,7 @@ use crate::matrix::{
     dense_rowwise_kronecker,
 };
 use crate::pirls::LinearInequalityConstraints;
-use crate::probability::{log1mexp_positive, normal_logcdf, standard_normal_quantile};
+use crate::probability::standard_normal_quantile;
 use crate::resource::{MatrixMaterializationError, ResourcePolicy};
 use crate::smooth::{
     ExactJointHyperSetup, SpatialLengthScaleOptimizationOptions, SpatialLogKappaCoords,
@@ -62,6 +62,13 @@ use crate::solver::estimate::reml::unified::{
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2, ArrayViewMut2, s};
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex, OnceLock};
+
+mod endpoint_normalizer;
+use endpoint_normalizer::{
+    LogNormalCdfDiffDerivatives, endpoint_chain_first, endpoint_chain_fourth,
+    endpoint_chain_second, endpoint_chain_third, log_normal_cdf_diff,
+    log_normal_cdf_diff_derivatives,
+};
 
 // ---------------------------------------------------------------------------
 // Typed errors
@@ -205,13 +212,13 @@ pub const TRANSFORMATION_MONOTONICITY_EPS: f64 = 1.0e-8;
 /// moves them back into the likelihood's high-density region.
 pub const TRANSFORMATION_NORMAL_H_ABS_MAX: f64 = 1.0e6;
 /// Number of dense-spectral factor columns processed per exact ψψ HVP row pass.
-/// At biobank CTN dimensions p≈800, this keeps the per-worker accumulator well
+/// At large-scale CTN dimensions p≈800, this keeps the per-worker accumulator well
 /// under 1 MiB while reducing repeated SCOP row-invariant work by 32× relative
 /// to one-column HVP dispatch.
 const SCOP_PSI_PSI_HVP_TILE_COLS: usize = 32;
 /// Exact dense SCOP coefficient Hessian cache limit for the inner `H·v` path.
 ///
-/// The biobank CTN calibration fit has many rows but a moderate coefficient
+/// The large-scale CTN calibration fit has many rows but a moderate coefficient
 /// dimension (for example n=20k, p=264). In that regime repeated PCG products
 /// against the same Hessian should pay the row-streaming chain rule once, then
 /// serve subsequent products as dense BLAS matvecs. Keep the cache restricted to
@@ -222,7 +229,7 @@ const SCOP_HESSIAN_HVP_DENSE_CACHE_MAX_BYTES: usize = 64 * 1024 * 1024;
 /// CTN-scoped ceiling on the custom-family inner exact-Newton cycle budget.
 ///
 /// The global `DEFAULT_CUSTOM_FAMILY_INNER_MAX_CYCLES = 1200` exists for the
-/// biobank survival marginal-slope path, whose inner mode has a long,
+/// large-scale survival marginal-slope path, whose inner mode has a long,
 /// rank-deficient KKT tail that genuinely needs hundreds of cycles. CTN is a
 /// different regime: its coefficient block is a *bounded-dimension* Khatri–Rao
 /// tensor (capped by `BASE/LARGE_SAMPLE_TRANSFORMATION_TENSOR_WIDTH`), and the
@@ -235,7 +242,7 @@ const SCOP_HESSIAN_HVP_DENSE_CACHE_MAX_BYTES: usize = 64 * 1024 * 1024;
 /// that contribute nothing to the likelihood (the #720 timeout). Scaling the
 /// cap with the realized coefficient dimension keeps a generous margin for a
 /// genuinely nonlinear, high-dimensional transformation while refusing to grind
-/// the production biobank cap on an easy near-Gaussian shift.
+/// the production large-scale cap on an easy near-Gaussian shift.
 const CTN_INNER_MAX_CYCLES_BASE: usize = 64;
 const CTN_INNER_MAX_CYCLES_PER_DIM: usize = 2;
 const CTN_INNER_MAX_CYCLES_CEILING: usize = 400;
@@ -342,7 +349,7 @@ pub struct TransformationNormalFamily {
     /// CTN row quantities are rebuilt at every accepted/probed β, but the
     /// covariate design is fixed for the family. Caching this immutable
     /// `n × p_cov` block avoids repeated chunk materialization and keeps
-    /// biobank-scale runs from churning large transient allocations.
+    /// large-scale runs from churning large transient allocations.
     covariate_dense_cache: Arc<Mutex<Option<Arc<Array2<f64>>>>>,
     /// Optional non-negative row weights folded directly into the likelihood.
     weights: Arc<Array1<f64>>,
@@ -459,7 +466,7 @@ fn build_transformation_row_derived(
     // Parallelize the per-row endpoint-normalizer build: each row runs
     // `log_normal_cdf_diff_derivatives` (two `normal_logcdf` calls, three
     // 5x5 truncated polynomial multiplies, 32 `signed_normal_pdf_ratio`
-    // calls) which dominates this function's runtime at biobank scale.
+    // calls) which dominates this function's runtime at large scale.
     // Rows are fully independent — no shared state, no OnceLock guards —
     // and `LogNormalCdfDiffDerivatives` is a POD struct that's `Send`.
     // The fast finiteness check rolls all eight derived quantities into
@@ -544,41 +551,6 @@ fn build_transformation_row_derived(
     })
 }
 
-fn log_normal_cdf_diff(upper: f64, lower: f64) -> Result<f64, String> {
-    if !(upper.is_finite() && lower.is_finite()) {
-        return Err(TransformationNormalError::InvalidInput {
-            reason: format!("finite support endpoints required, got lower={lower}, upper={upper}"),
-        }
-        .into());
-    }
-    if upper <= lower {
-        return Err(TransformationNormalError::MonotonicityViolated { reason: format!(
-            "upper endpoint score must exceed lower endpoint score, got lower={lower:.6e}, upper={upper:.6e}"
-        ) }.into());
-    }
-    if lower > 0.0 {
-        return log_normal_cdf_diff(-lower, -upper);
-    }
-    let log_upper = normal_logcdf(upper);
-    let log_lower = normal_logcdf(lower);
-    let gap = log_upper - log_lower;
-    if !(gap.is_finite() && gap > 0.0) {
-        return Err(TransformationNormalError::NumericalFailure { reason: format!(
-            "normal CDF endpoint mass is not representable, lower={lower:.6e}, upper={upper:.6e}"
-        ) }.into());
-    }
-    let log_z = log_upper + log1mexp_positive(gap);
-    if !log_z.is_finite() {
-        return Err(TransformationNormalError::NumericalFailure {
-            reason: format!(
-                "normal CDF endpoint mass underflowed, lower={lower:.6e}, upper={upper:.6e}"
-            ),
-        }
-        .into());
-    }
-    Ok(log_z)
-}
-
 pub(crate) fn transformation_normal_pit_score(
     h: f64,
     lower: f64,
@@ -613,7 +585,7 @@ pub(crate) fn transformation_normal_pit_score(
     // the standard-normal quantile call at the end of this function turns
     // both into the extreme-quantile finite values that downstream
     // calibration code expects. Refusing here was surfacing routine
-    // boundary roundoff at biobank shape (`p_resp` coefficients × O(1)
+    // boundary roundoff at large-scale shape (`p_resp` coefficients × O(1)
     // basis evaluations introduce ~`p_resp·ε·scale` noise — 64·ε·scale
     // is below that floor) as a hard prediction failure.
     //
@@ -643,117 +615,6 @@ pub(crate) fn transformation_normal_pit_score(
     };
     standard_normal_quantile(u.clamp(clip_eps, 1.0 - clip_eps))
         .map_err(|err| format!("transformation-normal PIT quantile failed: {err}"))
-}
-
-fn signed_normal_pdf_ratio(
-    x: f64,
-    polynomial_factor: f64,
-    log_z: f64,
-    factorial_scale: f64,
-) -> f64 {
-    if polynomial_factor == 0.0 {
-        return 0.0;
-    }
-    const LOG_SQRT_2PI: f64 = 0.918_938_533_204_672_7;
-    let log_abs =
-        polynomial_factor.abs().ln() - 0.5 * x * x - LOG_SQRT_2PI - factorial_scale.ln() - log_z;
-    polynomial_factor.signum() * log_abs.exp()
-}
-
-#[derive(Clone, Copy, Debug)]
-struct LogNormalCdfDiffDerivatives {
-    log_z: f64,
-    first: [f64; 2],
-    second: [[f64; 2]; 2],
-    third: [[[f64; 2]; 2]; 2],
-    fourth: [[[[f64; 2]; 2]; 2]; 2],
-}
-
-fn endpoint_chain_first(q: &LogNormalCdfDiffDerivatives, a: [f64; 2]) -> f64 {
-    q.first[0] * a[0] + q.first[1] * a[1]
-}
-
-fn endpoint_chain_second(
-    q: &LogNormalCdfDiffDerivatives,
-    a: [f64; 2],
-    b: [f64; 2],
-    ab: [f64; 2],
-) -> f64 {
-    let mut out = endpoint_chain_first(q, ab);
-    for i in 0..2 {
-        for j in 0..2 {
-            out += q.second[i][j] * a[i] * b[j];
-        }
-    }
-    out
-}
-
-fn endpoint_chain_third(
-    q: &LogNormalCdfDiffDerivatives,
-    a: [f64; 2],
-    b: [f64; 2],
-    c: [f64; 2],
-    ab: [f64; 2],
-    ac: [f64; 2],
-    bc: [f64; 2],
-    abc: [f64; 2],
-) -> f64 {
-    let mut out = endpoint_chain_first(q, abc);
-    for i in 0..2 {
-        for j in 0..2 {
-            out += q.second[i][j] * (ab[i] * c[j] + ac[i] * b[j] + bc[i] * a[j]);
-            for k in 0..2 {
-                out += q.third[i][j][k] * a[i] * b[j] * c[k];
-            }
-        }
-    }
-    out
-}
-
-fn endpoint_chain_fourth(
-    q: &LogNormalCdfDiffDerivatives,
-    a: [f64; 2],
-    b: [f64; 2],
-    c: [f64; 2],
-    d: [f64; 2],
-    ab: [f64; 2],
-    ac: [f64; 2],
-    ad: [f64; 2],
-    bc: [f64; 2],
-    bd: [f64; 2],
-    cd: [f64; 2],
-    abc: [f64; 2],
-    abd: [f64; 2],
-    acd: [f64; 2],
-    bcd: [f64; 2],
-    abcd: [f64; 2],
-) -> f64 {
-    let mut out = endpoint_chain_first(q, abcd);
-    for i in 0..2 {
-        for j in 0..2 {
-            out += q.second[i][j]
-                * (abc[i] * d[j]
-                    + abd[i] * c[j]
-                    + acd[i] * b[j]
-                    + bcd[i] * a[j]
-                    + ab[i] * cd[j]
-                    + ac[i] * bd[j]
-                    + ad[i] * bc[j]);
-            for k in 0..2 {
-                out += q.third[i][j][k]
-                    * (ab[i] * c[j] * d[k]
-                        + ac[i] * b[j] * d[k]
-                        + ad[i] * b[j] * c[k]
-                        + bc[i] * a[j] * d[k]
-                        + bd[i] * a[j] * c[k]
-                        + cd[i] * a[j] * b[k]);
-                for l in 0..2 {
-                    out += q.fourth[i][j][k][l] * a[i] * b[j] * c[k] * d[l];
-                }
-            }
-        }
-    }
-    out
 }
 
 /// Accumulates the second-order monotone-transform quantities
@@ -845,139 +706,6 @@ fn scop_psi_marginal(
         }
     }
     (h_psi, hp_psi, endpoint_psi)
-}
-
-fn factorial(n: usize) -> f64 {
-    match n {
-        0 | 1 => 1.0,
-        2 => 2.0,
-        3 => 6.0,
-        4 => 24.0,
-        // CTN normalizer derivatives only need order <= 4; compute generically
-        // as a safe fallback for any unexpected higher orders.
-        other => {
-            let mut acc = 24.0_f64;
-            let mut k = 5usize;
-            while k <= other {
-                acc *= k as f64;
-                k += 1;
-            }
-            acc
-        }
-    }
-}
-
-fn poly_mul_truncated(a: &[[f64; 5]; 5], b: &[[f64; 5]; 5]) -> [[f64; 5]; 5] {
-    let mut out = [[0.0; 5]; 5];
-    for ia in 0..=4 {
-        for ib in 0..=(4 - ia) {
-            let av = a[ia][ib];
-            if av == 0.0 {
-                continue;
-            }
-            for ja in 0..=(4 - ia) {
-                for jb in 0..=(4 - ia - ja).min(4 - ib) {
-                    let bv = b[ja][jb];
-                    if bv != 0.0 && ia + ib + ja + jb <= 4 {
-                        out[ia + ja][ib + jb] += av * bv;
-                    }
-                }
-            }
-        }
-    }
-    out
-}
-
-fn log_normal_cdf_diff_derivatives(
-    upper: f64,
-    lower: f64,
-) -> Result<LogNormalCdfDiffDerivatives, String> {
-    let log_z = log_normal_cdf_diff(upper, lower)?;
-    if !log_z.is_finite() {
-        return Err(TransformationNormalError::NonFinite {
-            reason: format!(
-                "normal CDF endpoint log-mass is not finite, lower={lower:.6e}, upper={upper:.6e}"
-            ),
-        }
-        .into());
-    }
-
-    let s_u = [
-        0.0,
-        1.0,
-        -upper,
-        upper * upper - 1.0,
-        -(upper * upper * upper - 3.0 * upper),
-    ];
-    let s_l = [
-        0.0,
-        -1.0,
-        lower,
-        -(lower * lower - 1.0),
-        lower * lower * lower - 3.0 * lower,
-    ];
-
-    let mut r = [[0.0; 5]; 5];
-    for order in 1..=4 {
-        let factor = factorial(order);
-        r[order][0] = signed_normal_pdf_ratio(upper, s_u[order], log_z, factor);
-        r[0][order] = signed_normal_pdf_ratio(lower, s_l[order], log_z, factor);
-        if !(r[order][0].is_finite() && r[0][order].is_finite()) {
-            return Err(TransformationNormalError::NumericalFailure {
-                reason: format!(
-                    "normal CDF endpoint derivative ratio is not representable at order {order}, \
-                 lower={lower:.6e}, upper={upper:.6e}, log_z={log_z:.6e}"
-                ),
-            }
-            .into());
-        }
-    }
-
-    let r2 = poly_mul_truncated(&r, &r);
-    let r3 = poly_mul_truncated(&r2, &r);
-    let r4 = poly_mul_truncated(&r3, &r);
-    let mut q = [[0.0; 5]; 5];
-    for i in 0..=4 {
-        for j in 0..=(4 - i) {
-            q[i][j] = r[i][j] - 0.5 * r2[i][j] + r3[i][j] / 3.0 - 0.25 * r4[i][j];
-        }
-    }
-
-    let mut first = [0.0; 2];
-    first[0] = q[1][0];
-    first[1] = q[0][1];
-
-    let mut second = [[0.0; 2]; 2];
-    let mut third = [[[0.0; 2]; 2]; 2];
-    let mut fourth = [[[[0.0; 2]; 2]; 2]; 2];
-    for a in 0..2 {
-        for b in 0..2 {
-            let nu = (a == 0) as usize + (b == 0) as usize;
-            let nl = 2 - nu;
-            second[a][b] = q[nu][nl] * factorial(nu) * factorial(nl);
-            for c in 0..2 {
-                let nu = (a == 0) as usize + (b == 0) as usize + (c == 0) as usize;
-                let nl = 3 - nu;
-                third[a][b][c] = q[nu][nl] * factorial(nu) * factorial(nl);
-                for d in 0..2 {
-                    let nu = (a == 0) as usize
-                        + (b == 0) as usize
-                        + (c == 0) as usize
-                        + (d == 0) as usize;
-                    let nl = 4 - nu;
-                    fourth[a][b][c][d] = q[nu][nl] * factorial(nu) * factorial(nl);
-                }
-            }
-        }
-    }
-
-    Ok(LogNormalCdfDiffDerivatives {
-        log_z,
-        first,
-        second,
-        third,
-        fourth,
-    })
 }
 
 // ---------------------------------------------------------------------------
@@ -1628,7 +1356,7 @@ impl TransformationNormalFamily {
         // Write directly into the four preallocated arrays in parallel; the
         // previous path collected a `Vec<(f64,f64,f64,f64)>` then serially
         // scattered into these arrays, costing 32 bytes per row of transient
-        // allocation and a single-threaded post-pass at biobank scale.
+        // allocation and a single-threaded post-pass at large scale.
         ndarray::Zip::indexed(&mut h)
             .and(&mut h_prime)
             .and(&mut h_lower)
@@ -7019,7 +6747,7 @@ impl TransformationNormalFamily {
         ];
         // Parallelise the outer `for i in 0..n` row accumulation across
         // Rayon threads. The inner k×l×c×d loop dominates wall-clock at
-        // biobank scale; per-row contributions to `out` are independent
+        // large scale; per-row contributions to `out` are independent
         // (each row only contributes additively), so a thread-local
         // accumulator + reduction is safe and gives ~Nthreads× wall-clock
         // win. Per-thread scratch buffers are created once via
@@ -7781,7 +7509,7 @@ fn ctn_penalty_scale_log_lambdas(
         // log_lambda ≈ -12 (λ ≈ 6e-6), which leaves the inner solve to
         // pick wild β coefficients and cascade into predict-time monotonicity
         // violations (h' < 0 on the response grid, observed as -1e15 spikes
-        // in CI synthetic-biobank tests).
+        // in CI synthetic-large-scale tests).
         (likelihood_scale / penalty_scale)
             .ln()
             .clamp(CTN_SEED_LOG_LAMBDA_MIN, CTN_SEED_LOG_LAMBDA_MAX)
@@ -8090,7 +7818,7 @@ impl CustomFamily for TransformationNormalFamily {
     ///   `∇ℓ = -X_val^T (w·h) + X_deriv^T (w/h')`,
     ///
     /// which is two `transpose_mul`s through the existing Khatri-Rao operators
-    /// and one `Θ(n)` row reduction — `Θ(n p)` total. At biobank scale that is
+    /// and one `Θ(n)` row reduction — `Θ(n p)` total. At large scale that is
     /// ~10⁷ FLOPs per call versus ~3·10¹⁰ for the full `evaluate`, so wiring
     /// this override is the gating condition for routing CTN's inner solve
     /// through the matrix-free joint-Newton path without paying the dense H
@@ -8131,8 +7859,8 @@ impl CustomFamily for TransformationNormalFamily {
         // not free though: each evaluation runs `p` SCOP directional
         // derivatives of the joint Hessian, called three times per inner
         // cycle (head-KKT gradient, joint Newton step RHS, post-step KKT
-        // residual) and once per outer evaluation. At biobank scale —
-        // `bench/biobank_scale` `rust_margslope_aniso_duchon16d_*` with
+        // residual) and once per outer evaluation. At large scale —
+        // `bench/large_scale` `rust_margslope_aniso_duchon16d_*` with
         // `p=144`, `n=20000` — that single source dominates each inner
         // cycle (~230 s/cycle observed in CI; ~5 700 cycles × 5.7 min
         // ⇒ multi-hour hang) and exhausts the 40-minute CI budget before
@@ -8296,7 +8024,7 @@ impl CustomFamily for TransformationNormalFamily {
         //   h'(y, x) = epsilon + sum_k M_k(y) * gamma_k(x)^2.
         // With nonnegative M-spline derivative basis rows, every finite beta is
         // interior-feasible. A derivative-grid fraction-to-boundary scan is pure
-        // overhead and was the dominant CTN biobank-scale line-search cost.
+        // overhead and was the dominant CTN large-scale line-search cost.
         Ok(None)
     }
 
@@ -8659,7 +8387,7 @@ impl CustomFamily for TransformationNormalFamily {
         // and is invoked once per ψ axis. Opting in here amortizes the per-row
         // state load across axes and parallelizes the row walk via the
         // workspace's [`compute_all_axes`] kernel — the dominant outer
-        // gradient-evaluation cost at biobank scale.
+        // gradient-evaluation cost at large scale.
         true
     }
 
@@ -8696,7 +8424,7 @@ impl CustomFamily for TransformationNormalFamily {
 struct TransformationNormalJointHessianWorkspace {
     /// Shared family handle. Cloning the workspace's family for each downstream
     /// matrix-free operator (dH, d²H per psi coord and per pair) would copy
-    /// the full row-space Kronecker designs (~hundreds of MiB at biobank
+    /// the full row-space Kronecker designs (~hundreds of MiB at large-scale
     /// scale) per call. Arc-sharing makes operator construction O(1).
     family: Arc<TransformationNormalFamily>,
     beta: Array1<f64>,
@@ -9633,7 +9361,7 @@ impl HyperOperator for TransformationNormalPsiDhMatrixFreeOperator {
     fn trace_projected_factor(&self, factor: &Array2<f64>) -> f64 {
         assert_eq!(factor.nrows(), self.p_total());
 
-        // At the CTN biobank benchmark shape (`p≈264`, `n≈20k`), the
+        // At the CTN large-scale benchmark shape (`p≈264`, `n≈20k`), the
         // coefficient-space directional Hessian is tiny (< 1 MiB) while the
         // streaming projected trace repeats a full row-kernel pass for every
         // outer-gradient coordinate and every BFGS line-search evaluation.
@@ -10305,7 +10033,7 @@ fn assert_no_rowwise_kronecker_materialization(n: usize, p_resp: usize, p_cov: u
         .saturating_mul(p_resp)
         .saturating_mul(p_cov)
         .saturating_mul(std::mem::size_of::<f64>());
-    // This helper enforces the biobank-scale invariant that CTN
+    // This helper enforces the large-scale invariant that CTN
     // `KroneckerDesign` never persists as dense `n × p_resp × p_cov`.
     // SAFETY: return type `!` makes the panic the only valid behavior;
     // reaching here means a caller bypassed the factored-Kron dispatch
@@ -10317,7 +10045,7 @@ fn assert_no_rowwise_kronecker_materialization(n: usize, p_resp: usize, p_cov: u
 }
 
 // ---------------------------------------------------------------------------
-// Kronecker-aware operator for biobank-scale tensor products
+// Kronecker-aware operator for large-scale tensor products
 // ---------------------------------------------------------------------------
 
 /// Row-wise Kronecker (face-splitting / Khatri-Rao) design operator for
@@ -12083,7 +11811,7 @@ mod tests {
         // mapping clamps `h` to `[lower, upper]` so `u → 1`, and the
         // `clip_eps` clamp on the standard-normal quantile call yields the
         // upper-tail extreme finite value (`≈ Φ⁻¹(1 - clip_eps)`). At
-        // biobank shape, an honest test sample at-or-just-beyond the
+        // large-scale shape, an honest test sample at-or-just-beyond the
         // training response support routinely lands here from boundary
         // roundoff alone, so failing closed would ship a hard prediction
         // error on every CTN bootstrap pass.
@@ -14132,7 +13860,7 @@ impl MaterializablePsiDerivativeOperator for TensorKroneckerPsiOperator {
 /// Per-evaluation ψ workspace for `TransformationNormalFamily`.
 ///
 /// The CTN row-streaming first-order ψ kernel ([`scop_psi_terms`]) walks all
-/// `n` rows serially and is invoked once per ψ axis. At biobank scale that is
+/// `n` rows serially and is invoked once per ψ axis. At large scale that is
 /// the dominant outer-evaluation cost. All `n_psi` axes share the same per-row
 /// state — `γ`, `h`, `h'`, `endpoint_q`, the response basis rows `rv`/`rd`,
 /// the covariate row, and the row weight. The only per-axis input is
@@ -15203,7 +14931,7 @@ pub fn fit_transformation_normal(
     // bounded-dimension, strictly convex (double-penalty) coefficient block.
     // The realized tensor width is `p_resp · p_cov`; the cap grows with it so a
     // genuinely high-dimensional nonlinear transformation keeps headroom, but a
-    // near-Gaussian shift can no longer spin the production biobank cap (#720).
+    // near-Gaussian shift can no longer spin the production large-scale cap (#720).
     // Only ever *lower* the caller's cap so a deliberately tightened budget
     // (screening / CI overrides) is respected.
     let realized_p_total = resp_val.ncols().saturating_mul(boot_design.design.ncols());
@@ -15512,7 +15240,7 @@ pub fn fit_transformation_normal(
         // Transformation-normal has β-dependent H (through 1/h'²), so the
         // EFS Wood-Fasiolo PSD invariant fails. Keep fixed-point disabled,
         // but do not expose CTN's analytic Hessian to ARC: its callback
-        // trace route applies full-rank logdet operators at biobank shape.
+        // trace route applies full-rank logdet operators at large-scale shape.
         true,
         None,
         outer_derivative_policy,

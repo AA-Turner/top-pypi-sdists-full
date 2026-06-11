@@ -34,6 +34,7 @@ from trilogy.core.models.build import (
     BuildFilterItem,
     BuildFunction,
     BuildGrain,
+    BuildMultiSelectLineage,
     BuildOrderBy,
     BuildParamaterizedConceptReference,
     BuildRowsetItem,
@@ -395,6 +396,16 @@ class CTE:
                 # not in parent_ctes — handled by the fallback below.
                 return concept.safe_address
 
+        # A derived-key FULL join coalesces the canonical key across both sides;
+        # the null-extendable side outputs it under a pseudonym column (da for
+        # db), so render that side's own column.
+        for cte in self.parent_ctes:
+            if source and source != cte.name:
+                continue
+            for col in cte.output_columns:
+                if concept.address in col.pseudonyms:
+                    return col.safe_address
+
         # An inlined datasource exposes *all* its raw columns to the consumer,
         # not just the leaf's pruned projection (e.g. ``_raw_name`` backing a
         # derived ``name``). Resolve those through the underlying datasource.
@@ -447,6 +458,21 @@ class CTE:
             if c.derivation == Derivation.ROWSET:
                 assert isinstance(c.lineage, BuildRowsetItem)
                 return check_is_not_in_group(c.lineage.content)
+
+            # An aligned multiselect column resolves, in this arm CTE, to the
+            # underlying per-arm concept (e.g. `lc` -> `cnt1`). It inherits that
+            # concept's group-ness: aligning an aggregate must NOT add it to the
+            # GROUP BY (DuckDB rejects aggregates in GROUP BY); aligning a
+            # dimension keeps it a group key. Derive items are computed at the
+            # merge grain — never a group key here.
+            if c.derivation == Derivation.MULTISELECT:
+                assert isinstance(c.lineage, BuildMultiSelectLineage)
+                if c.address in c.lineage.calculated_derivations:
+                    return True
+                try:
+                    return check_is_not_in_group(c.lineage.find_source(c, self))
+                except SyntaxError:
+                    return False
 
             if c.derivation == Derivation.CONSTANT:
                 return True

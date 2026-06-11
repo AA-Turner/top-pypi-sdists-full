@@ -198,6 +198,11 @@ impl Gate {
     }
 
     /// CNOT 게이트의 4×4 유니터리 행렬을 반환한다.
+    ///
+    /// **주의 — 피연산자 순서 컨벤션**: 이 행렬은 control = 상위 비트(q1, MSB)
+    /// 기준이다.  `Circuit::cx(control, target)` 는 `targets[0]` 이 control 인
+    /// 반대 순서라, `apply_two_qubit_gate` 에 이 행렬을 그대로 쓰면 안 된다 —
+    /// fusion.rs 가 CNOT 을 fusion 에서 제외하는 이유 (fusion.rs 참조).
     pub fn cnot_matrix<F: Real>() -> Matrix4x4<F> {
         [
             [one(), zero(), zero(), zero()],
@@ -335,11 +340,6 @@ impl Gate {
             [zero(), zero(), one(), zero()],
             [nis, zero(), zero(), c],
         ]
-    }
-
-    /// Custom 유니터리 게이트(2×2)를 그대로 반환한다 (식별 함수).
-    pub fn custom_2x2<F: Real>(matrix: Matrix2x2<F>) -> Matrix2x2<F> {
-        matrix
     }
 }
 

@@ -6,42 +6,33 @@ import System
 import System.ComponentModel.DataAnnotations.Schema
 
 
-class ForeignKeyAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def name(self) -> str:
-        ...
-
-    def __init__(self, name: str) -> None:
-        ...
-
-
-class TableAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @property
-    def schema(self) -> str:
-        ...
-
-    @schema.setter
-    def schema(self, value: str) -> None:
-        ...
-
-    def __init__(self, name: str) -> None:
-        ...
-
-
 class ComplexTypeAttribute(System.Attribute):
     """This class has no documentation."""
 
 
 class NotMappedAttribute(System.Attribute):
     """This class has no documentation."""
+
+
+class DatabaseGeneratedOption(IntEnum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    IDENTITY = 1
+
+    COMPUTED = 2
+
+
+class DatabaseGeneratedAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def database_generated_option(self) -> System.ComponentModel.DataAnnotations.Schema.DatabaseGeneratedOption:
+        ...
+
+    def __init__(self, database_generated_option: System.ComponentModel.DataAnnotations.Schema.DatabaseGeneratedOption) -> None:
+        ...
 
 
 class ColumnAttribute(System.Attribute):
@@ -87,24 +78,33 @@ class InversePropertyAttribute(System.Attribute):
         ...
 
 
-class DatabaseGeneratedOption(IntEnum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    IDENTITY = 1
-
-    COMPUTED = 2
-
-
-class DatabaseGeneratedAttribute(System.Attribute):
+class ForeignKeyAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def database_generated_option(self) -> System.ComponentModel.DataAnnotations.Schema.DatabaseGeneratedOption:
+    def name(self) -> str:
         ...
 
-    def __init__(self, database_generated_option: System.ComponentModel.DataAnnotations.Schema.DatabaseGeneratedOption) -> None:
+    def __init__(self, name: str) -> None:
+        ...
+
+
+class TableAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @property
+    def schema(self) -> str:
+        ...
+
+    @schema.setter
+    def schema(self, value: str) -> None:
+        ...
+
+    def __init__(self, name: str) -> None:
         ...
 
 

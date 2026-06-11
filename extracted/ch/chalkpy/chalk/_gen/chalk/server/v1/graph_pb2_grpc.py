@@ -70,6 +70,11 @@ class GraphServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.SmartDiffDeploymentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.SmartDiffDeploymentResponse.FromString,
         )
+        self.DiffCandidate = channel.unary_unary(
+            "/chalk.server.v1.GraphService/DiffCandidate",
+            request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.DiffCandidateRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.DiffCandidateResponse.FromString,
+        )
 
 
 class GraphServiceServicer(object):
@@ -143,6 +148,14 @@ class GraphServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DiffCandidate(self, request, context):
+        """DiffCandidate compares a candidate export against the latest successful
+        deployment's graph and returns the diff.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_GraphServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -200,6 +213,11 @@ def add_GraphServiceServicer_to_server(servicer, server):
             servicer.SmartDiffDeployment,
             request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.SmartDiffDeploymentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.SmartDiffDeploymentResponse.SerializeToString,
+        ),
+        "DiffCandidate": grpc.unary_unary_rpc_method_handler(
+            servicer.DiffCandidate,
+            request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.DiffCandidateRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.DiffCandidateResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.GraphService", rpc_method_handlers)
@@ -519,6 +537,35 @@ class GraphService(object):
             "/chalk.server.v1.GraphService/SmartDiffDeployment",
             chalk_dot_server_dot_v1_dot_graph__pb2.SmartDiffDeploymentRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_graph__pb2.SmartDiffDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DiffCandidate(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GraphService/DiffCandidate",
+            chalk_dot_server_dot_v1_dot_graph__pb2.DiffCandidateRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_graph__pb2.DiffCandidateResponse.FromString,
             options,
             channel_credentials,
             insecure,

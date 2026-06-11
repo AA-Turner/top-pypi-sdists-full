@@ -382,6 +382,14 @@ class Vector256(typing.Generic[System_Runtime_Intrinsics_Vector256_T], System.Ru
 class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Runtime.Intrinsics.ISimdVector[System_Runtime_Intrinsics_Vector512, System_Runtime_Intrinsics_Vector512_T]):
     """This class has no documentation."""
 
+    IS_HARDWARE_ACCELERATED: bool
+
+    E: System.Runtime.Intrinsics.Vector512[T]
+
+    PI: System.Runtime.Intrinsics.Vector512[T]
+
+    TAU: System.Runtime.Intrinsics.Vector512[T]
+
     ALL_BITS_SET: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]
 
     COUNT: int
@@ -393,14 +401,6 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
     ONE: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]
 
     ZERO: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]
-
-    IS_HARDWARE_ACCELERATED: bool
-
-    E: System.Runtime.Intrinsics.Vector512[T]
-
-    PI: System.Runtime.Intrinsics.Vector512[T]
-
-    TAU: System.Runtime.Intrinsics.Vector512[T]
 
     def __add__(self, right: System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]) -> System.Runtime.Intrinsics.Vector512[System_Runtime_Intrinsics_Vector512_T]:
         ...
@@ -520,14 +520,6 @@ class Vector512(typing.Generic[System_Runtime_Intrinsics_Vector512_T], System.Ru
 class Vector64(typing.Generic[System_Runtime_Intrinsics_Vector64_T], System.Runtime.Intrinsics.ISimdVector[System_Runtime_Intrinsics_Vector64, System_Runtime_Intrinsics_Vector64_T]):
     """This class has no documentation."""
 
-    IS_HARDWARE_ACCELERATED: bool
-
-    E: System.Runtime.Intrinsics.Vector64[T]
-
-    PI: System.Runtime.Intrinsics.Vector64[T]
-
-    TAU: System.Runtime.Intrinsics.Vector64[T]
-
     ALL_BITS_SET: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]
 
     COUNT: int
@@ -539,6 +531,14 @@ class Vector64(typing.Generic[System_Runtime_Intrinsics_Vector64_T], System.Runt
     ONE: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]
 
     ZERO: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]
+
+    IS_HARDWARE_ACCELERATED: bool
+
+    E: System.Runtime.Intrinsics.Vector64[T]
+
+    PI: System.Runtime.Intrinsics.Vector64[T]
+
+    TAU: System.Runtime.Intrinsics.Vector64[T]
 
     def __add__(self, right: System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]) -> System.Runtime.Intrinsics.Vector64[System_Runtime_Intrinsics_Vector64_T]:
         ...

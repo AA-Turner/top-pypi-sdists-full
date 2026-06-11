@@ -393,6 +393,7 @@ class TestBackupList(volume_fakes.TestVolume):
             all_tenants=False,
             marker=None,
             limit=None,
+            max_items=None,
             project_id=None,
         )
         self.assertEqual(self.columns, columns)
@@ -444,6 +445,7 @@ class TestBackupList(volume_fakes.TestVolume):
             all_tenants=True,
             marker=self.backups[0].id,
             limit=3,
+            max_items=None,
             project_id=project.id,
         )
         self.assertEqual(self.columns_long, columns)
@@ -494,9 +496,7 @@ class TestBackupRestore(volume_fakes.TestVolume):
 
         columns, data = self.cmd.take_action(parsed_args)
         self.volume_sdk_client.restore_backup.assert_called_with(
-            self.backup.id,
-            volume_id=None,
-            name=None,
+            self.backup.id, volume=None, name=None
         )
 
         self.assertEqual(self.columns, columns)
@@ -518,9 +518,7 @@ class TestBackupRestore(volume_fakes.TestVolume):
 
         columns, data = self.cmd.take_action(parsed_args)
         self.volume_sdk_client.restore_backup.assert_called_with(
-            self.backup.id,
-            volume_id=None,
-            name=self.backup.volume_id,
+            self.backup.id, volume=None, name=self.backup.volume_id
         )
 
         self.assertEqual(self.columns, columns)
@@ -541,9 +539,7 @@ class TestBackupRestore(volume_fakes.TestVolume):
 
         columns, data = self.cmd.take_action(parsed_args)
         self.volume_sdk_client.restore_backup.assert_called_with(
-            self.backup.id,
-            volume_id=self.volume.id,
-            name=None,
+            self.backup.id, volume=self.volume.id, name=None
         )
 
         self.assertEqual(self.columns, columns)

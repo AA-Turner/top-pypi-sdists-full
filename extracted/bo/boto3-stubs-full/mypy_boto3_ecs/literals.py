@@ -54,6 +54,8 @@ __all__ = (
     "DaemonDeploymentStatusType",
     "DaemonDeploymentStoppedWaiterName",
     "DaemonDeploymentSuccessfulWaiterName",
+    "DaemonIpcModeType",
+    "DaemonPidModeType",
     "DaemonPropagateTagsType",
     "DaemonStatusType",
     "DaemonTaskDefinitionActiveWaiterName",
@@ -224,6 +226,8 @@ DaemonDeploymentStatusType = Literal[
 ]
 DaemonDeploymentStoppedWaiterName = Literal["daemon_deployment_stopped"]
 DaemonDeploymentSuccessfulWaiterName = Literal["daemon_deployment_successful"]
+DaemonIpcModeType = Literal["none", "shared"]
+DaemonPidModeType = Literal["none", "shared"]
 DaemonPropagateTagsType = Literal["DAEMON", "NONE"]
 DaemonStatusType = Literal["ACTIVE", "DELETE_IN_PROGRESS"]
 DaemonTaskDefinitionActiveWaiterName = Literal["daemon_task_definition_active"]

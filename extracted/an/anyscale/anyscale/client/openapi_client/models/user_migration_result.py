@@ -43,6 +43,7 @@ class UserMigrationResult(object):
         'cloud_permissions_deleted': 'int',
         'project_permissions_deleted': 'int',
         'readonly_permissions_deleted': 'int',
+        'cloud_member_edges_removed': 'int',
         'org_owner_demoted': 'bool'
     }
 
@@ -57,10 +58,11 @@ class UserMigrationResult(object):
         'cloud_permissions_deleted': 'cloud_permissions_deleted',
         'project_permissions_deleted': 'project_permissions_deleted',
         'readonly_permissions_deleted': 'readonly_permissions_deleted',
+        'cloud_member_edges_removed': 'cloud_member_edges_removed',
         'org_owner_demoted': 'org_owner_demoted'
     }
 
-    def __init__(self, user_id=None, user_email=None, identity_id=None, cloud_permissions_to_remove=None, project_permissions_to_remove=None, readonly_overrides_to_remove=None, org_permission_changes=None, cloud_permissions_deleted=0, project_permissions_deleted=0, readonly_permissions_deleted=0, org_owner_demoted=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, user_id=None, user_email=None, identity_id=None, cloud_permissions_to_remove=None, project_permissions_to_remove=None, readonly_overrides_to_remove=None, org_permission_changes=None, cloud_permissions_deleted=0, project_permissions_deleted=0, readonly_permissions_deleted=0, cloud_member_edges_removed=0, org_owner_demoted=None, local_vars_configuration=None):  # noqa: E501
         """UserMigrationResult - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -76,6 +78,7 @@ class UserMigrationResult(object):
         self._cloud_permissions_deleted = None
         self._project_permissions_deleted = None
         self._readonly_permissions_deleted = None
+        self._cloud_member_edges_removed = None
         self._org_owner_demoted = None
         self.discriminator = None
 
@@ -96,6 +99,8 @@ class UserMigrationResult(object):
             self.project_permissions_deleted = project_permissions_deleted
         if readonly_permissions_deleted is not None:
             self.readonly_permissions_deleted = readonly_permissions_deleted
+        if cloud_member_edges_removed is not None:
+            self.cloud_member_edges_removed = cloud_member_edges_removed
         self.org_owner_demoted = org_owner_demoted
 
     @property
@@ -313,6 +318,27 @@ class UserMigrationResult(object):
         """
 
         self._readonly_permissions_deleted = readonly_permissions_deleted
+
+    @property
+    def cloud_member_edges_removed(self):
+        """Gets the cloud_member_edges_removed of this UserMigrationResult.  # noqa: E501
+
+
+        :return: The cloud_member_edges_removed of this UserMigrationResult.  # noqa: E501
+        :rtype: int
+        """
+        return self._cloud_member_edges_removed
+
+    @cloud_member_edges_removed.setter
+    def cloud_member_edges_removed(self, cloud_member_edges_removed):
+        """Sets the cloud_member_edges_removed of this UserMigrationResult.
+
+
+        :param cloud_member_edges_removed: The cloud_member_edges_removed of this UserMigrationResult.  # noqa: E501
+        :type: int
+        """
+
+        self._cloud_member_edges_removed = cloud_member_edges_removed
 
     @property
     def org_owner_demoted(self):
